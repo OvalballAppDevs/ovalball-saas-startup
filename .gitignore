@@ -35,3 +35,6 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code local/machine-specific state (never shared)
+.claude/settings.local.json
