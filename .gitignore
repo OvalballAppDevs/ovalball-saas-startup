@@ -38,3 +38,13 @@ next-env.d.ts
 
 # Claude Code local/machine-specific state (never shared)
 .claude/settings.local.json
+
+# Ad-hoc local credential/connection-string scratch files (never commit these)
+connectionstringsupabase.*
+transactionpoolsupabase.*
+*pg_conn*.txt
+~$*
+
+# Ingestion output: deterministically regenerated from data/ source files by
+# scripts/ingestion/extract_club_directory.py -- not committed.
+scripts/ingestion/out/
