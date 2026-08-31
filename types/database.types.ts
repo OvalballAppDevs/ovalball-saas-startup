@@ -1,7 +1,3 @@
-// Generated via `supabase gen types typescript --local` against the local
-// schema built from supabase/migrations/. Do not hand-edit — regenerate
-// after every schema migration.
-
 export type Json =
   | string
   | number
@@ -119,6 +115,8 @@ export type Database = {
           decided_by: string | null
           directory_id: string
           id: string
+          proposed_teams: Json
+          review_notes: string | null
           status: string
           updated_at: string
           verification_method: string | null
@@ -132,6 +130,8 @@ export type Database = {
           decided_by?: string | null
           directory_id: string
           id?: string
+          proposed_teams?: Json
+          review_notes?: string | null
           status?: string
           updated_at?: string
           verification_method?: string | null
@@ -145,6 +145,8 @@ export type Database = {
           decided_by?: string | null
           directory_id?: string
           id?: string
+          proposed_teams?: Json
+          review_notes?: string | null
           status?: string
           updated_at?: string
           verification_method?: string | null
@@ -305,6 +307,7 @@ export type Database = {
           id: string
           requested_role: string
           requesting_user_id: string
+          review_notes: string | null
           status: string
           updated_at: string
         }
@@ -316,6 +319,7 @@ export type Database = {
           id?: string
           requested_role: string
           requesting_user_id: string
+          review_notes?: string | null
           status?: string
           updated_at?: string
         }
@@ -327,6 +331,7 @@ export type Database = {
           id?: string
           requested_role?: string
           requesting_user_id?: string
+          review_notes?: string | null
           status?: string
           updated_at?: string
         }
@@ -438,6 +443,66 @@ export type Database = {
           {
             foreignKeyName: "club_opponent_notes_owning_club_id_fkey"
             columns: ["owning_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_partnerships: {
+        Row: {
+          created_at: string
+          id: string
+          partner_club_id: string
+          requested_at: string
+          requested_by: string
+          requesting_club_id: string
+          responded_at: string | null
+          responded_by: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          partner_club_id: string
+          requested_at?: string
+          requested_by: string
+          requesting_club_id: string
+          responded_at?: string | null
+          responded_by?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          partner_club_id?: string
+          requested_at?: string
+          requested_by?: string
+          requesting_club_id?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_partnerships_partner_club_id_fkey"
+            columns: ["partner_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_partnerships_requesting_club_id_fkey"
+            columns: ["requesting_club_id"]
             isOneToOne: false
             referencedRelation: "clubs"
             referencedColumns: ["id"]
@@ -660,8 +725,11 @@ export type Database = {
           logo_upload_ref: string | null
           phone: string | null
           postcode: string | null
+          proposed_teams: Json
+          review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          rugby_code: string | null
           status: string
           submitted_by: string | null
           town: string | null
@@ -682,8 +750,11 @@ export type Database = {
           logo_upload_ref?: string | null
           phone?: string | null
           postcode?: string | null
+          proposed_teams?: Json
+          review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          rugby_code?: string | null
           status?: string
           submitted_by?: string | null
           town?: string | null
@@ -704,8 +775,11 @@ export type Database = {
           logo_upload_ref?: string | null
           phone?: string | null
           postcode?: string | null
+          proposed_teams?: Json
+          review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          rugby_code?: string | null
           status?: string
           submitted_by?: string | null
           town?: string | null
@@ -717,6 +791,189 @@ export type Database = {
             columns: ["created_directory_id"]
             isOneToOne: false
             referencedRelation: "club_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixture_messages: {
+        Row: {
+          body: string
+          created_at: string
+          fixture_id: string | null
+          fixture_request_id: string | null
+          id: string
+          sender_user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          fixture_id?: string | null
+          fixture_request_id?: string | null
+          id?: string
+          sender_user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          fixture_id?: string | null
+          fixture_request_id?: string | null
+          id?: string
+          sender_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_messages_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixtures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_messages_fixture_request_id_fkey"
+            columns: ["fixture_request_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixture_request_groups: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          opponent_club_id: string | null
+          opponent_directory_id: string | null
+          proposed_date: string
+          raw_opponent_text: string
+          requesting_club_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          opponent_club_id?: string | null
+          opponent_directory_id?: string | null
+          proposed_date: string
+          raw_opponent_text: string
+          requesting_club_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          opponent_club_id?: string | null
+          opponent_directory_id?: string | null
+          proposed_date?: string
+          raw_opponent_text?: string
+          requesting_club_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_request_groups_opponent_club_id_fkey"
+            columns: ["opponent_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_request_groups_opponent_directory_id_fkey"
+            columns: ["opponent_directory_id"]
+            isOneToOne: false
+            referencedRelation: "club_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_request_groups_requesting_club_id_fkey"
+            columns: ["requesting_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixture_requests: {
+        Row: {
+          created_at: string
+          created_by: string
+          decided_at: string | null
+          decided_by: string | null
+          group_id: string
+          id: string
+          note: string | null
+          preferred_kickoff_time: string | null
+          requesting_team_id: string
+          resulting_fixture_id: string | null
+          status: string
+          target_team_id: string | null
+          updated_at: string
+          venue_preference: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          decided_at?: string | null
+          decided_by?: string | null
+          group_id: string
+          id?: string
+          note?: string | null
+          preferred_kickoff_time?: string | null
+          requesting_team_id: string
+          resulting_fixture_id?: string | null
+          status?: string
+          target_team_id?: string | null
+          updated_at?: string
+          venue_preference: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          group_id?: string
+          id?: string
+          note?: string | null
+          preferred_kickoff_time?: string | null
+          requesting_team_id?: string
+          resulting_fixture_id?: string | null
+          status?: string
+          target_team_id?: string | null
+          updated_at?: string
+          venue_preference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_requests_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_request_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_requests_requesting_team_id_fkey"
+            columns: ["requesting_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_requests_resulting_fixture_id_fkey"
+            columns: ["resulting_fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixtures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_requests_target_team_id_fkey"
+            columns: ["target_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -876,6 +1133,131 @@ export type Database = {
           },
         ]
       }
+      invitation_teams: {
+        Row: {
+          invitation_id: string
+          team_id: string
+          team_permission: string
+        }
+        Insert: {
+          invitation_id: string
+          team_id: string
+          team_permission: string
+        }
+        Update: {
+          invitation_id?: string
+          team_id?: string
+          team_permission?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitation_teams_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitation_teams_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          club_id: string
+          club_role: string | null
+          created_at: string
+          created_by: string
+          declared_role: string | null
+          expires_at: string
+          id: string
+          invited_email: string
+          status: string
+          token: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          club_id: string
+          club_role?: string | null
+          created_at?: string
+          created_by: string
+          declared_role?: string | null
+          expires_at?: string
+          id?: string
+          invited_email: string
+          status?: string
+          token?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          club_id?: string
+          club_role?: string | null
+          created_at?: string
+          created_by?: string
+          declared_role?: string | null
+          expires_at?: string
+          id?: string
+          invited_email?: string
+          status?: string
+          token?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          data: Json
+          id: string
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          data?: Json
+          id?: string
+          read_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address_line_1: string | null
@@ -885,6 +1267,7 @@ export type Database = {
           county: string | null
           created_at: string
           date_of_birth: string | null
+          email: string | null
           first_name: string
           id: string
           postcode: string | null
@@ -900,6 +1283,7 @@ export type Database = {
           county?: string | null
           created_at?: string
           date_of_birth?: string | null
+          email?: string | null
           first_name: string
           id: string
           postcode?: string | null
@@ -915,6 +1299,7 @@ export type Database = {
           county?: string | null
           created_at?: string
           date_of_birth?: string | null
+          email?: string | null
           first_name?: string
           id?: string
           postcode?: string | null
@@ -1060,7 +1445,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           membership_id: string
-          permission?: string
+          permission: string
           team_id: string
         }
         Update: {
@@ -1282,9 +1667,70 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      can_manage_team: { Args: { p_team_id: string }; Returns: boolean }
-      is_club_admin: { Args: { p_club_id: string }; Returns: boolean }
-      is_site_admin: { Args: never; Returns: boolean }
+      accept_fixture_request: {
+        Args: { p_request_id: string; p_target_team_id?: string }
+        Returns: string
+      }
+      accept_invitation: { Args: { p_token: string }; Returns: string }
+      approve_club_claim: {
+        Args: { p_claim_id: string; p_notes?: string }
+        Returns: string
+      }
+      approve_club_join_request: {
+        Args: { p_notes?: string; p_request_id: string }
+        Returns: undefined
+      }
+      approve_directory_request: {
+        Args: { p_notes?: string; p_request_id: string; p_rugby_code: string }
+        Returns: string
+      }
+      get_club_member_directory: {
+        Args: { p_club_id: string }
+        Returns: {
+          email: string
+          first_name: string
+          surname: string
+          user_id: string
+        }[]
+      }
+      get_invitation_preview: {
+        Args: { p_token: string }
+        Returns: {
+          club_name: string
+          club_role: string
+          declared_role: string
+          expires_at: string
+          invited_email: string
+          status: string
+        }[]
+      }
+      get_partner_team_availability: {
+        Args: { p_from: string; p_team_id: string; p_to: string }
+        Returns: {
+          availability: string
+          fixture_date: string
+        }[]
+      }
+      reject_club_claim: {
+        Args: { p_claim_id: string; p_notes?: string }
+        Returns: undefined
+      }
+      reject_club_join_request: {
+        Args: { p_notes?: string; p_request_id: string }
+        Returns: undefined
+      }
+      reject_directory_request: {
+        Args: { p_notes?: string; p_request_id: string }
+        Returns: undefined
+      }
+      respond_to_club_partnership: {
+        Args: { p_approve: boolean; p_partnership_id: string }
+        Returns: undefined
+      }
+      revoke_club_partnership: {
+        Args: { p_partnership_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

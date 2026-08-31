@@ -4,9 +4,54 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Ovalball brand tokens (source: /Users/Devs/Stock/Ovalball - Colour Plan.png
+ * brand board). Names match the board exactly. Dark forest green + chalk/white
+ * dominate; pitch-green/mint are reserved for interactive/accent use only,
+ * never a full section wash.
+ */
+:root {
+    --forest-950: #071c14;
+    --forest-900: #0b2b1e;
+    --forest-800: #123d2c;
+    --rugby-700: #185c3b;
+    --rugby-600: #217a4c;
+    --pitch-600: #32a665;
+    --pitch-400: #5acb83;
+    --mint-300: #91e3ac;
+    --mint-100: #dcf7e5;
+    --chalk: #f8faf7;
+    --ink: #101512;
+}
+
 @theme inline {
-    --font-heading: var(--font-sans);
+    --font-heading: var(--font-display);
+    --font-display: var(--font-display);
     --font-sans: var(--font-sans);
+
+    --color-forest-950: var(--forest-950);
+    --color-forest-900: var(--forest-900);
+    --color-forest-800: var(--forest-800);
+    --color-rugby-700: var(--rugby-700);
+    --color-rugby-600: var(--rugby-600);
+    --color-pitch-600: var(--pitch-600);
+    --color-pitch-400: var(--pitch-400);
+    --color-mint-300: var(--mint-300);
+    --color-mint-100: var(--mint-100);
+    --color-chalk: var(--chalk);
+    --color-ink: var(--ink);
+
+    /* Fluid display type scale (Bebas Neue). Storyboard-defined clamps. */
+    --text-display-2xl: clamp(3.5rem, 3rem + 5vw, 9.5rem);
+    --text-display-2xl--line-height: 0.95;
+    --text-display-2xl--letter-spacing: -0.02em;
+    --text-display-xl: clamp(2.5rem, 2rem + 3.5vw, 5.5rem);
+    --text-display-xl--line-height: 0.98;
+    --text-display-xl--letter-spacing: -0.015em;
+    --text-display-l: clamp(1.75rem, 1.5rem + 1.5vw, 2.75rem);
+    --text-display-l--line-height: 1.02;
+    --text-display-l--letter-spacing: -0.01em;
+
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,30 +93,35 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --background: var(--chalk);
+    --foreground: var(--ink);
+    --card: #ffffff;
+    --card-foreground: var(--ink);
+    --popover: #ffffff;
+    --popover-foreground: var(--ink);
+    --primary: var(--pitch-600);
+    /* White on pitch-600 measures ~3.1:1, below WCAG AA's 4.5:1 for text
+       this size -- dark ink text on the same green clears ~6:1+ while
+       keeping the brand's actual accent green as the fill (Spotify's
+       button uses the same dark-on-bright-green pattern for the same
+       reason). Fixes every primary button sitewide from one token. */
+    --primary-foreground: var(--ink);
+    --secondary: var(--mint-100);
+    --secondary-foreground: var(--forest-900);
+    --muted: var(--mint-100);
+    --muted-foreground: oklch(0.45 0.02 155);
+    --accent: var(--mint-100);
+    --accent-foreground: var(--forest-900);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --border: oklch(0.9 0.01 155);
+    --input: oklch(0.9 0.01 155);
+    --ring: var(--mint-300);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
+    --radius: 0.75rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
@@ -120,10 +170,429 @@
   * {
     @apply border-border outline-ring/50;
     }
+  /* Locked to the brand's light tokens rather than the theme-following
+     bg-background/text-foreground: no route in this app has a designed
+     dark-mode variant (every section hardcodes forest-950/chalk directly,
+     and /signup scopes itself explicitly too), so nothing relies on body's
+     own background actually being visible -- it's fully painted over
+     everywhere. Leaving it theme-following was a latent bug: under a dark
+     system preference it silently went near-black, which /legal/terms
+     (no explicit background of its own) inherited directly, and which
+     /signup only avoided via its own separate scoping fix. */
   body {
-    @apply bg-background text-foreground;
+    @apply bg-chalk text-ink;
     }
   html {
     @apply font-sans;
     }
+}
+
+/*
+ * Re-declares the semantic theme tokens to their light values, unconditionally.
+ * Routes with no designed dark-mode variant of their own (signup, onboarding)
+ * apply this class to their root so every descendant using --background,
+ * --input, --border, --muted-foreground etc. renders identically regardless
+ * of the site-wide next-themes toggle. Without this, a system/browser dark
+ * preference silently flips these routes to near-black with dark-on-dark
+ * text -- setting an explicit bg-chalk on the container alone does not fix
+ * it, since child components' own border/text classes reference these same
+ * custom properties, inherited from :root/.dark at the document level.
+ */
+.brand-light-scope {
+  --background: var(--chalk);
+  --foreground: var(--ink);
+  --card: #ffffff;
+  --card-foreground: var(--ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary: var(--pitch-600);
+  --primary-foreground: var(--ink);
+  --secondary: var(--mint-100);
+  --secondary-foreground: var(--forest-900);
+  --muted: var(--mint-100);
+  --muted-foreground: oklch(0.45 0.02 155);
+  --accent: var(--mint-100);
+  --accent-foreground: var(--forest-900);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.9 0.01 155);
+  --input: oklch(0.9 0.01 155);
+  --ring: var(--mint-300);
+}
+
+/*
+ * Motion primitives, Phase 1.
+ *
+ * Two tiers only, per the approved storyboard: `data-reveal` (Standard tier
+ * -- fade + rise, used almost everywhere) and the one-off Signature keyframes
+ * below (iris open, oval scale-in). Everything here defaults to its FINAL
+ * state; the animated/initial state only applies under
+ * `prefers-reduced-motion: no-preference`, so reduced-motion is the default
+ * safety net rather than an opt-out layered on top.
+ */
+
+[data-reveal] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: calc(var(--reveal-index, 0) * 80ms);
+  }
+
+  [data-reveal="in"] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Imagery variant: clip-path wipe up from the bottom, not a generic fade. */
+  [data-reveal][data-reveal-variant="wipe"] {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: calc(var(--reveal-index, 0) * 80ms);
+  }
+
+  [data-reveal="in"][data-reveal-variant="wipe"] {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes ovalball-iris-open {
+  from {
+    clip-path: ellipse(0% 0% at 50% 50%);
+  }
+  to {
+    clip-path: ellipse(75% 75% at 50% 50%);
+  }
+}
+
+[data-iris] {
+  clip-path: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-iris="closed"] {
+    clip-path: ellipse(0% 0% at 50% 50%);
+  }
+
+  [data-iris="opening"] {
+    animation: ovalball-iris-open 650ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  }
+}
+
+@keyframes ovalball-mark-in {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-mark-reveal="in"] {
+    animation: ovalball-mark-in 500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+}
+
+/*
+ * Signup step transition. Each step's content div is remounted (React key
+ * change) rather than cross-faded against the outgoing step -- simpler than
+ * coordinating an exit animation, and a step's content is fully replaced,
+ * not layered, so there is nothing for an outgoing element to overlap with.
+ */
+@keyframes ovalball-signup-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-signup-step-in {
+    animation: ovalball-signup-step-in 350ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+/*
+ * Organise Fixtures homepage demo: a small arrow drifting along the
+ * connector line between "Your club" and the opponent while a fixture
+ * request is mid-flight (request-sent/awaiting-club stages only -- see
+ * organise-fixtures-section.tsx). Purely decorative motion, gated the same
+ * way as everything else here: reduced motion gets the static connector
+ * line with no drifting arrow, never a faster/shorter version of it.
+ */
+@keyframes ovalball-request-travel {
+  0%, 100% {
+    left: 0%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 1rem);
+    opacity: 0;
+  }
+}
+
+/*
+ * Header/footer refinement pass. Same convention as above throughout: every
+ * rule outside a `no-preference` block is the resting/interaction STATE
+ * (colors, opacity, static rotation) with no tween, so hover/focus/press
+ * feedback always exists even under reduced motion -- only the spring/ease
+ * TRANSITION between states is gated to `no-preference`.
+ *
+ * `--ovalball-spring` is the same overshoot easing already used for the
+ * brand mark's scale-in (ovalball-mark-in, above) -- reused here rather
+ * than inventing a second "springy" curve, so nav/footer motion reads as
+ * the same signature already established, not a new vocabulary next to it.
+ */
+:root {
+  --ovalball-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ovalball-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Nav link hover/focus pill: an ellipse tilted to the same -14deg as the
+   Ovalball mark itself, not a generic rounded-rectangle highlight -- the
+   brand mark's own geometry doing double duty as the interaction affordance. */
+.nav-pill {
+  position: relative;
+}
+.nav-pill::before {
+  content: "";
+  position: absolute;
+  inset: -10px -14px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.1);
+  opacity: 0;
+  transform: rotate(-14deg);
+  z-index: -1;
+  pointer-events: none;
+}
+.nav-pill:hover::before,
+.nav-pill:focus-visible::before {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nav-pill::before {
+    transform: scale(0.82) rotate(-14deg);
+    transition: opacity 220ms var(--ovalball-ease), transform 420ms var(--ovalball-spring);
+  }
+  .nav-pill:hover::before,
+  .nav-pill:focus-visible::before {
+    transform: scale(1) rotate(-14deg);
+  }
+  .nav-pill {
+    transition: transform 220ms var(--ovalball-ease);
+  }
+  .nav-pill:hover,
+  .nav-pill:focus-visible {
+    transform: translateY(-1px);
+  }
+}
+
+/* Sheet nav item / mobile tap feedback: color feedback always present
+   (works under reduced motion too), the press-scale only added on top of
+   it under no-preference. */
+.tap-press:active {
+  background-color: rgb(255 255 255 / 0.15);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tap-press {
+    transition: transform 150ms var(--ovalball-ease), background-color 150ms var(--ovalball-ease);
+  }
+  .tap-press:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Magnetic-hover wrapper (see lib/motion/use-magnetic.ts): a short spring
+   transition on transform so the pointer-follow reads as a gentle pull
+   rather than the element snapping frame-to-frame. The hook itself never
+   writes a transform at all under reduced motion, so this rule sitting
+   outside the no-preference block would simply never be exercised there --
+   still nested for consistency with the rest of this section. */
+@media (prefers-reduced-motion: no-preference) {
+  .magnetic-target {
+    transition: transform 200ms var(--ovalball-spring);
+  }
+}
+
+/* Nav shell: floats free of the viewport edge once scrolled, rather than
+   staying pinned flush to the top -- a restrained "premium floating bar"
+   read without introducing a second positioning system (still `fixed`,
+   just inset with rounded corners once solid). */
+@media (prefers-reduced-motion: no-preference) {
+  .nav-shell {
+    transition: margin 400ms var(--ovalball-ease), border-radius 400ms var(--ovalball-ease),
+      background-color 300ms var(--ovalball-ease), border-color 300ms var(--ovalball-ease),
+      box-shadow 400ms var(--ovalball-ease), backdrop-filter 300ms var(--ovalball-ease);
+  }
+}
+
+/* CTA sweep layer (Get Started): a chalk fill wipes in from the left on
+   hover/focus rather than a flat background-color swap -- the "forest/chalk
+   inversion" happening as a motion event. Ink text already reads correctly
+   on both pitch-600 (resting) and chalk (swept), so no text-color change
+   is needed underneath it. */
+.cta-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.cta-sweep::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--chalk);
+  transform: scaleX(0);
+  transform-origin: left;
+  z-index: 0;
+}
+.cta-sweep:hover::before,
+.cta-sweep:focus-visible::before {
+  transform: scaleX(1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cta-sweep::before {
+    transition: transform 380ms var(--ovalball-spring);
+  }
+  .cta-sweep:active {
+    transform: scale(0.96);
+    transition: transform 150ms var(--ovalball-ease);
+  }
+}
+.cta-sweep > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Log-in pill: translucent outline that gains a soft fill and reveals a
+   directional arrow on hover/focus -- the quieter half of the paired
+   Log in / Get Started system, so its motion stays smaller than the CTA's. */
+.login-pill {
+  position: relative;
+  overflow: hidden;
+}
+.login-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / 0.12);
+  transform: scaleX(0);
+  transform-origin: left;
+  z-index: 0;
+}
+.login-pill:hover::before,
+.login-pill:focus-visible::before {
+  transform: scaleX(1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .login-pill::before {
+    transition: transform 320ms var(--ovalball-spring);
+  }
+}
+.login-pill > * {
+  position: relative;
+  z-index: 1;
+}
+.login-pill .login-pill-arrow {
+  display: inline-block;
+  opacity: 0;
+  width: 0;
+  margin-left: 0;
+  overflow: hidden;
+}
+.login-pill:hover .login-pill-arrow,
+.login-pill:focus-visible .login-pill-arrow {
+  opacity: 1;
+  width: 14px;
+  margin-left: 4px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* The slide-in offset is itself motion, so it only exists here -- under
+     reduced motion the arrow has no transform at all, just the width/opacity
+     reveal above, so nothing is ever left visibly offset. */
+  .login-pill .login-pill-arrow {
+    transform: translateX(-4px);
+    transition: opacity 220ms var(--ovalball-ease), transform 320ms var(--ovalball-spring),
+      width 220ms var(--ovalball-ease), margin-left 220ms var(--ovalball-ease);
+  }
+  .login-pill:hover .login-pill-arrow,
+  .login-pill:focus-visible .login-pill-arrow {
+    transform: translateX(0);
+  }
+}
+
+/* Footer link: animated underline + a small oval dot that slides in before
+   the word (same -14deg tilt as the nav pill/brand mark) -- "horizontal
+   text shift" from the brief, done as one small reused motif rather than
+   two unrelated effects. */
+.footer-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.footer-link::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--pitch-400);
+  opacity: 0;
+  transform: rotate(-14deg);
+  margin-right: 0;
+}
+.footer-link:hover::before,
+.footer-link:focus-visible::before {
+  opacity: 1;
+  margin-right: 8px;
+}
+.footer-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.footer-link:hover::after,
+.footer-link:focus-visible::after {
+  transform: scaleX(1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* The grow-in-from-40% is itself motion, so the shrunk starting scale
+     only exists here -- under reduced motion the dot is always full-size,
+     just invisible (opacity/margin) at rest, so nothing renders stuck small. */
+  .footer-link::before {
+    transform: scale(0.4) rotate(-14deg);
+    transition: opacity 220ms var(--ovalball-ease), transform 320ms var(--ovalball-spring),
+      margin-right 220ms var(--ovalball-ease);
+  }
+  .footer-link:hover::before,
+  .footer-link:focus-visible::before {
+    transform: scale(1) rotate(-14deg);
+  }
+  .footer-link::after {
+    transition: transform 300ms var(--ovalball-ease);
+  }
 }

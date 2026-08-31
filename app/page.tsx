@@ -1,19 +1,38 @@
-import { Button } from "@/components/ui/button"
+import { EmotionSection } from "@/components/site/emotion-section"
+import { Footer } from "@/components/site/footer"
+import { Header } from "@/components/site/header"
+import { HeroSection } from "@/components/site/hero-section"
+import { OrganiseFixturesSection } from "@/components/site/organise-fixtures-section"
+import { PartnerCommunicationSection } from "@/components/site/partner-communication-section"
+import { PhotoTransition } from "@/components/site/photo-transition"
+import { PlanSeasonSection } from "@/components/site/plan-season-section"
+import { ProductRevealTeaser } from "@/components/site/product-reveal-teaser"
 
+// Server Component: composes the marketing page from client-side section
+// components rather than making the whole page a client boundary.
 export default function Page() {
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
+    <>
+      <Header />
+      <main>
+        <HeroSection />
+        <EmotionSection />
+        <ProductRevealTeaser />
+        <OrganiseFixturesSection />
+        <PhotoTransition
+          src="/images/playing-rugby.png"
+          alt="A rugby player mid-tackle during a match"
+          line="Built around the game, not a generic calendar."
+        />
+        <PlanSeasonSection />
+        <PhotoTransition
+          src="/images/muddy-phone.png"
+          alt="A muddy hand holding a phone pitchside"
+          line="On the touchline, on your phone."
+        />
+        <PartnerCommunicationSection />
+      </main>
+      <Footer />
+    </>
   )
 }
