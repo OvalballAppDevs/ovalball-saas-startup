@@ -1,19 +1,19 @@
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import { cookies } from "next/headers"
 import { CalendarDays, Inbox } from "lucide-react"
 
+import { ClubAvatar } from "@/components/club/club-avatar"
+import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext, type SwitchableContext } from "@/lib/app-context/active-context"
 import { buildNavItems } from "@/lib/app-context/build-nav-items"
 import { getDashboardData, type FixtureRow, type PendingRequestRow } from "@/lib/app-context/dashboard-data"
+import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
+import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
+import { FIXTURE_STATUS_BADGE_CLASS } from "@/lib/fixtures/status"
 
-const STATUS_STYLES: Record<string, string> = {
-  Booked: "bg-mint-100 text-forest-900",
-  Confirmed: "bg-mint-100 text-forest-900",
-  Planned: "bg-mint-100/60 text-forest-800",
-  "To Be Determined": "bg-mint-100/60 text-forest-800",
-  Cancelled: "bg-destructive/10 text-destructive",
-}
+import { PlayerMovementsLog } from "./player-movements-log"
 
 function greeting(): string {
   const hour = new Date().getHours()
@@ -30,16 +30,57 @@ export default async function DashboardPage() {
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const { roleLabel } = buildNavItems(ctx)
-  const data = await getDashboardData(supabase, ctx)
+  await reconcileOverdueFixtureResults(supabase)
+  const cookieStore = await cookies()
+  const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
+  const { roleLabel } = buildNavItems(ctx, activeContext)
+
+  // A diagnostic session (see diagnostic-access.ts) overrides the
+  // dashboard's own scope with a synthetic club context -- never the real
+  // activeContext used for nav/permissions, which stays the Site Admin's
+  // own. This is what makes the body show the diagnostic club's read-only
+  // "This week"/"Requests" instead of the Site Admin's real (usually
+  // absent) club data, while the sidebar keeps showing their real
+  // identity and the admin console nav untouched.
+  const diagnosticClub = ctx.isSiteAdmin
+    ? await resolveDiagnosticClub(supabase, cookieStore.get(DIAGNOSTIC_SESSION_COOKIE)?.value ?? null)
+    : null
+  const dashboardContext: SwitchableContext = diagnosticClub
+    ? {
+        key: `diagnostic:${diagnosticClub.clubId}`,
+        kind: "club",
+        id: diagnosticClub.clubId,
+        playerId: null,
+        label: diagnosticClub.clubName,
+        switcherLabel: diagnosticClub.clubName,
+        roleLabel: "Site Admin (Diagnostic)",
+        logoUrl: diagnosticClub.clubLogoUrl,
+        clubId: diagnosticClub.clubId,
+      }
+    : activeContext
+  const displayRoleLabel = diagnosticClub ? dashboardContext.roleLabel : roleLabel
+  const data = await getDashboardData(supabase, ctx, dashboardContext)
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">
         {greeting()}, {ctx.firstName ?? "there"}
       </p>
-      <h1 className="mt-2 font-display text-display-l text-ink">{data.clubDisplayName}</h1>
-      <p className="mt-1 text-sm text-ink/50">{roleLabel}</p>
+      <div className="mt-2 flex items-center gap-3">
+        {dashboardContext.kind !== "site_admin" && <ClubAvatar logoUrl={dashboardContext.logoUrl} name={data.clubDisplayName} size="md" />}
+        <h1 className="font-display text-display-l text-ink">{data.clubDisplayName}</h1>
+      </div>
+      <p className="mt-1 text-sm text-ink/50">{displayRoleLabel}</p>
+      {dashboardContext.kind === "parent" && dashboardContext.playerId && (
+        <Link href={`/parent/players/${dashboardContext.playerId}/access`} className="mt-2 inline-block text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+          Manage what {dashboardContext.label} can see and do
+        </Link>
+      )}
+      {dashboardContext.kind !== "site_admin" && (
+        <Link href="/parent/children" className="mt-2 block text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+          Your children
+        </Link>
+      )}
 
       <section className="mt-10">
         <div className="flex items-center justify-between">
@@ -77,6 +118,10 @@ export default async function DashboardPage() {
         </section>
       )}
 
+      {data.recentPlayerMovements.length > 0 && dashboardContext.clubId && (
+        <PlayerMovementsLog clubId={dashboardContext.clubId} rows={data.recentPlayerMovements} />
+      )}
+
       {data.outstandingRequests.length === 0 && data.myTeamCount === 0 && (
         <section className="mt-10">
           <EmptyState
@@ -91,7 +136,7 @@ export default async function DashboardPage() {
 }
 
 function FixtureListRow({ fixture }: { fixture: FixtureRow }) {
-  const statusClass = STATUS_STYLES[fixture.status] ?? "bg-ink/5 text-ink/60"
+  const statusClass = FIXTURE_STATUS_BADGE_CLASS[fixture.status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/5 text-ink/60"
   const date = new Date(fixture.kickoffDate + "T00:00:00")
   const dateLabel = date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
 

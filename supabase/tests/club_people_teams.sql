@@ -26,16 +26,16 @@ begin
   select id into v_rossendale_dir_id from public.club_directory where name = 'Rossendale RUFC';
   select id into v_leigh_dir_id from public.club_directory where name = 'Leigh RUFC';
 
-  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change)
   values
-    ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.admin@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.rossendale.admin@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.u12.admin@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.coach@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.parent@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.pending.claimant@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.fixturesec@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.invitee@ovalball.local', '', now(), now(), '{}', '{}')
+    ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.admin@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.rossendale.admin@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.u12.admin@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.coach@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.parent@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.pending.claimant@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.fixturesec@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.invitee@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', '')
   on conflict (id) do nothing;
 
   insert into public.profiles (id, first_name, surname, email)

@@ -47,8 +47,21 @@ function notificationHref(type: string, data: Record<string, unknown>): string {
       return "/admin/claims"
     case "club_invitation_accepted":
       return "/people"
+    case "support_ticket_update": {
+      const ticketId = str(data.support_ticket_id)
+      return ticketId ? `/support/${ticketId}` : "/support"
+    }
     case "club_claim_approved":
     case "club_claim_rejected":
+      return "/dashboard"
+    case "season_transition_warning":
+    case "season_transition_needs_attention":
+    case "season_transition_completed":
+      return "/club/rollover"
+    case "fixture_call_up_requested":
+    case "fixture_call_up_decided":
+    case "player_eligibility_approval_required":
+      return "/club/player-moves"
     default:
       return "/dashboard"
   }

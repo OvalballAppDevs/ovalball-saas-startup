@@ -6,15 +6,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { TEAM_PERMISSION_OPTIONS as TEAM_PERMISSIONS } from "@/lib/permissions/role-labels"
 
 import { createInvitation } from "./actions"
-
-const TEAM_PERMISSIONS = [
-  { value: "team_admin", label: "Team Admin" },
-  { value: "coach", label: "Coach" },
-  { value: "manager", label: "Manager" },
-  { value: "view_only", label: "Parent / Player (view only)" },
-] as const
 
 interface InviteFormProps {
   clubId: string

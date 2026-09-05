@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 
-import { getSessionContext, manageableClubId as getManageableClubId } from "@/lib/app-context/session-context"
+import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
+import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
-import { FindClubSearch } from "./find-club-search"
+import { getPartnerClubsMapData } from "./map-data"
 import { PartnerClubCard, type ActivePartnerData } from "./partner-club-card"
+import { PartnerClubsExplorer } from "./partner-clubs-explorer"
 import { PartnershipRequestRow, type PendingPartnershipData } from "./partnership-request-row"
 
 /**
@@ -23,12 +26,17 @@ export default async function PartnerClubsPage() {
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const clubId = getManageableClubId(ctx)
+  const cookieStore = await cookies()
+  const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
+  // No `?? manageableClubId(ctx)` fallback -- would show a DIFFERENT
+  // club's partner-club list/relationships while an unrelated context is
+  // active.
+  const clubId = activeManageableClubId(ctx, activeContext)
   if (!clubId) redirect("/fixtures")
 
   const { data: partnerships } = await supabase
     .from("club_partnerships")
-    .select("id, requesting_club_id, partner_club_id, status, requested_at, responded_at")
+    .select("id, requesting_club_id, partner_club_id, status, requested_at, responded_at, source_fixture_id")
     .or(`requesting_club_id.eq.${clubId},partner_club_id.eq.${clubId}`)
     .neq("status", "revoked")
 
@@ -71,6 +79,7 @@ export default async function PartnerClubsPage() {
         town: info?.town ?? null,
         direction: p.requesting_club_id === clubId ? "outgoing" : "incoming",
         requestedAt: p.requested_at,
+        fromFixture: p.source_fixture_id !== null,
       })
     }
   }
@@ -78,10 +87,10 @@ export default async function PartnerClubsPage() {
   activePartners.sort((a, b) => a.clubName.localeCompare(b.clubName))
   pendingRequests.sort((a, b) => (a.requestedAt < b.requestedAt ? 1 : -1))
 
-  const relatedClubIds = Array.from(new Set([...activePartners.map((p) => p.clubId), ...otherClubIds]))
+  const mapClubs = await getPartnerClubsMapData(clubId)
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
+    <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Partner Clubs</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Calendar sharing</h1>
       <p className="mt-2 max-w-lg text-sm text-ink/55">
@@ -89,37 +98,42 @@ export default async function PartnerClubsPage() {
         against an open date.
       </p>
 
-      {pendingRequests.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Pending requests</h2>
-          <ul className="mt-4 flex flex-col gap-2">
-            {pendingRequests.map((r) => (
-              <PartnershipRequestRow key={r.id} request={r} />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="mt-10">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">My partner clubs</h2>
-        {activePartners.length === 0 ? (
-          <div className="mt-4 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
-            <p className="text-sm font-medium text-ink">No partner clubs yet</p>
-            <p className="mt-1 text-sm text-ink/55">Find a club below and request calendar sharing to get started.</p>
-          </div>
-        ) : (
-          <div className="mt-4 flex flex-col gap-2">
-            {activePartners.map((p) => (
-              <PartnerClubCard key={p.partnershipId} partner={p} />
-            ))}
-          </div>
+      <div className="max-w-3xl">
+        {pendingRequests.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Pending requests</h2>
+            <ul className="mt-4 flex flex-col gap-2">
+              {pendingRequests.map((r) => (
+                <PartnershipRequestRow key={r.id} request={r} />
+              ))}
+            </ul>
+          </section>
         )}
-      </section>
+
+        <section className="mt-10">
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">My partner clubs</h2>
+          {activePartners.length === 0 ? (
+            <div className="mt-4 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
+              <p className="text-sm font-medium text-ink">No partner clubs yet</p>
+              <p className="mt-1 text-sm text-ink/55">Find a club below and request calendar sharing to get started.</p>
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-col gap-2">
+              {activePartners.map((p) => (
+                <PartnerClubCard key={p.partnershipId} partner={p} />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
 
       <section className="mt-10">
         <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Find a club</h2>
+        <p className="mt-1 max-w-lg text-sm text-ink/55">
+          Every recognised club, whether they&apos;ve joined Ovalball yet or not &mdash; search or filter to find one on the map.
+        </p>
         <div className="mt-4">
-          <FindClubSearch ownClubId={clubId} relatedClubIds={relatedClubIds} />
+          <PartnerClubsExplorer clubs={mapClubs} />
         </div>
       </section>
     </div>

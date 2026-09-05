@@ -1,0 +1,59 @@
+-- admin_message_overview never exposed a logo path -- the Message
+-- Management console must show real club crests (never a generic "U1"
+-- placeholder, per this pass's own requirement), so every side of a
+-- conversation needs its activated club's logo_storage_path the same way
+-- admin_fixture_overview already exposes owning/opponent logos. CREATE OR
+-- REPLACE VIEW requires every original column to keep its exact position
+-- -- new columns are appended at the end, exactly like every other
+-- admin_fixture_overview migration in this session.
+create or replace view public.admin_message_overview
+  with (security_invoker = true) as
+select
+  coalesce(fm.fixture_id::text, 'req:' || fm.fixture_request_id::text) as conversation_key,
+  case when fm.fixture_id is not null then 'fixture' else 'request' end as kind,
+  fm.fixture_id,
+  fm.fixture_request_id,
+  count(*) as message_count,
+  max(fm.created_at) as last_activity_at,
+  min(fm.created_at) as first_message_at,
+  count(*) filter (where fm.report_status = 'open') as open_report_count,
+  count(*) filter (where fm.report_status = 'reviewed') as reviewed_report_count,
+  bool_or(fm.report_status = 'open') as has_open_report,
+  fx_owning_cd.name as fixture_owning_club_name,
+  fx_opp_cd.name as fixture_opponent_club_name,
+  fx_t.display_name as fixture_owning_team_name,
+  req_cd.name as request_requesting_club_name,
+  req_opp_cd.name as request_opponent_club_name,
+  fx_opp_t.display_name as fixture_opponent_team_name,
+  fx_c.logo_storage_path as fixture_owning_club_logo_path,
+  fx_opp_c.logo_storage_path as fixture_opponent_club_logo_path,
+  req_requesting_t.display_name as request_requesting_team_name,
+  req_target_t.display_name as request_target_team_name,
+  req_c.logo_storage_path as request_requesting_club_logo_path,
+  req_opp_c.logo_storage_path as request_opponent_club_logo_path
+from public.fixture_messages fm
+left join public.fixtures fx on fx.id = fm.fixture_id
+left join public.teams fx_t on fx_t.id = fx.owning_team_id
+left join public.clubs fx_c on fx_c.id = fx_t.club_id
+left join public.club_directory fx_owning_cd on fx_owning_cd.id = fx_c.directory_id
+left join public.club_directory fx_opp_cd on fx_opp_cd.id = fx.opponent_directory_id
+left join public.teams fx_opp_t on fx_opp_t.id = fx.opponent_team_id
+left join public.clubs fx_opp_c on fx_opp_c.id = fx_opp_t.club_id
+left join public.fixture_requests freq on freq.id = fm.fixture_request_id
+left join public.fixture_request_groups frg on frg.id = freq.group_id
+left join public.clubs req_c on req_c.id = frg.requesting_club_id
+left join public.club_directory req_cd on req_cd.id = req_c.directory_id
+left join public.clubs req_opp_c on req_opp_c.id = frg.opponent_club_id
+left join public.club_directory req_opp_cd on req_opp_cd.id = req_opp_c.directory_id
+left join public.teams req_requesting_t on req_requesting_t.id = freq.requesting_team_id
+left join public.teams req_target_t on req_target_t.id = freq.target_team_id
+group by
+  fm.fixture_id, fm.fixture_request_id, fx_owning_cd.name, fx_opp_cd.name, fx_t.display_name, fx_opp_t.display_name,
+  fx_c.logo_storage_path, fx_opp_c.logo_storage_path,
+  req_cd.name, req_opp_cd.name, req_requesting_t.display_name, req_target_t.display_name,
+  req_c.logo_storage_path, req_opp_c.logo_storage_path;
+
+grant select on public.admin_message_overview to authenticated;
+
+comment on view public.admin_message_overview is
+  'Metadata-only listing for Message Management -- deliberately never selects fixture_messages.body. security_invoker so it is exactly as permissive as fixture_messages'' own RLS (is_site_admin() via can_access_fixture_conversation), safe for every Site Admin profile since it carries no message content. Logo paths let the console show real club crests instead of a generic placeholder.';

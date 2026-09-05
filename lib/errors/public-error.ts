@@ -83,6 +83,104 @@ export function toPublicInvitationError(error: RawErrorLike): string {
   return "We couldn't accept this invitation right now. Please try again, or ask for a new invite link."
 }
 
+/** Same allowlist reasoning as toPublicInvitationError, for accept_site_admin_invitation()'s own deliberately human-readable exception text (20260831260000_site_admin_management.sql). */
+const SAFE_SITE_ADMIN_INVITATION_ERROR_PREFIXES = [
+  "You must be signed in to accept this invitation.",
+  "Invitation not found.",
+  "Invitation is not pending",
+  "Invitation has expired.",
+  "This invitation was sent to a different email address",
+]
+
+export function toPublicSiteAdminInvitationError(error: RawErrorLike): string {
+  const message = error.message ?? ""
+  if (SAFE_SITE_ADMIN_INVITATION_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return message
+  }
+  return "We couldn't accept this invitation right now. Please try again, or ask for a new invite link."
+}
+
+/** Same allowlist reasoning as toPublicInvitationError, for accept_guardian_invitation()'s own deliberately human-readable exception text (Side Project 1 integration). */
+const SAFE_GUARDIAN_INVITATION_ERROR_PREFIXES = ["Invitation not found.", "This invitation is no longer available.", "This invitation has expired.", "This invitation was sent to a different email address"]
+
+export function toPublicGuardianInvitationError(error: RawErrorLike): string {
+  const message = error.message ?? ""
+  if (SAFE_GUARDIAN_INVITATION_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return message
+  }
+  return "We couldn't accept this invitation right now. Please try again, or ask for a new invite link."
+}
+
+/** Same allowlist reasoning, for create_player_for_guardian()'s own deliberately human-readable exception text. */
+const SAFE_PLAYER_CREATION_ERROR_PREFIXES = ["Invitation not found.", "You do not have an accepted invitation for this team.", "First name and surname are required."]
+
+export function toPublicPlayerCreationError(error: RawErrorLike): string {
+  const message = error.message ?? ""
+  if (SAFE_PLAYER_CREATION_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return message
+  }
+  return "We couldn't add this player right now. Please try again."
+}
+
+/**
+ * Same allowlist reasoning, for add_child_for_guardian()'s own
+ * deliberately human-readable exception text (self-service Add-a-Child).
+ * An unexpected failure (e.g. a stale/invalid session) must never fall
+ * through to this RPC's raw Postgres message reaching the browser verbatim.
+ */
+const SAFE_ADD_CHILD_ERROR_PREFIXES = [
+  "You must be signed in.",
+  "First name and surname are required.",
+  "Date of birth is required.",
+  "Club not found.",
+  "No active season is currently configured",
+  "This date of birth is below the youngest supported youth age grade",
+  "This date of birth is outside the supported youth age-grade range",
+  "We found more than one possible existing match for this player",
+]
+
+export function toPublicAddChildError(error: RawErrorLike): string {
+  const message = error.message ?? ""
+  if (SAFE_ADD_CHILD_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return message
+  }
+  return "We couldn't add this child right now. Please sign out and back in, then try again."
+}
+
+/** Same allowlist reasoning, for invite_player_account()'s own deliberately human-readable exception text. */
+const SAFE_PLAYER_ACCOUNT_INVITE_ERROR_PREFIXES = [
+  "You are not authorized to invite a login for this player.",
+  "A valid email address is required.",
+  "This player already has their own Ovalball login.",
+  "A login invitation is already pending for this player.",
+]
+
+export function toPublicPlayerAccountInviteError(error: RawErrorLike): string {
+  const message = error.message ?? ""
+  if (SAFE_PLAYER_ACCOUNT_INVITE_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return message
+  }
+  return "We couldn't send this invitation right now. Please try again."
+}
+
+/** Same allowlist reasoning, for respond_to_attendance()'s own deliberately human-readable exception text -- every message here is safe to show a Parent/Player verbatim, none reveal anything beyond what they already know about their own relationship to the player. */
+const SAFE_ATTENDANCE_ERROR_PREFIXES = [
+  "Invalid attendance status.",
+  "Age could not be verified for self-service attendance.",
+  "Guardian consent for self-attendance is not currently granted.",
+  "Players under 16 cannot respond to their own attendance.",
+  "You are not authorized to respond to attendance for this player.",
+  "This player is not associated with a team involved in this fixture.",
+]
+
+export function toPublicAttendanceError(error: RawErrorLike): string {
+  const message = error.message ?? ""
+  if (SAFE_ATTENDANCE_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return message
+  }
+  return "We couldn't save that response right now. Please try again."
+}
+
 /** Generic fallback for any other unauthenticated-surface failure (club claim/join/directory-request submission, etc.) that must never echo the underlying error. */
 export function toPublicSubmissionError(): string {
   return "Your request could not be submitted. Please try again."

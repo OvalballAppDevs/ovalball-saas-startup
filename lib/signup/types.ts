@@ -148,47 +148,25 @@ export const AUTHORITY_DECLARATION_TEXT =
 
 /**
  * The team categories a claimant/proposer can flag as existing at their
- * club, grouped for a readable checklist rather than one flat 24-item wall.
+ * club, grouped for a readable checklist rather than one flat wall. This is
+ * now the SAME list (via `lib/teams/catalog.ts`) that the Teams board's
+ * "Add a team" uses once the club is activated -- there is exactly one
+ * canonical list of pickable teams in the app, not a signup-only copy that
+ * can drift from what a Club Admin can actually create later.
  *
  * `allowMultiple` decides whether the B/C lettered-squad toggle appears for
  * a group's categories. A club can genuinely run several age-group sides
- * at once (U12 A/B/C), so age-group and Colts groups allow it. A senior
- * side is already distinguished by its ordinal ("Men's 1st Team", "Men's
- * 2nd Team") -- there is no such thing as "Men's 1st Team B", so senior
- * groups don't offer the letter toggle at all.
+ * at once (U12 A/B/C), so age-group groups allow it. A senior side is
+ * already distinguished by its ordinal ("Men's 1st Team", "Men's 2nd
+ * Team") -- there is no such thing as "Men's 1st Team B", so senior groups
+ * don't offer the letter toggle at all.
+ *
+ * Junior Colts/Senior Colts are real, closed-catalogue identities as of
+ * 20260904200000_canonical_team_catalogue.sql (`teams.category` now
+ * allows 'colts') -- a claimant ticking them here produces a real team on
+ * claim approval, the same as every other category.
  */
-export const TEAM_CATEGORY_GROUPS: { label: string; categories: string[]; allowMultiple: boolean }[] = [
-  {
-    label: "Mini & youth",
-    categories: ["Under 6", "Under 7", "Under 8", "Under 9", "Under 10", "Under 11"],
-    allowMultiple: true,
-  },
-  {
-    label: "Youth",
-    categories: ["Under 12", "Under 13", "Under 14", "Under 15", "Under 16"],
-    allowMultiple: true,
-  },
-  {
-    label: "Colts",
-    categories: ["Junior Colts", "Senior Colts"],
-    allowMultiple: true,
-  },
-  {
-    label: "Senior men's",
-    categories: ["Men's 1st Team", "Men's 2nd Team", "Men's 3rd Team"],
-    allowMultiple: false,
-  },
-  {
-    label: "Senior women's",
-    categories: ["Women's 1st Team", "Women's 2nd Team", "Women's 3rd Team"],
-    allowMultiple: false,
-  },
-  {
-    label: "Girls",
-    categories: ["Under 12 Girls", "Under 13 Girls", "Under 14 Girls", "Under 15 Girls", "Under 16 Girls"],
-    allowMultiple: true,
-  },
-]
+export { toSignupTeamCategoryGroups, type TeamCategoryGroup } from "@/lib/teams/catalog"
 
 /**
  * A ticked team category, optionally with extra lettered teams at the same

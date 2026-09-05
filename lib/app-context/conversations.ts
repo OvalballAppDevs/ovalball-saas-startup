@@ -4,19 +4,35 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
 
+import { resolveClubLogoUrl } from "./club-logo"
 import { manageableTeams, type SessionContext } from "./session-context"
 
 export interface ConversationSummary {
   /** Which half of fixture_messages' exactly-one-of columns this thread keys off. */
   kind: "request" | "fixture"
   id: string
+  myClubName: string
   myTeamDisplayName: string
+  myClubLogoUrl: string | null
+  opponentClubName: string
   oppositionLabel: string
+  opponentClubLogoUrl: string | null
   date: string | null
   status: string
   latestMessagePreview: string | null
   latestMessageAt: string | null
+  latestMessageSenderName: string | null
   unreadCount: number
+}
+
+type ClubRef = { logo_storage_path: string | null; club_directory: { name: string; logo_storage_path: string | null } | null } | null | undefined
+
+function logoUrlFrom(supabase: SupabaseClient<Database>, club: ClubRef): string | null {
+  return resolveClubLogoUrl(supabase, club)
+}
+
+function clubNameFrom(club: ClubRef): string {
+  return club?.club_directory?.name ?? "Ovalball"
 }
 
 /**
@@ -58,10 +74,12 @@ export async function getConversationSummaries(
 
   const summaries = new Map<string, ConversationSummary>()
 
+  const CLUB_LOGO_SELECT = "clubs(logo_storage_path, club_directory(name, logo_storage_path))"
+
   const { data: requests } = await supabase
     .from("fixture_requests")
     .select(
-      "id, status, requesting_team_id, target_team_id, resulting_fixture_id, requesting_team:teams!fixture_requests_requesting_team_id_fkey(display_name), target_team:teams!fixture_requests_target_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)"
+      `id, status, requesting_team_id, target_team_id, resulting_fixture_id, requesting_team:teams!fixture_requests_requesting_team_id_fkey(display_name, ${CLUB_LOGO_SELECT}), target_team:teams!fixture_requests_target_team_id_fkey(display_name, ${CLUB_LOGO_SELECT}), fixture_request_groups(proposed_date, raw_opponent_text)`
     )
     .or(`requesting_team_id.in.(${myTeamIdList.join(",")}),target_team_id.in.(${myTeamIdList.join(",")})`)
 
@@ -73,18 +91,22 @@ export async function getConversationSummaries(
       continue
     }
     const isRequester = myTeamIds.has(r.requesting_team_id)
+    const myTeam = isRequester ? r.requesting_team : r.target_team
+    const oppTeam = isRequester ? r.target_team : r.requesting_team
     summaries.set(`request:${r.id}`, {
       kind: "request",
       id: r.id,
-      myTeamDisplayName: (isRequester ? r.requesting_team?.display_name : r.target_team?.display_name) ?? "Team",
-      oppositionLabel:
-        (isRequester ? r.target_team?.display_name : r.requesting_team?.display_name) ??
-        r.fixture_request_groups?.raw_opponent_text ??
-        "Opponent",
+      myClubName: clubNameFrom(myTeam?.clubs),
+      myTeamDisplayName: myTeam?.display_name ?? "Team",
+      myClubLogoUrl: logoUrlFrom(supabase, myTeam?.clubs),
+      opponentClubName: oppTeam ? clubNameFrom(oppTeam.clubs) : (r.fixture_request_groups?.raw_opponent_text ?? "Opponent"),
+      oppositionLabel: oppTeam?.display_name ?? r.fixture_request_groups?.raw_opponent_text ?? "Opponent",
+      opponentClubLogoUrl: logoUrlFrom(supabase, oppTeam?.clubs),
       date: r.fixture_request_groups?.proposed_date ?? null,
       status: r.status,
       latestMessagePreview: null,
       latestMessageAt: null,
+      latestMessageSenderName: null,
       unreadCount: 0,
     })
   }
@@ -107,7 +129,7 @@ export async function getConversationSummaries(
     const { data: fixtures } = await supabase
       .from("fixtures")
       .select(
-        "id, kickoff_date, status, owning_team_id, opponent_team_id, owning_team:teams!fixtures_owning_team_id_fkey(display_name), opponent_team:teams!fixtures_opponent_team_id_fkey(display_name), raw_opposition_text"
+        `id, kickoff_date, status, owning_team_id, opponent_team_id, owning_team:teams!fixtures_owning_team_id_fkey(display_name, ${CLUB_LOGO_SELECT}), opponent_team:teams!fixtures_opponent_team_id_fkey(display_name, ${CLUB_LOGO_SELECT}), raw_opposition_text`
       )
       .in("id", fixtureIds)
 
@@ -115,15 +137,22 @@ export async function getConversationSummaries(
       const isOwner = myTeamIds.has(f.owning_team_id)
       const isOpponent = f.opponent_team_id ? myTeamIds.has(f.opponent_team_id) : false
       if (!isOwner && !isOpponent) continue
+      const myTeam = isOwner ? f.owning_team : f.opponent_team
+      const oppTeam = isOwner ? f.opponent_team : f.owning_team
       summaries.set(`fixture:${f.id}`, {
         kind: "fixture",
         id: f.id,
-        myTeamDisplayName: (isOwner ? f.owning_team?.display_name : f.opponent_team?.display_name) ?? "Team",
-        oppositionLabel: (isOwner ? f.opponent_team?.display_name : f.owning_team?.display_name) ?? f.raw_opposition_text,
+        myClubName: clubNameFrom(myTeam?.clubs),
+        myTeamDisplayName: myTeam?.display_name ?? "Team",
+        myClubLogoUrl: logoUrlFrom(supabase, myTeam?.clubs),
+        opponentClubName: oppTeam ? clubNameFrom(oppTeam.clubs) : (f.raw_opposition_text ?? "Opponent"),
+        oppositionLabel: oppTeam?.display_name ?? f.raw_opposition_text,
+        opponentClubLogoUrl: logoUrlFrom(supabase, oppTeam?.clubs),
         date: f.kickoff_date,
         status: f.status,
         latestMessagePreview: null,
         latestMessageAt: null,
+        latestMessageSenderName: null,
         unreadCount: 0,
       })
     }
@@ -136,7 +165,7 @@ export async function getConversationSummaries(
 
   const { data: messages } = await supabase
     .from("fixture_messages")
-    .select("fixture_id, fixture_request_id, body, created_at")
+    .select("fixture_id, fixture_request_id, body, created_at, sender_user_id")
     .or(
       [
         requestIds.length > 0 ? `fixture_request_id.in.(${requestIds.join(",")})` : null,
@@ -147,13 +176,41 @@ export async function getConversationSummaries(
     )
     .order("created_at", { ascending: false })
 
+  const latestSenderIds = new Set<string>()
+  const latestByKey = new Map<string, { body: string; createdAt: string; senderId: string }>()
   for (const m of messages ?? []) {
     const key = m.fixture_id ? `fixture:${m.fixture_id}` : `request:${m.fixture_request_id}`
-    const summary = summaries.get(key)
-    if (summary && !summary.latestMessageAt) {
-      summary.latestMessagePreview = m.body
-      summary.latestMessageAt = m.created_at
+    if (!latestByKey.has(key)) {
+      latestByKey.set(key, { body: m.body, createdAt: m.created_at, senderId: m.sender_user_id })
+      latestSenderIds.add(m.sender_user_id)
     }
+  }
+
+  // profiles_select_self_or_admin blocks a plain SELECT of anyone else's
+  // row -- resolve through the same SECURITY DEFINER path
+  // resolveParticipantIdentities uses, scoped to every club this session
+  // has real standing at (the caller's own clubs are always a safe set to
+  // pass -- get_conversation_participant_names still independently checks
+  // the caller has standing at one of them before returning anything).
+  const { data: myTeamClubRows } =
+    myTeamIdList.length > 0 ? await supabase.from("teams").select("club_id").in("id", myTeamIdList) : { data: [] }
+  const relevantClubIds = Array.from(new Set([...clubWideClubIds, ...(myTeamClubRows ?? []).map((t) => t.club_id)]))
+
+  const { data: senderProfiles } =
+    latestSenderIds.size > 0 && relevantClubIds.length > 0
+      ? await supabase.rpc("get_conversation_participant_names", {
+          p_user_ids: Array.from(latestSenderIds),
+          p_club_ids: relevantClubIds,
+        })
+      : { data: [] }
+  const senderNameById = new Map((senderProfiles ?? []).map((p) => [p.user_id, p.first_name || "Someone"]))
+
+  for (const [key, latest] of latestByKey) {
+    const summary = summaries.get(key)
+    if (!summary) continue
+    summary.latestMessagePreview = latest.body
+    summary.latestMessageAt = latest.createdAt
+    summary.latestMessageSenderName = latest.senderId === userId ? "You" : (senderNameById.get(latest.senderId) ?? "Someone")
   }
 
   const { data: unread } = await supabase
@@ -175,4 +232,118 @@ export async function getConversationSummaries(
     const bTime = b.latestMessageAt ?? b.date ?? ""
     return bTime.localeCompare(aTime)
   })
+}
+
+export interface ClubConversationSummary {
+  kind: "club"
+  id: string
+  myClubName: string
+  myClubLogoUrl: string | null
+  opponentClubName: string
+  opponentClubLogoUrl: string | null
+  status: "pending" | "accepted"
+  direction: "incoming" | "outgoing"
+  latestMessagePreview: string | null
+  latestMessageAt: string | null
+  latestMessageSenderName: string | null
+  unreadCount: number
+  requestedAt: string
+}
+
+/**
+ * Direct club-to-club conversations -- entirely separate from
+ * getConversationSummaries above (which stays fixture/request-scoped,
+ * untouched). Declined requests are excluded here; the recipient/
+ * requester still see them via respond_to_club_conversation's own
+ * notification at the moment they're declined, but they don't linger in
+ * an ongoing list. club-wide fixture authority (CLUB_ADMIN/FIXTURE_
+ * SECRETARY) is the same boundary used for fixture-scoped club-wide
+ * conversations -- a club conversation is club-level by definition, so
+ * there is no narrower team-level access to consider here.
+ */
+export async function getClubConversationSummaries(
+  supabase: SupabaseClient<Database>,
+  ctx: SessionContext,
+  userId: string
+): Promise<ClubConversationSummary[]> {
+  const clubWideClubIds = ctx.clubMemberships.filter((m) => m.role === "CLUB_ADMIN" || m.role === "FIXTURE_SECRETARY").map((m) => m.clubId)
+  if (clubWideClubIds.length === 0) return []
+
+  const { data: rows } = await supabase
+    .from("club_conversations")
+    .select(
+      `id, requesting_club_id, recipient_club_id, status, created_at, requesting_club:clubs!club_conversations_requesting_club_id_fkey(logo_storage_path, club_directory(name, logo_storage_path)), recipient_club:clubs!club_conversations_recipient_club_id_fkey(logo_storage_path, club_directory(name, logo_storage_path))`
+    )
+    .or(`requesting_club_id.in.(${clubWideClubIds.join(",")}),recipient_club_id.in.(${clubWideClubIds.join(",")})`)
+    .neq("status", "declined")
+
+  const summaries = new Map<string, ClubConversationSummary>()
+  for (const r of rows ?? []) {
+    const iAmRequester = clubWideClubIds.includes(r.requesting_club_id)
+    const myClub = iAmRequester ? r.requesting_club : r.recipient_club
+    const opponentClub = iAmRequester ? r.recipient_club : r.requesting_club
+    summaries.set(`club:${r.id}`, {
+      kind: "club",
+      id: r.id,
+      myClubName: clubNameFrom(myClub),
+      myClubLogoUrl: logoUrlFrom(supabase, myClub),
+      opponentClubName: clubNameFrom(opponentClub),
+      opponentClubLogoUrl: logoUrlFrom(supabase, opponentClub),
+      status: r.status as "pending" | "accepted",
+      direction: iAmRequester ? "outgoing" : "incoming",
+      latestMessagePreview: null,
+      latestMessageAt: null,
+      latestMessageSenderName: null,
+      unreadCount: 0,
+      requestedAt: r.created_at,
+    })
+  }
+  if (summaries.size === 0) return []
+
+  const ids = Array.from(summaries.values()).map((s) => s.id)
+  const { data: messages } = await supabase
+    .from("fixture_messages")
+    .select("club_conversation_id, body, created_at, sender_user_id, kind")
+    .in("club_conversation_id", ids)
+    .order("created_at", { ascending: false })
+
+  const latestSenderIds = new Set<string>()
+  const latestByKey = new Map<string, { body: string; createdAt: string; senderId: string; isSystemEvent: boolean }>()
+  for (const m of messages ?? []) {
+    const key = `club:${m.club_conversation_id}`
+    if (!latestByKey.has(key)) {
+      latestByKey.set(key, { body: m.body, createdAt: m.created_at, senderId: m.sender_user_id, isSystemEvent: m.kind === "system_event" })
+      if (m.kind !== "system_event") latestSenderIds.add(m.sender_user_id)
+    }
+  }
+
+  const { data: senderProfiles } =
+    latestSenderIds.size > 0
+      ? await supabase.rpc("get_conversation_participant_names", { p_user_ids: Array.from(latestSenderIds), p_club_ids: clubWideClubIds })
+      : { data: [] }
+  const senderNameById = new Map((senderProfiles ?? []).map((p) => [p.user_id, p.first_name || "Someone"]))
+
+  for (const [key, latest] of latestByKey) {
+    const summary = summaries.get(key)
+    if (!summary) continue
+    summary.latestMessagePreview = latest.body
+    summary.latestMessageAt = latest.createdAt
+    summary.latestMessageSenderName = latest.isSystemEvent ? null : latest.senderId === userId ? "You" : (senderNameById.get(latest.senderId) ?? "Someone")
+  }
+
+  const { data: unread } = await supabase
+    .from("notifications")
+    .select("data")
+    .eq("user_id", userId)
+    .eq("type", "new_fixture_message")
+    .is("read_at", null)
+
+  for (const n of unread ?? []) {
+    const data = n.data as { club_conversation_id?: string } | null
+    const key = data?.club_conversation_id ? `club:${data.club_conversation_id}` : null
+    const summary = key ? summaries.get(key) : undefined
+    if (summary) summary.unreadCount += 1
+  }
+
+  return Array.from(summaries.values()).sort((a, b) => (b.latestMessageAt ?? b.requestedAt).localeCompare(a.latestMessageAt ?? a.requestedAt))
 }

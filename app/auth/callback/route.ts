@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { AUTH_SESSION_VERSION } from "@/lib/auth/session-version"
 import { createClient } from "@/lib/supabase/server"
 import { completeSignupIfNeeded } from "@/lib/signup/complete-signup"
 
@@ -37,6 +38,8 @@ export async function GET(request: Request) {
       } = await supabase.auth.getUser()
 
       if (user) {
+        await supabase.rpc("record_session_version", { p_version: AUTH_SESSION_VERSION })
+
         const result = await completeSignupIfNeeded(supabase, user)
         if (result.error) {
           // The user is authenticated (has a real, valid session) even

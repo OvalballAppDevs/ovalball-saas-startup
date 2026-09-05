@@ -4,7 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
 
-import { getMyTeams } from "./my-teams"
+import type { SwitchableContext } from "./active-context"
+import { getTeamsForActiveContext } from "./my-teams"
 import { canManageClubFixturesAnywhere, type SessionContext } from "./session-context"
 
 export interface FixtureRow {
@@ -28,11 +29,21 @@ export interface PendingRequestRow {
   venuePreference: string
 }
 
+export interface PlayerMovementRow {
+  id: string
+  playerName: string
+  fromTeamName: string
+  toTeamName: string
+  date: string
+}
+
 export interface DashboardData {
   clubDisplayName: string
   thisWeekFixtures: FixtureRow[]
   outstandingRequests: PendingRequestRow[]
   myTeamCount: number
+  /** Club Admin dashboard only (PLAYER REQUESTS Section 11) -- the most recent 5 APPROVED call-ups, never dispensation evidence. */
+  recentPlayerMovements: PlayerMovementRow[]
 }
 
 const ACTIONABLE_STATUSES = new Set(["Planned", "To Be Determined"])
@@ -47,16 +58,18 @@ const ACTIONABLE_STATUSES = new Set(["Planned", "To Be Determined"])
  */
 export async function getDashboardData(
   supabase: SupabaseClient<Database>,
-  ctx: SessionContext
+  ctx: SessionContext,
+  activeContext: SwitchableContext
 ): Promise<DashboardData> {
-  const myTeamIds = (await getMyTeams(supabase, ctx)).map((t) => t.id)
+  const myTeamIds = (await getTeamsForActiveContext(supabase, ctx, activeContext)).map((t) => t.id)
 
   if (myTeamIds.length === 0) {
     return {
-      clubDisplayName: ctx.clubMemberships[0]?.clubName ?? "Ovalball",
+      clubDisplayName: activeContext.label,
       thisWeekFixtures: [],
       outstandingRequests: [],
       myTeamCount: 0,
+      recentPlayerMovements: [],
     }
   }
 
@@ -91,46 +104,76 @@ export async function getDashboardData(
   const hasClubFixtureAuthority = canManageClubFixturesAnywhere(ctx)
   const outstandingRequests: PendingRequestRow[] = []
 
-  const { data: outgoing } = await supabase
-    .from("fixture_requests")
-    .select("id, venue_preference, requesting_team_id, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)")
-    .in("requesting_team_id", myTeamIds)
-    .eq("status", "sent")
-
-  for (const r of outgoing ?? []) {
-    outstandingRequests.push({
-      id: r.id,
-      direction: "outgoing",
-      proposedDate: r.fixture_request_groups?.proposed_date ?? "",
-      opponentText: r.fixture_request_groups?.raw_opponent_text ?? "",
-      teamDisplayName: r.teams?.display_name ?? "Team",
-      venuePreference: r.venue_preference,
-    })
-  }
-
-  if (myTeamIds.length > 0 || hasClubFixtureAuthority) {
-    const { data: incoming } = await supabase
+  // Product decision: neither Parent/Guardian nor Player sees fixture
+  // request negotiation at all (matches app/(app)/fixtures/page.tsx being
+  // blocked outright for both contexts) -- skip the reads entirely rather
+  // than fetch data this dashboard would then have to hide.
+  if (activeContext.kind !== "parent" && activeContext.kind !== "player") {
+    const { data: outgoing } = await supabase
       .from("fixture_requests")
-      .select("id, venue_preference, target_team_id, teams!fixture_requests_target_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)")
-      .in("target_team_id", myTeamIds)
+      .select("id, venue_preference, requesting_team_id, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)")
+      .in("requesting_team_id", myTeamIds)
       .eq("status", "sent")
 
-    for (const r of incoming ?? []) {
+    for (const r of outgoing ?? []) {
       outstandingRequests.push({
         id: r.id,
-        direction: "incoming",
+        direction: "outgoing",
         proposedDate: r.fixture_request_groups?.proposed_date ?? "",
         opponentText: r.fixture_request_groups?.raw_opponent_text ?? "",
         teamDisplayName: r.teams?.display_name ?? "Team",
         venuePreference: r.venue_preference,
       })
     }
+
+    if (myTeamIds.length > 0 || hasClubFixtureAuthority) {
+      const { data: incoming } = await supabase
+        .from("fixture_requests")
+        .select("id, venue_preference, target_team_id, teams!fixture_requests_target_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)")
+        .in("target_team_id", myTeamIds)
+        .eq("status", "sent")
+
+      for (const r of incoming ?? []) {
+        outstandingRequests.push({
+          id: r.id,
+          direction: "incoming",
+          proposedDate: r.fixture_request_groups?.proposed_date ?? "",
+          opponentText: r.fixture_request_groups?.raw_opponent_text ?? "",
+          teamDisplayName: r.teams?.display_name ?? "Team",
+          venuePreference: r.venue_preference,
+        })
+      }
+    }
+  }
+
+  // Club Admin's own recent-movements log -- club-wide contexts only,
+  // never a team/parent/player view, matching "must never gain club-wide
+  // visibility merely because the UI exists". Approved call-ups only:
+  // dispensation evidence is deliberately never shown at this glance.
+  let recentPlayerMovements: PlayerMovementRow[] = []
+  if (activeContext.kind === "club" && hasClubFixtureAuthority) {
+    const { data: movements } = await supabase
+      .from("fixture_player_call_up")
+      .select("id, decided_at, players(first_name, surname), source_team:source_team_id(display_name), target_team:target_team_id(display_name)")
+      .in("source_team_id", myTeamIds)
+      .eq("status", "approved")
+      .order("decided_at", { ascending: false })
+      .limit(5)
+
+    recentPlayerMovements = (movements ?? []).map((m) => ({
+      id: m.id,
+      playerName: m.players ? `${m.players.first_name} ${m.players.surname}` : "Unknown player",
+      fromTeamName: m.source_team?.display_name ?? "Unknown team",
+      toTeamName: m.target_team?.display_name ?? "Unknown team",
+      date: m.decided_at ?? "",
+    }))
   }
 
   return {
-    clubDisplayName: ctx.clubMemberships[0]?.clubName ?? "Ovalball",
+    clubDisplayName: activeContext.label,
     thisWeekFixtures,
     outstandingRequests,
     myTeamCount: myTeamIds.length,
+    recentPlayerMovements,
   }
 }

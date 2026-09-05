@@ -4,23 +4,16 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import type { TeamCategoryGroup, TeamOptionAvailability } from "@/lib/teams/catalog"
 
 import { createTeam } from "./actions"
+import { TeamCategoryPicker } from "./team-category-picker"
 
-const AGE_GROUPS = ["U7", "U8", "U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U17", "U18"] as const
-const SENIOR_SQUAD_OPTIONS = ["1st", "2nd", "3rd", "4th", "5th"] as const
-const YOUTH_SQUAD_OPTIONS = ["A", "B", "C", "D"] as const
-
-export function CreateTeamForm({ clubId }: { clubId: string }) {
+export function CreateTeamForm({ clubId, groups, availability }: { clubId: string; groups: TeamCategoryGroup[]; availability: TeamOptionAvailability[] }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [displayName, setDisplayName] = useState("")
-  const [category, setCategory] = useState<"senior" | "youth">("youth")
-  const [ageGroup, setAgeGroup] = useState<string>("U12")
-  const [squadDesignation, setSquadDesignation] = useState("")
-  const [gender, setGender] = useState<"mens" | "womens" | "mixed">("mixed")
+  const [categoryLabel, setCategoryLabel] = useState<string | null>(null)
+  const [squadLetter, setSquadLetter] = useState<string | null>(null)
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
 
@@ -34,19 +27,16 @@ export function CreateTeamForm({ clubId }: { clubId: string }) {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (!categoryLabel) {
+      setError("Pick a team from the list.")
+      return
+    }
     setStatus("saving")
     setError(null)
-    const result = await createTeam({
-      clubId,
-      displayName: displayName.trim(),
-      category,
-      ageGroup: category === "youth" ? ageGroup : null,
-      squadDesignation: squadDesignation.trim() || null,
-      gender,
-    })
+    const result = await createTeam({ clubId, categoryLabel, squadLetter })
     if (result.ok) {
-      setDisplayName("")
-      setSquadDesignation("")
+      setCategoryLabel(null)
+      setSquadLetter(null)
       setOpen(false)
       setStatus("idle")
       router.refresh()
@@ -59,102 +49,41 @@ export function CreateTeamForm({ clubId }: { clubId: string }) {
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border border-ink/10 bg-white p-5">
       <p className="text-sm font-medium text-ink">Add a team</p>
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <Label htmlFor="team-name" className="text-ink/80">
-            Team name
-          </Label>
-          <Input
-            id="team-name"
-            required
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="e.g. U12 A, Men's 1st"
-            className="mt-1.5 h-11 border-ink/15 bg-white"
-          />
-        </div>
-        <div>
-          <Label htmlFor="team-category" className="text-ink/80">
-            Category
-          </Label>
-          <select
-            id="team-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as "senior" | "youth")}
-            className="mt-1.5 h-11 w-full rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600"
-          >
-            <option value="youth">Youth</option>
-            <option value="senior">Senior</option>
-          </select>
-        </div>
-        {category === "youth" && (
-          <div>
-            <Label htmlFor="team-age-group" className="text-ink/80">
-              Age group
-            </Label>
-            <select
-              id="team-age-group"
-              value={ageGroup}
-              onChange={(e) => setAgeGroup(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600"
-            >
-              {AGE_GROUPS.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div>
-          <Label htmlFor="team-squad" className="text-ink/80">
-            {category === "senior" ? "Team number" : "Squad"}
-          </Label>
-          <select
-            id="team-squad"
-            value={squadDesignation}
-            onChange={(e) => setSquadDesignation(e.target.value)}
-            className="mt-1.5 h-11 w-full rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600"
-          >
-            <option value="">
-              {category === "senior" ? "1st (default)" : "Just one team"}
-            </option>
-            {(category === "senior" ? SENIOR_SQUAD_OPTIONS : YOUTH_SQUAD_OPTIONS).map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-ink/45">
-            {category === "senior"
-              ? "Only needed once you run more than one senior side."
-              : "Only needed once this age group has more than one team."}
-          </p>
-        </div>
-        <div>
-          <Label htmlFor="team-gender" className="text-ink/80">
-            Gender
-          </Label>
-          <select
-            id="team-gender"
-            value={gender}
-            onChange={(e) => setGender(e.target.value as "mens" | "womens" | "mixed")}
-            className="mt-1.5 h-11 w-full rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600"
-          >
-            <option value="mixed">Mixed</option>
-            <option value="mens">Men&apos;s</option>
-            <option value="womens">Women&apos;s</option>
-          </select>
-        </div>
+      <p className="mt-1 text-sm text-ink/50">
+        Pick from the same team list your club confirmed when it joined Ovalball &mdash; there&apos;s no free-text
+        name to type or get out of sync.
+      </p>
+
+      <div className="mt-4">
+        <TeamCategoryPicker
+          groups={groups}
+          categoryLabel={categoryLabel}
+          squadLetter={squadLetter}
+          availability={availability}
+          onChange={(label, letter) => {
+            setCategoryLabel(label)
+            setSquadLetter(letter)
+          }}
+        />
       </div>
 
       {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
 
       <div className="mt-4 flex items-center gap-2">
-        <Button type="submit" className="h-9" disabled={status === "saving" || !displayName.trim()}>
+        <Button type="submit" className="h-9" disabled={status === "saving" || !categoryLabel}>
           {status === "saving" ? "Adding…" : "Add team"}
         </Button>
-        <Button type="button" variant="ghost" className="h-9" onClick={() => setOpen(false)}>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-9"
+          onClick={() => {
+            setOpen(false)
+            setCategoryLabel(null)
+            setSquadLetter(null)
+            setError(null)
+          }}
+        >
           Cancel
         </Button>
       </div>

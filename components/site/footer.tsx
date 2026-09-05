@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import { OvalballLogo, OvalballWordmark } from "@/components/brand/ovalball-logo"
 import { OvalballMark } from "@/components/brand/ovalball-mark"
+import { APP_VERSION } from "@/lib/version"
 
 interface FooterLink {
   label: string
@@ -33,7 +34,7 @@ const SECONDARY_CLUSTERS: FooterCluster[] = [
     links: [
       { label: "About", href: "#about", disabled: true },
       { label: "Contact", href: "#contact", disabled: true },
-      { label: "Support", href: "#support", disabled: true },
+      { label: "Support", href: "/support" },
     ],
   },
   {
@@ -98,6 +99,11 @@ export function Footer() {
           <p>&copy; 2026 Ovalball. All rights reserved.</p>
           <p>Developed by Jaxippa Technologies</p>
         </div>
+        {/* Restrained, quiet -- no build metadata, no Git SHA, just enough
+            that a curious visitor can tell they're not on a stale cache.
+            Reads from the SAME lib/version.ts as Site Admin's own System
+            Health page, never a second constant. */}
+        <p className="relative mt-3 text-center text-xs text-white/30 sm:text-left">Ovalball v{APP_VERSION}</p>
       </div>
     </footer>
   )

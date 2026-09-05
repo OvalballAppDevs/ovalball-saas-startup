@@ -7,13 +7,19 @@ import { PartnerCommunicationSection } from "@/components/site/partner-communica
 import { PhotoTransition } from "@/components/site/photo-transition"
 import { PlanSeasonSection } from "@/components/site/plan-season-section"
 import { ProductRevealTeaser } from "@/components/site/product-reveal-teaser"
+import { getPublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
 
 // Server Component: composes the marketing page from client-side section
-// components rather than making the whole page a client boundary.
-export default function Page() {
+// components rather than making the whole page a client boundary. An
+// authenticated visitor still sees this public homepage -- never
+// redirected away from it -- with the header's account control standing
+// in for "Sign In" instead.
+export default async function Page() {
+  const identity = await getPublicHeaderIdentity()
+
   return (
     <>
-      <Header />
+      <Header identity={identity} />
       <main>
         <HeroSection />
         <EmotionSection />

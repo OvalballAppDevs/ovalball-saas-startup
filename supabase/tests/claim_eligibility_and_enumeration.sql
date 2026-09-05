@@ -23,8 +23,8 @@ begin
   select id into v_preston_dir_id from public.club_directory where name = 'Preston Grasshoppers RFC';
   select id into v_blackburn_dir_id from public.club_directory where name = 'Blackburn RUFC';
 
-  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
-  values ('00000000-0000-0000-0000-000000000013', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.claim.attempt@ovalball.local', '', now(), now(), '{}', '{}')
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change)
+  values ('00000000-0000-0000-0000-000000000013', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.claim.attempt@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', '')
   on conflict (id) do nothing;
 
   insert into public.profiles (id, first_name, surname, email)

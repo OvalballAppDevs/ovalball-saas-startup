@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import { useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -49,7 +48,7 @@ export function ClubProfileForm({ initial }: { initial: ClubProfileFormData }) {
     const result = await uploadClubLogo(form.clubId, formData)
     setLogoUploading(false)
     if (result.ok) {
-      setLogoUrl(URL.createObjectURL(file))
+      setLogoUrl(result.url)
     } else {
       setError(result.error)
     }
@@ -75,7 +74,8 @@ export function ClubProfileForm({ initial }: { initial: ClubProfileFormData }) {
         <div className="mt-3 flex items-center gap-4">
           <div className="flex size-16 items-center justify-center overflow-hidden rounded-lg border border-ink/10 bg-white">
             {logoUrl ? (
-              <Image src={logoUrl} alt="Club crest" width={64} height={64} className="size-full object-contain" />
+              // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage public URL, avoids next/image's remote-pattern config for a small thumbnail
+              <img src={logoUrl} alt="Club crest" className="size-full object-contain" />
             ) : (
               <span className="text-xs text-ink/30">No crest</span>
             )}

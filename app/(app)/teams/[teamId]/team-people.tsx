@@ -3,9 +3,19 @@
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { TEAM_PERMISSION_OPTIONS } from "@/lib/permissions/role-labels"
 
 import { assignTeamMember, removeTeamMember } from "./actions"
 
+/**
+ * Deliberately PLURAL, for this file's own group-header display only
+ * (e.g. "Coaches" as a section title reads better than "Coach") -- values
+ * stay in the same order as the canonical TEAM_PERMISSION_OPTIONS, used
+ * directly (singular) for the per-person role-assignment select below,
+ * which was previously and incorrectly showing these same plural labels
+ * for a single person's role ("Coaches" as the option when assigning ONE
+ * person to be a coach).
+ */
 const PERMISSION_GROUPS = [
   { value: "team_admin", label: "Team Admin" },
   { value: "coach", label: "Coaches" },
@@ -142,9 +152,9 @@ export function TeamPeople({
                 onChange={(e) => setSelectedPermission(e.target.value as TeamMemberRow["permission"])}
                 className="h-10 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
               >
-                {PERMISSION_GROUPS.map((g) => (
+                {TEAM_PERMISSION_OPTIONS.map((g) => (
                   <option key={g.value} value={g.value}>
-                    {g.value === "view_only" ? "Parent/Player (view only)" : g.label}
+                    {g.label}
                   </option>
                 ))}
               </select>

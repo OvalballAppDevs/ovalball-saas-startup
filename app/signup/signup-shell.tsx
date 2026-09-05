@@ -12,6 +12,7 @@ import {
   SIGNUP_STEPS,
   type SignupFormState,
   type SignupStep,
+  type TeamCategoryGroup,
 } from "@/lib/signup/types"
 
 import { ProgressIndicator } from "./progress-indicator"
@@ -56,7 +57,7 @@ function isSignupStep(value: unknown): value is SignupStep {
  * session. See submit-signup.ts and complete-signup.ts for the full
  * sequence and why it has to be split across those two points.
  */
-export function SignupShell() {
+export function SignupShell({ teamCategoryGroups }: { teamCategoryGroups: TeamCategoryGroup[] }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const stepParam = searchParams.get("step")
@@ -290,6 +291,7 @@ export function SignupShell() {
               {step === "club" && (
                 <ClubStep
                   ref={clubStepRef}
+                  teamCategoryGroups={teamCategoryGroups}
                   rugbyCode={formState.rugbyCode}
                   onRugbyCodeChange={(rugbyCode) =>
                     setFormState((prev) => ({ ...prev, rugbyCode, club: { kind: "unselected" } }))

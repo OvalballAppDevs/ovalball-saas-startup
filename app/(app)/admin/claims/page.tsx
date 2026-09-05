@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { ShieldCheck } from "lucide-react"
 
-import { getSessionContext } from "@/lib/app-context/session-context"
+import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { createClient } from "@/lib/supabase/server"
 
 import { ClaimCard } from "./claim-card"
@@ -21,8 +21,13 @@ export default async function SiteAdminClaimsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const ctx = await getSessionContext(supabase, user)
-  if (!ctx.isSiteAdmin) redirect("/dashboard")
+  // Site Admin route-family guard (addendum): requires BOTH real Site
+  // Admin authority AND that the account has actively switched into Site
+  // Admin as its current operating context -- see requireActiveSiteAdmin()'s
+  // own doc comment. An account that also happens to be, say, Burnley's
+  // Club Admin must not reach this page while operating as Burnley.
+  const activeSiteAdmin = await requireActiveSiteAdmin(supabase, user)
+  if (!activeSiteAdmin.ok) redirect("/dashboard")
 
   const { data: claims } = await supabase
     .from("club_claims")

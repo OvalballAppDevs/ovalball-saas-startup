@@ -12,6 +12,8 @@ export interface PendingPartnershipData {
   town: string | null
   direction: "incoming" | "outgoing"
   requestedAt: string
+  /** True when this request was created automatically after a fixture was accepted between the two clubs, rather than requested directly through Partner Clubs. */
+  fromFixture: boolean
 }
 
 export function PartnershipRequestRow({ request }: { request: PendingPartnershipData }) {
@@ -50,6 +52,9 @@ export function PartnershipRequestRow({ request }: { request: PendingPartnership
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink">{request.clubName}</p>
         <p className="text-xs text-ink/50">{request.town ?? "Location unknown"}</p>
+        {request.fromFixture && (
+          <p className="mt-1 text-xs text-forest-800">Sent automatically after a fixture was agreed between your clubs.</p>
+        )}
         {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
       </div>
       {request.direction === "incoming" ? (

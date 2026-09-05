@@ -1,8 +1,10 @@
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
+import { cookies } from "next/headers"
 import { ChevronLeft } from "lucide-react"
 
-import { getSessionContext, manageableClubId as getManageableClubId } from "@/lib/app-context/session-context"
+import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
+import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
 import { PartnerAvailability } from "./partner-availability"
@@ -16,7 +18,10 @@ export default async function PartnerClubAvailabilityPage({ params }: { params: 
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const clubId = getManageableClubId(ctx)
+  const cookieStore = await cookies()
+  const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
+  // No `?? manageableClubId(ctx)` fallback -- see app/(app)/partner-clubs/page.tsx.
+  const clubId = activeManageableClubId(ctx, activeContext)
   if (!clubId) redirect("/fixtures")
 
   // Re-derive "are we actually active partners" server-side rather than

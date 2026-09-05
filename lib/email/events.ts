@@ -12,6 +12,7 @@ export type EmailEvent =
   | { type: "club_claim_approved"; data: { clubName: string } }
   | { type: "club_claim_rejected"; data: { clubName: string; reason?: string } }
   | { type: "club_invitation"; data: { clubName: string; inviteLink: string } }
+  | { type: "partner_club_invitation"; data: { invitingClubName: string; invitedClubName: string; inviteLink: string } }
   | { type: "team_invitation"; data: { clubName: string; teamNames: string[]; inviteLink: string } }
   | { type: "fixture_request_received"; data: { clubName: string; opponentText: string; date: string } }
   | { type: "fixture_request_accepted"; data: { opponentText: string; date: string } }
@@ -20,6 +21,10 @@ export type EmailEvent =
   | { type: "fixture_cancelled"; data: { opponentText: string; date: string } }
   | { type: "calendar_share_request"; data: { requestingClubName: string } }
   | { type: "calendar_share_approved"; data: { partnerClubName: string } }
+  | { type: "site_admin_invitation"; data: { profileLabel: string; inviteLink: string } }
+  | { type: "support_ticket_reply"; data: { reference: string; subject: string; body: string } }
+  | { type: "guardian_invitation"; data: { clubName: string; teamName: string; inviteLink: string } }
+  | { type: "player_account_invitation"; data: { playerFirstName: string; inviteLink: string } }
 
 export interface RenderedEmail {
   subject: string
@@ -51,6 +56,11 @@ export function renderEmailEvent(event: EmailEvent): RenderedEmail {
         subject: `You've been invited to ${event.data.clubName} on Ovalball`,
         text: `Join ${event.data.clubName} on Ovalball: ${event.data.inviteLink}`,
       }
+    case "partner_club_invitation":
+      return {
+        subject: `${event.data.invitingClubName} has invited you to join them on Ovalball`,
+        text: `${event.data.invitingClubName} has invited you to join them on Ovalball.\n\nJoin Ovalball and connect with ${event.data.invitingClubName}.\n\n${event.data.inviteLink}`,
+      }
     case "team_invitation":
       return {
         subject: `You've been invited to ${event.data.teamNames.join(", ")} on Ovalball`,
@@ -73,5 +83,25 @@ export function renderEmailEvent(event: EmailEvent): RenderedEmail {
       return { subject: "Calendar sharing request", text: `${event.data.requestingClubName} would like to agree calendar sharing with your club.` }
     case "calendar_share_approved":
       return { subject: "Calendar sharing agreed", text: `${event.data.partnerClubName} has agreed to share calendar availability with your club.` }
+    case "site_admin_invitation":
+      return {
+        subject: "You've been invited as an Ovalball Site Administrator",
+        text: `You've been invited to become a ${event.data.profileLabel} on Ovalball: ${event.data.inviteLink}`,
+      }
+    case "support_ticket_reply":
+      return {
+        subject: `Re: ${event.data.subject} (${event.data.reference})`,
+        text: event.data.body,
+      }
+    case "guardian_invitation":
+      return {
+        subject: `You've been invited as a Parent/Guardian at ${event.data.clubName}`,
+        text: `${event.data.clubName} has invited you as a Parent/Guardian for ${event.data.teamName} on Ovalball: ${event.data.inviteLink}`,
+      }
+    case "player_account_invitation":
+      return {
+        subject: `You've been invited to your own Ovalball login`,
+        text: `You've been invited to create your own Ovalball login linked to ${event.data.playerFirstName}'s player record: ${event.data.inviteLink}`,
+      }
   }
 }

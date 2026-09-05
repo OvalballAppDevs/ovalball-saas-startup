@@ -34,7 +34,13 @@ export default function RootLayout({
         bebasNeue.variable
       )}
     >
-      <body>
+      {/* brand-light-scope on body, not just per-route: portaled overlay content (Base UI's
+          Dialog/Select/Dropdown/Tooltip) renders outside any inner scoped wrapper, appended
+          near the end of body -- so a route-local .brand-light-scope div (as /signup and
+          /legal already used) never reaches it. No route in this app has a designed dark-mode
+          variant (globals.css's own .dark block exists but is unused by design), so scoping
+          the whole document is the actual fix, not a broader version of the same one. */}
+      <body className="brand-light-scope">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

@@ -9,9 +9,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
+import { REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember-constants"
+
 import { submitLogin } from "./actions"
 
 const EMAIL_PATTERN = /\S+@\S+\.\S+/
+const REMEMBER_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400
+
+/**
+ * Non-sensitive UI preference only -- read server-side wherever this app
+ * writes Supabase's own auth cookies (see lib/supabase/remember.ts for
+ * why a plain client-set cookie, not a server round trip, is enough).
+ * Written now, before the magic-link redirect away from this tab, so
+ * it's already present when /auth/callback issues the real session.
+ */
+function setRememberCookie(remember: boolean) {
+  document.cookie = `${REMEMBER_COOKIE_NAME}=${remember ? "1" : "0"}; path=/; max-age=${REMEMBER_COOKIE_MAX_AGE_SECONDS}; samesite=lax`
+}
 
 type Status = "idle" | "submitting" | "sent" | "error"
 
@@ -38,6 +52,15 @@ export function LoginForm() {
   // clears itself the moment the visitor edits the email field or submits,
   // rather than persisting across an unrelated later action.
   const [linkError, setLinkError] = useState(() => searchParams.get("error") === "link")
+  // Set by proxy.ts when a session's recorded AUTH_SESSION_VERSION falls
+  // behind the current requirement -- never shown for an ordinary deploy,
+  // only a deliberate security/session-breaking version bump.
+  const [sessionUpdated, setSessionUpdated] = useState(() => searchParams.get("reason") === "updated")
+  // Set by proxy.ts when a Site Admin suspends this account while it has an
+  // active session -- deliberately no internal reason surfaced beyond
+  // "suspended," matching lib/supabase/middleware.ts's own choice not to
+  // leak suspension detail to the client.
+  const [sessionSuspended, setSessionSuspended] = useState(() => searchParams.get("reason") === "suspended")
   const [email, setEmail] = useState(searchParams.get("email") ?? "")
   const [touched, setTouched] = useState(false)
   const [status, setStatus] = useState<Status>("idle")
@@ -53,7 +76,9 @@ export function LoginForm() {
   // just stops someone mashing "Resend" a dozen times in ten seconds while
   // wondering where the email is.
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [rememberMe, setRememberMe] = useState(true)
   const emailId = useId()
+  const rememberId = useId()
 
   const syntaxValid = EMAIL_PATTERN.test(email)
   const showSyntaxError = touched && email.length > 0 && !syntaxValid
@@ -70,6 +95,9 @@ export function LoginForm() {
     setStatus("submitting")
     setErrorMessage(null)
     setLinkError(false)
+    setSessionUpdated(false)
+    setSessionSuspended(false)
+    setRememberCookie(rememberMe)
     const result = await submitLogin(email)
 
     if (result.ok) {
@@ -137,6 +165,22 @@ export function LoginForm() {
         </p>
       </div>
 
+      {sessionUpdated && (
+        <div className="rounded-lg border border-ink/10 bg-white p-4" aria-live="polite">
+          <p className="text-sm font-medium text-ink">Ovalball has been updated</p>
+          <p className="mt-1 text-sm text-ink/60">For security, please sign in again.</p>
+        </div>
+      )}
+
+      {sessionSuspended && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4" aria-live="polite">
+          <p className="text-sm font-medium text-destructive">Your Ovalball account has been suspended.</p>
+          <p className="mt-1 text-sm text-ink/60">
+            Please contact Ovalball Support if you believe this is an error.
+          </p>
+        </div>
+      )}
+
       {linkError && (
         <div className="rounded-lg border border-ink/10 bg-white p-4" aria-live="polite">
           <p className="text-sm font-medium text-ink">That link didn&apos;t work.</p>
@@ -162,6 +206,8 @@ export function LoginForm() {
             setEmail(event.target.value)
             if (status === "error") setStatus("idle")
             if (linkError) setLinkError(false)
+            if (sessionUpdated) setSessionUpdated(false)
+            if (sessionSuspended) setSessionSuspended(false)
           }}
           onBlur={() => setTouched(true)}
           aria-invalid={showSyntaxError}
@@ -177,6 +223,23 @@ export function LoginForm() {
           </p>
         )}
       </div>
+
+      <label htmlFor={rememberId} className="flex items-start gap-2.5 text-sm text-ink/70">
+        <input
+          id={rememberId}
+          type="checkbox"
+          checked={rememberMe}
+          onChange={(event) => setRememberMe(event.target.checked)}
+          className="mt-0.5 size-4 shrink-0 rounded border-ink/25 text-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"
+        />
+        <span>
+          Keep me signed in on this device
+          <span className="block text-xs text-ink/45">
+            Stay signed in until you sign out or Ovalball requires you to sign in again for
+            security. Turn this off on a shared or public computer.
+          </span>
+        </span>
+      </label>
 
       <div aria-live="polite">
         {status === "error" && (

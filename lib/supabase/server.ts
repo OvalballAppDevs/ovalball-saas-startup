@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
 import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase/env"
+import { applyRememberPreference, parseRememberCookie, REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember"
 import type { Database } from "@/types/database.types"
 
 /**
@@ -15,6 +16,7 @@ import type { Database } from "@/types/database.types"
  */
 export async function createClient() {
   const cookieStore = await cookies()
+  const remember = parseRememberCookie(cookieStore.get(REMEMBER_COOKIE_NAME)?.value)
 
   return createServerClient<Database>(getSupabaseUrl(), getSupabasePublishableKey(), {
     cookies: {
@@ -24,7 +26,7 @@ export async function createClient() {
       setAll(cookiesToSet) {
         try {
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
+            cookieStore.set(name, value, applyRememberPreference(options, remember))
           )
         } catch {
           // Called from a Server Component — proxy.ts refreshes the session instead.

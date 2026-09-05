@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+import { YOUTH_AGE_GROUPS as AGE_GROUPS } from "@/lib/teams/age-groups"
+
 import { createFixtureRequest } from "./actions"
 import { searchOpponentClubs, type OpponentSearchResult } from "./search-opponents"
 
@@ -32,6 +34,13 @@ interface SuggestedTargetTeam {
   displayName: string
 }
 
+
+interface TargetIdentity {
+  ageGroup: string
+  gender: "boys" | "girls"
+  squad: string
+}
+
 export function RequestFixtureForm({
   clubId,
   teams,
@@ -56,6 +65,8 @@ export function RequestFixtureForm({
   )
   const [editingOpponent, setEditingOpponent] = useState(!initialOpponent)
   const [targetTeam, setTargetTeam] = useState(suggestedTargetTeam)
+  const [namingIdentity, setNamingIdentity] = useState(false)
+  const [targetIdentity, setTargetIdentity] = useState<TargetIdentity>({ ageGroup: "U12", gender: "boys", squad: "" })
   const [date, setDate] = useState(initialDate ?? "")
   const [selections, setSelections] = useState<Record<string, TeamSelection>>(
     Object.fromEntries(teams.map((t) => [t.id, { selected: false, venuePreference: "either", kickoffTime: "", note: "" }]))
@@ -79,6 +90,12 @@ export function RequestFixtureForm({
   const selectedTeams = teams.filter((t) => selections[t.id]?.selected)
   const canReview = Boolean(opponent) && Boolean(date) && selectedTeams.length > 0
 
+  // A named identity only ever applies when there's a single unambiguous
+  // requesting team AND no real opposing team was found to pick instead --
+  // same reasoning as targetTeamId below.
+  const canNameIdentity = !targetTeam && selectedTeams.length === 1 && Boolean(opponent?.clubId)
+  const namedIdentity = canNameIdentity && namingIdentity ? targetIdentity : null
+
   async function handleSubmit() {
     if (!opponent) return
     setSubmitting(true)
@@ -100,6 +117,9 @@ export function RequestFixtureForm({
         // single correct target for all of them, so each is left for the
         // responding side to resolve on accept, same as the normal flow.
         targetTeamId: targetTeam && selectedTeams.length === 1 ? targetTeam.id : null,
+        targetTeamAgeGroup: namedIdentity?.ageGroup ?? null,
+        targetTeamGender: namedIdentity?.gender ?? null,
+        targetTeamSquadDesignation: namedIdentity?.squad.trim() || null,
       })),
     })
     setSubmitting(false)
@@ -117,7 +137,15 @@ export function RequestFixtureForm({
         <h2 className="mt-2 font-display text-display-l text-ink">
           vs {opponent?.name}
           {targetTeam && selectedTeams.length === 1 ? ` ${targetTeam.displayName}` : ""}
+          {namedIdentity
+            ? ` ${namedIdentity.gender === "girls" ? "Girls " : ""}${namedIdentity.ageGroup}${namedIdentity.squad.trim() ? ` ${namedIdentity.squad.trim()}` : ""}`
+            : ""}
         </h2>
+        {namedIdentity && (
+          <p className="mt-1 text-xs text-ink/45">
+            They don&apos;t appear to have this team yet -- {opponent?.name} can create it when reviewing your request.
+          </p>
+        )}
         <p className="mt-1 text-sm text-ink/55">
           {date ? new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : ""}
         </p>
@@ -134,6 +162,16 @@ export function RequestFixtureForm({
           ))}
         </ul>
 
+        {!opponent?.clubId && (
+          <div className="mt-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-medium text-amber-900">{opponent?.name} is not currently active on Ovalball</p>
+            <p className="mt-1 text-sm text-amber-800">
+              This fixture will be added to your calendar, but no Ovalball request will be delivered &mdash; there
+              is no one on Ovalball to receive it.
+            </p>
+          </div>
+        )}
+
         {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
         <div className="mt-6 flex items-center gap-3">
@@ -141,7 +179,7 @@ export function RequestFixtureForm({
             Back
           </Button>
           <Button type="button" className="h-10" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? "Sending…" : "Send request"}
+            {submitting ? "Saving…" : opponent?.clubId ? "Send request" : "Add to calendar"}
           </Button>
         </div>
       </div>
@@ -267,6 +305,65 @@ export function RequestFixtureForm({
           })}
         </div>
       </div>
+
+      {canNameIdentity && (
+        <div className="mt-5">
+          {!namingIdentity ? (
+            <button
+              type="button"
+              onClick={() => setNamingIdentity(true)}
+              className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
+            >
+              Don&apos;t know if they have this team yet? Name it
+            </button>
+          ) : (
+            <div className="rounded-lg border border-ink/10 bg-ink/5 px-3.5 py-3">
+              <p className="text-sm font-medium text-ink">Which of their teams?</p>
+              <p className="mt-0.5 text-xs text-ink/55">
+                If {opponent?.name} doesn&apos;t have this team yet, they can create it when reviewing your request.
+                It won&apos;t be accepted until they do.
+              </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <select
+                  value={targetIdentity.ageGroup}
+                  onChange={(e) => setTargetIdentity((prev) => ({ ...prev, ageGroup: e.target.value }))}
+                  aria-label="Their team's age group"
+                  className="h-9 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
+                >
+                  {AGE_GROUPS.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={targetIdentity.gender}
+                  onChange={(e) => setTargetIdentity((prev) => ({ ...prev, gender: e.target.value as "boys" | "girls" }))}
+                  aria-label="Their team's classification"
+                  className="h-9 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
+                >
+                  <option value="boys">Boys</option>
+                  <option value="girls">Girls</option>
+                </select>
+                <input
+                  value={targetIdentity.squad}
+                  onChange={(e) => setTargetIdentity((prev) => ({ ...prev, squad: e.target.value }))}
+                  placeholder="Squad (optional, e.g. A)"
+                  aria-label="Their team's squad designation"
+                  className="h-9 w-40 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
+                />
+                <button
+                  type="button"
+                  onClick={() => setNamingIdentity(false)}
+                  className="text-sm text-ink/55 underline underline-offset-2 hover:text-ink"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-6">
         <Button type="button" className="h-10" disabled={!canReview} onClick={() => setStep("review")}>

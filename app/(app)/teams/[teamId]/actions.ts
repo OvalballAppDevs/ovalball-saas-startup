@@ -6,53 +6,79 @@ import { createClient } from "@/lib/supabase/server"
 
 export type TeamActionResult = { ok: true } | { ok: false; error: string }
 
-export interface UpdateTeamInput {
-  teamId: string
-  displayName: string
-  category: "senior" | "youth"
-  ageGroup: string | null
-  squadDesignation: string | null
-  gender: "mens" | "womens" | "mixed" | null
+/**
+ * Section 23-25: a team's canonical age/category/gender/squad identity is
+ * no longer editable from this page at all (the old updateTeam() + the
+ * "Which team is this?" radio-grid it drove have been removed entirely --
+ * that identity now only ever changes through Season Rollover). What
+ * remains editable here is purely a club-specific DISPLAY alias for a B/C
+ * squad (Section 26-30) -- set_team_alias/clear_team_alias are the real
+ * boundary (club.teams.manage or site.team_catalogue.manage), and never
+ * touch category/age_group/gender/squad_designation themselves.
+ */
+export async function setTeamAlias(teamId: string, alias: string): Promise<TeamActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("set_team_alias", { p_team_id: teamId, p_alias: alias })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/teams/${teamId}`)
+  revalidatePath("/teams")
+  revalidatePath("/calendar")
+  return { ok: true }
 }
 
-/** teams_update_admin (is_site_admin() or is_club_admin(club_id)) is the real boundary. */
-export async function updateTeam(input: UpdateTeamInput): Promise<TeamActionResult> {
+export async function clearTeamAlias(teamId: string): Promise<TeamActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase
-    .from("teams")
-    .update({
-      display_name: input.displayName,
-      category: input.category,
-      age_group: input.ageGroup,
-      squad_designation: input.squadDesignation,
-      gender: input.gender,
-    })
-    .eq("id", input.teamId)
+  const { error } = await supabase.rpc("clear_team_alias", { p_team_id: teamId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/teams/${teamId}`)
+  revalidatePath("/teams")
+  revalidatePath("/calendar")
+  return { ok: true }
+}
 
-  if (error) {
-    if (error.code === "23505") {
-      return { ok: false, error: "Another team already has this exact category/age group/squad designation." }
-    }
-    return { ok: false, error: error.message }
-  }
-  revalidatePath(`/teams/${input.teamId}`)
+/**
+ * Fold/reactivate, never delete -- fixtures, messages, and past
+ * assignments all reference teams.id and must survive. fold_team() is the
+ * real boundary: it requires a reason, cancels every future active
+ * fixture the team owns (retaining the record), notifies real activated
+ * opponents, and writes a full audit_log entry -- a plain active=false
+ * toggle would silently leave those consequences undone.
+ */
+export type FoldTeamResult = { ok: true; fixturesAffected: number } | { ok: false; error: string }
+
+export async function foldTeam(teamId: string, reason: string): Promise<FoldTeamResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("fold_team", { p_team_id: teamId, p_reason: reason })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/teams/${teamId}`)
+  revalidatePath("/teams")
+  revalidatePath("/calendar")
+  revalidatePath("/admin/fixtures")
+  return { ok: true, fixturesAffected: data ?? 0 }
+}
+
+export async function reactivateTeam(teamId: string): Promise<TeamActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("reactivate_team", { p_team_id: teamId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/teams/${teamId}`)
   revalidatePath("/teams")
   return { ok: true }
 }
 
 /**
- * Archive/reactivate, never delete -- fixtures, messages, and past
- * assignments all reference teams.id and must survive (brief: "do NOT
- * hard-delete a team that already has fixtures/messages/assignments/
- * history"). There is no delete UI or action for teams at all; archiving
- * (active=false) is the only "removal" this app offers.
+ * A real activated opponent gets a fresh, reviewable fixture_request
+ * (never a silent reinstatement); an external/unresolved opponent
+ * restores directly since there is nobody in-app to approve. Either way
+ * request_fixture_restoration() runs a real conflict check first.
  */
-export async function setTeamActive(teamId: string, active: boolean): Promise<TeamActionResult> {
+export async function requestFixtureRestoration(teamId: string, fixtureId: string): Promise<TeamActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.from("teams").update({ active }).eq("id", teamId)
+  const { error } = await supabase.rpc("request_fixture_restoration", { p_fixture_id: fixtureId })
   if (error) return { ok: false, error: error.message }
   revalidatePath(`/teams/${teamId}`)
-  revalidatePath("/teams")
+  revalidatePath("/calendar")
+  revalidatePath("/admin/fixtures")
   return { ok: true }
 }
 

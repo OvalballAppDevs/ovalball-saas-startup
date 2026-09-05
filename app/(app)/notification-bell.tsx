@@ -76,7 +76,7 @@ export function NotificationBell({
       >
         <Bell className="size-5" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full bg-pitch-500 text-[10px] font-semibold text-white ring-2 ring-forest-950">
+          <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full bg-pitch-600 text-[10px] font-semibold text-white ring-2 ring-forest-950">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -108,7 +108,7 @@ export function NotificationBell({
                   <span
                     className={cn(
                       "mt-1.5 size-1.5 shrink-0 rounded-full",
-                      n.readAt ? "bg-transparent" : "bg-pitch-500"
+                      n.readAt ? "bg-transparent" : "bg-pitch-600"
                     )}
                     aria-hidden="true"
                   />

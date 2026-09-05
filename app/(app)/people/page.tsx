@@ -1,18 +1,14 @@
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 
+import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
+import { teamPermissionLabel } from "@/lib/permissions/role-labels"
 
 import { InviteForm } from "./invite-form"
 import { PendingInvitationRow } from "./pending-invitation-row"
 import { PersonRow, type PersonRowData } from "./person-row"
-
-const TEAM_PERMISSION_LABEL: Record<string, string> = {
-  team_admin: "Team Admin",
-  coach: "Coach",
-  manager: "Manager",
-  view_only: "Parent/Player",
-}
 
 /**
  * "Club Admin" is a strict superset of "Fixture Secretary" authority
@@ -33,8 +29,27 @@ export default async function PeoplePage() {
   const ctx = await getSessionContext(supabase, user)
   if (!isClubAdminAnywhere(ctx)) redirect("/dashboard")
 
-  const clubId = ctx.clubMemberships.find((m) => m.role === "CLUB_ADMIN")!.clubId
-  const clubName = ctx.clubMemberships.find((m) => m.role === "CLUB_ADMIN")!.clubName
+  const cookieStore = await cookies()
+  const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
+  // People management is Club Admin-only authority (people.manage isn't in
+  // Fixtures Admin's capability set) -- resolve the active context's own
+  // club only if the session actually holds CLUB_ADMIN there, so switching
+  // to a team context or a club where this session is merely Fixture
+  // Secretary never silently falls back to managing a DIFFERENT club's
+  // people instead.
+  const activeClub = activeManageableClubId(ctx, activeContext)
+  const activeClubAdminMembership = activeClub ? ctx.clubMemberships.find((m) => m.clubId === activeClub && m.role === "CLUB_ADMIN") : undefined
+  // No `?? ctx.clubMemberships.find(...)` fallback here on purpose: a
+  // session that genuinely holds CLUB_ADMIN somewhere but whose ACTIVE
+  // context isn't that club's Club Admin view (e.g. Parent View on a team
+  // in the same club) must never fall through to managing people for
+  // whichever club-admin membership happens to exist first -- that was a
+  // real, live-confirmed leak (Parent View could see/edit/remove every
+  // Burnley member). Redirect instead, matching fixtures/page.tsx's
+  // activeContext.kind === "club" gate.
+  if (!activeClubAdminMembership) redirect("/dashboard")
+  const clubId = activeClubAdminMembership.clubId
+  const clubName = activeClubAdminMembership.clubName
 
   const [{ data: memberships }, { data: teams }, { data: invitations }] = await Promise.all([
     supabase.from("club_memberships").select("id, user_id, role").eq("club_id", clubId).eq("status", "active"),
@@ -59,7 +74,7 @@ export default async function PeoplePage() {
   const teamRolesByMembership = new Map<string, { teamName: string; permission: string }[]>()
   for (const tp of teamPerms ?? []) {
     const list = teamRolesByMembership.get(tp.membership_id) ?? []
-    list.push({ teamName: tp.teams?.display_name ?? "Team", permission: TEAM_PERMISSION_LABEL[tp.permission] ?? tp.permission })
+    list.push({ teamName: tp.teams?.display_name ?? "Team", permission: teamPermissionLabel(tp.permission) })
     teamRolesByMembership.set(tp.membership_id, list)
   }
 

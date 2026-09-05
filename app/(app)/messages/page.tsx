@@ -1,25 +1,18 @@
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { MessageSquare } from "lucide-react"
+import { cookies } from "next/headers"
 
-import { getConversationSummaries } from "@/lib/app-context/conversations"
+import { Button } from "@/components/ui/button"
+import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
+import { getClubConversationSummaries, getConversationSummaries } from "@/lib/app-context/conversations"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
-const STATUS_STYLES: Record<string, string> = {
-  sent: "bg-mint-100/60 text-forest-800",
-  accepted: "bg-mint-100 text-forest-900",
-  Booked: "bg-mint-100 text-forest-900",
-  Confirmed: "bg-mint-100 text-forest-900",
-  declined: "bg-destructive/10 text-destructive",
-  Cancelled: "bg-destructive/10 text-destructive",
-  cancelled: "bg-destructive/10 text-destructive",
-  expired: "bg-ink/5 text-ink/50",
-  counter_proposed: "bg-mint-100/60 text-forest-800",
-}
+import { ConversationList, type ConversationRow } from "./conversation-list"
 
 const STATUS_LABELS: Record<string, string> = {
   sent: "Awaiting response",
+  pending: "Awaiting response",
   accepted: "Accepted",
   declined: "Declined",
   cancelled: "Cancelled",
@@ -35,64 +28,79 @@ export default async function MessagesPage() {
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const conversations = await getConversationSummaries(supabase, ctx, user.id)
+  const cookieStore = await cookies()
+  const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
+  // Product decision: Parent/Player (view only) doesn't see the club-to-
+  // club fixture/request negotiation threads at all -- those are between
+  // the two clubs' admins/fixture secretaries (and, for "club" kind,
+  // unrelated general correspondence), not something a parent needs
+  // visibility into. A parent-facing team channel (parents + team staff,
+  // scoped to one team) is a distinct, not-yet-built conversation type --
+  // this only removes the wrong one from view, it doesn't invent the
+  // right one. Skip both fetches entirely rather than fetch-then-hide.
+  const inParentOrPlayerContext = activeContext.kind === "parent" || activeContext.kind === "player"
+  const conversations = inParentOrPlayerContext ? [] : await getConversationSummaries(supabase, ctx, user.id)
+  const clubConversations = inParentOrPlayerContext ? [] : await getClubConversationSummaries(supabase, ctx, user.id)
+  // Scoped to the ACTIVE club specifically, not "does this session hold
+  // CLUB_ADMIN/FIXTURE_SECRETARY ANYWHERE" -- otherwise Parent View (or an
+  // unrelated team context) offers "New message" (a club-to-club message)
+  // merely because the account also manages a different club elsewhere.
+  const canMessageClubs = Boolean(activeManageableClubId(ctx, activeContext))
+
+  // Presentation-only normalization over the SAME two real data sources --
+  // no new fetch, no new table. kind "request"/"fixture" -> the existing
+  // fixture-conversation route; kind "club" (pending or accepted) -> the
+  // same [kind]/[id] route already used for accepted club conversations,
+  // which already renders the request/accept affordance for a pending one.
+  const rows: ConversationRow[] = [
+    ...conversations.map((c) => ({
+      key: `${c.kind}:${c.id}`,
+      kind: c.kind,
+      href: `/messages/${c.kind}/${c.id}`,
+      logoUrl: c.opponentClubLogoUrl,
+      clubName: c.opponentClubName,
+      title: `${c.kind === "request" ? "Fixture request" : "Fixture"}: ${c.myTeamDisplayName} vs ${c.oppositionLabel}`,
+      preview: c.latestMessageSenderName ? `${c.latestMessageSenderName}: ${c.latestMessagePreview ?? ""}` : c.latestMessagePreview,
+      status: c.status,
+      statusLabel: STATUS_LABELS[c.status] ?? c.status,
+      activityAt: c.latestMessageAt ?? c.date,
+      unreadCount: c.unreadCount,
+    })),
+    ...clubConversations.map((c) => ({
+      key: `club:${c.id}`,
+      kind: "club" as const,
+      href: `/messages/club/${c.id}`,
+      logoUrl: c.opponentClubLogoUrl,
+      clubName: c.opponentClubName,
+      title: "Club message",
+      preview: c.latestMessageSenderName ? `${c.latestMessageSenderName}: ${c.latestMessagePreview ?? ""}` : c.latestMessagePreview,
+      status: c.status,
+      statusLabel: STATUS_LABELS[c.status] ?? c.status,
+      activityAt: c.latestMessageAt ?? c.requestedAt,
+      unreadCount: c.unreadCount,
+    })),
+  ]
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Messages</p>
-      <h1 className="mt-2 font-display text-display-l text-ink">Fixture conversations</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">
-        Every conversation here belongs to a specific fixture or fixture request &mdash; not a general club inbox.
-      </p>
-
-      {conversations.length === 0 ? (
-        <div className="mt-8 flex flex-col items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8">
-          <MessageSquare className="size-5 text-ink/30" />
-          <div>
-            <p className="text-sm font-medium text-ink">No conversations yet</p>
-            <p className="mt-1 text-sm text-ink/55">
-              Once you send or receive a fixture request, you can message the other side about it here.
-            </p>
-          </div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Messages</p>
+          <h1 className="mt-2 font-display text-display-l text-ink">Conversations</h1>
+          <p className="mt-2 max-w-md text-sm text-ink/55">
+            Fixture and fixture-request conversations, plus direct club-to-club messages.
+          </p>
         </div>
-      ) : (
-        <ul className="mt-8 flex flex-col gap-2">
-          {conversations.map((c) => {
-            const date = c.date ? new Date(c.date + "T00:00:00") : null
-            const dateLabel = date?.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) ?? "TBC"
-            return (
-              <li key={`${c.kind}:${c.id}`}>
-                <Link
-                  href={`/messages/${c.kind}/${c.id}`}
-                  className="flex items-start gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5 outline-none transition-colors hover:border-ink/20 focus-visible:ring-2 focus-visible:ring-pitch-400"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-ink">
-                        {c.myTeamDisplayName} <span className="text-ink/40">vs</span> {c.oppositionLabel}
-                      </p>
-                      {c.unreadCount > 0 && (
-                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-pitch-600 text-[11px] font-semibold text-white">
-                          {c.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 truncate text-xs text-ink/50">{dateLabel}</p>
-                    <p className="mt-1.5 truncate text-sm text-ink/70">
-                      {c.latestMessagePreview ?? <span className="text-ink/40 italic">No messages yet</span>}
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[c.status] ?? "bg-ink/5 text-ink/60"}`}
-                  >
-                    {STATUS_LABELS[c.status] ?? c.status}
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+        {canMessageClubs && (
+          <Button className="h-10 shrink-0" nativeButton={false} render={<Link href="/messages/new" />}>
+            New message
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-8">
+        <ConversationList rows={rows} />
+      </div>
     </div>
   )
 }

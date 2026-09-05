@@ -11,12 +11,13 @@ import {
   CLUB_ROLES,
   COUNTRY_OPTIONS,
   EMPTY_DIRECTORY_REQUEST,
-  TEAM_CATEGORY_GROUPS,
+  toSignupTeamCategoryGroups,
   type ClubDirectoryResult,
   type ClubSelection,
   type DirectoryRequestProposal,
   type RugbyCode,
   type SelectedTeam,
+  type TeamCategoryGroup,
 } from "@/lib/signup/types"
 
 import { searchClubDirectory } from "../actions"
@@ -52,6 +53,8 @@ interface ClubStepProps {
    * which read as two competing CTAs for what should be one action.
    */
   onAdvance: () => void
+  /** The live catalogue (from `loadTeamCategoryGroups`), fetched once by the server page and threaded down -- never a static import, so a Site-Admin-added global type appears in the "Which teams does your club run?" checklist with zero further code changes. */
+  teamCategoryGroups: TeamCategoryGroup[]
   ref?: Ref<ClubStepHandle>
 }
 
@@ -64,6 +67,7 @@ export function ClubStep({
   club,
   onClubChange,
   onAdvance,
+  teamCategoryGroups,
   ref,
 }: ClubStepProps) {
   const [query, setQuery] = useState("")
@@ -136,6 +140,7 @@ export function ClubStep({
     return (
       <ClaimForm
         directory={selected}
+        groups={teamCategoryGroups}
         onBack={() => setMode("search")}
         onSubmit={(role, authorityConfirmed, teams) => {
           onClubChange({
@@ -169,6 +174,7 @@ export function ClubStep({
       <NotFoundForm
         initial={club.kind === "not-found" ? club.proposal : EMPTY_DIRECTORY_REQUEST}
         initialTeams={club.kind === "not-found" ? club.teams : []}
+        groups={teamCategoryGroups}
         onBack={() => setMode("search")}
         onSubmit={(proposal, teams) => {
           onClubChange({ kind: "not-found", proposal, teams })
@@ -401,12 +407,16 @@ function RolePicker({
 }
 
 function TeamsPicker({
+  groups,
   value,
   onChange,
 }: {
+  groups: TeamCategoryGroup[]
   value: SelectedTeam[]
   onChange: (teams: SelectedTeam[]) => void
 }) {
+  const signupGroups = toSignupTeamCategoryGroups(groups)
+
   function getTeam(category: string) {
     return value.find((t) => t.category === category)
   }
@@ -448,7 +458,7 @@ function TeamsPicker({
       </div>
 
       <div className="flex flex-col gap-4 rounded-lg border border-ink/10 bg-white p-4">
-        {TEAM_CATEGORY_GROUPS.map((group) => (
+        {signupGroups.map((group) => (
           <div key={group.label}>
             <p className="text-xs font-medium tracking-[0.06em] text-ink/40 uppercase">
               {group.label}
@@ -512,10 +522,12 @@ function TeamsPicker({
 
 function ClaimForm({
   directory,
+  groups,
   onBack,
   onSubmit,
 }: {
   directory: ClubDirectoryResult
+  groups: TeamCategoryGroup[]
   onBack: () => void
   onSubmit: (role: string, authorityConfirmed: boolean, teams: SelectedTeam[]) => void
 }) {
@@ -539,7 +551,7 @@ function ClaimForm({
         <ClaimAuthorityNotice role={role} onChangeRole={() => setRole("")} onBack={onBack} />
       ) : (
         <>
-          <TeamsPicker value={teams} onChange={setTeams} />
+          <TeamsPicker groups={groups} value={teams} onChange={setTeams} />
 
           <label className="flex items-start gap-3 rounded-lg border border-ink/12 bg-white px-4 py-3.5">
             <input
@@ -663,11 +675,13 @@ function JoinForm({
 function NotFoundForm({
   initial,
   initialTeams,
+  groups,
   onBack,
   onSubmit,
 }: {
   initial: DirectoryRequestProposal
   initialTeams: SelectedTeam[]
+  groups: TeamCategoryGroup[]
   onBack: () => void
   onSubmit: (proposal: DirectoryRequestProposal, teams: SelectedTeam[]) => void
 }) {
@@ -735,7 +749,7 @@ function NotFoundForm({
         </div>
       </div>
 
-      <TeamsPicker value={teams} onChange={setTeams} />
+      <TeamsPicker groups={groups} value={teams} onChange={setTeams} />
 
       <p className="text-sm text-ink/45">
         Club logo upload is added once your account is confirmed, on the next

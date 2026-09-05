@@ -52,7 +52,7 @@ export async function sendSignInLinkIfAccountExists(email: string): Promise<Send
     email,
     options: {
       shouldCreateUser: false,
-      emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/welcome`,
+      emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/dashboard`,
     },
   })
 

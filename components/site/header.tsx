@@ -14,9 +14,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import { UserAvatar } from "@/components/profile/user-avatar"
 import { useMagnetic } from "@/lib/motion/use-magnetic"
 import { Reveal } from "@/lib/motion/reveal"
+import type { PublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
 import { cn } from "@/lib/utils"
+
+import { signOut } from "@/app/(app)/account/actions"
+import { AccountControl } from "./account-control"
 
 // "Product" is the only section that exists in Phase 1's DOM. The other
 // three are kept visible -- disabled, not dead-linked -- for the full nav
@@ -27,6 +32,7 @@ const NAV_LINKS = [
   { href: "#clubs", label: "Clubs", disabled: true },
   { href: "#fixtures", label: "Fixtures", disabled: true },
   { href: "#about", label: "About", disabled: true },
+  { href: "/support", label: "Support", disabled: false },
 ]
 
 // Live links get the oval hover pill + lift; disabled ones stay exactly as
@@ -46,8 +52,18 @@ const NAV_LINK_DISABLED_CLASS = "rounded-sm px-1 py-1 text-sm text-white/35 sele
  * pinned flush to the viewport edge -- still `position: fixed`, so this
  * never shifts page content, only the header's own box.
  */
-export function Header() {
-  const [solid, setSolid] = useState(false)
+export function Header({ identity }: { identity: PublicHeaderIdentity | null }) {
+  // Solid (green) by default -- correct, readable contrast for every public
+  // page. Only a page with a real hero image directly under the header
+  // (marked with [data-nav-sentinel]) ever goes transparent, and only for
+  // as long as that hero is actually in view. A page with no sentinel at
+  // all (Support, login, signup, legal pages, and any future public page
+  // that doesn't open on a hero) previously left `solid` stuck at its
+  // initial `false` forever -- a permanently transparent header with white
+  // text over a plain chalk background, unreadable. Defaulting to solid
+  // and only opting OUT via a real sentinel fixes every such page at this
+  // one shared shell, not per-page.
+  const [solid, setSolid] = useState(true)
   const loginRef = useMagnetic<HTMLDivElement>(8)
 
   useEffect(() => {
@@ -102,28 +118,36 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <Reveal as="div" index={NAV_LINKS.length + 1}>
-            <div ref={loginRef} className="magnetic-target hidden sm:inline-block">
-              <Button
-                variant="ghost"
-                className="login-pill h-9 rounded-full border border-white/20 px-4 text-sm text-white/90 hover:bg-transparent hover:text-white"
-                nativeButton={false}
-                render={<Link href="/login" />}
-              >
-                <span>Log in</span>
-                <ArrowRight aria-hidden="true" className="login-pill-arrow size-3.5" />
-              </Button>
-            </div>
-          </Reveal>
-          <Reveal as="div" index={NAV_LINKS.length + 2}>
-            <Button
-              className="cta-sweep h-11 rounded-lg px-4 text-sm"
-              nativeButton={false}
-              render={<Link href="/signup" />}
-            >
-              <span>Get Started</span>
-            </Button>
-          </Reveal>
+          {identity ? (
+            <Reveal as="div" index={NAV_LINKS.length + 1}>
+              <AccountControl identity={identity} />
+            </Reveal>
+          ) : (
+            <>
+              <Reveal as="div" index={NAV_LINKS.length + 1}>
+                <div ref={loginRef} className="magnetic-target hidden sm:inline-block">
+                  <Button
+                    variant="ghost"
+                    className="login-pill h-9 rounded-full border border-white/20 px-4 text-sm text-white/90 hover:bg-transparent hover:text-white"
+                    nativeButton={false}
+                    render={<Link href="/login" />}
+                  >
+                    <span>Log in</span>
+                    <ArrowRight aria-hidden="true" className="login-pill-arrow size-3.5" />
+                  </Button>
+                </div>
+              </Reveal>
+              <Reveal as="div" index={NAV_LINKS.length + 2}>
+                <Button
+                  className="cta-sweep h-11 rounded-lg px-4 text-sm"
+                  nativeButton={false}
+                  render={<Link href="/signup" />}
+                >
+                  <span>Get Started</span>
+                </Button>
+              </Reveal>
+            </>
+          )}
 
           <Sheet>
             <SheetTrigger
@@ -169,17 +193,79 @@ export function Header() {
                     </SheetClose>
                   )
                 )}
-                <SheetClose
-                  nativeButton={false}
-                  render={
-                    <Link
-                      href="/login"
-                      className="tap-press rounded-md px-2 py-3 text-base text-white/85 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white"
-                    />
-                  }
-                >
-                  Log in
-                </SheetClose>
+                {identity ? (
+                  <>
+                    <div className="mt-2 flex items-center gap-2.5 border-t border-white/10 px-2 pt-4">
+                      <UserAvatar avatarUrl={identity.avatarUrl} name={identity.avatarSeed} size="sm" variant="dark" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-chalk">{identity.fullName}</p>
+                        <p className="truncate text-xs text-white/50">
+                          {identity.roleLabel}
+                          {identity.clubName ? ` · ${identity.clubName}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <SheetClose
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={identity.destination}
+                          className="tap-press rounded-md px-2 py-3 text-base text-white/85 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white"
+                        />
+                      }
+                    >
+                      Open Ovalball
+                    </SheetClose>
+                    <SheetClose
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href="/account"
+                          className="tap-press rounded-md px-2 py-3 text-base text-white/85 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white"
+                        />
+                      }
+                    >
+                      Edit Personal Profile
+                    </SheetClose>
+                    <SheetClose
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href="/support"
+                          className="tap-press rounded-md px-2 py-3 text-base text-white/85 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white"
+                        />
+                      }
+                    >
+                      Support
+                    </SheetClose>
+                    <SheetClose
+                      nativeButton={false}
+                      onClick={() => {
+                        void signOut()
+                      }}
+                      render={
+                        <button
+                          type="button"
+                          className="tap-press mt-1 rounded-md border-t border-white/10 px-2 py-3 text-left text-base text-white/85 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white"
+                        />
+                      }
+                    >
+                      Log out
+                    </SheetClose>
+                  </>
+                ) : (
+                  <SheetClose
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href="/login"
+                        className="tap-press rounded-md px-2 py-3 text-base text-white/85 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white"
+                      />
+                    }
+                  >
+                    Log in
+                  </SheetClose>
+                )}
               </nav>
             </SheetContent>
           </Sheet>

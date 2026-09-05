@@ -4,22 +4,37 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
+import type { ConversationSummary } from "@/lib/app-context/conversations"
 import type { NotificationItem } from "@/lib/app-context/notifications"
+import type { ActiveContextKind, SwitchableContext } from "@/lib/app-context/active-context"
 import { cn } from "@/lib/utils"
 
+import { ContextSwitcher } from "./context-switcher"
+import { MessagesPopover } from "./messages-popover"
 import { NotificationBell } from "./notification-bell"
+import { ProfileButton } from "./profile-button"
+import { SupportButton } from "./support-button"
 
 export interface NavItem {
   href: string
   label: string
+  badge?: number
 }
 
 interface AppNavProps {
   primaryItems: NavItem[]
+  contexts: SwitchableContext[]
+  activeKey: string
+  identityKind: ActiveContextKind
   clubName: string
+  clubLogoUrl: string | null
   roleLabel: string
+  personName: string
+  personAvatarUrl: string | null
   notifications: NotificationItem[]
   unreadCount: number
+  conversations: ConversationSummary[]
+  supportUnreadCount: number
 }
 
 /**
@@ -29,20 +44,45 @@ interface AppNavProps {
  * not itself a security boundary, matching the brief's "navigation should
  * adapt to permissions... it is only presentation" instruction.
  */
-export function AppNav({ primaryItems, clubName, roleLabel, notifications, unreadCount }: AppNavProps) {
+export function AppNav({
+  primaryItems,
+  contexts,
+  activeKey,
+  identityKind,
+  clubName,
+  clubLogoUrl,
+  roleLabel,
+  personName,
+  personAvatarUrl,
+  notifications,
+  unreadCount,
+  conversations,
+  supportUnreadCount,
+}: AppNavProps) {
   const pathname = usePathname()
 
   return (
     <aside className="flex h-full w-full flex-col bg-forest-950 text-chalk md:w-64 md:shrink-0">
       <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
         <OvalballLogo variant="dark" />
-        <NotificationBell initialItems={notifications} initialUnreadCount={unreadCount} variant="dark" />
+        <div className="flex items-center gap-0.5">
+          <MessagesPopover conversations={conversations} variant="dark" />
+          <NotificationBell initialItems={notifications} initialUnreadCount={unreadCount} variant="dark" />
+          <SupportButton unreadCount={supportUnreadCount} variant="dark" />
+          <ProfileButton variant="dark" />
+        </div>
       </div>
 
-      <div className="border-b border-white/10 px-5 py-4">
-        <p className="truncate text-sm font-medium text-white">{clubName}</p>
-        <p className="mt-0.5 text-xs text-white/50">{roleLabel}</p>
-      </div>
+      <ContextSwitcher
+        contexts={contexts}
+        activeKey={activeKey}
+        identityKind={identityKind}
+        clubName={clubName}
+        clubLogoUrl={clubLogoUrl}
+        roleLabel={roleLabel}
+        personName={personName}
+        personAvatarUrl={personAvatarUrl}
+      />
 
       <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
         {primaryItems.map((item) => {
@@ -52,29 +92,22 @@ export function AppNav({ primaryItems, clubName, roleLabel, notifications, unrea
               key={item.href}
               href={item.href}
               className={cn(
-                "rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400",
+                "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400",
                 active
                   ? "bg-pitch-600/15 text-pitch-400"
                   : "text-white/70 hover:bg-white/5 hover:text-white"
               )}
             >
               {item.label}
+              {!!item.badge && (
+                <span className="flex size-5 items-center justify-center rounded-full bg-pitch-600 text-[11px] font-semibold text-white">
+                  {item.badge > 9 ? "9+" : item.badge}
+                </span>
+              )}
             </Link>
           )
         })}
       </nav>
-
-      <div className="border-t border-white/10 px-3 py-4">
-        <Link
-          href="/account"
-          className={cn(
-            "block rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400",
-            pathname === "/account" ? "bg-pitch-600/15 text-pitch-400" : "text-white/70 hover:bg-white/5 hover:text-white"
-          )}
-        >
-          My Account
-        </Link>
-      </div>
     </aside>
   )
 }

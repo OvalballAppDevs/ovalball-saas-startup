@@ -35,17 +35,17 @@ begin
   select id into v_rossendale_dir_id from public.club_directory where name = 'Rossendale RUFC';
   select id into v_leigh_dir_id from public.club_directory where name = 'Leigh RUFC';
 
-  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change)
   values
-    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.site.admin@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.admin@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.rossendale.admin@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.u12.admin@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.parent@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.pending.claimant@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.fixturesec@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.u13admin@ovalball.local', '', now(), now(), '{}', '{}'),
-    ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.leigh.admin@ovalball.local', '', now(), now(), '{}', '{}')
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.site.admin@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.admin@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.rossendale.admin@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.u12.admin@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.parent@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.pending.claimant@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.fixturesec@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.u13admin@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', ''),
+    ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.leigh.admin@ovalball.local', '', now(), now(), '{}', '{}', '', '', '', '')
   on conflict (id) do nothing;
 
   insert into public.profiles (id, first_name, surname, email)
@@ -435,6 +435,138 @@ begin
   raise notice 'PASS 15: Fixture Secretary can message about a club-wide fixture conversation with no direct team assignment';
 exception when others then
   raise notice 'FAIL 15: %', sqlerrm;
+end $$;
+rollback;
+
+-- ------------------------------------------------------------
+-- 16. Declining a fixture request notifies the REQUESTING club (the brief:
+-- "request -> reject -> requesting club gets Inbox/notification event").
+-- Fresh ids (82000000-...) -- 80000000-... is already used earlier in
+-- this file by the accepted-request scenario.
+-- ------------------------------------------------------------
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated"}';
+do $$
+declare
+  v_group_id uuid;
+begin
+  insert into public.fixture_request_groups (id, requesting_club_id, opponent_club_id, raw_opponent_text, proposed_date, created_by)
+    values ('82000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'Rossendale RUFC', current_date + 21, '00000000-0000-0000-0000-000000000002')
+    returning id into v_group_id;
+  insert into public.fixture_requests (id, group_id, requesting_team_id, target_team_id, venue_preference, status, created_by)
+    values ('82000000-0000-0000-0000-000000000001', v_group_id, '30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000003', 'home', 'sent', '00000000-0000-0000-0000-000000000002');
+  raise notice 'PASS 16a: Burnley requested a fixture from Rossendale';
+exception when others then
+  raise notice 'FAIL 16a: %', sqlerrm;
+end $$;
+commit;
+
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated"}';
+do $$
+begin
+  update public.fixture_requests set status = 'declined', decided_by = auth.uid(), decided_at = now()
+  where id = '82000000-0000-0000-0000-000000000001';
+  raise notice 'PASS 16b: Rossendale (the responding side) can decline the request directly';
+exception when others then
+  raise notice 'FAIL 16b: %', sqlerrm;
+end $$;
+commit;
+
+do $$
+declare
+  v_status text;
+  v_notif_count int;
+  v_fixture_count int;
+begin
+  select status into v_status from public.fixture_requests where id = '82000000-0000-0000-0000-000000000001';
+  if v_status = 'declined' then
+    raise notice 'PASS 16c: the request is now declined';
+  else
+    raise notice 'FAIL 16c: expected declined, got %', v_status;
+  end if;
+
+  select count(*) into v_notif_count from public.notifications
+  where type = 'fixture_request_declined' and (data->>'fixture_request_id')::uuid = '82000000-0000-0000-0000-000000000001'
+    and user_id = '00000000-0000-0000-0000-000000000002';
+  if v_notif_count >= 1 then
+    raise notice 'PASS 16d: the requesting club''s admin (Burnley) received a fixture_request_declined notification';
+  else
+    raise notice 'FAIL 16d: expected at least 1 notification, found %', v_notif_count;
+  end if;
+
+  select count(*) into v_fixture_count from public.fixtures where kickoff_date = current_date + 21 and raw_opposition_text = 'Rossendale RUFC';
+  if v_fixture_count = 0 then
+    raise notice 'PASS 16e: a declined request never created a fixture -- correctly removed from the active/planned schedule';
+  else
+    raise notice 'FAIL 16e: a fixture was created despite the decline (% rows)', v_fixture_count;
+  end if;
+
+  select count(*) into v_notif_count from public.audit_log where table_name = 'fixture_requests' and record_id = '82000000-0000-0000-0000-000000000001' and action = 'update';
+  if v_notif_count >= 1 then
+    raise notice 'PASS 16f: the decline is retained in audit history';
+  else
+    raise notice 'FAIL 16f: no audit_log row found for the decline';
+  end if;
+end $$;
+
+do $$
+begin
+  delete from public.notifications where (data->>'fixture_request_id')::uuid = '82000000-0000-0000-0000-000000000001';
+  delete from public.fixture_requests where id = '82000000-0000-0000-0000-000000000001';
+  delete from public.fixture_request_groups where id = '82000000-0000-0000-0000-000000000001';
+end $$;
+
+-- ------------------------------------------------------------
+-- 17. get_conversation_participant_names -- a real conversation
+--     participant (Burnley admin) can resolve the OTHER side's (Rossendale
+--     admin) real name -- the fix for messages/popover rows silently
+--     showing placeholder names for anyone who isn't themselves or a Site
+--     Admin (profiles_select_self_or_admin blocks a plain SELECT).
+-- ------------------------------------------------------------
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated"}';
+do $$
+declare
+  v_name text;
+begin
+  select first_name into v_name from public.get_conversation_participant_names(
+    array['00000000-0000-0000-0000-000000000003'::uuid],
+    array['10000000-0000-0000-0000-000000000001'::uuid, '10000000-0000-0000-0000-000000000002'::uuid]
+  );
+  if v_name = 'Test' then
+    raise notice 'PASS 17: a real conversation participant (Burnley admin) can resolve the other side''s (Rossendale admin) real name';
+  else
+    raise notice 'FAIL 17: expected ''Test'', got %', v_name;
+  end if;
+end $$;
+rollback;
+
+-- ------------------------------------------------------------
+-- 18. The same call returns NOTHING for an unrelated caller (Leigh admin,
+--     no standing at Burnley or Rossendale) even though they ask for the
+--     same real user id -- the caller's own standing is independently
+--     re-checked, never trusted from the club_ids argument alone.
+-- ------------------------------------------------------------
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000011","role":"authenticated"}';
+do $$
+declare
+  v_count int;
+begin
+  select count(*) into v_count from public.get_conversation_participant_names(
+    array['00000000-0000-0000-0000-000000000003'::uuid],
+    array['10000000-0000-0000-0000-000000000001'::uuid, '10000000-0000-0000-0000-000000000002'::uuid]
+  );
+  if v_count = 0 then
+    raise notice 'PASS 18: an unrelated caller (Leigh admin, no standing at Burnley/Rossendale) resolves no names, regardless of which club_ids they pass';
+  else
+    raise notice 'FAIL 18: expected 0 rows, got %', v_count;
+  end if;
 end $$;
 rollback;
 
