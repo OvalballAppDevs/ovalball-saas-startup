@@ -1,8 +1,7 @@
 # Production Hosting — Ovalball
 
-**Status:** hosting **not yet configured**. This document is the prepared plan and
-reference; it is written so the deployment is a single short sequence once a Vercel
-session exists on the deploying machine.
+**Status:** **LIVE.** Hosting is configured and the application is deployed at
+`https://ovalball.co.uk`.
 
 No secrets appear in this document — variable **names** only.
 
@@ -14,10 +13,10 @@ No secrets appear in this document — variable **names** only.
 |---|---|
 | Hosting platform | Vercel (Next.js App Router) |
 | Production branch | `main` |
-| Vercel project name | `ovalball` (or nearest available canonical equivalent) |
-| Production origin | **not yet assigned** — becomes `https://<project>.vercel.app` |
+| Vercel team / project | `overball-app` / `ovalball-saas-startup` |
+| Production origin | **`https://ovalball.co.uk`** (custom domain, pre-existing) |
 | Database | Supabase project ref **`ywwdizmaanbujcfitpcj`** (already migrated, 198/198) |
-| Custom domain | **none configured**; none found in repo or account config. Do not change DNS without explicit authorization. |
+| Custom domain | **`ovalball.co.uk` already configured** and serving production. DNS untouched. |
 
 One Vercel project serves the whole application. Do **not** create separate projects for
 Parent, Finance, GoCardless, Training or Side Project 1 — they are one Next.js app.
@@ -117,3 +116,30 @@ Never roll back by deleting provider or financial records.
 
 `.vercel/` is account/machine-specific and is **gitignored** — do not commit it. Never
 commit environment values; `.env.local` is gitignored and has never been committed.
+
+---
+
+## 8. Deployment history note — Git integration was already active
+
+A GitHub↔Vercel integration was already connected to this project before this task.
+Pushes to `main` therefore auto-deploy to production. This was **not** visible from the
+repository (no `.vercel/`, no CI workflow, no deploy script), which is why an earlier
+audit incorrectly concluded there was no deployment target. Treat every push to `main` as
+a production deployment.
+
+## 9. Incident 2026-09-05 — production 500, resolved
+
+**Symptom:** `https://ovalball.co.uk` returned HTTP 500 on all routes.
+
+**Cause:** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` were
+stored as Vercel **Secret/Sensitive** type. Sensitive variables are not exposed at
+**build** time, and Next.js inlines `NEXT_PUBLIC_*` during the build — so both were baked
+in as `undefined`, and `lib/supabase/env.ts` threw at runtime on every request.
+
+**Fix:** re-created both as plain **Config** variables (they are public by design — they
+ship in the client bundle, so marking them sensitive was both broken and pointless), added
+the missing `NEXT_PUBLIC_SITE_URL=https://ovalball.co.uk`, restored Preview scope parity,
+and redeployed. Production returned to HTTP 200.
+
+**Guard for the future:** never store a `NEXT_PUBLIC_*` variable as Sensitive/Secret on
+Vercel. It will silently become `undefined` at build time.
