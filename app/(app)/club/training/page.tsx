@@ -7,7 +7,8 @@ import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
 
-import { TrainingManagementClient, type PlanRow, type PitchOption, type SeasonOption, type TeamOption, type VenueOption } from "./training-management-client"
+import { getTrainingExceptions } from "./exceptions"
+import { TrainingManagementClient, type PlanRow, type PitchOption, type SeasonOption, type TeamOption, type UpcomingSession, type VenueOption } from "./training-management-client"
 
 /**
  * SIDE PROJECT 2 -- TRAINING MANAGEMENT landing page (Section 5-6).
@@ -16,7 +17,8 @@ import { TrainingManagementClient, type PlanRow, type PitchOption, type SeasonOp
  * in actions.ts re-checks this again on every mutation; this redirect is
  * the read-side UX gate).
  */
-export default async function TrainingManagementPage() {
+export default async function TrainingManagementPage({ searchParams }: { searchParams: Promise<{ team?: string }> }) {
+  const { team: teamFilter } = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
@@ -89,6 +91,48 @@ export default async function TrainingManagementPage() {
   }))
   const teamsWithoutPlan = teams.filter((t) => !teamIdsWithAnyPlan.has(t.id))
 
+  // Section 53: Upcoming Sessions -- a genuine near-term window (next 14
+  // days), not just a row cap -- a bare row-count limit on a weekly
+  // recurring plan degenerates into "every Monday until May" (real gap
+  // found live in this pass's own browser verification), which is not a
+  // useful "upcoming" view even though every row is technically in the
+  // future. Optionally scoped to one team via ?team=<id> (a plain
+  // server-rendered filter, no client state needed). Deliberately
+  // excludes cancelled sessions and never loads historical training by
+  // default. The 200-row limit is a genuine safety cap, not the intended
+  // bound -- fourteen days of even several teams' daily training will
+  // never realistically approach it.
+  const today = new Date()
+  const todayIso = today.toISOString().slice(0, 10)
+  const upcomingWindowEnd = new Date(today)
+  upcomingWindowEnd.setDate(upcomingWindowEnd.getDate() + 14)
+  const upcomingWindowEndIso = upcomingWindowEnd.toISOString().slice(0, 10)
+  let upcomingQuery = supabase
+    .from("training_sessions")
+    .select("id, team_id, occurrence_date, start_time, duration_minutes, status, source, teams(display_name, category, age_group, gender, squad_designation), club_pitches(display_name), venues(name)")
+    .eq("club_id", clubId)
+    .neq("status", "CANCELLED")
+    .gte("occurrence_date", todayIso)
+    .lte("occurrence_date", upcomingWindowEndIso)
+    .order("occurrence_date", { ascending: true })
+    .order("start_time", { ascending: true })
+    .limit(200)
+  if (teamFilter) upcomingQuery = upcomingQuery.eq("team_id", teamFilter)
+  const { data: upcomingRows } = await upcomingQuery
+
+  const upcomingSessions: UpcomingSession[] = (upcomingRows ?? []).map((s) => ({
+    id: s.id,
+    teamLabel: s.teams ? fullTeamLabel({ category: s.teams.category as "senior" | "youth" | "colts", ageGroup: s.teams.age_group, gender: s.teams.gender, squadDesignation: s.teams.squad_designation }) : "Team",
+    date: s.occurrence_date ?? "",
+    startTime: s.start_time,
+    durationMinutes: s.duration_minutes,
+    pitchName: s.club_pitches?.display_name ?? "Not set",
+    venueName: s.venues?.name ?? "Not set",
+    source: s.source as "MANUAL" | "AUTOMATIC_PLAN",
+  }))
+
+  const exceptions = await getTrainingExceptions(supabase, clubId)
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club Admin</p>
@@ -107,6 +151,9 @@ export default async function TrainingManagementPage() {
         pitches={pitches}
         seasons={seasons}
         plans={plans}
+        upcomingSessions={upcomingSessions}
+        upcomingTeamFilter={teamFilter ?? null}
+        exceptions={exceptions}
       />
     </div>
   )

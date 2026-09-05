@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { AlertTriangle, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,25 @@ import { deactivatePlan, previewOccurrenceCount, reactivatePlan, savePlan, type 
 export interface TeamOption {
   id: string
   label: string
+}
+export interface UpcomingSession {
+  id: string
+  teamLabel: string
+  date: string
+  startTime: string | null
+  durationMinutes: number | null
+  pitchName: string
+  venueName: string
+  source: "MANUAL" | "AUTOMATIC_PLAN"
+}
+export interface TrainingExceptionRow {
+  trainingSessionId: string
+  teamLabel: string
+  date: string
+  startTime: string | null
+  pitchName: string
+  reason: string
+  severity: "hard" | "warning"
 }
 export interface VenueOption {
   id: string
@@ -434,6 +454,9 @@ export function TrainingManagementClient({
   pitches,
   seasons,
   plans,
+  upcomingSessions,
+  upcomingTeamFilter,
+  exceptions,
 }: {
   clubId: string
   overview: { active_plan_count: number; teams_without_plan_count: number; upcoming_session_count: number; needs_attention_plan_count: number }
@@ -443,7 +466,11 @@ export function TrainingManagementClient({
   pitches: PitchOption[]
   seasons: SeasonOption[]
   plans: PlanRow[]
+  upcomingSessions: UpcomingSession[]
+  upcomingTeamFilter: string | null
+  exceptions: TrainingExceptionRow[]
 }) {
+  const router = useRouter()
   const [formState, setFormState] = useState<{ open: boolean; editing: PlanRow | null; forTeamId?: string }>({ open: false, editing: null })
   const [busyPlanId, setBusyPlanId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -613,6 +640,95 @@ export function TrainingManagementClient({
           </div>
         </div>
       )}
+
+      {/* Section 6/35-36: Exceptions / Conflicts -- real pitch double-bookings
+          across training AND fixtures, computed with the exact same
+          detectResourceConflicts engine Pitch Allocation uses (Section 60's
+          "shared resource-allocation layer"), not a second ad hoc check. */}
+      {exceptions.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-4 text-amber-700" />
+            <h2 className="font-display text-lg text-ink">Exceptions / Conflicts</h2>
+          </div>
+          <p className="mt-1 text-sm text-ink/55">Real pitch double-bookings in the next 30 days -- nothing here has been silently dropped or moved.</p>
+          <div className="mt-3 flex flex-col gap-2">
+            {exceptions.map((e) => (
+              <div key={e.trainingSessionId} className={cn("flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2.5 text-sm", e.severity === "hard" ? "border-destructive/30 bg-destructive/5" : "border-amber-300 bg-amber-50")}>
+                <div>
+                  <span className="font-medium text-ink">{e.teamLabel}</span>
+                  <span className="ml-2 text-ink/60">
+                    {e.date} {e.startTime?.slice(0, 5)} · {e.pitchName}
+                  </span>
+                  <p className="mt-0.5 text-xs text-ink/55">{e.reason}</p>
+                </div>
+                <a href="/calendar/pitch-allocation" className="shrink-0 text-xs font-medium text-pitch-700 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-pitch-400">
+                  Resolve in Pitch Allocation
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section 53: Upcoming Training Sessions -- today onward, optional team filter, capped list rather than dumping all history. */}
+      <div className="mt-8">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-lg text-ink">Upcoming Training Sessions</h2>
+          <div>
+            <label htmlFor="upcoming-team-filter" className="sr-only">
+              Filter by team
+            </label>
+            <select
+              id="upcoming-team-filter"
+              value={upcomingTeamFilter ?? ""}
+              onChange={(e) => router.push(e.target.value ? `/club/training?team=${e.target.value}` : "/club/training")}
+              className="h-9 rounded-lg border border-ink/15 bg-white px-3 text-sm outline-none focus-visible:border-pitch-600"
+            >
+              <option value="">All teams</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {upcomingSessions.length === 0 ? (
+          <p className="mt-3 text-sm text-ink/45">No upcoming training sessions{upcomingTeamFilter ? " for this team" : ""}.</p>
+        ) : (
+          <div className="mt-3 overflow-x-auto rounded-xl border border-ink/10 bg-white">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead className="bg-chalk text-xs font-medium tracking-wide text-ink/50 uppercase">
+                <tr>
+                  <th className="px-4 py-2.5">Date</th>
+                  <th className="px-4 py-2.5">Team</th>
+                  <th className="px-4 py-2.5">Time</th>
+                  <th className="px-4 py-2.5">Venue / Pitch</th>
+                  <th className="px-4 py-2.5">Source</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/5">
+                {upcomingSessions.map((s) => (
+                  <tr key={s.id}>
+                    <td className="px-4 py-2.5 text-ink/80">{s.date}</td>
+                    <td className="px-4 py-2.5 font-medium text-ink">{s.teamLabel}</td>
+                    <td className="px-4 py-2.5 text-ink/70">
+                      {s.startTime?.slice(0, 5) ?? "--:--"}
+                      {s.durationMinutes ? ` (${s.durationMinutes} min)` : ""}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink/70">
+                      {s.venueName} / {s.pitchName}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink/55">{s.source === "AUTOMATIC_PLAN" ? "Automatic" : "Manual"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="border-t border-ink/10 px-4 py-2 text-xs text-ink/45">Showing the next 14 days{upcomingTeamFilter ? "" : " across every team"}.</p>
+          </div>
+        )}
+      </div>
 
       {archivedPlans.length > 0 && (
         <details className="mt-8">

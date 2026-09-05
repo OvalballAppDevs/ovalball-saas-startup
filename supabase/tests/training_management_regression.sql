@@ -268,6 +268,17 @@ begin
   perform public.reactivate_training_plan(v_plan);
   select status into v_status from public.training_plans where id = v_plan;
   if v_status = 'ACTIVE' then raise notice 'PASS 5c: plan status is ACTIVE again after reactivation'; else raise notice 'FAIL 5c: status=%', v_status; end if;
+
+  -- Bug caught live in browser verification: generate_training_plan_sessions
+  -- is idempotent via ON CONFLICT DO NOTHING, so simply calling it again
+  -- after deactivation silently skipped every already-existing CANCELLED
+  -- row -- the plan came back ACTIVE but its sessions stayed CANCELLED
+  -- forever. Reactivation must actually restore them, not just flip the
+  -- plan's own status column.
+  select count(*) into v_after_count from public.training_sessions
+    where training_plan_id = v_plan and occurrence_date >= current_date and is_overridden = false and status = 'CANCELLED';
+  if v_after_count = 0 then raise notice 'PASS 5d: every future non-overridden session was genuinely restored to PLANNED by reactivation, not left orphaned as CANCELLED';
+  else raise notice 'FAIL 5d: % future session(s) are still CANCELLED after reactivation', v_after_count; end if;
 end $$;
 
 \echo '--- 6: manual (ad-hoc) Calendar training reconciles onto the SAME canonical table (Section 31) ---'

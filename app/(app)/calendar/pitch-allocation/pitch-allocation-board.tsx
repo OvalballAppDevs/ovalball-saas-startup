@@ -23,6 +23,8 @@ const TIMELINE_WIDTH = SLOT_COUNT * PX_PER_SLOT
 const ROW_HEIGHT = 76
 /** Section 41-47: a multi-lane pitch renders each lane at this shorter height instead of the full single-pitch ROW_HEIGHT, so a lane_count=3 pitch doesn't triple the whole board's vertical space. */
 const LANE_HEIGHT = 40
+/** SIDE PROJECT 2: compact per-lane height for the training-card strip -- overlapping training sessions stack here rather than fully on top of each other. */
+const TRAINING_LANE_HEIGHT = 24
 
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number)
@@ -64,6 +66,39 @@ function assignLanes(fixtures: AllocationFixture[], laneCount: number): Map<stri
     laneByFixtureId.set(f.fixtureId, Math.min(lane, laneCount - 1))
   }
   return laneByFixtureId
+}
+
+/**
+ * SIDE PROJECT 2 -- Training Management: same greedy interval-scheduling
+ * lane assignment as assignLanes() above, but for training cards, which
+ * are a wholly separate visual layer from fixtures (never merged into the
+ * same lane numbering -- a training card and a fixture card can validly
+ * overlap in real conflict-flagged time without needing to "share" a
+ * lane). Without this, two overlapping training sessions on the same
+ * pitch (a real, common case -- see the deliberate demo conflict in
+ * supabase/tests/fixtures/training_management_demo_data.sql) rendered
+ * fully stacked on top of each other and were unreadable -- caught live
+ * in this pass's own browser verification, not by any automated test
+ * (the conflict-detection logic itself was already correct; only the
+ * layout was broken).
+ */
+function assignTrainingLanes(sessions: TrainingOccupancy[]): Map<string, number> {
+  const sorted = [...sessions].sort((a, b) => timeToMinutes(a.startTime!) - timeToMinutes(b.startTime!))
+  const laneEndTimes: number[] = []
+  const laneById = new Map<string, number>()
+  for (const t of sorted) {
+    const start = timeToMinutes(t.startTime!)
+    const end = start + (t.durationMinutes ?? 60)
+    let lane = laneEndTimes.findIndex((endTime) => endTime <= start)
+    if (lane === -1) {
+      lane = laneEndTimes.length
+      laneEndTimes.push(end)
+    } else {
+      laneEndTimes[lane] = end
+    }
+    laneById.set(t.trainingSessionId, lane)
+  }
+  return laneById
 }
 function formatHour(m: number): string {
   const h = Math.floor(m / 60)
@@ -844,6 +879,8 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
               // never merged into fixturesOnPitch (Section 59: never a
               // fake fixture).
               const trainingOnPitch = board.trainingSessions.filter((t) => t.pitchId === pitch.id && t.status !== "CANCELLED" && t.startTime)
+              const trainingLaneById = assignTrainingLanes(trainingOnPitch)
+              const trainingLaneCount = new Set(trainingLaneById.values()).size || 1
               const isDropTarget = drag !== null && drag.pitchId === pitch.id
               const draggedFixture = drag ? (board.fixtures.find((f) => f.fixtureId === drag.fixtureId) ?? board.unallocated.find((f) => f.fixtureId === drag.fixtureId)) : undefined
               // Section 41-47: a pitch with real concurrent capacity
@@ -855,7 +892,13 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
               // full-height card, same everything.
               const laneCount = Math.max(1, pitch.laneCount)
               const isMultiLane = laneCount > 1
-              const rowHeight = isMultiLane ? LANE_HEIGHT * laneCount : ROW_HEIGHT
+              const baseRowHeight = isMultiLane ? LANE_HEIGHT * laneCount : ROW_HEIGHT
+              // Training cards stack in their own compact strip along the
+              // top of the row -- if more overlapping training sessions
+              // are on this pitch than the fixture layer alone needs
+              // height for, the row grows to fit them rather than letting
+              // cards spill outside it.
+              const rowHeight = Math.max(baseRowHeight, trainingLaneCount * TRAINING_LANE_HEIGHT + 8)
               const laneByFixtureId = isMultiLane ? assignLanes(fixturesOnPitch, laneCount) : null
               return (
                 <div key={pitch.id} className="flex border-b border-ink/5 last:border-0" style={{ height: rowHeight }}>
@@ -970,8 +1013,12 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
                     {trainingOnPitch.map((t) => {
                       const startOffset = ((timeToMinutes(t.startTime!) - START_MINUTES) / SLOT_MINUTES) * PX_PER_SLOT
                       const width = ((t.durationMinutes ?? 60) / SLOT_MINUTES) * PX_PER_SLOT
+                      const lane = trainingLaneById.get(t.trainingSessionId) ?? 0
                       return (
-                        <div key={t.trainingSessionId} style={{ position: "absolute", left: startOffset, width: Math.max(width, 90), top: 4, bottom: 4 }}>
+                        <div
+                          key={t.trainingSessionId}
+                          style={{ position: "absolute", left: startOffset, width: Math.max(width, 90), top: 4 + lane * TRAINING_LANE_HEIGHT, height: TRAINING_LANE_HEIGHT - 4 }}
+                        >
                           <TrainingCard session={t} conflict={liveConflicts.training.find((c) => c.trainingSessionId === t.trainingSessionId) ?? null} />
                         </div>
                       )

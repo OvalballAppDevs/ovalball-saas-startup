@@ -215,9 +215,13 @@ export function WeekBoard({
                             className="flex min-h-[24px] items-center gap-1 rounded-md border border-dashed border-forest-800/25 bg-transparent px-1.5 py-1 text-left text-[11px] leading-tight text-forest-800/80 outline-none transition-all hover:border-forest-800/40 hover:bg-forest-800/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
                           >
                             <Dumbbell className="size-3 shrink-0" />
-                            <span className="truncate">
-                              Training
-                              {e.time ? ` · ${e.time.slice(0, 5)}` : ""}
+                            {/* Section 28: "<Team Name> — Planned Training" plus venue/pitch, not a bare "Training" label -- e.teamDisplayName falls back to the lane's own label for a Mini-Rugby Group's shared session (no single team). */}
+                            <span className="flex min-w-0 flex-col leading-tight">
+                              <span className="truncate">
+                                {e.teamDisplayName || lanes.find((l) => l.id === e.laneId)?.label || "Training"} — Planned Training
+                                {e.time ? ` · ${e.time.slice(0, 5)}` : ""}
+                              </span>
+                              {e.pitchName && <span className="truncate text-[10px] text-forest-800/60">{e.pitchName}</span>}
                             </span>
                           </button>
                         ) : e.kind === "tournament" ? (

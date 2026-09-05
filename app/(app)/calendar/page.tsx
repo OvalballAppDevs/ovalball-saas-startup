@@ -243,7 +243,7 @@ export default async function CalendarPage({
       ? { data: [] }
       : await supabase
           .from("training_sessions")
-          .select("id, team_id, scheduling_group_id, session_date, start_time, notes, club_pitches(display_name)")
+          .select("id, team_id, scheduling_group_id, session_date, start_time, notes, club_pitches(display_name), teams(display_name, category, age_group, gender, squad_designation)")
           .is("cancelled_at", null)
           .or(trainingOrClauses.length > 0 ? trainingOrClauses.join(",") : "team_id.eq.00000000-0000-0000-0000-000000000000")
           .gte("session_date", startIso)
@@ -414,8 +414,12 @@ export default async function CalendarPage({
       kind: "training",
       date: t.session_date,
       time: t.start_time,
-      title: "Training",
-      teamDisplayName: "",
+      // Section 28: the Calendar card itself carries the real team label,
+      // not just its lane -- a Mini-Rugby Group's shared session has no
+      // single team here (t.teams is null for a scheduling_group_id-owned
+      // session), so it falls back to the lane's own label at render time.
+      title: "Planned Training",
+      teamDisplayName: t.teams ? compactTeamLabel({ category: t.teams.category as "senior" | "youth" | "colts", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation }) : "",
       opposition: "",
       homeAway: "",
       venueAddress: null,
