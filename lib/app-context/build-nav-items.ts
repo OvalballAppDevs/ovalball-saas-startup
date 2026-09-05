@@ -121,6 +121,13 @@ export function buildNavItems(
       }
       if (activeContext.kind === "club" && activeContext.roleLabel === "Club Admin") {
         items.push({ href: "/people", label: "People" })
+        // SIDE PROJECT 2 -- Training Management (Section 5): a dedicated
+        // primary nav section, not buried inside Calendar/Pitch
+        // Allocation/Club Settings. club.training.manage is Club-Admin-only
+        // (Section 44), matching People's own gating here -- the page and
+        // every RPC it calls re-check the real capability server-side
+        // regardless (this file's own stated "presentation only" contract).
+        items.push({ href: "/club/training", label: "Training Management" })
       }
     }
   }

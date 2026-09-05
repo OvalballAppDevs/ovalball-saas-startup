@@ -1,10 +1,10 @@
 {
-  "name": "ovalball-saas-startup",
+  "name": "ovalball-training-management",
   "version": "0.0.1",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3200",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

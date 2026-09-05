@@ -7083,1061 +7083,6 @@ export type Database = {
           },
         ]
       }
-      platform_club_subscriptions: {
-        Row: {
-          cancel_reason: string | null
-          cancel_requested_at: string | null
-          cancelled_at: string | null
-          club_id: string
-          created_at: string
-          created_by: string | null
-          current_period_end: string | null
-          current_period_start: string | null
-          id: string
-          mandate_status: string | null
-          next_collection_on: string | null
-          plan_code: string
-          plan_currency: string
-          plan_price_pence: number
-          plan_price_version: number
-          provider: string | null
-          provider_billing_request_id: string | null
-          provider_customer_id: string | null
-          provider_environment: string | null
-          provider_mandate_id: string | null
-          provider_subscription_id: string | null
-          started_at: string | null
-          status: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          cancel_reason?: string | null
-          cancel_requested_at?: string | null
-          cancelled_at?: string | null
-          club_id: string
-          created_at?: string
-          created_by?: string | null
-          current_period_end?: string | null
-          current_period_start?: string | null
-          id?: string
-          mandate_status?: string | null
-          next_collection_on?: string | null
-          plan_code: string
-          plan_currency?: string
-          plan_price_pence: number
-          plan_price_version: number
-          provider?: string | null
-          provider_billing_request_id?: string | null
-          provider_customer_id?: string | null
-          provider_environment?: string | null
-          provider_mandate_id?: string | null
-          provider_subscription_id?: string | null
-          started_at?: string | null
-          status?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          cancel_reason?: string | null
-          cancel_requested_at?: string | null
-          cancelled_at?: string | null
-          club_id?: string
-          created_at?: string
-          created_by?: string | null
-          current_period_end?: string | null
-          current_period_start?: string | null
-          id?: string
-          mandate_status?: string | null
-          next_collection_on?: string | null
-          plan_code?: string
-          plan_currency?: string
-          plan_price_pence?: number
-          plan_price_version?: number
-          provider?: string | null
-          provider_billing_request_id?: string | null
-          provider_customer_id?: string | null
-          provider_environment?: string | null
-          provider_mandate_id?: string | null
-          provider_subscription_id?: string | null
-          started_at?: string | null
-          status?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_club_overview"
-            referencedColumns: ["club_id"]
-          },
-          {
-            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_requesting_club_id"]
-          },
-          {
-            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_club_subscriptions_plan_code_fkey"
-            columns: ["plan_code"]
-            isOneToOne: false
-            referencedRelation: "platform_plans"
-            referencedColumns: ["code"]
-          },
-        ]
-      }
-      platform_credits: {
-        Row: {
-          amount_pence: number
-          applied_to_payment_id: string | null
-          club_id: string
-          created_at: string
-          created_by: string | null
-          currency: string
-          id: string
-          reason: string | null
-          reverses_credit_id: string | null
-          seq: number
-          snapshot_plan_code: string | null
-          snapshot_price_pence: number | null
-          snapshot_price_version: number | null
-          source: string
-        }
-        Insert: {
-          amount_pence: number
-          applied_to_payment_id?: string | null
-          club_id: string
-          created_at?: string
-          created_by?: string | null
-          currency?: string
-          id?: string
-          reason?: string | null
-          reverses_credit_id?: string | null
-          seq?: never
-          snapshot_plan_code?: string | null
-          snapshot_price_pence?: number | null
-          snapshot_price_version?: number | null
-          source: string
-        }
-        Update: {
-          amount_pence?: number
-          applied_to_payment_id?: string | null
-          club_id?: string
-          created_at?: string
-          created_by?: string | null
-          currency?: string
-          id?: string
-          reason?: string | null
-          reverses_credit_id?: string | null
-          seq?: never
-          snapshot_plan_code?: string | null
-          snapshot_price_pence?: number | null
-          snapshot_price_version?: number | null
-          source?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "platform_credits_applied_to_payment_id_fkey"
-            columns: ["applied_to_payment_id"]
-            isOneToOne: false
-            referencedRelation: "platform_payments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_credits_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_club_overview"
-            referencedColumns: ["club_id"]
-          },
-          {
-            foreignKeyName: "platform_credits_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_credits_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_credits_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_credits_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_credits_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_credits_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_requesting_club_id"]
-          },
-          {
-            foreignKeyName: "platform_credits_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_credits_reverses_credit_id_fkey"
-            columns: ["reverses_credit_id"]
-            isOneToOne: false
-            referencedRelation: "platform_credits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_credits_snapshot_plan_code_fkey"
-            columns: ["snapshot_plan_code"]
-            isOneToOne: false
-            referencedRelation: "platform_plans"
-            referencedColumns: ["code"]
-          },
-        ]
-      }
-      platform_entitlements: {
-        Row: {
-          created_at: string
-          description: string | null
-          gateable: boolean
-          key: string
-          label: string
-          sort_order: number
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          gateable?: boolean
-          key: string
-          label: string
-          sort_order?: number
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          gateable?: boolean
-          key?: string
-          label?: string
-          sort_order?: number
-        }
-        Relationships: []
-      }
-      platform_mode_events: {
-        Row: {
-          changed_at: string
-          changed_by: string | null
-          id: string
-          new_mode: string
-          previous_mode: string | null
-          reason: string | null
-          release_id: string | null
-          seq: number
-        }
-        Insert: {
-          changed_at?: string
-          changed_by?: string | null
-          id?: string
-          new_mode: string
-          previous_mode?: string | null
-          reason?: string | null
-          release_id?: string | null
-          seq?: never
-        }
-        Update: {
-          changed_at?: string
-          changed_by?: string | null
-          id?: string
-          new_mode?: string
-          previous_mode?: string | null
-          reason?: string | null
-          release_id?: string | null
-          seq?: never
-        }
-        Relationships: [
-          {
-            foreignKeyName: "platform_mode_events_release_id_fkey"
-            columns: ["release_id"]
-            isOneToOne: false
-            referencedRelation: "platform_releases"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      platform_payments: {
-        Row: {
-          charge_date: string | null
-          club_id: string
-          confirmed_at: string | null
-          created_at: string
-          credit_applied_pence: number
-          currency: string
-          failed_at: string | null
-          failure_reason: string | null
-          gross_pence: number
-          id: string
-          idempotency_key: string
-          net_pence: number
-          provider: string | null
-          provider_payment_id: string | null
-          status: string
-          subscription_id: string
-          updated_at: string
-        }
-        Insert: {
-          charge_date?: string | null
-          club_id: string
-          confirmed_at?: string | null
-          created_at?: string
-          credit_applied_pence?: number
-          currency?: string
-          failed_at?: string | null
-          failure_reason?: string | null
-          gross_pence: number
-          id?: string
-          idempotency_key: string
-          net_pence: number
-          provider?: string | null
-          provider_payment_id?: string | null
-          status?: string
-          subscription_id: string
-          updated_at?: string
-        }
-        Update: {
-          charge_date?: string | null
-          club_id?: string
-          confirmed_at?: string | null
-          created_at?: string
-          credit_applied_pence?: number
-          currency?: string
-          failed_at?: string | null
-          failure_reason?: string | null
-          gross_pence?: number
-          id?: string
-          idempotency_key?: string
-          net_pence?: number
-          provider?: string | null
-          provider_payment_id?: string | null
-          status?: string
-          subscription_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "platform_payments_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_club_overview"
-            referencedColumns: ["club_id"]
-          },
-          {
-            foreignKeyName: "platform_payments_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_payments_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_payments_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_payments_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_payments_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_payments_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_requesting_club_id"]
-          },
-          {
-            foreignKeyName: "platform_payments_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_payments_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "platform_club_subscriptions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      platform_plan_entitlements: {
-        Row: {
-          created_at: string
-          entitlement_key: string
-          plan_code: string
-        }
-        Insert: {
-          created_at?: string
-          entitlement_key: string
-          plan_code: string
-        }
-        Update: {
-          created_at?: string
-          entitlement_key?: string
-          plan_code?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "platform_plan_entitlements_entitlement_key_fkey"
-            columns: ["entitlement_key"]
-            isOneToOne: false
-            referencedRelation: "platform_entitlements"
-            referencedColumns: ["key"]
-          },
-          {
-            foreignKeyName: "platform_plan_entitlements_plan_code_fkey"
-            columns: ["plan_code"]
-            isOneToOne: false
-            referencedRelation: "platform_plans"
-            referencedColumns: ["code"]
-          },
-        ]
-      }
-      platform_plans: {
-        Row: {
-          billing_interval: string
-          code: string
-          created_at: string
-          created_by: string | null
-          currency: string
-          description: string | null
-          name: string
-          price_pence: number
-          price_version: number
-          purchasable: boolean
-          sort_order: number
-          status: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          billing_interval?: string
-          code: string
-          created_at?: string
-          created_by?: string | null
-          currency?: string
-          description?: string | null
-          name: string
-          price_pence: number
-          price_version?: number
-          purchasable?: boolean
-          sort_order?: number
-          status?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          billing_interval?: string
-          code?: string
-          created_at?: string
-          created_by?: string | null
-          currency?: string
-          description?: string | null
-          name?: string
-          price_pence?: number
-          price_version?: number
-          purchasable?: boolean
-          sort_order?: number
-          status?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
-      platform_provider_events: {
-        Row: {
-          action: string
-          id: string
-          payload: Json
-          processed: boolean
-          processed_at: string | null
-          processing_error: string | null
-          provider: string
-          provider_event_id: string
-          received_at: string
-          resource_type: string
-        }
-        Insert: {
-          action: string
-          id?: string
-          payload: Json
-          processed?: boolean
-          processed_at?: string | null
-          processing_error?: string | null
-          provider?: string
-          provider_event_id: string
-          received_at?: string
-          resource_type: string
-        }
-        Update: {
-          action?: string
-          id?: string
-          payload?: Json
-          processed?: boolean
-          processed_at?: string | null
-          processing_error?: string | null
-          provider?: string
-          provider_event_id?: string
-          received_at?: string
-          resource_type?: string
-        }
-        Relationships: []
-      }
-      platform_referrals: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          invitation_id: string
-          qualified_at: string | null
-          qualifying_payment_id: string | null
-          referred_club_id: string | null
-          referring_club_id: string
-          rejection_reason: string | null
-          reversed_at: string | null
-          reward_amount_pence: number | null
-          reward_credit_id: string | null
-          reward_plan_code: string | null
-          reward_price_version: number | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          invitation_id: string
-          qualified_at?: string | null
-          qualifying_payment_id?: string | null
-          referred_club_id?: string | null
-          referring_club_id: string
-          rejection_reason?: string | null
-          reversed_at?: string | null
-          reward_amount_pence?: number | null
-          reward_credit_id?: string | null
-          reward_plan_code?: string | null
-          reward_price_version?: number | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          invitation_id?: string
-          qualified_at?: string | null
-          qualifying_payment_id?: string | null
-          referred_club_id?: string | null
-          referring_club_id?: string
-          rejection_reason?: string | null
-          reversed_at?: string | null
-          reward_amount_pence?: number | null
-          reward_credit_id?: string | null
-          reward_plan_code?: string | null
-          reward_price_version?: number | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "platform_referrals_invitation_id_fkey"
-            columns: ["invitation_id"]
-            isOneToOne: true
-            referencedRelation: "club_ovalball_invitations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_qualifying_payment_id_fkey"
-            columns: ["qualifying_payment_id"]
-            isOneToOne: false
-            referencedRelation: "platform_payments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referred_club_id_fkey"
-            columns: ["referred_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_club_overview"
-            referencedColumns: ["club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referred_club_id_fkey"
-            columns: ["referred_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referred_club_id_fkey"
-            columns: ["referred_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referred_club_id_fkey"
-            columns: ["referred_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referred_club_id_fkey"
-            columns: ["referred_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referred_club_id_fkey"
-            columns: ["referred_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referred_club_id_fkey"
-            columns: ["referred_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_requesting_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referred_club_id_fkey"
-            columns: ["referred_club_id"]
-            isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referring_club_id_fkey"
-            columns: ["referring_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_club_overview"
-            referencedColumns: ["club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referring_club_id_fkey"
-            columns: ["referring_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referring_club_id_fkey"
-            columns: ["referring_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referring_club_id_fkey"
-            columns: ["referring_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referring_club_id_fkey"
-            columns: ["referring_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referring_club_id_fkey"
-            columns: ["referring_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referring_club_id_fkey"
-            columns: ["referring_club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_requesting_club_id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_referring_club_id_fkey"
-            columns: ["referring_club_id"]
-            isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_reward_credit_id_fkey"
-            columns: ["reward_credit_id"]
-            isOneToOne: true
-            referencedRelation: "platform_credits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_referrals_reward_plan_code_fkey"
-            columns: ["reward_plan_code"]
-            isOneToOne: false
-            referencedRelation: "platform_plans"
-            referencedColumns: ["code"]
-          },
-        ]
-      }
-      platform_releases: {
-        Row: {
-          build_sha: string | null
-          channel: string
-          created_at: string
-          id: string
-          notes: string | null
-          released_at: string
-          released_by: string | null
-          status: string
-          title: string | null
-          updated_at: string
-          version: string
-        }
-        Insert: {
-          build_sha?: string | null
-          channel?: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          released_at?: string
-          released_by?: string | null
-          status?: string
-          title?: string | null
-          updated_at?: string
-          version: string
-        }
-        Update: {
-          build_sha?: string | null
-          channel?: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          released_at?: string
-          released_by?: string | null
-          status?: string
-          title?: string | null
-          updated_at?: string
-          version?: string
-        }
-        Relationships: []
-      }
-      platform_subscription_events: {
-        Row: {
-          actor: string | null
-          club_id: string
-          event_type: string
-          id: string
-          new_status: string | null
-          occurred_at: string
-          plan_code: string | null
-          plan_currency: string | null
-          plan_price_pence: number | null
-          plan_price_version: number | null
-          previous_status: string | null
-          reason: string | null
-          seq: number
-          subscription_id: string | null
-        }
-        Insert: {
-          actor?: string | null
-          club_id: string
-          event_type: string
-          id?: string
-          new_status?: string | null
-          occurred_at?: string
-          plan_code?: string | null
-          plan_currency?: string | null
-          plan_price_pence?: number | null
-          plan_price_version?: number | null
-          previous_status?: string | null
-          reason?: string | null
-          seq?: never
-          subscription_id?: string | null
-        }
-        Update: {
-          actor?: string | null
-          club_id?: string
-          event_type?: string
-          id?: string
-          new_status?: string | null
-          occurred_at?: string
-          plan_code?: string | null
-          plan_currency?: string | null
-          plan_price_pence?: number | null
-          plan_price_version?: number | null
-          previous_status?: string | null
-          reason?: string | null
-          seq?: never
-          subscription_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "platform_subscription_events_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_club_overview"
-            referencedColumns: ["club_id"]
-          },
-          {
-            foreignKeyName: "platform_subscription_events_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_subscription_events_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_subscription_events_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_subscription_events_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_subscription_events_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_subscription_events_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_requesting_club_id"]
-          },
-          {
-            foreignKeyName: "platform_subscription_events_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "platform_subscription_events_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "platform_club_subscriptions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      platform_trials: {
-        Row: {
-          accruing_since: string | null
-          club_id: string
-          completed_at: string | null
-          consumed_seconds: number
-          created_at: string
-          created_by: string | null
-          entitlement_seconds: number
-          id: string
-          notified_thresholds: number[]
-          pause_reason: string | null
-          started_at: string
-          status: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          accruing_since?: string | null
-          club_id: string
-          completed_at?: string | null
-          consumed_seconds?: number
-          created_at?: string
-          created_by?: string | null
-          entitlement_seconds?: number
-          id?: string
-          notified_thresholds?: number[]
-          pause_reason?: string | null
-          started_at?: string
-          status?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          accruing_since?: string | null
-          club_id?: string
-          completed_at?: string | null
-          consumed_seconds?: number
-          created_at?: string
-          created_by?: string | null
-          entitlement_seconds?: number
-          id?: string
-          notified_thresholds?: number[]
-          pause_reason?: string | null
-          started_at?: string
-          status?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "platform_trials_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_club_overview"
-            referencedColumns: ["club_id"]
-          },
-          {
-            foreignKeyName: "platform_trials_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_trials_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_trials_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_trials_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_owning_club_id"]
-          },
-          {
-            foreignKeyName: "platform_trials_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "platform_trials_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_requesting_club_id"]
-          },
-          {
-            foreignKeyName: "platform_trials_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: true
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       player_account_invitations: {
         Row: {
           accepted_at: string | null
@@ -8901,36 +7846,6 @@ export type Database = {
         }
         Relationships: []
       }
-      policy_acknowledgements: {
-        Row: {
-          acknowledged_at: string
-          event_type: string
-          id: string
-          policy_id: string
-          policy_version: string
-          source: string
-          user_id: string
-        }
-        Insert: {
-          acknowledged_at?: string
-          event_type?: string
-          id?: string
-          policy_id: string
-          policy_version: string
-          source?: string
-          user_id: string
-        }
-        Update: {
-          acknowledged_at?: string
-          event_type?: string
-          id?: string
-          policy_id?: string
-          policy_version?: string
-          source?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           account_status: string
@@ -9477,14 +8392,12 @@ export type Database = {
           manage_global_lookups: boolean
           manage_permissions: boolean
           manage_seasons: boolean
-          manage_system: boolean
           manage_team_catalogue: boolean
           revoked_at: string | null
           revoked_by: string | null
           status: string
           updated_at: string
           user_id: string
-          view_commercial: boolean
         }
         Insert: {
           admin_role?: string
@@ -9498,14 +8411,12 @@ export type Database = {
           manage_global_lookups?: boolean
           manage_permissions?: boolean
           manage_seasons?: boolean
-          manage_system?: boolean
           manage_team_catalogue?: boolean
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
           updated_at?: string
           user_id: string
-          view_commercial?: boolean
         }
         Update: {
           admin_role?: string
@@ -9519,14 +8430,12 @@ export type Database = {
           manage_global_lookups?: boolean
           manage_permissions?: boolean
           manage_seasons?: boolean
-          manage_system?: boolean
           manage_team_catalogue?: boolean
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
           updated_at?: string
           user_id?: string
-          view_commercial?: boolean
         }
         Relationships: []
       }
@@ -10709,6 +9618,220 @@ export type Database = {
           },
         ]
       }
+      training_plan_schedule_rules: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          ends_on: string | null
+          id: string
+          start_time: string
+          starts_on: string | null
+          training_plan_id: string
+          updated_at: string
+          weekday: number
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes: number
+          ends_on?: string | null
+          id?: string
+          start_time: string
+          starts_on?: string | null
+          training_plan_id: string
+          updated_at?: string
+          weekday: number
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          ends_on?: string | null
+          id?: string
+          start_time?: string
+          starts_on?: string | null
+          training_plan_id?: string
+          updated_at?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_plan_schedule_rules_training_plan_id_fkey"
+            columns: ["training_plan_id"]
+            isOneToOne: false
+            referencedRelation: "training_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_plans: {
+        Row: {
+          club_id: string
+          created_at: string
+          created_by: string | null
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivation_reason: string | null
+          id: string
+          needs_attention_reason: string | null
+          preferred_pitch_id: string
+          preferred_venue_id: string
+          schedule_mode: string
+          season_id: string | null
+          status: string
+          team_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          club_id: string
+          created_at?: string
+          created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
+          id?: string
+          needs_attention_reason?: string | null
+          preferred_pitch_id: string
+          preferred_venue_id: string
+          schedule_mode: string
+          season_id?: string | null
+          status?: string
+          team_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          club_id?: string
+          created_at?: string
+          created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
+          id?: string
+          needs_attention_reason?: string | null
+          preferred_pitch_id?: string
+          preferred_venue_id?: string
+          schedule_mode?: string
+          season_id?: string | null
+          status?: string
+          team_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_plans_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "training_plans_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "training_plans_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "training_plans_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "training_plans_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "training_plans_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "training_plans_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "training_plans_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_plans_preferred_pitch_id_fkey"
+            columns: ["preferred_pitch_id"]
+            isOneToOne: false
+            referencedRelation: "club_pitches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_plans_preferred_venue_id_fkey"
+            columns: ["preferred_venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_plans_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_plans_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "training_plans_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "training_plans_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "training_plans_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "training_plans_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_sessions: {
         Row: {
           cancellation_reason: string | null
@@ -10716,16 +9839,25 @@ export type Database = {
           club_id: string
           created_at: string
           created_by: string | null
+          duration_minutes: number | null
           end_time: string | null
           id: string
+          is_overridden: boolean
           notes: string | null
+          occurrence_date: string | null
           pitch_id: string | null
+          schedule_rule_id: string | null
           scheduling_group_id: string | null
+          season_id: string | null
           session_date: string
+          source: string
           start_time: string | null
+          status: string
           team_id: string | null
+          training_plan_id: string | null
           updated_at: string
           updated_by: string | null
+          venue_id: string | null
         }
         Insert: {
           cancellation_reason?: string | null
@@ -10733,16 +9865,25 @@ export type Database = {
           club_id: string
           created_at?: string
           created_by?: string | null
+          duration_minutes?: number | null
           end_time?: string | null
           id?: string
+          is_overridden?: boolean
           notes?: string | null
+          occurrence_date?: string | null
           pitch_id?: string | null
+          schedule_rule_id?: string | null
           scheduling_group_id?: string | null
+          season_id?: string | null
           session_date: string
+          source?: string
           start_time?: string | null
+          status?: string
           team_id?: string | null
+          training_plan_id?: string | null
           updated_at?: string
           updated_by?: string | null
+          venue_id?: string | null
         }
         Update: {
           cancellation_reason?: string | null
@@ -10750,16 +9891,25 @@ export type Database = {
           club_id?: string
           created_at?: string
           created_by?: string | null
+          duration_minutes?: number | null
           end_time?: string | null
           id?: string
+          is_overridden?: boolean
           notes?: string | null
+          occurrence_date?: string | null
           pitch_id?: string | null
+          schedule_rule_id?: string | null
           scheduling_group_id?: string | null
+          season_id?: string | null
           session_date?: string
+          source?: string
           start_time?: string | null
+          status?: string
           team_id?: string | null
+          training_plan_id?: string | null
           updated_at?: string
           updated_by?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -10826,10 +9976,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "training_sessions_schedule_rule_id_fkey"
+            columns: ["schedule_rule_id"]
+            isOneToOne: false
+            referencedRelation: "training_plan_schedule_rules"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "training_sessions_scheduling_group_id_fkey"
             columns: ["scheduling_group_id"]
             isOneToOne: false
             referencedRelation: "scheduling_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_sessions_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
             referencedColumns: ["id"]
           },
           {
@@ -10865,6 +10029,20 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_sessions_training_plan_id_fkey"
+            columns: ["training_plan_id"]
+            isOneToOne: false
+            referencedRelation: "training_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_sessions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -11715,25 +10893,6 @@ export type Database = {
           total_messages: number
         }[]
       }
-      apply_payment_status_transition: {
-        Args: {
-          p_charge_date?: string
-          p_failure_reason_code?: string
-          p_gc_event_id?: string
-          p_gc_payment_id: string
-          p_new_status: string
-        }
-        Returns: undefined
-      }
-      apply_platform_payment_status: {
-        Args: {
-          p_failure_reason?: string
-          p_payment_id: string
-          p_provider_payment_id?: string
-          p_status: string
-        }
-        Returns: boolean
-      }
       approve_club_claim: {
         Args: { p_claim_id: string; p_notes?: string }
         Returns: string
@@ -11754,28 +10913,12 @@ export type Database = {
         Args: { p_active: boolean; p_season_id: string }
         Returns: undefined
       }
-      attach_platform_subscription_provider: {
-        Args: {
-          p_billing_request_id?: string
-          p_club_id: string
-          p_customer_id?: string
-          p_environment: string
-          p_mandate_id?: string
-          p_mandate_status?: string
-          p_subscription_id?: string
-        }
-        Returns: string
-      }
       can_send_team_conversation: {
         Args: { p_team_id: string }
         Returns: boolean
       }
       can_view_team_conversation: {
         Args: { p_team_id: string }
-        Returns: boolean
-      }
-      cancel_club_platform_subscription: {
-        Args: { p_club_id: string; p_reason?: string }
         Returns: boolean
       }
       cancel_training_session: {
@@ -11798,10 +10941,6 @@ export type Database = {
           resolution: string
         }[]
       }
-      claim_club_referral: {
-        Args: { p_invitation_id: string }
-        Returns: string
-      }
       claim_external_fixture_result: {
         Args: {
           p_away_score: number
@@ -11821,70 +10960,6 @@ export type Database = {
         Returns: undefined
       }
       clear_team_alias: { Args: { p_team_id: string }; Returns: undefined }
-      club_credit_balance_pence: {
-        Args: { p_club_id: string }
-        Returns: number
-      }
-      club_entitlements: {
-        Args: { p_club_id: string }
-        Returns: {
-          entitlement_key: string
-          source: string
-        }[]
-      }
-      club_has_entitlement: {
-        Args: { p_club_id: string; p_entitlement_key: string }
-        Returns: boolean
-      }
-      club_platform_billing_state: {
-        Args: { p_club_id: string }
-        Returns: {
-          credit_balance_pence: number
-          currency: string
-          current_period_end: string
-          effective_plan: string
-          next_collection_on: string
-          plan_price_pence: number
-          platform_mode: string
-          subscription_status: string
-          trial_remaining_seconds: number
-          trial_status: string
-        }[]
-      }
-      club_platform_next_collection: {
-        Args: { p_club_id: string }
-        Returns: {
-          credit_applied_pence: number
-          credit_available_pence: number
-          currency: string
-          gross_pence: number
-          net_pence: number
-          will_skip: boolean
-        }[]
-      }
-      club_referral_summary: {
-        Args: { p_club_id: string }
-        Returns: {
-          created_at: string
-          qualified_at: string
-          referral_id: string
-          referred_club_name: string
-          reward_amount_pence: number
-          status: string
-        }[]
-      }
-      club_trial_state: {
-        Args: { p_club_id: string }
-        Returns: {
-          completed_at: string
-          consumed_seconds: number
-          entitlement_seconds: number
-          pause_reason: string
-          remaining_seconds: number
-          started_at: string
-          status: string
-        }[]
-      }
       configure_sibling_discount_rule: {
         Args: {
           p_discount_type: string
@@ -12058,19 +11133,34 @@ export type Database = {
         }
         Returns: string
       }
-      create_training_session: {
-        Args: {
-          p_club_id: string
-          p_end_time?: string
-          p_notes?: string
-          p_pitch_id?: string
-          p_scheduling_group_id: string
-          p_session_date: string
-          p_start_time?: string
-          p_team_id: string
-        }
-        Returns: string
-      }
+      create_training_session:
+        | {
+            Args: {
+              p_club_id: string
+              p_end_time?: string
+              p_notes?: string
+              p_pitch_id?: string
+              p_scheduling_group_id: string
+              p_session_date: string
+              p_start_time?: string
+              p_team_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_club_id: string
+              p_end_time?: string
+              p_notes?: string
+              p_pitch_id?: string
+              p_scheduling_group_id: string
+              p_session_date: string
+              p_start_time?: string
+              p_team_id: string
+              p_venue_id?: string
+            }
+            Returns: string
+          }
       create_venue: {
         Args: {
           p_address: string
@@ -12081,13 +11171,6 @@ export type Database = {
           p_set_default: boolean
         }
         Returns: string
-      }
-      current_platform_mode: {
-        Args: never
-        Returns: {
-          mode: string
-          since: string
-        }[]
       }
       current_subscription_price: {
         Args: { p_as_of?: string; p_programme_id: string }
@@ -12104,6 +11187,10 @@ export type Database = {
       deactivate_competition: { Args: { p_id: string }; Returns: undefined }
       deactivate_competition_edition: {
         Args: { p_id: string }
+        Returns: undefined
+      }
+      deactivate_training_plan: {
+        Args: { p_plan_id: string; p_reason?: string }
         Returns: undefined
       }
       decide_player_call_up: {
@@ -12176,10 +11263,6 @@ export type Database = {
           subscription_status: string
         }[]
       }
-      extend_club_trial: {
-        Args: { p_club_id: string; p_extra_days: number; p_reason?: string }
-        Returns: number
-      }
       fail_directory_verification_run: {
         Args: { p_error: string; p_run_id: string }
         Returns: undefined
@@ -12195,6 +11278,13 @@ export type Database = {
           p_to_season_id: string
         }
         Returns: string
+      }
+      generate_training_plan_sessions: {
+        Args: { p_training_plan_id: string }
+        Returns: {
+          created_count: number
+          skipped_existing_count: number
+        }[]
       }
       get_active_subscription_impact: {
         Args: { p_club_id: string }
@@ -12279,17 +11369,6 @@ export type Database = {
           max_attachment_size_bytes: number
         }[]
       }
-      get_enrolment_eligibility: {
-        Args: { p_club_id: string; p_player_id: string }
-        Returns: {
-          existing_payer_subscription_id: string
-          has_pricing: boolean
-          merchant_verified: boolean
-          player_has_active_membership: boolean
-          programme_enabled: boolean
-          programme_id: string
-        }[]
-      }
       get_finance_action_required: {
         Args: { p_club_id: string }
         Returns: {
@@ -12297,10 +11376,6 @@ export type Database = {
           player_id: string
           reason: string
         }[]
-      }
-      get_first_collection_date: {
-        Args: { p_as_of?: string; p_programme_id: string }
-        Returns: string
       }
       get_gocardless_connection_status: {
         Args: { p_club_id: string }
@@ -12350,37 +11425,6 @@ export type Database = {
           expires_at: string
           invited_email: string
           status: string
-        }[]
-      }
-      get_membership_operational_detail: {
-        Args: { p_payer_subscription_id: string }
-        Returns: {
-          base_amount_minor: number
-          club_id: string
-          final_amount_minor: number
-          gc_mandate_id: string
-          gc_subscription_id: string
-          mandate_status: string
-          payer_effective_from: string
-          payer_effective_to: string
-          payer_email: string
-          payer_end_reason: string
-          payer_first_name: string
-          payer_status: string
-          payer_subscription_id: string
-          payer_surname: string
-          player_first_name: string
-          player_id: string
-          player_surname: string
-          programme_amount_minor: number
-          programme_collection_day: number
-          programme_first_payment_policy: string
-          sibling_discount_amount_minor: number
-          sibling_discount_type: string
-          sibling_discount_value: number
-          sibling_ordinal: number
-          subscription_amount_minor: number
-          subscription_status: string
         }[]
       }
       get_partner_team_availability: {
@@ -12475,6 +11519,15 @@ export type Database = {
           gender: string
           is_projected: boolean
           squad_designation: string
+        }[]
+      }
+      get_training_management_overview: {
+        Args: { p_club_id: string }
+        Returns: {
+          active_plan_count: number
+          needs_attention_plan_count: number
+          teams_without_plan_count: number
+          upcoming_session_count: number
         }[]
       }
       graduate_team: { Args: { p_team_id: string }; Returns: number }
@@ -12716,58 +11769,26 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
-      mark_platform_provider_event_processed: {
-        Args: { p_error?: string; p_event_id: string }
-        Returns: undefined
-      }
       moderator_delete_message: {
         Args: { p_message_id: string }
         Returns: undefined
       }
-      open_platform_billing_cycle: {
+      override_training_session: {
         Args: {
-          p_charge_date: string
-          p_club_id: string
-          p_idempotency_key: string
+          p_cancel?: boolean
+          p_duration_minutes?: number
+          p_pitch_id?: string
+          p_reason?: string
+          p_session_date?: string
+          p_session_id: string
+          p_start_time?: string
+          p_venue_id?: string
         }
-        Returns: {
-          net_pence: number
-          payment_id: string
-          skipped: boolean
-        }[]
-      }
-      pause_club_trial: {
-        Args: { p_club_id: string; p_reason?: string }
-        Returns: boolean
+        Returns: undefined
       }
       place_graduating_player: {
         Args: { p_queue_id: string; p_target_team_id: string }
         Returns: undefined
-      }
-      platform_commercial_overview: {
-        Args: never
-        Returns: {
-          club_id: string
-          club_name: string
-          club_slug: string
-          credit_balance_pence: number
-          last_payment_failed_at: string
-          last_payment_status: string
-          mandate_present: boolean
-          next_collection_on: string
-          plan_code: string
-          plan_price_pence: number
-          subscription_status: string
-          trial_remaining_seconds: number
-          trial_status: string
-        }[]
-      }
-      platform_public_state: {
-        Args: never
-        Returns: {
-          mode: string
-          release_version: string
-        }[]
       }
       preview_directory_verification_scope: {
         Args: { p_directory_id?: string; p_filters?: Json; p_scope: string }
@@ -12831,6 +11852,20 @@ export type Database = {
           rule_reference: string
         }[]
       }
+      preview_training_plan_occurrences: {
+        Args: {
+          p_club_id: string
+          p_rules: Json
+          p_schedule_mode: string
+          p_season_id: string
+        }
+        Returns: {
+          duration_minutes: number
+          occurrence_date: string
+          schedule_rule_index: number
+          start_time: string
+        }[]
+      }
       propose_tournament_at_host: {
         Args: {
           p_event_date: string
@@ -12852,6 +11887,10 @@ export type Database = {
         Returns: string
       }
       reactivate_team: { Args: { p_team_id: string }; Returns: undefined }
+      reactivate_training_plan: {
+        Args: { p_plan_id: string }
+        Returns: undefined
+      }
       reconcile_gocardless_billing_request: {
         Args: {
           p_billing_request_local_id: string
@@ -12881,16 +11920,6 @@ export type Database = {
       reconcile_tournament_participant: {
         Args: { p_participant_id: string }
         Returns: undefined
-      }
-      record_billing_request: {
-        Args: {
-          p_authorisation_url: string
-          p_club_id: string
-          p_gc_billing_request_flow_id: string
-          p_gc_billing_request_id: string
-          p_payer_subscription_id: string
-        }
-        Returns: string
       }
       record_directory_verification_result: {
         Args: {
@@ -12939,33 +11968,9 @@ export type Database = {
         Args: { p_amount_minor: number; p_payment_id: string; p_reason: string }
         Returns: string
       }
-      record_platform_provider_event: {
-        Args: {
-          p_action: string
-          p_payload: Json
-          p_provider_event_id: string
-          p_resource_type: string
-        }
-        Returns: string
-      }
-      record_platform_release: {
-        Args: {
-          p_build_sha?: string
-          p_channel?: string
-          p_notes?: string
-          p_publish?: boolean
-          p_title?: string
-          p_version: string
-        }
-        Returns: string
-      }
       record_session_version: {
         Args: { p_version: number }
         Returns: undefined
-      }
-      register_referred_club: {
-        Args: { p_club_id: string; p_invitation_id: string }
-        Returns: boolean
       }
       reject_club_claim: {
         Args: { p_claim_id: string; p_notes?: string }
@@ -13121,7 +12126,6 @@ export type Database = {
         Args: { p_membership_id: string }
         Returns: undefined
       }
-      resume_club_trial: { Args: { p_club_id: string }; Returns: boolean }
       revoke_capability_override: {
         Args: { p_override_id: string }
         Returns: undefined
@@ -13140,7 +12144,19 @@ export type Database = {
       }
       run_fixture_completion_check: { Args: never; Returns: number }
       run_season_transition_check: { Args: never; Returns: undefined }
-      run_trial_expiry_check: { Args: never; Returns: number }
+      save_training_plan: {
+        Args: {
+          p_club_id: string
+          p_plan_id: string
+          p_preferred_pitch_id: string
+          p_preferred_venue_id: string
+          p_rules: Json
+          p_schedule_mode: string
+          p_season_id: string
+          p_team_id: string
+        }
+        Returns: string
+      }
       search_scheduling_groups: {
         Args: { p_requesting_team_id: string }
         Returns: {
@@ -13152,10 +12168,6 @@ export type Database = {
           member_team_id: string
           member_team_name: string
         }[]
-      }
-      select_club_plan: {
-        Args: { p_club_id: string; p_plan_code: string }
-        Returns: string
       }
       send_fixture_support_message: {
         Args: { p_body: string; p_fixture_id: string }
@@ -13217,19 +12229,6 @@ export type Database = {
         Args: { p_obligation_id: string; p_reason: string; p_status: string }
         Returns: undefined
       }
-      set_platform_mode: {
-        Args: { p_mode: string; p_reason?: string; p_release_id?: string }
-        Returns: string
-      }
-      set_platform_plan_terms: {
-        Args: {
-          p_code: string
-          p_price_pence?: number
-          p_purchasable?: boolean
-          p_status?: string
-        }
-        Returns: number
-      }
       set_responsible_payer: {
         Args: {
           p_payer_user_id: string
@@ -13250,10 +12249,6 @@ export type Database = {
       }
       set_scheduling_group_members: {
         Args: { p_group_id: string; p_team_ids: string[] }
-        Returns: undefined
-      }
-      set_site_admin_commercial_capability: {
-        Args: { p_enabled: boolean; p_user_id: string }
         Returns: undefined
       }
       set_site_admin_competitions_capability: {
@@ -13277,10 +12272,6 @@ export type Database = {
         Returns: undefined
       }
       set_site_admin_seasons_capability: {
-        Args: { p_enabled: boolean; p_user_id: string }
-        Returns: undefined
-      }
-      set_site_admin_system_capability: {
         Args: { p_enabled: boolean; p_user_id: string }
         Returns: undefined
       }
@@ -13321,7 +12312,6 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
-      start_club_trial: { Args: { p_club_id: string }; Returns: string }
       start_directory_verification_run: {
         Args: { p_directory_id?: string; p_filters?: Json; p_scope: string }
         Returns: string

@@ -7,6 +7,7 @@ import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Save, Sparkles } f
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { detectConflicts, unallocatedReason } from "@/lib/pitch-allocation/auto-allocate"
+import { detectResourceConflicts, trainingCardTitle, type TrainingOccupancy } from "@/lib/pitch-allocation/training-conflicts"
 import type { AllocationFixture, PitchOption } from "@/lib/pitch-allocation/types"
 
 import { allocateFixture, createPitchAllocationProposal, discardPitchAllocationProposal, getProposal, type ProposalItemView } from "./actions"
@@ -78,6 +79,34 @@ function addDaysIso(iso: string, n: number): string {
 
 function conflictFor(fixtureId: string, conflicts: BoardData["conflicts"]) {
   return conflicts.find((c) => c.fixtureId === fixtureId) ?? null
+}
+
+/**
+ * SIDE PROJECT 2 -- Training Management (Section 33): a visually distinct,
+ * read-only card -- no opponent, no home/away, no drag handle. Occurrence
+ * reallocation (moving a single session to a different pitch/time) goes
+ * through override_training_session() from the Training Management plan
+ * detail page for now (Section 25 -- domain support exists; this board's
+ * own drag-and-drop is scoped to fixtures for this pass, disclosed in
+ * docs/TRAINING_MANAGEMENT_BUILD_REPORT.md).
+ */
+function TrainingCard({ session, conflict }: { session: TrainingOccupancy; conflict: { severity: "hard" | "warning"; reason: string } | null }) {
+  return (
+    <div
+      role="group"
+      aria-label={`${trainingCardTitle(session.teamLabel)}, ${session.startTime ?? "unallocated"}${conflict ? `. ${conflict.reason}` : ""}`}
+      className={cn(
+        "flex touch-none flex-col justify-center gap-0.5 overflow-hidden rounded-lg border px-2.5 py-1.5 text-left shadow-sm",
+        conflict?.severity === "hard" ? "border-destructive/40 bg-destructive/10" : "border-sky-400/50 bg-sky-50"
+      )}
+    >
+      <div className="flex items-center gap-1">
+        {conflict && <AlertTriangle className={cn("size-3 shrink-0", conflict.severity === "hard" ? "text-destructive" : "text-amber-600")} />}
+        <p className="truncate text-xs font-semibold text-sky-950">{session.teamLabel} — Planned Training</p>
+      </div>
+      <span className="text-[10px] font-medium text-sky-900/60">{session.startTime ?? "--:--"}</span>
+    </div>
+  )
 }
 
 /**
@@ -425,10 +454,17 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
    * conflict badge immediately -- someone shuffling several fixtures
    * before saving isn't flying blind until Save Changes tells them.
    */
-  const liveConflicts = useMemo(
-    () => detectConflicts(board.fixtures, board.pitches, { warmUpMinutes: board.policy.warmUpMinutes, packUpMinutes: board.policy.packUpMinutes }),
-    [board.fixtures, board.pitches, board.policy.warmUpMinutes, board.policy.packUpMinutes]
-  )
+  const liveConflicts = useMemo(() => {
+    const fixtureOnly = detectConflicts(board.fixtures, board.pitches, { warmUpMinutes: board.policy.warmUpMinutes, packUpMinutes: board.policy.packUpMinutes })
+    // SIDE PROJECT 2: recomputed against the live draft the exact same way
+    // fixture-only conflicts already are (Section 35) -- a staged drag that
+    // would newly collide with a training session is caught immediately.
+    const { fixtureConflicts: fromTraining, trainingConflicts } = detectResourceConflicts(board.fixtures, board.trainingSessions, board.pitches, {
+      warmUpMinutes: board.policy.warmUpMinutes,
+      packUpMinutes: board.policy.packUpMinutes,
+    })
+    return { fixture: [...fixtureOnly, ...fromTraining.map((c) => ({ ...c, severity: c.severity as "hard" | "warning" }))], training: trainingConflicts }
+  }, [board.fixtures, board.pitches, board.trainingSessions, board.policy.warmUpMinutes, board.policy.packUpMinutes])
 
   function navigateNow(nextDate: string) {
     router.push(`/calendar/pitch-allocation?date=${nextDate}`)
@@ -803,6 +839,11 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
 
             {activePitches.map((pitch) => {
               const fixturesOnPitch = board.fixtures.filter((f) => f.pitchId === pitch.id)
+              // SIDE PROJECT 2: rendered as its own read-only layer on the
+              // same pitch row/timeline coordinate system as fixtures --
+              // never merged into fixturesOnPitch (Section 59: never a
+              // fake fixture).
+              const trainingOnPitch = board.trainingSessions.filter((t) => t.pitchId === pitch.id && t.status !== "CANCELLED" && t.startTime)
               const isDropTarget = drag !== null && drag.pitchId === pitch.id
               const draggedFixture = drag ? (board.fixtures.find((f) => f.fixtureId === drag.fixtureId) ?? board.unallocated.find((f) => f.fixtureId === drag.fixtureId)) : undefined
               // Section 41-47: a pitch with real concurrent capacity
@@ -896,7 +937,7 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
                           <FixtureCard
                             key={f.fixtureId}
                             fixture={f}
-                            conflict={conflictFor(f.fixtureId, liveConflicts)}
+                            conflict={conflictFor(f.fixtureId, liveConflicts.fixture)}
                             left={startOffset}
                             width={width}
                             top={laneTop}
@@ -923,6 +964,18 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
                         </Fragment>
                       )
                     })}
+                    {/* SIDE PROJECT 2 -- Training Management (Section 33-34):
+                        no warm-up/pack-up band -- training occupies exactly
+                        start -> start+duration, a hard product rule. */}
+                    {trainingOnPitch.map((t) => {
+                      const startOffset = ((timeToMinutes(t.startTime!) - START_MINUTES) / SLOT_MINUTES) * PX_PER_SLOT
+                      const width = ((t.durationMinutes ?? 60) / SLOT_MINUTES) * PX_PER_SLOT
+                      return (
+                        <div key={t.trainingSessionId} style={{ position: "absolute", left: startOffset, width: Math.max(width, 90), top: 4, bottom: 4 }}>
+                          <TrainingCard session={t} conflict={liveConflicts.training.find((c) => c.trainingSessionId === t.trainingSessionId) ?? null} />
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )
@@ -946,7 +999,7 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
               <div key={f.fixtureId} className="w-56">
                 <FixtureCard
                   fixture={f}
-                  conflict={conflictFor(f.fixtureId, liveConflicts)}
+                  conflict={conflictFor(f.fixtureId, liveConflicts.fixture)}
                   draggable={false}
                   onOpenMove={() => setMoving(f)}
                   reason={unallocatedReason(f, board.pitches)}

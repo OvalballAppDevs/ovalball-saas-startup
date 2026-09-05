@@ -9,6 +9,7 @@ import { loadGroupMemberTeamIds } from "@/lib/mini-rugby/effective-teams.server"
 import { loadOpponentGroupLabels } from "@/lib/calendar/resolve-entry-participant"
 import { resolveHomeAwayGroupIds } from "@/lib/fixtures/resolve-home-away-groups"
 import { detectConflicts, partitionAllocation } from "@/lib/pitch-allocation/auto-allocate"
+import { detectResourceConflicts, type TrainingConflict, type TrainingOccupancy } from "@/lib/pitch-allocation/training-conflicts"
 import { DEFAULT_SCHEDULING_POLICY, type AllocationConflict, type AllocationFixture, type ClubSchedulingPolicy, type PitchOption, type TournamentSummary } from "@/lib/pitch-allocation/types"
 import type { Database } from "@/types/database.types"
 
@@ -21,6 +22,10 @@ export interface PitchAllocationBoard {
   rugbyCode: "union" | "league" | null
   /** Section 79: confirmed tournaments this club is hosting today -- lives in its own table, never in `fixtures`, so it must be surfaced here explicitly rather than leaving the board silently blind to it. */
   tournaments: TournamentSummary[]
+  /** SIDE PROJECT 2 -- Training Management (Section 32-38): read-only physical commitments sharing the same pitches as fixtures. Training is never converted into a fake fixture (Section 59) -- it is its own array, rendered as its own card type, and never counted in board.fixtures.length. */
+  trainingSessions: TrainingOccupancy[]
+  trainingConflicts: TrainingConflict[]
+  fixtureConflictsFromTraining: { fixtureId: string; severity: "hard" | "warning"; reason: string }[]
 }
 
 /**
@@ -96,8 +101,38 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     status: t.status,
   }))
 
+  // SIDE PROJECT 2 -- Training Management: batched, one query, joined to
+  // teams/team_aliases for the label (Section 54 -- no per-card N+1).
+  // Reads the SAME canonical public.training_sessions table Training
+  // Management and Team Admin also read -- never a second source.
+  const { data: trainingRows } = teamIds.length > 0
+    ? await supabase
+        .from("training_sessions")
+        .select("id, team_id, occurrence_date, start_time, duration_minutes, venue_id, pitch_id, status, source, teams(display_name, category, age_group, gender, squad_designation)")
+        .in("team_id", teamIds)
+        .eq("occurrence_date", dateIso)
+    : { data: [] }
+  const trainingTeamIds = Array.from(new Set((trainingRows ?? []).map((t) => t.team_id).filter((id): id is string => Boolean(id))))
+  const { data: trainingAliasRows } = trainingTeamIds.length > 0 ? await supabase.from("team_aliases").select("team_id, alias").in("team_id", trainingTeamIds) : { data: [] }
+  const trainingAliasByTeamId = new Map((trainingAliasRows ?? []).map((a) => [a.team_id, a.alias]))
+  const trainingSessions: TrainingOccupancy[] = (trainingRows ?? []).map((t) => {
+    const alias = t.team_id ? trainingAliasByTeamId.get(t.team_id) : null
+    const label = t.teams ? fullTeamLabel({ category: t.teams.category ?? "youth", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation, alias }) : "Team"
+    return {
+      trainingSessionId: t.id,
+      teamLabel: label,
+      venueId: t.venue_id,
+      pitchId: t.pitch_id,
+      sessionDate: t.occurrence_date ?? dateIso,
+      startTime: t.start_time,
+      durationMinutes: t.duration_minutes,
+      status: t.status as "PLANNED" | "CANCELLED",
+      source: t.source as "MANUAL" | "AUTOMATIC_PLAN",
+    }
+  })
+
   if (teamIds.length === 0) {
-    return { fixtures: [], unallocated: [], pitches, policy, conflicts: [], rugbyCode, tournaments }
+    return { fixtures: [], unallocated: [], pitches, policy, conflicts: [], rugbyCode, tournaments, trainingSessions, trainingConflicts: [], fixtureConflictsFromTraining: [] }
   }
 
   const { data: rawFixtureRows } = await supabase
@@ -268,5 +303,14 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     }
   }
 
-  return { fixtures: allocated, unallocated, pitches, policy, conflicts, rugbyCode, tournaments }
+  // Section 35: pitch conflicts consider BOTH fixture and training
+  // occupancy together -- a separate call from the fixture-only
+  // detectConflicts above, so that function's own existing behaviour and
+  // regression suite are completely unaffected by Training's existence.
+  const { fixtureConflicts: fixtureConflictsFromTraining, trainingConflicts } = detectResourceConflicts(allocated, trainingSessions, pitches, {
+    warmUpMinutes: policy.warmUpMinutes,
+    packUpMinutes: policy.packUpMinutes,
+  })
+
+  return { fixtures: allocated, unallocated, pitches, policy, conflicts, rugbyCode, tournaments, trainingSessions, trainingConflicts, fixtureConflictsFromTraining }
 }
