@@ -308,6 +308,30 @@ begin
   insert into public.fixture_requests (id, group_id, requesting_team_id, target_scheduling_group_id, venue_preference, status, created_by)
   values ('9d000000-0000-0000-0000-000000000011', '9d000000-0000-0000-0000-000000000010', '9d000000-0000-0000-0000-000000000006', v_group_id, 'away', 'sent', '00000000-0000-0000-0000-000000000003')
   on conflict (id) do nothing;
+
+  -- IDEMPOTENCY RESET (see the matching note on request ...0021 below):
+  -- this request is accepted by a later test, so a re-run would otherwise
+  -- find it already 'accepted' and error instead of asserting. Any fixture
+  -- previously booked from it is cleared too, so the same-day commitment
+  -- rule doesn't then reject the fresh booking.
+  -- Detach EVERY request pointing at the fixtures about to be removed --
+  -- fixture_requests.resulting_fixture_id FKs fixtures, and more than one
+  -- request row can reference the same booked fixture.
+  update public.fixture_requests set resulting_fixture_id = null
+   where resulting_fixture_id in (
+     select id from public.fixtures
+      where owning_scheduling_group_id = v_group_id
+         or opponent_scheduling_group_id = v_group_id
+         or (owning_team_id = '9d000000-0000-0000-0000-000000000006' and kickoff_date >= current_date));
+  delete from public.fixtures
+   where owning_scheduling_group_id = v_group_id
+      or opponent_scheduling_group_id = v_group_id
+      or (owning_team_id = '9d000000-0000-0000-0000-000000000006' and kickoff_date >= current_date);
+  -- target_team_id is written back by a successful accept; leaving it set
+  -- made the group-resolution guard be skipped entirely on a re-run
+  -- (coalesce then used the stored target and ignored p_target_team_id),
+  -- which produced a misleading FAIL 12.
+  update public.fixture_requests set status = 'sent', target_team_id = null where id = '9d000000-0000-0000-0000-000000000011';
 end $$;
 
 begin;
@@ -330,12 +354,39 @@ rollback;
 begin;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated"}';
+-- SUPERSEDED EXPECTATION, REWRITTEN. This test originally asserted that an
+-- ambiguous group request must be REJECTED until a single team was chosen.
+-- The group-vs-group fixture model deliberately replaced that rule: a
+-- request against a Mini-Rugby Group is now accepted against the WHOLE
+-- group (accept_fixture_request's own comment: "One or more eligible
+-- members: accept against the WHOLE group -- the auto-resolved member is
+-- only the required real anchor"). Asserting the old rule left a permanent
+-- false FAIL. It now asserts the CURRENT canonical contract instead, which
+-- also covers the accept-path bug fixed in
+-- 20260929000000_fix_accept_fixture_request_group_opponent.sql: the booked
+-- fixture must carry the group as its opponent identity and must NOT also
+-- carry an opponent_directory_id.
 do $$
+declare
+  v_fixture_id uuid;
+  v_opp_group uuid;
+  v_opp_dir uuid;
+  v_anchor uuid;
 begin
-  perform public.accept_fixture_request('9d000000-0000-0000-0000-000000000011');
-  raise notice 'FAIL 13: an ambiguous Mini-Rugby Group request was auto-accepted without a chosen team';
-exception when others then
-  raise notice 'PASS 13: an ambiguous Mini-Rugby Group request requires explicit team selection (%)', sqlerrm;
+  v_fixture_id := public.accept_fixture_request('9d000000-0000-0000-0000-000000000011');
+  select opponent_scheduling_group_id, opponent_directory_id, opponent_team_id
+    into v_opp_group, v_opp_dir, v_anchor
+  from public.fixtures where id = v_fixture_id;
+
+  if v_opp_group is null then
+    raise notice 'FAIL 13a: group-targeted request did not record the group as the opponent identity';
+  elsif v_opp_dir is not null then
+    raise notice 'FAIL 13b: fixture carries BOTH an opponent group and an opponent_directory_id (canonical single-opponent rule broken)';
+  elsif v_anchor is null then
+    raise notice 'FAIL 13c: no real anchor team was resolved for the group fixture';
+  else
+    raise notice 'PASS 13: a group-targeted request books against the WHOLE group (group=%, anchor=%) with no duplicate directory opponent', v_opp_group, v_anchor;
+  end if;
 end $$;
 rollback;
 
@@ -413,6 +464,27 @@ begin
   insert into public.fixture_requests (id, group_id, requesting_team_id, target_scheduling_group_id, venue_preference, status, created_by)
   values (v_req_id, v_req_group_id, '9d000000-0000-0000-0000-000000000006', v_group_id, 'away', 'sent', '00000000-0000-0000-0000-000000000003')
   on conflict (id) do nothing;
+
+  -- IDEMPOTENCY RESET: the next test accepts this request, which moves it
+  -- to 'accepted' permanently. Because the insert above is
+  -- `on conflict (id) do nothing`, a re-run left it 'accepted' and the
+  -- accept errored with "Request is not awaiting a response", so no
+  -- fixture was booked -- which then cascaded into false FAILs at tests 22
+  -- and 27a (both of which depend on that fixture existing). Resetting to
+  -- 'sent' and clearing the previously-booked fixture makes the suite
+  -- honestly re-runnable.
+  -- Detach EVERY request pointing at the fixtures about to be removed.
+  update public.fixture_requests set resulting_fixture_id = null
+   where resulting_fixture_id in (
+     select id from public.fixtures
+      where owning_scheduling_group_id = v_group_id
+         or opponent_scheduling_group_id = v_group_id
+         or (owning_team_id = '9d000000-0000-0000-0000-000000000006' and kickoff_date >= current_date));
+  delete from public.fixtures
+   where owning_scheduling_group_id = v_group_id
+      or opponent_scheduling_group_id = v_group_id
+      or (owning_team_id = '9d000000-0000-0000-0000-000000000006' and kickoff_date >= current_date);
+  update public.fixture_requests set status = 'sent', target_team_id = null where id = v_req_id;
 end $$;
 commit;
 
@@ -577,7 +649,24 @@ rollback;
 --     group -- set_scheduling_group_members refuses to edit t_group_a's
 --     membership now that test 16 booked a real fixture against it.
 -- ------------------------------------------------------------
+-- This test used to depend on a fixture LEFT BEHIND by an earlier run
+-- (every accept against t_group_a in this file happens inside a rolled-back
+-- block, so nothing here actually commits one). Once the suite was made
+-- properly re-runnable that stale fixture was cleared, and the test started
+-- reporting a false FAIL -- it was only ever passing on residue. It now
+-- books its own fixture against the group inside this same transaction, so
+-- the precondition it claims to test is genuinely present.
 begin;
+do $$
+declare
+  v_group_id uuid;
+begin
+  select id into v_group_id from t_group_a;
+  -- opponent_team_id is the required real anchor and must belong to the
+  -- same club as the opponent group (enforced by trigger).
+  insert into public.fixtures (owning_team_id, opponent_scheduling_group_id, opponent_team_id, home_away, raw_opposition_text, kickoff_date, status, source)
+  values ('9d000000-0000-0000-0000-000000000006', v_group_id, '9d000000-0000-0000-0000-000000000002', 'Away', 'Composition Freeze Test', current_date + 45, 'Booked', 'club_created');
+end $$;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated"}';
 do $$
@@ -670,19 +759,41 @@ rollback;
 --     component team_ids for a Mini-Rugby Group fixture, and just the
 --     one team for an ordinary fixture.
 -- ------------------------------------------------------------
+-- LEFTOVER-STATE DEFECT, FIXED. This test used to look up
+--   select id from fixtures where owning_scheduling_group_id = t_group_a
+-- but NOTHING in this suite ever commits such a fixture -- every accept
+-- against t_group_a happens inside a rolled-back block. It only ever passed
+-- on a fixture left behind by an older run, and started reporting
+-- "FAIL 27a: unexpected ids {}" (an empty set from a NULL fixture id) once
+-- the suite was made properly re-runnable. It now books its own group
+-- fixture inside this transaction, and asserts against the group's ACTUAL
+-- membership rather than three hardcoded ids -- so it proves the real
+-- invariant (a group fixture expands to exactly its component teams)
+-- without depending on which members earlier tests happened to leave behind.
+begin;
 do $$
 declare
   v_group_id uuid;
   v_fixture_id uuid;
   v_ids uuid[];
+  v_expected uuid[];
 begin
-  select id into v_group_id from t_group_a; -- U6+U7+U8 (test 18 edits a separate, freshly-created group in a rolled-back tx -- t_group_a itself is untouched here)
-  select id into v_fixture_id from public.fixtures where owning_scheduling_group_id = v_group_id limit 1;
+  select id into v_group_id from t_group_a;
 
-  v_ids := public.get_effective_fixture_team_ids(v_fixture_id);
-  if array_length(v_ids, 1) = 3 and '9d000000-0000-0000-0000-000000000001' = any(v_ids) and '9d000000-0000-0000-0000-000000000002' = any(v_ids) and '9d000000-0000-0000-0000-000000000004' = any(v_ids) then
-    raise notice 'PASS 27a: get_effective_fixture_team_ids resolves all 3 real component team_ids for a Mini-Rugby Group fixture';
+  select array_agg(team_id order by team_id) into v_expected
+  from public.scheduling_group_members where group_id = v_group_id;
+
+  insert into public.fixtures (owning_team_id, owning_scheduling_group_id, home_away, raw_opposition_text, kickoff_date, status, source)
+  values ((select team_id from public.scheduling_group_members where group_id = v_group_id order by team_id limit 1),
+          v_group_id, 'Home', 'Effective Team Ids Test', current_date + 60, 'Booked', 'club_created')
+  returning id into v_fixture_id;
+
+  select array_agg(x order by x) into v_ids from unnest(public.get_effective_fixture_team_ids(v_fixture_id)) as x;
+
+  if v_ids is not distinct from v_expected then
+    raise notice 'PASS 27a: get_effective_fixture_team_ids resolves exactly the % real component team_ids of the Mini-Rugby Group fixture', coalesce(array_length(v_expected,1),0);
   else
-    raise notice 'FAIL 27a: unexpected ids %', v_ids;
+    raise notice 'FAIL 27a: expected % but got %', v_expected, v_ids;
   end if;
 end $$;
+rollback;

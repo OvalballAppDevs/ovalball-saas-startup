@@ -28,17 +28,39 @@ begin
     ('98000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000001', 'union', 'youth', 'U8', 'C', 'Burnley RUFC U8 C', 'burnley-u8-rlv')
   on conflict (id) do nothing;
 
+  -- IDEMPOTENCY RESET (added when this suite was found to produce false
+  -- FAILs on re-run). Tests 3 and 8 assert the PRE-rollover state ("still
+  -- U12 until explicitly confirmed"), but test 5 then confirms the
+  -- rollover and really does age this team to U13. Because every fixture
+  -- insert here is `on conflict (id) do nothing`, a second run never reset
+  -- the team, so tests 3 and 8 failed against state the suite itself had
+  -- created on the previous run. Those were re-run artifacts, never
+  -- product bugs -- snapshot immutability was separately proven correct by
+  -- direct experiment (a fixture created at U14 still reads U14 after its
+  -- team ages to U15). Resetting to the documented pre-state here makes
+  -- the suite honestly re-runnable.
+  update public.teams
+     set age_group = 'U12', squad_designation = 'C'
+   where id = '98000000-0000-0000-0000-000000000001';
+
+  delete from public.age_grade_rollover_team_proposals p
+   using public.age_grade_rollovers r
+   where p.rollover_id = r.id
+     and p.team_id = '98000000-0000-0000-0000-000000000001';
+
+  -- Recreated (not `do nothing`) so owning_team_age_group_snapshot is
+  -- recomputed from the freshly-reset U12 team on every run.
+  delete from public.fixtures where id in ('98000000-0000-0000-0000-000000000010', '98000000-0000-0000-0000-000000000011');
+
   -- A historical (past) fixture for U12 C, in the FROM season's window --
   -- must stay historically U12 after the team rolls to U13.
   insert into public.fixtures (id, owning_team_id, opponent_team_id, home_away, raw_opposition_text, kickoff_date, status, source)
-  values ('98000000-0000-0000-0000-000000000010', '98000000-0000-0000-0000-000000000001', null, 'Home', 'Old Rivals FC', '2026-02-10', 'Completed', 'club_created')
-  on conflict (id) do nothing;
+  values ('98000000-0000-0000-0000-000000000010', '98000000-0000-0000-0000-000000000001', null, 'Home', 'Old Rivals FC', '2026-02-10', 'Completed', 'club_created');
 
   -- A fixture already booked ahead into the TO season's window, before
   -- rollover is even generated -- must survive rollover untouched.
   insert into public.fixtures (id, owning_team_id, opponent_team_id, home_away, raw_opposition_text, kickoff_date, status, source)
-  values ('98000000-0000-0000-0000-000000000011', '98000000-0000-0000-0000-000000000001', null, 'Home', 'Next Season Rivals FC', '2026-10-05', 'Booked', 'club_created')
-  on conflict (id) do nothing;
+  values ('98000000-0000-0000-0000-000000000011', '98000000-0000-0000-0000-000000000001', null, 'Home', 'Next Season Rivals FC', '2026-10-05', 'Booked', 'club_created');
 end $$;
 
 -- ------------------------------------------------------------
@@ -77,7 +99,13 @@ declare
   v_from_season_id uuid;
   v_pre_season_starts_on date;
 begin
-  perform public.generate_rollover_proposal('10000000-0000-0000-0000-000000000001', 'league', '98000000-0000-0000-0000-000000000104');
+  -- Must be a club that genuinely PLAYS league. Burnley is a union club,
+  -- and the rugby-code isolation invariant (proven separately) now
+  -- correctly refuses to generate a league rollover for it -- which made
+  -- this test error out rather than assert anything. Using the real
+  -- league club keeps the test's actual intent (League pre-season starts
+  -- 1 November) while respecting that invariant.
+  perform public.generate_rollover_proposal('95000000-0000-0000-0000-000000000022', 'league', '98000000-0000-0000-0000-000000000104');
   select pre_season_starts_on into v_pre_season_starts_on from public.seasons where id = '98000000-0000-0000-0000-000000000104';
   if v_pre_season_starts_on = '2026-11-01' then
     raise notice 'PASS 2: a League rollover becomes effective from 1 November (the season''s own pre-season start)';
@@ -408,7 +436,13 @@ declare
   v_member_count_before integer;
   v_member_count_after integer;
 begin
-  v_group_id := public.create_scheduling_group('10000000-0000-0000-0000-000000000001', array['98000000-0000-0000-0000-000000000003'::uuid, '98000000-0000-0000-0000-000000000004'::uuid]);
+  -- Signature gained an explicit p_season_id since this test was written
+  -- (create_scheduling_group(p_club_id, p_team_ids, p_season_id)); the old
+  -- two-argument call errored out rather than asserting anything.
+  v_group_id := public.create_scheduling_group(
+    '10000000-0000-0000-0000-000000000001',
+    array['98000000-0000-0000-0000-000000000003'::uuid, '98000000-0000-0000-0000-000000000004'::uuid],
+    '98000000-0000-0000-0000-000000000102');
   select count(*) into v_member_count_before from public.scheduling_group_members where group_id = v_group_id;
 
   v_rollover_id := public.generate_rollover_proposal('10000000-0000-0000-0000-000000000001', 'union', '98000000-0000-0000-0000-000000000102');
