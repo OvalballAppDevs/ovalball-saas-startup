@@ -70,3 +70,6 @@ data/clublogo/
 # Local tooling caches / local-only skill copies
 .impeccable/
 .claude/skills/
+
+# Vercel account/machine-specific link metadata
+.vercel

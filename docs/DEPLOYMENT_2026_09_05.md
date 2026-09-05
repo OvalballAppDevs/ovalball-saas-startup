@@ -276,3 +276,50 @@ production OAuth redirect built on a localhost/non-HTTPS origin.
 1. real webhook delivery + signature verification via public HTTPS
 2. real Direct Debit mandate creation
 3. real payment lifecycle `confirmed` → `paid_out`
+
+---
+
+## Application hosting — BLOCKED AT VERCEL AUTHENTICATION
+
+Attempted after the database deployment completed (198/198).
+
+| Check | Result |
+|---|---|
+| Vercel CLI on PATH | not installed (used `npx vercel@latest`, no global install) |
+| `~/.vercel` / `.vercel` auth artifacts | none |
+| `VERCEL_TOKEN` (env or `.env.local`) | not set |
+| `npx vercel whoami` | **"Logged out."** |
+
+No Vercel account is authenticated on this machine and no token is available.
+`vercel login` is interactive, so authentication could not be completed
+non-interactively. No credentials were invented and no token was requested in chat.
+
+**Therefore not performed:** project creation, repository link, environment
+configuration, preview deployment, production deployment, and every production smoke
+test (core, Club Settings navigation, Finance, Parent/Guardian, security, OAuth origin,
+webhook route, log review). None of these are claimed.
+
+### Auth-independent preparation completed
+
+| Item | Result |
+|---|---|
+| Local verification on `736298a` | TypeScript **0 errors**, lint **0 errors** (151 pre-existing warnings), production build **succeeds** |
+| S9 — GoCardless not required at startup | **Proven**: production build succeeds with **zero** `GOCARDLESS_*` variables; no credential getter runs at module load |
+| S11 — startup-critical variables | `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` throw when unset (`lib/supabase/env.ts`); `SUPABASE_SERVICE_ROLE_KEY` is feature-level (server-only); `NEXT_PUBLIC_SITE_URL` used by 10 files |
+| S8 — Supabase target | Production must point at ref `ywwdizmaanbujcfitpcj`. Local `.env.local` points at `127.0.0.1:54321`, so production Supabase values must come from the Supabase dashboard, not local config. |
+| S31 — hosting documentation | `docs/PRODUCTION_HOSTING.md` created |
+| `.vercel` gitignored | yes |
+
+### Smallest exact manual action required
+
+Run on this machine, then tell me:
+
+```
+npx vercel login
+```
+
+(or export a `VERCEL_TOKEN` into the environment for non-interactive use).
+
+After that I can complete link → env configuration → preview → production → full smoke
+testing without further input, except that the three Supabase production values must be
+entered by a human — I will not handle or print them.
