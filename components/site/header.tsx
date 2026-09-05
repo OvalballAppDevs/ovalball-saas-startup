@@ -18,20 +18,22 @@ import { UserAvatar } from "@/components/profile/user-avatar"
 import { useMagnetic } from "@/lib/motion/use-magnetic"
 import { Reveal } from "@/lib/motion/reveal"
 import type { PublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
+import { ABOUT_ROUTE, CONTACT_ROUTE } from "@/lib/legal/metadata"
 import { cn } from "@/lib/utils"
 
 import { signOut } from "@/app/(app)/account/actions"
 import { AccountControl } from "./account-control"
 
-// "Product" is the only section that exists in Phase 1's DOM. The other
-// three are kept visible -- disabled, not dead-linked -- for the full nav
-// composition the brand direction calls for; they light up once their
-// sections ship rather than pointing at anchors that don't exist yet.
+// Sections still kept visible-but-disabled (never dead-linked) light up as
+// they ship, exactly as this nav was built to do. About and Contact are now
+// real pages, so they point at their canonical routes rather than at
+// placeholder anchors.
 const NAV_LINKS = [
   { href: "#product", label: "Product", disabled: false },
   { href: "#clubs", label: "Clubs", disabled: true },
   { href: "#fixtures", label: "Fixtures", disabled: true },
-  { href: "#about", label: "About", disabled: true },
+  { href: ABOUT_ROUTE, label: "About", disabled: false },
+  { href: CONTACT_ROUTE, label: "Contact", disabled: false },
   { href: "/support", label: "Support", disabled: false },
 ]
 

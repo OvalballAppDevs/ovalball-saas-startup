@@ -19,11 +19,17 @@ None of these appear anywhere on the public site, because none is verified.
 | VAT number | **Not supplied** | Terms, and payment documentation if VAT applies |
 | ICO registration number | **Not supplied** | Privacy "Who we are" |
 | Whether a DPO is appointed | **Not determined** | Privacy contact section |
-| Privacy / data-protection contact address | **Not supplied** | Every page's contact section |
+| ~~Privacy / data-protection contact address~~ | **RESOLVED** — `hello@ovalball.co.uk` | Every page's contact section |
 
-Pages currently direct readers to `/public-support`, which is a real login-free route.
-That is honest and workable, but a dedicated privacy contact address is the normal
-expectation and Meta/Google reviewers may look for one.
+**Contact address resolved.** The verified public contact address is
+`hello@ovalball.co.uk`, defined once in `lib/legal/metadata.ts` as `CONTACT_EMAIL` and
+displayed on Privacy, Data Rights, Safeguarding, Terms, Copyright, About and Contact.
+The canonical contact page is `/contact`; `/support` remains the login-free support
+route and both submit into the same support-ticket system.
+
+A general contact address satisfies the "how to reach us" expectation that Meta and
+Google reviewers look for. Whether a *separate, dedicated* privacy/DPO address is also
+wanted remains an owner decision, not a blocker.
 
 ## B. Solicitor review — SOLICITOR REVIEW REQUIRED
 

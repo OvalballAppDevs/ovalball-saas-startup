@@ -25,14 +25,40 @@ export const LEGAL_LAST_UPDATED = "5 September 2026"
 export const LEGAL_VERSION = "1.0"
 
 /**
- * Where a reader is pointed for privacy/legal contact.
+ * The verified public contact address for Ovalball.
  *
- * There is deliberately no hardcoded email address here: no privacy contact
- * address has been verified for the operator, and inventing one on a public
- * legal page would be worse than omitting it. /public-support is a real,
- * login-free route in this application, so it is a genuine contact path.
+ * This is the one place the address is written down. It resolves the
+ * previous "no verified contact address" gap on the legal pages, which
+ * until now could only point a reader at a route rather than name a real
+ * mailbox. Displayed openly rather than obfuscated: an address a screen
+ * reader or a person on a phone cannot use is not a contact route.
  */
-export const CONTACT_ROUTE = "/public-support"
+export const CONTACT_EMAIL = "hello@ovalball.co.uk"
+
+/** `mailto:` form of {@link CONTACT_EMAIL}, so no page hand-builds the href. */
+export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`
+
+/** Canonical public route for "About Us". One route, never an alias set. */
+export const ABOUT_ROUTE = "/about"
+
+/**
+ * Canonical public route for "Contact Us".
+ *
+ * /contact is a real, login-free page that names {@link CONTACT_EMAIL} and
+ * submits into the SAME support-ticket system as /support -- it is not a
+ * second contact system, and the recipient is never client-controlled.
+ */
+export const CONTACT_ROUTE = "/contact"
+
+/**
+ * The copyright line, rendered wherever rights are asserted.
+ *
+ * Takes the year as an argument rather than reading the clock itself so a
+ * server-rendered page and a test can agree on the same value.
+ */
+export function copyrightLine(year: number = new Date().getFullYear()): string {
+  return `© ${year} ${OPERATOR_NAME}. All rights reserved.`
+}
 
 export interface LegalDocumentLink {
   href: string
@@ -87,9 +113,25 @@ export const LEGAL_DOCUMENTS: LegalDocumentLink[] = [
     label: "Third-Party Services",
     description: "The service providers Ovalball relies on, and what each one does.",
   },
+  {
+    href: "/legal/copyright",
+    label: "Copyright",
+    description: "Who owns what in Ovalball, and the rights clubs and users keep.",
+  },
 ]
 
 /** The subset shown in the compact homepage footer. */
 export const FOOTER_LEGAL_LINKS = LEGAL_DOCUMENTS.filter((d) =>
   ["/legal/privacy", "/legal/children-privacy", "/legal/terms", "/legal/cookies", "/legal/safeguarding", "/legal/data-rights"].includes(d.href)
 )
+
+/**
+ * The non-legal half of the footer's bottom band. Kept beside
+ * FOOTER_LEGAL_LINKS so the two groups can never drift apart structurally,
+ * and so a route rename is a one-line change here rather than a hunt
+ * through the footer markup.
+ */
+export const FOOTER_OVALBALL_LINKS: { href: string; label: string }[] = [
+  { href: ABOUT_ROUTE, label: "About" },
+  { href: CONTACT_ROUTE, label: "Contact" },
+]

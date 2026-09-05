@@ -3,7 +3,7 @@ import Link from "next/link"
 
 import { LegalPageLayout } from "@/components/site/legal-page-layout"
 import { LegalDocumentMeta, LegalList, LegalSection, LegalSubheading } from "@/components/site/legal-prose"
-import { CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
+import { CONTACT_EMAIL, CONTACT_MAILTO, CONTACT_ROUTE, OPERATOR_NAME, PUBLIC_ORIGIN } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
   title: "Your Data Rights | Ovalball",
@@ -78,12 +78,17 @@ export default function DataRightsPage() {
 
       <LegalSection heading="How to make a request">
         <p>
-          Contact {OPERATOR_NAME} using the{" "}
+          Email {OPERATOR_NAME} at{" "}
+          <a href={CONTACT_MAILTO} className="font-medium text-forest-800 underline underline-offset-4">
+            {CONTACT_EMAIL}
+          </a>
+          , or use the{" "}
           <Link href={CONTACT_ROUTE} className="font-medium text-forest-800 underline underline-offset-4">
-            Ovalball support page
-          </Link>
-          . Tell us what you are asking for, and the email address associated with the Ovalball
-          account so we can identify the right records.
+            Ovalball contact page
+          </Link>{" "}
+          and choose &ldquo;Privacy / data rights&rdquo; as the reason. Tell us what you are asking
+          for, and the email address associated with the Ovalball account so we can identify the
+          right records.
         </p>
         <p>
           We may need to verify your identity before acting, particularly for access or deletion
@@ -142,9 +147,14 @@ export default function DataRightsPage() {
           <li>
             Go to the{" "}
             <Link href={CONTACT_ROUTE} className="font-medium text-forest-800 underline underline-offset-4">
-              Ovalball support page
+              Ovalball contact page
             </Link>{" "}
-            at ovalball.co.uk/public-support.
+            at {PUBLIC_ORIGIN.replace("https://", "")}
+            {CONTACT_ROUTE}, or email{" "}
+            <a href={CONTACT_MAILTO} className="font-medium text-forest-800 underline underline-offset-4">
+              {CONTACT_EMAIL}
+            </a>
+            .
           </li>
           <li>
             Send a request stating that you want your Ovalball account deleted, and that you signed

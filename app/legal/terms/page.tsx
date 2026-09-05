@@ -3,7 +3,7 @@ import Link from "next/link"
 
 import { LegalPageLayout } from "@/components/site/legal-page-layout"
 import { LegalDocumentMeta, LegalList, LegalSection } from "@/components/site/legal-prose"
-import { CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
+import { CONTACT_EMAIL, CONTACT_MAILTO, CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
   title: "Ovalball Terms of Service",
@@ -179,10 +179,22 @@ export default function TermsPage() {
           transfer any ownership in them.
         </p>
         <p>
-          Information a club or user enters remains theirs. By entering it you allow us to process it
-          as needed to provide the service, as described in the{" "}
+          Information a club or user enters remains theirs. By entering it you grant us only the
+          licence reasonably necessary to host, store, process, display, transmit and back up that
+          content so we can operate the service &mdash; not ownership of it, and nothing wider. This
+          is described in the{" "}
           <Link href="/legal/privacy" className="font-medium text-forest-800 underline underline-offset-4">
             Privacy Notice
+          </Link>
+          .
+        </p>
+        <p>
+          Club names, crests and badges, competition names, governing-body marks and other
+          third-party trade marks or materials remain the property of their respective owners. Their
+          appearance in Ovalball transfers no ownership of them to {OPERATOR_NAME} and implies no
+          affiliation or endorsement. This is set out more fully in{" "}
+          <Link href="/legal/copyright" className="font-medium text-forest-800 underline underline-offset-4">
+            Copyright &amp; Intellectual Property
           </Link>
           .
         </p>
@@ -250,9 +262,13 @@ export default function TermsPage() {
 
       <LegalSection heading="20. Contact">
         <p>
-          To contact {OPERATOR_NAME} about these Terms, please use the{" "}
+          To contact {OPERATOR_NAME} about these Terms, email{" "}
+          <a href={CONTACT_MAILTO} className="font-medium text-forest-800 underline underline-offset-4">
+            {CONTACT_EMAIL}
+          </a>{" "}
+          or use the{" "}
           <Link href={CONTACT_ROUTE} className="font-medium text-forest-800 underline underline-offset-4">
-            Ovalball support page
+            Ovalball contact page
           </Link>
           .
         </p>

@@ -3,7 +3,7 @@ import Link from "next/link"
 
 import { LegalPageLayout } from "@/components/site/legal-page-layout"
 import { LegalDocumentMeta, LegalList, LegalSection } from "@/components/site/legal-prose"
-import { CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
+import { CONTACT_EMAIL, CONTACT_MAILTO, CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
   title: "Safeguarding & Online Safety | Ovalball",
@@ -77,11 +77,17 @@ export default function SafeguardingPage() {
             "Tell your club's safeguarding lead or a club administrator. They can act immediately on roles and access at the club.",
             "Report the message within Ovalball where the reporting option is available.",
             <>
-              Contact {OPERATOR_NAME} through the{" "}
+              Contact {OPERATOR_NAME} at{" "}
+              <a href={CONTACT_MAILTO} className="font-medium text-forest-800 underline underline-offset-4">
+                {CONTACT_EMAIL}
+              </a>{" "}
+              or through the{" "}
               <Link href={CONTACT_ROUTE} className="font-medium text-forest-800 underline underline-offset-4">
-                Ovalball support page
+                Ovalball contact page
               </Link>
-              .
+              , choosing &ldquo;Safeguarding / online safety&rdquo;. This address is monitored
+              during ordinary working hours and is not an emergency service &mdash; if a child is at
+              immediate risk, always use the emergency guidance above first.
             </>,
           ]}
         />

@@ -3,7 +3,7 @@ import Link from "next/link"
 
 import { LegalPageLayout } from "@/components/site/legal-page-layout"
 import { LegalDocumentMeta, LegalList, LegalSection, LegalSubheading, LegalTable } from "@/components/site/legal-prose"
-import { CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
+import { CONTACT_EMAIL, CONTACT_MAILTO, CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
   title: "Ovalball Privacy Notice",
@@ -452,12 +452,15 @@ export default function PrivacyNoticePage() {
 
       <LegalSection heading="38. Contact">
         <p>
-          To contact {OPERATOR_NAME} about privacy or data protection, please use the contact route
-          published on Ovalball:{" "}
+          To contact {OPERATOR_NAME} about privacy or data protection, email{" "}
+          <a href={CONTACT_MAILTO} className="font-medium text-forest-800 underline underline-offset-4">
+            {CONTACT_EMAIL}
+          </a>{" "}
+          or use the{" "}
           <Link href={CONTACT_ROUTE} className="font-medium text-forest-800 underline underline-offset-4">
-            Ovalball support
+            Ovalball contact page
           </Link>
-          .
+          , choosing &ldquo;Privacy / data rights&rdquo; as the reason.
         </p>
       </LegalSection>
     </LegalPageLayout>

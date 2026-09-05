@@ -3,7 +3,13 @@ import Link from "next/link"
 import { OvalballLogo, OvalballWordmark } from "@/components/brand/ovalball-logo"
 import { OvalballMark } from "@/components/brand/ovalball-mark"
 import { APP_VERSION } from "@/lib/version"
-import { FOOTER_LEGAL_LINKS, OPERATOR_NAME, PRODUCT_NAME } from "@/lib/legal/metadata"
+import {
+  FOOTER_LEGAL_LINKS,
+  FOOTER_OVALBALL_LINKS,
+  OPERATOR_NAME,
+  PRODUCT_NAME,
+  copyrightLine,
+} from "@/lib/legal/metadata"
 
 interface FooterLink {
   label: string
@@ -29,26 +35,36 @@ const PRODUCT: FooterCluster = {
   ],
 }
 
+// About, Contact and the legal documents deliberately do NOT appear here:
+// they all live in the bottom band ("Ovalball" and "Legal & Trust"), and a
+// footer that lists the same page twice is just two links competing for the
+// same click. Support is the one company destination that isn't down there.
 const SECONDARY_CLUSTERS: FooterCluster[] = [
   {
     heading: "Company",
-    links: [
-      { label: "About", href: "#about", disabled: true },
-      { label: "Contact", href: "#contact", disabled: true },
-      { label: "Support", href: "/support" },
-    ],
-  },
-  {
-    heading: "Legal",
-    links: [
-      { label: "Terms", href: "/legal/terms" },
-      { label: "Privacy", href: "/legal/privacy" },
-      { label: "Cookies", href: "/legal/cookies" },
-    ],
+    links: [{ label: "Support", href: "/support" }],
   },
 ]
 
 const LINK_DISABLED_CLASS = "text-sm text-white/30 select-none"
+
+const FOOTER_BOTTOM_LINK_CLASS =
+  "footer-link py-1 text-sm text-white/75 outline-none hover:text-white focus-visible:text-white focus-visible:ring-2 focus-visible:ring-pitch-400"
+
+/** One labelled group in the footer's bottom band. */
+function FooterBottomGroup({ heading, children }: { heading: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs font-medium tracking-[0.08em] text-white/40 uppercase">{heading}</p>
+      <nav
+        aria-label={heading.replace(/&/g, "and")}
+        className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2"
+      >
+        {children}
+      </nav>
+    </div>
+  )
+}
 
 export function Footer() {
   return (
@@ -96,34 +112,35 @@ export function Footer() {
           </p>
         </div>
 
-        {/* Legal & Trust row. Kept as its own band above the copyright so the
-            statutory links are genuinely visible at the bottom of the public
-            homepage rather than tucked into a menu. Wraps cleanly on mobile;
-            each link is a full-size tap target. */}
-        <div className="relative mt-14 border-t border-white/10 pt-6">
-          <nav aria-label="Legal and trust" className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        {/* Bottom band. Two labelled groups rather than one long undifferentiated
+            row: "Ovalball" is who we are and how to reach us, "Legal & Trust" is
+            the statutory set. Kept here, above the copyright, so both are
+            genuinely visible at the bottom of the public homepage rather than
+            tucked into a menu. Wraps cleanly on mobile; each link is a
+            full-size tap target. */}
+        <div className="relative mt-14 grid gap-8 border-t border-white/10 pt-6 sm:grid-cols-[auto_1fr] sm:gap-x-16">
+          <FooterBottomGroup heading="Ovalball">
+            {FOOTER_OVALBALL_LINKS.map((link) => (
+              <Link key={link.href} href={link.href} className={FOOTER_BOTTOM_LINK_CLASS}>
+                {link.label}
+              </Link>
+            ))}
+          </FooterBottomGroup>
+
+          <FooterBottomGroup heading="Legal & Trust">
             {FOOTER_LEGAL_LINKS.map((doc) => (
-              <Link
-                key={doc.href}
-                href={doc.href}
-                className="footer-link py-1 text-sm text-white/75 outline-none hover:text-white focus-visible:text-white focus-visible:ring-2 focus-visible:ring-pitch-400"
-              >
+              <Link key={doc.href} href={doc.href} className={FOOTER_BOTTOM_LINK_CLASS}>
                 {doc.label}
               </Link>
             ))}
-            <Link
-              href="/legal"
-              className="footer-link py-1 text-sm text-white/55 outline-none hover:text-white focus-visible:text-white focus-visible:ring-2 focus-visible:ring-pitch-400"
-            >
-              Legal &amp; Trust
+            <Link href="/legal" className={`${FOOTER_BOTTOM_LINK_CLASS} text-white/55`}>
+              All legal documents
             </Link>
-          </nav>
+          </FooterBottomGroup>
         </div>
 
-        <div className="relative mt-6 flex flex-col gap-2 border-t border-white/10 pt-6 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            &copy; {new Date().getFullYear()} {OPERATOR_NAME}. All rights reserved.
-          </p>
+        <div className="relative mt-8 flex flex-col gap-2 border-t border-white/10 pt-6 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">
+          <p>{copyrightLine()}</p>
           <p>{PRODUCT_NAME} is a product of {OPERATOR_NAME}</p>
         </div>
         {/* Restrained, quiet -- no build metadata, no Git SHA, just enough

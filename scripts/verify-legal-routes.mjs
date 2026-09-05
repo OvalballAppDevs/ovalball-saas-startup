@@ -25,7 +25,13 @@ const LEGAL_ROUTES = [
   "/legal/acceptable-use",
   "/legal/data-rights",
   "/legal/subprocessors",
+  "/legal/copyright",
 ]
+
+/** Public non-legal pages that must also stay reachable while logged out. */
+const PUBLIC_ROUTES = ["/about", "/contact"]
+
+const CONTACT_EMAIL = "hello@ovalball.co.uk"
 
 /** Routes that must NOT be publicly readable. */
 const PROTECTED_ROUTES = ["/club/settings", "/parent/children", "/calendar", "/fixtures/management", "/admin/clubs"]
@@ -61,6 +67,73 @@ async function main() {
     check(`${route} returns 200`, r.status === 200, `got ${r.status}${r.location ? ` -> ${r.location}` : ""}`)
   }
 
+  console.log("\nPublic About and Contact pages reachable while logged out:")
+  for (const route of PUBLIC_ROUTES) {
+    const r = await get(route)
+    pages[route] = r.body
+    check(`${route} returns 200`, r.status === 200, `got ${r.status}${r.location ? ` -> ${r.location}` : ""}`)
+  }
+
+  console.log("\nAbout page content:")
+  const about = pages["/about"] ?? ""
+  check("about names the product", /Ovalball is technology built for rugby/i.test(about))
+  check("about names the operator", about.includes("Pipaxon Technologies Ltd"))
+  check("about states what we're building for", /What we&#x27;re building for|What we're building for/.test(about))
+  check("about links the contact page", about.includes('href="/contact"'))
+  check("about shows the contact email", about.includes(CONTACT_EMAIL))
+
+  console.log("\nContact page content:")
+  const contact = pages["/contact"] ?? ""
+  check("contact shows the email address in the page text", contact.includes(CONTACT_EMAIL))
+  check("contact has a working mailto link", contact.includes(`href="mailto:${CONTACT_EMAIL}"`))
+  check("contact offers a reason selector", /Reason for contacting us/i.test(contact))
+  for (const reason of [
+    "General enquiry",
+    "Club interested in Ovalball",
+    "Account support",
+    "Privacy / data rights",
+    "Safeguarding / online safety",
+    "Technical problem",
+  ]) {
+    check(`contact offers reason "${reason}"`, contact.includes(reason))
+  }
+  check("contact carries the privacy wording", /respond to your enquiry/i.test(contact))
+  check("contact links the Privacy Notice", contact.includes('href="/legal/privacy"'))
+
+  console.log("\nCopyright and intellectual property:")
+  const copyrightPage = pages["/legal/copyright"] ?? ""
+  const year = new Date().getFullYear()
+  check("copyright page names the operator", copyrightPage.includes("Pipaxon Technologies Ltd"))
+  check("copyright page asserts rights reserved", /All rights reserved/.test(copyrightPage))
+  check(
+    "copyright page disclaims club crests and governing-body marks",
+    /crests/i.test(copyrightPage) && /RFU/.test(copyrightPage) && /RFL/.test(copyrightPage)
+  )
+  check(
+    "copyright page confirms clubs and users keep ownership",
+    /retain ownership/i.test(copyrightPage)
+  )
+  check(
+    "copyright page makes NO registered-trademark claim",
+    !/registered trade ?mark|®/i.test(copyrightPage)
+  )
+  check("terms link to the copyright page", (pages["/legal/terms"] ?? "").includes('href="/legal/copyright"'))
+
+  console.log("\nNo unverified company identifiers anywhere in public legal output:")
+  const allLegal = Object.entries(pages)
+    .filter(([route]) => route.startsWith("/legal") || route === "/about" || route === "/contact")
+    .map(([, body]) => body)
+    .join("\n")
+  check("no Companies House number claimed", !/company (registration )?(number|no\.?)\s*[:#]?\s*\d/i.test(allLegal))
+  check("no VAT number claimed", !/VAT (registration )?(number|no\.?)\s*[:#]?\s*\w/i.test(allLegal))
+  check("no ICO registration number claimed", !/ICO (registration )?(number|reference)\s*[:#]?\s*\w/i.test(allLegal))
+  check("no registered office address claimed", !/registered office/i.test(allLegal))
+
+  console.log("\nContact email reaches the pages that must offer a contact route:")
+  for (const route of ["/legal/privacy", "/legal/data-rights", "/legal/safeguarding", "/legal/terms"]) {
+    check(`${route} names ${CONTACT_EMAIL}`, (pages[route] ?? "").includes(CONTACT_EMAIL))
+  }
+
   console.log("\nLegacy legal routes still resolve:")
   for (const route of ["/privacy", "/terms", "/cookies"]) {
     const r = await get(route)
@@ -73,11 +146,13 @@ async function main() {
   check("homepage returns 200", home.status === 200, `got ${home.status}`)
   check("homepage names the operator (Pipaxon Technologies Ltd)", home.body.includes("Pipaxon Technologies Ltd"))
   check("homepage contains NO current Jaxippa reference", !/jaxippa/i.test(home.body))
-  for (const label of ["Privacy", "Children&#x27;s Privacy", "Terms", "Cookies", "Safeguarding", "Data Rights"]) {
+  check("homepage asserts rights reserved", home.body.includes(`© ${year} Pipaxon Technologies Ltd. All rights reserved.`)
+    || home.body.includes(`&copy; ${year} Pipaxon Technologies Ltd. All rights reserved.`))
+  for (const label of ["About", "Contact", "Privacy", "Children&#x27;s Privacy", "Terms", "Cookies", "Safeguarding", "Data Rights"]) {
     const plain = label.replace("&#x27;", "'")
     check(`homepage footer shows "${plain}"`, home.body.includes(label) || home.body.includes(plain))
   }
-  for (const route of ["/legal/privacy", "/legal/children-privacy", "/legal/terms", "/legal/cookies", "/legal/safeguarding", "/legal/data-rights"]) {
+  for (const route of ["/about", "/contact", "/legal/privacy", "/legal/children-privacy", "/legal/terms", "/legal/cookies", "/legal/safeguarding", "/legal/data-rights"]) {
     check(`homepage links ${route}`, home.body.includes(`href="${route}"`))
   }
 
