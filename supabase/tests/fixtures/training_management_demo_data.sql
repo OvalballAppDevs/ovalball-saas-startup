@@ -24,6 +24,51 @@ on conflict (id) do nothing;
 update public.club_pitches set venue_id = '10000000-0000-0000-0000-0000000000e1'
 where id in ('69fecabc-e2b7-4a16-bf38-e7fa67f67f08', '4d2a00ac-6aa8-4f34-bfe8-05ccc74dcc4b') and venue_id is null;
 
+-- Real synthetic guardian + two real players (one per team) so attendance
+-- and the register can be genuinely demonstrated end to end, not just
+-- proven via SQL regression -- Burnley's own seed data has real teams/
+-- pitches but no player roster at all. Requires the real `postgres`
+-- identity (reset role), matching this codebase's own established
+-- convention for creating auth.users/players rows.
+reset role;
+do $$
+declare
+  v_guardian_user uuid := '10000000-0000-0000-0000-0000000000f1';
+  v_child_u12 uuid := '10000000-0000-0000-0000-0000000000f2';
+  v_child_u13 uuid := '10000000-0000-0000-0000-0000000000f3';
+begin
+  if not exists (select 1 from auth.users where id = v_guardian_user) then
+    insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
+      confirmation_token, recovery_token, email_change_token_new, email_change_token_current, email_change, phone_change, phone_change_token, reauthentication_token)
+    values (v_guardian_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test.burnley.parent@ovalball.local', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb,
+      '', '', '', '', '', '', '', '');
+    insert into public.profiles (id, first_name, surname) values (v_guardian_user, 'Robin', 'Parent');
+  end if;
+
+  insert into public.players (id, first_name, surname, date_of_birth, created_by)
+  values (v_child_u12, 'Charlie', 'Smith', '2015-03-10', '00000000-0000-0000-0000-000000000002')
+  on conflict (id) do nothing;
+  insert into public.players (id, first_name, surname, date_of_birth, created_by)
+  values (v_child_u13, 'Robin', 'Jones', '2014-06-22', '00000000-0000-0000-0000-000000000002')
+  on conflict (id) do nothing;
+
+  insert into public.guardians (guardian_user_id, player_id, relationship_type, status, created_by)
+  values (v_guardian_user, v_child_u12, 'guardian', 'active', '00000000-0000-0000-0000-000000000002')
+  on conflict do nothing;
+  insert into public.guardians (guardian_user_id, player_id, relationship_type, status, created_by)
+  values (v_guardian_user, v_child_u13, 'guardian', 'active', '00000000-0000-0000-0000-000000000002')
+  on conflict do nothing;
+
+  insert into public.player_team_memberships (player_id, team_id, status, created_by)
+  values (v_child_u12, '30000000-0000-0000-0000-000000000001', 'active', '00000000-0000-0000-0000-000000000002')
+  on conflict do nothing;
+  insert into public.player_team_memberships (player_id, team_id, status, created_by)
+  values (v_child_u13, '30000000-0000-0000-0000-000000000002', 'active', '00000000-0000-0000-0000-000000000002')
+  on conflict do nothing;
+
+  raise notice 'Demo guardian test.burnley.parent@ovalball.local linked to Charlie Smith (U12) and Robin Jones (U13).';
+end $$;
+
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-0000-0000-000000000002', 'role', 'authenticated')::text, true);
 
@@ -42,6 +87,17 @@ declare
   v_conflicting_manual_id uuid;
   v_first_monday date;
 begin
+  -- Idempotency guard, added after a real gap found live: running this
+  -- fixture script twice silently duplicated every plan and manual
+  -- session (save_training_plan/create_training_session have no natural
+  -- "this exact demo scenario already exists" key to conflict on the way
+  -- a real occurrence-generation call does). Re-running is now a safe,
+  -- explicit no-op instead.
+  if exists (select 1 from public.training_plans where club_id = '10000000-0000-0000-0000-000000000001' and team_id = v_u12 and schedule_mode = 'SEASON') then
+    raise notice 'Training Management demo data already present for Burnley RUFC -- skipping (safe to re-run).';
+    return;
+  end if;
+
   -- 1. SEASON plan: Burnley U12, Mondays 18:00, 90 minutes, on Main Pitch.
   v_plan_season := public.save_training_plan(null, '10000000-0000-0000-0000-000000000001', v_u12, 'SEASON', v_season, v_venue, v_main_pitch,
     jsonb_build_array(jsonb_build_object('weekday', 1, 'start_time', '18:00', 'duration_minutes', 90)));

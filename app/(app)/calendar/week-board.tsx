@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { AlertTriangle, Check, Clock, Crown, Dumbbell, ExternalLink, MapPin, MessageSquare, Plus, Trophy, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ import {
   respondTournamentInvitationAction,
   updateTournamentVenueAction,
 } from "./tournament-actions"
+import { TrainingSessionDetail } from "./training-session-detail"
 
 const EMPTY_OPPOSITION: OppositionValue = { clubDirectoryId: null, clubName: null, clubActivated: false, clubId: null, canonicalTeamTypeId: null }
 
@@ -136,6 +138,7 @@ export function WeekBoard({
   competitions: CompetitionOption[]
   pitches: TournamentPitchOption[]
 }) {
+  const router = useRouter()
   const [selected, setSelected] = useState<WeekEntry | null>(null)
   const [editing, setEditing] = useState(false)
   const [createSlot, setCreateSlot] = useState<{ laneId: string; date: string } | null>(null)
@@ -299,10 +302,23 @@ export function WeekBoard({
           {selected && selected.kind === "tournament" && (
             <TournamentQuickView entry={selected} onChanged={() => setSelected(null)} />
           )}
-          {selected && selected.kind !== "tournament" && (
+          {selected && selected.kind === "training" && (
             <>
               <SheetHeader>
-                <SheetTitle>{selected.kind === "training" ? `${lanes.find((l) => l.id === selected.laneId)?.label ?? ""} training` : `${lanes.find((l) => l.id === selected.laneId)?.label ?? ""} vs ${selected.opposition}`}</SheetTitle>
+                <SheetTitle>{lanes.find((l) => l.id === selected.laneId)?.label ?? "Training"}</SheetTitle>
+              </SheetHeader>
+              <TrainingSessionDetail
+                sessionId={selected.id}
+                fallbackLabel={`${lanes.find((l) => l.id === selected.laneId)?.label ?? "training"} session`}
+                onChanged={() => router.refresh()}
+                onClose={() => setSelected(null)}
+              />
+            </>
+          )}
+          {selected && selected.kind === "fixture" && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{`${lanes.find((l) => l.id === selected.laneId)?.label ?? ""} vs ${selected.opposition}`}</SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-3 px-4 pb-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">

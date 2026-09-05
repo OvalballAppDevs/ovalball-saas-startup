@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { AlertTriangle, Dumbbell, MapPin, MessageSquare, Plus, Trophy } from "lucide-react"
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -14,6 +15,7 @@ import { AddFixtureDialog } from "../admin/fixtures/add-fixture-dialog"
 import { type TournamentPitchOption } from "./week-board"
 import { FixtureEditPanel } from "./fixture-edit-panel"
 import { TournamentQuickView, type Lane, type WeekEntry } from "./week-board"
+import { TrainingSessionDetail } from "./training-session-detail"
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const MAX_VISIBLE_PER_DAY = 3
@@ -58,6 +60,7 @@ export function MonthView({
   competitions: CompetitionOption[]
   pitches: TournamentPitchOption[]
 }) {
+  const router = useRouter()
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [selectedEntry, setSelectedEntry] = useState<WeekEntry | null>(null)
   const [editing, setEditing] = useState(false)
@@ -237,10 +240,23 @@ export function MonthView({
       >
         <SheetContent>
           {selectedEntry && selectedEntry.kind === "tournament" && <TournamentQuickView entry={selectedEntry} onChanged={() => setSelectedEntry(null)} />}
-          {selectedEntry && selectedEntry.kind !== "tournament" && (
+          {selectedEntry && selectedEntry.kind === "training" && (
             <>
               <SheetHeader>
-                <SheetTitle>{selectedEntry.kind === "training" ? `${laneLabel(selectedEntry.laneId)} training` : `${laneLabel(selectedEntry.laneId)} vs ${selectedEntry.opposition}`}</SheetTitle>
+                <SheetTitle>{laneLabel(selectedEntry.laneId)}</SheetTitle>
+              </SheetHeader>
+              <TrainingSessionDetail
+                sessionId={selectedEntry.id}
+                fallbackLabel={`${laneLabel(selectedEntry.laneId)} session`}
+                onChanged={() => router.refresh()}
+                onClose={() => setSelectedEntry(null)}
+              />
+            </>
+          )}
+          {selectedEntry && selectedEntry.kind === "fixture" && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{`${laneLabel(selectedEntry.laneId)} vs ${selectedEntry.opposition}`}</SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-3 px-4 pb-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">

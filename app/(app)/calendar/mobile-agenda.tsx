@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { AlertTriangle, Dumbbell, MapPin, MessageSquare, Plus, Trophy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ import { AddFixtureDialog } from "../admin/fixtures/add-fixture-dialog"
 import { CreateFixtureDialog, type CompetitionOption } from "./create-fixture-dialog"
 import { FixtureEditPanel } from "./fixture-edit-panel"
 import { TournamentQuickView, type Lane, type TournamentPitchOption, type WeekEntry } from "./week-board"
+import { TrainingSessionDetail } from "./training-session-detail"
 
 /**
  * Mobile agenda's own fixture/training detail Sheet -- deliberately a
@@ -35,6 +37,7 @@ function MobileFixtureSheet({
   onEdit,
   onSaved,
   onCancelEdit,
+  onClose,
 }: {
   entry: WeekEntry
   laneLabel: string
@@ -44,11 +47,28 @@ function MobileFixtureSheet({
   onEdit: () => void
   onSaved: () => void
   onCancelEdit: () => void
+  onClose: () => void
 }) {
+  const router = useRouter()
+
+  // Section 26/84: the SAME canonical Training Session card as desktop --
+  // mobile is where parents/players most commonly respond to attendance,
+  // so this is not a stripped-down copy.
+  if (entry.kind === "training") {
+    return (
+      <>
+        <SheetHeader>
+          <SheetTitle>{laneLabel}</SheetTitle>
+        </SheetHeader>
+        <TrainingSessionDetail sessionId={entry.id} fallbackLabel={`${laneLabel} session`} onChanged={() => router.refresh()} onClose={onClose} />
+      </>
+    )
+  }
+
   return (
     <>
       <SheetHeader>
-        <SheetTitle>{entry.kind === "training" ? `${laneLabel} training` : `${laneLabel} vs ${entry.opposition}`}</SheetTitle>
+        <SheetTitle>{`${laneLabel} vs ${entry.opposition}`}</SheetTitle>
       </SheetHeader>
       <div className="flex flex-col gap-3 px-4 pb-4">
         <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">
@@ -297,6 +317,7 @@ export function MobileAgenda({
                 setSelected(null)
               }}
               onCancelEdit={() => setEditing(false)}
+              onClose={() => setSelected(null)}
             />
           )}
         </SheetContent>

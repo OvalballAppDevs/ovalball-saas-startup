@@ -7234,32 +7234,35 @@ export type Database = {
       player_fixture_attendance: {
         Row: {
           created_at: string
-          fixture_id: string
+          fixture_id: string | null
           id: string
           player_id: string
           responded_by_user_id: string
           response_source: string
           status: string
+          training_session_id: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
-          fixture_id: string
+          fixture_id?: string | null
           id?: string
           player_id: string
           responded_by_user_id: string
           response_source: string
           status: string
+          training_session_id?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
-          fixture_id?: string
+          fixture_id?: string | null
           id?: string
           player_id?: string
           responded_by_user_id?: string
           response_source?: string
           status?: string
+          training_session_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -7282,6 +7285,13 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_fixture_attendance_training_session_id_fkey"
+            columns: ["training_session_id"]
+            isOneToOne: false
+            referencedRelation: "training_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -9834,13 +9844,16 @@ export type Database = {
       }
       training_sessions: {
         Row: {
+          agenda: string
           cancellation_reason: string | null
           cancelled_at: string | null
+          cancelled_by: string | null
           club_id: string
           created_at: string
           created_by: string | null
           duration_minutes: number | null
           end_time: string | null
+          further_notes: string | null
           id: string
           is_overridden: boolean
           notes: string | null
@@ -9860,13 +9873,16 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          agenda?: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          cancelled_by?: string | null
           club_id: string
           created_at?: string
           created_by?: string | null
           duration_minutes?: number | null
           end_time?: string | null
+          further_notes?: string | null
           id?: string
           is_overridden?: boolean
           notes?: string | null
@@ -9886,13 +9902,16 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          agenda?: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          cancelled_by?: string | null
           club_id?: string
           created_at?: string
           created_by?: string | null
           duration_minutes?: number | null
           end_time?: string | null
+          further_notes?: string | null
           id?: string
           is_overridden?: boolean
           notes?: string | null
@@ -11133,34 +11152,20 @@ export type Database = {
         }
         Returns: string
       }
-      create_training_session:
-        | {
-            Args: {
-              p_club_id: string
-              p_end_time?: string
-              p_notes?: string
-              p_pitch_id?: string
-              p_scheduling_group_id: string
-              p_session_date: string
-              p_start_time?: string
-              p_team_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_club_id: string
-              p_end_time?: string
-              p_notes?: string
-              p_pitch_id?: string
-              p_scheduling_group_id: string
-              p_session_date: string
-              p_start_time?: string
-              p_team_id: string
-              p_venue_id?: string
-            }
-            Returns: string
-          }
+      create_training_session: {
+        Args: {
+          p_club_id: string
+          p_end_time?: string
+          p_notes?: string
+          p_pitch_id?: string
+          p_scheduling_group_id: string
+          p_session_date: string
+          p_start_time?: string
+          p_team_id: string
+          p_venue_id?: string
+        }
+        Returns: string
+      }
       create_venue: {
         Args: {
           p_address: string
@@ -11427,6 +11432,16 @@ export type Database = {
           status: string
         }[]
       }
+      get_my_players_for_training_session: {
+        Args: { p_training_session_id: string }
+        Returns: {
+          current_status: string
+          first_name: string
+          player_id: string
+          relationship: string
+          surname: string
+        }[]
+      }
       get_partner_team_availability: {
         Args: { p_from: string; p_team_id: string; p_to: string }
         Returns: {
@@ -11528,6 +11543,59 @@ export type Database = {
           needs_attention_plan_count: number
           teams_without_plan_count: number
           upcoming_session_count: number
+        }[]
+      }
+      get_training_plan_deletion_impact: {
+        Args: { p_plan_id: string }
+        Returns: {
+          future_session_count: number
+          pitch_name: string
+          schedule_mode: string
+          team_label: string
+          venue_name: string
+        }[]
+      }
+      get_training_register: {
+        Args: { p_training_session_id: string }
+        Returns: {
+          first_name: string
+          player_id: string
+          responded_at: string
+          responded_by_user_id: string
+          response_source: string
+          status: string
+          surname: string
+        }[]
+      }
+      get_training_session_card: {
+        Args: { p_training_session_id: string }
+        Returns: {
+          agenda: string
+          can_manage: boolean
+          can_view_register: boolean
+          cancellation_reason: string
+          cancelled_at: string
+          cancelled_by_name: string
+          club_id: string
+          duration_minutes: number
+          end_time: string
+          further_notes: string
+          id: string
+          my_attendance_status: string
+          notes: string
+          pitch_id: string
+          pitch_name: string
+          scheduling_group_id: string
+          season_id: string
+          session_date: string
+          source: string
+          start_time: string
+          status: string
+          team_id: string
+          team_label: string
+          training_plan_id: string
+          venue_id: string
+          venue_name: string
         }[]
       }
       graduate_team: { Args: { p_team_id: string }; Returns: number }
@@ -11775,8 +11843,10 @@ export type Database = {
       }
       override_training_session: {
         Args: {
+          p_agenda?: string
           p_cancel?: boolean
           p_duration_minutes?: number
+          p_further_notes?: string
           p_pitch_id?: string
           p_reason?: string
           p_session_date?: string
@@ -12108,6 +12178,14 @@ export type Database = {
       }
       respond_to_club_partnership: {
         Args: { p_approve: boolean; p_partnership_id: string }
+        Returns: undefined
+      }
+      respond_to_training_attendance: {
+        Args: {
+          p_player_id: string
+          p_status: string
+          p_training_session_id: string
+        }
         Returns: undefined
       }
       respond_tournament_invitation: {

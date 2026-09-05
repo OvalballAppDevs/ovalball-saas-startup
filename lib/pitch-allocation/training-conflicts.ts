@@ -66,6 +66,17 @@ interface Window {
  * kick-off time are excluded (mirroring partitionAllocation's own
  * allocated/unallocated split -- an unallocated fixture has no window to
  * conflict with anything, computed rather than stored, same as today).
+ *
+ * SHARED TRAINING PITCH RULE (Training Management extension, Section 1-4):
+ * multiple training sessions may legitimately share the exact same pitch
+ * at overlapping times -- this is NORMAL (three age groups drilling on
+ * thirds of one full pitch) and must never be flagged, blocked, or
+ * capacity-limited. Fixture exclusivity is unchanged: a fixture overlapping
+ * ANY other fixture (respecting the pitch's lane capacity) or ANY training
+ * session is still a genuine hard conflict, because a fixture occupies the
+ * pitch functionally, not just administratively. Training-vs-training
+ * overlap is therefore evaluated completely separately from (and never
+ * blocked by) fixture-vs-fixture/fixture-vs-training overlap.
  */
 export function detectResourceConflicts(
   fixtures: AllocationFixture[],
@@ -110,20 +121,40 @@ export function detectResourceConflicts(
     const pitch = pitches.find((p) => p.id === pitchId)
     const laneCount = pitch?.laneCount ?? 1
     const sorted = [...list].sort((a, b) => a.start - b.start)
-    const active: Window[] = []
+    // Fixtures and training are swept as two independent active sets on
+    // the same pitch/timeline: a fixture's capacity check only ever
+    // considers other active FIXTURES (unchanged lane-capacity behaviour);
+    // a training session's only possible conflict is an active FIXTURE
+    // overlapping it (never another active training session, no matter
+    // how many are already sharing this pitch -- Section 55: no invented
+    // maximum, 10 simultaneous training sessions on one pitch is valid).
+    const activeFixtures: Window[] = []
+    const activeTraining: Window[] = []
     for (const w of sorted) {
-      for (let i = active.length - 1; i >= 0; i--) {
-        if (active[i].end <= w.start) active.splice(i, 1)
+      for (let i = activeFixtures.length - 1; i >= 0; i--) {
+        if (activeFixtures[i].end <= w.start) activeFixtures.splice(i, 1)
       }
-      active.push(w)
-      if (active.length > laneCount) {
-        const others = active.filter((a) => a !== w)
-        // A pitch-wide double-booking is a hard conflict regardless of
-        // whether the two overlapping commitments are two fixtures, two
-        // training sessions, or one of each (Section 35's three examples).
-        const reason = `Overlaps with ${others.map((o) => o.label).join(", ")} on the same pitch${laneCount > 1 ? ` (this pitch's capacity is ${laneCount} at once)` : ""}.`
-        if (w.kind === "fixture") fixtureConflicts.push({ fixtureId: w.id, severity: "hard", reason })
-        else trainingConflicts.push({ trainingSessionId: w.id, severity: "hard", reason })
+      for (let i = activeTraining.length - 1; i >= 0; i--) {
+        if (activeTraining[i].end <= w.start) activeTraining.splice(i, 1)
+      }
+
+      if (w.kind === "fixture") {
+        activeFixtures.push(w)
+        const overlappingFixtures = activeFixtures.filter((a) => a !== w)
+        const overlappingTraining = [...activeTraining]
+        if (overlappingFixtures.length >= laneCount || overlappingTraining.length > 0) {
+          const others = [...overlappingFixtures, ...overlappingTraining]
+          const reason = `Overlaps with ${others.map((o) => o.label).join(", ")} on the same pitch${overlappingFixtures.length > 0 && laneCount > 1 ? ` (this pitch's fixture capacity is ${laneCount} at once)` : ""}.`
+          fixtureConflicts.push({ fixtureId: w.id, severity: "hard", reason })
+        }
+      } else {
+        activeTraining.push(w)
+        // Training never conflicts with other training (shared pitch rule)
+        // -- only an active fixture makes this a genuine conflict.
+        if (activeFixtures.length > 0) {
+          const reason = `Overlaps with ${activeFixtures.map((o) => o.label).join(", ")} on the same pitch -- a fixture occupies this pitch exclusively.`
+          trainingConflicts.push({ trainingSessionId: w.id, severity: "hard", reason })
+        }
       }
     }
   }
