@@ -202,3 +202,77 @@ which the clean replay exercises.
 | `site_admin_management` | 14 / 2 / 0 — **identical to pre-existing baseline** |
 | `partner_club_invitations` | 4 / 0 / 2 — **identical to pre-existing baseline** |
 | TypeScript | 0 errors |
+
+---
+
+## Resumed deployment — DATABASE COMPLETE
+
+### Migration run 2 — SUCCESS
+
+Resumed from `20260831091000`. **All 181 remaining migrations applied with no error.**
+
+| Check | Result |
+|---|---|
+| Repository migrations | 198 |
+| Remote applied | **198** |
+| Pending | **0** |
+| Divergent / order conflicts | **0 / 0** |
+
+No `migration repair`, no reset, no skipped migration, no manual history edit.
+
+### Data integrity — PRESERVED
+
+| Item | Before | After |
+|---|---|---|
+| `club_directory` rows | 1,389 | **1,389** |
+| `auth.users` | 1 | **1** |
+| public tables | 25 | **109** |
+| capability keys | — | 47 |
+
+Backup was **not** needed and **not** restored.
+
+### Remote schema sanity — PASS
+
+Core (`clubs`/`teams`/`seasons`/`fixtures`) 4/4 · Mini-Rugby 2/2 · Player/Guardian
+(`players`, `guardians`, `player_team_memberships`, `guardian_player_permissions`,
+`player_account_invitations`, `player_duplicate_reviews`) present · subscription domain 5 ·
+GoCardless domain 9 · Finance domain 2. **Duplicate namespaces (`sp1_*`, `*_v2`): NONE.**
+
+Remote matches local exactly: **109 public tables and 47 capability keys on both**.
+
+### Remote security sanity — PASS
+
+| Check | Result |
+|---|---|
+| Tables without RLS | **0** (all 109 enabled) |
+| anon-executable finance functions | **0** of 18 |
+| anon INSERT/UPDATE/DELETE grants on `gocardless_*` | **0** |
+| Key capabilities present | 4/4 |
+
+### Application deployment — NOT PERFORMED (no target exists)
+
+The repository has **no application deployment target**: no `vercel.json`,
+`.vercel/project.json`, `netlify.toml`, `wrangler.toml`, `fly.toml`, `Dockerfile`, no
+CI/CD workflow, and no deploy script in `package.json`. No production origin is
+referenced anywhere in the repository.
+
+Consequently the following could **not** be performed and are **not** claimed:
+application deployment, deployment ID, production URL, production environment variable
+validation, and all production smoke tests (core, Side Project 1, Finance security,
+OAuth origin).
+
+`NEXT_PUBLIC_SITE_URL` was undocumented; it has now been added to `.env.example` with the
+production requirement stated.
+
+### GoCardless — remains disabled
+
+No production provider mode was enabled and no provider object was created. The two-flag
+gate (`GOCARDLESS_ENV=production` **and** `GOCARDLESS_PRODUCTION_GO_LIVE_CONFIRMED=true`)
+is unchanged, and `assertGoCardlessRedirectOriginSafe()` additionally refuses a
+production OAuth redirect built on a localhost/non-HTTPS origin.
+
+### Test 7 — still deferred
+
+1. real webhook delivery + signature verification via public HTTPS
+2. real Direct Debit mandate creation
+3. real payment lifecycle `confirmed` → `paid_out`
