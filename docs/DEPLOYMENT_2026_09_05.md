@@ -323,3 +323,59 @@ npx vercel login
 After that I can complete link → env configuration → preview → production → full smoke
 testing without further input, except that the three Supabase production values must be
 entered by a human — I will not handle or print them.
+
+---
+
+## Public contact — where messages actually go (added 2026-09-05)
+
+Canonical identity, defined once in `lib/legal/metadata.ts`:
+
+| Item | Value |
+|---|---|
+| Public contact address | `hello@ovalball.co.uk` (`CONTACT_EMAIL`) |
+| Operator | Pipaxon Technologies Ltd (`OPERATOR_NAME`) |
+| Copyright line | `© <year> Pipaxon Technologies Ltd. All rights reserved.` (`copyrightLine()`) |
+| Canonical About route | `/about` |
+| Canonical Contact route | `/contact` |
+
+### OWNER MANUAL ACTION — outbound email is not connected
+
+**No outbound email provider is configured for this application.**
+`lib/email/dispatch.ts` is an explicit development no-op: it logs what would be
+sent and returns. This predates the Contact work and is unchanged by it.
+
+Consequences, stated plainly so nobody assumes otherwise:
+
+- A message submitted through `/contact` (or `/support`) **does not arrive in the
+  `hello@ovalball.co.uk` inbox.** It is written to `public.support_tickets` and
+  appears in the Site Admin Support Register at `/admin/support`.
+- A `mailto:` to `hello@ovalball.co.uk` works normally — that is the visitor's own
+  mail client and does not depend on this application at all.
+- Nothing is silently dropped: every submission is durably stored with a reference,
+  and the submitter is told their message was sent to the team, which is true.
+
+**Smallest action to connect delivery** (all owner-side; do not invent credentials):
+
+1. Create a mailbox or forwarding rule for `hello@ovalball.co.uk`.
+2. Add a transactional email provider (Resend is the provider `dispatch.ts`'s own
+   comment anticipates), verify the `ovalball.co.uk` sending domain, and complete
+   SPF/DKIM/DMARC.
+3. Put the provider's API key in Vercel as a **Sensitive** server-only variable —
+   never a `NEXT_PUBLIC_*` name, and never in the repository.
+4. Replace the dev no-op block inside `dispatchEmailEvent()` with the provider call.
+   Every existing call site stays unchanged; that is why the function exists.
+5. Raise a `support_ticket_created` event on the public submission path so new
+   tickets notify `hello@ovalball.co.uk`. Set `Reply-To` to the submitter's address,
+   and keep `From` on a verified `ovalball.co.uk` sender so SPF/DMARC still pass —
+   never send as the submitter's own unverified address.
+
+Until step 5 is done, the Support Register is the only place contact messages are
+seen, so it needs to be checked.
+
+### Production verification performed
+
+One controlled production submission through the live form created ticket
+**`OB-260905-0001`** (`origin=public`, `category=other`,
+`subject="Contact — General enquiry"`), confirmed by direct query against the
+production database. This proves the production contact path works end to end into
+the Support Register. It does **not** prove email delivery, because no email is sent.
