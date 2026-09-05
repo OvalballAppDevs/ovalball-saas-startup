@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import Link from "next/link"
-import { Building2, CalendarSync, ChevronRight, MapPin, Users, LayoutGrid } from "lucide-react"
+import { Building2, CalendarSync, ChevronRight, MapPin, Users, LayoutGrid, ShieldCheck, CreditCard } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
@@ -52,7 +52,7 @@ export default async function ClubSettingsHubPage() {
   // Fixture Secretary}, the identical set the historical Teams nav item
   // used, and nothing broader (unlike fixture.view/club.view, which
   // ordinary club members also hold).
-  const [canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves] = clubId
+  const [canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance] = clubId
     ? await Promise.all([
         hasCapability(supabase, "club.edit_profile", "club", { clubId }),
         hasCapability(supabase, "club.venues.manage", "club", { clubId }),
@@ -60,11 +60,15 @@ export default async function ClubSettingsHubPage() {
         hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
         hasCapability(supabase, "fixture.edit", "club", { clubId }),
         hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
+        hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
+        hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
+        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
       ])
-    : [false, false, false, false, false, false]
+    : [false, false, false, false, false, false, false, false, false]
   const canTeams = canProfile || canPitches
+  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
-  if (!canProfile && !canTeams && !canVenues && !canRollover && !canPitchAllocation) redirect("/dashboard")
+  if (!canProfile && !canTeams && !canVenues && !canRollover && !canPitchAllocation && !canGuardians && !canSubscriptions) redirect("/dashboard")
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"
 
@@ -99,6 +103,18 @@ export default async function ClubSettingsHubPage() {
       title: "Pitch Allocation",
       description: "Automatic allocation, and warm-up/pack-up buffer times around each fixture.",
     },
+    canGuardians && {
+      href: "/club/settings/guardians",
+      icon: ShieldCheck,
+      title: "Guardians & Players",
+      description: "Guardian relationships, duplicate-player review, and player-record safeguarding.",
+    },
+    canSubscriptions && {
+      href: "/club/settings/subscriptions",
+      icon: CreditCard,
+      title: "Subscriptions & Payments",
+      description: "GoCardless connection, membership pricing, and sibling discounts.",
+    },
   ].filter((s): s is { href: string; icon: typeof Building2; title: string; description: string } => Boolean(s))
 
   return (
@@ -107,7 +123,17 @@ export default async function ClubSettingsHubPage() {
       <h1 className="mt-2 font-display text-display-l text-ink">{clubName}</h1>
       <p className="mt-2 max-w-md text-sm text-ink/55">Everything {clubName} owns and configures, in one place.</p>
 
-      <ClubSettingsNav active="overview" canProfile={canProfile} canTeams={canTeams} canVenues={canVenues} canRollover={canRollover} canPitchAllocation={canPitchAllocation} canPlayerMoves={canPlayerMoves} />
+      <ClubSettingsNav
+        active="overview"
+        canProfile={canProfile}
+        canTeams={canTeams}
+        canVenues={canVenues}
+        canRollover={canRollover}
+        canPitchAllocation={canPitchAllocation}
+        canPlayerMoves={canPlayerMoves}
+        canGuardians={canGuardians}
+        canSubscriptions={canSubscriptions}
+      />
 
       <ul className="mt-6 flex flex-col gap-2">
         {sections.map((s) => (

@@ -31,7 +31,15 @@ export default async function PitchAllocationSettingsPage() {
 
   const canPitchAllocation = clubId ? await hasCapability(supabase, "fixture.edit", "club", { clubId }) : false
   if (!clubId || !canPitchAllocation) redirect("/club/settings")
-  const canPlayerMoves = clubId ? await hasCapability(supabase, "manage_fixture_callups", "club", { clubId }) : false
+  const [canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance] = clubId
+    ? await Promise.all([
+        hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
+        hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
+        hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
+        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
+      ])
+    : [false, false, false, false]
+  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
   const { data: policyRow } = await supabase
     .from("club_scheduling_policy")
@@ -47,7 +55,7 @@ export default async function PitchAllocationSettingsPage() {
       <h1 className="mt-2 font-display text-display-l text-ink">Pitch Allocation</h1>
       <p className="mt-2 max-w-md text-sm text-ink/55">How {clubName} schedules home fixtures onto pitches.</p>
 
-      <ClubSettingsNav active="pitchAllocation" canProfile={false} canTeams={false} canVenues={false} canRollover={false} canPitchAllocation canPlayerMoves={canPlayerMoves} />
+      <ClubSettingsNav active="pitchAllocation" canProfile={false} canTeams={false} canVenues={false} canRollover={false} canPitchAllocation canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} />
 
       <div className="mt-8">
         <PitchAllocationSettingsForm

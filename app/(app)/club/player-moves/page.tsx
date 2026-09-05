@@ -30,16 +30,20 @@ export default async function PlayerMovesPage() {
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const activeClub = activeManageableClubId(ctx, activeContext)
 
-  const [canCallUps, canDispensations, canEditProfile, canVenues, canRollover] = activeClub
+  const [canCallUps, canDispensations, canEditProfile, canVenues, canRollover, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance] = activeClub
     ? await Promise.all([
         hasCapability(supabase, "manage_fixture_callups", "club", { clubId: activeClub }),
         hasCapability(supabase, "manage_player_dispensations", "club", { clubId: activeClub }),
         hasCapability(supabase, "club.edit_profile", "club", { clubId: activeClub }),
         hasCapability(supabase, "club.venues.manage", "club", { clubId: activeClub }),
         hasCapability(supabase, "club.season_rollover.manage", "club", { clubId: activeClub }),
+        hasCapability(supabase, "club.guardians.manage", "club", { clubId: activeClub }),
+        hasCapability(supabase, "club.subscription.configure", "club", { clubId: activeClub }),
+        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId: activeClub }),
       ])
-    : [false, false, false, false, false]
+    : [false, false, false, false, false, false, false, false]
   if (!activeClub || (!canCallUps && !canDispensations)) redirect("/dashboard")
+  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
   const { data: club } = await supabase.from("clubs").select("id, club_directory(rugby_code, name)").eq("id", activeClub).maybeSingle()
   if (!club) redirect("/dashboard")
@@ -158,7 +162,7 @@ export default async function PlayerMovesPage() {
         Borrow a player for a single fixture, or move one onto a different team for the season -- both need the source team&apos;s consent first.
       </p>
 
-      <ClubSettingsNav active="playerMoves" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canVenues} canRollover={canRollover} canPlayerMoves />
+      <ClubSettingsNav active="playerMoves" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canVenues} canRollover={canRollover} canPlayerMoves canGuardians={canGuardians} canSubscriptions={canSubscriptions} />
 
       <div className="mt-8 space-y-6">
         {canCallUps && <CallUpPanel teams={teamOptions} fixtures={fixtureOptions} players={playerOptions} rows={callUps} />}

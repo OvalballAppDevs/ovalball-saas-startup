@@ -41,18 +41,22 @@ export default async function ClubRolloverPage() {
   // role comparison, so a Site Admin grant/deny override for this
   // specific club-scoped capability correctly changes what this page
   // allows.
-  const [canRunRollover, canEditProfile, canVenues, canPitches, canPlayerMoves] = activeClub
+  const [canRunRollover, canEditProfile, canVenues, canPitches, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance] = activeClub
     ? await Promise.all([
         hasCapability(supabase, "club.season_rollover.manage", "club", { clubId: activeClub }),
         hasCapability(supabase, "club.edit_profile", "club", { clubId: activeClub }),
         hasCapability(supabase, "club.venues.manage", "club", { clubId: activeClub }),
         hasCapability(supabase, "club.pitches.manage", "club", { clubId: activeClub }),
         hasCapability(supabase, "manage_fixture_callups", "club", { clubId: activeClub }),
+        hasCapability(supabase, "club.guardians.manage", "club", { clubId: activeClub }),
+        hasCapability(supabase, "club.subscription.configure", "club", { clubId: activeClub }),
+        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId: activeClub }),
       ])
-    : [false, false, false, false, false]
+    : [false, false, false, false, false, false, false, false]
   if (!canRunRollover || !activeClub) redirect("/dashboard")
-  // profile/pitches only computed for the shared tab strip's accuracy -- see club-settings-nav.tsx.
+  // profile/pitches/guardians/subscriptions only computed for the shared tab strip's accuracy -- see club-settings-nav.tsx.
   const canTeamsForNav = canEditProfile || canPitches
+  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
   const { data: club } = await supabase
     .from("clubs")
@@ -279,7 +283,7 @@ export default async function ClubRolloverPage() {
         changes until you confirm each team individually below.
       </p>
 
-      <ClubSettingsNav active="rollover" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canVenues} canRollover={canRunRollover} canPlayerMoves={canPlayerMoves} />
+      <ClubSettingsNav active="rollover" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canVenues} canRollover={canRunRollover} canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} />
 
       <div className="mt-8 space-y-6">
         {nextSeasonOption && (

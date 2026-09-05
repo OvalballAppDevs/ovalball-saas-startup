@@ -1,8 +1,8 @@
 import Link from "next/link"
 
-export type ClubSettingsSection = "overview" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians"
+export type ClubSettingsSection = "overview" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "subscriptions"
 
-const TABS: { key: ClubSettingsSection; href: string; label: string; requires: "any" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" }[] = [
+const TABS: { key: ClubSettingsSection; href: string; label: string; requires: "any" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "subscriptions" }[] = [
   { key: "overview", href: "/club/settings", label: "Overview", requires: "any" },
   { key: "profile", href: "/club", label: "Club Profile", requires: "profile" },
   { key: "teams", href: "/teams", label: "Teams", requires: "teams" },
@@ -11,6 +11,7 @@ const TABS: { key: ClubSettingsSection; href: string; label: string; requires: "
   { key: "pitchAllocation", href: "/club/settings/pitch-allocation", label: "Pitch Allocation", requires: "pitchAllocation" },
   { key: "playerMoves", href: "/club/player-moves", label: "Player Moves", requires: "playerMoves" },
   { key: "guardians", href: "/club/settings/guardians", label: "Guardians & Players", requires: "guardians" },
+  { key: "subscriptions", href: "/club/settings/subscriptions", label: "Subscriptions & Payments", requires: "subscriptions" },
 ]
 
 /**
@@ -41,6 +42,7 @@ export function ClubSettingsNav({
   canPitchAllocation,
   canPlayerMoves,
   canGuardians,
+  canSubscriptions,
 }: {
   active: ClubSettingsSection
   canProfile: boolean
@@ -50,6 +52,7 @@ export function ClubSettingsNav({
   canPitchAllocation?: boolean
   canPlayerMoves?: boolean
   canGuardians?: boolean
+  canSubscriptions?: boolean
 }) {
   const visible = TABS.filter(
     (t) =>
@@ -60,7 +63,8 @@ export function ClubSettingsNav({
       (t.requires === "rollover" && canRollover) ||
       (t.requires === "pitchAllocation" && Boolean(canPitchAllocation)) ||
       (t.requires === "playerMoves" && Boolean(canPlayerMoves)) ||
-      (t.requires === "guardians" && Boolean(canGuardians))
+      (t.requires === "guardians" && Boolean(canGuardians)) ||
+      (t.requires === "subscriptions" && Boolean(canSubscriptions))
   )
   if (visible.length <= 1) return null
   return (
