@@ -266,6 +266,20 @@ export function LoginForm() {
           Create an account
         </Link>
       </p>
+
+      {/* Restrained by design: present and reachable, but visually quiet so
+          they don't compete with signing in. */}
+      <nav aria-label="Legal" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-ink/40">
+        <Link href="/legal/privacy" className="py-1 underline-offset-2 hover:text-ink/70 hover:underline focus-visible:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none">
+          Privacy
+        </Link>
+        <Link href="/legal/terms" className="py-1 underline-offset-2 hover:text-ink/70 hover:underline focus-visible:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none">
+          Terms
+        </Link>
+        <Link href="/legal/cookies" className="py-1 underline-offset-2 hover:text-ink/70 hover:underline focus-visible:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none">
+          Cookies
+        </Link>
+      </nav>
     </form>
   )
 }

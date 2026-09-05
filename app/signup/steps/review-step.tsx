@@ -110,7 +110,7 @@ export function ReviewStep({ value, onTermsChange, onEditStep }: ReviewStepProps
           <span className="text-ink/70">
             I accept the{" "}
             <Link
-              href="/terms"
+              href="/legal/terms"
               target="_blank"
               className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
             >
@@ -119,6 +119,25 @@ export function ReviewStep({ value, onTermsChange, onEditStep }: ReviewStepProps
             (version {CURRENT_TERMS_VERSION}).
           </span>
         </label>
+
+        {/* Acknowledging a privacy notice is NOT consent, so this is
+            deliberately plain text below the controls rather than a second
+            tickbox -- and never a pre-ticked one. */}
+        <p className="mt-3 text-sm text-ink/60">
+          By creating an account, you agree to the Ovalball{" "}
+          <Link href="/legal/terms" target="_blank" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+            Terms of Service
+          </Link>{" "}
+          and acknowledge the{" "}
+          <Link href="/legal/privacy" target="_blank" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+            Privacy Notice
+          </Link>
+          . If you are signing up as a parent or guardian, see{" "}
+          <Link href="/legal/children-privacy" target="_blank" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+            Children&rsquo;s Privacy
+          </Link>
+          .
+        </p>
       </div>
     </div>
   )

@@ -3,6 +3,7 @@ import Link from "next/link"
 import { OvalballLogo, OvalballWordmark } from "@/components/brand/ovalball-logo"
 import { OvalballMark } from "@/components/brand/ovalball-mark"
 import { APP_VERSION } from "@/lib/version"
+import { FOOTER_LEGAL_LINKS, OPERATOR_NAME, PRODUCT_NAME } from "@/lib/legal/metadata"
 
 interface FooterLink {
   label: string
@@ -40,9 +41,9 @@ const SECONDARY_CLUSTERS: FooterCluster[] = [
   {
     heading: "Legal",
     links: [
-      { label: "Terms", href: "/terms" },
-      { label: "Privacy", href: "/privacy" },
-      { label: "Cookies", href: "/cookies" },
+      { label: "Terms", href: "/legal/terms" },
+      { label: "Privacy", href: "/legal/privacy" },
+      { label: "Cookies", href: "/legal/cookies" },
     ],
   },
 ]
@@ -95,9 +96,35 @@ export function Footer() {
           </p>
         </div>
 
-        <div className="relative mt-14 flex flex-col gap-2 border-t border-white/10 pt-6 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">
-          <p>&copy; 2026 Ovalball. All rights reserved.</p>
-          <p>Developed by Jaxippa Technologies</p>
+        {/* Legal & Trust row. Kept as its own band above the copyright so the
+            statutory links are genuinely visible at the bottom of the public
+            homepage rather than tucked into a menu. Wraps cleanly on mobile;
+            each link is a full-size tap target. */}
+        <div className="relative mt-14 border-t border-white/10 pt-6">
+          <nav aria-label="Legal and trust" className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            {FOOTER_LEGAL_LINKS.map((doc) => (
+              <Link
+                key={doc.href}
+                href={doc.href}
+                className="footer-link py-1 text-sm text-white/75 outline-none hover:text-white focus-visible:text-white focus-visible:ring-2 focus-visible:ring-pitch-400"
+              >
+                {doc.label}
+              </Link>
+            ))}
+            <Link
+              href="/legal"
+              className="footer-link py-1 text-sm text-white/55 outline-none hover:text-white focus-visible:text-white focus-visible:ring-2 focus-visible:ring-pitch-400"
+            >
+              Legal &amp; Trust
+            </Link>
+          </nav>
+        </div>
+
+        <div className="relative mt-6 flex flex-col gap-2 border-t border-white/10 pt-6 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            &copy; {new Date().getFullYear()} {OPERATOR_NAME}. All rights reserved.
+          </p>
+          <p>{PRODUCT_NAME} is a product of {OPERATOR_NAME}</p>
         </div>
         {/* Restrained, quiet -- no build metadata, no Git SHA, just enough
             that a curious visitor can tell they're not on a stale cache.
