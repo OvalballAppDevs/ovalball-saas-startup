@@ -48,3 +48,25 @@ transactionpoolsupabase.*
 # Ingestion output: deterministically regenerated from data/ source files by
 # scripts/ingestion/extract_club_directory.py -- not committed.
 scripts/ingestion/out/
+
+# Local ingestion inputs — never committed. These hold scraped/imported club
+# directory material, including a contacts CSV containing real club email
+# addresses (PII). They are local input material, not product source.
+# NOTE: data/clublogo/ is deliberately NOT ignored here -- 56 crest images
+# are already tracked in the repository; ignoring the whole of data/ would
+# hide that fact rather than change it.
+data/clubcontacts/
+data/clubdata/
+data/fixturedata/
+# data/clublogo/: local ingestion material, NOT a shipping asset -- no code in
+# app/, lib/ or components/ reads this directory; the application serves club
+# crests from Supabase Storage via clubs.logo_storage_path /
+# club_directory.logo_storage_path (see lib/app-context/club-logo.ts). The 56
+# crests already tracked in commit 9a00bed are deliberately left tracked
+# (removing them would rewrite history for no functional gain); this rule stops
+# further binary assets being added to the repository.
+data/clublogo/
+
+# Local tooling caches / local-only skill copies
+.impeccable/
+.claude/skills/
