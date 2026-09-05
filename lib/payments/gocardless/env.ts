@@ -1,3 +1,5 @@
+import { getSiteUrl } from "@/lib/site-url"
+
 // GoCardless environment gating (Side Project 1 integration). Every value
 // here is read from process.env -- none is hardcoded, and none defaults
 // to a live/production value.
@@ -76,7 +78,10 @@ export function getGoCardlessWebhookSecret(): string {
  * introducing a second, redundant "app URL" variable.
  */
 export function getAppBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+  // Delegates to the single canonical resolver (lib/site-url.ts) so GoCardless
+  // shares one origin definition with every auth/invitation link in the
+  // product, including its production fail-closed behaviour.
+  return getSiteUrl()
 }
 
 /**

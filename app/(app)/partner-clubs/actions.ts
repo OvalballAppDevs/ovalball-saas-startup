@@ -7,6 +7,7 @@ import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } f
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { dispatchEmailEvent } from "@/lib/email/dispatch"
 import { createClient } from "@/lib/supabase/server"
+import { getSiteUrl } from "@/lib/site-url"
 
 export type PartnershipActionResult = { ok: true } | { ok: false; error: string }
 
@@ -80,9 +81,6 @@ export async function revokePartnership(partnershipId: string): Promise<Partners
   return { ok: true }
 }
 
-function getSiteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-}
 
 export type InviteClubResult = { ok: true; inviteLink: string } | { ok: false; error: string }
 

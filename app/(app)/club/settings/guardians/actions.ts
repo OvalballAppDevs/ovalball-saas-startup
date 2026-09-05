@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { dispatchEmailEvent } from "@/lib/email/dispatch"
 import { createClient } from "@/lib/supabase/server"
+import { getSiteUrl } from "@/lib/site-url"
 
 export type RemoveGuardianResult = { ok: true; orphaned: boolean } | { ok: false; error: string }
 
@@ -46,7 +47,7 @@ export async function sendReplacementGuardianInvite(
     .single()
   if (error || !data) return { ok: false, error: error?.message ?? "Could not create the invitation." }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+  const siteUrl = getSiteUrl()
   const inviteLink = `${siteUrl}/guardian-invite/${data.token}`
 
   await dispatchEmailEvent({

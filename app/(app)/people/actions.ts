@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { dispatchEmailEvent } from "@/lib/email/dispatch"
 import { createClient } from "@/lib/supabase/server"
+import { getSiteUrl } from "@/lib/site-url"
 
 export type InviteResult = { ok: true; inviteLink: string } | { ok: false; error: string }
 
@@ -16,9 +17,6 @@ export interface InviteInput {
   teamAssignments: { teamId: string; teamPermission: "team_admin" | "coach" | "manager" | "view_only" }[]
 }
 
-function getSiteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-}
 
 /**
  * Creates the invitation row (+ per-team rows) only -- RLS

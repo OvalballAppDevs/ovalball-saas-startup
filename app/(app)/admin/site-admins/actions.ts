@@ -8,12 +8,10 @@ import { createClient } from "@/lib/supabase/server"
 
 import { requireSiteAdmin } from "../require-site-admin"
 import { profileLabel as PROFILE_LABEL_FN } from "./profiles"
+import { getSiteUrl } from "@/lib/site-url"
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
 
-function getSiteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-}
 
 export type InviteSiteAdminResult = { ok: true; inviteLink: string } | { ok: false; error: string }
 

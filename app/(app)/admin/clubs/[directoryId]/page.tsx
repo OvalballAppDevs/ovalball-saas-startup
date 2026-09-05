@@ -18,11 +18,8 @@ import { LogoManager } from "./logo-manager"
 import { ProfileForm } from "./profile-form"
 import { ClubDetailTabs } from "./tabs"
 import { TeamsPanel } from "./teams-panel"
+import { getSiteUrl } from "@/lib/site-url"
 
-/** NEXT_PUBLIC_SITE_URL is the deployed origin in production; local dev never hardcodes it. Mirrors submit-signup.ts's own copy of this helper. */
-function getSiteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-}
 
 /** Practically unreachable (admin_club_overview is a superset view of the club_directory row we already confirmed exists), kept only as an honest fallback rather than a non-null assertion. */
 const EMPTY_FLAGS = {

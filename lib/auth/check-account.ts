@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { toPublicAuthError } from "@/lib/errors/public-error"
+import { getSiteUrl } from "@/lib/site-url"
 
 export type SendSignInLinkResult =
   | { status: "sent" }
@@ -66,9 +67,3 @@ export async function sendSignInLinkIfAccountExists(email: string): Promise<Send
   return { status: "error", message: toPublicAuthError(error, "sign_in") }
 }
 
-function getSiteUrl(): string {
-  // NEXT_PUBLIC_SITE_URL is the deployed origin in production; falls back to
-  // localhost for local development where that env var isn't set. Mirrors
-  // submit-signup.ts's copy of the same helper.
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-}

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { dispatchEmailEvent } from "@/lib/email/dispatch"
 import { toPublicAddChildError, toPublicPlayerAccountInviteError } from "@/lib/errors/public-error"
 import { createClient } from "@/lib/supabase/server"
+import { getSiteUrl } from "@/lib/site-url"
 
 export type AddChildResult =
   | { ok: true; result: "created_pending_team" | "created_needs_club_review" | "under_review" | "already_linked"; playerId: string | null; ageGrade: string; schoolYear: number | null }
@@ -63,7 +64,7 @@ export async function invitePlayerAccount(playerId: string, playerFirstName: str
 
   const { data: invitation } = await supabase.from("player_account_invitations").select("token").eq("id", invitationId).maybeSingle()
   if (invitation?.token) {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+    const siteUrl = getSiteUrl()
     await dispatchEmailEvent({
       type: "player_account_invitation",
       to: email,

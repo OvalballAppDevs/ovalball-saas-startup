@@ -5,6 +5,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js"
 import { dispatchEmailEvent } from "@/lib/email/dispatch"
 import type { Database } from "@/types/database.types"
 import type { ClubSelection, PersonalDetails } from "@/lib/signup/types"
+import { getSiteUrl } from "@/lib/site-url"
 
 /**
  * Runs once, from /auth/callback, immediately after exchangeCodeForSession
@@ -101,7 +102,7 @@ export async function completeSignupIfNeeded(
         claimantName: `${personal.firstName} ${personal.surname}`.trim(),
         claimantEmail: user.email ?? "",
         declaredRole: club.role,
-        reviewUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/admin/claims`,
+        reviewUrl: `${getSiteUrl()}/admin/claims`,
       },
     })
   } else if (club.kind === "existing-claimed") {

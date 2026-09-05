@@ -4,6 +4,7 @@ import { toPublicAuthError } from "@/lib/errors/public-error"
 import { createClient } from "@/lib/supabase/server"
 import { CURRENT_TERMS_VERSION } from "@/lib/signup/terms"
 import type { SignupFormState } from "@/lib/signup/types"
+import { getSiteUrl } from "@/lib/site-url"
 
 export type SubmitSignupResult =
   | { ok: true }
@@ -65,8 +66,3 @@ export async function submitSignup(formState: SignupFormState): Promise<SubmitSi
   return { ok: true }
 }
 
-function getSiteUrl(): string {
-  // NEXT_PUBLIC_SITE_URL is the deployed origin in production; falls back to
-  // localhost for local development where that env var isn't set.
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-}
