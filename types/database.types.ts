@@ -2180,6 +2180,184 @@ export type Database = {
           },
         ]
       }
+      club_subscription_pricing: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          created_by: string
+          effective_from: string
+          id: string
+          programme_id: string
+        }
+        Insert: {
+          amount_minor: number
+          created_at?: string
+          created_by: string
+          effective_from: string
+          id?: string
+          programme_id: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          created_by?: string
+          effective_from?: string
+          id?: string
+          programme_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_subscription_pricing_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "club_subscription_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_subscription_programmes: {
+        Row: {
+          club_id: string
+          collection_day: number
+          created_at: string
+          created_by: string
+          currency: string
+          enabled: boolean
+          first_payment_policy: string
+          id: string
+          platform_fee_minor: number | null
+          platform_fee_mode: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          club_id: string
+          collection_day?: number
+          created_at?: string
+          created_by: string
+          currency?: string
+          enabled?: boolean
+          first_payment_policy?: string
+          id?: string
+          platform_fee_minor?: number | null
+          platform_fee_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          club_id?: string
+          collection_day?: number
+          created_at?: string
+          created_by?: string
+          currency?: string
+          enabled?: boolean
+          first_payment_policy?: string
+          id?: string
+          platform_fee_minor?: number | null
+          platform_fee_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_subscription_programmes_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "club_subscription_programmes_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_subscription_programmes_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_subscription_programmes_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_subscription_programmes_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_subscription_programmes_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_subscription_programmes_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "club_subscription_programmes_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_subscription_sibling_rules: {
+        Row: {
+          created_at: string
+          created_by: string
+          discount_type: string
+          discount_value: number
+          effective_from: string
+          id: string
+          ordinal: number
+          programme_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          discount_type: string
+          discount_value?: number
+          effective_from?: string
+          id?: string
+          ordinal: number
+          programme_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          discount_type?: string
+          discount_value?: number
+          effective_from?: string
+          id?: string
+          ordinal?: number
+          programme_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_subscription_sibling_rules_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "club_subscription_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clubs: {
         Row: {
           address_display: string | null
@@ -2815,6 +2993,102 @@ export type Database = {
             columns: ["parent_folder_id"]
             isOneToOne: false
             referencedRelation: "document_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          club_id: string
+          created_at: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          source: string
+          target_id: string | null
+          target_table: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          club_id: string
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          source?: string
+          target_id?: string | null
+          target_table: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          club_id?: string
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          source?: string
+          target_id?: string | null
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_audit_log_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "finance_audit_log_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "finance_audit_log_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "finance_audit_log_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "finance_audit_log_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "finance_audit_log_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "finance_audit_log_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "finance_audit_log_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
             referencedColumns: ["id"]
           },
         ]
@@ -4844,6 +5118,896 @@ export type Database = {
         }
         Relationships: []
       }
+      gocardless_billing_requests: {
+        Row: {
+          authorisation_url: string | null
+          club_id: string
+          created_at: string
+          created_by: string
+          gc_billing_request_flow_id: string | null
+          gc_billing_request_id: string
+          id: string
+          payer_subscription_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          authorisation_url?: string | null
+          club_id: string
+          created_at?: string
+          created_by: string
+          gc_billing_request_flow_id?: string | null
+          gc_billing_request_id: string
+          id?: string
+          payer_subscription_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          authorisation_url?: string | null
+          club_id?: string
+          created_at?: string
+          created_by?: string
+          gc_billing_request_flow_id?: string | null
+          gc_billing_request_id?: string
+          id?: string
+          payer_subscription_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gocardless_billing_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_billing_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_billing_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_billing_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_billing_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_billing_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_billing_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_billing_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gocardless_billing_requests_payer_subscription_id_fkey"
+            columns: ["payer_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "player_subscription_payers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gocardless_customers: {
+        Row: {
+          club_id: string
+          created_at: string
+          gc_customer_id: string
+          id: string
+          payer_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          club_id: string
+          created_at?: string
+          gc_customer_id: string
+          id?: string
+          payer_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          club_id?: string
+          created_at?: string
+          gc_customer_id?: string
+          id?: string
+          payer_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gocardless_customers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_customers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_customers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_customers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_customers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_customers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_customers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_customers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gocardless_events: {
+        Row: {
+          action: string
+          club_id: string | null
+          created_at: string
+          gc_event_id: string
+          id: string
+          payload: Json
+          processed: boolean
+          processed_at: string | null
+          processing_error: string | null
+          resource_type: string
+        }
+        Insert: {
+          action: string
+          club_id?: string | null
+          created_at?: string
+          gc_event_id: string
+          id?: string
+          payload: Json
+          processed?: boolean
+          processed_at?: string | null
+          processing_error?: string | null
+          resource_type: string
+        }
+        Update: {
+          action?: string
+          club_id?: string | null
+          created_at?: string
+          gc_event_id?: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+          processed_at?: string | null
+          processing_error?: string | null
+          resource_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gocardless_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gocardless_mandates: {
+        Row: {
+          billing_request_id: string | null
+          club_id: string
+          created_at: string
+          gc_mandate_id: string
+          gocardless_customer_id: string
+          id: string
+          next_possible_charge_date: string | null
+          scheme: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          billing_request_id?: string | null
+          club_id: string
+          created_at?: string
+          gc_mandate_id: string
+          gocardless_customer_id: string
+          id?: string
+          next_possible_charge_date?: string | null
+          scheme?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          billing_request_id?: string | null
+          club_id?: string
+          created_at?: string
+          gc_mandate_id?: string
+          gocardless_customer_id?: string
+          id?: string
+          next_possible_charge_date?: string | null
+          scheme?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gocardless_mandates_billing_request_id_fkey"
+            columns: ["billing_request_id"]
+            isOneToOne: false
+            referencedRelation: "gocardless_billing_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gocardless_mandates_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_mandates_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_mandates_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_mandates_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_mandates_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_mandates_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_mandates_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_mandates_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gocardless_mandates_gocardless_customer_id_fkey"
+            columns: ["gocardless_customer_id"]
+            isOneToOne: false
+            referencedRelation: "gocardless_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gocardless_merchant_connections: {
+        Row: {
+          access_token: string
+          club_id: string
+          connected_at: string
+          connected_by: string
+          created_at: string
+          disconnected_at: string | null
+          disconnected_by: string | null
+          environment: string
+          gc_organisation_id: string
+          id: string
+          scope: string
+          status_checked_at: string | null
+          updated_at: string
+          verification_status: string
+        }
+        Insert: {
+          access_token: string
+          club_id: string
+          connected_at?: string
+          connected_by: string
+          created_at?: string
+          disconnected_at?: string | null
+          disconnected_by?: string | null
+          environment?: string
+          gc_organisation_id: string
+          id?: string
+          scope: string
+          status_checked_at?: string | null
+          updated_at?: string
+          verification_status?: string
+        }
+        Update: {
+          access_token?: string
+          club_id?: string
+          connected_at?: string
+          connected_by?: string
+          created_at?: string
+          disconnected_at?: string | null
+          disconnected_by?: string | null
+          environment?: string
+          gc_organisation_id?: string
+          id?: string
+          scope?: string
+          status_checked_at?: string | null
+          updated_at?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gocardless_merchant_connections_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_merchant_connections_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_merchant_connections_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_merchant_connections_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_merchant_connections_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_merchant_connections_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_merchant_connections_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_merchant_connections_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gocardless_payments: {
+        Row: {
+          app_fee_minor: number | null
+          charge_date: string | null
+          club_id: string
+          confirmed_at: string | null
+          created_at: string
+          currency: string
+          failed_at: string | null
+          failure_reason_code: string | null
+          gc_payment_id: string
+          gocardless_subscription_id: string | null
+          gross_amount_minor: number
+          id: string
+          net_amount_minor: number | null
+          obligation_id: string
+          provider_fee_minor: number | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          app_fee_minor?: number | null
+          charge_date?: string | null
+          club_id: string
+          confirmed_at?: string | null
+          created_at?: string
+          currency?: string
+          failed_at?: string | null
+          failure_reason_code?: string | null
+          gc_payment_id: string
+          gocardless_subscription_id?: string | null
+          gross_amount_minor: number
+          id?: string
+          net_amount_minor?: number | null
+          obligation_id: string
+          provider_fee_minor?: number | null
+          status: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          app_fee_minor?: number | null
+          charge_date?: string | null
+          club_id?: string
+          confirmed_at?: string | null
+          created_at?: string
+          currency?: string
+          failed_at?: string | null
+          failure_reason_code?: string | null
+          gc_payment_id?: string
+          gocardless_subscription_id?: string | null
+          gross_amount_minor?: number
+          id?: string
+          net_amount_minor?: number | null
+          obligation_id?: string
+          provider_fee_minor?: number | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gocardless_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gocardless_payments_gocardless_subscription_id_fkey"
+            columns: ["gocardless_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "gocardless_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gocardless_payments_obligation_id_fkey"
+            columns: ["obligation_id"]
+            isOneToOne: false
+            referencedRelation: "membership_obligations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gocardless_payouts: {
+        Row: {
+          amount_minor: number
+          arrival_date: string | null
+          club_id: string
+          created_at: string
+          currency: string
+          gc_payout_id: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor: number
+          arrival_date?: string | null
+          club_id: string
+          created_at?: string
+          currency?: string
+          gc_payout_id: string
+          id?: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          arrival_date?: string | null
+          club_id?: string
+          created_at?: string
+          currency?: string
+          gc_payout_id?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gocardless_payouts_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payouts_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payouts_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payouts_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payouts_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payouts_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payouts_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_payouts_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gocardless_reconciliation_entries: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          entry_type: string
+          id: string
+          payment_id: string | null
+          payout_id: string
+        }
+        Insert: {
+          amount_minor: number
+          created_at?: string
+          entry_type: string
+          id?: string
+          payment_id?: string | null
+          payout_id: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          entry_type?: string
+          id?: string
+          payment_id?: string | null
+          payout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gocardless_reconciliation_entries_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "gocardless_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gocardless_reconciliation_entries_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "gocardless_payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gocardless_subscriptions: {
+        Row: {
+          amount_minor: number
+          app_fee_minor: number | null
+          club_id: string
+          created_at: string
+          gc_subscription_id: string | null
+          gocardless_mandate_id: string
+          id: string
+          payer_subscription_id: string
+          pricing_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor: number
+          app_fee_minor?: number | null
+          club_id: string
+          created_at?: string
+          gc_subscription_id?: string | null
+          gocardless_mandate_id: string
+          id?: string
+          payer_subscription_id: string
+          pricing_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          app_fee_minor?: number | null
+          club_id?: string
+          created_at?: string
+          gc_subscription_id?: string | null
+          gocardless_mandate_id?: string
+          id?: string
+          payer_subscription_id?: string
+          pricing_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gocardless_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_gocardless_mandate_id_fkey"
+            columns: ["gocardless_mandate_id"]
+            isOneToOne: false
+            referencedRelation: "gocardless_mandates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_payer_subscription_id_fkey"
+            columns: ["payer_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "player_subscription_payers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gocardless_subscriptions_pricing_id_fkey"
+            columns: ["pricing_id"]
+            isOneToOne: false
+            referencedRelation: "club_subscription_pricing"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guardian_invitations: {
         Row: {
           accepted_at: string | null
@@ -5252,6 +6416,167 @@ export type Database = {
           },
         ]
       }
+      membership_obligations: {
+        Row: {
+          amount_due_minor: number
+          billing_period: string
+          club_id: string
+          created_at: string
+          currency: string
+          due_date: string
+          first_payment_policy_used: string | null
+          gocardless_payment_id: string | null
+          id: string
+          is_prorated: boolean
+          membership_effective_date: string | null
+          payer_subscription_id: string
+          player_id: string
+          pricing_id: string
+          programme_id: string
+          proration_chargeable_days: number | null
+          proration_total_days: number | null
+          resolved_at: string | null
+          resolved_reason: string | null
+          status: string
+        }
+        Insert: {
+          amount_due_minor: number
+          billing_period: string
+          club_id: string
+          created_at?: string
+          currency?: string
+          due_date: string
+          first_payment_policy_used?: string | null
+          gocardless_payment_id?: string | null
+          id?: string
+          is_prorated?: boolean
+          membership_effective_date?: string | null
+          payer_subscription_id: string
+          player_id: string
+          pricing_id: string
+          programme_id: string
+          proration_chargeable_days?: number | null
+          proration_total_days?: number | null
+          resolved_at?: string | null
+          resolved_reason?: string | null
+          status?: string
+        }
+        Update: {
+          amount_due_minor?: number
+          billing_period?: string
+          club_id?: string
+          created_at?: string
+          currency?: string
+          due_date?: string
+          first_payment_policy_used?: string | null
+          gocardless_payment_id?: string | null
+          id?: string
+          is_prorated?: boolean
+          membership_effective_date?: string | null
+          payer_subscription_id?: string
+          player_id?: string
+          pricing_id?: string
+          programme_id?: string
+          proration_chargeable_days?: number | null
+          proration_total_days?: number | null
+          resolved_at?: string | null
+          resolved_reason?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_obligations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_payer_subscription_id_fkey"
+            columns: ["payer_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "player_subscription_payers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_payment_fk"
+            columns: ["gocardless_payment_id"]
+            isOneToOne: false
+            referencedRelation: "gocardless_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_pricing_id_fkey"
+            columns: ["pricing_id"]
+            isOneToOne: false
+            referencedRelation: "club_subscription_pricing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_obligations_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "club_subscription_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_policies: {
         Row: {
           allow_contact_card_sharing: boolean | null
@@ -5489,6 +6814,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      payment_refunds: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          created_by: string
+          gc_refund_id: string | null
+          id: string
+          payment_id: string
+          reason: string
+          status: string
+        }
+        Insert: {
+          amount_minor: number
+          created_at?: string
+          created_by: string
+          gc_refund_id?: string | null
+          id?: string
+          payment_id: string
+          reason: string
+          status?: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          created_by?: string
+          gc_refund_id?: string | null
+          id?: string
+          payment_id?: string
+          reason?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_refunds_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "gocardless_payments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       permission_group_capabilities: {
         Row: {
@@ -6119,6 +7485,97 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      player_subscription_payers: {
+        Row: {
+          base_amount_minor: number | null
+          created_at: string
+          created_by: string
+          effective_from: string
+          effective_to: string | null
+          end_reason: string | null
+          ended_at: string | null
+          ended_by: string | null
+          final_amount_minor: number | null
+          id: string
+          payer_user_id: string
+          player_id: string
+          pricing_id: string | null
+          programme_id: string
+          relationship: string
+          sibling_discount_amount_minor: number | null
+          sibling_discount_type: string | null
+          sibling_discount_value: number | null
+          sibling_ordinal: number | null
+          status: string
+        }
+        Insert: {
+          base_amount_minor?: number | null
+          created_at?: string
+          created_by: string
+          effective_from?: string
+          effective_to?: string | null
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          final_amount_minor?: number | null
+          id?: string
+          payer_user_id: string
+          player_id: string
+          pricing_id?: string | null
+          programme_id: string
+          relationship: string
+          sibling_discount_amount_minor?: number | null
+          sibling_discount_type?: string | null
+          sibling_discount_value?: number | null
+          sibling_ordinal?: number | null
+          status?: string
+        }
+        Update: {
+          base_amount_minor?: number | null
+          created_at?: string
+          created_by?: string
+          effective_from?: string
+          effective_to?: string | null
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          final_amount_minor?: number | null
+          id?: string
+          payer_user_id?: string
+          player_id?: string
+          pricing_id?: string | null
+          programme_id?: string
+          relationship?: string
+          sibling_discount_amount_minor?: number | null
+          sibling_discount_type?: string | null
+          sibling_discount_value?: number | null
+          sibling_ordinal?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_subscription_payers_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_subscription_payers_pricing_id_fkey"
+            columns: ["pricing_id"]
+            isOneToOne: false
+            referencedRelation: "club_subscription_pricing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_subscription_payers_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "club_subscription_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       player_team_dispensation: {
         Row: {
@@ -9167,6 +10624,16 @@ export type Database = {
           total_messages: number
         }[]
       }
+      apply_payment_status_transition: {
+        Args: {
+          p_charge_date?: string
+          p_failure_reason_code?: string
+          p_gc_event_id?: string
+          p_gc_payment_id: string
+          p_new_status: string
+        }
+        Returns: undefined
+      }
       approve_club_claim: {
         Args: { p_claim_id: string; p_notes?: string }
         Returns: string
@@ -9225,11 +10692,43 @@ export type Database = {
         }
         Returns: undefined
       }
+      claim_responsible_payer: {
+        Args: { p_player_id: string; p_programme_id: string }
+        Returns: string
+      }
       claim_tournament_host: {
         Args: { p_host_team_id: string; p_tournament_id: string }
         Returns: undefined
       }
       clear_team_alias: { Args: { p_team_id: string }; Returns: undefined }
+      configure_sibling_discount_rule: {
+        Args: {
+          p_discount_type: string
+          p_discount_value: number
+          p_effective_from?: string
+          p_ordinal: number
+          p_programme_id: string
+        }
+        Returns: string
+      }
+      configure_subscription_programme: {
+        Args: {
+          p_club_id: string
+          p_collection_day: number
+          p_enabled: boolean
+          p_first_payment_policy: string
+          p_platform_fee_mode: string
+        }
+        Returns: string
+      }
+      confirm_gocardless_refund: {
+        Args: {
+          p_amount_minor: number
+          p_gc_refund_id: string
+          p_payment_gc_id: string
+        }
+        Returns: undefined
+      }
       confirm_mixed_boundary_rollover: {
         Args: {
           p_boys_squad_designation?: string
@@ -9300,6 +10799,10 @@ export type Database = {
           p_storage_path: string
         }
         Returns: string
+      }
+      create_membership_obligations_for_period: {
+        Args: { p_billing_period: string; p_club_id: string }
+        Returns: number
       }
       create_missing_target_team: {
         Args: { p_request_id: string }
@@ -9395,6 +10898,10 @@ export type Database = {
         }
         Returns: string
       }
+      current_subscription_price: {
+        Args: { p_as_of?: string; p_programme_id: string }
+        Returns: number
+      }
       deactivate_canonical_team_type: {
         Args: { p_id: string }
         Returns: undefined
@@ -9440,10 +10947,43 @@ export type Database = {
         Returns: undefined
       }
       delete_season_safe: { Args: { p_season_id: string }; Returns: undefined }
+      disconnect_gocardless: {
+        Args: { p_club_id: string; p_reason: string }
+        Returns: undefined
+      }
+      end_membership_subscription: {
+        Args: {
+          p_actor_user_id?: string
+          p_payer_subscription_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
       enter_diagnostic_club: { Args: { p_club_id: string }; Returns: string }
       exit_diagnostic_club: {
         Args: { p_session_id: string }
         Returns: undefined
+      }
+      export_finance_rows: {
+        Args: { p_billing_period: string; p_club_id: string }
+        Returns: {
+          amount_due_minor: number
+          base_amount_minor: number
+          billing_period: string
+          due_date: string
+          final_amount_minor: number
+          obligation_status: string
+          payer_email: string
+          payer_first_name: string
+          payer_surname: string
+          payment_status: string
+          player_first_name: string
+          player_surname: string
+          sibling_discount_amount_minor: number
+          sibling_discount_type: string
+          sibling_ordinal: number
+          subscription_status: string
+        }[]
       }
       fail_directory_verification_run: {
         Args: { p_error: string; p_run_id: string }
@@ -9460,6 +11000,14 @@ export type Database = {
           p_to_season_id: string
         }
         Returns: string
+      }
+      get_active_subscription_impact: {
+        Args: { p_club_id: string }
+        Returns: {
+          active_gocardless_subscriptions: number
+          active_payers: number
+          pending_obligations: number
+        }[]
       }
       get_canonical_team_type_impact: {
         Args: { p_id: string }
@@ -9536,6 +11084,53 @@ export type Database = {
           max_attachment_size_bytes: number
         }[]
       }
+      get_enrolment_eligibility: {
+        Args: { p_club_id: string; p_player_id: string }
+        Returns: {
+          existing_payer_subscription_id: string
+          has_pricing: boolean
+          merchant_verified: boolean
+          player_has_active_membership: boolean
+          programme_enabled: boolean
+          programme_id: string
+        }[]
+      }
+      get_finance_action_required: {
+        Args: { p_club_id: string }
+        Returns: {
+          payer_subscription_id: string
+          player_id: string
+          reason: string
+        }[]
+      }
+      get_first_collection_date: {
+        Args: { p_as_of?: string; p_programme_id: string }
+        Returns: string
+      }
+      get_gocardless_connection_status: {
+        Args: { p_club_id: string }
+        Returns: {
+          connected: boolean
+          connected_at: string
+          environment: string
+          verification_status: string
+        }[]
+      }
+      get_gocardless_token_for_club_admin_action: {
+        Args: { p_club_id: string }
+        Returns: {
+          access_token: string
+          environment: string
+        }[]
+      }
+      get_gocardless_token_for_payer_subscription: {
+        Args: { p_payer_subscription_id: string }
+        Returns: {
+          access_token: string
+          club_id: string
+          environment: string
+        }[]
+      }
       get_guardian_invitation_preview: {
         Args: { p_token: string }
         Returns: {
@@ -9560,6 +11155,37 @@ export type Database = {
           expires_at: string
           invited_email: string
           status: string
+        }[]
+      }
+      get_membership_operational_detail: {
+        Args: { p_payer_subscription_id: string }
+        Returns: {
+          base_amount_minor: number
+          club_id: string
+          final_amount_minor: number
+          gc_mandate_id: string
+          gc_subscription_id: string
+          mandate_status: string
+          payer_effective_from: string
+          payer_effective_to: string
+          payer_email: string
+          payer_end_reason: string
+          payer_first_name: string
+          payer_status: string
+          payer_subscription_id: string
+          payer_surname: string
+          player_first_name: string
+          player_id: string
+          player_surname: string
+          programme_amount_minor: number
+          programme_collection_day: number
+          programme_first_payment_policy: string
+          sibling_discount_amount_minor: number
+          sibling_discount_type: string
+          sibling_discount_value: number
+          sibling_ordinal: number
+          subscription_amount_minor: number
+          subscription_status: string
         }[]
       }
       get_partner_team_availability: {
@@ -9598,6 +11224,15 @@ export type Database = {
         Returns: {
           availability: string
           fixture_date: string
+        }[]
+      }
+      get_sibling_discount_rules: {
+        Args: { p_programme_id: string }
+        Returns: {
+          discount_type: string
+          discount_value: number
+          effective_from: string
+          ordinal: number
         }[]
       }
       get_site_admin_invitation_preview: {
@@ -9874,6 +11509,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      mark_gocardless_event_processed: {
+        Args: { p_error?: string; p_event_id: string }
+        Returns: undefined
+      }
       mark_graduating_player_left: {
         Args: { p_queue_id: string }
         Returns: undefined
@@ -9893,6 +11532,39 @@ export type Database = {
       preview_directory_verification_scope: {
         Args: { p_directory_id?: string; p_filters?: Json; p_scope: string }
         Returns: number
+      }
+      preview_first_payment: {
+        Args: {
+          p_membership_start_date?: string
+          p_player_id: string
+          p_programme_id: string
+        }
+        Returns: {
+          base_amount_minor: number
+          covers_from: string
+          covers_to: string
+          first_charge_amount_minor: number
+          first_charge_billing_period: string
+          is_prorated: boolean
+          monthly_amount_minor: number
+          policy: string
+          sibling_discount_amount_minor: number
+          sibling_discount_type: string
+          sibling_discount_value: number
+          sibling_ordinal: number
+        }[]
+      }
+      preview_first_payment_illustrative: {
+        Args: { p_membership_start_date?: string; p_programme_id: string }
+        Returns: {
+          covers_from: string
+          covers_to: string
+          first_charge_amount_minor: number
+          first_charge_billing_period: string
+          is_prorated: boolean
+          monthly_amount_minor: number
+          policy: string
+        }[]
       }
       preview_my_fixture_contact_card: {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
@@ -9940,10 +11612,45 @@ export type Database = {
         Returns: string
       }
       reactivate_team: { Args: { p_team_id: string }; Returns: undefined }
+      reconcile_gocardless_billing_request: {
+        Args: {
+          p_billing_request_local_id: string
+          p_gc_billing_request_status: string
+          p_gc_customer_id: string
+          p_gc_mandate_id: string
+          p_mandate_scheme: string
+          p_mandate_status: string
+          p_next_possible_charge_date: string
+        }
+        Returns: {
+          customer_id: string
+          mandate_id: string
+        }[]
+      }
+      reconcile_gocardless_subscription: {
+        Args: {
+          p_actor_user_id?: string
+          p_gc_event_id?: string
+          p_gc_status: string
+          p_local_subscription_id: string
+          p_source?: string
+        }
+        Returns: string
+      }
       reconcile_overdue_fixture_results: { Args: never; Returns: number }
       reconcile_tournament_participant: {
         Args: { p_participant_id: string }
         Returns: undefined
+      }
+      record_billing_request: {
+        Args: {
+          p_authorisation_url: string
+          p_club_id: string
+          p_gc_billing_request_flow_id: string
+          p_gc_billing_request_id: string
+          p_payer_subscription_id: string
+        }
+        Returns: string
       }
       record_directory_verification_result: {
         Args: {
@@ -9954,6 +11661,43 @@ export type Database = {
           p_run_id: string
         }
         Returns: undefined
+      }
+      record_gocardless_event: {
+        Args: {
+          p_action: string
+          p_club_id?: string
+          p_gc_event_id: string
+          p_payload: Json
+          p_resource_type: string
+        }
+        Returns: string
+      }
+      record_gocardless_payment: {
+        Args: {
+          p_amount_minor: number
+          p_charge_date: string
+          p_currency: string
+          p_gc_payment_id: string
+          p_gocardless_subscription_id?: string
+          p_obligation_id: string
+          p_status: string
+        }
+        Returns: string
+      }
+      record_gocardless_subscription: {
+        Args: {
+          p_amount_minor: number
+          p_gc_subscription_id: string
+          p_gocardless_mandate_id: string
+          p_payer_subscription_id: string
+          p_pricing_id: string
+          p_status: string
+        }
+        Returns: string
+      }
+      record_payment_refund: {
+        Args: { p_amount_minor: number; p_payment_id: string; p_reason: string }
+        Returns: string
       }
       record_session_version: {
         Args: { p_version: number }
@@ -10199,6 +11943,20 @@ export type Database = {
         Args: { p_in_app_enabled: boolean; p_topic_key: string }
         Returns: undefined
       }
+      set_obligation_exemption: {
+        Args: { p_obligation_id: string; p_reason: string; p_status: string }
+        Returns: undefined
+      }
+      set_responsible_payer: {
+        Args: {
+          p_payer_user_id: string
+          p_player_id: string
+          p_programme_id: string
+          p_reason: string
+          p_relationship: string
+        }
+        Returns: string
+      }
       set_scheduling_group_active: {
         Args: { p_active: boolean; p_group_id: string }
         Returns: undefined
@@ -10238,6 +11996,14 @@ export type Database = {
       set_site_admin_team_catalogue_capability: {
         Args: { p_enabled: boolean; p_user_id: string }
         Returns: undefined
+      }
+      set_subscription_price: {
+        Args: {
+          p_amount_minor: number
+          p_effective_from: string
+          p_programme_id: string
+        }
+        Returns: string
       }
       set_team_alias: {
         Args: { p_alias: string; p_team_id: string }
@@ -10279,6 +12045,16 @@ export type Database = {
           is_new: boolean
           status: string
         }[]
+      }
+      store_gocardless_connection: {
+        Args: {
+          p_access_token: string
+          p_club_id: string
+          p_environment: string
+          p_gc_organisation_id: string
+          p_scope: string
+        }
+        Returns: string
       }
       submit_fixture_result: {
         Args: {
@@ -10400,6 +12176,10 @@ export type Database = {
           p_allowed_file_types: string[]
           p_max_attachment_size_bytes: number
         }
+        Returns: undefined
+      }
+      update_gocardless_verification_status: {
+        Args: { p_club_id: string; p_status: string }
         Returns: undefined
       }
       update_support_ticket_category: {
