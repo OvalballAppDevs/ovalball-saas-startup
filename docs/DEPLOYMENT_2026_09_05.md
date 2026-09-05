@@ -131,3 +131,74 @@ All four are already applied locally with identical semantics, so local state is
 Rollback was **not** performed: the failure occurred before application deployment, the
 database is healthy, and restoring would discard two clean additive migrations for no
 safety benefit.
+
+---
+
+## Forward fix — pgcrypto search_path portability
+
+### Scope (complete chain scan)
+
+`gen_random_bytes` appears **6 times across 4 files — all PENDING remotely, none in an
+already-applied migration**, so no historical remote-applied file was modified:
+
+| File | Calls | Status |
+|---|---|---|
+| `20260831091000_invitations.sql` | 1 (+1 comment) | pending |
+| `20260831260000_site_admin_management.sql` | 1 | pending |
+| `20260917000000_partner_club_invitations.sql` | 1 | pending |
+| `20260928200000_side_project_1_player_guardian_foundation.sql` | 2 | pending |
+
+Focused scan for other extension-owned functions in pending migrations
+(`crypt`, `gen_salt`, `digest`, `hmac`, `pgp_*`, `encrypt`, `decrypt`, `uuid_generate_*`,
+`armor`, `sign`, `verify`): **no other unqualified occurrences**.
+`gen_random_uuid()` is confirmed a `pg_catalog` built-in, which is why it never failed.
+
+### The fix
+
+Only change: `gen_random_bytes(...)` → `extensions.gen_random_bytes(...)` (5 call sites).
+No change to arguments, encoding, token length, constraints, tables, functions, RLS,
+grants or business logic. The stale comment in `20260831091000` that asserted the
+unqualified form was safe was corrected to explain the actual behaviour.
+
+### Semantic equivalence (proved locally)
+
+| Property | Result |
+|---|---|
+| Same function oid | **true** (16418) |
+| Argument type | `integer` |
+| Return type | `bytea` |
+| Owning extension | `pgcrypto` |
+| `encode(...,'hex')` length for 32 bytes | 64 chars — token format unchanged |
+
+### Narrow-search_path validation (the check the shadow replay could not make)
+
+Reproduced the remote migration-session condition locally with `search_path=public`:
+
+- unqualified `gen_random_bytes(32)` → **fails, SQLSTATE 42883** (matches the remote failure exactly)
+- `extensions.gen_random_bytes(32)` → **succeeds, 32 bytes**
+
+This is retained as the meaningful portability evidence. A local clean replay alone is
+**not** sufficient for this class of bug, because the local stack's migration session
+includes `extensions` on search_path while the remote one does not.
+
+### Migration-history integrity (checked, not assumed)
+
+`supabase_migrations.schema_migrations` columns: `version (text)`, `statements (ARRAY)`,
+`name (text)` — **no checksum/hash column**. Tracking is version-based, so editing the
+content of an already-locally-applied migration does not invalidate local history. The
+CLI reported no integrity warning afterwards.
+
+Local tables created before this edit still carry the unqualified default expression;
+that is expected and harmless — the fix governs **fresh** applications (i.e. remote),
+which the clean replay exercises.
+
+### Post-fix verification
+
+| Check | Result |
+|---|---|
+| Clean replay (198 migrations, shadow DB) | **PASS — "No schema changes found"** |
+| `parent_add_child_regression` | 34 PASS / 0 / 0 |
+| `side_project_1_player_guardian_foundation` | 7 PASS / 0 / 0 |
+| `site_admin_management` | 14 / 2 / 0 — **identical to pre-existing baseline** |
+| `partner_club_invitations` | 4 / 0 / 2 — **identical to pre-existing baseline** |
+| TypeScript | 0 errors |

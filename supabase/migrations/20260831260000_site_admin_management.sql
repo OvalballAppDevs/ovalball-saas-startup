@@ -124,7 +124,7 @@ create table public.site_admin_invitations (
   invited_email text not null,
   admin_role text not null check (admin_role in ('full', 'fixture_ops', 'club_data', 'user_access', 'message_moderator', 'read_only')),
   status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked', 'expired')),
-  token text not null unique default encode(gen_random_bytes(32), 'hex'),
+  token text not null unique default encode(extensions.gen_random_bytes(32), 'hex'),
   expires_at timestamptz not null default (now() + interval '7 days'),
   accepted_by uuid references auth.users(id),
   accepted_at timestamptz,

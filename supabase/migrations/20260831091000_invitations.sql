@@ -18,11 +18,19 @@ create table public.invitations (
   -- team-only invite (e.g. "Coach, U12 A") has no club-wide role at all.
   club_role text check (club_role in ('CLUB_ADMIN', 'FIXTURE_SECRETARY')),
   status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked', 'expired')),
-  -- Unqualified gen_random_bytes, matching every other table's unqualified
-  -- gen_random_uuid() default in this schema -- extensions is already on
-  -- this project's default search_path (pgcrypto, created in
-  -- 20260830143452_extensions_and_helpers.sql).
-  token text not null unique default encode(gen_random_bytes(32), 'hex'),
+  -- SCHEMA-QUALIFIED deliberately. This was originally written unqualified on
+  -- the assumption that it behaves like gen_random_uuid() -- it does not.
+  -- gen_random_uuid() is a PostgreSQL built-in in pg_catalog, so it resolves
+  -- under any search_path; gen_random_bytes() is supplied by pgcrypto (created
+  -- in 20260830143452_extensions_and_helpers.sql, installed into the
+  -- `extensions` schema). Ordinary sessions have `extensions` on search_path,
+  -- but the Supabase CLI's migration-apply session against a remote project
+  -- does not -- so the unqualified call failed there with
+  -- "function gen_random_bytes(integer) does not exist" (SQLSTATE 42883)
+  -- while passing every local run. Qualifying makes this migration
+  -- independent of session search_path. Same function (identical oid), same
+  -- integer argument, same bytea return, same 64-char hex token.
+  token text not null unique default encode(extensions.gen_random_bytes(32), 'hex'),
   expires_at timestamptz not null default (now() + interval '14 days'),
   accepted_by uuid references auth.users(id),
   accepted_at timestamptz,

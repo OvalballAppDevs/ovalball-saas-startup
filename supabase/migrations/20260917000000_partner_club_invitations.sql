@@ -17,7 +17,7 @@ create table public.club_ovalball_invitations (
   contact_name text not null,
   contact_email text not null,
   invited_by uuid not null references auth.users(id),
-  token text not null unique default encode(gen_random_bytes(32), 'hex'),
+  token text not null unique default encode(extensions.gen_random_bytes(32), 'hex'),
   status text not null default 'pending' check (status in ('pending', 'accepted', 'expired', 'revoked')),
   expires_at timestamptz not null default (now() + interval '14 days'),
   accepted_at timestamptz,
