@@ -122,5 +122,20 @@ export async function updateSession(request: NextRequest) {
     return rewriteResponse
   }
 
+  // /fixtures follows exactly the same pattern and for the same reason: the
+  // public marketing page explaining fixture management, and the real
+  // Fixture Management workspace at app/(app)/fixtures, are one URL with two
+  // audiences. A logged-out visitor arriving from the homepage nav gets the
+  // marketing page; a signed-in club administrator gets their actual
+  // fixtures, unchanged. Only the logged-out branch is rewritten, so nothing
+  // about the authenticated route's own protection is altered here.
+  if (!user && request.nextUrl.pathname === "/fixtures") {
+    const url = request.nextUrl.clone()
+    url.pathname = "/public-fixtures"
+    const rewriteResponse = NextResponse.rewrite(url)
+    response.cookies.getAll().forEach((cookie) => rewriteResponse.cookies.set(cookie))
+    return rewriteResponse
+  }
+
   return response
 }

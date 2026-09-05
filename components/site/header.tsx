@@ -30,8 +30,12 @@ import { AccountControl } from "./account-control"
 // placeholder anchors.
 const NAV_LINKS = [
   { href: "#product", label: "Product", disabled: false },
-  { href: "#clubs", label: "Clubs", disabled: true },
-  { href: "#fixtures", label: "Fixtures", disabled: true },
+  { href: "/clubs", label: "Clubs", disabled: false },
+  // /fixtures is one URL with two audiences: this public page for a
+  // logged-out visitor, the real Fixture Management workspace for a signed-in
+  // club administrator. The middleware rewrite handles which one renders --
+  // see lib/supabase/middleware.ts -- so the link is the same either way.
+  { href: "/fixtures", label: "Fixtures", disabled: false },
   { href: ABOUT_ROUTE, label: "About", disabled: false },
   { href: CONTACT_ROUTE, label: "Contact", disabled: false },
   { href: "/support", label: "Support", disabled: false },

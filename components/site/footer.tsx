@@ -29,7 +29,8 @@ const PRODUCT: FooterCluster = {
   heading: "Product",
   links: [
     { label: "Product", href: "#product" },
-    { label: "Fixtures", href: "#fixtures", disabled: true },
+    { label: "Clubs", href: "/clubs" },
+    { label: "Fixtures", href: "/fixtures" },
     { label: "Teams", href: "#teams", disabled: true },
     { label: "Partner Clubs", href: "#partner-clubs", disabled: true },
   ],

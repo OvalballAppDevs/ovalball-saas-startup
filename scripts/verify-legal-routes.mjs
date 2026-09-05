@@ -29,7 +29,7 @@ const LEGAL_ROUTES = [
 ]
 
 /** Public non-legal pages that must also stay reachable while logged out. */
-const PUBLIC_ROUTES = ["/about", "/contact"]
+const PUBLIC_ROUTES = ["/about", "/contact", "/clubs", "/fixtures"]
 
 const CONTACT_EMAIL = "hello@ovalball.co.uk"
 
@@ -100,6 +100,34 @@ async function main() {
   check("contact carries the privacy wording", /respond to your enquiry/i.test(contact))
   check("contact links the Privacy Notice", contact.includes('href="/legal/privacy"'))
 
+  console.log("\nClubs page:")
+  const clubs = pages["/clubs"] ?? ""
+  check("clubs leads with the grassroots headline", /Rugby starts with its clubs/.test(clubs))
+  check("clubs tells the community story", /More than a team|A club is the people/i.test(clubs))
+  check("clubs covers grassroots", /Grassroots rugby is where the game begins/i.test(clubs))
+  check("clubs makes the connected-clubs argument", /Fixtures do not happen in isolation/i.test(clubs))
+  check("clubs has the partner heading", /Ovalball is proudly partnered with/i.test(clubs))
+  check("clubs shows the honest empty partner state", /More club partnerships will be announced here/i.test(clubs))
+  check("clubs uses the shared image bank", /arms-round|club-house|handshake/.test(clubs))
+  check("clubs CTA links signup and fixtures", clubs.includes('href="/signup"') && clubs.includes('href="/fixtures"'))
+  check("clubs makes NO endorsement or scale claim", !/thousands of clubs|trusted by the RFU|official partner|used by international/i.test(clubs))
+
+  console.log("\nFixtures page (public, logged out):")
+  const fixtures = pages["/fixtures"] ?? ""
+  check("fixtures serves the marketing page, not a login redirect", /Fixtures, without the chaos/.test(fixtures))
+  check("fixtures states the one-record principle", /One fixture\. One record\./i.test(fixtures))
+  check("fixtures has the request preview", /Request a fixture/i.test(fixtures))
+  check("fixtures has the conversation preview", /Fixture conversation/i.test(fixtures))
+  check("fixtures has the calendar preview", /Calendar/.test(fixtures))
+  check("fixtures has the pitch allocation preview", /Pitch allocation/i.test(fixtures))
+  check("fixtures labels previews as previews", /Product preview/i.test(fixtures))
+  check("fixtures preserves the permission-accurate calendar wording", /Authorised users see the fixture/i.test(fixtures))
+  check(
+    "fixtures uses only synthetic club names",
+    /Northbridge|Westbrook|Eastfield|Riverside/.test(fixtures) &&
+      !/Guildford|Camberley|Woking|Burnley/.test(fixtures)
+  )
+
   console.log("\nCopyright and intellectual property:")
   const copyrightPage = pages["/legal/copyright"] ?? ""
   const year = new Date().getFullYear()
@@ -152,9 +180,13 @@ async function main() {
     const plain = label.replace("&#x27;", "'")
     check(`homepage footer shows "${plain}"`, home.body.includes(label) || home.body.includes(plain))
   }
-  for (const route of ["/about", "/contact", "/legal/privacy", "/legal/children-privacy", "/legal/terms", "/legal/cookies", "/legal/safeguarding", "/legal/data-rights"]) {
+  for (const route of ["/about", "/contact", "/clubs", "/fixtures", "/legal/privacy", "/legal/children-privacy", "/legal/terms", "/legal/cookies", "/legal/safeguarding", "/legal/data-rights"]) {
     check(`homepage links ${route}`, home.body.includes(`href="${route}"`))
   }
+  check(
+    "homepage no longer dead-links Clubs or Fixtures to placeholder anchors",
+    !home.body.includes('href="#clubs"') && !home.body.includes('href="#fixtures"')
+  )
 
   console.log("\nDocument content:")
   check("privacy names Ovalball", /Ovalball/.test(pages["/legal/privacy"] ?? ""))
