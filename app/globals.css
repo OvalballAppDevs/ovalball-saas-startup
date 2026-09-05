@@ -622,3 +622,56 @@
     transform: scale(1);
   }
 }
+
+/*
+ * Ovalball human-verification slider. The thumb is the rugby ball being
+ * carried toward the posts. Styled on a native <input type="range"> so the
+ * control keeps real keyboard, touch and screen-reader behaviour -- there
+ * is deliberately no bespoke drag handler, because a drag-only checkpoint
+ * would be an accessibility barrier in front of signing in.
+ */
+.ovalball-human-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 2.25rem;
+  height: 1.6rem;
+  border-radius: 50% / 45%;
+  background: var(--forest-900);
+  border: 2px solid var(--pitch-600);
+  cursor: grab;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+.ovalball-human-slider::-moz-range-thumb {
+  width: 2.25rem;
+  height: 1.6rem;
+  border-radius: 50% / 45%;
+  background: var(--forest-900);
+  border: 2px solid var(--pitch-600);
+  cursor: grab;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+.ovalball-human-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.ovalball-human-slider:disabled::-webkit-slider-thumb {
+  cursor: default;
+  background: var(--pitch-600);
+}
+
+.ovalball-human-slider:disabled::-moz-range-thumb {
+  cursor: default;
+  background: var(--pitch-600);
+}
+
+/* Focus must be clearly visible: this control gates signing in. */
+.ovalball-human-slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--pitch-400);
+  outline-offset: 2px;
+}
+
+.ovalball-human-slider:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--pitch-400);
+  outline-offset: 2px;
+}

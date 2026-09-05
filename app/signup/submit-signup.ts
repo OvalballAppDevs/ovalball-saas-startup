@@ -1,6 +1,9 @@
 "use server"
 
+import { headers } from "next/headers"
+
 import { toPublicAuthError } from "@/lib/errors/public-error"
+import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/auth/turnstile"
 import { createClient } from "@/lib/supabase/server"
 import { CURRENT_TERMS_VERSION } from "@/lib/signup/terms"
 import type { SignupFormState } from "@/lib/signup/types"
@@ -29,12 +32,27 @@ export type SubmitSignupResult =
  * This still uses only the publishable-key server client (never a service
  * role) and never sets any permission/role itself; it only sends an email.
  */
-export async function submitSignup(formState: SignupFormState): Promise<SubmitSignupResult> {
+export async function submitSignup(
+  formState: SignupFormState,
+  turnstileToken: string | null = null
+): Promise<SubmitSignupResult> {
   if (!formState.termsAccepted) {
     return { ok: false, error: "Terms and Conditions must be accepted." }
   }
   if (formState.club.kind === "unselected") {
     return { ok: false, error: "A club selection is required." }
+  }
+
+  // Verified before the OTP is sent: this action delivers an email to an
+  // address the caller chose, so it is gated by the same human check as the
+  // login form, on top of Supabase's own rate limiting.
+  const headerList = await headers()
+  const verification = await verifyTurnstileToken(turnstileToken, {
+    remoteIp: headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    expectedHostname: headerList.get("host")?.split(":")[0] ?? null,
+  })
+  if (!verification.ok) {
+    return { ok: false, error: TURNSTILE_FAILURE_MESSAGE }
   }
 
   const supabase = await createClient()

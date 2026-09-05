@@ -68,6 +68,11 @@ export default function SubprocessorsPage() {
               "Optional sign-in (Sign in with Apple), including Apple's Hide My Email relay. Identity and authentication only.",
               "Supported. Not yet enabled.",
             ],
+            [
+              "Cloudflare",
+              "Turnstile, a human-verification check on the sign-in and sign-up pages, used to prevent automated account creation and automated sign-in emails. It checks whether a visitor appears to be a person; it does not identify anyone, and it is not used for analytics or advertising.",
+              "Supported. Not yet enabled.",
+            ],
           ]}
         />
         <p>

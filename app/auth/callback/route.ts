@@ -1,18 +1,9 @@
 import { NextResponse } from "next/server"
 
 import { AUTH_SESSION_VERSION } from "@/lib/auth/session-version"
+import { safeNextPath } from "@/lib/auth/safe-next"
 import { createClient } from "@/lib/supabase/server"
 import { completeSignupIfNeeded } from "@/lib/signup/complete-signup"
-
-// A same-origin relative path only — rejects absolute/protocol-relative
-// URLs and userinfo tricks (e.g. "@evil.com") that could turn this into an
-// open redirect.
-function safeNextPath(next: string | null): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("@")) {
-    return "/"
-  }
-  return next
-}
 
 // Exchanges the `code` param from a Supabase Auth redirect (OAuth, magic
 // link, etc.) for a session, then redirects into the app.
@@ -41,6 +32,26 @@ export async function GET(request: Request) {
         await supabase.rpc("record_session_version", { p_version: AUTH_SESSION_VERSION })
 
         const result = await completeSignupIfNeeded(supabase, user)
+
+        // A first-time OAuth visitor arrives here authenticated but with
+        // nothing else: no profile, and no wizard payload in metadata,
+        // because the provider handed us a session before Ovalball had
+        // asked them anything. Authentication is not onboarding, so they go
+        // through the canonical signup wizard rather than being dropped
+        // into an application they have no relationships in. An existing
+        // user signing in with a newly linked provider has a profile, so
+        // this never fires for them.
+        if (!result.completed) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("id", user.id)
+            .maybeSingle()
+          if (!profile) {
+            return NextResponse.redirect(`${origin}/signup`)
+          }
+        }
+
         if (result.error) {
           // The user is authenticated (has a real, valid session) even
           // though completion failed -- never sign them out over this.

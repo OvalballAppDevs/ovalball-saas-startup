@@ -50,6 +50,39 @@ export async function completeSignupIfNeeded(
     return { completed: false }
   }
 
+  return writeSignupRecords(supabase, user, payload)
+}
+
+export interface SignupRecordsPayload {
+  personal: PersonalDetails
+  club: ClubSelection
+  rugbyCode: string | null
+  termsVersion: string
+}
+
+/**
+ * The actual insert sequence, shared by both ways a signup can complete.
+ *
+ * The magic-link path reaches it via completeSignupIfNeeded above, reading
+ * a payload stashed in user_metadata because no session existed when the
+ * wizard was filled in. The OAuth path reaches it directly from
+ * completeAuthenticatedSignup: there the provider hands us a session
+ * FIRST, so the wizard can post its payload to an authenticated action and
+ * skip the metadata round trip entirely.
+ *
+ * Both call the same function on purpose -- a second copy of this sequence
+ * is how one path quietly stops writing a terms_acceptances row.
+ *
+ * Every insert runs as the caller's own authenticated user, bound by the
+ * same RLS a browser request gets. Nothing here grants a permission:
+ * club_memberships has no self-serve INSERT, and a claim or join request is
+ * a request awaiting human review, not authority.
+ */
+export async function writeSignupRecords(
+  supabase: SupabaseClient<Database>,
+  user: User,
+  payload: SignupRecordsPayload
+): Promise<{ completed: boolean; error?: string }> {
   const { personal, club, termsVersion } = payload
 
   const { error: profileError } = await supabase.from("profiles").insert({
@@ -151,12 +184,7 @@ export async function completeSignupIfNeeded(
 // awaiting human review -- there is no path here to any elevated
 // permission, so this guards against crashes/garbage data, not privilege
 // escalation.
-function extractPayload(user: User): {
-  personal: PersonalDetails
-  club: ClubSelection
-  rugbyCode: string | null
-  termsVersion: string
-} | null {
+function extractPayload(user: User): SignupRecordsPayload | null {
   const raw = user.user_metadata?.ovalballSignupPayload
   if (!raw || typeof raw !== "object") return null
   const { personal, club, rugbyCode, termsVersion } = raw as Record<string, unknown>

@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
+import { HumanCheck } from "@/components/auth/human-check"
+import { SocialSignIn } from "@/components/auth/social-sign-in"
+import { hasAnyOAuthProvider } from "@/lib/auth/oauth-providers"
 import { REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember-constants"
 
 import { submitLogin } from "./actions"
@@ -43,8 +46,15 @@ type Status = "idle" | "submitting" | "sent" | "error"
  * stuck -- "Create an account" below is always visible, not conditional on
  * this form's result.
  */
-export function LoginForm() {
+export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | null }) {
   const searchParams = useSearchParams()
+  // The human checkpoint only appears when Turnstile is actually
+  // configured. Rendering a slider with no verification behind it would be
+  // exactly the CAPTCHA theatre the brief rules out -- it would gate the
+  // form while proving nothing.
+  const humanCheckRequired = Boolean(turnstileSiteKey)
+  const [humanToken, setHumanToken] = useState<string | null>(null)
+  const [humanPassed, setHumanPassed] = useState(!turnstileSiteKey)
   // Set once from the initial URL, deliberately not re-read on every
   // render -- /auth/callback lands here with ?error=link for any failed
   // exchange (expired/reused/invalid/missing token, see that route's own
@@ -90,7 +100,7 @@ export function LoginForm() {
   }, [resendCooldown])
 
   async function sendLink() {
-    if (!syntaxValid || status === "submitting") return
+    if (!syntaxValid || status === "submitting" || !humanPassed) return
 
     setStatus("submitting")
     setErrorMessage(null)
@@ -98,12 +108,20 @@ export function LoginForm() {
     setSessionUpdated(false)
     setSessionSuspended(false)
     setRememberCookie(rememberMe)
-    const result = await submitLogin(email)
+    const result = await submitLogin(email, humanToken)
 
     if (result.ok) {
       setStatus("sent")
       setHasSent(true)
       setResendCooldown(30)
+      // A Turnstile token is single-use, so the one just spent cannot
+      // authorise a resend. Clear it and require the checkpoint again
+      // rather than letting Resend fail with a security error the visitor
+      // can do nothing about.
+      if (humanCheckRequired) {
+        setHumanToken(null)
+        setHumanPassed(false)
+      }
     } else {
       setStatus("error")
       setErrorMessage(result.message)
@@ -121,12 +139,25 @@ export function LoginForm() {
           If an Ovalball account exists for <strong className="text-ink">{email}</strong>, a
           sign-in link is on its way. Click it to continue &mdash; you can close this tab.
         </p>
+        {/* The checkpoint reappears for a resend, because the previous
+            token was consumed by the send that just happened. */}
+        {humanCheckRequired && !humanPassed && (
+          <HumanCheck
+            key={`resend-${resendCooldown > 0 ? "waiting" : "ready"}`}
+            siteKey={turnstileSiteKey}
+            action="login-resend"
+            onVerified={(token) => {
+              setHumanToken(token)
+              setHumanPassed(true)
+            }}
+          />
+        )}
         <div>
           <Button
             type="button"
             variant="outline"
             className="h-10 rounded-lg"
-            disabled={resendCooldown > 0 || status === "submitting"}
+            disabled={resendCooldown > 0 || status === "submitting" || !humanPassed}
             onClick={sendLink}
           >
             {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend link"}
@@ -164,6 +195,29 @@ export function LoginForm() {
           Enter your email and we&apos;ll send you a one-time sign-in link.
         </p>
       </div>
+
+      {humanCheckRequired && (
+        <HumanCheck
+          siteKey={turnstileSiteKey}
+          action="login"
+          onVerified={(token) => {
+            setHumanToken(token)
+            setHumanPassed(true)
+          }}
+        />
+      )}
+
+      {/* Provider buttons render only when a provider is actually enabled,
+          so this whole block disappears until one is configured. */}
+      <SocialSignIn turnstileToken={humanToken} ready={humanPassed} />
+
+      {hasAnyOAuthProvider() && (
+        <div className="flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-ink/10" />
+          <span className="text-xs tracking-[0.08em] text-ink/40 uppercase">or</span>
+          <span className="h-px flex-1 bg-ink/10" />
+        </div>
+      )}
 
       {sessionUpdated && (
         <div className="rounded-lg border border-ink/10 bg-white p-4" aria-live="polite">
@@ -252,7 +306,7 @@ export function LoginForm() {
       <Button
         type="submit"
         className="h-11 rounded-lg px-6"
-        disabled={!syntaxValid || status === "submitting"}
+        disabled={!syntaxValid || status === "submitting" || !humanPassed}
       >
         {status === "submitting" ? "Sending…" : "Send sign-in link"}
       </Button>

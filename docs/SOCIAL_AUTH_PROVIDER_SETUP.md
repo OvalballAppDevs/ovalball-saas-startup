@@ -104,3 +104,115 @@ Update these in the same change, or the published notices become inaccurate:
 Then verify: sign in with the provider on production, confirm the account resolves to a
 single Ovalball account, and confirm that signing in grants **no** club, team, guardian or
 administrative authority by itself.
+
+---
+
+# Implementation status (updated 2026-09-06)
+
+The application code for passwordless social sign-in is **complete and
+deployed**. No provider is switched on. Ovalball remains passwordless:
+there is no password field, no `signInWithPassword`, no `signUp({password})`
+and no forgotten-password flow anywhere in the auth surface, and a permanent
+test (`scripts/verify-auth-security.mjs`) fails the build if one appears.
+
+## What ships in code
+
+| Piece | Where |
+|---|---|
+| Provider registry + per-provider flags | `lib/auth/oauth-providers.ts` |
+| Server-side OAuth initiation | `app/auth/oauth-actions.ts` |
+| Shared open-redirect guard | `lib/auth/safe-next.ts` |
+| Canonical callback (unchanged, already OAuth-capable) | `app/auth/callback/route.ts` |
+| Onboarding for a first-time OAuth user | `app/signup/complete-authenticated-signup.ts` |
+| Provider buttons | `components/auth/social-sign-in.tsx` |
+
+## Activation order — one provider at a time
+
+Do **not** enable all three at once. For each provider, in this order:
+
+1. Configure the provider console (sections above).
+2. Enter the client ID and secret in **Supabase Dashboard → Authentication →
+   Providers**. The secret goes there, never into this repository.
+3. Set that provider's flag in Vercel (`NEXT_PUBLIC_AUTH_<PROVIDER>_ENABLED=true`)
+   and redeploy. These are `NEXT_PUBLIC_` because they are UI flags, and must
+   be **Config**, not Sensitive — a Sensitive variable is not available at
+   build time and would silently evaluate to `undefined`.
+4. Verify in production: logged-out sign-in, a brand-new user, an existing
+   magic-link user with the same verified email, sign out, sign in again, and
+   a cancelled provider login.
+5. Only then update `/legal/subprocessors` to move that provider from
+   "Supported, not yet enabled" to "Currently active".
+6. Only then start the next provider.
+
+## OWNER MANUAL STEPS still outstanding
+
+- **Supabase hosted Auth URL configuration** — Site URL `https://ovalball.co.uk`,
+  redirect allow-list `https://ovalball.co.uk/**`. Still not verified; this
+  cannot be inspected without the Management API token, which lives in the
+  macOS keychain and was deliberately not extracted.
+- **Google Cloud Console** — OAuth consent screen and credentials.
+- **Meta for Developers** — Facebook Login app, with the data-deletion URL
+  pointed at `https://ovalball.co.uk/legal/data-rights`.
+- **Apple Developer** — Services ID, domain verification, private key (`.p8`),
+  Key ID and Team ID. The private key is a secret: it belongs in Supabase's
+  provider configuration only, never in this repository.
+- **Official provider brand assets** — the buttons currently render as
+  correctly-worded text (`Continue with Google`, `Continue with Facebook`,
+  `Sign in with Apple`). Each provider requires its own official mark, and
+  approximating one from memory would produce a misleading near-copy, so no
+  logo is drawn. Download the official SVGs from each provider's brand
+  guidelines into `public/brand/` and reference them from
+  `components/auth/social-sign-in.tsx`.
+
+---
+
+# Cloudflare Turnstile — human verification
+
+## What it protects
+
+Unauthenticated auth *initiation* only:
+
+- requesting an email magic link (`/login`)
+- submitting the signup wizard (`/signup`)
+- starting a provider sign-in
+
+It is deliberately **not** in front of authenticated application use. An
+existing session is never re-challenged.
+
+## The security boundary
+
+The rugby slider is UX. Pointer, touch and keyboard events are all
+automatable, so completing it proves nothing and is never treated as
+permission. The boundary is `lib/auth/turnstile.ts`, which exchanges the
+widget's token with Cloudflare server-side and checks `success`, plus the
+hostname the token was issued for (production only — Cloudflare's own test
+keys report `example.com`).
+
+Failure modes all fail **closed**: missing token, malformed token, rejected
+token, Cloudflare unreachable, and hostname mismatch are all refused, and the
+visitor sees one generic message that names no internal signal.
+
+## Configuration
+
+```
+NEXT_PUBLIC_TURNSTILE_SITE_KEY   Cloudflare Dashboard > Turnstile > Add site
+TURNSTILE_SECRET_KEY             same page; server-only, never NEXT_PUBLIC_
+```
+
+With **neither** set, the checkpoint does not render and sign-in behaves
+exactly as it does today. That is deliberate: a deploy that started rejecting
+every sign-in because a key was missing would lock real users out of a
+working service. Enforcement begins the moment both keys exist.
+
+Rate limiting is unchanged and still applies underneath: Supabase's own
+per-email and per-IP limits (`[auth.rate_limit]`) are the throughput control;
+Turnstile is the automation control. They solve different problems and both
+remain in force.
+
+## Before enabling in production
+
+Turnstile loads a script from `challenges.cloudflare.com` and can set its own
+cookie. That is a genuine change to what the public site does, so
+`/legal/subprocessors` and `/legal/cookies` must be updated to match **at the
+same time as** the keys are added — Cloudflare is already listed there as
+"Supported, not yet enabled" in readiness for exactly this.

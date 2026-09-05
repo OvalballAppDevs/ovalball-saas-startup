@@ -21,7 +21,10 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-4 py-16">
         <div className="w-full max-w-md">
           <Suspense>
-            <LoginForm />
+            {/* Read on the server so the client component never has to know
+                whether Turnstile is configured -- it just gets the public
+                site key, or null. The secret half never leaves the server. */}
+            <LoginForm turnstileSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null} />
           </Suspense>
         </div>
       </div>

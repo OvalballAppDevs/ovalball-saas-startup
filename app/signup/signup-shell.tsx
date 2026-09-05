@@ -22,6 +22,8 @@ import { ClubStep, type ClubStepHandle } from "./steps/club-step"
 import { PersonalDetailsStep } from "./steps/personal-details-step"
 import { ReviewStep } from "./steps/review-step"
 import { submitSignup } from "./submit-signup"
+import { completeAuthenticatedSignup } from "./complete-authenticated-signup"
+import { HumanCheck } from "@/components/auth/human-check"
 
 const DEFAULT_STEP: SignupStep = "account"
 
@@ -57,14 +59,32 @@ function isSignupStep(value: unknown): value is SignupStep {
  * session. See submit-signup.ts and complete-signup.ts for the full
  * sequence and why it has to be split across those two points.
  */
-export function SignupShell({ teamCategoryGroups }: { teamCategoryGroups: TeamCategoryGroup[] }) {
+export function SignupShell({
+  teamCategoryGroups,
+  authenticatedEmail = null,
+  turnstileSiteKey = null,
+}: {
+  teamCategoryGroups: TeamCategoryGroup[]
+  /** Set when a provider already authenticated this visitor (OAuth path). */
+  authenticatedEmail?: string | null
+  turnstileSiteKey?: string | null
+}) {
+  // Already authenticated means the email step is answered and no magic
+  // link is involved, so neither the OTP send nor its human check applies.
+  const isAuthenticated = Boolean(authenticatedEmail)
+  const humanCheckRequired = Boolean(turnstileSiteKey) && !isAuthenticated
+  const [humanToken, setHumanToken] = useState<string | null>(null)
+  const [humanPassed, setHumanPassed] = useState(!humanCheckRequired)
   const router = useRouter()
   const searchParams = useSearchParams()
   const stepParam = searchParams.get("step")
-  const step = isSignupStep(stepParam) ? stepParam : DEFAULT_STEP
+  // An authenticated OAuth visitor has already answered the email step --
+  // their provider proved the address -- so the wizard opens on details
+  // rather than asking them to retype something they cannot change here.
+  const step = isSignupStep(stepParam) ? stepParam : isAuthenticated ? "details" : DEFAULT_STEP
 
   const [formState, setFormState] = useState<SignupFormState>(() => {
-    const prefillEmail = searchParams.get("email")
+    const prefillEmail = authenticatedEmail ?? searchParams.get("email")
     return prefillEmail ? { ...EMPTY_SIGNUP_STATE, email: prefillEmail } : EMPTY_SIGNUP_STATE
   })
   const [submitStatus, setSubmitStatus] = useState<"idle" | "submitting" | "sent" | "error">(
@@ -138,13 +158,31 @@ export function SignupShell({ teamCategoryGroups }: { teamCategoryGroups: TeamCa
   }
 
   async function handleSubmit() {
+    if (!humanPassed) return
     setSubmitStatus("submitting")
     setSubmitError(null)
-    const result = await submitSignup(formState)
+
+    // Two completion paths, one record-writing sequence behind them. An
+    // OAuth visitor already has a session, so their details are written
+    // straight away; an email visitor has none yet, so the payload rides
+    // on the magic link and is written by /auth/callback.
+    const result = isAuthenticated
+      ? await completeAuthenticatedSignup(formState)
+      : await submitSignup(formState, humanToken)
+
     if (result.ok) {
+      if (isAuthenticated) {
+        // Nothing to check an inbox for -- the account exists now.
+        window.location.assign("/welcome")
+        return
+      }
       setSubmitStatus("sent")
       setHasSubmitted(true)
       setResendCooldown(30)
+      if (humanCheckRequired) {
+        setHumanToken(null)
+        setHumanPassed(false)
+      }
     } else {
       setSubmitStatus("error")
       setSubmitError(result.error)
@@ -316,6 +354,19 @@ export function SignupShell({ teamCategoryGroups }: { teamCategoryGroups: TeamCa
               )}
             </div>
 
+            {step === "review" && humanCheckRequired && !humanPassed && (
+              <div className="mt-6">
+                <HumanCheck
+                  siteKey={turnstileSiteKey}
+                  action="signup"
+                  onVerified={(token) => {
+                    setHumanToken(token)
+                    setHumanPassed(true)
+                  }}
+                />
+              </div>
+            )}
+
             {step === "review" && submitStatus === "error" && (
               <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                 {submitError ?? "Something went wrong. Please try again."}
@@ -337,10 +388,14 @@ export function SignupShell({ teamCategoryGroups }: { teamCategoryGroups: TeamCa
                 <Button
                   type="button"
                   className="h-11 rounded-lg px-6"
-                  disabled={!canAdvance() || submitStatus === "submitting"}
+                  disabled={!canAdvance() || submitStatus === "submitting" || !humanPassed}
                   onClick={handleSubmit}
                 >
-                  {submitStatus === "submitting" ? "Sending…" : "Confirm and continue"}
+                  {submitStatus === "submitting"
+                    ? "Sending…"
+                    : isAuthenticated
+                      ? "Create my account"
+                      : "Confirm and continue"}
                 </Button>
               ) : (
                 <Button

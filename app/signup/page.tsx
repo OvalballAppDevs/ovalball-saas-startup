@@ -15,9 +15,25 @@ import { SignupShell } from "./signup-shell"
 export default async function SignupPage() {
   const supabase = await createClient()
   const teamCategoryGroups = await loadTeamCategoryGroups(supabase)
+
+  // A first-time Google/Facebook/Apple visitor reaches this wizard ALREADY
+  // authenticated -- /auth/callback sends them here when the provider gave
+  // them a session but Ovalball has no profile for them yet. The wizard
+  // then skips the email step (the provider already proved the address) and
+  // writes its records through an authenticated action instead of stashing
+  // them in user_metadata for a magic link that is not coming.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const authenticatedEmail = user?.email ?? null
+
   return (
     <Suspense>
-      <SignupShell teamCategoryGroups={teamCategoryGroups} />
+      <SignupShell
+        teamCategoryGroups={teamCategoryGroups}
+        authenticatedEmail={authenticatedEmail}
+        turnstileSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null}
+      />
     </Suspense>
   )
 }
