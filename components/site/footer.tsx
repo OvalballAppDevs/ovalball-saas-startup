@@ -28,11 +28,10 @@ interface FooterCluster {
 const PRODUCT: FooterCluster = {
   heading: "Product",
   links: [
-    { label: "Product", href: "#product" },
     { label: "Clubs", href: "/clubs" },
     { label: "Fixtures", href: "/fixtures" },
-    { label: "Teams", href: "#teams", disabled: true },
-    { label: "Partner Clubs", href: "#partner-clubs", disabled: true },
+    { label: "Game Management", href: "/game-management" },
+    { label: "Payment Services", href: "/payment-services" },
   ],
 }
 

@@ -283,6 +283,18 @@ export default async function FixturesPage() {
                 </Link>
               </div>
             </Reveal>
+            <Reveal index={3}>
+              <p className="mt-8 text-sm text-white/50">
+                Once the fixture is agreed, get the team ready &mdash;{" "}
+                <Link
+                  href="/game-management"
+                  className="font-medium text-pitch-400 underline underline-offset-2 hover:text-pitch-300"
+                >
+                  see Game Management
+                </Link>
+                .
+              </p>
+            </Reveal>
           </div>
         </section>
       </main>

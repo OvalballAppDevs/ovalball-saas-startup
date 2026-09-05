@@ -29,7 +29,7 @@ const LEGAL_ROUTES = [
 ]
 
 /** Public non-legal pages that must also stay reachable while logged out. */
-const PUBLIC_ROUTES = ["/about", "/contact", "/clubs", "/fixtures"]
+const PUBLIC_ROUTES = ["/about", "/contact", "/clubs", "/fixtures", "/game-management", "/payment-services"]
 
 const CONTACT_EMAIL = "hello@ovalball.co.uk"
 
@@ -128,6 +128,50 @@ async function main() {
       !/Guildford|Camberley|Woking|Burnley/.test(fixtures)
   )
 
+  console.log("\nGame Management page:")
+  const game = pages["/game-management"] ?? ""
+  check("game management leads on game-day readiness", /Know your team before game day/i.test(game))
+  check("game management tells the pre-whistle story", /Selecting a side shouldn|before the whistle/i.test(game))
+  check(
+    "game management uses the canonical availability vocabulary",
+    /Attending/.test(game) && /Can&#x27;t attend|Can't attend/.test(game) && /Unsure/.test(game)
+  )
+  check("game management shows team availability counts", /Match availability/i.test(game) && /No response/i.test(game))
+  check("game management has the squad-planning story", /Know the shape of the squad/i.test(game))
+  check(
+    "game management does NOT claim an automatic team picker",
+    /does not pick your side/i.test(game) && !/automatically (picks|selects) your/i.test(game)
+  )
+  check("game management has the club-preparation story", /catering and hospitality/i.test(game))
+  check("game management has the fixture updates story", /Updates that belong to the game/i.test(game))
+  check(
+    "game management separates club negotiation from participant information",
+    /parents do not see the club-to-club negotiation/i.test(game)
+  )
+  check("game management has the connected-game visual", /Everyone who needs it, connected/i.test(game))
+  check("game management makes no arrival-time claim", !/arrival time|Arrival<\/dt>/i.test(game))
+  check("game management links to fixtures", game.includes('href="/fixtures"'))
+
+  console.log("\nPayment Services page:")
+  const pay = pages["/payment-services"] ?? ""
+  check("payments leads on membership", /without the monthly chase/i.test(pay))
+  check("payments has the spreadsheet story", /shouldn&#x27;t live in a spreadsheet|shouldn't live in a spreadsheet/i.test(pay))
+  check("payments has the member setup journey", /Setting up a membership/i.test(pay))
+  check("payments has the recurring collection story", /scheduled through GoCardless/i.test(pay))
+  check("payments has the finance dashboard", /Membership overview/i.test(pay) && /Needs attention/i.test(pay))
+  check("payments uses canonical obligation labels", /Scheduled for collection/.test(pay) && /Submitted to GoCardless/.test(pay))
+  check("payments has the needs-attention story", /A failed payment is information, not a judgement/i.test(pay))
+  check("payments frames visibility as support, not chasing", /not so they can chase harder/i.test(pay))
+  check("payments states the provider relationship accurately", /Ovalball integrates with GoCardless/i.test(pay))
+  check("payments states production collection is NOT live", /not yet switched on in the live service/i.test(pay))
+  check("payments links privacy, subprocessors and terms", pay.includes('href="/legal/privacy"') && pay.includes('href="/legal/subprocessors"') && pay.includes('href="/legal/terms"'))
+  check(
+    "payments makes NO guaranteed-collection or instant-settlement claim",
+    !/always be collected|guaranteed|instantly|within seconds|bank-grade|100% secure/i.test(pay)
+  )
+  check("payments does NOT claim an official partnership", !/proudly partnered with GoCardless|official partner/i.test(pay))
+  check("payments exposes no bank details", !/sort code|account number|IBAN/i.test(pay))
+
   console.log("\nCopyright and intellectual property:")
   const copyrightPage = pages["/legal/copyright"] ?? ""
   const year = new Date().getFullYear()
@@ -180,8 +224,11 @@ async function main() {
     const plain = label.replace("&#x27;", "'")
     check(`homepage footer shows "${plain}"`, home.body.includes(label) || home.body.includes(plain))
   }
-  for (const route of ["/about", "/contact", "/clubs", "/fixtures", "/legal/privacy", "/legal/children-privacy", "/legal/terms", "/legal/cookies", "/legal/safeguarding", "/legal/data-rights"]) {
+  for (const route of ["/about", "/contact", "/clubs", "/fixtures", "/game-management", "/payment-services", "/legal/privacy", "/legal/children-privacy", "/legal/terms", "/legal/cookies", "/legal/safeguarding", "/legal/data-rights"]) {
     check(`homepage links ${route}`, home.body.includes(`href="${route}"`))
+  }
+  for (const label of ["Game Management", "Payment Services"]) {
+    check(`homepage nav offers "${label}"`, home.body.includes(label))
   }
   check(
     "homepage no longer dead-links Clubs or Fixtures to placeholder anchors",

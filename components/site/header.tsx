@@ -1,11 +1,17 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Menu } from "lucide-react"
+import { ArrowRight, ChevronDown, Menu } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLinkItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Sheet,
   SheetClose,
@@ -28,14 +34,27 @@ import { AccountControl } from "./account-control"
 // they ship, exactly as this nav was built to do. About and Contact are now
 // real pages, so they point at their canonical routes rather than at
 // placeholder anchors.
+/**
+ * The four public product pages, grouped under one "Platform" menu.
+ *
+ * Listing all four flat alongside About, Contact and Support would put
+ * seven items in the bar and start wrapping well above 1280px. Grouping
+ * them is also truthful about the information architecture: these four are
+ * one family of product stories, and the other three are not.
+ *
+ * /fixtures is one URL with two audiences -- this public page for a
+ * logged-out visitor, the real Fixture Management workspace for a signed-in
+ * club administrator. The middleware rewrite decides which renders (see
+ * lib/supabase/middleware.ts), so the link is the same either way.
+ */
+const PLATFORM_LINKS = [
+  { href: "/clubs", label: "Clubs", blurb: "Rugby clubs and communities" },
+  { href: "/fixtures", label: "Fixtures", blurb: "From request to kick-off" },
+  { href: "/game-management", label: "Game Management", blurb: "Availability and game-day preparation" },
+  { href: "/payment-services", label: "Payment Services", blurb: "Membership and payment visibility" },
+]
+
 const NAV_LINKS = [
-  { href: "#product", label: "Product", disabled: false },
-  { href: "/clubs", label: "Clubs", disabled: false },
-  // /fixtures is one URL with two audiences: this public page for a
-  // logged-out visitor, the real Fixture Management workspace for a signed-in
-  // club administrator. The middleware rewrite handles which one renders --
-  // see lib/supabase/middleware.ts -- so the link is the same either way.
-  { href: "/fixtures", label: "Fixtures", disabled: false },
   { href: ABOUT_ROUTE, label: "About", disabled: false },
   { href: CONTACT_ROUTE, label: "Contact", disabled: false },
   { href: "/support", label: "Support", disabled: false },
@@ -108,8 +127,35 @@ export function Header({ identity }: { identity: PublicHeaderIdentity | null }) 
         </Reveal>
 
         <nav className="hidden items-center gap-9 md:flex">
+          <Reveal as="span" index={1}>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button type="button" className={cn(NAV_LINK_CLASS, "flex items-center gap-1.5")} />
+                }
+              >
+                Platform
+                <ChevronDown aria-hidden="true" className="size-3.5 opacity-70" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-72">
+                {PLATFORM_LINKS.map((link) => (
+                  <DropdownMenuLinkItem
+                    key={link.href}
+                    className="flex-col items-start gap-0.5 px-2 py-2"
+                    render={<Link href={link.href} />}
+                  >
+                    <span className="text-sm font-medium">{link.label}</span>
+                    <span className="text-xs text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground">
+                      {link.blurb}
+                    </span>
+                  </DropdownMenuLinkItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </Reveal>
+
           {NAV_LINKS.map((link, i) => (
-            <Reveal key={link.href} as="span" index={i + 1}>
+            <Reveal key={link.href} as="span" index={i + 2}>
               {link.disabled ? (
                 <span aria-disabled="true" className={NAV_LINK_DISABLED_CLASS}>
                   {link.label}
@@ -161,7 +207,10 @@ export function Header({ identity }: { identity: PublicHeaderIdentity | null }) 
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-white hover:bg-white/10 hover:text-white md:hidden"
+                  // Grouping the four product pages under Platform makes this
+                  // the only route to them on a phone, so it gets a full
+                  // 44px target rather than the default icon size.
+                  className="size-11 text-white hover:bg-white/10 hover:text-white md:hidden"
                 />
               }
             >
@@ -175,6 +224,28 @@ export function Header({ identity }: { identity: PublicHeaderIdentity | null }) 
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col px-2">
+                {/* Platform links stay fully expanded on mobile -- a nested
+                    accordion inside a sheet would hide the four product
+                    pages behind a second tap for no benefit. The heading
+                    groups them; it does not collapse them. */}
+                <p className="px-2 pt-1 pb-2 text-xs font-medium tracking-[0.08em] text-white/40 uppercase">
+                  Platform
+                </p>
+                {PLATFORM_LINKS.map((link) => (
+                  <SheetClose
+                    key={link.href}
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href={link.href}
+                        className="tap-press rounded-md px-2 py-3 text-base text-white/85 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white"
+                      />
+                    }
+                  >
+                    {link.label}
+                  </SheetClose>
+                ))}
+                <div className="my-2 border-t border-white/10" />
                 {NAV_LINKS.map((link) =>
                   link.disabled ? (
                     <span

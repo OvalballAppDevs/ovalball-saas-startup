@@ -28,15 +28,22 @@ function check(name, ok, detail = "") {
 const MARKETING_SOURCES = [
   "app/clubs/page.tsx",
   "app/public-fixtures/page.tsx",
+  "app/game-management/page.tsx",
+  "app/payment-services/page.tsx",
   "components/site/connected-fixture-demo.tsx",
   "components/site/fixture-journey.tsx",
   "components/site/fixture-request-demo.tsx",
   "components/site/connected-clubs-visual.tsx",
   "components/site/partner-wall.tsx",
+  "components/site/availability-demo.tsx",
+  "components/site/connected-game-visual.tsx",
+  "components/site/membership-journey-demo.tsx",
+  "components/site/finance-dashboard-demo.tsx",
 ]
 
 const sources = Object.fromEntries(MARKETING_SOURCES.map((p) => [p, readFileSync(p, "utf8")]))
-const demoData = readFileSync("lib/marketing/fixture-journey-demo.ts", "utf8")
+const gameDayData = readFileSync("lib/marketing/game-day-demo.ts", "utf8")
+const demoData = readFileSync("lib/marketing/fixture-journey-demo.ts", "utf8") + gameDayData
 const partners = readFileSync("lib/marketing/partner-clubs.ts", "utf8")
 const allMarketing = Object.values(sources).join("\n") + demoData
 
@@ -113,6 +120,46 @@ check(
   "any partner entry present carries a real logo asset",
   entryCount === logoCount,
   `${entryCount} entries, ${logoCount} logos`
+)
+
+console.log("\nGame Management and Payment previews stay inside the real product's vocabulary:")
+check(
+  "availability uses the canonical ATTENDING / CANNOT_ATTEND / UNSURE values",
+  /"ATTENDING"/.test(gameDayData) && /"CANNOT_ATTEND"/.test(gameDayData) && /"UNSURE"/.test(gameDayData)
+)
+check(
+  "no invented second availability vocabulary",
+  !/"(AVAILABLE|NOT_AVAILABLE|MAYBE|YES|NO)"/.test(gameDayData)
+)
+check(
+  "payment statuses come from the real obligation label set",
+  /Scheduled for collection/.test(gameDayData) && /Submitted to GoCardless/.test(gameDayData)
+)
+check(
+  "demo clubs carry the unmistakably fictitious Ovalball prefix",
+  /Ovalball North RFC/.test(gameDayData) && /Ovalball West RFC/.test(gameDayData)
+)
+check(
+  "no GoCardless customer, mandate, payment or subscription identifier",
+  !/\b(CU|MD|PM|SB|BRQ)[0-9A-Z]{6,}\b/.test(allMarketing)
+)
+// Phrases like "Ovalball never stores the bank details" are reassurances,
+// not exposures -- what must never appear is an actual VALUE: a sort code,
+// an account number, or an IBAN rendered next to its label.
+check(
+  "no bank detail VALUE appears in any payment preview",
+  !/sort ?code\W{0,4}\d/i.test(allMarketing) &&
+    !/account number\W{0,4}\d/i.test(allMarketing) &&
+    !/\b\d{2}-\d{2}-\d{2}\b/.test(allMarketing) &&
+    !/\bGB\d{2}[A-Z]{4}\d{14}\b/.test(allMarketing)
+)
+check(
+  "no marketing page claims an official GoCardless partnership",
+  !/proudly partnered with GoCardless|official (GoCardless )?partner/i.test(allMarketing)
+)
+check(
+  "no guaranteed-collection or instant-settlement claim",
+  !/always be collected|payment completes in seconds|instant(ly)? (settle|collect)|guaranteed collection/i.test(allMarketing)
 )
 
 console.log("\nNo private or production data referenced:")
