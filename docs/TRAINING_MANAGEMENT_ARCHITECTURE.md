@@ -269,9 +269,9 @@ Performed live on the rebased branch (`remediation/integration-renumber`, Side2'
 - Dashboard/Mini-Rugby browser re-verification this specific pass was via direct live UAT (H) and SQL-level proof (I) respectively, not a from-scratch UI walkthrough of every listed Section 18 item.
 
 ### M. Exact proposed integration range
-`fcd0731..daf7121` (5 commits: `fcd0731`, `6989a51`, `7be714c`, `054bd1b`, `310f6d7`, `daf7121` — six, precisely; the training foundation, verification pass, extension, Calendar Fixture Lifecycle, migration renumbering, and doc/bug-fix commits), rebased onto Main's `c60c083`, on branch `remediation/integration-renumber`. Safety point preserved at tag/branch `pre-remediation-73854f7` (the original, pre-rebase `main` branch tip).
+`c60c083..55caa68` — six commits on branch `remediation/integration-renumber`: `fcd0731` (training foundation), `6989a51` (verification pass), `7be714c` (extension: shared pitches/attendance/agenda/notifications), `054bd1b` (Calendar Fixture Lifecycle), `310f6d7` (migration renumbering), `55caa68`/`daf7121` (doc corrections, a real bug fix, regenerated types, this report). All rebased directly onto Main's `c60c083`. Safety point preserved at tag/branch `pre-remediation-73854f7` (the original, pre-rebase `main` branch tip).
 
 ### N. Git state
 - Main: branch `main`, HEAD `c60c083` (unchanged throughout this remediation — confirmed at the start and never touched).
-- Side2: branch `remediation/integration-renumber`, HEAD `daf7121`. Original `main` branch still points at `73854f7`, untouched. Safety tag `pre-remediation-73854f7` and branch `safety/pre-remediation-73854f7` both point at `73854f7`.
+- Side2: branch `remediation/integration-renumber`, HEAD `55caa68`. Original `main` branch still points at `73854f7`, untouched. Safety tag `pre-remediation-73854f7` and branch `safety/pre-remediation-73854f7` both point at `73854f7`.
 - No push. No merge into Main. No remote migrations applied.
