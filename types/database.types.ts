@@ -7686,6 +7686,7 @@ export type Database = {
       }
       platform_referrals: {
         Row: {
+          attribution_source: string
           created_at: string
           created_by: string | null
           id: string
@@ -7704,6 +7705,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attribution_source?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -7722,6 +7724,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attribution_source?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -13324,6 +13327,17 @@ export type Database = {
         Returns: string
       }
       reconcile_overdue_fixture_results: { Args: never; Returns: number }
+      reconcile_referral_attribution: {
+        Args: { p_dry_run?: boolean }
+        Returns: {
+          category: string
+          club_id: string
+          detail: string
+          finding: string
+          invitation_id: string
+          referral_id: string
+        }[]
+      }
       reconcile_tournament_participant: {
         Args: { p_participant_id: string }
         Returns: undefined
@@ -13408,6 +13422,30 @@ export type Database = {
       record_session_version: {
         Args: { p_version: number }
         Returns: undefined
+      }
+      referral_data_health: {
+        Args: never
+        Returns: {
+          ambiguous_referrer: number
+          duplicate_attribution: number
+          missing_attribution: number
+          pending_for_activated_club: number
+          qualified_without_reward: number
+          reward_without_referral: number
+          status: string
+        }[]
+      }
+      referral_data_health_detail: {
+        Args: never
+        Returns: {
+          category: string
+          club_id: string
+          club_name: string
+          detail: string
+          finding: string
+          invitation_id: string
+          referral_id: string
+        }[]
       }
       register_referred_club: {
         Args: { p_club_id: string; p_invitation_id: string }

@@ -24,6 +24,7 @@ SUITES=(
   platform_referrals
   platform_activation
   platform_rls_sweep
+  referral_attribution_integrity
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
