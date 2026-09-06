@@ -21,7 +21,15 @@ export default function LoginPage() {
       title="Sign in"
       subtitle="Pick up where your club left off."
       panelLine="The season doesn't organise itself."
-      footer={<AuthSwitchLink prompt="New to Ovalball?" href="/signup" label="Get started" />}
+      footer={
+        <div className="space-y-1.5">
+          {/* Two different journeys, both of which end up here by mistake:
+              somebody bringing a club, and somebody whose club invited them.
+              Only the first is a signup. */}
+          <AuthSwitchLink prompt="Run a rugby club?" href="/signup" label="Bring it to Ovalball" />
+          <AuthSwitchLink prompt="Invited by your club?" href="/invited" label="What to do" />
+        </div>
+      }
     >
       <Suspense>
         {/* The public site key only; the secret half never leaves the server. */}

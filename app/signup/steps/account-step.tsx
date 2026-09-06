@@ -68,9 +68,10 @@ export function AccountStep({
     <div className="flex flex-col gap-6">
       <div>
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Step 1</p>
-        <h1 className="mt-2 font-display text-display-l text-ink">Join Ovalball</h1>
+        <h1 className="mt-2 font-display text-display-l text-ink">Bring your club to Ovalball</h1>
         <p className="mt-3 max-w-sm text-base text-ink/60">
-          Create your account and get connected with your rugby club.
+          This is the route for whoever runs a rugby club. You&apos;ll tell us which club, and what
+          your role there is, and a person reviews it before anything is set up.
         </p>
       </div>
 
@@ -115,15 +116,30 @@ export function AccountStep({
         <AuthSecurityCheck siteKey={turnstileSiteKey} action="signup-start" onVerified={onVerified} />
       )}
 
-      <p className="border-t border-ink/10 pt-5 text-sm text-ink/60">
-        Already have an account?{" "}
-        <Link
-          href="/login"
-          className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
-        >
-          Sign in
-        </Link>
-      </p>
+      <div className="space-y-2 border-t border-ink/10 pt-5 text-sm text-ink/60">
+        {/* Most people who land here were invited and do not need this form
+            at all. Saying so early is kinder than letting them fill it in
+            and be told at the end. */}
+        <p>
+          Invited by your club?{" "}
+          <Link
+            href="/invited"
+            className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+          >
+            Use the link in your invitation email
+          </Link>
+          .
+        </p>
+        <p>
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+          >
+            Sign in
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

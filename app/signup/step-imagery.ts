@@ -10,7 +10,7 @@ export const STEP_IMAGERY: Record<SignupStep, { src: string; alt: string; line: 
   account: {
     src: "/images/team-huddle.png",
     alt: "A rugby team huddled together on the pitch before a match",
-    line: "Join the club running rugby the way it actually runs.",
+    line: "Bring your club to Ovalball. A person reads every request.",
   },
   details: {
     src: "/images/handshake.png",

@@ -1103,3 +1103,98 @@ it creates the subscription.
 - `app/(app)/club/settings/club-settings-nav.tsx` (+ the tab)
 - Nine Club Settings pages wired for the new capability, and the
   Subscriptions & Payments lede restated
+
+---
+
+## PHASE K — COMPLETE (live-verified)
+
+The public signup surface. Phase A predicted this would be **messaging and
+routing, not an authority change**, and that held: `club_memberships` still
+has no self-serve INSERT, and nothing about who can do what moved.
+
+### The canonical activation point
+
+The one substantive change is where a trial begins. §78 asks for the trial
+to start "at the canonical activation point", and that point is
+`approve_club_claim` — the moment a Site Admin confirms the person really
+does run the club, the `clubs` row is active, and a Club Admin membership
+exists. **Filling in a form starts nothing.**
+
+Two things now hang off that moment:
+
+1. **The club's thirty usable days begin.** Idempotent at the source, since
+   `start_club_trial` returns any existing trial, so a re-approval cannot
+   restart a club's clock.
+2. **Any referral that introduced the club learns which club it produced**,
+   inside `internal.reconcile_partner_invitations` — already the function
+   that matches a pending club-to-club invitation to a newly created club,
+   rather than a second matcher that would have to agree with it.
+
+Neither can fail an approval. `begin_club_platform_trial` catches and warns
+rather than raising, and `register_referred_club` returns false with a
+recorded reason for every ineligible case. A commercial problem must not
+stop a rugby club getting access to its own fixtures.
+
+### Framing
+
+| Before | After |
+|---|---|
+| "Join Ovalball" | **"Bring your club to Ovalball"** |
+| "Create your account and get connected with your rugby club." | "This is the route for whoever runs a rugby club. You'll tell us which club, and what your role there is, and a person reviews it before anything is set up." |
+
+### The "already invited?" path
+
+A new public page, `/invited`, linked from **both** signup step 1 and the
+sign-in footer. It says the thing the product has never said out loud:
+Ovalball is invite-only for people, being a club member does not create an
+account, and someone at the club has to invite you — *"that is deliberate:
+it is how a club stays in control of who can see its players, fixtures and
+messages."*
+
+Deliberately **not** a "paste your invitation code" box. Tokens are long,
+single-use and arrive as links; a box for typing one out is a worse version
+of clicking the link, and it invites guessing.
+
+The sign-in footer now names both journeys, because both end up there by
+mistake: *"Run a rugby club? Bring it to Ovalball"* and *"Invited by your
+club? What to do"*.
+
+### The trial, said before submitting
+
+The review step now carries one short paragraph: a person reviews this; if
+the club is set up it starts thirty **usable** days; the clock stops
+whenever Ovalball is in Beta; no card, nothing to cancel. Every clause is
+true of the engine built in Phase D.
+
+### Verification
+
+`supabase/tests/platform_activation.sql`, 10 assertions, all PASS:
+
+| # | Assertion |
+|---|---|
+| 1 | Filling in the form starts no trial and registers no referral |
+| 2 | Approving the claim created and activated the club |
+| 3 | The trial starts at activation |
+| 4 | It starts with a full thirty days |
+| 5 | The referral registered against the club it introduced |
+| 6 | Activation alone earns the referrer nothing |
+| 7 | A second activation cannot restart the thirty days |
+| 8 | Activation grants a trial, never a paid subscription |
+| 9 | Exactly one membership was created — the approved claimant |
+| 10 | Registering a referral never raises, so it cannot fail an approval |
+
+Live-verified signed out: `/invited` renders; signup step 1 shows the new
+heading, copy and invitation signpost; the sign-in footer shows both
+journeys.
+
+The re-declared `approve_club_claim` was checked to have **identical
+grants** before and after, so re-declaring it neither widened nor narrowed
+who can call it.
+
+### Files
+
+- `supabase/migrations/20261008000000_activation_starts_trial.sql` (new)
+- `supabase/tests/platform_activation.sql` (new)
+- `app/invited/page.tsx` (new)
+- `app/signup/steps/account-step.tsx`, `review-step.tsx`, `step-imagery.ts`
+- `app/login/page.tsx`

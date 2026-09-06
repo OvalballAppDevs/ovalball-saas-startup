@@ -30,6 +30,18 @@ export function ReviewStep({ value, onConsentChange, onEditStep }: ReviewStepPro
         </p>
       </div>
 
+      {/* Said before submitting rather than discovered afterwards. Both
+          sentences are literally true of the engine: nothing is set up until
+          a person approves it, and the trial clock does not run during Beta
+          (see docs/COMMERCIAL_PLATFORM_BUILD_REPORT.md, Phase D). */}
+      <div className="rounded-lg bg-mint-100 px-4 py-4">
+        <p className="text-sm leading-relaxed text-forest-950">
+          What happens next: a person at Ovalball reviews this. If your club is set up, it starts a
+          free trial of thirty usable days &mdash; the clock stops whenever Ovalball is in Beta, so
+          you never lose days you could not use. No card, and nothing to cancel.
+        </p>
+      </div>
+
       <ReviewCard title="Your account" onEdit={() => onEditStep("account")}>
         <ReviewRow label="Email" value={value.email} />
       </ReviewCard>
