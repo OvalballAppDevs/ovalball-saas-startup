@@ -6,6 +6,13 @@ interface LegalPageLayoutProps {
   eyebrow: string
   title: string
   draft?: boolean
+  /**
+   * Replaces the default draft notice. Use it where "placeholder content"
+   * would be untrue -- a page whose facts are accurate and enforced, but
+   * whose contractual wrapper still needs a solicitor, is a different kind
+   * of draft and should say so rather than understate itself.
+   */
+  draftNote?: React.ReactNode
   children: React.ReactNode
 }
 
@@ -15,7 +22,7 @@ interface LegalPageLayoutProps {
  * `draft` renders the "pending legal review" notice; only set it to false
  * once real, reviewed copy replaces the placeholder content on a given page.
  */
-export function LegalPageLayout({ eyebrow, title, draft = true, children }: LegalPageLayoutProps) {
+export function LegalPageLayout({ eyebrow, title, draft = true, draftNote, children }: LegalPageLayoutProps) {
   return (
     <main className="brand-light-scope min-h-screen bg-chalk">
       <div className="border-b border-ink/8 px-4 py-5 md:px-8">
@@ -33,11 +40,13 @@ export function LegalPageLayout({ eyebrow, title, draft = true, children }: Lega
         {draft && (
           <div className="mt-6 rounded-lg border border-pitch-600/30 bg-mint-100/50 px-4 py-3.5">
             <p className="text-sm font-medium text-forest-900">Draft &mdash; pending legal review</p>
-            <p className="mt-1 text-sm text-forest-800/80">
-              This page is placeholder content, not reviewed legal copy. Provisions marked{" "}
-              <span className="font-medium">[NEEDS INPUT]</span> require a real business/legal
-              decision before this page can go live.
-            </p>
+            {draftNote ?? (
+              <p className="mt-1 text-sm text-forest-800/80">
+                This page is placeholder content, not reviewed legal copy. Provisions marked{" "}
+                <span className="font-medium">[NEEDS INPUT]</span> require a real business/legal
+                decision before this page can go live.
+              </p>
+            )}
           </div>
         )}
 

@@ -1198,3 +1198,90 @@ who can call it.
 - `app/invited/page.tsx` (new)
 - `app/signup/steps/account-step.tsx`, `review-step.tsx`, `step-imagery.ts`
 - `app/login/page.tsx`
+
+---
+
+## PHASE L — COMPLETE (live-verified)
+
+Legal and notifications.
+
+### Terms of Service — a new section 13
+
+Section 12 was "Subscriptions and payments" and covered only a club charging
+its own members. It is now **"12. Payments a club collects from its
+members"**, and a new **"13. What a club pays Ovalball"** sits beside it,
+opening by saying they are different things. Sections 13–20 were renumbered
+to 14–21; the whole document was re-read end to end afterwards, and the
+numbering has no gaps or duplicates.
+
+Section 13 covers the free trial (thirty *usable* days), Beta (paused time,
+never deferred debt), plans and price, collection, credit, a failed
+collection, cancelling, and referrals. Every factual claim matches the
+engine.
+
+Four things are marked **[NEEDS INPUT]** rather than invented: the notice
+period before a price change, whether credit expires, part-period refunds,
+and VAT treatment.
+
+### `/legal/referral-terms`
+
+A new page, quoting the offer exactly and then being unusually specific
+about what does **not** earn it — opening an invitation, registering,
+starting a trial, choosing a plan, setting up a Direct Debit, or a payment
+submitted but not collected. Each of those corresponds to a passing
+assertion in `supabase/tests/platform_referrals.sql`.
+
+### An honesty fix to the draft banner
+
+The shared `LegalPageLayout` draft notice says "This page is placeholder
+content, not reviewed legal copy". That is **untrue** of the referral terms:
+its facts are accurate and enforced by constraints and tests. The layout
+gained an optional `draftNote`, and the page states its actual status — the
+facts hold, the contractual wrapper has not been reviewed by a solicitor,
+and two items need a business decision.
+
+### The Terms version was deliberately NOT bumped
+
+Adding section 13 is a material change, so the reflex is to bump
+`LEGAL_VERSION` from `1.0`. That would be wrong here: every row in
+`terms_acceptances` records the version accepted, and **there is no
+re-acceptance flow**. Bumping would instantly make every existing
+acceptance point at a superseded version and close nothing.
+
+The constant carries a comment saying so, and
+`docs/LEGAL_REVIEW_REQUIRED.md` records the decision that has to be made
+first — whether a change of this kind requires re-acceptance, and what that
+flow looks like. **This is an open owner decision, not a completed item.**
+
+### Notifications
+
+No new system, and no new plumbing: Phase D added the mandatory
+`platform_billing` topic and Phase H its third type. This phase confirmed
+they surface correctly — the account notification preferences page already
+renders *"Ovalball billing and trial — Your club's trial and subscription
+with Ovalball. Separate from any payments your club collects from its own
+members"* as **ALWAYS ON**, which is the mandatory flag being respected by
+the existing UI with no change.
+
+Four commercial notification types now exist:
+`platform_trial_ending_soon`, `platform_trial_ended`,
+`platform_referral_reward_earned`, plus the two Site Admin access-change
+types on `account_security`.
+
+### Verification
+
+- `scripts/verify-legal-routes.mjs` — **151 passed, 0 failed**
+- `/legal/referral-terms` and `/legal/terms` both read end to end in a
+  browser; the renumbered Terms is correct throughout.
+- A **JSX whitespace bug** was caught by reading the rendered page rather
+  than the source: `{PRODUCT_NAME}` at the start of a line loses its
+  preceding space, which rendered as *"it stops whileOvalball is in Beta"*.
+  Six occurrences across the two pages, all fixed.
+
+### Files
+
+- `app/legal/referral-terms/page.tsx` (new)
+- `app/legal/terms/page.tsx` (new section 13, renumbering)
+- `components/site/legal-page-layout.tsx` (+`draftNote`)
+- `lib/legal/metadata.ts` (registry entry; comment on `LEGAL_VERSION`)
+- `docs/LEGAL_REVIEW_REQUIRED.md` (new section G, and the version decision)

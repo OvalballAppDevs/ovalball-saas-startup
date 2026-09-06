@@ -22,6 +22,19 @@ export const LEGAL_EFFECTIVE_DATE = "5 September 2026"
 export const LEGAL_LAST_UPDATED = "5 September 2026"
 
 /** Version of the published legal set. Bump when substantive wording changes. */
+/**
+ * The published version of the Legal & Trust documents, and the version
+ * recorded against every Terms acceptance (see lib/legal/required-consents.ts).
+ *
+ * DELIBERATELY NOT BUMPED when Terms section 13 ("What a club pays
+ * Ovalball") was added. Bumping it would mean every existing acceptance
+ * points at a superseded version, and Ovalball has no re-acceptance flow to
+ * put that right -- so the bump would create a silent gap rather than close
+ * one. Whether a material change of this kind requires re-acceptance, and
+ * what that flow should look like, is an open decision recorded in
+ * docs/LEGAL_REVIEW_REQUIRED.md. Do not change this constant without
+ * building the flow that goes with it.
+ */
 export const LEGAL_VERSION = "1.0"
 
 /**
@@ -117,6 +130,11 @@ export const LEGAL_DOCUMENTS: LegalDocumentLink[] = [
     href: "/legal/copyright",
     label: "Copyright",
     description: "Who owns what in Ovalball, and the rights clubs and users keep.",
+  },
+  {
+    href: "/legal/referral-terms",
+    label: "Referral Terms",
+    description: "What earns a club referral reward, what does not, and when it can be withdrawn.",
   },
 ]
 

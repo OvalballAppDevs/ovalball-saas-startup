@@ -79,3 +79,59 @@ inaccurate.
 
 Same applies to GoCardless: both pages state live payment collection is disabled in
 production.
+
+## G. Commercial platform — SOLICITOR AND OWNER INPUT REQUIRED
+
+Added when Ovalball's own charges to clubs were built (see
+`docs/COMMERCIAL_PLATFORM_BUILD_REPORT.md`). Two public pages now describe
+money that clubs pay Pipaxon:
+
+- `/legal/terms` section 13, "What a club pays Ovalball"
+- `/legal/referral-terms` (new, marked draft)
+
+**Everything factual on both is accurate and enforced in the system** — the
+trial arithmetic, the Beta pause, the price snapshot, the credit rules and
+the referral qualification rule each correspond to a database constraint or
+a passing test, not to an intention. What is missing is decisions and a
+solicitor.
+
+| Item | Status | Where it appears |
+|---|---|---|
+| Notice period before a price change affects an existing club | **Not decided** | Terms §13, "Plans and price" |
+| Whether credit expires, and after how long | **Not decided** | Terms §13 and Referral Terms |
+| Part-period refund on cancellation | **Not decided** | Terms §13, "Cancelling" |
+| VAT treatment of club subscription charges | **Not determined** | Terms §13; also affects invoicing |
+| Solicitor review of the referral scheme as a promotion | **Not done** | `/legal/referral-terms` is marked draft for this reason |
+| Solicitor review of Terms §13 as a B2B supply agreement | **Not done** | Terms §13 |
+
+Two things were deliberately **not** written, because writing them would
+have meant inventing them: any dispute or refund procedure, and any claim
+about how quickly a failed collection is retried. The system retries; the
+schedule is the provider's and is not stated as a promise.
+
+Pro is priced at £25 a month and is **not purchasable**, and the public
+plan card says so with the reason. That is enforced by a check constraint,
+not by copy — see Phase E of the build report. Nothing about Pro needs
+legal review until it is actually sold.
+
+### Terms version and re-acceptance — DECISION REQUIRED
+
+Adding section 13 is a **material change**: the Terms now describe money a
+club pays Pipaxon, which they did not before. `LEGAL_VERSION` was
+deliberately left at `1.0` and is **not** bumped, with the reason recorded
+in `lib/legal/metadata.ts`.
+
+The reasoning: every row in `terms_acceptances` records the version that was
+accepted. Bumping the constant would immediately make every existing
+acceptance point at a superseded version, and there is **no re-acceptance
+flow** to put that right — so the bump would create a silent gap rather
+than close one.
+
+Two things are needed, in this order:
+
+1. A decision on whether a change of this kind requires existing clubs to
+   re-accept, and if so at what point they are asked.
+2. A re-acceptance flow, if the answer is yes.
+
+Only then should `LEGAL_VERSION` move. There is a comment on the constant
+saying exactly that.
