@@ -33,6 +33,9 @@ SUITES=(
   club_activation_setup
   structured_venue_address
   venue_pitch_team_integrity
+  safeguarding_officer_foundation
+  safeguarding_officer_dispensation_notifications
+  safeguarding_officer_security
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

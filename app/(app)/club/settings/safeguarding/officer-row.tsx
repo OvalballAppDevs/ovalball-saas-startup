@@ -37,20 +37,21 @@ const STATUS_BADGE_STYLE: Record<OfficerData["status"], string> = {
   inactive: "bg-destructive/10 text-destructive",
 }
 
+/**
+ * clubId, clubName and the sender's name are deliberately NOT props any
+ * more. They used to be passed down and then handed to the server actions,
+ * which meant the browser chose where a safeguarding invitation token or
+ * message was emailed. The actions now resolve all three from the officer
+ * assignment and the authenticated session.
+ */
 export function OfficerRow({
   officer,
-  clubId,
-  clubName,
   canManageContact,
   canMessage,
-  currentUserName,
 }: {
   officer: OfficerData
-  clubId: string
-  clubName: string
   canManageContact: boolean
   canMessage: boolean
-  currentUserName: string
 }) {
   const [editing, setEditing] = useState(false)
   const [messaging, setMessaging] = useState(false)
@@ -74,7 +75,7 @@ export function OfficerRow({
     setWorking(true)
     setError(null)
     setNotice(null)
-    const result = await inviteSafeguardingOfficer(officer.id, clubName, officer.contactEmail)
+    const result = await inviteSafeguardingOfficer(officer.id)
     setWorking(false)
     if (result.ok) setNotice("Invitation sent.")
     else setError(result.error)
@@ -84,7 +85,7 @@ export function OfficerRow({
     setWorking(true)
     setError(null)
     setNotice(null)
-    const result = await resendSafeguardingOfficerInvitation(officer.id, clubName, officer.contactEmail)
+    const result = await resendSafeguardingOfficerInvitation(officer.id)
     setWorking(false)
     if (result.ok) setNotice("Invitation resent.")
     else setError(result.error)
@@ -104,7 +105,7 @@ export function OfficerRow({
     setWorking(true)
     setError(null)
     setNotice(null)
-    const result = await messageSafeguardingOfficer(clubId, officer.id, clubName, currentUserName, officer.contactEmail, messageBody)
+    const result = await messageSafeguardingOfficer(officer.id, messageBody)
     setWorking(false)
     if (result.ok) {
       setMessaging(false)
@@ -166,9 +167,16 @@ export function OfficerRow({
           {canManageContact && officer.status === "invite_sent" && officer.pendingInvitationId && (
             <RevokeInviteButton invitationId={officer.pendingInvitationId} disabled={working} />
           )}
-          {canMessage && officer.status === "active" && (
+          {/* Offered for a pending officer too, not only an accepted one.
+              The server has always had the email fallback for exactly that
+              case, but this trigger required status === "active", so the
+              fallback was unreachable from the product: a club whose officer
+              had not yet accepted had no way to contact them through
+              Ovalball at all. The label names the transport, so nobody is
+              led to believe a pending officer has an in-app account. */}
+          {canMessage && officer.status !== "inactive" && (
             <Button type="button" variant="outline" size="sm" className="h-8" disabled={working} onClick={() => setMessaging((v) => !v)}>
-              Message Safeguarding Officer
+              {officer.status === "active" ? "Message Safeguarding Officer" : "Email Safeguarding Officer"}
             </Button>
           )}
           {canManageContact && officer.status !== "inactive" && (

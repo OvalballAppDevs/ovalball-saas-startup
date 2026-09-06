@@ -7,6 +7,7 @@ import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
 import { ClubSettingsNav } from "../club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "../resolve-nav-capabilities"
 import { NominateOfficerForm } from "./nominate-form"
 import { OfficerRow, type OfficerData } from "./officer-row"
 
@@ -30,16 +31,13 @@ export default async function SafeguardingOfficerPage() {
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeManageableClubId(ctx, activeContext)
 
-  const canView = clubId ? await hasCapability(supabase, "club.safeguarding.view", "club", { clubId }) : false
+  const navCaps = await resolveClubSettingsNavCapabilities(supabase, clubId)
+  const canView = navCaps.canSafeguarding
   if (!clubId || !canView) redirect("/club/settings")
 
-  const [canManageContact, canMessage, canProfile, canTeams, canVenues, canRollover] = await Promise.all([
+  const [canManageContact, canMessage] = await Promise.all([
     hasCapability(supabase, "club.safeguarding.manage_contact", "club", { clubId }),
     hasCapability(supabase, "club.safeguarding.message", "club", { clubId }),
-    hasCapability(supabase, "club.edit_profile", "club", { clubId }),
-    hasCapability(supabase, "club.teams.manage", "club", { clubId }),
-    hasCapability(supabase, "club.venues.manage", "club", { clubId }),
-    hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
   ])
 
   const { data: officerRows } = await supabase.rpc("get_club_safeguarding_officers", { p_club_id: clubId })
@@ -56,7 +54,6 @@ export default async function SafeguardingOfficerPage() {
   const deputy = officers.find((o) => o.officerType === "deputy")
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"
-  const currentUserName = ctx.firstName ?? "A club administrator"
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
@@ -66,7 +63,7 @@ export default async function SafeguardingOfficerPage() {
         {clubName}&rsquo;s designated Safeguarding Officer(s), their Ovalball status, and how to reach them.
       </p>
 
-      <ClubSettingsNav active="safeguarding" canProfile={canProfile} canTeams={canTeams} canVenues={canVenues} canRollover={canRollover} canSafeguarding />
+      <ClubSettingsNav active="safeguarding" {...navCaps} />
 
       {!primary && (
         <div className="mt-8 rounded-lg border border-amber-500/40 bg-amber-50 px-4 py-3.5">
@@ -80,11 +77,8 @@ export default async function SafeguardingOfficerPage() {
           <OfficerRow
             key={officer.id}
             officer={officer}
-            clubId={clubId}
-            clubName={clubName}
             canManageContact={canManageContact}
             canMessage={canMessage}
-            currentUserName={currentUserName}
           />
         ))}
       </div>
