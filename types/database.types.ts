@@ -7083,6 +7083,89 @@ export type Database = {
           },
         ]
       }
+      platform_mode_events: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_mode: string
+          previous_mode: string | null
+          reason: string | null
+          release_id: string | null
+          seq: number
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_mode: string
+          previous_mode?: string | null
+          reason?: string | null
+          release_id?: string | null
+          seq?: never
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_mode?: string
+          previous_mode?: string | null
+          reason?: string | null
+          release_id?: string | null
+          seq?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_mode_events_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "platform_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_releases: {
+        Row: {
+          build_sha: string | null
+          channel: string
+          created_at: string
+          id: string
+          notes: string | null
+          released_at: string
+          released_by: string | null
+          status: string
+          title: string | null
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          build_sha?: string | null
+          channel?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          released_at?: string
+          released_by?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          build_sha?: string | null
+          channel?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          released_at?: string
+          released_by?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       player_account_invitations: {
         Row: {
           accepted_at: string | null
@@ -8422,12 +8505,14 @@ export type Database = {
           manage_global_lookups: boolean
           manage_permissions: boolean
           manage_seasons: boolean
+          manage_system: boolean
           manage_team_catalogue: boolean
           revoked_at: string | null
           revoked_by: string | null
           status: string
           updated_at: string
           user_id: string
+          view_commercial: boolean
         }
         Insert: {
           admin_role?: string
@@ -8441,12 +8526,14 @@ export type Database = {
           manage_global_lookups?: boolean
           manage_permissions?: boolean
           manage_seasons?: boolean
+          manage_system?: boolean
           manage_team_catalogue?: boolean
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
           updated_at?: string
           user_id: string
+          view_commercial?: boolean
         }
         Update: {
           admin_role?: string
@@ -8460,12 +8547,14 @@ export type Database = {
           manage_global_lookups?: boolean
           manage_permissions?: boolean
           manage_seasons?: boolean
+          manage_system?: boolean
           manage_team_catalogue?: boolean
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
           updated_at?: string
           user_id?: string
+          view_commercial?: boolean
         }
         Relationships: []
       }
@@ -10928,6 +11017,13 @@ export type Database = {
         }
         Returns: string
       }
+      current_platform_mode: {
+        Args: never
+        Returns: {
+          mode: string
+          since: string
+        }[]
+      }
       current_subscription_price: {
         Args: { p_as_of?: string; p_programme_id: string }
         Returns: number
@@ -11729,6 +11825,17 @@ export type Database = {
         Args: { p_amount_minor: number; p_payment_id: string; p_reason: string }
         Returns: string
       }
+      record_platform_release: {
+        Args: {
+          p_build_sha?: string
+          p_channel?: string
+          p_notes?: string
+          p_publish?: boolean
+          p_title?: string
+          p_version: string
+        }
+        Returns: string
+      }
       record_session_version: {
         Args: { p_version: number }
         Returns: undefined
@@ -11977,6 +12084,10 @@ export type Database = {
         Args: { p_obligation_id: string; p_reason: string; p_status: string }
         Returns: undefined
       }
+      set_platform_mode: {
+        Args: { p_mode: string; p_reason?: string; p_release_id?: string }
+        Returns: string
+      }
       set_responsible_payer: {
         Args: {
           p_payer_user_id: string
@@ -11997,6 +12108,10 @@ export type Database = {
       }
       set_scheduling_group_members: {
         Args: { p_group_id: string; p_team_ids: string[] }
+        Returns: undefined
+      }
+      set_site_admin_commercial_capability: {
+        Args: { p_enabled: boolean; p_user_id: string }
         Returns: undefined
       }
       set_site_admin_competitions_capability: {
@@ -12020,6 +12135,10 @@ export type Database = {
         Returns: undefined
       }
       set_site_admin_seasons_capability: {
+        Args: { p_enabled: boolean; p_user_id: string }
+        Returns: undefined
+      }
+      set_site_admin_system_capability: {
         Args: { p_enabled: boolean; p_user_id: string }
         Returns: undefined
       }

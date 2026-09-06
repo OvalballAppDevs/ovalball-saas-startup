@@ -170,3 +170,122 @@ authorisation. It queues behind the already-outstanding
 - `supabase/tests/invite_only_onboarding.sql` (new)
 
 No application code changed. Phase K handles the signup surface's framing.
+
+---
+
+## PHASE C — COMPLETE
+
+Release history and platform mode. Two ideas kept deliberately apart:
+
+- A **release** records that a version shipped, with notes people read. It
+  is editable, because notes get corrected.
+- The **platform mode** (`beta` / `live`) decides whether Ovalball charges
+  clubs at all. Its history is **append-only**, because "when did Beta end"
+  is a question that decides money.
+
+### Capabilities
+
+Two new delegation flags on `site_admins`, three capabilities:
+
+| Capability | Flag |
+|---|---|
+| `site.system.release.manage` | `manage_system` |
+| `site.system.beta.manage` | `manage_system` |
+| `site.commercial.view` | `view_commercial` |
+
+Two flags rather than three: recording a release and flipping Beta are the
+same operational act by the same person on the same day. Reading commercial
+data is a different concern — it is money, and it is readable without being
+able to change anything — so it keeps its own flag.
+`internal.has_site_role_capability` gains three branches; every existing
+branch is carried over verbatim. Grant/revoke RPCs
+`set_site_admin_system_capability` and `set_site_admin_commercial_capability`
+mirror `set_site_admin_seasons_capability` exactly, notification included.
+
+### `platform_releases`
+
+`version`, `build_sha` (the immutable identity from `lib/version.ts`),
+`channel`, `title`, `notes`, `status`, `released_at/by`. Unique on
+`(channel, version)`. Published releases are readable by anyone — the notes
+are written for users; drafts are Site Admin only, which is the point of a
+draft. Writes gated by `site.system.release.manage`. **No DELETE policy**:
+release history is not tidied away.
+
+### `platform_mode_events`
+
+Append-only, and enforced three ways rather than trusted:
+
+1. No UPDATE or DELETE policy.
+2. A `BEFORE UPDATE OR DELETE` trigger that raises — the real guard, because
+   a `SECURITY DEFINER` function bypasses RLS entirely.
+3. `previous_mode` is **derived by a trigger from the existing history**,
+   never accepted from the caller, so a direct client INSERT cannot claim a
+   transition that did not happen.
+
+A partial unique index allows exactly one genesis row. The table is Site
+Admin only because `reason` is internal record-keeping; everyone else reads
+the mode through `public.current_platform_mode()`, which returns the mode
+and when it started, and nothing else.
+
+**Ordering is by `seq`, not `changed_at`.** `now()` is transaction time, so
+two events written in one transaction carry an identical timestamp and
+"current mode" would be decided by a tie-break on a random uuid. The test
+suite caught this. `seq bigint generated always as identity` fixed it.
+
+### Genesis
+
+One seeded event: mode `beta`, `changed_by` null, with a reason recording
+that Ovalball was already operating in Beta — invite-only, no billing
+enabled — when the model was introduced. Nothing invented; the history
+answers "was the platform charging on date X" from day one rather than
+opening with a gap.
+
+### Application surface
+
+`lib/platform/mode.ts` — `getPlatformMode()` / `isBeta()`. It fails to
+`beta` when the mode cannot be read, because Beta is the mode that does not
+bill: a database blip must never be the reason a club gets charged.
+
+### Verification
+
+`supabase/tests/platform_release_and_mode.sql`, 12 assertions, all PASS:
+
+| # | Assertion |
+|---|---|
+| 1 | Mode reads as `beta` from the genesis event |
+| 2 | A non-admin cannot change the mode |
+| 3 | A non-admin cannot record a release |
+| 4 | `beta → live` records, `previous_mode` derived as `beta` |
+| 5 | Setting the current mode again records nothing and returns null |
+| 6 | Mode history cannot be UPDATEd |
+| 7 | Mode history cannot be DELETEd |
+| 8 | A forged `previous_mode` is overwritten by the derived value |
+| 9 | Exactly one genesis event can exist |
+| 10 | A recorded release starts as a draft |
+| 11 | No club-charges-members function references `platform_` |
+| 12 | Platform mode never reads the club-charges-members domain |
+
+Assertions 11 and 12 are the standing wall between the two payment domains,
+checked against `pg_get_functiondef` rather than against intent.
+
+```bash
+docker exec -i supabase_db_ovalball-saas-startup \
+  psql -U postgres -d postgres -f - < supabase/tests/platform_release_and_mode.sql
+```
+
+`npm run typecheck` and `eslint` clean. `types/database.types.ts`
+regenerated from the local database: 119 additions, **0 deletions**.
+
+### Not applied to production
+
+Local only, same as Phase B.
+
+### Files
+
+- `supabase/migrations/20261001000000_platform_release_and_mode.sql` (new)
+- `supabase/tests/platform_release_and_mode.sql` (new)
+- `lib/platform/mode.ts` (new)
+- `types/database.types.ts` (regenerated)
+
+Phase I builds the Site Admin surface for both. Phase D attaches trial
+pause/resume to `set_platform_mode`.
