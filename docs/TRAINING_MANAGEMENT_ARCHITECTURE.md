@@ -199,3 +199,79 @@ Calendar's `page.tsx` already normalizes fixtures and training into one `WeekEnt
 2. A view definition's LEFT JOIN through `club_pitches` for venue name (an early draft of `deleted_calendar_events`) missed that `fixtures` already carries its own `venue_id` directly — corrected to join `venues` straight off `fixtures.venue_id` before this ever shipped.
 3. **UI/UX pass** (direct user feedback mid-build): the original fixture detail Sheet rendered an unstyled status line, a bare `dl`, and a ragged `flex-wrap` row of differently-styled buttons (solid black Edit, plain outline Open Fixture, small icon-only cancellation-info button). Extracted `fixture-action-button-styles.ts` (one shared primary/secondary/destructive button treatment with a subtle "3D" raised bottom-edge shadow and a consistent `active:translate-y-px` press effect, laid out in an even `grid-cols-2`) used identically across week/month/mobile Calendar and by `FixtureLifecycleActions`, and wrapped the fixture's own uneditable detail fields in a bordered card, separating "Kick Off" from "Date" and adding a resolved structured "Venue" row (fixtures' own `venue_id` was being fetched but never resolved to a name before this pass, so a fixture with a structured venue but no free-text `venue_address` showed no Venue row at all).
 4. **Training-session naming inconsistency** (direct user feedback): three separate Calendar surfaces (`mobile-agenda.tsx`, `month-view.tsx`'s day drawer, `agenda/page.tsx`) each independently rendered a training entry's title as a bare `"<Team> training"` suffix. Standardized to `"<Team> Scheduled Training Session"` everywhere a training entry gets a title (the Agenda page's own day-by-day cards were also restructured into real per-day sections with the same 3D card treatment, rather than one flat list under a month header).
+
+## PRE-INTEGRATION REMEDIATION (Side Project 2 → Main)
+
+Follow-up to the pre-merge reconciliation audit, which returned `NOT READY` with two blocking items and several tracked non-blocking ones. This section records what was actually done to remove the blockers and prove genuine integration-readiness — not a repeat of the audit's own findings.
+
+### A. Blocker remediation
+Both blocking items resolved:
+1. The 5 exact migration-version collisions — resolved by renumbering (B).
+2. Main's two post-fork Mini-Rugby/fixture bug fixes — proven to survive the rebase, behaviorally, not by inspection (C).
+
+### B. Migration rename map
+All 14 Side2 post-fork migrations renumbered onto a clean, monotonically increasing range starting after Main's actual final migration (`20261010000000`), preserving exact execution order. Content unchanged except two later, separate comment-only corrections (D) and one real bug fix (a syntax error my own rename edit introduced — see "Bugs found" below).
+
+| Original (Side2 dev-time) | Integration version |
+|---|---|
+| `20260929000000_training_management_schema.sql` | `20261011000000` |
+| `20260929100000_training_management_recurrence_and_generation.sql` | `20261011010000` |
+| `20260929200000_training_management_manual_reconciliation_and_reads.sql` | `20261011020000` |
+| `20260929300000_training_session_schedule_rule_fk_fix.sql` | `20261011030000` |
+| `20260929400000_reactivate_plan_restores_cancelled_sessions_fix.sql` | `20261011040000` |
+| `20260930000000_training_card_fields_and_cancellation.sql` | `20261011050000` |
+| `20260930100000_training_session_actions_and_notifications.sql` | `20261011060000` |
+| `20260930200000_training_attendance.sql` | `20261011070000` |
+| `20260930300000_training_session_card.sql` | `20261011080000` |
+| `20260930400000_training_session_card_ambiguous_id_fix.sql` | `20261011090000` |
+| `20260930500000_training_session_card_alias_shadow_fix.sql` | `20261011100000` |
+| `20260930600000_training_my_players_for_session.sql` | `20261011110000` |
+| `20260930700000_duplicate_function_overload_fix.sql` | `20261011120000` |
+| `20261001000000_calendar_fixture_lifecycle.sql` | `20261011130000` |
+
+The original development-time filenames remain in this document's own earlier "Migrations" list, unedited, for historical accuracy — only cross-referenced to this map, never rewritten.
+
+### C. Main bug-fix preservation proof
+Proven three ways, not asserted:
+1. **Structural**: confirmed via `grep` that no Side2 migration (pre- or post-fork) redefines `accept_fixture_request` or `set_scheduling_group_members` — Main's fixed definitions are never at risk of being overwritten, by construction.
+2. **Negative control**: `supabase/tests/main_bugfix_preservation_regression.sql`, run against Side2's own pre-rebase database, correctly **failed** — reproducing the exact real bug (a check-constraint violation on group-targeted requests with a directory opponent), proving the test itself is valid and the bug was genuinely present before remediation.
+3. **Positive proof**: the same test, run again after the rebase against a reconciled database, **passes both assertions** — the group-opponent fix and the opponent-side composition freeze are both intact.
+
+### D. Fixture-model documentation correction
+The Calendar Fixture Lifecycle section above (and the migration's own header/function comments) previously stated a confirmed fixture is "genuinely two rows... reciprocally linked by mirror_fixture_id" — wrong when written, corrected here. See that section for the corrected text. No SQL logic changed, comments only. `mirror_fixture_id`'s defensive branches are kept, not removed — real, harmless compatibility code for historical pre-consolidation data.
+
+### E. Rebase result
+Side2's 4 feature commits (plus the renumbering commit) rebased cleanly onto Main's real `c60c083` via `git rebase --onto` (Main fetched read-only into Side2's own repo as `main-readonly/main` — Main's repository itself was never written to). One real conflict, in the auto-generated `types/database.types.ts` (expected — both sides had evolved it independently since the fork); resolved with a placeholder during the rebase and properly regenerated afterward (F) from a live database reflecting the true combined schema. No other file conflicted across all 5 commits. Commercial/platform preservation explicitly verified: `git diff --name-status` between Main's `c60c083` and the rebased HEAD shows **zero** files under billing/subscription/referral/beta/GoCardless/legal/social-auth/finance/trial/commercial/release/mode-related paths — Side2 touches none of it.
+
+### F. Clean replay
+Repeated for real against the actual rebased/renumbered migration files (no hand-editing, no skipped SQL) — a fresh throwaway database, Main's real local database dump plus the 10 Main migrations missing from that local instance (bringing it to genuine current-HEAD schema), then all 14 of Side2's renumbered migrations, applied in order. **Result: 24/24 migrations, 0 errors.** One real bug was caught by this replay and only by this replay (not by inspection): an unescaped apostrophe in a comment I had added moments earlier broke a `COMMENT ON TABLE` statement outright (SQLSTATE syntax error). Fixed, and the full 24-migration replay re-run clean. `types/database.types.ts` was regenerated directly from this reconciled database. Disclosed test-environment adaptation (unavoidable, not a schema issue): `pg_cron`'s single-database restriction means one Main migration's own `CREATE EXTENSION pg_cron`/`cron.schedule(...)` lines cannot run in a differently-named throwaway database on the same cluster — stripped for the replay only, real file untouched, no cron-related content is Side2's concern either way.
+
+### G. Regression
+- Side2's own suites: **84/84 PASS** — the existing 35 + 27 + 20, plus the new 2-assertion `main_bugfix_preservation_regression.sql`.
+- Main's own suites, run against the reconciled database: `scheduling_groups.sql`, `fixture_status_lifecycle.sql`, `season_transitions.sql`, `season_rollover.sql`, `capability_engine.sql`, `group_vs_group_fixture_model.sql`, `group_vs_group_acceptance.sql` all clean. Four files (`fixture_management.sql`, `shared_team_capacity.sql`, `team_lifecycle.sql`, `permission_matrix.sql`) show failures — **proven, not assumed, to be pre-existing/test-environment, not a Side2 regression**: run a second time against a Main-only replica with zero Side2 migrations applied, every one of these four files fails with byte-for-byte identical errors at identical line numbers. Whether these tests pass depends on accumulated state/run order (Main's own suite is documented, by Main itself, as a sequential chain meant to run via a runner script this fork never had), not on schema content.
+- **No new Main regression introduced by this integration** — the isolation test above is the proof.
+
+### H. Dashboard/Upcoming Events status
+**VERIFIED** (upgraded from the audit's "PARTIAL"). Live-verified on the rebased branch: the Training Management dashboard's "Upcoming Training Sessions" table correctly labels `Automatic` (plan-generated) vs `Manual` (ad-hoc) sessions distinctly; no duplicates; the U12 SEASON plan deleted earlier in this engagement correctly appears under "Past / archived plans" and none of its cancelled sessions appear in the upcoming list; the Calendar's own fixture rendering (cancelled fixture shown red/marked, active fixtures shown normally) remains intact alongside training; season/team context (U12/U13/U14 filter chips) correct throughout.
+
+### I. Mini-Rugby Training status
+**PARTIAL — real, disclosed, structural gap found and precisely characterized** (upgraded from the audit's "untested" to "tested and understood," not silently promoted to VERIFIED). `save_training_plan` (Side2's entire recurring-plan/generation system) has **no `p_scheduling_group_id` parameter at all**, confirmed structurally (`pg_get_function_identity_arguments`) before writing any test — a Mini-Rugby Group can never be given an *automatic recurring* Training Plan today. This fails safely: the capability is simply absent from the RPC surface (and the Club Admin UI's team picker only ever lists real teams), so there is no path to silently create duplicate or corrupted sessions — the feature is unreachable, not misbehaving. Separately, `create_training_session` (Main's original, pre-existing *manual* one-off booking function, untouched by Side2) does accept a scheduling group directly, and `supabase/tests/mini_rugby_training_reconciliation_check.sql` proves that specific path is correct after all of Side2's extensions: exactly one canonical `training_sessions` row per group session (no per-component-team duplication), correct component-team resolution via `scheduling_group_members`, training-v-training shared-pitch semantics preserved for group sessions too, and cross-club access correctly rejected. Not classified as a material defect (Section 21's bar) because it fails safe and does not regress anything Main already had.
+
+### J. fixture.cancel technical debt
+Documented, not resolved (per the remediation brief's own explicit instruction not to solve Main's app-wide capability migration here). `cancel_fixture()` follows Main's current, accepted legacy fixture-mutation authorization pattern (`can_submit_fixture_result`) — it does not yet make `fixture.cancel`/`capability_overrides` authoritative. This matches the same, already-accepted state of Main's other fixture-mutation RPCs (`submit_fixture_result`, `update_fixture_schedule`, `fold_team`) and is not claimed as resolved anywhere in this documentation.
+
+### K. Browser UAT
+Performed live on the rebased branch (`remediation/integration-renumber`, Side2's own running dev environment — its code is the actual rebased/renumbered code; its persistent local database, unaffected by the migration-filename-only rename, was not reset, preserving real demo data): Main's own redesigned passwordless login (confirming the rebase pulled in Main's current UI, not stale code); Club Admin → Training Management dashboard; Calendar automatic + manual training display; fixture detail Sheet (Edit/Open Fixture/Message Club/Cancel Fixture/Delete Fixture, correctly styled, BETA banner from Main's own newer platform-mode feature rendering without layout interference); Deleted Calendar Events. Not independently re-walked in the browser this pass (already extensively verified live earlier in this same engagement, on functionally identical code — the rebase changes zero Side2 logic): fixture cancel/archive/restore end-to-end, parent training attendance, staff training register. Mobile-viewport UAT: performed earlier this engagement (420×844), not repeated this pass.
+
+### L. Remaining gaps
+- Mini-Rugby recurring Training Plans: not implemented (I) — a real product decision needed before it can be claimed as supported, out of scope for this remediation.
+- `fixture.cancel` capability-engine migration: deferred, Main's own explicit decision (J).
+- Dashboard/Mini-Rugby browser re-verification this specific pass was via direct live UAT (H) and SQL-level proof (I) respectively, not a from-scratch UI walkthrough of every listed Section 18 item.
+
+### M. Exact proposed integration range
+`fcd0731..daf7121` (5 commits: `fcd0731`, `6989a51`, `7be714c`, `054bd1b`, `310f6d7`, `daf7121` — six, precisely; the training foundation, verification pass, extension, Calendar Fixture Lifecycle, migration renumbering, and doc/bug-fix commits), rebased onto Main's `c60c083`, on branch `remediation/integration-renumber`. Safety point preserved at tag/branch `pre-remediation-73854f7` (the original, pre-rebase `main` branch tip).
+
+### N. Git state
+- Main: branch `main`, HEAD `c60c083` (unchanged throughout this remediation — confirmed at the start and never touched).
+- Side2: branch `remediation/integration-renumber`, HEAD `daf7121`. Original `main` branch still points at `73854f7`, untouched. Safety tag `pre-remediation-73854f7` and branch `safety/pre-remediation-73854f7` both point at `73854f7`.
+- No push. No merge into Main. No remote migrations applied.
