@@ -913,3 +913,90 @@ offer yet.
 - `supabase/tests/platform_referrals.sql` (new)
 - `lib/platform/referrals.ts` (new)
 - `types/database.types.ts` (regenerated)
+
+---
+
+## PHASE I — COMPLETE (live-verified)
+
+The Site Admin surfaces. Design plan written first:
+`docs/COMMERCIAL_UI_DESIGN_PLAN.md`. Zero new design tokens.
+
+### `/admin/releases` — Release & platform mode
+
+The Beta ↔ Live switch is the most consequential control in the product.
+It is made to feel that way by **saying what it does**, not by painting it
+red: red is for mistakes, and this is a decision. The button is labelled
+with its outcome — *"Start charging clubs"* — rather than its mechanism,
+and the confirm dialog will not submit without a reason of at least ten
+characters, because the mode history is append-only and that sentence is
+the only explanation anyone will have later.
+
+The state block is `forest-950`. That is the one bold move on these pages,
+and it is earned: forest-950 is Ovalball's own chrome everywhere else in
+the product, so it is the right ground for the block that states what
+Ovalball itself is doing.
+
+Mode history renders as a **time rail** rather than numbered markers. It is
+a chronology that continues downward and cannot be rewritten, which is what
+a line says and what numbers would not.
+
+### `/admin/commercial`
+
+Attention first, counts second, table last. Nobody opens this page to learn
+that eleven clubs are on Standard; they open it because something needs
+doing. Three attention cases: a failed payment, a trial ending within a
+week, and a club that chose a plan but never finished its Direct Debit.
+When nothing needs attention the section says so — an empty state here is
+good news and reads as good news.
+
+The counts are one line of running text with tabular figures, not six
+big-number tiles: they are context, not the point of the page.
+
+"Extend trial" sits at the end of a row rather than as a prominent button —
+it is rare and Full Site Admin only. `site.commercial.view` does **not**
+grant it.
+
+`public.platform_commercial_overview()` (new migration) computes remaining
+trial time with the same `internal.trial_remaining_seconds` the club-facing
+surfaces use, rather than re-deriving it in TypeScript. A second
+implementation is a second thing that can be wrong about money.
+
+### Live verification
+
+Run against the local stack at `http://localhost:3000`, signed in through
+the real passwordless flow as `test.site.admin@ovalball.local` (magic link
+collected from Mailpit), desktop viewport 1512×763.
+
+| Checked | Result |
+|---|---|
+| `/admin/releases` renders, Beta state block correct | PASS |
+| Confirm button disabled until a reason is typed | PASS |
+| **Beta → Live actually applied** — block flipped to "Ovalball is live", button to "Stop charging clubs", attribution to the signed-in admin | PASS |
+| New history entry appeared with reason and green dot | PASS |
+| Record a release — form prefilled with `0.0.1` and the real build SHA `6282b11` | PASS |
+| Release saved and listed as **Draft** | PASS |
+| `/admin/commercial` empty states | PASS |
+| Populated: 3 attention rows, correct counts line, correct status pills | PASS |
+| **Extend trial applied** — Burnley went `Trial · 2d` → `Trial · 16d` and correctly dropped out of "Needs attention" | PASS |
+| Both nav links appear in the Site Admin nav | PASS |
+
+That last one is the whole chain proven at once: UI → server action →
+capability check → `SECURITY DEFINER` RPC → recomputed remaining time →
+re-rendered page.
+
+**Gap, stated:** only the desktop viewport was verified live. The mobile
+card fallbacks (`md:hidden` lists replacing both tables) are written but
+have not been seen rendered. Phase M covers them.
+
+Local verification data was seeded directly into the local database for
+this and is **not** committed.
+
+### Files
+
+- `app/(app)/admin/releases/{page,platform-mode-panel,release-panel,actions}.tsx|ts` (new)
+- `app/(app)/admin/commercial/{page,extend-trial-dialog,actions}.tsx|ts` (new)
+- `supabase/migrations/20261007000000_platform_commercial_overview.sql` (new)
+- `docs/COMMERCIAL_UI_DESIGN_PLAN.md` (new)
+- `lib/app-context/session-context.ts` (+`manageSystem`, +`viewCommercial`)
+- `lib/app-context/build-nav-items.ts`, `lib/app-context/active-context.verify.ts`
+- `types/database.types.ts` (regenerated)

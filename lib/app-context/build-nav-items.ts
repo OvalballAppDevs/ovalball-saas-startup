@@ -140,6 +140,18 @@ export function buildNavItems(
     items.push({ href: "/admin/support", label: "Support Tickets" })
     items.push({ href: "/admin/site-admins", label: "Site Admin Management" })
     items.push({ href: "/admin/system-health", label: "System Health" })
+
+    // Release & platform mode is readable by every Site Admin: knowing
+    // whether Ovalball is charging clubs is operational context, not a
+    // privilege, and the page itself renders read-only without the
+    // site.system.* capability. Commercial is different -- it is money
+    // across every club -- so the link only appears for a Full Site Admin
+    // or someone explicitly granted commercial visibility, matching the
+    // capability the page re-checks server-side.
+    items.push({ href: "/admin/releases", label: "Release & Platform Mode" })
+    if (ctx.siteAdminRole === "full" || ctx.viewCommercial) {
+      items.push({ href: "/admin/commercial", label: "Commercial" })
+    }
   }
 
   return {

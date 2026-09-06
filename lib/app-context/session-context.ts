@@ -75,6 +75,10 @@ export interface SessionContext {
   manageFixtureSupport: boolean
   /** Whether this Site Admin has been granted the global Lookup Administration capability (manage_global_lookups) -- lets them add/edit/deactivate any club's venues/pitches from the Site Admin parent view. Same per-person-grant pattern; every Site Admin can still SELECT this data regardless. Always false when isSiteAdmin is false. */
   manageGlobalLookups: boolean
+  /** Whether this Site Admin has been granted platform system access (manage_system) -- recording releases and switching Ovalball between Beta and Live. One flag covers both because they are the same operational act. Always false when isSiteAdmin is false. */
+  manageSystem: boolean
+  /** Whether this Site Admin has been granted commercial visibility (view_commercial) -- reading trial, subscription and referral data across clubs. Read-only: CHANGING commercial terms needs site.commercial.manage, which is Full Site Admin only and deliberately not delegable. Always false when isSiteAdmin is false. */
+  viewCommercial: boolean
   /** Every club this user has active club-wide authority at. Usually one. */
   clubMemberships: ClubMembershipContext[]
   /** Every team this user has an explicit team-scoped assignment for. */
@@ -102,7 +106,7 @@ export async function getSessionContext(
   const [{ data: profile }, { data: siteAdminRow }, { data: memberships }, { data: teamPerms }, { data: guardianRows }, { data: ownPlayerRow }] =
     await Promise.all([
       supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
-      supabase.from("site_admins").select("id, admin_role, diagnostic_club_access, manage_team_catalogue, manage_competitions, manage_fixture_support, manage_global_lookups").eq("user_id", user.id).eq("status", "active").maybeSingle(),
+      supabase.from("site_admins").select("id, admin_role, diagnostic_club_access, manage_team_catalogue, manage_competitions, manage_fixture_support, manage_global_lookups, manage_system, view_commercial").eq("user_id", user.id).eq("status", "active").maybeSingle(),
       supabase
         .from("club_memberships")
         .select("club_id, role, clubs(slug, logo_storage_path, club_directory(name, logo_storage_path))")
@@ -201,6 +205,8 @@ export async function getSessionContext(
     manageCompetitions: siteAdminRow?.manage_competitions ?? false,
     manageFixtureSupport: siteAdminRow?.manage_fixture_support ?? false,
     manageGlobalLookups: siteAdminRow?.manage_global_lookups ?? false,
+    manageSystem: siteAdminRow?.manage_system ?? false,
+    viewCommercial: siteAdminRow?.view_commercial ?? false,
     clubMemberships,
     teamPermissions,
     guardianRelationships,

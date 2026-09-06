@@ -43,6 +43,8 @@ function baseCtx(overrides: Partial<SessionContext>): SessionContext {
     manageCompetitions: false,
     manageFixtureSupport: false,
     manageGlobalLookups: false,
+    manageSystem: false,
+    viewCommercial: false,
     clubMemberships: [],
     teamPermissions: [],
     guardianRelationships: [],

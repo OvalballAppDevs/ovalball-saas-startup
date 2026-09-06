@@ -12744,6 +12744,24 @@ export type Database = {
         Args: { p_queue_id: string; p_target_team_id: string }
         Returns: undefined
       }
+      platform_commercial_overview: {
+        Args: never
+        Returns: {
+          club_id: string
+          club_name: string
+          club_slug: string
+          credit_balance_pence: number
+          last_payment_failed_at: string
+          last_payment_status: string
+          mandate_present: boolean
+          next_collection_on: string
+          plan_code: string
+          plan_price_pence: number
+          subscription_status: string
+          trial_remaining_seconds: number
+          trial_status: string
+        }[]
+      }
       preview_directory_verification_scope: {
         Args: { p_directory_id?: string; p_filters?: Json; p_scope: string }
         Returns: number
