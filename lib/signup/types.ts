@@ -203,7 +203,12 @@ export interface SignupFormState {
   personal: PersonalDetails
   rugbyCode: RugbyCode | null
   club: ClubSelection
-  termsAccepted: boolean
+  /**
+   * Per-policy acceptance, keyed by ConsentId. Three separate ticks rather
+   * than one boolean, so each policy's acceptance is recorded and versioned
+   * on its own -- see lib/legal/required-consents.ts.
+   */
+  consents: Record<string, boolean>
 }
 
 export const EMPTY_SIGNUP_STATE: SignupFormState = {
@@ -211,7 +216,7 @@ export const EMPTY_SIGNUP_STATE: SignupFormState = {
   personal: EMPTY_PERSONAL_DETAILS,
   rugbyCode: null,
   club: { kind: "unselected" },
-  termsAccepted: false,
+  consents: {},
 }
 
 export const SIGNUP_STEPS = ["account", "details", "club", "review"] as const

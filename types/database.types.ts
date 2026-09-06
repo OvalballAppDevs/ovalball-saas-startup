@@ -7846,6 +7846,36 @@ export type Database = {
         }
         Relationships: []
       }
+      policy_acknowledgements: {
+        Row: {
+          acknowledged_at: string
+          event_type: string
+          id: string
+          policy_id: string
+          policy_version: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          event_type?: string
+          id?: string
+          policy_id: string
+          policy_version: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          event_type?: string
+          id?: string
+          policy_id?: string
+          policy_version?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_status: string

@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers"
 
+import { hasAllRequiredConsents } from "@/lib/legal/required-consents"
 import { toPublicAuthError } from "@/lib/errors/public-error"
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/auth/turnstile"
 import { createClient } from "@/lib/supabase/server"
@@ -36,8 +37,10 @@ export async function submitSignup(
   formState: SignupFormState,
   turnstileToken: string | null = null
 ): Promise<SubmitSignupResult> {
-  if (!formState.termsAccepted) {
-    return { ok: false, error: "Terms and Conditions must be accepted." }
+  // Every required policy, checked on the server. A client that omits one
+  // (or invents an extra) cannot create an account without it.
+  if (!hasAllRequiredConsents(formState.consents)) {
+    return { ok: false, error: "Please accept each of the required policies to continue." }
   }
   if (formState.club.kind === "unselected") {
     return { ok: false, error: "A club selection is required." }

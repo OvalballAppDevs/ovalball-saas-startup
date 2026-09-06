@@ -216,3 +216,49 @@ cookie. That is a genuine change to what the public site does, so
 `/legal/subprocessors` and `/legal/cookies` must be updated to match **at the
 same time as** the keys are added — Cloudflare is already listed there as
 "Supported, not yet enabled" in readiness for exactly this.
+
+
+---
+
+# Callback URLs — THE TWO ARE DIFFERENT
+
+An earlier draft of this document listed only the application route as "the
+provider callback URL". That was wrong, and pasting it into a provider
+console would make every sign-in fail. There are two URLs and they serve
+different hops.
+
+## A. Provider-facing callback — paste THIS into Google / Meta / Apple
+
+```
+https://ywwdizmaanbujcfitpcj.supabase.co/auth/v1/callback
+```
+
+This is Supabase Auth's own endpoint. It is what Google, Meta and Apple
+redirect back to after the person authenticates, and it is the value that
+belongs in each provider console's "Authorised redirect URI" /
+"Valid OAuth Redirect URI" / "Return URL" field.
+
+Verified live: responds `303` (GoTrue redirecting), so the path is real.
+Derived from the hosted project ref `ywwdizmaanbujcfitpcj`, not guessed.
+
+## B. Application callback — Supabase back into Ovalball
+
+```
+https://ovalball.co.uk/auth/callback
+```
+
+This is `app/auth/callback/route.ts`. Supabase redirects here after it has
+exchanged the provider's response for a session. It never appears in a
+provider console.
+
+It DOES need to be allowed in **Supabase Dashboard → Authentication → URL
+Configuration → Redirect URLs**, which is covered by the wildcard
+`https://ovalball.co.uk/**`.
+
+Verified live: responds `307` (redirects to `/login?error=link` when called
+with no code, which is the correct failure behaviour).
+
+| Hop | URL | Configured where |
+|---|---|---|
+| Provider → Supabase | `https://ywwdizmaanbujcfitpcj.supabase.co/auth/v1/callback` | Google / Meta / Apple consoles |
+| Supabase → Ovalball | `https://ovalball.co.uk/auth/callback` | Supabase redirect allow-list |

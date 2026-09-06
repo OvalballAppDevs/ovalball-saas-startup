@@ -34,6 +34,9 @@ export interface OAuthProviderConfig {
   scopes?: string
 }
 
+// Order is Google, Apple, Facebook, and is identical on Sign In and Get
+// Started -- a provider that moves between the two screens costs returning
+// users the muscle memory of where their own button is.
 export const OAUTH_PROVIDERS: OAuthProviderConfig[] = [
   {
     id: "google",
@@ -41,15 +44,15 @@ export const OAUTH_PROVIDERS: OAuthProviderConfig[] = [
     enabled: process.env.NEXT_PUBLIC_AUTH_GOOGLE_ENABLED === "true",
   },
   {
-    id: "facebook",
-    label: "Continue with Facebook",
-    enabled: process.env.NEXT_PUBLIC_AUTH_FACEBOOK_ENABLED === "true",
-  },
-  {
     id: "apple",
     // Apple's guidance requires "Sign in with Apple", not "Continue with".
     label: "Sign in with Apple",
     enabled: process.env.NEXT_PUBLIC_AUTH_APPLE_ENABLED === "true",
+  },
+  {
+    id: "facebook",
+    label: "Continue with Facebook",
+    enabled: process.env.NEXT_PUBLIC_AUTH_FACEBOOK_ENABLED === "true",
   },
 ]
 

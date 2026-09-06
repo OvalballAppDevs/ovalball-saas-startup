@@ -6,6 +6,7 @@ import { dispatchEmailEvent } from "@/lib/email/dispatch"
 import type { Database } from "@/types/database.types"
 import type { ClubSelection, PersonalDetails } from "@/lib/signup/types"
 import { getSiteUrl } from "@/lib/site-url"
+import { policyAcknowledgements, termsAgreementVersion } from "@/lib/legal/required-consents"
 
 /**
  * Runs once, from /auth/callback, immediately after exchangeCodeForSession
@@ -102,12 +103,37 @@ export async function writeSignupRecords(
     return { completed: false, error: `profile: ${profileError.message}` }
   }
 
+  // Two DIFFERENT legal events, recorded in two different places on
+  // purpose. Terms is a contractual agreement and belongs in
+  // terms_acceptances, which exists for exactly that. Privacy and
+  // Safeguarding are acknowledgements that a published document was read --
+  // not consent to processing -- so they go to policy_acknowledgements.
+  // Recording all three as "terms acceptance" would answer "what did this
+  // person agree to?" incorrectly.
+  //
+  // Both versions come from the server (requiredConsents), never from the
+  // payload, so a stale or invented version cannot be persisted. Both
+  // timestamps are database defaults, so neither can be backdated.
+  void termsVersion
   const { error: termsError } = await supabase.from("terms_acceptances").insert({
     user_id: user.id,
-    terms_version: termsVersion,
+    terms_version: termsAgreementVersion(),
   })
   if (termsError) {
     return { completed: false, error: `terms: ${termsError.message}` }
+  }
+
+  const { error: acknowledgementError } = await supabase
+    .from("policy_acknowledgements")
+    .insert(
+      policyAcknowledgements().map((ack) => ({
+        user_id: user.id,
+        policy_id: ack.policy_id,
+        policy_version: ack.policy_version,
+      }))
+    )
+  if (acknowledgementError) {
+    return { completed: false, error: `acknowledgements: ${acknowledgementError.message}` }
   }
 
   if (club.kind === "existing-unclaimed") {

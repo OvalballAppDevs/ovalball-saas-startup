@@ -1,33 +1,32 @@
 import { Suspense } from "react"
-import Link from "next/link"
 
-import { OvalballLogo } from "@/components/brand/ovalball-logo"
+import { AuthShell, AuthSwitchLink } from "@/components/auth/auth-shell"
 
 import { LoginForm } from "./login-form"
 
-// Server Component entry point -- LoginForm (client) reads the `?email=`
-// param (useSearchParams), which Next.js requires a Suspense boundary
-// around. Deliberately a single centered card, not the signup wizard's
-// split brand panel -- this is a one-field form, not a multi-step flow.
+/**
+ * Sign In -- for people who already have an Ovalball account.
+ *
+ * Shares AuthShell with Get Started so the two read as one product, while
+ * staying two clearly distinct journeys: different heading, different
+ * content, and an explicit route across to the other one.
+ *
+ * LoginForm reads `?email=` / `?error=` via useSearchParams, which Next.js
+ * requires a Suspense boundary around.
+ */
 export default function LoginPage() {
   return (
-    <main className="brand-light-scope flex min-h-screen flex-col bg-chalk">
-      <div className="border-b border-ink/8 px-4 py-5 md:px-8">
-        <Link href="/">
-          <OvalballLogo variant="light" />
-        </Link>
-      </div>
-
-      <div className="flex flex-1 items-center justify-center px-4 py-16">
-        <div className="w-full max-w-md">
-          <Suspense>
-            {/* Read on the server so the client component never has to know
-                whether Turnstile is configured -- it just gets the public
-                site key, or null. The secret half never leaves the server. */}
-            <LoginForm turnstileSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null} />
-          </Suspense>
-        </div>
-      </div>
-    </main>
+    <AuthShell
+      eyebrow="Welcome back"
+      title="Sign in"
+      subtitle="Pick up where your club left off."
+      panelLine="The season doesn't organise itself."
+      footer={<AuthSwitchLink prompt="New to Ovalball?" href="/signup" label="Get started" />}
+    >
+      <Suspense>
+        {/* The public site key only; the secret half never leaves the server. */}
+        <LoginForm turnstileSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null} />
+      </Suspense>
+    </AuthShell>
   )
 }

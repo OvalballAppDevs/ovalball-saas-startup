@@ -1,5 +1,6 @@
 "use server"
 
+import { hasAllRequiredConsents } from "@/lib/legal/required-consents"
 import { createClient } from "@/lib/supabase/server"
 import { CURRENT_TERMS_VERSION } from "@/lib/signup/terms"
 import { writeSignupRecords } from "@/lib/signup/complete-signup"
@@ -33,8 +34,10 @@ export type CompleteAuthenticatedSignupResult = { ok: true } | { ok: false; erro
 export async function completeAuthenticatedSignup(
   formState: SignupFormState
 ): Promise<CompleteAuthenticatedSignupResult> {
-  if (!formState.termsAccepted) {
-    return { ok: false, error: "Terms and Conditions must be accepted." }
+  // Every required policy, checked on the server. A client that omits one
+  // (or invents an extra) cannot create an account without it.
+  if (!hasAllRequiredConsents(formState.consents)) {
+    return { ok: false, error: "Please accept each of the required policies to continue." }
   }
   if (formState.club.kind === "unselected") {
     return { ok: false, error: "A club selection is required." }

@@ -23,7 +23,8 @@ import { PersonalDetailsStep } from "./steps/personal-details-step"
 import { ReviewStep } from "./steps/review-step"
 import { submitSignup } from "./submit-signup"
 import { completeAuthenticatedSignup } from "./complete-authenticated-signup"
-import { HumanCheck } from "@/components/auth/human-check"
+import { AuthSecurityCheck } from "@/components/auth/auth-security-check"
+import { hasAllRequiredConsents } from "@/lib/legal/required-consents"
 
 const DEFAULT_STEP: SignupStep = "account"
 
@@ -122,7 +123,7 @@ export function SignupShell({
       case "club":
         return formState.club.kind !== "unselected"
       case "review":
-        return formState.termsAccepted
+        return hasAllRequiredConsents(formState.consents)
     }
   }
 
@@ -316,6 +317,7 @@ export function SignupShell({
                 <AccountStep
                   email={formState.email}
                   onChange={(email) => setFormState((prev) => ({ ...prev, email }))}
+                  isAuthenticated={isAuthenticated}
                 />
               )}
 
@@ -346,20 +348,23 @@ export function SignupShell({
               {step === "review" && (
                 <ReviewStep
                   value={formState}
-                  onTermsChange={(termsAccepted) =>
-                    setFormState((prev) => ({ ...prev, termsAccepted }))
+                  onConsentChange={(id, value) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      consents: { ...prev.consents, [id]: value },
+                    }))
                   }
                   onEditStep={goToStep}
                 />
               )}
             </div>
 
-            {step === "review" && humanCheckRequired && !humanPassed && (
-              <div className="mt-6">
-                <HumanCheck
+            {step === "review" && humanCheckRequired && turnstileSiteKey && (
+              <div className="mt-5">
+                <AuthSecurityCheck
                   siteKey={turnstileSiteKey}
                   action="signup"
-                  onVerified={(token) => {
+                  onVerified={(token: string) => {
                     setHumanToken(token)
                     setHumanPassed(true)
                   }}

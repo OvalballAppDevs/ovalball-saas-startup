@@ -1,21 +1,21 @@
 "use client"
 
-import Link from "next/link"
 
 import {
   AUTHORITY_DECLARATION_TEXT,
   type SelectedTeam,
   type SignupFormState,
 } from "@/lib/signup/types"
-import { CURRENT_TERMS_VERSION } from "@/lib/signup/terms"
+import { PolicyConsent } from "@/components/auth/policy-consent"
+import type { ConsentId } from "@/lib/legal/required-consents"
 
 interface ReviewStepProps {
   value: SignupFormState
-  onTermsChange: (accepted: boolean) => void
+  onConsentChange: (id: ConsentId, value: boolean) => void
   onEditStep: (step: "account" | "details" | "club") => void
 }
 
-export function ReviewStep({ value, onTermsChange, onEditStep }: ReviewStepProps) {
+export function ReviewStep({ value, onConsentChange, onEditStep }: ReviewStepProps) {
   const { personal, club } = value
 
   return (
@@ -96,49 +96,7 @@ export function ReviewStep({ value, onTermsChange, onEditStep }: ReviewStepProps
         </ReviewCard>
       )}
 
-      <div className="rounded-lg border border-ink/10 bg-white p-4">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">
-          Terms
-        </p>
-        <label className="mt-3 flex items-start gap-3 text-sm">
-          <input
-            type="checkbox"
-            checked={value.termsAccepted}
-            onChange={(event) => onTermsChange(event.target.checked)}
-            className="mt-0.5 size-4 shrink-0 accent-pitch-600"
-          />
-          <span className="text-ink/70">
-            I accept the{" "}
-            <Link
-              href="/legal/terms"
-              target="_blank"
-              className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
-            >
-              Terms and Conditions
-            </Link>{" "}
-            (version {CURRENT_TERMS_VERSION}).
-          </span>
-        </label>
-
-        {/* Acknowledging a privacy notice is NOT consent, so this is
-            deliberately plain text below the controls rather than a second
-            tickbox -- and never a pre-ticked one. */}
-        <p className="mt-3 text-sm text-ink/60">
-          By creating an account, you agree to the Ovalball{" "}
-          <Link href="/legal/terms" target="_blank" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
-            Terms of Service
-          </Link>{" "}
-          and acknowledge the{" "}
-          <Link href="/legal/privacy" target="_blank" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
-            Privacy Notice
-          </Link>
-          . If you are signing up as a parent or guardian, see{" "}
-          <Link href="/legal/children-privacy" target="_blank" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
-            Children&rsquo;s Privacy
-          </Link>
-          .
-        </p>
-      </div>
+      <PolicyConsent accepted={value.consents} onChange={onConsentChange} />
     </div>
   )
 }
