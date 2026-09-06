@@ -15,6 +15,7 @@ CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 
 SUITES=(
+  capability_defaults_architecture
   invite_only_onboarding
   platform_release_and_mode
   platform_trials
