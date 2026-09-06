@@ -251,12 +251,38 @@ begin
   end if;
 
   -- K. team growth counts operational teams, not canonical type definitions
-  select count(*)::int into v_count from public.canonical_team_types;
+  --
+  -- This used to assert `bucket < count(canonical_team_types)`, on the
+  -- reasoning that a metric wrongly reading the type catalogue would equal
+  -- 25. That proxy only holds while the seeded teams are older than the
+  -- 30-day window: after a fresh migration replay every seed team is
+  -- created today, the bucket legitimately contains all of them, and the
+  -- assertion failed with the product behaving correctly.
+  --
+  -- Asserted directly instead: the bucket equals the teams genuinely
+  -- created in the window, and adding a canonical TYPE moves it not at all.
+  -- That is the actual invariant -- "teams are not type definitions" --
+  -- rather than a numeric coincidence.
   select (v_daily -> 29 ->> 'teams')::int into v_int;
-  if v_int < v_count then
-    raise notice 'PASS 19 (K): team growth counts operational teams (%), not the % canonical type definitions', v_int, v_count;
+  select count(*)::int into v_count
+  from public.teams
+  where (created_at at time zone 'Europe/London')::date = (now() at time zone 'Europe/London')::date;
+
+  if v_int = v_count then
+    raise notice 'PASS 19 (K): today''s team bucket (%) is exactly the teams created today', v_int;
   else
-    raise notice 'FAIL 19 (K): team bucket % is not distinguishable from the type catalogue %', v_int, v_count;
+    raise notice 'FAIL 19 (K): bucket % but % teams created today', v_int, v_count;
+  end if;
+
+  -- A new canonical type definition is not a team and must not move it.
+  insert into public.canonical_team_types (key, label, category, age_group, gender, allows_squads, sort_order)
+  values ('phase-b-probe-type', 'Phase B Probe', 'youth', 'U18', 'girls', false, 9999);
+  select growth_daily into v_daily from public.site_admin_dashboard_trends();
+  select (v_daily -> 29 ->> 'teams')::int into v_count;
+  if v_count = v_int then
+    raise notice 'PASS 19b (K): adding a canonical team TYPE leaves the team bucket at %', v_count;
+  else
+    raise notice 'FAIL 19b (K): a type definition moved the team bucket %->%', v_int, v_count;
   end if;
 
   -- ============ L. adoption denominator ============
