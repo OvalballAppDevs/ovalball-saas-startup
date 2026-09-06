@@ -201,13 +201,13 @@ begin
       and p.prokind = 'f'
       and (p.proname like '%entitlement%' or p.proname like '%effective_plan%' or p.proname like '%platform_plan%')
       and (pg_get_functiondef(p.oid) like '%gocardless%'
-        or pg_get_functiondef(p.oid) like '%club_subscription_pricing%'
-        or pg_get_functiondef(p.oid) like '%club_subscription_programmes%'
-        or pg_get_functiondef(p.oid) like '%club_subscription_sibling_rules%'
-        or pg_get_functiondef(p.oid) like '%payer_subscriptions%'
-        or pg_get_functiondef(p.oid) like '%player_subscription_payers%'
-        or pg_get_functiondef(p.oid) like '%membership_obligations%'
-        or pg_get_functiondef(p.oid) like '%calculate_member_price%')
+        or pg_get_functiondef(p.oid) like '%club\_subscription\_pricing%'
+        or pg_get_functiondef(p.oid) like '%club\_subscription\_programmes%'
+        or pg_get_functiondef(p.oid) like '%club\_subscription\_sibling\_rules%'
+        or pg_get_functiondef(p.oid) like '%payer\_subscriptions%'
+        or pg_get_functiondef(p.oid) like '%player\_subscription\_payers%'
+        or pg_get_functiondef(p.oid) like '%membership\_obligations%'
+        or pg_get_functiondef(p.oid) like '%calculate\_member\_price%')
   ) into v_ok;
   if v_ok then
     raise notice 'PASS 17: the entitlement resolver never reads the club-charges-members domain';

@@ -7094,11 +7094,18 @@ export type Database = {
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          mandate_status: string | null
           next_collection_on: string | null
           plan_code: string
           plan_currency: string
           plan_price_pence: number
           plan_price_version: number
+          provider: string | null
+          provider_billing_request_id: string | null
+          provider_customer_id: string | null
+          provider_environment: string | null
+          provider_mandate_id: string | null
+          provider_subscription_id: string | null
           started_at: string | null
           status: string
           updated_at: string
@@ -7114,11 +7121,18 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          mandate_status?: string | null
           next_collection_on?: string | null
           plan_code: string
           plan_currency?: string
           plan_price_pence: number
           plan_price_version: number
+          provider?: string | null
+          provider_billing_request_id?: string | null
+          provider_customer_id?: string | null
+          provider_environment?: string | null
+          provider_mandate_id?: string | null
+          provider_subscription_id?: string | null
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -7134,11 +7148,18 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          mandate_status?: string | null
           next_collection_on?: string | null
           plan_code?: string
           plan_currency?: string
           plan_price_pence?: number
           plan_price_version?: number
+          provider?: string | null
+          provider_billing_request_id?: string | null
+          provider_customer_id?: string | null
+          provider_environment?: string | null
+          provider_mandate_id?: string | null
+          provider_subscription_id?: string | null
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -7612,6 +7633,45 @@ export type Database = {
           status?: string
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      platform_provider_events: {
+        Row: {
+          action: string
+          id: string
+          payload: Json
+          processed: boolean
+          processed_at: string | null
+          processing_error: string | null
+          provider: string
+          provider_event_id: string
+          received_at: string
+          resource_type: string
+        }
+        Insert: {
+          action: string
+          id?: string
+          payload: Json
+          processed?: boolean
+          processed_at?: string | null
+          processing_error?: string | null
+          provider?: string
+          provider_event_id: string
+          received_at?: string
+          resource_type: string
+        }
+        Update: {
+          action?: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+          processed_at?: string | null
+          processing_error?: string | null
+          provider?: string
+          provider_event_id?: string
+          received_at?: string
+          resource_type?: string
         }
         Relationships: []
       }
@@ -11467,6 +11527,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_platform_payment_status: {
+        Args: {
+          p_failure_reason?: string
+          p_payment_id: string
+          p_provider_payment_id?: string
+          p_status: string
+        }
+        Returns: boolean
+      }
       approve_club_claim: {
         Args: { p_claim_id: string; p_notes?: string }
         Returns: string
@@ -11487,6 +11556,18 @@ export type Database = {
         Args: { p_active: boolean; p_season_id: string }
         Returns: undefined
       }
+      attach_platform_subscription_provider: {
+        Args: {
+          p_billing_request_id?: string
+          p_club_id: string
+          p_customer_id?: string
+          p_environment: string
+          p_mandate_id?: string
+          p_mandate_status?: string
+          p_subscription_id?: string
+        }
+        Returns: string
+      }
       can_send_team_conversation: {
         Args: { p_team_id: string }
         Returns: boolean
@@ -11495,7 +11576,7 @@ export type Database = {
         Args: { p_team_id: string }
         Returns: boolean
       }
-      cancel_club_subscription: {
+      cancel_club_platform_subscription: {
         Args: { p_club_id: string; p_reason?: string }
         Returns: boolean
       }
@@ -11553,17 +11634,6 @@ export type Database = {
         Args: { p_club_id: string; p_entitlement_key: string }
         Returns: boolean
       }
-      club_next_collection: {
-        Args: { p_club_id: string }
-        Returns: {
-          credit_applied_pence: number
-          credit_available_pence: number
-          currency: string
-          gross_pence: number
-          net_pence: number
-          will_skip: boolean
-        }[]
-      }
       club_platform_billing_state: {
         Args: { p_club_id: string }
         Returns: {
@@ -11577,6 +11647,17 @@ export type Database = {
           subscription_status: string
           trial_remaining_seconds: number
           trial_status: string
+        }[]
+      }
+      club_platform_next_collection: {
+        Args: { p_club_id: string }
+        Returns: {
+          credit_applied_pence: number
+          credit_available_pence: number
+          currency: string
+          gross_pence: number
+          net_pence: number
+          will_skip: boolean
         }[]
       }
       club_trial_state: {
@@ -12422,9 +12503,25 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
+      mark_platform_provider_event_processed: {
+        Args: { p_error?: string; p_event_id: string }
+        Returns: undefined
+      }
       moderator_delete_message: {
         Args: { p_message_id: string }
         Returns: undefined
+      }
+      open_platform_billing_cycle: {
+        Args: {
+          p_charge_date: string
+          p_club_id: string
+          p_idempotency_key: string
+        }
+        Returns: {
+          net_pence: number
+          payment_id: string
+          skipped: boolean
+        }[]
       }
       pause_club_trial: {
         Args: { p_club_id: string; p_reason?: string }
@@ -12602,6 +12699,15 @@ export type Database = {
       }
       record_payment_refund: {
         Args: { p_amount_minor: number; p_payment_id: string; p_reason: string }
+        Returns: string
+      }
+      record_platform_provider_event: {
+        Args: {
+          p_action: string
+          p_payload: Json
+          p_provider_event_id: string
+          p_resource_type: string
+        }
         Returns: string
       }
       record_platform_release: {

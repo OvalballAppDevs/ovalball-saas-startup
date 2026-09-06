@@ -660,3 +660,137 @@ phase.
 - `supabase/tests/platform_release_and_mode.sql`,
   `platform_trials.sql`, `platform_plans_entitlements.sql` (tightened)
 - `types/database.types.ts` (regenerated)
+
+---
+
+## PHASE G — COMPLETE (no provider enabled)
+
+The provider side of Ovalball's own billing. **No credential exists, no
+switch is on, and nothing can collect.**
+
+### What is shared with the club-charges-members integration, and what is not
+
+Shared: the HTTP transport (`gcRequest`) and the HMAC signature check.
+Those are mechanics with no business meaning — a signed request is a signed
+request — and duplicating them would mean two copies of security-critical
+code to keep correct.
+
+Separate: **the merchant token, the webhook endpoint, the event inbox, the
+tables written, and the switch that permits any of it.** An event arriving
+at `/api/platform-billing/webhooks` can only ever move Domain B state, and
+one arriving at `/api/gocardless/webhooks` can only ever move Domain A
+state. That is a property of the routing, not of remembering to check.
+
+### Three gates before a penny moves
+
+1. `GOCARDLESS_ENV` + `GOCARDLESS_PRODUCTION_GO_LIVE_CONFIRMED` — the
+   existing two-variable production gate.
+2. `OVALBALL_SAAS_BILLING_ENABLED=true` — **this domain's own switch**, so
+   a fully working Domain A configuration can never start Ovalball billing.
+3. `GOCARDLESS_PLATFORM_ACCESS_TOKEN` and
+   `GOCARDLESS_PLATFORM_WEBHOOK_SECRET` actually being set.
+
+All three are unset everywhere. `.env.example` documents the names only.
+
+### The state machine
+
+`platform_provider_events` is Domain B's own inbox, unique on the
+provider's event id — which is the entire replay defence. Every event is
+recorded before any state moves, and a redelivery finds the row already
+there and does nothing.
+
+Nothing trusts a webhook body. It is a link and a verb; the real resource
+is re-fetched and is authoritative for status and amount.
+
+Four structural rules, each enforced rather than remembered:
+
+- **A subscription cannot be `scheduled`, `active` or `past_due` without a
+  mandate** — a check constraint, so billing cannot start on a hopeful
+  assumption.
+- **A sandbox subscription cannot be promoted to production**, or the
+  reverse: the environment is recorded with the provider references and a
+  mismatch is refused.
+- **Terminal is terminal.** A confirmed, failed, cancelled or skipped
+  payment cannot be walked backwards, and cannot be confirmed twice.
+- **No cycle opens in Beta.** Refused at the source rather than opened and
+  cancelled afterwards.
+
+### A failed collection returns its credit
+
+Credit consumed by a collection that then fails is given back as a
+**reversal row**, not by deleting the application. The ledger is
+append-only and "we took it and gave it back" is the true history.
+
+This exposed a Phase F constraint that was wrong:
+`platform_credits_reversal_is_negative` assumed every reversal removed
+credit. That is only true of reversing an *earning*; reversing an
+*application* returns credit and is positive. Replaced with
+`platform_credits_reversal_needs_target`.
+
+### Two defects this phase's own tests caught
+
+**1. A naming violation I introduced in Phase F.** The Phase C
+domain-separation assertion failed on `cancel_club_subscription` — a Domain
+B function whose name reads as Domain A at every call site. Renamed to
+`cancel_club_platform_subscription`, and `club_next_collection` to
+`club_platform_next_collection` for the same reason. The naming rule
+applies to functions, not only tables.
+
+**2. A real security hole.** `revoke execute … from public` does **not**
+remove Supabase's default-privilege grants, which give `EXECUTE` on every
+new `public` function directly to `anon` and `authenticated`. Every one of
+the five money-moving provider functions was therefore callable by any
+signed-in user. Each revoke now names `public, anon, authenticated`, and
+assertion 15 checks the resulting ACL rather than trusting that the revoke
+did what it looked like it did.
+
+The same pass locked six `internal` commercial helpers, which are
+`SECURITY DEFINER` with no authorisation check of their own.
+`internal.has_capability` and `internal.is_site_admin` were deliberately
+**not** revoked: RLS evaluates them as the querying role, and revoking them
+would break every policy in the product.
+
+One earlier assertion was also wrong in its own right: `%gocardless_%` in
+`LIKE` matches the literal string `'gocardless'`, because an unescaped
+underscore is a wildcard. All four suites now escape it.
+
+### Verification
+
+`supabase/tests/platform_gocardless.sql`, 18 assertions, all PASS. Notable:
+
+| # | Assertion |
+|---|---|
+| 1 | A subscription cannot be active without a mandate |
+| 2 | A redelivered provider event is recorded once |
+| 4 | A sandbox mandate cannot be promoted to production |
+| 5 | No cycle can open while Ovalball is in Beta |
+| 7 | Re-running a cycle returns the existing payment, never a second collection |
+| 9 | A replayed confirmation records nothing further |
+| 10 | A confirmed payment cannot be moved back to pending |
+| 12 | A failed collection marks past due and returns the credit |
+| 14 | A fully-credited cycle is recorded as skipped, never sent as zero |
+| 15 | No provider state function is reachable from a browser session |
+| 18 | The internal commercial helpers carry no grant to a browser role |
+
+All five suites pass together: 12 + 17 + 17 + 21 + 18.
+`npm run typecheck`, `eslint`, and `scripts/verify-auth-security.mjs`
+(64 checks) clean.
+
+### Provider status — stated plainly
+
+**No sandbox UAT has been run.** No GoCardless credential exists for
+Ovalball's own merchant, so nothing in this phase has been exercised
+against the real provider. The verification above is of the state machine
+the provider reports into, not of the provider. Phase M carries this as an
+open gap, and it is the reason the final verdict cannot be an unqualified
+one until sandbox UAT is done.
+
+### Files
+
+- `supabase/migrations/20261005000000_platform_gocardless.sql` (new)
+- `supabase/tests/platform_gocardless.sql` (new)
+- `lib/platform/gocardless/env.ts`, `lib/platform/gocardless/billing.ts` (new)
+- `app/api/platform-billing/webhooks/route.ts` (new)
+- `supabase/migrations/20261004000000_platform_club_subscriptions.sql` (function renames)
+- `lib/platform/subscription.ts`, all four earlier test suites, `.env.example`
+- `types/database.types.ts` (regenerated)

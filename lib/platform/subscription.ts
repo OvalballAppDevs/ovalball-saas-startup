@@ -88,7 +88,7 @@ export async function getNextCollection(
   supabase: SupabaseClient<Database>,
   clubId: string
 ): Promise<NextCollection | null> {
-  const { data, error } = await supabase.rpc("club_next_collection", { p_club_id: clubId })
+  const { data, error } = await supabase.rpc("club_platform_next_collection", { p_club_id: clubId })
 
   if (error || !data || data.length === 0) return null
 

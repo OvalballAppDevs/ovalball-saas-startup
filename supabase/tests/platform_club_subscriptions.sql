@@ -114,7 +114,13 @@ begin
   -- ---------- 7. a subscription outranks a trial for the effective plan ----------
   perform public.set_platform_mode('live', 'Phase F test setup');
   perform public.start_club_trial(v_club);
-  update public.platform_club_subscriptions set status = 'active' where id = v_sub;
+  -- A subscription cannot be live without a mandate to collect against
+  -- (Phase G's platform_club_subscriptions_live_needs_mandate), so the
+  -- fixture attaches a sandbox one.
+  update public.platform_club_subscriptions
+  set status = 'active', provider = 'gocardless', provider_environment = 'sandbox',
+      provider_mandate_id = 'MD_PHASE_F_TEST', mandate_status = 'active'
+  where id = v_sub;
   if internal.club_effective_plan(v_club) = 'standard' then
     raise notice 'PASS 7: the subscription resolves the effective plan';
   else
@@ -193,7 +199,7 @@ begin
   insert into public.platform_credits (club_id, amount_pence, source, reason, snapshot_plan_code, snapshot_price_pence, snapshot_price_version)
   values (v_club, 1500, 'goodwill', 'Phase F test credit', 'standard', 1500, 1);
 
-  select net_pence, will_skip into v_int, v_bool from public.club_next_collection(v_club);
+  select net_pence, will_skip into v_int, v_bool from public.club_platform_next_collection(v_club);
   if v_int = 0 and v_bool then
     raise notice 'PASS 13: a cycle fully covered by credit is skipped rather than collected as zero';
   else
@@ -210,7 +216,7 @@ begin
   insert into public.platform_credits (club_id, amount_pence, source, applied_to_payment_id)
   values (v_club, -1000, 'application', v_payment);
 
-  select net_pence, will_skip into v_int, v_bool from public.club_next_collection(v_club);
+  select net_pence, will_skip into v_int, v_bool from public.club_platform_next_collection(v_club);
   if v_int = 1000 and not v_bool then
     raise notice 'PASS 14: GBP 5 of credit against GBP 15 collects GBP 10';
   else
@@ -247,7 +253,7 @@ begin
 
   -- ---------- 17. cancelling runs to period end, and is idempotent ----------
   perform set_config('request.jwt.claims', json_build_object('sub', v_club_admin, 'role', 'authenticated')::text, true);
-  if public.cancel_club_subscription(v_club, 'Phase F test') then
+  if public.cancel_club_platform_subscription(v_club, 'Phase F test') then
     select status, next_collection_on is null into v_text, v_ok
     from public.platform_club_subscriptions where id = v_sub;
     if v_text = 'cancelled' and v_ok and internal.club_effective_plan(v_club) = 'standard' then
@@ -259,7 +265,7 @@ begin
     raise notice 'FAIL 17: cancellation returned false';
   end if;
 
-  if not public.cancel_club_subscription(v_club, 'again') then
+  if not public.cancel_club_platform_subscription(v_club, 'again') then
     raise notice 'PASS 18: cancelling an already-cancelled subscription changes nothing';
   else
     raise notice 'FAIL 18: a second cancellation was treated as a new one';
@@ -282,13 +288,13 @@ begin
     where n.nspname in ('public', 'internal')
       and p.prokind = 'f'
       and (p.proname like '%platform_%' or p.proname like '%effective_plan%' or p.proname like '%entitlement%')
-      and (pg_get_functiondef(p.oid) like '%gocardless_%'
-        or pg_get_functiondef(p.oid) like '%club_subscription_pricing%'
-        or pg_get_functiondef(p.oid) like '%club_subscription_programmes%'
-        or pg_get_functiondef(p.oid) like '%club_subscription_sibling_rules%'
-        or pg_get_functiondef(p.oid) like '%payer_subscriptions%'
-        or pg_get_functiondef(p.oid) like '%player_subscription_payers%'
-        or pg_get_functiondef(p.oid) like '%membership_obligations%')
+      and (pg_get_functiondef(p.oid) like '%gocardless\_%'
+        or pg_get_functiondef(p.oid) like '%club\_subscription\_pricing%'
+        or pg_get_functiondef(p.oid) like '%club\_subscription\_programmes%'
+        or pg_get_functiondef(p.oid) like '%club\_subscription\_sibling\_rules%'
+        or pg_get_functiondef(p.oid) like '%payer\_subscriptions%'
+        or pg_get_functiondef(p.oid) like '%player\_subscription\_payers%'
+        or pg_get_functiondef(p.oid) like '%membership\_obligations%')
   ) into v_ok;
   if v_ok then
     raise notice 'PASS 20: no Domain B function reads a Domain A table';

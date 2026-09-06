@@ -6,6 +6,11 @@
 -- shared payment row, no shared webhook, ever. The `platform_` prefix is
 -- what makes that visible in every query and policy.
 --
+-- The naming rule extends to functions, not just tables. An earlier draft
+-- called the cancellation RPC `cancel_club_subscription`, which reads as
+-- Domain A at every call site; the Phase C domain-separation assertion
+-- caught it. Domain B function names carry `platform` too.
+--
 -- No provider is wired here. Phase G attaches GoCardless; this phase is the
 -- domain the provider will report into, so that the lifecycle is testable
 -- before any money can move.
@@ -485,7 +490,7 @@ $$;
 
 -- Cancelling. The subscription runs to the end of the period already paid
 -- for; it does not stop dead on the day someone clicks the button.
-create or replace function public.cancel_club_subscription(p_club_id uuid, p_reason text default null)
+create or replace function public.cancel_club_platform_subscription(p_club_id uuid, p_reason text default null)
 returns boolean
 language plpgsql
 security definer
@@ -532,7 +537,7 @@ $$;
 -- is **skipped** rather than collected as zero (section 71): a GBP 0.00
 -- direct debit is a real bank instruction that confuses payers and costs
 -- provider fees for no reason.
-create or replace function public.club_next_collection(p_club_id uuid)
+create or replace function public.club_platform_next_collection(p_club_id uuid)
 returns table (
   gross_pence int,
   credit_available_pence int,
