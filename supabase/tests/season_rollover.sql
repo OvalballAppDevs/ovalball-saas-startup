@@ -344,6 +344,20 @@ end $$;
 
 -- ------------------------------------------------------------
 -- 15. Training is valid in pre-season.
+-- 16. Training is valid in main season.
+--
+-- Checks 15 and 16 previously ended with `commit;`, which meant every
+-- manual run of this file (this file is explicitly "NOT a migration",
+-- meant to be run by hand against a real, non-reset local database --
+-- see this file's own header) permanently created a fresh, real
+-- training_sessions row for Burnley RUFC's U13 C team on 2026-07-10 and
+-- 2026-10-20. Re-running this file repeatedly across a multi-day
+-- engagement left 11 accumulated real duplicate pairs (root-caused and
+-- fixed 2026-09-06 -- see docs/SIDE_PROJECT_2_INTEGRATION_RECORD.md).
+-- `rollback` here is sufficient: check 17 below only queries `fixtures`
+-- (proving training creation never creates a fixture row), which holds
+-- regardless of whether the training_sessions row from 15/16 is still
+-- present -- nothing after this point depends on v_session_id surviving.
 -- ------------------------------------------------------------
 begin;
 set local role authenticated;
@@ -359,7 +373,7 @@ begin
     raise notice 'FAIL 15: create_training_session returned null';
   end if;
 end $$;
-commit;
+rollback;
 
 -- ------------------------------------------------------------
 -- 16. Training is valid in main season.
@@ -378,7 +392,7 @@ begin
     raise notice 'FAIL 16: create_training_session returned null';
   end if;
 end $$;
-commit;
+rollback;
 
 -- ------------------------------------------------------------
 -- 17. Training is not a fixture -- no fixtures row is created, and the
