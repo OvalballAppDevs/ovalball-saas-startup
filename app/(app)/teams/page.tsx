@@ -44,7 +44,7 @@ export default async function TeamsPage() {
   // grant/deny override on club.edit_profile/club.pitches.manage for this
   // specific person now correctly changes what this page shows (Section
   // 21: propagation) without this page needing its own re-derivation.
-  const [canEditProfile, canPitches, canVenues, canRollover, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance] = clubId
+  const [canEditProfile, canPitches, canVenues, canRollover, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = clubId
     ? await Promise.all([
         hasCapability(supabase, "club.edit_profile", "club", { clubId }),
         hasCapability(supabase, "club.pitches.manage", "club", { clubId }),
@@ -54,8 +54,9 @@ export default async function TeamsPage() {
         hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
         hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
         hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
+        hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
       ])
-    : [false, false, false, false, false, false, false, false]
+    : [false, false, false, false, false, false, false, false, false]
   const isClubAdmin = canEditProfile
   const canTeams = isClubAdmin || canPitches
   const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
@@ -172,7 +173,7 @@ export default async function TeamsPage() {
         Every real playing side has its own calendar and its own team-scoped roles.
       </p>
 
-      <ClubSettingsNav active="teams" canProfile={canEditProfile} canTeams={canTeams} canVenues={canVenues} canRollover={canRollover} canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} />
+      <ClubSettingsNav active="teams" canProfile={canEditProfile} canTeams={canTeams} canVenues={canVenues} canRollover={canRollover} canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} canOvalballBilling={canOvalballBilling} />
 
       {activeTeams.length > 0 ? (
         <ul className="mt-8 flex flex-col gap-2">

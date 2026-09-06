@@ -37,7 +37,7 @@ export default async function ClubVenuesPage() {
   // historical Club-Admin-only boundary exactly -- see the module
   // doc-comment above for why Fixtures Secretary still doesn't reach this
   // settings surface even though club.pitches.manage would let them write).
-  const [canManageVenues, canEditProfile, canPitches, canRollover, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance] = activeClub
+  const [canManageVenues, canEditProfile, canPitches, canRollover, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = activeClub
     ? await Promise.all([
         hasCapability(supabase, "club.venues.manage", "club", { clubId: activeClub }),
         hasCapability(supabase, "club.edit_profile", "club", { clubId: activeClub }),
@@ -47,8 +47,9 @@ export default async function ClubVenuesPage() {
         hasCapability(supabase, "club.guardians.manage", "club", { clubId: activeClub }),
         hasCapability(supabase, "club.subscription.configure", "club", { clubId: activeClub }),
         hasCapability(supabase, "club.subscription.view_finance", "club", { clubId: activeClub }),
+        hasCapability(supabase, "club.platform_billing.view", "club", { clubId: activeClub }),
       ])
-    : [false, false, false, false, false, false, false, false]
+    : [false, false, false, false, false, false, false, false, false]
   if (!canManageVenues || !activeClub) redirect("/dashboard")
   // profile/pitches/rollover/guardians/subscriptions only computed for the shared tab strip's accuracy -- see club-settings-nav.tsx.
   const canTeamsForNav = canEditProfile || canPitches
@@ -96,7 +97,7 @@ export default async function ClubVenuesPage() {
         instead of removing it if a fixture already references it.
       </p>
 
-      <ClubSettingsNav active="venues" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canManageVenues} canRollover={canRollover} canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} />
+      <ClubSettingsNav active="venues" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canManageVenues} canRollover={canRollover} canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} canOvalballBilling={canOvalballBilling} />
 
       <div className="mt-8">
         <VenuesSection clubId={activeClub} initialVenues={venueRows} initialPitches={pitchRows} />

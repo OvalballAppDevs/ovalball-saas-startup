@@ -1,8 +1,8 @@
 import Link from "next/link"
 
-export type ClubSettingsSection = "overview" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "subscriptions"
+export type ClubSettingsSection = "overview" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "subscriptions" | "ovalballBilling"
 
-const TABS: { key: ClubSettingsSection; href: string; label: string; requires: "any" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "subscriptions" }[] = [
+const TABS: { key: ClubSettingsSection; href: string; label: string; requires: "any" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "subscriptions" | "ovalballBilling" }[] = [
   { key: "overview", href: "/club/settings", label: "Overview", requires: "any" },
   { key: "profile", href: "/club", label: "Club Profile", requires: "profile" },
   { key: "teams", href: "/teams", label: "Teams", requires: "teams" },
@@ -12,6 +12,11 @@ const TABS: { key: ClubSettingsSection; href: string; label: string; requires: "
   { key: "playerMoves", href: "/club/player-moves", label: "Player Moves", requires: "playerMoves" },
   { key: "guardians", href: "/club/settings/guardians", label: "Guardians & Players", requires: "guardians" },
   { key: "subscriptions", href: "/club/settings/subscriptions", label: "Subscriptions & Payments", requires: "subscriptions" },
+  // The only tab that names an outside company, because it is the only one
+  // about a relationship with one. "Subscriptions & Payments" above is
+  // members paying THIS club; this is the club paying Ovalball. Each page
+  // also states the direction of money in its own opening line.
+  { key: "ovalballBilling", href: "/club/settings/ovalball-billing", label: "Ovalball Plan", requires: "ovalballBilling" },
 ]
 
 /**
@@ -43,6 +48,7 @@ export function ClubSettingsNav({
   canPlayerMoves,
   canGuardians,
   canSubscriptions,
+  canOvalballBilling,
 }: {
   active: ClubSettingsSection
   canProfile: boolean
@@ -53,6 +59,7 @@ export function ClubSettingsNav({
   canPlayerMoves?: boolean
   canGuardians?: boolean
   canSubscriptions?: boolean
+  canOvalballBilling?: boolean
 }) {
   const visible = TABS.filter(
     (t) =>
@@ -64,7 +71,8 @@ export function ClubSettingsNav({
       (t.requires === "pitchAllocation" && Boolean(canPitchAllocation)) ||
       (t.requires === "playerMoves" && Boolean(canPlayerMoves)) ||
       (t.requires === "guardians" && Boolean(canGuardians)) ||
-      (t.requires === "subscriptions" && Boolean(canSubscriptions))
+      (t.requires === "subscriptions" && Boolean(canSubscriptions)) ||
+      (t.requires === "ovalballBilling" && Boolean(canOvalballBilling))
   )
   if (visible.length <= 1) return null
   return (

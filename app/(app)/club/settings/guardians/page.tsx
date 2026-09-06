@@ -35,7 +35,7 @@ export default async function ClubGuardiansPage() {
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeClubId(ctx, activeContext)
 
-  const [canGuardians, canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves] = clubId
+  const [canGuardians, canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canOvalballBilling] = clubId
     ? await Promise.all([
         hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
         hasCapability(supabase, "club.edit_profile", "club", { clubId }),
@@ -44,8 +44,9 @@ export default async function ClubGuardiansPage() {
         hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
         hasCapability(supabase, "fixture.edit", "club", { clubId }),
         hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
+        hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
       ])
-    : [false, false, false, false, false, false, false]
+    : [false, false, false, false, false, false, false, false]
   if (!clubId || !canGuardians) redirect("/club/settings")
   const canTeams = canProfile || canPitches
 
@@ -171,6 +172,7 @@ export default async function ClubGuardiansPage() {
         canPitchAllocation={canPitchAllocation}
         canPlayerMoves={canPlayerMoves}
         canGuardians
+        canOvalballBilling={canOvalballBilling}
       />
 
       {pendingRequests.length > 0 && (

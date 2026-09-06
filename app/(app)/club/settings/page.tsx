@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import Link from "next/link"
-import { Building2, CalendarSync, ChevronRight, MapPin, Users, LayoutGrid, ShieldCheck, CreditCard } from "lucide-react"
+import { Building2, CalendarSync, ChevronRight, MapPin, Users, LayoutGrid, ShieldCheck, CreditCard, Receipt } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
@@ -52,7 +52,7 @@ export default async function ClubSettingsHubPage() {
   // Fixture Secretary}, the identical set the historical Teams nav item
   // used, and nothing broader (unlike fixture.view/club.view, which
   // ordinary club members also hold).
-  const [canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance] = clubId
+  const [canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = clubId
     ? await Promise.all([
         hasCapability(supabase, "club.edit_profile", "club", { clubId }),
         hasCapability(supabase, "club.venues.manage", "club", { clubId }),
@@ -63,12 +63,14 @@ export default async function ClubSettingsHubPage() {
         hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
         hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
         hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
+        hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
       ])
-    : [false, false, false, false, false, false, false, false, false]
+    : [false, false, false, false, false, false, false, false, false, false]
   const canTeams = canProfile || canPitches
   const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
-  if (!canProfile && !canTeams && !canVenues && !canRollover && !canPitchAllocation && !canGuardians && !canSubscriptions) redirect("/dashboard")
+  if (!canProfile && !canTeams && !canVenues && !canRollover && !canPitchAllocation && !canGuardians && !canSubscriptions && !canOvalballBilling)
+    redirect("/dashboard")
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"
 
@@ -113,7 +115,13 @@ export default async function ClubSettingsHubPage() {
       href: "/club/settings/subscriptions",
       icon: CreditCard,
       title: "Subscriptions & Payments",
-      description: "GoCardless connection, membership pricing, and sibling discounts.",
+      description: "What your own members pay this club: GoCardless connection, membership pricing, and sibling discounts.",
+    },
+    canOvalballBilling && {
+      href: "/club/settings/ovalball-billing",
+      icon: Receipt,
+      title: "Ovalball Plan",
+      description: "What this club pays Ovalball: your plan or trial, billing history, credit, and referrals.",
     },
   ].filter((s): s is { href: string; icon: typeof Building2; title: string; description: string } => Boolean(s))
 
@@ -133,6 +141,7 @@ export default async function ClubSettingsHubPage() {
         canPlayerMoves={canPlayerMoves}
         canGuardians={canGuardians}
         canSubscriptions={canSubscriptions}
+        canOvalballBilling={canOvalballBilling}
       />
 
       <ul className="mt-6 flex flex-col gap-2">

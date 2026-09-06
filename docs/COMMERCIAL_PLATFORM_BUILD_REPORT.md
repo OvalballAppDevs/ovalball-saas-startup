@@ -1000,3 +1000,106 @@ this and is **not** committed.
 - `lib/app-context/session-context.ts` (+`manageSystem`, +`viewCommercial`)
 - `lib/app-context/build-nav-items.ts`, `lib/app-context/active-context.verify.ts`
 - `types/database.types.ts` (regenerated)
+
+---
+
+## PHASE J — COMPLETE (live-verified)
+
+Club Settings → **Ovalball Plan**.
+
+### The naming problem, solved by naming
+
+A Club Admin now has two tabs a few pixels apart:
+
+| Tab | Direction of money |
+|---|---|
+| Subscriptions & Payments | Members pay this club, through the club's own merchant. |
+| **Ovalball Plan** | This club pays Ovalball, through Pipaxon's merchant. |
+
+Three things keep them apart, and **none of them is a warning banner**:
+
+1. The new tab is the only one in the strip that names an outside company.
+2. Each page states the direction of money in its **first line**. The new
+   page: *"Burnley RUFC pays Ovalball to use the platform. What your own
+   members pay the club is under Subscriptions & Payments"*, with a link.
+   The existing page's lede was amended to the mirror image: *"Members pay
+   Burnley RUFC."*
+3. Only the Ovalball Plan page carries the dark `forest-950` state block, so
+   the two differ at a glance before a word is read.
+
+A warning that exists to explain a naming problem means the naming is
+wrong. The naming was fixed instead.
+
+### Beta is not a banner
+
+When Ovalball is in Beta the "Next collection" line reads **"Nothing while
+Ovalball is in Beta"**. A banner at the top of a page is something to
+scroll past; the answer belongs where the question is asked. Verified live
+in both modes.
+
+### Nine states, all written
+
+Trial running · trial paused by Beta · trial paused by the club · trial
+ended · plan chosen but no mandate · active · active with credit covering
+the cycle · past due · cancelled. The failure mode of a billing page is a
+state nobody wrote copy for, so all nine have copy.
+
+### Pro, without the dark pattern
+
+**No disabled button.** A greyed-out "Choose Pro" says "you are being
+withheld from something", which is unpleasant and untrue. The card carries
+the price, "Coming soon", and one sentence: *"Pro doesn't include anything
+Standard doesn't yet. When it does, you'll be able to switch."*
+
+That sentence is **computed, not asserted**: the page compares the two
+plans' entitlement sets and only renders it when it is actually true. It
+disappears by itself the day Pro means something.
+
+### Referrals
+
+On the same page, because a club thinks about referring when it is looking
+at what Ovalball costs. The offer is quoted exactly as the engine behaves —
+"successfully collected" is load-bearing. Statuses are shown as what
+happened ("On Ovalball, not yet paid"), never as the database's word, and
+only `reversed` gets colour.
+
+### Live verification
+
+Signed in through the real passwordless flow as
+`test.burnley.admin@ovalball.local` (Club Admin of Burnley RUFC), desktop
+viewport.
+
+| Checked | Result |
+|---|---|
+| Tab appears in the Club Settings strip, active | PASS |
+| Lede states the direction of money and links to the sibling tab | PASS |
+| `FREE TRIAL · 16 DAYS LEFT`, "Nothing yet — you are on a free trial" | PASS |
+| Pro card: price, "Coming soon", honest sentence, **no button** | PASS |
+| **Choosing Standard applied** — subscription created, block became `STANDARD · SETUP NEEDED`, next-collection line turned amber with "Nothing until your Direct Debit is set up" | PASS |
+| Switching the platform to Beta changed the same line to "Nothing while Ovalball is in Beta" | PASS |
+| Billing history, credit and referral empty states | PASS |
+
+### A real bug this found
+
+Live use caught something code review had not: `currentPlanCode` was set
+from the **effective** plan, which a trial resolves to Standard. Standard
+therefore rendered as "Your current plan" with no Choose button, and **a
+club on trial could never convert**. It now uses the subscription's plan,
+which is null during a trial. Re-verified: the button appears, and pressing
+it creates the subscription.
+
+### Gaps, stated
+
+- The "Referral terms" link points at `/legal/referral-terms`, which does
+  not exist yet. Phase L writes it.
+- Desktop viewport only. Mobile is Phase M.
+- Nothing here can create a mandate: Phase G's three gates are all closed,
+  so "set up a Direct Debit" has no live provider behind it yet.
+
+### Files
+
+- `app/(app)/club/settings/ovalball-billing/*` (new: page, state block, plan
+  chooser, referral section, start-trial button, actions)
+- `app/(app)/club/settings/club-settings-nav.tsx` (+ the tab)
+- Nine Club Settings pages wired for the new capability, and the
+  Subscriptions & Payments lede restated

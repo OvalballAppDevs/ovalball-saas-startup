@@ -34,7 +34,7 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeClubId(ctx, activeContext)
 
-  const [canConfigure, canViewFinance, canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canGuardians] = clubId
+  const [canConfigure, canViewFinance, canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canGuardians, canOvalballBilling] = clubId
     ? await Promise.all([
         hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
         hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
@@ -45,8 +45,9 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
         hasCapability(supabase, "fixture.edit", "club", { clubId }),
         hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
         hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
+        hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
       ])
-    : [false, false, false, false, false, false, false, false, false]
+    : [false, false, false, false, false, false, false, false, false, false]
   if (!clubId || (!canConfigure && !canViewFinance)) redirect("/club/settings")
   const canTeams = canProfile || canPitches
 
@@ -65,7 +66,13 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club Settings</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Subscriptions &amp; Payments</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">Monthly membership subscriptions for {clubName}, collected via GoCardless Direct Debit. Sandbox only -- no real money moves through this feature yet.</p>
+      {/* States the direction of money in the first line, so a Club Admin who
+          lands here looking for what the club pays Ovalball knows immediately
+          that they want the Ovalball Plan tab instead. */}
+      <p className="mt-2 max-w-md text-sm text-ink/55">
+        Members pay {clubName}. Monthly membership subscriptions collected through the club&rsquo;s own
+        GoCardless Direct Debit. Sandbox only &mdash; no real money moves through this feature yet.
+      </p>
 
       <ClubSettingsNav
         active="subscriptions"
@@ -77,6 +84,7 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
         canPlayerMoves={canPlayerMoves}
         canGuardians={canGuardians}
         canSubscriptions
+        canOvalballBilling={canOvalballBilling}
       />
 
       {params.gc_error && <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{params.gc_error}</p>}
