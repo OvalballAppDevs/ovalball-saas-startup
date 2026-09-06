@@ -20,6 +20,8 @@ This report covers two passes: an initial implementation pass, and a second, del
 4. `20260929300000_training_session_schedule_rule_fk_fix.sql` — same-day bug fix (plan-edit FK violation, see below).
 5. `20260929400000_reactivate_plan_restores_cancelled_sessions_fix.sql` — second-pass bug fix (reactivation orphaning, see below).
 
+*(Filenames above are the original development-time names, kept as-written for historical accuracy. All Side2 post-fork migrations were renumbered once, for Main integration, on top of Main's own migration history — see "Pre-integration remediation" near the end of this report for the exact rename map. Nothing in this list's SQL content changed as part of that rename.)*
+
 ## Bugs found and fixed
 
 **First pass (caught by an SQL smoke test, before any UI existed):**
