@@ -1285,3 +1285,79 @@ types on `account_security`.
 - `components/site/legal-page-layout.tsx` (+`draftNote`)
 - `lib/legal/metadata.ts` (registry entry; comment on `LEGAL_VERSION`)
 - `docs/LEGAL_REVIEW_REQUIRED.md` (new section G, and the version decision)
+
+---
+
+## PHASE M — COMPLETE
+
+Tests and UAT. Full write-up:
+**`docs/COMMERCIAL_PLATFORM_FINAL_REPORT.md`** (§113 A–AC and the verdict).
+
+### One runner
+
+```bash
+./scripts/run-platform-tests.sh
+```
+
+**131 passed, 0 failed across 9 suites.** Every suite is wrapped in
+`begin`/`rollback`, so running it leaves the local database as it found it,
+and the script refuses to run without the local container.
+
+### The role-switched sweep Phase H promised
+
+`supabase/tests/platform_rls_sweep.sql`. Phase H recorded that an access
+assertion run from this project's `postgres` session proves nothing, because
+superusers bypass RLS. This suite runs every read as `authenticated` (and
+`anon`), which is what a browser session actually is, and checks the whole
+commercial surface at once rather than table by table.
+
+### A real security bug the sweep found
+
+`platform_mode_events` had an INSERT policy gated on
+`site.system.beta.manage`. In Phase C that was harmless. **Phase D made it
+dangerous**: `set_platform_mode` now also pauses every club's trial clock,
+and a direct INSERT skips that. The result would have been a platform
+recorded as being in Beta while every trial clock kept running down — a
+club losing days it was promised it would keep, with the mode history
+looking perfectly correct.
+
+The policy is gone. `set_platform_mode` is `SECURITY DEFINER` and still
+writes; nothing else can.
+
+This is the second defect of the same shape found by testing rather than by
+reading — the first was the default-privilege grants in Phase G — and both
+were invisible in the code that introduced them.
+
+### Build
+
+`npm run build` compiled successfully. All four new routes present:
+`/admin/releases`, `/admin/commercial`,
+`/club/settings/ovalball-billing`, `/invited`.
+
+### Mobile — not verified, and why
+
+`resize_window` does not change the layout viewport in this environment:
+after resizing the window to 390×844, `document.documentElement.clientWidth`
+still reported **1512**. Mobile rendering therefore has not been seen, and
+is recorded as an open gap rather than claimed.
+
+What *was* checked, statically: the only table sits inside an
+`overflow-x-auto` wrapper **and** is `hidden` below `md` with a card-list
+alternative, and no new surface uses a fixed pixel width.
+
+### Files
+
+- `scripts/run-platform-tests.sh` (new)
+- `supabase/tests/platform_rls_sweep.sql` (new)
+- `supabase/migrations/20261009000000_mode_events_no_direct_insert.sql` (new)
+- `docs/COMMERCIAL_PLATFORM_FINAL_REPORT.md` (new)
+
+---
+
+# Verdict
+
+**OVALBALL COMMERCIAL PLATFORM — IMPLEMENTATION VERIFIED / PROVIDER UAT
+DEFERRED**
+
+Reasoning and the full gap list are in
+`docs/COMMERCIAL_PLATFORM_FINAL_REPORT.md`.
