@@ -2,13 +2,13 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { hasCapability } from "@/lib/permissions/has-capability"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { resolvePlayerAgeState } from "@/lib/players/age-state"
 import { createClient } from "@/lib/supabase/server"
 import { compactTeamLabel } from "@/lib/teams/compact-label"
 
 import { ClubSettingsNav } from "../club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "../resolve-nav-capabilities"
 import { DuplicateReviewRow, type DuplicateReviewData } from "./duplicate-review-row"
 import { PendingMembershipRow, type PendingMembershipData } from "./pending-membership-row"
 import { PlayerGuardianCard, type PlayerGuardianData } from "./player-guardian-card"
@@ -35,20 +35,9 @@ export default async function ClubGuardiansPage() {
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeClubId(ctx, activeContext)
 
-  const [canGuardians, canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canOvalballBilling] = clubId
-    ? await Promise.all([
-        hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
-        hasCapability(supabase, "club.edit_profile", "club", { clubId }),
-        hasCapability(supabase, "club.venues.manage", "club", { clubId }),
-        hasCapability(supabase, "club.pitches.manage", "club", { clubId }),
-        hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
-        hasCapability(supabase, "fixture.edit", "club", { clubId }),
-        hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
-        hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
-      ])
-    : [false, false, false, false, false, false, false, false]
+  const navCaps = await resolveClubSettingsNavCapabilities(supabase, clubId)
+  const { canGuardians } = navCaps
   if (!clubId || !canGuardians) redirect("/club/settings")
-  const canTeams = canProfile || canPitches
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"
 
@@ -163,17 +152,7 @@ export default async function ClubGuardiansPage() {
       <h1 className="mt-2 font-display text-display-l text-ink">Guardians &amp; Players</h1>
       <p className="mt-2 max-w-md text-sm text-ink/55">Guardian relationships and player-record safeguarding for {clubName}.</p>
 
-      <ClubSettingsNav
-        active="guardians"
-        canProfile={canProfile}
-        canTeams={canTeams}
-        canVenues={canVenues}
-        canRollover={canRollover}
-        canPitchAllocation={canPitchAllocation}
-        canPlayerMoves={canPlayerMoves}
-        canGuardians
-        canOvalballBilling={canOvalballBilling}
-      />
+      <ClubSettingsNav active="guardians" {...navCaps} />
 
       {pendingRequests.length > 0 && (
         <section className="mt-8">

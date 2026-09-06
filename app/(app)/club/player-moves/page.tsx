@@ -3,11 +3,11 @@ import { cookies } from "next/headers"
 import { Users } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { hasCapability } from "@/lib/permissions/has-capability"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
 import { ClubSettingsNav } from "../settings/club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "../settings/resolve-nav-capabilities"
 import { CallUpPanel, type CallUpFixtureOption, type CallUpPlayerOption, type CallUpRow, type CallUpTeamOption } from "./call-up-panel"
 import { DispensationPanel, type DispensationRow } from "./dispensation-panel"
 
@@ -30,21 +30,9 @@ export default async function PlayerMovesPage() {
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const activeClub = activeManageableClubId(ctx, activeContext)
 
-  const [canCallUps, canDispensations, canEditProfile, canVenues, canRollover, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = activeClub
-    ? await Promise.all([
-        hasCapability(supabase, "manage_fixture_callups", "club", { clubId: activeClub }),
-        hasCapability(supabase, "manage_player_dispensations", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.edit_profile", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.venues.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.season_rollover.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.guardians.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.subscription.configure", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.platform_billing.view", "club", { clubId: activeClub }),
-      ])
-    : [false, false, false, false, false, false, false, false, false]
+  const navCaps = await resolveClubSettingsNavCapabilities(supabase, activeClub)
+  const { canFixtureCallups: canCallUps, canPlayerDispensations: canDispensations } = navCaps
   if (!activeClub || (!canCallUps && !canDispensations)) redirect("/dashboard")
-  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
   const { data: club } = await supabase.from("clubs").select("id, club_directory(rugby_code, name)").eq("id", activeClub).maybeSingle()
   if (!club) redirect("/dashboard")
@@ -150,7 +138,6 @@ export default async function PlayerMovesPage() {
     canDecideClub: true, // decide_player_dispensation itself enforces is_club_admin for the club/governing_body stages -- this only controls whether the button renders.
   }))
 
-  const canTeamsForNav = canEditProfile || canVenues
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
@@ -163,7 +150,7 @@ export default async function PlayerMovesPage() {
         Borrow a player for a single fixture, or move one onto a different team for the season -- both need the source team&apos;s consent first.
       </p>
 
-      <ClubSettingsNav active="playerMoves" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canVenues} canRollover={canRollover} canPlayerMoves canGuardians={canGuardians} canSubscriptions={canSubscriptions} canOvalballBilling={canOvalballBilling} />
+      <ClubSettingsNav active="playerMoves" {...navCaps} />
 
       <div className="mt-8 space-y-6">
         {canCallUps && <CallUpPanel teams={teamOptions} fixtures={fixtureOptions} players={playerOptions} rows={callUps} />}

@@ -4,7 +4,6 @@ import { cookies } from "next/headers"
 import { ChevronRight } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { hasCapability } from "@/lib/permissions/has-capability"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { computeTeamAvailability, loadTeamCategoryGroups, type ExistingClubTeam } from "@/lib/teams/catalog"
 import { compactTeamLabel, fullTeamLabel } from "@/lib/teams/compact-label"
@@ -13,6 +12,7 @@ import { createClient } from "@/lib/supabase/server"
 
 import type { SchedulingGroup } from "../club/actions"
 import { ClubSettingsNav } from "../club/settings/club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "../club/settings/resolve-nav-capabilities"
 import { CreateTeamForm } from "./create-team-form"
 import { MiniRugbyCalendarsSection } from "./mini-rugby-calendars-section"
 
@@ -44,23 +44,9 @@ export default async function TeamsPage() {
   // grant/deny override on club.edit_profile/club.pitches.manage for this
   // specific person now correctly changes what this page shows (Section
   // 21: propagation) without this page needing its own re-derivation.
-  const [canEditProfile, canPitches, canVenues, canRollover, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = clubId
-    ? await Promise.all([
-        hasCapability(supabase, "club.edit_profile", "club", { clubId }),
-        hasCapability(supabase, "club.pitches.manage", "club", { clubId }),
-        hasCapability(supabase, "club.venues.manage", "club", { clubId }),
-        hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
-        hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
-        hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
-        hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
-        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
-        hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
-      ])
-    : [false, false, false, false, false, false, false, false, false]
-  const isClubAdmin = canEditProfile
-  const canTeams = isClubAdmin || canPitches
-  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
-  if (!canTeams) redirect("/dashboard")
+  const navCaps = await resolveClubSettingsNavCapabilities(supabase, clubId)
+  const isClubAdmin = navCaps.canProfile
+  if (!navCaps.canTeams) redirect("/dashboard")
 
   const { data: teams } = clubId
     ? await supabase
@@ -173,7 +159,7 @@ export default async function TeamsPage() {
         Every real playing side has its own calendar and its own team-scoped roles.
       </p>
 
-      <ClubSettingsNav active="teams" canProfile={canEditProfile} canTeams={canTeams} canVenues={canVenues} canRollover={canRollover} canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} canOvalballBilling={canOvalballBilling} />
+      <ClubSettingsNav active="teams" {...navCaps} />
 
       {activeTeams.length > 0 ? (
         <ul className="mt-8 flex flex-col gap-2">

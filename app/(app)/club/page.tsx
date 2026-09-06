@@ -3,7 +3,6 @@ import { cookies } from "next/headers"
 import Link from "next/link"
 
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { hasCapability } from "@/lib/permissions/has-capability"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -15,6 +14,7 @@ import type { KitConfig, KitPattern } from "@/components/club/rugby-kit"
 
 import { KitSection } from "./kit-section"
 import { ClubSettingsNav } from "./settings/club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "./settings/resolve-nav-capabilities"
 
 export default async function ClubProfilePage() {
   const supabase = await createClient()
@@ -38,23 +38,9 @@ export default async function ClubProfilePage() {
   // enforces on the write, via the has_capability RPC -- so a Site Admin
   // deny override on club.edit_profile for this specific person correctly
   // hides this page's form too, not just blocks the write underneath it.
-  const [canEditProfile, canVenues, canPitches, canRollover, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = activeClub
-    ? await Promise.all([
-        hasCapability(supabase, "club.edit_profile", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.venues.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.pitches.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.season_rollover.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "manage_fixture_callups", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.guardians.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.subscription.configure", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.platform_billing.view", "club", { clubId: activeClub }),
-      ])
-    : [false, false, false, false, false, false, false, false, false]
+  const navCaps = await resolveClubSettingsNavCapabilities(supabase, activeClub)
+  const { canProfile: canEditProfile } = navCaps
   if (!canEditProfile || !activeClub) redirect("/dashboard")
-  // venues/pitches/rollover/guardians/subscriptions only computed for the shared tab strip's accuracy -- see club-settings-nav.tsx.
-  const canTeamsForNav = canEditProfile || canPitches
-  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
   const { data: club } = await supabase
     .from("clubs")
@@ -177,7 +163,7 @@ export default async function ClubProfilePage() {
         here &mdash; contact support if any of that is wrong. Everything below is yours to manage.
       </p>
 
-      <ClubSettingsNav active="profile" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canVenues} canRollover={canRollover} canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} canOvalballBilling={canOvalballBilling} />
+      <ClubSettingsNav active="profile" {...navCaps} />
 
       <div className="mt-8 rounded-lg border border-ink/10 bg-white p-6">
         <ClubProfileForm

@@ -3,11 +3,11 @@ import { cookies } from "next/headers"
 import Link from "next/link"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { hasCapability } from "@/lib/permissions/has-capability"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
 import { ClubSettingsNav } from "../club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "../resolve-nav-capabilities"
 import { GoCardlessConnectPanel } from "./gocardless-connect-panel"
 import { PricePanel } from "./price-panel"
 import { SiblingDiscountPanel } from "./sibling-discount-panel"
@@ -34,22 +34,9 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeClubId(ctx, activeContext)
 
-  const [canConfigure, canViewFinance, canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canGuardians, canOvalballBilling] = clubId
-    ? await Promise.all([
-        hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
-        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
-        hasCapability(supabase, "club.edit_profile", "club", { clubId }),
-        hasCapability(supabase, "club.venues.manage", "club", { clubId }),
-        hasCapability(supabase, "club.pitches.manage", "club", { clubId }),
-        hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
-        hasCapability(supabase, "fixture.edit", "club", { clubId }),
-        hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
-        hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
-        hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
-      ])
-    : [false, false, false, false, false, false, false, false, false, false]
+  const navCaps = await resolveClubSettingsNavCapabilities(supabase, clubId)
+  const { canSubscriptionConfigure: canConfigure, canSubscriptionViewFinance: canViewFinance } = navCaps
   if (!clubId || (!canConfigure && !canViewFinance)) redirect("/club/settings")
-  const canTeams = canProfile || canPitches
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"
 
@@ -74,18 +61,7 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
         GoCardless Direct Debit. Sandbox only &mdash; no real money moves through this feature yet.
       </p>
 
-      <ClubSettingsNav
-        active="subscriptions"
-        canProfile={canProfile}
-        canTeams={canTeams}
-        canVenues={canVenues}
-        canRollover={canRollover}
-        canPitchAllocation={canPitchAllocation}
-        canPlayerMoves={canPlayerMoves}
-        canGuardians={canGuardians}
-        canSubscriptions
-        canOvalballBilling={canOvalballBilling}
-      />
+      <ClubSettingsNav active="subscriptions" {...navCaps} />
 
       {params.gc_error && <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{params.gc_error}</p>}
       {params.gc_connected && <p className="mt-6 rounded-lg border border-pitch-600/30 bg-pitch-50 px-4 py-3 text-sm text-forest-800">GoCardless connected successfully.</p>}

@@ -11,6 +11,7 @@ import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 
 import { ClubSettingsNav } from "../club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "../resolve-nav-capabilities"
 import { BillingStateBlock } from "./billing-state-block"
 import { PlanChooser, type PlanCard } from "./plan-chooser"
 import { ReferralSection } from "./referral-section"
@@ -40,33 +41,12 @@ export default async function OvalballBillingPage() {
   const clubId = activeClubId(ctx, activeContext)
   if (!clubId) redirect("/dashboard")
 
-  const [
-    canView,
-    canManage,
-    canReferrals,
-    canProfile,
-    canVenues,
-    canPitches,
-    canRollover,
-    canPitchAllocation,
-    canPlayerMoves,
-    canGuardians,
-    canSubscriptionConfigure,
-    canSubscriptionViewFinance,
-  ] = await Promise.all([
-    hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
+  const [navCaps, canManage, canReferrals] = await Promise.all([
+    resolveClubSettingsNavCapabilities(supabase, clubId),
     hasCapability(supabase, "club.platform_billing.manage", "club", { clubId }),
     hasCapability(supabase, "club.referrals.view", "club", { clubId }),
-    hasCapability(supabase, "club.edit_profile", "club", { clubId }),
-    hasCapability(supabase, "club.venues.manage", "club", { clubId }),
-    hasCapability(supabase, "club.pitches.manage", "club", { clubId }),
-    hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
-    hasCapability(supabase, "fixture.edit", "club", { clubId }),
-    hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
-    hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
-    hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
-    hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
   ])
+  const canView = navCaps.canPlatformBillingView
 
   if (!canView) redirect("/club/settings")
 
@@ -144,18 +124,7 @@ export default async function OvalballBillingPage() {
         .
       </p>
 
-      <ClubSettingsNav
-        active="ovalballBilling"
-        canProfile={canProfile}
-        canTeams={canProfile || canPitches}
-        canVenues={canVenues}
-        canRollover={canRollover}
-        canPitchAllocation={canPitchAllocation}
-        canPlayerMoves={canPlayerMoves}
-        canGuardians={canGuardians}
-        canSubscriptions={canSubscriptionConfigure || canSubscriptionViewFinance}
-        canOvalballBilling
-      />
+      <ClubSettingsNav active="ovalballBilling" {...navCaps} />
 
       {state ? (
         <BillingStateBlock

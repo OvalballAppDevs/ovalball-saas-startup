@@ -2,12 +2,12 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { hasCapability } from "@/lib/permissions/has-capability"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
 import type { ClubPitch, ClubVenue } from "../actions"
 import { ClubSettingsNav } from "../settings/club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "../settings/resolve-nav-capabilities"
 import { VenuesSection } from "./venues-section"
 
 /**
@@ -37,23 +37,9 @@ export default async function ClubVenuesPage() {
   // historical Club-Admin-only boundary exactly -- see the module
   // doc-comment above for why Fixtures Secretary still doesn't reach this
   // settings surface even though club.pitches.manage would let them write).
-  const [canManageVenues, canEditProfile, canPitches, canRollover, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = activeClub
-    ? await Promise.all([
-        hasCapability(supabase, "club.venues.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.edit_profile", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.pitches.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.season_rollover.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "manage_fixture_callups", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.guardians.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.subscription.configure", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.platform_billing.view", "club", { clubId: activeClub }),
-      ])
-    : [false, false, false, false, false, false, false, false, false]
+  const navCaps = await resolveClubSettingsNavCapabilities(supabase, activeClub)
+  const { canVenues: canManageVenues } = navCaps
   if (!canManageVenues || !activeClub) redirect("/dashboard")
-  // profile/pitches/rollover/guardians/subscriptions only computed for the shared tab strip's accuracy -- see club-settings-nav.tsx.
-  const canTeamsForNav = canEditProfile || canPitches
-  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
   const [{ data: venues }, { data: pitches }] = await Promise.all([
     supabase
@@ -97,7 +83,7 @@ export default async function ClubVenuesPage() {
         instead of removing it if a fixture already references it.
       </p>
 
-      <ClubSettingsNav active="venues" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canManageVenues} canRollover={canRollover} canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} canOvalballBilling={canOvalballBilling} />
+      <ClubSettingsNav active="venues" {...navCaps} />
 
       <div className="mt-8">
         <VenuesSection clubId={activeClub} initialVenues={venueRows} initialPitches={pitchRows} />

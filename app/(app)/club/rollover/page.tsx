@@ -3,12 +3,12 @@ import { cookies } from "next/headers"
 import { CalendarSync } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { hasCapability } from "@/lib/permissions/has-capability"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
 import { createClient } from "@/lib/supabase/server"
 
 import { ClubSettingsNav } from "../settings/club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "../settings/resolve-nav-capabilities"
 import { AutomaticHandoverStatus, type HandoverGroupFlag, type HandoverReviewTeam } from "./automatic-handover-status"
 import { GraduationQueue, type GraduationQueueRow, type GraduationTargetTeamOption } from "./graduation-queue"
 import { MiniRugbyNextSeasonReview, type MiniRugbyGroupRow } from "./mini-rugby-next-season"
@@ -41,23 +41,9 @@ export default async function ClubRolloverPage() {
   // role comparison, so a Site Admin grant/deny override for this
   // specific club-scoped capability correctly changes what this page
   // allows.
-  const [canRunRollover, canEditProfile, canVenues, canPitches, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = activeClub
-    ? await Promise.all([
-        hasCapability(supabase, "club.season_rollover.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.edit_profile", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.venues.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.pitches.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "manage_fixture_callups", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.guardians.manage", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.subscription.configure", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId: activeClub }),
-        hasCapability(supabase, "club.platform_billing.view", "club", { clubId: activeClub }),
-      ])
-    : [false, false, false, false, false, false, false, false, false]
+  const navCaps = await resolveClubSettingsNavCapabilities(supabase, activeClub)
+  const { canRollover: canRunRollover } = navCaps
   if (!canRunRollover || !activeClub) redirect("/dashboard")
-  // profile/pitches/guardians/subscriptions only computed for the shared tab strip's accuracy -- see club-settings-nav.tsx.
-  const canTeamsForNav = canEditProfile || canPitches
-  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
   const { data: club } = await supabase
     .from("clubs")
@@ -284,7 +270,7 @@ export default async function ClubRolloverPage() {
         changes until you confirm each team individually below.
       </p>
 
-      <ClubSettingsNav active="rollover" canProfile={canEditProfile} canTeams={canTeamsForNav} canVenues={canVenues} canRollover={canRunRollover} canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} canOvalballBilling={canOvalballBilling} />
+      <ClubSettingsNav active="rollover" {...navCaps} />
 
       <div className="mt-8 space-y-6">
         {nextSeasonOption && (

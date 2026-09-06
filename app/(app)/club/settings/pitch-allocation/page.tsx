@@ -2,11 +2,11 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { hasCapability } from "@/lib/permissions/has-capability"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
 import { ClubSettingsNav } from "../club-settings-nav"
+import { resolveClubSettingsNavCapabilities } from "../resolve-nav-capabilities"
 import { PitchAllocationSettingsForm } from "./settings-form"
 
 /**
@@ -29,18 +29,9 @@ export default async function PitchAllocationSettingsPage() {
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeClubId(ctx, activeContext)
 
-  const canPitchAllocation = clubId ? await hasCapability(supabase, "fixture.edit", "club", { clubId }) : false
+  const navCaps = await resolveClubSettingsNavCapabilities(supabase, clubId)
+  const { canPitchAllocation } = navCaps
   if (!clubId || !canPitchAllocation) redirect("/club/settings")
-  const [canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = clubId
-    ? await Promise.all([
-        hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
-        hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
-        hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
-        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
-        hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
-      ])
-    : [false, false, false, false, false]
-  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
   const { data: policyRow } = await supabase
     .from("club_scheduling_policy")
@@ -56,7 +47,7 @@ export default async function PitchAllocationSettingsPage() {
       <h1 className="mt-2 font-display text-display-l text-ink">Pitch Allocation</h1>
       <p className="mt-2 max-w-md text-sm text-ink/55">How {clubName} schedules home fixtures onto pitches.</p>
 
-      <ClubSettingsNav active="pitchAllocation" canProfile={false} canTeams={false} canVenues={false} canRollover={false} canPitchAllocation canPlayerMoves={canPlayerMoves} canGuardians={canGuardians} canSubscriptions={canSubscriptions} canOvalballBilling={canOvalballBilling} />
+      <ClubSettingsNav active="pitchAllocation" {...navCaps} />
 
       <div className="mt-8">
         <PitchAllocationSettingsForm
