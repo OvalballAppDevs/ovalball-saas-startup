@@ -2,12 +2,22 @@
 -- (extension of Training Management, never a second fixture store).
 --
 -- Section A's rule stays true throughout: one fixture is one canonical
--- fixtures row (a two-sided confirmed fixture is genuinely TWO rows, one
--- per owning_team_id, reciprocally linked by mirror_fixture_id -- this
--- migration extends that exact, pre-existing shape rather than inventing
--- a parallel one). Every action here mutates the same fixtures row every
--- other surface (Fixture Management, Pitch Allocation, messaging, results,
--- Parent/Player consumption, exports, audit) already reads.
+-- fixtures row. CORRECTED at pre-integration reconciliation (this
+-- statement was wrong when first written): a confirmed two-sided fixture
+-- has been genuinely ONE physical row, with fixtures.id as its stable
+-- identity, since 20260904600000_master_fixture_consolidation.sql --
+-- before this side project even forked. mirror_fixture_id is legacy
+-- compatibility only (that migration's own words: "mirror_fixture_id is
+-- legacy-only, that code path has not created a new pair since");
+-- conversation_id is a messaging convenience, never fixture identity.
+-- Every "if mirror_fixture_id is not null" branch below is real,
+-- harmless defensive code for old historical mirror pairs that predate
+-- the consolidation -- it is a guaranteed no-op for every fixture
+-- created via the current (and pre-fork) accept_fixture_request, and is
+-- kept as-is rather than removed. Every action here mutates the same
+-- single fixtures row every other surface (Fixture Management, Pitch
+-- Allocation, messaging, results, Parent/Player consumption, exports,
+-- audit) already reads.
 
 -- ============================================================
 -- Part A: archive/soft-delete fields. Orthogonal to `status` -- an
@@ -90,7 +100,7 @@ end;
 $$;
 
 comment on function public.cancel_fixture(uuid, text) is
-  'The safe, guided path to cancel a fixture from Calendar -- same authority boundary as every other fixture mutation (can_submit_fixture_result), required reason, propagates to the mirror row exactly like fold_team() already does, posts a system-event message into the shared conversation, and notifies both sides'' officials. Never used for the Status dropdown''s other values -- Cancelled is deliberately unreachable there once this exists (see fixture-actions.ts).';
+  'The safe, guided path to cancel a fixture from Calendar -- same authority boundary as every other fixture mutation (can_submit_fixture_result), required reason, posts a system-event message into the shared conversation, and notifies both sides'' officials. The mirror_fixture_id branch is legacy-compatibility only (a guaranteed no-op for any fixture created via the current accept_fixture_request, matching fold_team()''s own precedent) -- the single canonical row this function updates is already what both sides'' Calendar/Fixture Management queries read directly. Never used for the Status dropdown''s other values -- Cancelled is deliberately unreachable there once this exists (see fixture-actions.ts).';
 
 revoke execute on function public.cancel_fixture(uuid, text) from public;
 grant execute on function public.cancel_fixture(uuid, text) to authenticated;
