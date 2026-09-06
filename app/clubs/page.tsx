@@ -7,6 +7,7 @@ import { Footer } from "@/components/site/footer"
 import { Header } from "@/components/site/header"
 import { PartnerWall } from "@/components/site/partner-wall"
 import { getPublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
+import { getBetaBadgeState } from "@/lib/platform/mode"
 import { Reveal } from "@/lib/motion/reveal"
 
 export const metadata: Metadata = {
@@ -40,10 +41,11 @@ const CONNECTION_PRINCIPLES: { title: string; body: string }[] = [
 
 export default async function ClubsPage() {
   const identity = await getPublicHeaderIdentity()
+  const beta = await getBetaBadgeState()
 
   return (
     <>
-      <Header identity={identity} />
+      <Header identity={identity} beta={beta} />
       <main>
         {/* Hero: the strongest human image in the bank, used once, at full
             bleed. Two teammates walking off toward a lit clubhouse says

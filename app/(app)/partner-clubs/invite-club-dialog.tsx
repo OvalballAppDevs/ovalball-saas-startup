@@ -4,6 +4,8 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import Link from "next/link"
+
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -66,17 +68,38 @@ export function InviteClubDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite {clubName} to Ovalball</DialogTitle>
+          <DialogTitle>Refer {clubName} &mdash; get one month free</DialogTitle>
           <DialogDescription>
             {clubName} isn&apos;t on Ovalball yet. We&apos;ll email an invitation to join &mdash; they&apos;ll go through the normal
             sign-up and club-claim process, never an automatic account.
           </DialogDescription>
         </DialogHeader>
 
+        {/* The offer, stated exactly as the engine behaves. "Successfully
+            collected" is load-bearing: a sign-up, a trial, a mandate or a
+            submitted payment all earn nothing. This is the same invitation
+            it always was -- the referral is claimed on it automatically, so
+            there is no second form and no second flow. */}
+        {!sentLink && (
+          <div className="rounded-lg bg-mint-100 px-4 py-3.5">
+            <p className="text-sm leading-relaxed text-forest-950">
+              If they start a paid Ovalball subscription and their first payment is successfully
+              collected, your club gets one month of its current plan free.
+            </p>
+            <Link
+              href="/legal/referral-terms"
+              className="mt-1.5 inline-block text-xs font-medium text-forest-800 underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
+            >
+              Referral terms apply
+            </Link>
+          </div>
+        )}
+
         {sentLink ? (
           <div className="flex flex-col gap-3">
             <p className="rounded-lg border border-pitch-600/30 bg-pitch-600/5 px-4 py-3 text-sm text-forest-800">
-              Invitation sent to {contactEmail}.
+              Invitation sent to {contactEmail}. It counts as your referral &mdash; you&apos;ll see it
+              under Ovalball Plan.
             </p>
             <div>
               <Label className="text-ink/80">Invite link</Label>
@@ -114,7 +137,7 @@ export function InviteClubDialog({
           <DialogClose render={<Button type="button" variant="outline" className="h-10" />}>{sentLink ? "Close" : "Cancel"}</DialogClose>
           {!sentLink && (
             <Button type="button" className="h-10" disabled={sending} onClick={handleInvite}>
-              {sending ? "Sending…" : "Invite to Ovalball"}
+              {sending ? "Sending…" : "Send invitation"}
             </Button>
           )}
         </DialogFooter>

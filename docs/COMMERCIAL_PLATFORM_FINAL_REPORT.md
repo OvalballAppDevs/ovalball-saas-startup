@@ -6,7 +6,28 @@ Phases A to M. Per-phase detail is in
 `docs/COMMERCIAL_UI_DESIGN_PLAN.md`.
 
 **Nothing in this workstream has been applied to production, pushed, or
-deployed.** Twelve local commits on `main`.
+deployed.**
+
+### Verified Git state
+
+Recorded from `git`, not from memory:
+
+| | |
+|---|---|
+| Branch | `main` |
+| HEAD | the reconciliation commit (this one — a commit cannot record its own hash) |
+| Parent | `d952018` |
+| Unpushed commits on `main` | **14** |
+| Workstream commits including Phase A | 15 (Phase A's `fc0d248` is already on `origin/main`) |
+| Working tree | clean |
+
+An earlier version of this report said "twelve local commits". That was
+stale, and the figures above were taken from
+`git rev-list --count origin/main..HEAD` rather than counted by hand.
+
+HEAD is named by its parent rather than by its own hash: a commit cannot
+contain its own SHA, and the first attempt at this table went stale the
+moment it was amended.
 
 ---
 
@@ -92,9 +113,16 @@ release history is not tidied away.
 
 ## I. System Health updates
 
-`/admin/system-health` unchanged. Release and mode moved to their own page
-rather than being bolted onto a read-only diagnostics card, because they
-are controls, not diagnostics.
+Release and mode live on their own page, `/admin/releases`, because they
+are controls rather than diagnostics. **System Health now also carries a
+read-only "Platform state" card** (added in the reconciliation pass):
+platform mode, published release, Billing `Paused — Beta` / `Active`,
+Trials `Paused — Beta` / `Active`, and a link through to Release &
+Platform Mode.
+
+The card reports; it never mutates. There is one canonical action
+(`set_platform_mode`) on one page, and the card links to it rather than
+duplicating it.
 
 ## J. Trial architecture
 
@@ -200,9 +228,18 @@ Terms §12 renamed to "Payments a club collects from its members"; new §13
 
 **`LEGAL_VERSION` deliberately not bumped** — see AB.
 
-## U. Notification integration
+## U. Notification integration and the Beta badge
 
-No new system. One new **mandatory** topic (`platform_billing`) and three
+**Beta badge.** One component, `components/platform/beta-badge.tsx`, reading
+one resolver, `public.platform_public_state()`. Mounted in exactly two
+places — the shared public header and the shared authenticated shell — so
+the public site, Site Admin, Club Admin, Team Admin, Parent and Player all
+show the same badge without a single page-level badge anywhere. Purple, the
+word BETA, the published version where one exists (`BETA 0.0.1`), an
+`sr-only` sentence so it is not colour-only, and it renders **nothing** when
+the mode is Live. No client-owned Beta boolean exists.
+
+**Notifications.** No new system. One new **mandatory** topic (`platform_billing`) and three
 types, on the existing normalized `notifications` table. Verified live: the
 account preferences page already renders the topic as ALWAYS ON with no
 change to that page.
@@ -330,6 +367,110 @@ flow** (magic link collected from Mailpit), at 1512×763.
 
 Nothing can collect a penny from a club. Five things would each have to be
 changed deliberately by a person first.
+
+---
+
+# Spec reconciliation pass
+
+A comparison of the implementation against the original owner brief. The
+core architecture was not reopened.
+
+## Matched original brief
+
+Verified as already correct, no change needed:
+
+- `platform_*` namespace and the Domain A / Domain B wall
+- thirty usable-day trial, Beta pause, no back-billing
+- canonical activation at approved club claim
+- Standard £15; Pro £25 Coming Soon and non-purchasable
+- the entitlement resolver and the non-gateable safety entitlements
+- first-successfully-collected-payment referral rule
+- append-only credit ledger; reversal rather than deletion
+- no second invitation system; passwordless auth untouched
+- RLS/provider hardening, including zero INSERT policy on
+  `platform_mode_events` and the `SECURITY DEFINER` `set_platform_mode` path
+
+## Intentional design improvements, kept
+
+| Brief said | Implemented instead | Why |
+|---|---|---|
+| Beta control inside System Health | `/admin/releases` owns it; System Health gained a read-only card linking to it | Release management is a page's worth of controls. Folding it into a diagnostics card would have made System Health two things. The card answers the state question without duplicating the mutation. |
+| A `platform_referral_rewards` table | The reward **is** a `platform_credits` row | A separate table would hold the same amount, snapshot and timestamp twice, and the two could disagree. Reversal is the clincher: a ledger keeps both the earning and the withdrawal visible. |
+| A stable public referral link/code | The existing invitation token | See item 4 below. |
+
+## Fixed in this pass
+
+**1. Global Beta badge — did not exist, now implemented.** Audit found no
+shared indicator and `getPlatformMode` had no UI consumer at all. One
+component, one resolver, two mount points, purple, versioned, accessible,
+absent in Live.
+
+**2. System Health — reconciled.** A compact "Platform state" card:
+mode, published release, Billing and Trials each showing `Paused — Beta` or
+`Active`, plus "Manage Release & Platform Mode". Read-only.
+
+**3. Referral CTA — did not exist, now implemented.** The existing
+Partner Clubs invite dialog is now titled *"Refer {club} — get one month
+free"* and states the offer with "successfully collected" intact, plus a
+Referral terms link. `inviteClubToOvalball` captures the invitation id that
+`create_partner_invitation` already returned and calls
+`claim_club_referral`. **No second referral system, no second invitation, no
+second form.** The claim is best-effort: a referral that cannot be recorded
+must never fail the invitation the Club Admin actually asked for.
+
+**7. Release ↔ Beta version relationship — column existed, was never
+populated.** `platform_mode_events.release_id` had been there since Phase C,
+but the RPC only accepted it and the UI never passed one: **0 of 5 rows
+carried a release**. `set_platform_mode` now defaults it to the currently
+published production release. It never fabricates one — null stays null when
+nothing is published — and toggling the mode creates no release, which is
+asserted.
+
+**Bonus fix, pre-existing:** Leaflet paints its panes at `z-index: 400` and
+controls at `800`; a modal dialog sits at `z-50`. On Partner Clubs the map
+therefore painted **over** the invite dialog, making the new CTA unusable.
+`.leaflet-container { isolation: isolate }` contains the map's stacking
+context. This was not caused by this workstream, but it was in the way of
+proving item 3.
+
+## Item 4 — referral link/code: **INTENTIONALLY DEFERRED**
+
+The brief proposed a stable referral link or code. It was not implemented,
+and the recommendation is not to add one.
+
+The invitation token already provides **stronger** attribution than a
+reusable code would:
+
+| | Invitation token (built) | Reusable public code |
+|---|---|---|
+| Who is being referred | Named at issue: a specific `club_directory` row | Unknown until redemption |
+| Attribution | Server-side, on a row that already exists | Needs the code to survive the journey |
+| Storage | None — it is a database row | Typically a cookie or `localStorage`, which the brief rules out |
+| Self-referral | Structurally refused | Needs its own detection |
+| Sharing | Single-use, expiring | Reusable, therefore postable publicly |
+| Revocation | Expire the invitation | Rotate the code for everyone |
+
+A reusable code is a weaker mechanism carrying the same abuse surface. The
+one thing it offers that the token does not is a link a club could put in a
+newsletter — a genuine but different feature, and one that would need its
+own anti-abuse rules rather than inheriting these.
+
+**Recommendation: do not build it unless the newsletter-style use case is
+actually wanted.** If it is later, it must reuse `platform_referrals` and
+the same first-payment qualification rule, be an opaque token (never a
+sequential club id), and attribute server-side.
+
+## Still deferred
+
+Unchanged by this pass, and not closed:
+
+- GoCardless provider UAT — no credential for Ovalball's own merchant
+- **MOBILE UAT — DEFERRED**; still no genuine narrow viewport available
+- the four legal owner decisions
+- solicitor review of the referral terms
+- `LEGAL_VERSION` / re-acceptance decision
+- production `policy_acknowledgements`
+- production migrations
 
 ---
 

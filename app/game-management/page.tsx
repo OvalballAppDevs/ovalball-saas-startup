@@ -7,6 +7,7 @@ import { ConnectedGameVisual } from "@/components/site/connected-game-visual"
 import { Footer } from "@/components/site/footer"
 import { Header } from "@/components/site/header"
 import { getPublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
+import { getBetaBadgeState } from "@/lib/platform/mode"
 import {
   BASELINE_COUNTS,
   DEMO_FIXTURE,
@@ -23,10 +24,11 @@ export const metadata: Metadata = {
 
 export default async function GameManagementPage() {
   const identity = await getPublicHeaderIdentity()
+  const beta = await getBetaBadgeState()
 
   return (
     <>
-      <Header identity={identity} />
+      <Header identity={identity} beta={beta} />
       <main>
         {/* Hero */}
         <section className="relative flex min-h-[86vh] items-end overflow-hidden bg-forest-950 pb-16 md:min-h-screen md:pb-24">

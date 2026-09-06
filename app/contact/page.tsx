@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Footer } from "@/components/site/footer"
 import { Header } from "@/components/site/header"
 import { getPublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
+import { getBetaBadgeState } from "@/lib/platform/mode"
 import { CONTACT_EMAIL, CONTACT_MAILTO, PRODUCT_NAME } from "@/lib/legal/metadata"
 
 import { ContactForm } from "./contact-form"
@@ -16,10 +17,11 @@ export const metadata: Metadata = {
 
 export default async function ContactPage() {
   const identity = await getPublicHeaderIdentity()
+  const beta = await getBetaBadgeState()
 
   return (
     <>
-      <Header identity={identity} />
+      <Header identity={identity} beta={beta} />
       <main className="brand-light-scope bg-chalk pt-32 pb-24 md:pt-40">
         <div className="mx-auto max-w-2xl px-4 md:px-8">
           <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Contact</p>

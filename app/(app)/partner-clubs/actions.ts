@@ -126,13 +126,27 @@ export async function inviteClubToOvalball(clubDirectoryId: string, contactName:
   const invitingClubName = inviterClub?.club_directory?.name ?? "A club on Ovalball"
   const invitedClubName = invitedDirectory?.name ?? "your club"
 
-  const { error } = await supabase.rpc("create_partner_invitation", {
+  const { data: invitationId, error } = await supabase.rpc("create_partner_invitation", {
     p_inviting_club_id: clubId,
     p_club_directory_id: clubDirectoryId,
     p_contact_name: contactName,
     p_contact_email: contactEmail,
   })
   if (error) return { ok: false, error: error.message }
+
+  // The commercial claim on this invitation. Idempotent, and deliberately
+  // best-effort: a referral that cannot be recorded must never fail the
+  // invitation itself, which is the thing the Club Admin actually asked for.
+  // This reuses club_ovalball_invitations and platform_referrals -- there is
+  // no second referral system and no second invitation.
+  if (invitationId) {
+    const { error: referralError } = await supabase.rpc("claim_club_referral", {
+      p_invitation_id: invitationId,
+    })
+    if (referralError) {
+      console.error("claim_club_referral failed for invitation", invitationId, referralError.message)
+    }
+  }
 
   const inviteLink = `${getSiteUrl()}/signup?directory=${clubDirectoryId}`
 

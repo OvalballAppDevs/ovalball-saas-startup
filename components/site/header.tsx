@@ -24,6 +24,8 @@ import { UserAvatar } from "@/components/profile/user-avatar"
 import { useMagnetic } from "@/lib/motion/use-magnetic"
 import { Reveal } from "@/lib/motion/reveal"
 import type { PublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
+import type { BetaBadgeState } from "@/lib/platform/mode"
+import { BetaBadge } from "@/components/platform/beta-badge"
 import { ABOUT_ROUTE, CONTACT_ROUTE } from "@/lib/legal/metadata"
 import { cn } from "@/lib/utils"
 
@@ -77,7 +79,18 @@ const NAV_LINK_DISABLED_CLASS = "rounded-sm px-1 py-1 text-sm text-white/35 sele
  * pinned flush to the viewport edge -- still `position: fixed`, so this
  * never shifts page content, only the header's own box.
  */
-export function Header({ identity }: { identity: PublicHeaderIdentity | null }) {
+export function Header({
+  identity,
+  beta,
+}: {
+  identity: PublicHeaderIdentity | null
+  /**
+   * Resolved server-side by getBetaBadgeState. A prop rather than a fetch
+   * from this client component, so the badge can never disagree with the
+   * database about whether Ovalball is charging clubs.
+   */
+  beta?: BetaBadgeState | null
+}) {
   // Solid (green) by default -- correct, readable contrast for every public
   // page. Only a page with a real hero image directly under the header
   // (marked with [data-nav-sentinel]) ever goes transparent, and only for
@@ -125,6 +138,15 @@ export function Header({ identity }: { identity: PublicHeaderIdentity | null }) 
             <OvalballLogo variant="dark" />
           </Link>
         </Reveal>
+
+        {/* Beside the logo, not a strip above it: this header is fixed and
+            transparent over the hero, so a bar above would break it. The
+            badge renders nothing when the platform is Live. */}
+        {beta ? (
+          <Reveal as="span" index={0} className="ml-3 mr-auto hidden sm:inline-flex">
+            <BetaBadge state={beta} tone="dark" />
+          </Reveal>
+        ) : null}
 
         <nav className="hidden items-center gap-9 md:flex">
           <Reveal as="span" index={1}>

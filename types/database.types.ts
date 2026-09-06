@@ -12762,6 +12762,13 @@ export type Database = {
           trial_status: string
         }[]
       }
+      platform_public_state: {
+        Args: never
+        Returns: {
+          mode: string
+          release_version: string
+        }[]
+      }
       preview_directory_verification_scope: {
         Args: { p_directory_id?: string; p_filters?: Json; p_scope: string }
         Returns: number

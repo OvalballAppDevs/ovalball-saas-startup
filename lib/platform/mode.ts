@@ -3,6 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
+import { createClient } from "@/lib/supabase/server"
 
 /**
  * Ovalball's own operating mode.
@@ -45,4 +46,37 @@ export async function getPlatformMode(
 
 export function isBeta(state: PlatformModeState): boolean {
   return state.mode === "beta"
+}
+
+export interface BetaBadgeState {
+  mode: PlatformMode
+  /** The currently published release, e.g. "0.0.1". Null when none is published. */
+  releaseVersion: string | null
+}
+
+/**
+ * The one source every Beta badge reads — public homepage, authenticated
+ * shell, admin console alike. There is deliberately no client-owned Beta
+ * flag anywhere in the product: a badge that could disagree with the
+ * database about whether clubs are being charged would be worse than no
+ * badge.
+ *
+ * Fails to `beta` when the mode cannot be read, for the same reason
+ * getPlatformMode does: Beta is the mode that does not bill, so an
+ * unreadable answer must not silently present the product as Live.
+ */
+export async function getBetaBadgeState(
+  /** Optional: public pages have no client of their own to pass. */
+  client?: SupabaseClient<Database>
+): Promise<BetaBadgeState> {
+  const supabase = client ?? (await createClient())
+  const { data, error } = await supabase.rpc("platform_public_state")
+
+  if (error || !data || data.length === 0) return { mode: "beta", releaseVersion: null }
+
+  const row = data[0]
+  return {
+    mode: row.mode === "live" ? "live" : "beta",
+    releaseVersion: row.release_version,
+  }
 }

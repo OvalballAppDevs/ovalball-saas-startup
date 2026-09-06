@@ -61,7 +61,7 @@ Everything for **Ovalball charging clubs** is prefixed `platform_`:
 | Credit ledger | `platform_credits` |
 | Trial state | `platform_trials` |
 | Referrals | `platform_referrals` |
-| Referral rewards | `platform_referral_rewards` |
+| Referral rewards | *(superseded — see below)* |
 
 Capabilities likewise:
 
@@ -74,6 +74,40 @@ club.platform_billing.manage
 club.referrals.view
 club.referrals.manage
 ```
+
+### Superseded during Phase H: `platform_referral_rewards`
+
+This document originally proposed a `platform_referral_rewards` table. It
+was **not built**, and should not be.
+
+A reward is not a thing that happens alongside a credit — it *is* a credit.
+The moment a referral qualifies, the reward exists as one immutable row in
+`platform_credits`, carrying its own value snapshot, its own source
+(`referral_reward`), and its own place in the club's balance. A separate
+rewards table would have held the same amount, the same snapshot and the
+same timestamp a second time, and the two could then disagree.
+
+What the separate table was really there to enforce — *one reward per
+referral* — is a single unique column on the referral itself:
+
+```
+platform_referrals.reward_credit_id  uuid unique references platform_credits(id)
+```
+
+So the implemented shape is:
+
+| Concept | Where it lives |
+|---|---|
+| The claim | `platform_referrals` (one per `club_ovalball_invitations` row) |
+| The reward | `platform_credits`, `source = 'referral_reward'` |
+| One reward per referral | `platform_referrals.reward_credit_id`, unique |
+| One reward per referred club | partial unique index on `referred_club_id` where qualified |
+| Withdrawal | a further `platform_credits` row, `source = 'reversal'` |
+
+Reversal is the clearest argument for the decision: a reward that is taken
+back must leave both facts visible. With a ledger that is one earning row
+and one reversal row. With a separate rewards table it would have meant
+mutating or deleting a row that was supposed to be the record.
 
 `club.platform_billing.*` rather than `club.subscription.*` — the prefix is
 the whole point. Reading any policy or query, it is immediately obvious

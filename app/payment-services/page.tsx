@@ -6,6 +6,7 @@ import { Footer } from "@/components/site/footer"
 import { Header } from "@/components/site/header"
 import { MembershipJourneyDemo } from "@/components/site/membership-journey-demo"
 import { getPublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
+import { getBetaBadgeState } from "@/lib/platform/mode"
 import { DEMO_FAMILY, DEMO_FINANCE_SUMMARY } from "@/lib/marketing/game-day-demo"
 import { Reveal } from "@/lib/motion/reveal"
 
@@ -22,10 +23,11 @@ const DARK_LINK_CLASS =
 
 export default async function PaymentServicesPage() {
   const identity = await getPublicHeaderIdentity()
+  const beta = await getBetaBadgeState()
 
   return (
     <>
-      <Header identity={identity} />
+      <Header identity={identity} beta={beta} />
       <main>
         {/* Hero -- product-led, no banking stock photography. */}
         <section className="bg-forest-950 pt-32 pb-20 md:pt-40 md:pb-28">

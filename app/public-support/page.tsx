@@ -1,6 +1,7 @@
 import { Footer } from "@/components/site/footer"
 import { Header } from "@/components/site/header"
 import { getPublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
+import { getBetaBadgeState } from "@/lib/platform/mode"
 
 import { PublicSupportForm } from "./public-support-form"
 
@@ -15,10 +16,11 @@ import { PublicSupportForm } from "./public-support-form"
  */
 export default async function PublicSupportPage() {
   const identity = await getPublicHeaderIdentity()
+  const beta = await getBetaBadgeState()
 
   return (
     <>
-      <Header identity={identity} />
+      <Header identity={identity} beta={beta} />
       <main className="brand-light-scope bg-chalk pt-32 pb-24 md:pt-40">
         <div className="mx-auto max-w-2xl px-4 md:px-8">
           <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Support</p>

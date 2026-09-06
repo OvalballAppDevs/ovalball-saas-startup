@@ -8,6 +8,7 @@ import { Footer } from "@/components/site/footer"
 import { Header } from "@/components/site/header"
 import { PhotoTransition } from "@/components/site/photo-transition"
 import { getPublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
+import { getBetaBadgeState } from "@/lib/platform/mode"
 import { JOURNEY_FIXTURES } from "@/lib/marketing/fixture-journey-demo"
 import { Reveal } from "@/lib/motion/reveal"
 
@@ -30,10 +31,11 @@ const FIXTURE = JOURNEY_FIXTURES[0]
 
 export default async function FixturesPage() {
   const identity = await getPublicHeaderIdentity()
+  const beta = await getBetaBadgeState()
 
   return (
     <>
-      <Header identity={identity} />
+      <Header identity={identity} beta={beta} />
       <main>
         {/* Product-led hero rather than another photograph: this page is
             about how the software behaves, and the fixture card makes that

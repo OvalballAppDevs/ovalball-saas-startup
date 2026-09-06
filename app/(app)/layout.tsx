@@ -8,10 +8,12 @@ import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-cont
 import { getRecentNotifications } from "@/lib/app-context/notifications"
 import { resolvePersonalAvatarUrl } from "@/lib/app-context/personal-avatar"
 import { getSessionContext } from "@/lib/app-context/session-context"
+import { getBetaBadgeState } from "@/lib/platform/mode"
 import { getNewSupportTicketCount, getSupportUnreadCount } from "@/lib/support/badges"
 import { createClient } from "@/lib/supabase/server"
 
 import { AskOvie } from "@/components/ovie/ask-ovie"
+import { BetaBadge } from "@/components/platform/beta-badge"
 
 import { AppMobileNav } from "./app-mobile-nav"
 import { AppNav } from "./app-nav"
@@ -57,7 +59,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   const contexts = listSwitchableContexts(ctx)
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const { primary, roleLabel, clubName, clubLogoUrl } = buildNavItems(ctx, activeContext)
-  const [{ items: notifications, unreadCount }, conversations, supportUnreadCount, newSupportTicketCount, { data: profile }, diagnosticClub] =
+  const [{ items: notifications, unreadCount }, conversations, supportUnreadCount, newSupportTicketCount, { data: profile }, diagnosticClub, betaState] =
     await Promise.all([
       getRecentNotifications(supabase, user.id),
       getConversationSummaries(supabase, ctx, user.id),
@@ -65,6 +67,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
       ctx.isSiteAdmin ? getNewSupportTicketCount(supabase) : Promise.resolve(0),
       supabase.from("profiles").select("first_name, surname, avatar_storage_path").eq("id", user.id).maybeSingle(),
       ctx.isSiteAdmin ? resolveDiagnosticClub(supabase, cookieStore.get(DIAGNOSTIC_SESSION_COOKIE)?.value ?? null) : Promise.resolve(null),
+      getBetaBadgeState(supabase),
     ])
 
   const personName = [profile?.first_name, profile?.surname].filter(Boolean).join(" ")
@@ -77,6 +80,15 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   return (
     <SwitchContextProvider>
       <div className="flex min-h-screen flex-col bg-chalk">
+        {/* ONE Beta indicator for every authenticated role -- Site Admin,
+            Club Admin, Team Admin, Parent and Player all render through this
+            shell, so none of them needs its own. Renders nothing at all when
+            the platform is Live. */}
+        {betaState.mode === "beta" && (
+          <div className="flex justify-center border-b border-purple-200 bg-purple-50 px-4 py-1.5">
+            <BetaBadge state={betaState} />
+          </div>
+        )}
         {diagnosticClub && <DiagnosticBanner diagnosticClub={diagnosticClub} />}
         <div className="flex flex-1 flex-col md:flex-row">
           <div className="hidden md:block">

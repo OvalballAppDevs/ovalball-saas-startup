@@ -8,6 +8,7 @@ import { PhotoTransition } from "@/components/site/photo-transition"
 import { PlanSeasonSection } from "@/components/site/plan-season-section"
 import { ProductRevealTeaser } from "@/components/site/product-reveal-teaser"
 import { getPublicHeaderIdentity } from "@/lib/app-context/public-header-identity"
+import { getBetaBadgeState } from "@/lib/platform/mode"
 
 // Server Component: composes the marketing page from client-side section
 // components rather than making the whole page a client boundary. An
@@ -16,10 +17,11 @@ import { getPublicHeaderIdentity } from "@/lib/app-context/public-header-identit
 // in for "Sign In" instead.
 export default async function Page() {
   const identity = await getPublicHeaderIdentity()
+  const beta = await getBetaBadgeState()
 
   return (
     <>
-      <Header identity={identity} />
+      <Header identity={identity} beta={beta} />
       <main>
         <HeroSection />
         <EmotionSection />

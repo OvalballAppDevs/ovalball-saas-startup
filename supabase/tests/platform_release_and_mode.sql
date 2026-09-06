@@ -14,6 +14,8 @@ declare
   v_event uuid;
   v_release uuid;
   v_mode text;
+  v_text text;
+  v_event2 uuid;
   v_prev text;
   v_count int;
   v_err text;
@@ -188,6 +190,48 @@ begin
     raise notice 'PASS 12: platform mode never reads the club-charges-members domain';
   else
     raise notice 'FAIL 12: platform mode reaches into the club-charges-members domain';
+  end if;
+  -- ---------- 13. a mode transition remembers the release that was live ----------
+  -- The historical question: "when Beta was enabled on this date, what
+  -- version was running?" The column existed from the start but was never
+  -- populated until the reconciliation pass.
+  v_release := public.record_platform_release('9.9.9', 'sha999', 'Reconciliation test release', null, 'production', true);
+  perform public.set_platform_mode('beta', 'Phase reconciliation: back to Beta with a published release.');
+
+  select release_id into v_event2 from public.platform_mode_events order by seq desc limit 1;
+  if v_event2 = v_release then
+    raise notice 'PASS 13: a mode transition links the release that was published at the time';
+  else
+    raise notice 'FAIL 13: the transition linked % rather than the published release %', coalesce(v_event2::text,'<null>'), v_release;
+  end if;
+
+  -- ---------- 14. but a toggle never fabricates a release ----------
+  select count(*) into v_count from public.platform_releases;
+  perform public.set_platform_mode('live', 'Reconciliation: toggling must not create a release.');
+  if (select count(*) from public.platform_releases) = v_count then
+    raise notice 'PASS 14: toggling the mode creates no release -- it only records the one that exists';
+  else
+    raise notice 'FAIL 14: a release was fabricated by a mode toggle';
+  end if;
+
+  -- ---------- 15. the public badge resolver ----------
+  select mode, release_version into v_mode, v_text from public.platform_public_state();
+  if v_mode = 'live' and v_text = '9.9.9' then
+    raise notice 'PASS 15: the badge resolver reports the live mode and the published version';
+  else
+    raise notice 'FAIL 15: badge resolver returned mode=%, version=%', v_mode, coalesce(v_text,'<null>');
+  end if;
+
+  -- ---------- 16. an unpublished release is never shown publicly ----------
+  -- Drafts EVERY release, not just this suite's own: the assertion is
+  -- "nothing unpublished is ever surfaced", and leaving another published
+  -- release standing would have tested ambient fixture data instead.
+  update public.platform_releases set status = 'draft';
+  select release_version into v_text from public.platform_public_state();
+  if v_text is null then
+    raise notice 'PASS 16: a draft release is never surfaced as the public version';
+  else
+    raise notice 'FAIL 16: a draft release leaked into the public badge as %', v_text;
   end if;
 end $$;
 

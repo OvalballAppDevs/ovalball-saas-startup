@@ -1361,3 +1361,98 @@ DEFERRED**
 
 Reasoning and the full gap list are in
 `docs/COMMERCIAL_PLATFORM_FINAL_REPORT.md`.
+
+---
+
+## SPEC RECONCILIATION PASS — COMPLETE (live-verified)
+
+A comparison against the original owner brief. The core architecture was
+not reopened. Full write-up, including the four-way MATCHED / IMPROVED /
+FIXED / DEFERRED breakdown, is in
+`docs/COMMERCIAL_PLATFORM_FINAL_REPORT.md`.
+
+### What the audit actually found
+
+Three of the items turned out to be genuinely missing rather than merely
+unproven, and one was a column that existed but had never been populated:
+
+| Item | State before |
+|---|---|
+| Global Beta badge | **Did not exist.** No shared indicator anywhere, and `getPlatformMode` had no UI consumer at all. |
+| System Health platform card | **Did not exist.** |
+| Referral CTA on Partner Clubs | **Did not exist.** No occurrence of "refer" in that surface. |
+| `platform_mode_events.release_id` | Column present since Phase C, **0 of 5 rows populated** — the RPC accepted it and nothing ever passed one. |
+
+### The Beta badge
+
+One component (`components/platform/beta-badge.tsx`), one resolver
+(`public.platform_public_state()`), two mount points: the shared public
+header and the shared authenticated shell. Because every signed-in role —
+Site Admin, Club Admin, Team Admin, Parent, Player — renders through
+`app/(app)/layout.tsx`, one mount covers all of them, and no page carries a
+badge of its own.
+
+Purple, the literal word BETA, the published version where one exists, an
+`sr-only` sentence so meaning is not carried by colour, and it returns
+`null` in Live rather than being hidden with CSS. No client-owned Beta
+boolean exists anywhere.
+
+### Release ↔ mode, without conflating them
+
+`set_platform_mode` now defaults `release_id` to the currently published
+production release. It never creates one: null stays null when nothing is
+published, and assertion 14 proves a toggle produces no release. Releases
+and mode remain separate concepts; a transition simply remembers which
+release was live.
+
+Proven in the local history:
+
+```
+beta  | 0.0.1 | Reconciliation test complete; returning to Beta.
+live  | 0.0.1 | Reconciliation test: proving the Beta badge disappears.
+beta  |       | (recorded before the fix — the null this closes)
+```
+
+### A pre-existing bug that blocked the CTA
+
+Leaflet paints panes at `z-index: 400` and controls at `800`; a dialog sits
+at `z-50`. On Partner Clubs the map painted **over** the invite dialog. Not
+caused by this workstream, but it made the new CTA unusable, so
+`.leaflet-container { isolation: isolate }` now contains the map's stacking
+context.
+
+### Verification
+
+`./scripts/run-platform-tests.sh` — **135 passed, 0 failed** across 9
+suites (four new assertions on the release/mode relationship and the public
+badge resolver). `verify-auth-security.mjs` 64/64,
+`verify-legal-routes.mjs` 151/151, `typecheck` clean, `eslint` clean on
+every touched file, `npm run build` compiled, `git diff --check` clean.
+
+Browser, desktop, through the real passwordless flow:
+
+| Checked | Result |
+|---|---|
+| Public homepage in Beta — `BETA 0.0.1` beside the logo | PASS |
+| Public homepage in Live — no badge in the header | PASS |
+| Authenticated shell in Beta — purple strip above the app | PASS |
+| Authenticated shell in Live — strip gone, zero purple elements | PASS |
+| System Health card — mode, release, Billing/Trials `Paused — Beta`, link | PASS |
+| `/admin/releases` — Beta→Live→Beta round trip | PASS |
+| Referral CTA — *"Refer Walcot RFC — get one month free"*, offer copy, terms link | PASS |
+| Referral claimed end to end — `club_ovalball_invitations` row + `platform_referrals` `pending`, referring club Burnley RUFC | PASS |
+| Dialog no longer covered by the map | PASS |
+
+**MOBILE UAT — DEFERRED.** `resize_window` still does not change the layout
+viewport, so mobile rendering remains unverified and is not claimed.
+
+### Files
+
+- `supabase/migrations/20261010000000_beta_badge_and_release_link.sql` (new)
+- `components/platform/beta-badge.tsx` (new)
+- `lib/platform/mode.ts`, `components/site/header.tsx`, `app/(app)/layout.tsx`
+- `app/(app)/admin/system-health/page.tsx`
+- `app/(app)/partner-clubs/{actions.ts,invite-club-dialog.tsx}`
+- eight public pages (one prop each), `app/globals.css`
+- `supabase/tests/platform_release_and_mode.sql` (+4 assertions)
+- `docs/COMMERCIAL_PLATFORM_ARCHITECTURE.md`, `..._FINAL_REPORT.md`

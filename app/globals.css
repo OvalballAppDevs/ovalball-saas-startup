@@ -623,3 +623,16 @@
   }
 }
 
+
+/* Leaflet paints its panes at z-index 400 and its controls at 800, which
+   are absolute values inside the document's root stacking context. A modal
+   dialog sits at z-50, so on any page that renders a map the map paints
+   OVER the dialog -- previously visible on Partner Clubs, where the invite
+   dialog was half-covered by the map behind it.
+   `isolation: isolate` gives the map its own stacking context, so those
+   internal values stay internal and can no longer outrank anything outside
+   it. Nothing about the map's own layering changes. */
+.leaflet-container {
+  isolation: isolate;
+  z-index: 0;
+}
