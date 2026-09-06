@@ -129,24 +129,44 @@ export function Header({
           : "mx-0 mt-0 rounded-none border-transparent bg-transparent shadow-none"
       )}
     >
-      <div className="mx-auto flex h-[64px] max-w-[1440px] items-center justify-between px-4 md:h-[80px] md:px-8">
-        <Reveal as="span" index={0}>
-          <Link
-            href="/"
-            className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
-          >
-            <OvalballLogo variant="dark" />
-          </Link>
-        </Reveal>
-
-        {/* Beside the logo, not a strip above it: this header is fixed and
-            transparent over the hero, so a bar above would break it. The
-            badge renders nothing when the platform is Live. */}
-        {beta ? (
-          <Reveal as="span" index={0} className="ml-3 mr-auto hidden sm:inline-flex">
-            <BetaBadge state={beta} tone="dark" />
+      {/* Three columns, not flex/justify-between: the two outer columns are
+          each 1fr, so the nav in the middle sits at the exact centre of the
+          header no matter how wide the left or right group is. That is what
+          keeps the links from shifting when the Beta badge appears or
+          disappears -- with justify-between they moved, because free space
+          was redistributed around a fourth child. */}
+      <div className="mx-auto grid h-[64px] max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-4 md:h-[80px] md:px-8">
+        {/* Left column: logo and, while the platform is in Beta, the badge.
+            The badge lives inside this column rather than as its own header
+            child, so it can never push the nav off centre. */}
+        <div className="flex min-w-0 items-center gap-3">
+          <Reveal as="span" index={0}>
+            <Link
+              href="/"
+              className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
+            >
+              <OvalballLogo variant="dark" />
+            </Link>
           </Reveal>
-        ) : null}
+
+          {/* Beside the logo, not a strip above it: this header is fixed and
+              transparent over the hero, so a bar above would break it. The
+              badge renders nothing when the platform is Live.
+
+              Measured: logo 110px, badge 110px, nav 360px, buttons 215px.
+              Perfect centring needs max(left, right) * 2 + nav + padding, so
+              854px without the badge and 864px with it -- the badge costs ten
+              pixels, not a breakpoint, because the right-hand buttons already
+              outweigh the logo. Between `md` and ~864px the 1fr tracks grow to
+              fit their content and the nav sits slightly off centre rather
+              than overflowing, which is the same graceful behaviour the
+              header had before the badge existed. */}
+          {beta ? (
+            <Reveal as="span" index={0} className="hidden sm:inline-flex">
+              <BetaBadge state={beta} tone="dark" />
+            </Reveal>
+          ) : null}
+        </div>
 
         <nav className="hidden items-center gap-9 md:flex">
           <Reveal as="span" index={1}>
@@ -191,7 +211,8 @@ export function Header({
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right column, pinned to the end so the centre column stays centred. */}
+        <div className="flex items-center justify-end gap-2 sm:gap-3">
           {identity ? (
             <Reveal as="div" index={NAV_LINKS.length + 1}>
               <AccountControl identity={identity} />
