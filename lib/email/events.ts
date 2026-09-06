@@ -25,6 +25,8 @@ export type EmailEvent =
   | { type: "support_ticket_reply"; data: { reference: string; subject: string; body: string } }
   | { type: "guardian_invitation"; data: { clubName: string; teamName: string; inviteLink: string } }
   | { type: "player_account_invitation"; data: { playerFirstName: string; inviteLink: string } }
+  | { type: "safeguarding_officer_invitation"; data: { clubName: string; inviteLink: string } }
+  | { type: "safeguarding_officer_message"; data: { clubName: string; senderName: string; body: string } }
 
 export interface RenderedEmail {
   subject: string
@@ -102,6 +104,20 @@ export function renderEmailEvent(event: EmailEvent): RenderedEmail {
       return {
         subject: `You've been invited to your own Ovalball login`,
         text: `You've been invited to create your own Ovalball login linked to ${event.data.playerFirstName}'s player record: ${event.data.inviteLink}`,
+      }
+    case "safeguarding_officer_invitation":
+      return {
+        subject: `You've been invited as Safeguarding Officer at ${event.data.clubName}`,
+        text: `${event.data.clubName} has invited you to become their Safeguarding Officer on Ovalball: ${event.data.inviteLink}`,
+      }
+    case "safeguarding_officer_message":
+      // Email fallback (spec section 15) for a Safeguarding Officer who
+      // has not yet registered/accepted -- the message body is sent
+      // directly, matching support_ticket_reply's own precedent for
+      // carrying real message content by email rather than only a link.
+      return {
+        subject: `Message from ${event.data.senderName} at ${event.data.clubName} (via Ovalball)`,
+        text: `${event.data.body}\n\n-- Sent via Ovalball on behalf of ${event.data.senderName} at ${event.data.clubName}. This was sent by email because you do not yet have an active Ovalball account.`,
       }
   }
 }

@@ -2177,6 +2177,310 @@ export type Database = {
           },
         ]
       }
+      club_safeguarding_officer_conversations: {
+        Row: {
+          club_id: string
+          created_at: string
+          id: string
+          officer_user_id: string
+          requester_user_id: string
+        }
+        Insert: {
+          club_id: string
+          created_at?: string
+          id?: string
+          officer_user_id: string
+          requester_user_id: string
+        }
+        Update: {
+          club_id?: string
+          created_at?: string
+          id?: string
+          officer_user_id?: string
+          requester_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_safeguarding_officer_conversations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_conversations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_conversations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_conversations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_conversations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_conversations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_conversations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_conversations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_safeguarding_officer_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          club_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          invited_by: string
+          invited_email: string
+          officer_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          club_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          invited_email: string
+          officer_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          club_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          invited_email?: string
+          officer_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_safeguarding_officer_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officer_invitations_officer_id_fkey"
+            columns: ["officer_id"]
+            isOneToOne: false
+            referencedRelation: "club_safeguarding_officers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_safeguarding_officers: {
+        Row: {
+          activated_at: string | null
+          club_id: string
+          contact_email: string
+          contact_name: string
+          created_at: string
+          created_by: string
+          deactivated_at: string | null
+          deactivated_by: string | null
+          id: string
+          officer_type: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+          user_id: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          club_id: string
+          contact_email: string
+          contact_name: string
+          created_at?: string
+          created_by: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          id?: string
+          officer_type?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          club_id?: string
+          contact_email?: string
+          contact_name?: string
+          created_at?: string
+          created_by?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          id?: string
+          officer_type?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_safeguarding_officers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "club_safeguarding_officers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_scheduling_policy: {
         Row: {
           auto_allocate_home_fixtures: boolean
@@ -3940,6 +4244,7 @@ export type Database = {
           reported_by: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          safeguarding_conversation_id: string | null
           sender_user_id: string
           team_conversation_id: string | null
         }
@@ -3962,6 +4267,7 @@ export type Database = {
           reported_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          safeguarding_conversation_id?: string | null
           sender_user_id: string
           team_conversation_id?: string | null
         }
@@ -3984,6 +4290,7 @@ export type Database = {
           reported_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          safeguarding_conversation_id?: string | null
           sender_user_id?: string
           team_conversation_id?: string | null
         }
@@ -4014,6 +4321,13 @@ export type Database = {
             columns: ["fixture_request_id"]
             isOneToOne: false
             referencedRelation: "fixture_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_messages_safeguarding_conversation_id_fkey"
+            columns: ["safeguarding_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "club_safeguarding_officer_conversations"
             referencedColumns: ["id"]
           },
           {
@@ -9211,6 +9525,32 @@ export type Database = {
         }
         Relationships: []
       }
+      role_capability_defaults: {
+        Row: {
+          capability_key: string
+          role_key: string
+          scope_type: string
+        }
+        Insert: {
+          capability_key: string
+          role_key: string
+          scope_type: string
+        }
+        Update: {
+          capability_key?: string
+          role_key?: string
+          scope_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_capability_defaults_capability_key_fkey"
+            columns: ["capability_key"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       scheduling_group_members: {
         Row: {
           group_id: string
@@ -12175,6 +12515,10 @@ export type Database = {
         Args: { p_token: string }
         Returns: string
       }
+      accept_safeguarding_officer_invitation: {
+        Args: { p_token: string }
+        Returns: undefined
+      }
       accept_site_admin_invitation: {
         Args: { p_token: string }
         Returns: undefined
@@ -12674,6 +13018,10 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      deactivate_safeguarding_officer: {
+        Args: { p_officer_id: string }
+        Returns: undefined
+      }
       deactivate_training_plan: {
         Args: { p_plan_id: string; p_reason?: string }
         Returns: undefined
@@ -12800,6 +13148,20 @@ export type Database = {
           email: string
           first_name: string
           surname: string
+          user_id: string
+        }[]
+      }
+      get_club_safeguarding_officers: {
+        Args: { p_club_id: string }
+        Returns: {
+          activated_at: string
+          contact_email: string
+          contact_name: string
+          id: string
+          officer_type: string
+          pending_invitation_expires_at: string
+          pending_invitation_id: string
+          status: string
           user_id: string
         }[]
       }
@@ -13003,6 +13365,17 @@ export type Database = {
           permission_key: string
         }[]
       }
+      get_safeguarding_officer_invitation_preview: {
+        Args: { p_token: string }
+        Returns: {
+          club_id: string
+          club_name: string
+          expires_at: string
+          invited_email: string
+          officer_type: string
+          status: string
+        }[]
+      }
       get_scheduling_group_availability: {
         Args: { p_from: string; p_group_id: string; p_to: string }
         Returns: {
@@ -13141,6 +13514,13 @@ export type Database = {
       invite_player_account: {
         Args: { p_email: string; p_player_id: string }
         Returns: string
+      }
+      invite_safeguarding_officer: {
+        Args: { p_officer_id: string }
+        Returns: {
+          invitation_id: string
+          token: string
+        }[]
       }
       invite_tournament_participant: {
         Args: {
@@ -13380,6 +13760,15 @@ export type Database = {
       moderator_delete_message: {
         Args: { p_message_id: string }
         Returns: undefined
+      }
+      nominate_safeguarding_officer: {
+        Args: {
+          p_club_id: string
+          p_contact_email: string
+          p_contact_name: string
+          p_officer_type: string
+        }
+        Returns: string
       }
       open_platform_billing_cycle: {
         Args: {
@@ -13778,6 +14167,13 @@ export type Database = {
         }
         Returns: string
       }
+      resend_safeguarding_officer_invitation: {
+        Args: { p_officer_id: string }
+        Returns: {
+          invitation_id: string
+          token: string
+        }[]
+      }
       resolve_canonical_team_type_id: {
         Args: {
           p_age_group: string
@@ -13872,6 +14268,10 @@ export type Database = {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
       }
+      revoke_safeguarding_officer_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: undefined
+      }
       revoke_site_admin_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined
@@ -13922,6 +14322,10 @@ export type Database = {
           invitation_id: string
           token: string
         }[]
+      }
+      send_safeguarding_officer_message: {
+        Args: { p_body: string; p_conversation_id: string }
+        Returns: string
       }
       send_support_reply: {
         Args: { p_body: string; p_ticket_id: string }
@@ -14181,6 +14585,17 @@ export type Database = {
           status: string
         }[]
       }
+      start_or_get_safeguarding_officer_conversation: {
+        Args: {
+          p_club_id: string
+          p_first_message: string
+          p_officer_id: string
+        }
+        Returns: {
+          conversation_id: string
+          is_new: boolean
+        }[]
+      }
       store_gocardless_connection: {
         Args: {
           p_access_token: string
@@ -14315,6 +14730,14 @@ export type Database = {
       }
       update_gocardless_verification_status: {
         Args: { p_club_id: string; p_status: string }
+        Returns: undefined
+      }
+      update_safeguarding_officer_contact: {
+        Args: {
+          p_contact_email: string
+          p_contact_name: string
+          p_officer_id: string
+        }
         Returns: undefined
       }
       update_support_ticket_category: {
