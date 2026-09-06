@@ -151,6 +151,13 @@ async function validateFixtureDateAgainstClubSeasons(
  */
 export async function updateCalendarFixture(input: UpdateCalendarFixtureInput): Promise<FixtureActionResult> {
   const supabase = await createClient()
+  // Calendar Fixture Lifecycle hardening: "Cancelled" is no longer settable
+  // through this plain field-update path -- cancel_fixture() (required
+  // reason, mirror sync, notification) is the only safe route now. The UI
+  // dropdown already stopped offering it; this rejects a direct/raw call.
+  if (input.status === "Cancelled") {
+    return { ok: false, error: "Use Cancel Fixture to cancel this fixture -- it requires a reason and keeps both clubs' records in sync." }
+  }
   const dateError = await validateFixtureDateAgainstClubSeasons(supabase, input.fixtureId, input.kickoffDate)
   if (dateError) return { ok: false, error: dateError }
   const { error } = await supabase

@@ -204,24 +204,63 @@ export default async function CalendarPage({
     groupIds.length > 0 ? `owning_scheduling_group_id.in.(${groupIds.join(",")})` : null,
     groupIds.length > 0 ? `opponent_scheduling_group_id.in.(${groupIds.join(",")})` : null,
   ].filter((c): c is string => Boolean(c))
+  // Section I/N: an archived (soft-deleted) fixture never appears in a
+  // normal Calendar query for ANYONE, staff included -- only Deleted
+  // Calendar Events reads it. A cancelled fixture stays visible to every
+  // staff/back-office context (Section E/M); only a genuine Parent/Player
+  // View (the existing, canonical "parent"/"player" ActiveContextKind --
+  // never a role string re-derived here) must never see it at all
+  // (Section N: it must stop reading as an upcoming commitment).
+  const isParentPlayerView = boardContext.kind === "parent" || boardContext.kind === "player"
   let fixturesQuery = supabase
     .from("fixtures")
     .select(
-      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_team_id, away_team_id, owning_scheduling_group_id, opponent_scheduling_group_id, kickoff_date, kickoff_time, home_away, status, raw_opposition_text, venue_address, home_score, away_score, result_status, pitch_id, competition_edition_id, notes, season_id, teams!fixtures_owning_team_id_fkey(display_name)"
+      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_team_id, away_team_id, owning_scheduling_group_id, opponent_scheduling_group_id, kickoff_date, kickoff_time, home_away, status, raw_opposition_text, venue_address, venue_id, home_score, away_score, result_status, pitch_id, competition_edition_id, notes, season_id, cancelled_at, cancelled_by, cancellation_reason, teams!fixtures_owning_team_id_fkey(display_name)"
     )
     .or(fixtureOrClauses.length > 0 ? fixtureOrClauses.join(",") : "owning_team_id.eq.00000000-0000-0000-0000-000000000000")
     .gte("kickoff_date", startIso)
     .lte("kickoff_date", endIso)
+    .is("archived_at", null)
     .order("kickoff_date", { ascending: true })
+  if (isParentPlayerView) fixturesQuery = fixturesQuery.neq("status", "Cancelled")
   if (statusFilters.length > 0) fixturesQuery = fixturesQuery.in("status", statusFilters)
   if (ha === "home") fixturesQuery = fixturesQuery.eq("home_away", "Home")
   if (ha === "away") fixturesQuery = fixturesQuery.eq("home_away", "Away")
   const { data: fixtures } = kind === "training" ? { data: [] } : await fixturesQuery
 
+  // Section D/O: Message Club eligibility -- opponent_team_id resolved
+  // (only possible for a claimed club, since teams only exist under
+  // claimed clubs) AND that club is currently active. Same
+  // clubs.status === 'active' signal Pitch Allocation already uses for
+  // its own "activeOpponentClubIds" set -- never inferred from a name.
+  const opponentTeamIds = Array.from(new Set((fixtures ?? []).map((f) => f.opponent_team_id).filter((id): id is string => Boolean(id))))
+  const { data: opponentTeamClubRows } =
+    opponentTeamIds.length > 0 ? await supabase.from("teams").select("id, club_id").in("id", opponentTeamIds) : { data: [] }
+  const opponentClubIdByTeamId = new Map((opponentTeamClubRows ?? []).map((t) => [t.id, t.club_id]))
+  const opponentClubIds = Array.from(new Set(Array.from(opponentClubIdByTeamId.values())))
+  const { data: opponentClubRows } = opponentClubIds.length > 0 ? await supabase.from("clubs").select("id, status").in("id", opponentClubIds) : { data: [] }
+  const activeOpponentClubIds = new Set((opponentClubRows ?? []).filter((c) => c.status === "active").map((c) => c.id))
+
+  // Cancellation detail (Section E's info dialog): resolve cancelled_by's
+  // real display name, same "never a raw auth id" convention Training's
+  // own get_training_session_card already established.
+  const cancelledByIds = Array.from(new Set((fixtures ?? []).map((f) => f.cancelled_by).filter((id): id is string => Boolean(id))))
+  const { data: cancelledByProfiles } =
+    cancelledByIds.length > 0 ? await supabase.from("profiles").select("id, first_name, surname").in("id", cancelledByIds) : { data: [] }
+  const cancelledByNameById = new Map((cancelledByProfiles ?? []).map((p) => [p.id, [p.first_name, p.surname].filter(Boolean).join(" ") || "Unknown"]))
+
   const fixturePitchIds = Array.from(new Set((fixtures ?? []).map((f) => f.pitch_id).filter((id): id is string => Boolean(id))))
   const { data: fixturePitches } =
     fixturePitchIds.length > 0 ? await supabase.from("club_pitches").select("id, display_name").in("id", fixturePitchIds) : { data: [] }
   const fixturePitchNameById = new Map((fixturePitches ?? []).map((p) => [p.id, p.display_name]))
+
+  // A fixture's structured venue_id (the same venues table Training's own
+  // canonical card resolves) is a more useful "Venue" than free-text
+  // venue_address when the latter is blank -- prefer the real name over
+  // showing nothing.
+  const fixtureVenueIds = Array.from(new Set((fixtures ?? []).map((f) => f.venue_id).filter((id): id is string => Boolean(id))))
+  const { data: fixtureVenues } = fixtureVenueIds.length > 0 ? await supabase.from("venues").select("id, name").in("id", fixtureVenueIds) : { data: [] }
+  const fixtureVenueNameById = new Map((fixtureVenues ?? []).map((v) => [v.id, v.name]))
 
   // FUTURE-SEASON FIXTURE OWNERSHIP: resolve each fixture's team labels
   // for THAT FIXTURE'S OWN season_id, never the team's current mutable
@@ -371,6 +410,12 @@ export default async function CalendarPage({
     // label over the generic free text captured at request time.
     const opposition = iAmOpponent ? theirLabel : theirGroupId ? theirLabel : f.raw_opposition_text
     const canEdit = hasClubFixtureAuthorityEarly || (myTeamId !== null && manageableTeamIdsEarly.has(myTeamId))
+    // Section G/M: Delete is narrower than Edit/Cancel -- only this exact
+    // row's own OWNING club's Club Admin/Fixtures Secretary, never the
+    // opponent side and never a Team Admin/Coach/Manager by default.
+    const canDelete = !iAmOpponent && hasClubFixtureAuthorityEarly
+    const opponentClubId = f.opponent_team_id ? (opponentClubIdByTeamId.get(f.opponent_team_id) ?? null) : null
+    const canMessageClub = Boolean(f.opponent_team_id && opponentClubId && activeOpponentClubIds.has(opponentClubId))
     entries.push({
       id: f.id,
       laneId,
@@ -381,13 +426,18 @@ export default async function CalendarPage({
       teamDisplayName: myLabel,
       opposition,
       homeAway,
-      venueAddress: f.venue_address,
+      venueAddress: f.venue_address || (f.venue_id ? (fixtureVenueNameById.get(f.venue_id) ?? null) : null),
       pitchName: f.pitch_id ? (fixturePitchNameById.get(f.pitch_id) ?? null) : null,
       status: f.status,
       statusClass: STATUS_STYLES[f.status] ?? "bg-ink/5 text-ink/60 border-ink/15",
       needsAction: ACTIONABLE_STATUSES.has(f.status),
       resultLabel: f.result_status === "confirmed" && f.home_score !== null && f.away_score !== null ? `${f.home_score}-${f.away_score}` : null,
       canEdit,
+      canDelete,
+      canMessageClub,
+      cancelledAt: f.cancelled_at,
+      cancelledByName: f.cancelled_by ? (cancelledByNameById.get(f.cancelled_by) ?? "Unknown") : null,
+      cancellationReason: f.cancellation_reason,
       owningTeamId: f.owning_team_id,
       opponentTeamId: f.opponent_team_id,
       opponentDirectoryId: f.opponent_directory_id,
@@ -427,6 +477,11 @@ export default async function CalendarPage({
       status: "Training",
       statusClass: "bg-forest-800/10 text-forest-900 border-forest-800/20",
       canEdit: false,
+      canDelete: false,
+      canMessageClub: false,
+      cancelledAt: null,
+      cancelledByName: null,
+      cancellationReason: null,
       owningTeamId: null,
       opponentTeamId: null,
       opponentDirectoryId: null,
@@ -480,6 +535,11 @@ export default async function CalendarPage({
       needsAction: false,
       resultLabel: null,
       canEdit: false,
+      canDelete: false,
+      canMessageClub: false,
+      cancelledAt: null,
+      cancelledByName: null,
+      cancellationReason: null,
       owningTeamId: null,
       opponentTeamId: null,
       opponentDirectoryId: null,

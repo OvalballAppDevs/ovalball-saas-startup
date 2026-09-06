@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, Dumbbell, MapPin, MessageSquare, Plus, Trophy } from "lucide-react"
+import { AlertTriangle, Dumbbell, MapPin, Plus, Trophy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils"
 import { AddFixtureDialog } from "../admin/fixtures/add-fixture-dialog"
 import { CreateFixtureDialog, type CompetitionOption } from "./create-fixture-dialog"
 import { FixtureEditPanel } from "./fixture-edit-panel"
+import { FIXTURE_ACTION_BUTTON_GRID, FIXTURE_ACTION_BUTTON_PRIMARY, FIXTURE_ACTION_BUTTON_SECONDARY } from "./fixture-action-button-styles"
+import { FixtureLifecycleActions } from "./fixture-lifecycle-panel"
 import { TournamentQuickView, type Lane, type TournamentPitchOption, type WeekEntry } from "./week-board"
 import { TrainingSessionDetail } from "./training-session-detail"
 
@@ -70,73 +72,83 @@ function MobileFixtureSheet({
       <SheetHeader>
         <SheetTitle>{`${laneLabel} vs ${entry.opposition}`}</SheetTitle>
       </SheetHeader>
-      <div className="flex flex-col gap-3 px-4 pb-4">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">
-          <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", entry.statusClass)}>{entry.status}</span>
-          {entry.resultLabel && <span className="font-medium text-ink">{entry.resultLabel}</span>}
-        </div>
+      <div className="flex flex-col gap-4 px-4 pb-4">
         {!editing && (
           <>
-            <dl className="flex flex-col gap-1.5 text-sm">
-              <div className="flex justify-between gap-3">
-                <dt className="text-ink/50">Date</dt>
-                <dd className="text-ink">
-                  {new Date(`${entry.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
-                  {entry.time ? ` · ${entry.time.slice(0, 5)}` : ""}
-                </dd>
+            <div className="rounded-xl border border-ink/10 bg-ink/[0.015] p-4">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">
+                <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", entry.statusClass)}>{entry.status}</span>
+                {entry.resultLabel && <span className="font-medium text-ink">{entry.resultLabel}</span>}
               </div>
-              {entry.kind === "fixture" && (
+              <dl className="mt-3 flex flex-col gap-2 text-sm">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-ink/50">Home / Away</dt>
-                  <dd className="text-ink capitalize">{entry.homeAway}</dd>
+                  <dt className="text-ink/50">Date</dt>
+                  <dd className="text-ink">{new Date(`${entry.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</dd>
                 </div>
-              )}
-              {entry.venueAddress && (
-                <div className="flex justify-between gap-3">
-                  <dt className="shrink-0 text-ink/50">Venue</dt>
-                  <dd className="text-right text-ink">{entry.venueAddress}</dd>
-                </div>
-              )}
-              {entry.pitchName && (
-                <div className="flex justify-between gap-3">
-                  <dt className="text-ink/50">Pitch</dt>
-                  <dd className="text-ink">{entry.pitchName}</dd>
-                </div>
-              )}
-            </dl>
-            <div className="mt-1 flex flex-wrap gap-2 border-t border-ink/10 pt-3">
-              {entry.kind === "fixture" && entry.canEdit && (
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-forest-950 px-3.5 py-2 text-sm font-medium text-white outline-none hover:bg-forest-900 focus-visible:ring-2 focus-visible:ring-pitch-400"
-                >
+                {entry.kind === "fixture" && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink/50">Kick Off</dt>
+                    <dd className="text-ink">{entry.time ? entry.time.slice(0, 5) : "Time TBC"}</dd>
+                  </div>
+                )}
+                {entry.kind === "fixture" && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink/50">Home / Away</dt>
+                    <dd className="text-ink capitalize">{entry.homeAway}</dd>
+                  </div>
+                )}
+                {entry.venueAddress && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="shrink-0 text-ink/50">Venue</dt>
+                    <dd className="text-right text-ink">{entry.venueAddress}</dd>
+                  </div>
+                )}
+                {entry.pitchName && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink/50">Pitch</dt>
+                    <dd className="text-ink">{entry.pitchName}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+            <div className={FIXTURE_ACTION_BUTTON_GRID}>
+              {entry.kind === "fixture" && entry.canEdit && entry.status !== "Cancelled" && (
+                <button type="button" onClick={onEdit} className={cn(FIXTURE_ACTION_BUTTON_PRIMARY, "min-h-11")}>
                   Edit
                 </button>
               )}
               {entry.kind === "fixture" && (
-                <Link
-                  href="/fixtures"
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3.5 py-2 text-sm font-medium text-ink/70 outline-none hover:border-ink/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
-                >
+                <Link href="/fixtures" className={cn(FIXTURE_ACTION_BUTTON_SECONDARY, "min-h-11")}>
                   Open Fixture
                 </Link>
               )}
               {entry.kind === "fixture" && (
-                <Link
-                  href={`/messages/fixture/${entry.id}`}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3.5 py-2 text-sm font-medium text-ink/70 outline-none hover:border-ink/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
-                >
-                  <MessageSquare className="size-3.5" />
-                  Open Conversation
-                </Link>
+                <FixtureLifecycleActions
+                  fixture={{
+                    id: entry.id,
+                    opposition: entry.opposition,
+                    date: entry.date,
+                    time: entry.time,
+                    status: entry.status,
+                    cancelledAt: entry.cancelledAt,
+                    cancelledByName: entry.cancelledByName,
+                    cancellationReason: entry.cancellationReason,
+                  }}
+                  canCancel={entry.canEdit}
+                  canDelete={entry.canDelete}
+                  canMessageClub={entry.canMessageClub}
+                  onChanged={() => {
+                    onClose()
+                    router.refresh()
+                  }}
+                />
               )}
               {entry.venueAddress && (
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(entry.venueAddress)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3.5 py-2 text-sm font-medium text-ink/70 outline-none hover:border-ink/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+                  className={cn(FIXTURE_ACTION_BUTTON_SECONDARY, "min-h-11")}
                 >
                   <MapPin className="size-3.5" />
                   Directions
@@ -275,7 +287,7 @@ export function MobileAgenda({
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-ink">
                           {e.kind === "tournament" ? `Tournament · ${e.tournamentHostName}` : laneLabel(e.laneId)}
-                          {e.kind === "fixture" ? ` vs ${e.opposition}` : e.kind === "training" ? " training" : ""}
+                          {e.kind === "fixture" ? ` vs ${e.opposition}` : e.kind === "training" ? " Scheduled Training Session" : ""}
                         </span>
                         <span className="block text-xs text-ink/50">
                           {e.kind === "fixture" ? `${e.homeAway} · ` : ""}

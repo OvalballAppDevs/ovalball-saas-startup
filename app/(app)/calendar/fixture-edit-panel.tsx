@@ -35,7 +35,11 @@ export interface EditPitchOption {
   displayName: string
 }
 
-const STATUS_OPTIONS = ["Planned", "Booked", "To Be Determined", "Cancelled", "Completed"] as const
+// "Cancelled" is deliberately not offered here -- Calendar Fixture
+// Lifecycle hardening replaced the old unsafe status-dropdown flip with a
+// dedicated, guided "Cancel Fixture" action (required reason, mirror sync,
+// notification) -- see fixture-lifecycle-actions.tsx.
+const STATUS_OPTIONS = ["Planned", "Booked", "To Be Determined", "Completed"] as const
 
 /**
  * The structured edit surface embedded inside the fixture Sheet's Edit

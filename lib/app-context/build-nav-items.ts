@@ -128,6 +128,11 @@ export function buildNavItems(
         // every RPC it calls re-check the real capability server-side
         // regardless (this file's own stated "presentation only" contract).
         items.push({ href: "/club/training", label: "Training Management" })
+        // Calendar Fixture Lifecycle hardening (Section H): the unified
+        // back-office archive for both archived fixtures and removed
+        // training -- Club-Admin-gated exactly like Training Management
+        // above (the page/view itself re-checks real RLS regardless).
+        items.push({ href: "/club/calendar/deleted-events", label: "Deleted Calendar Events" })
       }
     }
   }

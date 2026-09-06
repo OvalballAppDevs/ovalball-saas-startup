@@ -211,17 +211,24 @@ export default async function CalendarAgendaPage({
       kind: "training" as const,
       date: t.session_date,
       time: t.start_time,
-      title: `${t.teams?.display_name ?? (t.scheduling_groups?.display_tag ? miniRugbyGroupLabel({ displayTag: t.scheduling_groups.display_tag, alias: t.scheduling_groups.alias }) : "Training")} training`,
+      // Standing rule: a training entry's title is always "(Age Group)
+      // Scheduled Training Session" -- never a bare "training" suffix --
+      // consistently across every Calendar surface (week/month/mobile/
+      // Agenda).
+      title: `${t.teams?.display_name ?? (t.scheduling_groups?.display_tag ? miniRugbyGroupLabel({ displayTag: t.scheduling_groups.display_tag, alias: t.scheduling_groups.alias }) : "Training")} Scheduled Training Session`,
       subtitle: [t.club_pitches?.display_name, t.notes].filter(Boolean).join(" · "),
       statusLabel: "Training",
       statusClass: "bg-forest-800/10 text-forest-900",
     })),
   ].sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? ""))
 
+  // Split into real day sections (not just a flat monthly list) -- each
+  // day gets its own header/card group, matching the day-by-day shape the
+  // mobile agenda already uses, so switching between the two feels like
+  // one design rather than two different agendas.
   const grouped = new Map<string, CalendarEntry[]>()
   for (const e of entries) {
-    const monthKey = new Date(e.date + "T00:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" })
-    grouped.set(monthKey, [...(grouped.get(monthKey) ?? []), e])
+    grouped.set(e.date, [...(grouped.get(e.date) ?? []), e])
   }
 
   const baseParams = { team: teamFilter ?? null, season: seasonParam ?? null, phase: phaseParam ?? null }
@@ -258,35 +265,43 @@ export default async function CalendarAgendaPage({
           </div>
         </div>
       ) : (
-        <div className="mt-8 flex flex-col gap-8">
-          {Array.from(grouped.entries()).map(([month, monthEntries]) => (
-            <section key={month}>
-              <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">{month}</h2>
-              <ul className="mt-3 flex flex-col gap-2">
-                {monthEntries.map((e) => {
-                  const date = new Date(e.date + "T00:00:00")
-                  return (
-                    <li key={`${e.kind}-${e.id}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5">
-                      <div className="w-24 shrink-0">
-                        <p className="text-sm font-medium text-ink">
-                          {date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-                        </p>
-                        {e.time && <p className="text-xs text-ink/45">{e.time.slice(0, 5)}</p>}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-1.5 truncate text-sm font-medium text-ink">
-                          {e.kind === "training" && <Dumbbell className="size-3.5 shrink-0 text-forest-800/60" />}
-                          {e.title}
-                        </p>
-                        {e.subtitle && <p className="text-xs text-ink/50">{e.subtitle}</p>}
-                      </div>
-                      <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-medium", e.statusClass)}>{e.statusLabel}</span>
-                    </li>
-                  )
-                })}
-              </ul>
-            </section>
-          ))}
+        <div className="mt-8 flex flex-col gap-6">
+          {(() => {
+            let lastMonthKey = ""
+            return Array.from(grouped.entries()).map(([dateIso, dayEntries]) => {
+              const date = new Date(dateIso + "T00:00:00")
+              const monthKey = date.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
+              const showMonthHeader = monthKey !== lastMonthKey
+              lastMonthKey = monthKey
+              return (
+                <div key={dateIso} className="flex flex-col gap-3">
+                  {showMonthHeader && <h2 className="mt-2 text-xs font-medium tracking-[0.08em] text-ink/40 uppercase first:mt-0">{monthKey}</h2>}
+                  <section className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-[0_2px_0_0_rgba(20,20,20,0.05)]">
+                    <h3 className="border-b border-ink/10 bg-ink/[0.02] px-4 py-2.5 text-sm font-semibold text-ink">
+                      {date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+                    </h3>
+                    <ul className="flex flex-col divide-y divide-ink/5">
+                      {dayEntries.map((e) => (
+                        <li key={`${e.kind}-${e.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3.5 transition-colors hover:bg-ink/[0.015]">
+                          <div className="w-16 shrink-0">
+                            <p className="text-sm font-medium text-ink">{e.time ? e.time.slice(0, 5) : "TBC"}</p>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="flex items-center gap-1.5 truncate text-sm font-medium text-ink">
+                              {e.kind === "training" && <Dumbbell className="size-3.5 shrink-0 text-forest-800/60" />}
+                              {e.title}
+                            </p>
+                            {e.subtitle && <p className="text-xs text-ink/50">{e.subtitle}</p>}
+                          </div>
+                          <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-medium", e.statusClass)}>{e.statusLabel}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
+              )
+            })
+          })()}
         </div>
       )}
     </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, Check, Clock, Crown, Dumbbell, ExternalLink, MapPin, MessageSquare, Plus, Trophy, X } from "lucide-react"
+import { AlertTriangle, Check, Clock, Crown, Dumbbell, ExternalLink, MapPin, Plus, Trophy, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -16,6 +16,8 @@ import { AddFixtureDialog } from "../admin/fixtures/add-fixture-dialog"
 import { TournamentOppositionEntry, type OppositionValue } from "../admin/fixtures/tournament-opposition-entry"
 import { CreateFixtureDialog, type CompetitionOption } from "./create-fixture-dialog"
 import { FixtureEditPanel } from "./fixture-edit-panel"
+import { FIXTURE_ACTION_BUTTON_GRID, FIXTURE_ACTION_BUTTON_PRIMARY, FIXTURE_ACTION_BUTTON_SECONDARY } from "./fixture-action-button-styles"
+import { FixtureLifecycleActions } from "./fixture-lifecycle-panel"
 import {
   inviteTournamentParticipantAction,
   removeTournamentParticipantAction,
@@ -73,6 +75,13 @@ export interface WeekEntry {
   needsAction: boolean
   resultLabel: string | null
   canEdit: boolean
+  /** Section G/M: narrower than canEdit -- only this fixture's own OWNING club's Club Admin/Fixtures Secretary, never a Team Admin/Coach/Manager and never the opponent side. */
+  canDelete: boolean
+  /** Section D/O: true only when the opposition genuinely resolves to a claimed, active Ovalball club (opponent_team_id is not null and that club is active) -- never inferred from display name. */
+  canMessageClub: boolean
+  cancelledAt: string | null
+  cancelledByName: string | null
+  cancellationReason: string | null
   owningTeamId: string | null
   opponentTeamId: string | null
   opponentDirectoryId: string | null
@@ -320,73 +329,83 @@ export function WeekBoard({
               <SheetHeader>
                 <SheetTitle>{`${lanes.find((l) => l.id === selected.laneId)?.label ?? ""} vs ${selected.opposition}`}</SheetTitle>
               </SheetHeader>
-              <div className="flex flex-col gap-3 px-4 pb-4">
-                <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">
-                  <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", selected.statusClass)}>{selected.status}</span>
-                  {selected.resultLabel && <span className="font-medium text-ink">{selected.resultLabel}</span>}
-                </div>
+              <div className="flex flex-col gap-4 px-4 pb-4">
                 {!editing && (
                   <>
-                    <dl className="flex flex-col gap-1.5 text-sm">
-                      <div className="flex justify-between gap-3">
-                        <dt className="text-ink/50">Date</dt>
-                        <dd className="text-ink">
-                          {new Date(`${selected.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
-                          {selected.time ? ` · ${selected.time.slice(0, 5)}` : ""}
-                        </dd>
+                    <div className="rounded-xl border border-ink/10 bg-ink/[0.015] p-4">
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">
+                        <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", selected.statusClass)}>{selected.status}</span>
+                        {selected.resultLabel && <span className="font-medium text-ink">{selected.resultLabel}</span>}
                       </div>
-                      {selected.kind === "fixture" && (
+                      <dl className="mt-3 flex flex-col gap-2 text-sm">
                         <div className="flex justify-between gap-3">
-                          <dt className="text-ink/50">Home / Away</dt>
-                          <dd className="text-ink capitalize">{selected.homeAway}</dd>
+                          <dt className="text-ink/50">Date</dt>
+                          <dd className="text-ink">{new Date(`${selected.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</dd>
                         </div>
-                      )}
-                      {selected.venueAddress && (
-                        <div className="flex justify-between gap-3">
-                          <dt className="shrink-0 text-ink/50">Venue</dt>
-                          <dd className="text-right text-ink">{selected.venueAddress}</dd>
-                        </div>
-                      )}
-                      {selected.pitchName && (
-                        <div className="flex justify-between gap-3">
-                          <dt className="text-ink/50">Pitch</dt>
-                          <dd className="text-ink">{selected.pitchName}</dd>
-                        </div>
-                      )}
-                    </dl>
-                    <div className="mt-1 flex flex-wrap gap-2 border-t border-ink/10 pt-3">
-                      {selected.kind === "fixture" && selected.canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => setEditing(true)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-forest-950 px-3 py-2 text-sm font-medium text-white outline-none hover:bg-forest-900 focus-visible:ring-2 focus-visible:ring-pitch-400"
-                        >
+                        {selected.kind === "fixture" && (
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-ink/50">Kick Off</dt>
+                            <dd className="text-ink">{selected.time ? selected.time.slice(0, 5) : "Time TBC"}</dd>
+                          </div>
+                        )}
+                        {selected.kind === "fixture" && (
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-ink/50">Home / Away</dt>
+                            <dd className="text-ink capitalize">{selected.homeAway}</dd>
+                          </div>
+                        )}
+                        {selected.venueAddress && (
+                          <div className="flex justify-between gap-3">
+                            <dt className="shrink-0 text-ink/50">Venue</dt>
+                            <dd className="text-right text-ink">{selected.venueAddress}</dd>
+                          </div>
+                        )}
+                        {selected.pitchName && (
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-ink/50">Pitch</dt>
+                            <dd className="text-ink">{selected.pitchName}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+                    <div className={FIXTURE_ACTION_BUTTON_GRID}>
+                      {selected.kind === "fixture" && selected.canEdit && selected.status !== "Cancelled" && (
+                        <button type="button" onClick={() => setEditing(true)} className={FIXTURE_ACTION_BUTTON_PRIMARY}>
                           Edit
                         </button>
                       )}
                       {selected.kind === "fixture" && (
-                        <Link
-                          href="/fixtures"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink/70 outline-none hover:border-ink/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
-                        >
+                        <Link href="/fixtures" className={FIXTURE_ACTION_BUTTON_SECONDARY}>
                           Open Fixture
                         </Link>
                       )}
                       {selected.kind === "fixture" && (
-                        <Link
-                          href={`/messages/fixture/${selected.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink/70 outline-none hover:border-ink/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
-                        >
-                          <MessageSquare className="size-3.5" />
-                          Open Conversation
-                        </Link>
+                        <FixtureLifecycleActions
+                          fixture={{
+                            id: selected.id,
+                            opposition: selected.opposition,
+                            date: selected.date,
+                            time: selected.time,
+                            status: selected.status,
+                            cancelledAt: selected.cancelledAt,
+                            cancelledByName: selected.cancelledByName,
+                            cancellationReason: selected.cancellationReason,
+                          }}
+                          canCancel={selected.canEdit}
+                          canDelete={selected.canDelete}
+                          canMessageClub={selected.canMessageClub}
+                          onChanged={() => {
+                            setSelected(null)
+                            router.refresh()
+                          }}
+                        />
                       )}
                       {selected.venueAddress && (
                         <a
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selected.venueAddress)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink/70 outline-none hover:border-ink/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+                          className={FIXTURE_ACTION_BUTTON_SECONDARY}
                         >
                           <MapPin className="size-3.5" />
                           Directions

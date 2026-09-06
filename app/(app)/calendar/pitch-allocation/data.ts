@@ -143,6 +143,10 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     .in("home_team_id", teamIds)
     .eq("kickoff_date", dateIso)
     .neq("status", "Cancelled")
+    // Section F/I: an archived (soft-deleted) fixture must stop occupying
+    // pitch capacity exactly like a cancelled one already does -- the two
+    // are orthogonal (Section G), so this needs its own explicit filter.
+    .is("archived_at", null)
 
   /**
    * Section 1 root cause (live-reproduced on 2026-08-31, Burnley U12 v

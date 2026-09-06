@@ -4555,6 +4555,9 @@ export type Database = {
       }
       fixtures: {
         Row: {
+          archival_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           away_score: number | null
           away_team_id: string | null
           cancellation_reason: string | null
@@ -4623,6 +4626,9 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          archival_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           away_score?: number | null
           away_team_id?: string | null
           cancellation_reason?: string | null
@@ -4691,6 +4697,9 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          archival_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           away_score?: number | null
           away_team_id?: string | null
           cancellation_reason?: string | null
@@ -10798,6 +10807,24 @@ export type Database = {
           },
         ]
       }
+      deleted_calendar_events: {
+        Row: {
+          canonical_id: string | null
+          club_id: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_reason: string | null
+          event_date: string | null
+          event_time: string | null
+          event_type: string | null
+          opponent_label: string | null
+          original_status: string | null
+          team_id: string | null
+          team_name: string | null
+          venue_name: string | null
+        }
+        Relationships: []
+      }
       team_result_stats: {
         Row: {
           drawn: number | null
@@ -10928,6 +10955,10 @@ export type Database = {
         Args: { p_membership_id: string }
         Returns: undefined
       }
+      archive_fixture: {
+        Args: { p_fixture_id: string; p_reason: string }
+        Returns: undefined
+      }
       archive_season: {
         Args: { p_active: boolean; p_season_id: string }
         Returns: undefined
@@ -10939,6 +10970,10 @@ export type Database = {
       can_view_team_conversation: {
         Args: { p_team_id: string }
         Returns: boolean
+      }
+      cancel_fixture: {
+        Args: { p_fixture_id: string; p_reason: string }
+        Returns: undefined
       }
       cancel_training_session: {
         Args: { p_reason?: string; p_session_id: string }
@@ -11663,6 +11698,9 @@ export type Database = {
       list_fixtures_since_deactivation: {
         Args: { p_club_id: string }
         Returns: {
+          archival_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           away_score: number | null
           away_team_id: string | null
           cancellation_reason: string | null
@@ -11740,6 +11778,9 @@ export type Database = {
       list_restorable_fixtures: {
         Args: { p_team_id: string }
         Returns: {
+          archival_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           away_score: number | null
           away_team_id: string | null
           cancellation_reason: string | null
@@ -12204,6 +12245,7 @@ export type Database = {
         Args: { p_membership_id: string }
         Returns: undefined
       }
+      restore_fixture: { Args: { p_fixture_id: string }; Returns: undefined }
       revoke_capability_override: {
         Args: { p_override_id: string }
         Returns: undefined
