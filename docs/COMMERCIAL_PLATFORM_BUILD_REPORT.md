@@ -554,3 +554,109 @@ Local only.
 - `lib/platform/entitlements.ts` (new)
 - `lib/platform/plans.ts` (new)
 - `types/database.types.ts` (regenerated)
+
+---
+
+## PHASE F — COMPLETE
+
+The club subscription domain. Four tables, no provider: Phase G attaches
+GoCardless, and this phase is the domain it will report into, so the whole
+lifecycle is testable before any money can move.
+
+### Tables
+
+| Table | Shape |
+|---|---|
+| `platform_club_subscriptions` | One per club. Plan, **snapshotted price**, status, period, next collection. |
+| `platform_subscription_events` | Append-only lifecycle log, each event carrying the terms as they stood. |
+| `platform_payments` | Ovalball's own collections. Gross / credit applied / net, with a unique `idempotency_key` per cycle. |
+| `platform_credits` | Append-only ledger. Positive earns, negative spends or reverses. |
+
+`platform_club_subscriptions` has a SELECT policy and **no INSERT, UPDATE or
+DELETE policy** — same discipline as `platform_trials`.
+
+### Price snapshots
+
+The subscription stores `plan_price_pence`, `plan_currency` and
+`plan_price_version` taken at selection, and nothing reads
+`platform_plans.price_pence` to decide what to collect. Assertion 4 raises
+the list price to £19 and confirms the club's agreed £15 is untouched.
+
+### The credit ledger is a ledger, not a counter
+
+There is no `free_months` column to decrement. A counter loses the answer to
+"where did this come from" the moment it is wrong, and a reversal has
+nowhere to live. Instead:
+
+- Balance is `sum(amount_pence)` over the club's rows.
+- A trigger refuses any negative row that would take the balance below zero
+  — checked against the ledger, not a cached figure.
+- A partial unique index allows **one application per payment** and **one
+  reversal per credit**, so "exactly once" is a constraint rather than
+  careful code.
+- Earned rows carry `snapshot_plan_code / snapshot_price_pence /
+  snapshot_price_version`, so a later price change cannot revalue a reward
+  already earned (§41).
+
+### A cycle worth nothing is skipped
+
+`club_next_collection()` applies credit at calculation time and reports
+`will_skip` when the net comes to zero. A £0.00 direct debit is a real bank
+instruction: it confuses payers and costs provider fees for nothing (§71).
+
+### Two judgement calls, stated plainly
+
+**`past_due` still grants the product.** A failed payment is a dunning
+conversation, not a reason to lock a club out of its own fixtures
+mid-season. Assertion 8 pins this down so it cannot be changed silently.
+
+**`cancelled` still grants the product.** Cancelling stops the next
+collection; the club keeps the period it has already paid for. Only `ended`
+withdraws access.
+
+### The resolver, extended as promised
+
+Phase E said `internal.club_effective_plan` would be the only function
+needing a change. It was: it now prefers a subscription and falls back to a
+trial, and every entitlement check in the application picked that up
+without being touched.
+
+`public.club_platform_billing_state()` is the canonical state resolver
+(§89) — plan, subscription status, price, next collection, trial state,
+credit balance and platform mode, in one row.
+
+### Verification
+
+`supabase/tests/platform_club_subscriptions.sql`, 21 assertions, all PASS.
+Beyond the lifecycle and ledger cases, two structural ones:
+
+- **20** — no `platform_*` function reads a Domain A table.
+- **21** — no foreign key joins the two payment domains, checked against
+  `pg_constraint`.
+
+The three earlier suites were also tightened in this phase. They matched
+Domain A on the bare substring `club_subscription`, which
+`platform_club_subscriptions` legitimately contains; they now match Domain
+A's actual table and function names. All three still pass in full (12, 17,
+17).
+
+```bash
+docker exec -i supabase_db_ovalball-saas-startup \
+  psql -U postgres -d postgres -f - < supabase/tests/platform_club_subscriptions.sql
+```
+
+`npm run typecheck` and `eslint` clean. Types regenerated: additions only.
+
+### Not applied to production. No provider enabled.
+
+Local only. No GoCardless credential, connection or webhook exists in this
+phase.
+
+### Files
+
+- `supabase/migrations/20261004000000_platform_club_subscriptions.sql` (new)
+- `supabase/tests/platform_club_subscriptions.sql` (new)
+- `lib/platform/subscription.ts` (new)
+- `supabase/tests/platform_release_and_mode.sql`,
+  `platform_trials.sql`, `platform_plans_entitlements.sql` (tightened)
+- `types/database.types.ts` (regenerated)

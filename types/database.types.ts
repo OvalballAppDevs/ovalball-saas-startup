@@ -7083,6 +7083,262 @@ export type Database = {
           },
         ]
       }
+      platform_club_subscriptions: {
+        Row: {
+          cancel_reason: string | null
+          cancel_requested_at: string | null
+          cancelled_at: string | null
+          club_id: string
+          created_at: string
+          created_by: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          next_collection_on: string | null
+          plan_code: string
+          plan_currency: string
+          plan_price_pence: number
+          plan_price_version: number
+          started_at: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancel_requested_at?: string | null
+          cancelled_at?: string | null
+          club_id: string
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          next_collection_on?: string | null
+          plan_code: string
+          plan_currency?: string
+          plan_price_pence: number
+          plan_price_version: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancel_requested_at?: string | null
+          cancelled_at?: string | null
+          club_id?: string
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          next_collection_on?: string | null
+          plan_code?: string
+          plan_currency?: string
+          plan_price_pence?: number
+          plan_price_version?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "platform_club_subscriptions_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_club_subscriptions_plan_code_fkey"
+            columns: ["plan_code"]
+            isOneToOne: false
+            referencedRelation: "platform_plans"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      platform_credits: {
+        Row: {
+          amount_pence: number
+          applied_to_payment_id: string | null
+          club_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          reason: string | null
+          reverses_credit_id: string | null
+          seq: number
+          snapshot_plan_code: string | null
+          snapshot_price_pence: number | null
+          snapshot_price_version: number | null
+          source: string
+        }
+        Insert: {
+          amount_pence: number
+          applied_to_payment_id?: string | null
+          club_id: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          reason?: string | null
+          reverses_credit_id?: string | null
+          seq?: never
+          snapshot_plan_code?: string | null
+          snapshot_price_pence?: number | null
+          snapshot_price_version?: number | null
+          source: string
+        }
+        Update: {
+          amount_pence?: number
+          applied_to_payment_id?: string | null
+          club_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          reason?: string | null
+          reverses_credit_id?: string | null
+          seq?: never
+          snapshot_plan_code?: string | null
+          snapshot_price_pence?: number | null
+          snapshot_price_version?: number | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_credits_applied_to_payment_id_fkey"
+            columns: ["applied_to_payment_id"]
+            isOneToOne: false
+            referencedRelation: "platform_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "platform_credits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_credits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_credits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_credits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_credits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_credits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "platform_credits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credits_reverses_credit_id_fkey"
+            columns: ["reverses_credit_id"]
+            isOneToOne: false
+            referencedRelation: "platform_credits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credits_snapshot_plan_code_fkey"
+            columns: ["snapshot_plan_code"]
+            isOneToOne: false
+            referencedRelation: "platform_plans"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       platform_entitlements: {
         Row: {
           created_at: string
@@ -7147,6 +7403,130 @@ export type Database = {
             columns: ["release_id"]
             isOneToOne: false
             referencedRelation: "platform_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_payments: {
+        Row: {
+          charge_date: string | null
+          club_id: string
+          confirmed_at: string | null
+          created_at: string
+          credit_applied_pence: number
+          currency: string
+          failed_at: string | null
+          failure_reason: string | null
+          gross_pence: number
+          id: string
+          idempotency_key: string
+          net_pence: number
+          provider: string | null
+          provider_payment_id: string | null
+          status: string
+          subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          charge_date?: string | null
+          club_id: string
+          confirmed_at?: string | null
+          created_at?: string
+          credit_applied_pence?: number
+          currency?: string
+          failed_at?: string | null
+          failure_reason?: string | null
+          gross_pence: number
+          id?: string
+          idempotency_key: string
+          net_pence: number
+          provider?: string | null
+          provider_payment_id?: string | null
+          status?: string
+          subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          charge_date?: string | null
+          club_id?: string
+          confirmed_at?: string | null
+          created_at?: string
+          credit_applied_pence?: number
+          currency?: string
+          failed_at?: string | null
+          failure_reason?: string | null
+          gross_pence?: number
+          id?: string
+          idempotency_key?: string
+          net_pence?: number
+          provider?: string | null
+          provider_payment_id?: string | null
+          status?: string
+          subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "platform_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "platform_payments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "platform_club_subscriptions"
             referencedColumns: ["id"]
           },
         ]
@@ -7276,6 +7656,121 @@ export type Database = {
           version?: string
         }
         Relationships: []
+      }
+      platform_subscription_events: {
+        Row: {
+          actor: string | null
+          club_id: string
+          event_type: string
+          id: string
+          new_status: string | null
+          occurred_at: string
+          plan_code: string | null
+          plan_currency: string | null
+          plan_price_pence: number | null
+          plan_price_version: number | null
+          previous_status: string | null
+          reason: string | null
+          seq: number
+          subscription_id: string | null
+        }
+        Insert: {
+          actor?: string | null
+          club_id: string
+          event_type: string
+          id?: string
+          new_status?: string | null
+          occurred_at?: string
+          plan_code?: string | null
+          plan_currency?: string | null
+          plan_price_pence?: number | null
+          plan_price_version?: number | null
+          previous_status?: string | null
+          reason?: string | null
+          seq?: never
+          subscription_id?: string | null
+        }
+        Update: {
+          actor?: string | null
+          club_id?: string
+          event_type?: string
+          id?: string
+          new_status?: string | null
+          occurred_at?: string
+          plan_code?: string | null
+          plan_currency?: string | null
+          plan_price_pence?: number | null
+          plan_price_version?: number | null
+          previous_status?: string | null
+          reason?: string | null
+          seq?: never
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_subscription_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "platform_subscription_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_subscription_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_subscription_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_subscription_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_subscription_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_subscription_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "platform_subscription_events_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_subscription_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "platform_club_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       platform_trials: {
         Row: {
@@ -11000,6 +11495,10 @@ export type Database = {
         Args: { p_team_id: string }
         Returns: boolean
       }
+      cancel_club_subscription: {
+        Args: { p_club_id: string; p_reason?: string }
+        Returns: boolean
+      }
       cancel_training_session: {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
@@ -11039,6 +11538,10 @@ export type Database = {
         Returns: undefined
       }
       clear_team_alias: { Args: { p_team_id: string }; Returns: undefined }
+      club_credit_balance_pence: {
+        Args: { p_club_id: string }
+        Returns: number
+      }
       club_entitlements: {
         Args: { p_club_id: string }
         Returns: {
@@ -11049,6 +11552,32 @@ export type Database = {
       club_has_entitlement: {
         Args: { p_club_id: string; p_entitlement_key: string }
         Returns: boolean
+      }
+      club_next_collection: {
+        Args: { p_club_id: string }
+        Returns: {
+          credit_applied_pence: number
+          credit_available_pence: number
+          currency: string
+          gross_pence: number
+          net_pence: number
+          will_skip: boolean
+        }[]
+      }
+      club_platform_billing_state: {
+        Args: { p_club_id: string }
+        Returns: {
+          credit_balance_pence: number
+          currency: string
+          current_period_end: string
+          effective_plan: string
+          next_collection_on: string
+          plan_price_pence: number
+          platform_mode: string
+          subscription_status: string
+          trial_remaining_seconds: number
+          trial_status: string
+        }[]
       }
       club_trial_state: {
         Args: { p_club_id: string }
@@ -12275,6 +12804,10 @@ export type Database = {
           member_team_id: string
           member_team_name: string
         }[]
+      }
+      select_club_plan: {
+        Args: { p_club_id: string; p_plan_code: string }
+        Returns: string
       }
       send_fixture_support_message: {
         Args: { p_body: string; p_fixture_id: string }

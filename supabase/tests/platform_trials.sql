@@ -290,8 +290,13 @@ begin
       and p.prokind = 'f'
       and (p.proname like '%trial%' or p.proname like '%platform_mode%')
       and (pg_get_functiondef(p.oid) like '%gocardless%'
-        or pg_get_functiondef(p.oid) like '%club_subscription%'
-        or pg_get_functiondef(p.oid) like '%membership_obligations%')
+        or pg_get_functiondef(p.oid) like '%club_subscription_pricing%'
+        or pg_get_functiondef(p.oid) like '%club_subscription_programmes%'
+        or pg_get_functiondef(p.oid) like '%club_subscription_sibling_rules%'
+        or pg_get_functiondef(p.oid) like '%payer_subscriptions%'
+        or pg_get_functiondef(p.oid) like '%player_subscription_payers%'
+        or pg_get_functiondef(p.oid) like '%membership_obligations%'
+        or pg_get_functiondef(p.oid) like '%calculate_member_price%')
   ) into v_ok;
   if v_ok then
     raise notice 'PASS 17: no trial or mode function reads the club-charges-members domain';
