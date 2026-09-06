@@ -132,8 +132,8 @@ export default function DataRightsPage() {
           the deletion route below for that.
         </p>
         <p className="text-ink/60">
-          At the date of this page, social sign-in options are supported by the platform but not yet
-          enabled in the live service.
+          At the date of this page, signing in with Google is available. Facebook and Apple
+          sign-in are supported by the platform but are not yet enabled in the live service.
         </p>
       </LegalSection>
 

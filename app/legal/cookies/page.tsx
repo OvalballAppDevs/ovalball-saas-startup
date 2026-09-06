@@ -72,12 +72,34 @@ export default function CookiePolicyPage() {
         </p>
       </LegalSection>
 
+      <LegalSection heading="Security check on sign-in and sign-up">
+        <p>
+          The sign-in and sign-up pages run Cloudflare Turnstile, a check that helps confirm a
+          visitor is a person rather than an automated script. It is there to stop automated account
+          creation and to stop someone triggering large numbers of sign-in emails to other people&rsquo;s
+          addresses.
+        </p>
+        <p>
+          On those two pages your browser loads a script from{" "}
+          <code>challenges.cloudflare.com</code> and makes one verification request to Cloudflare.
+          We have checked what this actually does on Ovalball rather than describing it generally:
+          it sets <strong>no cookie on ovalball.co.uk</strong>, and stores nothing in this
+          site&rsquo;s local or session storage. Cloudflare may set its own cookies on its own
+          domain as part of running the check.
+        </p>
+        <p>
+          It runs only on the sign-in and sign-up pages, not while you are using Ovalball, and it is
+          not used for analytics, advertising or tracking you between sites.
+        </p>
+      </LegalSection>
+
       <LegalSection heading="Analytics and advertising">
         <p>
           At the date of this policy, Ovalball does not use advertising cookies or behavioural
           advertising trackers, and does not load any analytics, tracking pixel or marketing script.
           There is no Google Analytics, no Meta pixel and no comparable third-party tracker on the
-          site.
+          site. The only third-party request Ovalball makes is the security check described above,
+          and it happens on two pages only.
         </p>
         <p>
           This is a statement of the current implementation, verified against the application source.
@@ -88,9 +110,10 @@ export default function CookiePolicyPage() {
 
       <LegalSection heading="Why there is no cookie banner">
         <p>
-          Because everything above is strictly necessary or a minor functional preference, and
-          nothing is used for advertising or cross-site tracking, Ovalball does not show an
-          accept/reject cookie banner. Presenting a consent choice that has no effect would be
+          Because everything above is strictly necessary \u2014 including the security check, which
+          protects the sign-in process itself \u2014 or a minor functional preference, and nothing is
+          used for advertising or cross-site tracking, Ovalball does not show an accept/reject
+          cookie banner. Presenting a consent choice that has no effect would be
           misleading.
         </p>
         <p>

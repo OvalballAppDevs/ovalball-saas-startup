@@ -35,6 +35,16 @@ export default function SubprocessorsPage() {
               "Hosts and serves the Ovalball web application at ovalball.co.uk.",
               "Requests to the site, and technical/security information such as error logs.",
             ],
+            [
+              "Google",
+              "Optional sign-in (Continue with Google). Ovalball receives identity and authentication information only \u2014 your name, email address and Google account identifier. It does not request contacts, Drive, calendar, photographs or any advertising data, and Google never shares your password with Ovalball.",
+              "Identity and authentication details for people who choose this sign-in method.",
+            ],
+            [
+              "Cloudflare",
+              "Turnstile, a human-verification check on the sign-in and sign-up pages, used to prevent automated account creation and automated sign-in emails. It checks whether a visitor appears to be a person; it does not identify anyone and is not used for analytics or advertising.",
+              "Technical signals about the browser making the request. Turnstile sets no cookie and stores nothing in the browser on ovalball.co.uk; it loads a script from challenges.cloudflare.com and makes one verification request.",
+            ],
           ]}
         />
       </LegalSection>
@@ -54,11 +64,6 @@ export default function SubprocessorsPage() {
               "Supported. Live payment collection is disabled in production.",
             ],
             [
-              "Google",
-              "Optional sign-in (Continue with Google). Identity and authentication only.",
-              "Supported. Not yet enabled.",
-            ],
-            [
               "Meta / Facebook",
               "Optional sign-in (Continue with Facebook). Identity and authentication only.",
               "Supported. Not yet enabled.",
@@ -66,11 +71,6 @@ export default function SubprocessorsPage() {
             [
               "Apple",
               "Optional sign-in (Sign in with Apple), including Apple's Hide My Email relay. Identity and authentication only.",
-              "Supported. Not yet enabled.",
-            ],
-            [
-              "Cloudflare",
-              "Turnstile, a human-verification check on the sign-in and sign-up pages, used to prevent automated account creation and automated sign-in emails. It checks whether a visitor appears to be a person; it does not identify anyone, and it is not used for analytics or advertising.",
               "Supported. Not yet enabled.",
             ],
           ]}
