@@ -1,24 +1,32 @@
 "use client"
 
-import { useState } from "react"
-import { Search } from "lucide-react"
+import { useCallback, useRef, useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Autocomplete } from "@/components/ui/autocomplete"
 
 import type { AddressCandidate, AddressLookupResult } from "@/lib/address-lookup/lookup"
 
 /**
- * Search -> candidate list -> explicit selection -> populate. Never
- * applies anything on its own -- onSelect just fills the form fields the
- * same way typing would, so the caller's own Save action is still the
- * only thing that actually writes anywhere.
+ * Type -> suggestions -> explicit selection -> populate. Never applies
+ * anything on its own: onSelect fills the form fields the same way typing
+ * would, so the caller's own Save action remains the only thing that writes.
+ *
+ * Previously this was a text box plus a Search BUTTON: nothing happened
+ * until you clicked it, which is the "address entry is buggy / suggestions
+ * don't appear" report. It now searches automatically after three
+ * characters and a debounce, through the shared Autocomplete primitive --
+ * the same one Site Admin's club lookup uses, so the two behave identically
+ * and there is one implementation to keep accessible.
  *
  * Provider-agnostic and caller-scoped: `search` is passed in rather than
- * imported directly, so each caller supplies its own authorization
- * boundary around lib/address-lookup/lookup.ts's searchUkAddresses (Site
- * Admin's club_directory editor and Club Admin's venue editor need
- * different checks around the same underlying provider call).
+ * imported, so each caller supplies its own authorization boundary around
+ * lib/address-lookup/lookup.ts (Site Admin's club_directory editor and Club
+ * Admin's venue editor need different checks around the same provider).
+ *
+ * The provider is server-only and its key never reaches the browser. When
+ * no key is configured the provider reports `not_configured`, and this
+ * surfaces that as an honest hint pointing at manual entry rather than an
+ * empty list that looks like "no such address".
  */
 export function AddressLookupField({
   search,
@@ -27,79 +35,71 @@ export function AddressLookupField({
   search: (query: string) => Promise<AddressLookupResult>
   onSelect: (address: { address: string; town: string; county: string; postcode: string }) => void
 }) {
-  const [query, setQuery] = useState("")
-  const [status, setStatus] = useState<"idle" | "searching" | "done">("idle")
-  const [candidates, setCandidates] = useState<AddressCandidate[]>([])
-  const [message, setMessage] = useState<string | null>(null)
+  const [hint, setHint] = useState<string | null>(null)
+  // Held in a ref so setting it does not re-run the debounce effect.
+  const lastStatus = useRef<AddressLookupResult["status"] | null>(null)
 
-  async function handleSearch() {
-    setStatus("searching")
-    setMessage(null)
-    setCandidates([])
-    const result = await search(query)
-    setStatus("done")
-    if (result.status === "ok") {
-      setCandidates(result.candidates)
-      if (result.candidates.length === 0) setMessage("No addresses found for that search.")
-    } else if (result.status === "not_configured") {
-      setMessage("Address lookup isn't connected in this environment. Enter the address manually below.")
-    } else if (result.status === "country_not_supported") {
-      setMessage(result.reason)
-    } else {
-      setMessage(result.message)
-    }
-  }
+  const runSearch = useCallback(
+    async (query: string): Promise<AddressCandidate[]> => {
+      const result = await search(query)
+      lastStatus.current = result.status
 
-  function handlePick(candidate: AddressCandidate) {
-    onSelect({
-      address: [candidate.line1, candidate.line2, candidate.line3].filter(Boolean).join(", "),
-      town: candidate.town,
-      county: candidate.county ?? "",
-      postcode: candidate.postcode,
-    })
-    setCandidates([])
-    setQuery("")
-    setMessage(null)
-  }
+      if (result.status === "ok") {
+        setHint(null)
+        return result.candidates
+      }
+      if (result.status === "not_configured") {
+        setHint("Address lookup isn't connected in this environment — enter the address manually below.")
+        return []
+      }
+      if (result.status === "country_not_supported") {
+        setHint(result.reason)
+        return []
+      }
+      setHint(result.message)
+      return []
+    },
+    [search]
+  )
 
   return (
     <div className="rounded-lg border border-dashed border-ink/15 p-4">
       <p className="text-sm font-medium text-ink">Look up address</p>
-      <p className="mt-1 text-xs text-ink/50">
-        Search a postcode or address, then pick the right result. Never applied without your selection.
+      <p className="mt-1 mb-2 text-xs text-ink/50">
+        Start typing a postcode or address — suggestions appear as you type. Nothing is applied
+        until you pick one.
       </p>
-      <div className="mt-2 flex gap-2">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Postcode or address…"
-          className="h-9 border-ink/15 bg-white"
-        />
-        <Button type="button" variant="outline" size="sm" className="h-9 shrink-0 gap-1.5" disabled={status === "searching" || query.trim().length < 3} onClick={handleSearch}>
-          <Search className="size-3.5" />
-          {status === "searching" ? "Searching…" : "Search"}
-        </Button>
-      </div>
-      {message && (
-        <p className="mt-2 text-xs text-ink/55" role="status" aria-live="polite">
-          {message}
-        </p>
-      )}
-      {candidates.length > 0 && (
-        <ul className="mt-2 flex max-h-48 flex-col gap-1 overflow-y-auto">
-          {candidates.map((c, i) => (
-            <li key={i}>
-              <button
-                type="button"
-                onClick={() => handlePick(c)}
-                className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-ink outline-none hover:bg-ink/[0.03] focus-visible:ring-2 focus-visible:ring-pitch-400"
-              >
-                {[c.line1, c.line2, c.town, c.postcode].filter(Boolean).join(", ")}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+
+      <Autocomplete<AddressCandidate>
+        label="Postcode or address"
+        placeholder="e.g. BB11 or 1 Belvedere Road…"
+        minChars={3}
+        hint={hint ?? undefined}
+        emptyMessage="No addresses found for that search."
+        onSearch={runSearch}
+        optionKey={(c) => [c.line1, c.line2, c.postcode].filter(Boolean).join("|")}
+        optionLabel={(c) => [c.line1, c.line2, c.town, c.postcode].filter(Boolean).join(", ")}
+        renderOption={(c) => (
+          <>
+            <span className="block truncate">{[c.line1, c.line2].filter(Boolean).join(", ")}</span>
+            <span className="block truncate text-xs text-ink/50">
+              {[c.town, c.county, c.postcode].filter(Boolean).join(", ")}
+            </span>
+          </>
+        )}
+        onSelect={(c) =>
+          onSelect({
+            // line1..line3 are joined because `venues.address` is a single
+            // text column today. The provider's structured lines are not
+            // discarded lightly -- see the structured-address gap recorded
+            // in docs/CLUB_SETUP_AND_VENUES.md.
+            address: [c.line1, c.line2, c.line3].filter(Boolean).join(", "),
+            town: c.town,
+            county: c.county ?? "",
+            postcode: c.postcode,
+          })
+        }
+      />
     </div>
   )
 }

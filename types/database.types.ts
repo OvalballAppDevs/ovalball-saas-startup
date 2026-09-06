@@ -1414,6 +1414,105 @@ export type Database = {
           },
         ]
       }
+      club_kits: {
+        Row: {
+          accent_colour: string | null
+          club_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          pattern: string
+          primary_colour: string
+          secondary_colour: string | null
+          updated_at: string
+          updated_by: string | null
+          variant: string
+        }
+        Insert: {
+          accent_colour?: string | null
+          club_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pattern: string
+          primary_colour: string
+          secondary_colour?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variant?: string
+        }
+        Update: {
+          accent_colour?: string | null
+          club_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pattern?: string
+          primary_colour?: string
+          secondary_colour?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_kits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "club_kits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_kits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_kits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_kits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_kits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_kits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "club_kits_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_memberships: {
         Row: {
           assigned_group_id: string | null
@@ -14079,6 +14178,17 @@ export type Database = {
           p_postcode: string
         }
         Returns: undefined
+      }
+      upsert_club_kit: {
+        Args: {
+          p_accent_colour?: string
+          p_club_id: string
+          p_pattern: string
+          p_primary_colour: string
+          p_secondary_colour?: string
+          p_variant?: string
+        }
+        Returns: string
       }
     }
     Enums: {

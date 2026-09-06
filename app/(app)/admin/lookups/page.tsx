@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation"
-import { Search, ShieldCheck } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { createClient } from "@/lib/supabase/server"
 
 import type { ClubPitch, ClubVenue } from "../../club/actions"
 import { VenuesSection } from "../../club/venues/venues-section"
+
+import { ClubSearch } from "./club-search"
 
 /**
  * Site Admin's own parent view over the SAME public.venues/public.club_pitches
@@ -20,9 +22,9 @@ import { VenuesSection } from "../../club/venues/venues-section"
 export default async function AdminLookupsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; clubId?: string }>
+  searchParams: Promise<{ clubId?: string }>
 }) {
-  const { q, clubId } = await searchParams
+  const { clubId } = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
@@ -38,17 +40,9 @@ export default async function AdminLookupsPage({
   if (!activeSiteAdmin.ok) redirect("/dashboard")
   const ctx = activeSiteAdmin.ctx
 
-  const trimmedQ = (q ?? "").trim()
-  const { data: matchRows } = trimmedQ
-    ? await supabase
-        .from("club_directory")
-        .select("name, clubs!inner(id, slug, status)")
-        .ilike("name", `%${trimmedQ}%`)
-        .order("name")
-        .limit(20)
-    : { data: [] as { name: string; clubs: { id: string; slug: string; status: string } | null }[] }
-
-  const matches = (matchRows ?? []).filter((r) => r.clubs)
+  // Club search moved to <ClubSearch/>, a type-ahead over the same source
+  // (activated Ovalball clubs). This page no longer does a `?q=` round trip
+  // just to list candidates -- it only renders the club that was chosen.
 
   let selectedClub: { id: string; name: string; slug: string; status: string } | null = null
   let venueRows: ClubVenue[] = []
@@ -113,35 +107,7 @@ export default async function AdminLookupsPage({
         )}
       </p>
 
-      <form method="get" className="mt-6">
-        <label className="relative block">
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink/35" />
-          <input
-            type="search"
-            name="q"
-            defaultValue={trimmedQ}
-            placeholder="Search for a club by name&hellip;"
-            className="h-11 w-full rounded-lg border border-ink/15 bg-white pr-3.5 pl-10 text-sm text-ink outline-none focus-visible:border-pitch-600"
-          />
-        </label>
-      </form>
-
-      {trimmedQ && !selectedClub && (
-        <ul className="mt-3 flex flex-col gap-1.5">
-          {matches.map((row) => (
-            <li key={row.clubs!.id}>
-              <a
-                href={`/admin/lookups?clubId=${row.clubs!.id}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3 text-sm text-ink hover:border-pitch-600/40"
-              >
-                <span className="truncate">{row.name}</span>
-                {row.clubs!.status !== "active" && <span className="shrink-0 text-xs text-ink/40 capitalize">{row.clubs!.status}</span>}
-              </a>
-            </li>
-          ))}
-          {matches.length === 0 && <p className="text-sm text-ink/45">No claimed clubs match &ldquo;{trimmedQ}&rdquo;.</p>}
-        </ul>
-      )}
+      <ClubSearch selectedLabel={selectedClub?.name ?? null} />
 
       {selectedClub && (
         <div className="mt-8">

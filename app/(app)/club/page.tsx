@@ -11,6 +11,9 @@ import { ClubContactsSection } from "./club-contacts-section"
 import { ClubMessagingSection, type ClubMessagingPolicy } from "./club-messaging-section"
 import type { ClubContact } from "./actions"
 import { ClubProfileForm } from "./club-profile-form"
+import type { KitConfig, KitPattern } from "@/components/club/rugby-kit"
+
+import { KitSection } from "./kit-section"
 import { ClubSettingsNav } from "./settings/club-settings-nav"
 
 export default async function ClubProfilePage() {
@@ -78,6 +81,27 @@ export default async function ClubProfilePage() {
   const logoUrl = club.logo_storage_path
     ? supabase.storage.from("club-logos").getPublicUrl(club.logo_storage_path).data.publicUrl
     : null
+
+  const clubName = club.club_directory?.name ?? club.slug
+
+  // Both kit variants in one read. The editor switches between Home and
+  // Away client-side, so a tab change is not a round trip.
+  const { data: kitRows } = await supabase
+    .from("club_kits")
+    .select("variant, pattern, primary_colour, secondary_colour, accent_colour")
+    .eq("club_id", club.id)
+
+  const kitByVariant = Object.fromEntries(
+    (kitRows ?? []).map((k) => [
+      k.variant,
+      {
+        pattern: k.pattern as KitPattern,
+        primaryColour: k.primary_colour,
+        secondaryColour: k.secondary_colour,
+        accentColour: k.accent_colour,
+      },
+    ])
+  ) as Partial<Record<"primary" | "alternate", KitConfig>>
 
   const contactRows: ClubContact[] = (contacts ?? []).map((c) => ({
     id: c.id,
@@ -167,6 +191,17 @@ export default async function ClubProfilePage() {
           }}
         />
       </div>
+
+      {/* Kit sits with the club's profile because that is what it is: part
+          of the club's identity, edited in the one place a club edits itself.
+          The future first-run wizard mounts this same component. */}
+      <KitSection
+        clubId={club.id}
+        clubName={clubName}
+        initialPrimary={kitByVariant.primary ?? null}
+        initialAlternate={kitByVariant.alternate ?? null}
+        readOnly={!canEditProfile}
+      />
 
       <div className="mt-8">
         <ClubContactsSection clubId={club.id} initial={contactRows} />

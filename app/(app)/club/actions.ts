@@ -416,3 +416,52 @@ export async function updateClubMessagingPolicy(input: ClubMessagingPolicyInput)
   revalidatePath("/club")
   return { ok: true }
 }
+
+/**
+ * Saves the club's kit.
+ *
+ * Thin on purpose: `upsert_club_kit` owns authorization (club.edit_profile
+ * on that club), colour validation (CHECK constraints, never the browser)
+ * and idempotency (unique on club+variant, so a double-clicked Save updates
+ * one row). This action's only job is to hand the values over and turn a
+ * database refusal into a sentence.
+ */
+export async function saveClubKit(input: {
+  clubId: string
+  variant: "primary" | "alternate"
+  pattern: string
+  primaryColour: string
+  secondaryColour: string | null
+  accentColour: string | null
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "You must be signed in." }
+
+  const { error } = await supabase.rpc("upsert_club_kit", {
+    p_club_id: input.clubId,
+    p_pattern: input.pattern,
+    p_primary_colour: input.primaryColour,
+    p_secondary_colour: input.secondaryColour ?? undefined,
+    p_accent_colour: input.accentColour ?? undefined,
+    p_variant: input.variant,
+  })
+
+  if (error) {
+    console.error("upsert_club_kit failed:", error.message)
+    // A CHECK violation here means an invalid colour or pattern reached the
+    // server -- worth saying plainly rather than "something went wrong".
+    if (error.code === "23514") {
+      return { ok: false, error: "That kit isn't valid — check the pattern and colour values." }
+    }
+    if (error.code === "42501") {
+      return { ok: false, error: "You don't have permission to change this club's kit." }
+    }
+    return { ok: false, error: "The kit could not be saved." }
+  }
+
+  revalidatePath("/club")
+  return { ok: true }
+}
