@@ -7166,6 +7166,114 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_trials: {
+        Row: {
+          accruing_since: string | null
+          club_id: string
+          completed_at: string | null
+          consumed_seconds: number
+          created_at: string
+          created_by: string | null
+          entitlement_seconds: number
+          id: string
+          notified_thresholds: number[]
+          pause_reason: string | null
+          started_at: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          accruing_since?: string | null
+          club_id: string
+          completed_at?: string | null
+          consumed_seconds?: number
+          created_at?: string
+          created_by?: string | null
+          entitlement_seconds?: number
+          id?: string
+          notified_thresholds?: number[]
+          pause_reason?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          accruing_since?: string | null
+          club_id?: string
+          completed_at?: string | null
+          consumed_seconds?: number
+          created_at?: string
+          created_by?: string | null
+          entitlement_seconds?: number
+          id?: string
+          notified_thresholds?: number[]
+          pause_reason?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_trials_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "platform_trials_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_trials_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_trials_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_trials_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_trials_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_trials_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "platform_trials_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_account_invitations: {
         Row: {
           accepted_at: string | null
@@ -10820,6 +10928,18 @@ export type Database = {
         Returns: undefined
       }
       clear_team_alias: { Args: { p_team_id: string }; Returns: undefined }
+      club_trial_state: {
+        Args: { p_club_id: string }
+        Returns: {
+          completed_at: string
+          consumed_seconds: number
+          entitlement_seconds: number
+          pause_reason: string
+          remaining_seconds: number
+          started_at: string
+          status: string
+        }[]
+      }
       configure_sibling_discount_rule: {
         Args: {
           p_discount_type: string
@@ -11110,6 +11230,10 @@ export type Database = {
           sibling_ordinal: number
           subscription_status: string
         }[]
+      }
+      extend_club_trial: {
+        Args: { p_club_id: string; p_extra_days: number; p_reason?: string }
+        Returns: number
       }
       fail_directory_verification_run: {
         Args: { p_error: string; p_run_id: string }
@@ -11651,6 +11775,10 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
+      pause_club_trial: {
+        Args: { p_club_id: string; p_reason?: string }
+        Returns: boolean
+      }
       place_graduating_player: {
         Args: { p_queue_id: string; p_target_team_id: string }
         Returns: undefined
@@ -11994,6 +12122,7 @@ export type Database = {
         Args: { p_membership_id: string }
         Returns: undefined
       }
+      resume_club_trial: { Args: { p_club_id: string }; Returns: boolean }
       revoke_capability_override: {
         Args: { p_override_id: string }
         Returns: undefined
@@ -12012,6 +12141,7 @@ export type Database = {
       }
       run_fixture_completion_check: { Args: never; Returns: number }
       run_season_transition_check: { Args: never; Returns: undefined }
+      run_trial_expiry_check: { Args: never; Returns: number }
       search_scheduling_groups: {
         Args: { p_requesting_team_id: string }
         Returns: {
@@ -12179,6 +12309,7 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
+      start_club_trial: { Args: { p_club_id: string }; Returns: string }
       start_directory_verification_run: {
         Args: { p_directory_id?: string; p_filters?: Json; p_scope: string }
         Returns: string

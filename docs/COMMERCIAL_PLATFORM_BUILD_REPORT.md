@@ -289,3 +289,143 @@ Local only, same as Phase B.
 
 Phase I builds the Site Admin surface for both. Phase D attaches trial
 pause/resume to `set_platform_mode`.
+
+---
+
+## PHASE D — COMPLETE
+
+The trial engine. Thirty **usable** days, not thirty calendar days.
+
+### Why the obvious model was rejected
+
+`trial_ends_at = started_at + 30 days` cannot express any of this, because
+wall-clock time passes whether or not a club can use the product. A club
+that spends ten days of its trial inside a Beta period would silently lose
+them.
+
+`platform_trials` therefore stores an entitlement, an accrued consumption,
+and a mark of when the current accrual started:
+
+```
+remaining = entitlement_seconds
+          - consumed_seconds
+          - (now() - accruing_since, when accruing)
+```
+
+Pausing folds the open interval into `consumed_seconds` and clears
+`accruing_since`; resuming sets it again. Both are idempotent by
+construction — pausing an already-paused trial finds `accruing_since`
+already null and has nothing to fold in — which is what makes a retried
+request or a double Beta transition harmless.
+
+A `platform_trials_state_coherent` check constraint makes it impossible for
+`status`, `accruing_since` and `pause_reason` to disagree about whether the
+clock is running.
+
+### The table takes no direct writes
+
+`platform_trials` has a SELECT policy and **no INSERT, UPDATE or DELETE
+policy at all**. Every transition goes through a function, so the accrual
+arithmetic has exactly one implementation
+(`internal.trial_remaining_seconds`). Assertion 15 checks this against
+`pg_policy` rather than against intent.
+
+### Beta
+
+Entering Beta pauses every running trial with `pause_reason = 'beta'`.
+Leaving Beta resumes **only** those — a trial the club or an admin paused
+for their own reasons stays paused. A club cannot resume itself out of a
+Beta pause: doing so would start charging time for a period Ovalball has
+said it is not charging for. Beta is paused time, never accrued debt, so no
+club is back-billed.
+
+A trial started *during* Beta starts paused rather than immediately burning
+days the club cannot use.
+
+### Capabilities
+
+| Capability | Held by |
+|---|---|
+| `club.platform_billing.view` | Club Admin (not Fixture Secretary, not members) |
+| `club.platform_billing.manage` | Club Admin |
+| `site.commercial.manage` | **Full Site Admin only — deliberately not delegable** |
+
+`site.commercial.manage` exists because the first draft gated
+`extend_club_trial` on `site.commercial.view`. A view capability must never
+authorise a write, and extending a trial changes what a club owes. The new
+branch in `internal.has_site_role_capability` returns `false`, so only the
+`is_full_site_admin()` short-circuit above it can grant it.
+
+### Notifications
+
+A new `platform_billing` topic, **mandatory** like `account_security`: a
+club being told its trial is about to end is not a marketing preference, it
+decides whether the club keeps working next week. Types
+`platform_trial_ending_soon` and `platform_trial_ended`. The two Phase C
+access-change types were also registered against `account_security`
+alongside their siblings.
+
+### Scheduled work
+
+`internal.process_due_trials()` on `*/15 * * * *`, following the three
+existing `pg_cron` + `internal.*` jobs exactly, with
+`public.run_trial_expiry_check()` for a Site Admin to run on demand.
+Idempotent twice over: a completed trial no longer matches the status
+filter, and a threshold already in `notified_thresholds` is never notified
+again. Warnings at 14, 7, 3 and 1 days.
+
+`pg_cron` is scheduled on the **local** database only; provisioning it on
+the remote project is a deployment step for whoever operates it.
+
+### Application surface
+
+`lib/platform/trial.ts` — `getClubTrial()`, `trialDaysRemaining()`,
+`isTrialRunning()`, `isPausedByBeta()`. Days remaining rounds **up**: a
+trial with two hours left has one day left, not zero.
+
+### Verification
+
+`supabase/tests/platform_trials.sql`, 17 assertions, all PASS. The one that
+matters most is assertion 4, which is the brief's own example:
+
+> 1,555,200 seconds (18 days) remaining, ten days of Beta, **1,555,200
+> seconds remaining**.
+
+| # | Assertion |
+|---|---|
+| 1 | A trial started while Live is active, thirty days remaining |
+| 2 | Starting again returns the same trial; no restart, no second row |
+| 3 | Entering Beta pauses and folds twelve elapsed days into consumed time |
+| 4 | Ten days of Beta cost the club nothing |
+| 5 | Pausing twice folds in nothing further |
+| 6 | Leaving Beta does not resume a club's own pause |
+| 7 | A club cannot resume out of a Beta pause |
+| 8 | A trial started during Beta starts paused |
+| 9 | An exhausted trial completes instead of resuming |
+| 10 | The expiry engine completes the trial and notifies the Club Admin |
+| 11 | A second expiry run completes nothing and sends nothing |
+| 12 | A threshold warning is sent once, not on every run |
+| 13 | `site.commercial.view` does not permit extending a trial |
+| 14 | An extension revives a completed trial with exactly the extra time |
+| 15 | `platform_trials` has no INSERT/UPDATE/DELETE policy |
+| 16 | An unrelated account reads nothing about a club's trial |
+| 17 | No trial or mode function reads the club-charges-members domain |
+
+```bash
+docker exec -i supabase_db_ovalball-saas-startup \
+  psql -U postgres -d postgres -f - < supabase/tests/platform_trials.sql
+```
+
+`npm run typecheck` and `eslint` clean. `types/database.types.ts`
+regenerated: additions only, **0 deletions**.
+
+### Not applied to production
+
+Local only, same as Phases B and C.
+
+### Files
+
+- `supabase/migrations/20261002000000_platform_trials.sql` (new)
+- `supabase/tests/platform_trials.sql` (new)
+- `lib/platform/trial.ts` (new)
+- `types/database.types.ts` (regenerated)
