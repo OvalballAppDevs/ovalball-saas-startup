@@ -794,3 +794,122 @@ one until sandbox UAT is done.
 - `supabase/migrations/20261004000000_platform_club_subscriptions.sql` (function renames)
 - `lib/platform/subscription.ts`, all four earlier test suites, `.env.example`
 - `types/database.types.ts` (regenerated)
+
+---
+
+## PHASE H — COMPLETE
+
+The referral engine.
+
+> Refer another rugby club to Ovalball. If they start a paid subscription
+> and their **first payment is successfully collected**, your club gets one
+> month of its current plan free.
+
+Everything difficult is in "first" and "successfully collected". Not a
+click, not a registration, not a trial, not a mandate, not a submitted
+payment.
+
+### Two things deliberately not built
+
+**No second invitation system.** §115 forbids one, and
+`club_ovalball_invitations` already means "this club invited that club onto
+Ovalball" — contact, token, expiry, status. A referral is the **commercial
+claim layered on one of those**, joined by a unique `invitation_id`.
+
+**No separate rewards table.** A reward *is* a credit-ledger row. "One
+reward per referral" is a unique column (`reward_credit_id`) on the
+referral, not a table whose only job would be to hold that constraint. The
+architecture doc listed `platform_referral_rewards`; this is a deliberate
+departure from it.
+
+### Where qualification happens
+
+In exactly one place: inside `apply_platform_payment_status`, on the
+transition to `confirmed`. That function already returns early on an
+already-terminal payment, so **a redelivered webhook cannot earn a second
+reward** — the guard that makes payments idempotent makes rewards
+idempotent too, rather than a second mechanism that has to agree with it.
+
+Every condition is checked there:
+
+- the payment must be the referred club's **first** confirmed payment,
+  counted against the ledger of confirmed payments rather than inferred
+  from the subscription's status;
+- the referral must be `registered`;
+- the referring club must still be active, so a folded club does not accrue
+  credit it can never use;
+- self-referral is refused, by a check constraint *and* at registration;
+- a club that has already paid Ovalball cannot be referred at all.
+
+A partial unique index allows **one qualified referral per referred club**,
+so two clubs claiming the same introduction cannot both be paid.
+
+### Value, fixed once
+
+The reward is one month of the **referring** club's own plan, read once at
+the moment of earning and written to both the referral and the credit row.
+Assertion 11 raises Standard from £15 to £99 and confirms the earned reward
+is still £15.
+
+### Losing it
+
+If the qualifying collection later fails or is charged back, the reward is
+withdrawn as a **reversal row** — never by deleting the earning. The ledger
+is append-only, and "earned, then withdrawn" is the true history. A repeat
+delivery reverses once, not once per delivery.
+
+### One privacy decision
+
+The **referred** club cannot see the referral. Whether another club earns a
+commission for introducing you is not your business, and surfacing it would
+make the relationship awkward for no benefit. The RLS policy scopes reads
+to the referring club.
+
+### Verification
+
+`supabase/tests/platform_referrals.sql`, 20 assertions, all PASS. The ones
+that carry the promise:
+
+| # | Assertion |
+|---|---|
+| 4 | A club cannot refer itself |
+| 6 | The referred club starting a **trial** earns nothing |
+| 7 | A plan and a mandate earn nothing |
+| 8 | A **submitted** payment earns nothing until collected |
+| 9 | The first collected payment earns one month of the referrer's plan |
+| 10 | A redelivered confirmation cannot earn a second reward |
+| 11 | A price change does not revalue a reward already earned |
+| 12 | A club that already pays Ovalball cannot be referred |
+| 14 | Reversing the qualifying collection withdraws the reward |
+| 15 | A reward is withdrawn once, not once per delivery |
+| 17 | The referred club cannot see the referral |
+| 19 | No club can have two qualified referrers |
+| 20 | Exactly one referral table exists |
+
+**A test bug worth recording.** Assertion 17 first passed for the wrong
+reason and then failed for the right one: this script's session is
+`postgres`, which **bypasses RLS entirely**, so an RLS assertion run
+straight from the DO block proves nothing. It now switches to the
+`authenticated` role for that check. Every other access assertion in this
+suite goes through a `SECURITY DEFINER` function with its own capability
+check, which is a genuine test under any role — but Phase M will add a
+role-switched sweep across all the `platform_*` tables rather than assume.
+
+### Application surface
+
+`lib/platform/referrals.ts` — `getClubReferrals()`, `claimReferral()`,
+`getCreditBalancePence()`, and `REFERRAL_OFFER_SUMMARY`, which says
+"successfully collected" rather than "signs up" because that is what the
+engine actually requires and the copy must not promise more.
+
+### Legal
+
+The referral terms (§46) are Phase L. Nothing user-facing publishes the
+offer yet.
+
+### Files
+
+- `supabase/migrations/20261006000000_platform_referrals.sql` (new)
+- `supabase/tests/platform_referrals.sql` (new)
+- `lib/platform/referrals.ts` (new)
+- `types/database.types.ts` (regenerated)

@@ -7675,6 +7675,204 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_referrals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          invitation_id: string
+          qualified_at: string | null
+          qualifying_payment_id: string | null
+          referred_club_id: string | null
+          referring_club_id: string
+          rejection_reason: string | null
+          reversed_at: string | null
+          reward_amount_pence: number | null
+          reward_credit_id: string | null
+          reward_plan_code: string | null
+          reward_price_version: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invitation_id: string
+          qualified_at?: string | null
+          qualifying_payment_id?: string | null
+          referred_club_id?: string | null
+          referring_club_id: string
+          rejection_reason?: string | null
+          reversed_at?: string | null
+          reward_amount_pence?: number | null
+          reward_credit_id?: string | null
+          reward_plan_code?: string | null
+          reward_price_version?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invitation_id?: string
+          qualified_at?: string | null
+          qualifying_payment_id?: string | null
+          referred_club_id?: string | null
+          referring_club_id?: string
+          rejection_reason?: string | null
+          reversed_at?: string | null
+          reward_amount_pence?: number | null
+          reward_credit_id?: string | null
+          reward_plan_code?: string | null
+          reward_price_version?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_referrals_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: true
+            referencedRelation: "club_ovalball_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_qualifying_payment_id_fkey"
+            columns: ["qualifying_payment_id"]
+            isOneToOne: false
+            referencedRelation: "platform_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_reward_credit_id_fkey"
+            columns: ["reward_credit_id"]
+            isOneToOne: true
+            referencedRelation: "platform_credits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_reward_plan_code_fkey"
+            columns: ["reward_plan_code"]
+            isOneToOne: false
+            referencedRelation: "platform_plans"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       platform_releases: {
         Row: {
           build_sha: string | null
@@ -11600,6 +11798,10 @@ export type Database = {
           resolution: string
         }[]
       }
+      claim_club_referral: {
+        Args: { p_invitation_id: string }
+        Returns: string
+      }
       claim_external_fixture_result: {
         Args: {
           p_away_score: number
@@ -11658,6 +11860,17 @@ export type Database = {
           gross_pence: number
           net_pence: number
           will_skip: boolean
+        }[]
+      }
+      club_referral_summary: {
+        Args: { p_club_id: string }
+        Returns: {
+          created_at: string
+          qualified_at: string
+          referral_id: string
+          referred_club_name: string
+          reward_amount_pence: number
+          status: string
         }[]
       }
       club_trial_state: {
@@ -12724,6 +12937,10 @@ export type Database = {
       record_session_version: {
         Args: { p_version: number }
         Returns: undefined
+      }
+      register_referred_club: {
+        Args: { p_club_id: string; p_invitation_id: string }
+        Returns: boolean
       }
       reject_club_claim: {
         Args: { p_claim_id: string; p_notes?: string }
