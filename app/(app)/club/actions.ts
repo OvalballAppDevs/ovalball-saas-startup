@@ -205,13 +205,19 @@ export type ClubPitch = {
  * delete action here, matching the RPC surface (no hard-delete, ever, so a
  * pitch with historical fixture references is never orphaned).
  */
-export async function createClubPitch(clubId: string, displayName: string, description: string): Promise<SaveClubProfileResult> {
+export async function createClubPitch(
+  clubId: string,
+  displayName: string,
+  description: string,
+  venueId?: string | null
+): Promise<SaveClubProfileResult> {
   if (!displayName.trim()) return { ok: false, error: "A pitch name is required." }
   const supabase = await createClient()
   const { error } = await supabase.rpc("create_club_pitch", {
     p_club_id: clubId,
     p_display_name: displayName.trim(),
     p_description: description.trim() || undefined,
+    p_venue_id: venueId ?? undefined,
   })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/club")
@@ -250,9 +256,25 @@ export async function setClubPitchActive(pitchId: string, active: boolean): Prom
  * lets a Fixtures Secretary create/rename pitches), not the narrower
  * manage-venues boundary the Venue RPCs themselves require.
  */
+/**
+ * Assignment goes through the RPC, not a direct table update.
+ *
+ * The direct update this replaced was authorized but not validated: the
+ * club_pitches UPDATE policy checks `club.pitches.manage` against the row's
+ * own club_id, which stops a pitch changing clubs but says nothing about
+ * the venue it points at. A Club Admin could therefore attach their pitch
+ * to another club's ground -- and the training validation downstream would
+ * then honour it. RLS is row-scoped and cannot express a cross-row rule
+ * like this; set_club_pitch_venue can, and does.
+ */
 export async function setClubPitchVenue(pitchId: string, venueId: string | null): Promise<SaveClubProfileResult> {
   const supabase = await createClient()
-  const { error } = await supabase.from("club_pitches").update({ venue_id: venueId }).eq("id", pitchId)
+  // Explicit null, never omitted: clearing the attachment is a real
+  // operation, and p_venue_id has no default to fall back on.
+  const { error } = await supabase.rpc("set_club_pitch_venue", {
+    p_pitch_id: pitchId,
+    p_venue_id: venueId as string,
+  })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/club/venues")
   return { ok: true }

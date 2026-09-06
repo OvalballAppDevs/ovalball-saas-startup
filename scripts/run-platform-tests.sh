@@ -29,6 +29,7 @@ SUITES=(
   support_messaging
   site_admin_dashboard_phase_b
   club_kits
+  club_activation_setup
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

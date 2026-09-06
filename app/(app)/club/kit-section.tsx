@@ -82,6 +82,47 @@ export function KitSection({
   const kit = kits[variant]
   const needsSecondary = patternNeedsSecondary(kit.pattern)
 
+  /** Whether the away kit is currently an exact copy of the home kit. */
+  const sameAsHome =
+    kits.alternate.pattern === kits.primary.pattern &&
+    kits.alternate.primaryColour === kits.primary.primaryColour &&
+    kits.alternate.secondaryColour === kits.primary.secondaryColour &&
+    kits.alternate.accentColour === kits.primary.accentColour
+
+  function handleSameAsHome(checked: boolean) {
+    setError(null)
+    setSaved(null)
+    if (!checked) {
+      // Unticking is an invitation to edit, not a save. The stored away kit
+      // stays exactly as it is until they change something and press Save,
+      // so an accidental untick costs nothing.
+      setKits((k) => ({
+        ...k,
+        alternate: { ...k.alternate, primaryColour: k.primary.secondaryColour ?? "#ffffff", secondaryColour: k.primary.primaryColour },
+      }))
+      return
+    }
+
+    const home = kits.primary
+    setKits((k) => ({ ...k, alternate: { ...home } }))
+    startTransition(async () => {
+      const result = await saveClubKit({
+        clubId,
+        variant: "alternate",
+        pattern: home.pattern,
+        primaryColour: home.primaryColour,
+        secondaryColour: patternNeedsSecondary(home.pattern) ? home.secondaryColour : null,
+        accentColour: home.accentColour,
+      })
+      if (result.ok) {
+        setSaved("alternate")
+        setConfigured((c) => ({ ...c, alternate: true }))
+      } else {
+        setError(result.error)
+      }
+    })
+  }
+
   function update(patch: Partial<KitConfig>) {
     setKits((k) => ({ ...k, [variant]: { ...k[variant], ...patch } }))
     setSaved(null)
@@ -171,9 +212,41 @@ export function KitSection({
         })}
       </div>
 
+      {/* Plenty of clubs run one set of shirts. Rather than make them
+          re-pick the same colours on the Away tab, this copies the home kit
+          across and saves it as the away kit -- a real `alternate` row, so
+          every fixture card still reads from one canonical place and
+          nothing downstream has to know the two happen to match. Unticking
+          leaves that row alone until they edit and save it themselves. */}
+      {variant === "alternate" && !readOnly && (
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3">
+          <input
+            type="checkbox"
+            checked={sameAsHome}
+            disabled={pending}
+            onChange={(e) => handleSameAsHome(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0 accent-forest-800"
+          />
+          <span>
+            <span className="block text-sm font-medium text-ink">
+              We play in our home shirts away too
+            </span>
+            <span className="mt-0.5 block text-xs text-ink/50">
+              Copies your home kit across, so away fixture cards still show the right shirt.
+            </span>
+          </span>
+        </label>
+      )}
+
       <div className="mt-4 grid gap-5 rounded-lg border border-ink/10 bg-white px-5 py-5 lg:grid-cols-[minmax(0,1fr)_220px]">
         <div>
-          <fieldset disabled={readOnly}>
+          {/* The opacity is doing real work: with the away kit locked to the
+              home one, the controls are inert, and controls that are inert
+              but look live invite clicks that do nothing. */}
+          <fieldset
+            disabled={readOnly || (variant === "alternate" && sameAsHome)}
+            className="disabled:pointer-events-none disabled:opacity-45"
+          >
             <legend className="text-sm text-ink/70">
               Pattern
               <span className="sr-only"> for the {variant === "primary" ? "home" : "away"} kit</span>
@@ -223,7 +296,12 @@ export function KitSection({
 
           {!readOnly && (
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <Button type="button" onClick={save} disabled={pending} className="h-10 gap-2">
+              <Button
+                type="button"
+                onClick={save}
+                disabled={pending || (variant === "alternate" && sameAsHome)}
+                className="h-10 gap-2"
+              >
                 {pending ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
                 Save {variant === "primary" ? "home" : "away"} kit
               </Button>

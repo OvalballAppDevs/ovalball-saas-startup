@@ -272,40 +272,129 @@ because the design looks better with them.
 
 ---
 
-## 7. First-run setup wizard — NOT BUILT
+## 7. First-run setup wizard — BUILT
 
-The audit found **no setup lifecycle of any kind**: no table, no column, no
-route, no gating. It is a greenfield feature — a durable
-`NOT_STARTED / IN_PROGRESS / COMPLETED` lifecycle, server-side gating that
-cannot be bypassed client-side, three resumable steps, and safe team removal
-with dependency classification.
+Three steps at `/club/setup`, mandatory, resumable, and enforced on the
+server.
 
-It is not started, rather than half-started, for one reason: a partially
-built mandatory gate is worse than none. Gating Club Admins into an
-incomplete wizard would lock real clubs out of a working application, and
-that risk is not worth taking to show progress.
+### The lifecycle
 
-What this pass did instead is make the pieces the wizard needs correct and
-canonical: the address lookup it will use in Step 2, the kit editor it will
-mount in Step 1 (already living at its permanent home in Club Settings, so
-the wizard composes it rather than duplicating it), and a verified account of
-the venue/pitch/team model it will write through.
+`club_setup_state` (migration `20261016000000`) holds one row per club with
+`status` (`NOT_STARTED` / `IN_PROGRESS` / `COMPLETED`), `current_step`, and
+the confirmation/completion timestamps and actors. **That is all it holds.**
+It carries no copy of the logo path, the kit, the venue, the address or the
+team list — those live in `clubs`, `club_kits`, `venues`, `club_pitches` and
+`teams`, exactly where they lived before and exactly where they are edited
+afterwards. Deleting every row in `club_setup_state` would lose progress and
+no operational data; the regression suite asserts this directly.
 
-**Still required before the wizard:**
+Every requirement is re-derived from canonical data on each read by
+`club_setup_requirements(club_id)`. Nothing is cached, so a logo removed or
+a venue deactivated after a step was passed un-ticks that step immediately.
+The wizard's progress rail, the gate, and completion all call this one
+function, so they cannot disagree.
 
-1. `club_setup_state` lifecycle table + RPCs, keyed on `club_id`, owning only completion state and never profile/venue/team data.
-2. Server-side gating in the `(app)` layout for a Club Admin of an incomplete club, with account, support and context-switching left reachable.
-3. A bounded state for non-Club-Admins entering an unset-up club — never a grant of authority to unblock onboarding.
-4. Step 2's venue+pitch combined editor (the RPCs exist; the combined UX does not).
-5. Step 3 team removal with the pristine-vs-referenced classification (fixtures, requests, training, memberships, groups, allocations, attendance, call-ups, season history) — hard delete only when provably pristine, otherwise the canonical fold/archive path.
-6. Structured venue address migration (§2).
+`complete_club_setup` re-validates every requirement before it will move the
+lifecycle, and refuses with a sentence naming what is still missing. A
+client claiming to be on step 3 is not evidence. It is idempotent: a
+double-clicked Finish returns `already_complete` rather than failing.
+
+Activation is one-way. A club whose venue is deactivated in March is not
+dropped back into onboarding mid-season; the suite asserts that too.
+
+### The gate
+
+`app/(app)/layout.tsx` reads the request path (via the `x-ovalball-pathname`
+header set in `proxy.ts`) and, for a club whose setup is not `COMPLETED`:
+
+- a Club Admin is **redirected** to `/club/setup?step=N`, where N is the
+  first unfinished step;
+- anyone else gets the bounded `ClubSetupRequired` screen in place of the
+  page content — no redirect, and **no grant of authority**. The shell,
+  nav, context switcher and account menu all stay where they were.
+
+The gated club is resolved from the active context's `clubId`, not from
+`kind === "club"`. A Team Admin, coach, parent and player at an unset-up
+club are looking at the same empty application a Club Admin would be, and
+every one of those contexts carries its club. Keying on the context kind had
+meant only a Fixture Secretary ever saw the explanation.
+
+`isSetupAllowedPath` keeps configuration reachable and operations blocked.
+The gate exists to stop an unfinished club being **operated**, not
+**configured**: `/club`, `/teams`, `/account`, `/support`, `/welcome` and
+`/auth` stay open, minus `/club/training` and `/club/calendar`, which are
+scheduling surfaces that happen to live under a settings URL. The wizard
+links into Club Settings and Team Administration, so gating those would have
+sent someone from the wizard to a page that bounced them back to it.
+
+While the gate is up, the nav is filtered to the same allowed set plus a
+"Set up your club" entry, so it never offers a link that silently bounces.
+
+### The steps
+
+1. **Club identity** — mounts Club Settings' own `ClubProfileForm` and
+   `KitSection`. Not a copy: the same components, writing the same rows. The
+   form's free-text "Home ground address" field is suppressed here
+   (`hideHomeGroundAddress`), because step 2 asks the same question properly
+   two screens later and two fields for one answer read as a lost answer.
+   Requires a crest and a home kit.
+2. **Home ground** — `StepVenue` creates the venue, its structured address
+   and its pitches in **one submission**, through the canonical
+   `create_venue` / `set_venue_address` / `create_club_pitch` RPCs. Venue and
+   pitch are created together because a ground with no pitch is not a usable
+   home ground. Requires a default venue with an address and at least one
+   attached pitch.
+3. **Teams** — lists the club's teams, links out to Team Administration to
+   add more, and removes safely: `classify_team_removal` scans every foreign
+   key pointing at `teams` from `pg_constraint` (31 columns today), and
+   `remove_setup_team` deletes only a provably pristine team, folding
+   anything with history instead. Requires explicit confirmation of the list.
+
+### Away kit — "we play in our home shirts away too"
+
+Plenty of clubs run one set of shirts. The Away tab carries a checkbox that
+copies the home kit across and saves it as a real `alternate` row, so every
+fixture card still reads one canonical place and nothing downstream needs to
+know the two match. Unticking unlocks the editor without writing anything —
+the stored row is untouched until they save a change themselves.
 
 ---
 
+## 7a. Pitch → venue integrity (migration `20261017000000`)
+
+Two defects found and fixed this pass.
+
+**V-1 — cross-club venue assignment.** `club_pitches.venue_id` is read as
+canonical by training plan validation, manual session reconciliation and
+session editing, and was written by a direct
+`update public.club_pitches set venue_id = ...` from the app. The
+`club_pitches_update` policy checks `club.pitches.manage` against the row's
+own `club_id` and, having no `WITH CHECK` of its own, re-uses that as the
+check — so the pitch cannot change clubs, but `venue_id` was unconstrained.
+**Verified live on this database**: a Burnley Club Admin successfully
+attached a Burnley pitch to a Rossendale venue. RLS is row-scoped and cannot
+express "this column must reference a row of the same club", so the rule now
+lives in `set_club_pitch_venue`, which the app calls instead.
+
+**V-2 — pitches born detached.** `create_club_pitch` accepted no venue, so
+every pitch had to be attached in a second step. It now takes an optional
+`p_venue_id`, validated the same way. The old three-argument signature was
+**dropped explicitly** rather than replaced, so the function does not become
+an ambiguous overload.
+
+No backfill. The four detached pitches on this database all belong to clubs
+with three to five active venues each, so there is no unambiguous answer and
+guessing one would put a fabricated location on a real pitch.
+
 ## 8. Remaining gaps
 
-- **First-run wizard** — §7.
-- **Structured venue address** — §2.
+- **Address lookup in the wizard** — step 2 captures the structured address
+  as typed fields. The shared `AddressLookupField` is not mounted there yet;
+  the provider key is absent locally, so wiring it in would have shipped a
+  path that could not be verified end to end.
+- **Same-as-home away kit** — live-verified in the browser (ticking writes an
+  identical `alternate` row; unticking writes nothing). The behaviour is
+  client-side, so it has no SQL suite assertion of its own.
 - **Address provider not configured locally** (`GETADDRESS_API_KEY` absent), so live suggestions are unverified end to end; the unconfigured path and manual fallback are verified.
 - **Kit history** — deliberately deferred, §5.
 - **`/admin/lookups` is read-only** for a Site Admin without `site.lookups.manage`, so venue/pitch mutation UAT needs a Club Admin or that capability.

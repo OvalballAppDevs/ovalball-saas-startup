@@ -2279,6 +2279,102 @@ export type Database = {
           },
         ]
       }
+      club_setup_state: {
+        Row: {
+          club_id: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          current_step: number
+          started_at: string | null
+          status: string
+          teams_confirmed_at: string | null
+          teams_confirmed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          club_id: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          current_step?: number
+          started_at?: string | null
+          status?: string
+          teams_confirmed_at?: string | null
+          teams_confirmed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          club_id?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          current_step?: number
+          started_at?: string | null
+          status?: string
+          teams_confirmed_at?: string | null
+          teams_confirmed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_setup_state_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "club_setup_state_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_setup_state_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_setup_state_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_setup_state_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_setup_state_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_setup_state_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "club_setup_state_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: true
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_subscription_pricing: {
         Row: {
           amount_minor: number
@@ -11351,7 +11447,12 @@ export type Database = {
         Row: {
           active: boolean
           address: string | null
+          address_line_1: string | null
+          address_line_2: string | null
+          address_provider_ref: string | null
           club_id: string | null
+          country: string | null
+          county: string | null
           created_at: string
           created_by: string | null
           directions: string | null
@@ -11362,13 +11463,19 @@ export type Database = {
           name: string
           postcode: string | null
           slug: string
+          town: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           active?: boolean
           address?: string | null
+          address_line_1?: string | null
+          address_line_2?: string | null
+          address_provider_ref?: string | null
           club_id?: string | null
+          country?: string | null
+          county?: string | null
           created_at?: string
           created_by?: string | null
           directions?: string | null
@@ -11379,13 +11486,19 @@ export type Database = {
           name: string
           postcode?: string | null
           slug: string
+          town?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           active?: boolean
           address?: string | null
+          address_line_1?: string | null
+          address_line_2?: string | null
+          address_provider_ref?: string | null
           club_id?: string | null
+          country?: string | null
+          county?: string | null
           created_at?: string
           created_by?: string | null
           directions?: string | null
@@ -11396,6 +11509,7 @@ export type Database = {
           name?: string
           postcode?: string | null
           slug?: string
+          town?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -12132,6 +12246,10 @@ export type Database = {
           total_messages: number
         }[]
       }
+      advance_club_setup: {
+        Args: { p_club_id: string; p_step: number }
+        Returns: undefined
+      }
       apply_payment_status_transition: {
         Args: {
           p_charge_date?: string
@@ -12245,6 +12363,13 @@ export type Database = {
         Args: { p_host_team_id: string; p_tournament_id: string }
         Returns: undefined
       }
+      classify_team_removal: {
+        Args: { p_team_id: string }
+        Returns: {
+          blocking_references: Json
+          classification: string
+        }[]
+      }
       clear_team_alias: { Args: { p_team_id: string }; Returns: undefined }
       club_credit_balance_pence: {
         Args: { p_club_id: string }
@@ -12298,6 +12423,20 @@ export type Database = {
           status: string
         }[]
       }
+      club_setup_requirements: {
+        Args: { p_club_id: string }
+        Returns: {
+          default_venue_has_address: boolean
+          default_venue_has_pitch: boolean
+          has_default_venue: boolean
+          has_logo: boolean
+          has_primary_kit: boolean
+          step1_complete: boolean
+          step2_complete: boolean
+          step3_complete: boolean
+          teams_confirmed: boolean
+        }[]
+      }
       club_trial_state: {
         Args: { p_club_id: string }
         Returns: {
@@ -12310,6 +12449,7 @@ export type Database = {
           status: string
         }[]
       }
+      complete_club_setup: { Args: { p_club_id: string }; Returns: string }
       configure_sibling_discount_rule: {
         Args: {
           p_discount_type: string
@@ -12330,6 +12470,7 @@ export type Database = {
         }
         Returns: string
       }
+      confirm_club_teams: { Args: { p_club_id: string }; Returns: undefined }
       confirm_gocardless_refund: {
         Args: {
           p_amount_minor: number
@@ -12380,6 +12521,7 @@ export type Database = {
           p_club_id: string
           p_description?: string
           p_display_name: string
+          p_venue_id?: string
         }
         Returns: string
       }
@@ -13592,6 +13734,10 @@ export type Database = {
           orphaned: boolean
         }[]
       }
+      remove_setup_team: {
+        Args: { p_reason?: string; p_team_id: string }
+        Returns: string
+      }
       remove_tournament_participant: {
         Args: { p_participant_id: string }
         Returns: undefined
@@ -13797,6 +13943,10 @@ export type Database = {
         Args: { p_active: boolean; p_pitch_id: string }
         Returns: undefined
       }
+      set_club_pitch_venue: {
+        Args: { p_pitch_id: string; p_venue_id: string }
+        Returns: undefined
+      }
       set_default_venue: { Args: { p_id: string }; Returns: undefined }
       set_fixture_conversation_mute: {
         Args: {
@@ -13907,6 +14057,21 @@ export type Database = {
       }
       set_venue_active: {
         Args: { p_active: boolean; p_id: string }
+        Returns: undefined
+      }
+      set_venue_address: {
+        Args: {
+          p_country?: string
+          p_county: string
+          p_latitude?: number
+          p_line1: string
+          p_line2: string
+          p_longitude?: number
+          p_postcode: string
+          p_provider_ref?: string
+          p_town: string
+          p_venue_id: string
+        }
         Returns: undefined
       }
       share_fixture_contact_card: {

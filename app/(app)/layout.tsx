@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, listSwitchableContexts, resolveActiveContext } from "@/lib/app-context/active-context"
 import { buildNavItems, buildSiteAdminSections } from "@/lib/app-context/build-nav-items"
@@ -8,6 +8,8 @@ import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-cont
 import { getRecentNotifications } from "@/lib/app-context/notifications"
 import { resolvePersonalAvatarUrl } from "@/lib/app-context/personal-avatar"
 import { getSessionContext } from "@/lib/app-context/session-context"
+import { getClubSetupState, isSetupAllowedPath, resumeStep } from "@/lib/club-setup/state"
+import { hasCapability } from "@/lib/permissions/has-capability"
 import { getBetaBadgeState } from "@/lib/platform/mode"
 import { getNewSupportTicketCount, getSupportUnreadCount } from "@/lib/support/badges"
 import { createClient } from "@/lib/supabase/server"
@@ -18,6 +20,7 @@ import { BetaBadge } from "@/components/platform/beta-badge"
 import { AppMobileNav } from "./app-mobile-nav"
 import { AppNav } from "./app-nav"
 import { ContextSwitchOverlay } from "./context-switch-overlay"
+import { ClubSetupRequired } from "./club-setup-required"
 import { DiagnosticBanner } from "./diagnostic-banner"
 import { SwitchContextProvider } from "./switch-context-provider"
 
@@ -70,12 +73,85 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
       getBetaBadgeState(supabase),
     ])
 
+  // ---------------------------------------------------------------
+  // First-run activation gate.
+  //
+  // A club that has not finished setup is not usable: no logo, no home
+  // venue, no pitch, no confirmed teams. An authorized Club Admin is sent to
+  // finish it; anyone else is shown a bounded explanation rather than a
+  // half-working application or an unexplained blank page.
+  //
+  // Enforced here, on the server, rather than by a dismissible client modal
+  // -- and never on a path the gate itself needs, so it cannot loop. Account,
+  // support and context switching stay reachable throughout, because being
+  // asked to finish setup must not mean being unable to sign out or move to
+  // a different club.
+  //
+  // Clubs that pre-date this lifecycle were grandfathered COMPLETED, so no
+  // working club is ever gated by its introduction.
+  // ---------------------------------------------------------------
+  const pathname = (await headers()).get("x-ovalball-pathname") ?? ""
+  let setupGate: { clubName: string; canComplete: boolean } | null = null
+  let setupInProgress = false
+
+  // Resolved from the context's CLUB, not from its kind. A Team Admin,
+  // coach, parent and player at an unset-up club are looking at the same
+  // empty application a Club Admin would be -- no venues, no pitches, an
+  // unconfirmed team list -- and every one of those contexts carries the
+  // club it belongs to. Keying the gate on `kind === "club"` had meant only
+  // a Fixture Secretary ever saw the explanation.
+  const contextClubId = activeContext.clubId ?? (activeContext.kind === "club" ? activeContext.id : null)
+
+  if (contextClubId && !diagnosticClub) {
+    const setup = await getClubSetupState(supabase, contextClubId)
+    if (setup && setup.status !== "COMPLETED") {
+      const canComplete = await hasCapability(supabase, "club.edit_profile", "club", { clubId: contextClubId })
+      if (canComplete) {
+        if (!isSetupAllowedPath(pathname)) {
+          redirect(`/club/setup?step=${resumeStep(setup.requirements)}`)
+        }
+        setupInProgress = true
+      } else if (!isSetupAllowedPath(pathname)) {
+        // No redirect: a coach has nowhere useful to be sent. The shell still
+        // renders, so they keep their nav, their context switcher and their
+        // way out.
+        //
+        // The club's own name, read from the directory -- NOT the nav's
+        // `clubName`, which is the active context's label and in a team
+        // context is the team. "Men's 1st isn't ready yet" told a coach the
+        // wrong thing was unfinished.
+        const { data: gateClub } = await supabase
+          .from("clubs")
+          .select("slug, club_directory(name)")
+          .eq("id", contextClubId)
+          .maybeSingle()
+        setupGate = {
+          clubName: gateClub?.club_directory?.name ?? gateClub?.slug ?? "This club",
+          canComplete: false,
+        }
+      }
+    }
+  }
+
   const personName = [profile?.first_name, profile?.surname].filter(Boolean).join(" ")
   const personAvatarUrl = resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path)
 
   const primaryWithBadges = primary.map((item) =>
     item.href === "/admin/support" && newSupportTicketCount > 0 ? { ...item, badge: newSupportTicketCount } : item
   )
+
+  // While a Club Admin is finishing setup, the nav shows only what the gate
+  // will actually let them open. Offering Fixtures and Calendar during
+  // onboarding produced links that silently bounced back to the wizard,
+  // which reads as a broken app rather than a deliberate sequence. The
+  // context switcher, notifications and account menu are part of AppNav's
+  // own chrome and are untouched, so a multi-club person can still leave.
+  const navPrimary = setupInProgress
+    ? [
+        { href: "/club/setup", label: "Set up your club" },
+        ...primaryWithBadges.filter((item) => isSetupAllowedPath(item.href)),
+      ]
+    : primaryWithBadges
 
   // Grouping is applied to the ALREADY capability-filtered list, and only in
   // a Site Admin context -- Club/Team/Parent/Player keep their existing flat
@@ -84,8 +160,8 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   // taxonomies.
   const { top: navTop, sections: navSections } =
     activeContext.kind === "site_admin"
-      ? buildSiteAdminSections(primaryWithBadges)
-      : { top: [] as typeof primaryWithBadges, sections: [] }
+      ? buildSiteAdminSections(navPrimary)
+      : { top: [] as typeof navPrimary, sections: [] }
 
   return (
     <SwitchContextProvider>
@@ -103,7 +179,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
         <div className="flex flex-1 flex-col md:flex-row">
           <div className="hidden md:block">
             <AppNav
-              primaryItems={primaryWithBadges}
+              primaryItems={navPrimary}
               top={navTop}
               sections={navSections}
               contexts={contexts}
@@ -121,7 +197,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
             />
           </div>
           <AppMobileNav
-            primaryItems={primaryWithBadges}
+            primaryItems={navPrimary}
             top={navTop}
             sections={navSections}
             contexts={contexts}
@@ -138,7 +214,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
             supportUnreadCount={supportUnreadCount}
           />
           <main className="relative min-w-0 flex-1">
-            {children}
+            {setupGate ? <ClubSetupRequired clubName={setupGate.clubName} /> : children}
             <ContextSwitchOverlay />
           </main>
         </div>

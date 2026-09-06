@@ -17,7 +17,21 @@ export interface ClubProfileFormData {
   logoUrl: string | null
 }
 
-export function ClubProfileForm({ initial }: { initial: ClubProfileFormData }) {
+/**
+ * `hideHomeGroundAddress` is for the first-run wizard, which asks for the
+ * ground's address one step later as a proper structured venue address. Two
+ * fields two steps apart, both labelled for the home ground, made the
+ * wizard look like it had lost the first answer. Club Settings still shows
+ * this field, because the public page's display line is a separate thing a
+ * club may want to word its own way.
+ */
+export function ClubProfileForm({
+  initial,
+  hideHomeGroundAddress = false,
+}: {
+  initial: ClubProfileFormData
+  hideHomeGroundAddress?: boolean
+}) {
   const [form, setForm] = useState(initial)
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
@@ -150,17 +164,19 @@ export function ClubProfileForm({ initial }: { initial: ClubProfileFormData }) {
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="address" className="text-ink/80">
-          Home ground address
-        </Label>
-        <Input
-          id="address"
-          value={form.addressDisplay}
-          onChange={(e) => setForm((f) => ({ ...f, addressDisplay: e.target.value }))}
-          className="mt-1.5 h-11 border-ink/15 bg-white"
-        />
-      </div>
+      {!hideHomeGroundAddress && (
+        <div>
+          <Label htmlFor="address" className="text-ink/80">
+            Home ground address
+          </Label>
+          <Input
+            id="address"
+            value={form.addressDisplay}
+            onChange={(e) => setForm((f) => ({ ...f, addressDisplay: e.target.value }))}
+            className="mt-1.5 h-11 border-ink/15 bg-white"
+          />
+        </div>
+      )}
 
       {error && (
         <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>
