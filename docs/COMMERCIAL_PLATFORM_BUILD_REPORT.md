@@ -1,0 +1,172 @@
+# Commercial Platform — Running Build Report
+
+Appended as each phase completes. Architecture reference:
+`docs/COMMERCIAL_PLATFORM_ARCHITECTURE.md`.
+
+---
+
+## PHASE A — COMPLETE
+
+### Architecture found, classified
+
+| Existing object | Verdict | Why |
+|---|---|---|
+| `invitations` + `invitation_teams` | **REUSE** | Canonical people invitations: club_id, invited_email, declared_role, club_role, status, token, expiry, accepted_by/at. No second system. |
+| `accept_invitation`, `get_invitation_preview` | **REUSE** | Server-authorised acceptance already exists. |
+| `guardian_invitations` / `accept_guardian_invitation` | **REUSE** | Guardian→player linking. |
+| `player_account_invitations` | **REUSE** | Young-player logins. |
+| `site_admin_invitations` | **REUSE** | Site Admin onboarding. |
+| `club_ovalball_invitations` | **REUSE** | Inviting a club onto the platform — the club-first acquisition path. |
+| `club_claims`, `club_join_requests`, `directory_requests` | **REUSE** | Claim / join / propose. Already the correct three-way split (§79). |
+| `/signup` 4-step wizard | **EXTEND** (Phase K) | Authority model already correct; framing is wrong. Messaging + routing only. |
+| `add_child_for_guardian` | **EXTEND** (Phase B) | See security note below. |
+| `players`, `guardians`, `player_team_memberships` | **DO NOT TOUCH** | Canonical Side Project 1 identity model. |
+| `club_memberships` | **DO NOT TOUCH** | No self-serve INSERT policy — the reason invite-only already holds. |
+| `capabilities` (47 rows) | **EXTEND** | Add `site.system.*`, `site.commercial.view`, `club.platform_billing.*`, `club.referrals.*`. |
+| `club.subscription.*` capabilities (5) | **KEEP SEPARATE** | Domain A. Never reused for Ovalball billing. |
+| `notifications` | **EXTEND** | Add commercial `type` values. One system. |
+| `audit_log` (+ `internal.audit_row_change`) | **REUSE** | table_name/record_id/action/changed_by/changed_at/before/after. Attach to every new commercial table. |
+| `pg_cron` + `internal.*` jobs (3 live) | **REUSE** | Established pattern for trial expiry / billing runs. |
+| `lib/version.ts` (`APP_VERSION`, `APP_BUILD_SHA`) | **REUSE** | §13 immutable build identity already solved. |
+| `gocardless_*` (9 tables), `membership_obligations`, `payer_subscriptions` | **KEEP SEPARATE** | Domain A. |
+| `club_subscription_pricing/programmes/sibling_rules` | **KEEP SEPARATE** | Domain A despite the name. |
+| Club Finance dashboard | **DO NOT TOUCH** | Domain A UI. |
+| `lib/payments/gocardless/client.ts`, webhook signature, env gate | **REUSE (transport only)** | Namespaced separately for Domain B. |
+| `lib/payments/gocardless/mapper.ts`, `reconcile.ts` | **KEEP SEPARATE** | Domain A semantics. |
+| `partner_requests` | **EXTEND** (Phase H) | Natural home for the "Refer a club" CTA (§44). No referral fields today. |
+| Legal pages (Terms/Privacy/Subprocessors/Cookies) | **EXTEND** (Phase L) | Add SaaS billing, trial, Beta, referral terms. |
+| Social auth / OTP | **DO NOT TOUCH** | §82. Passwordless model unchanged. |
+
+### Greenfield — nothing exists
+
+All 11 commercial tables; Beta/system mode; release history; trials; plans;
+entitlements; referrals. Every apparent "referral" hit in the codebase was
+an HTML `rel="noreferrer"`, so §43 has nothing to consolidate.
+
+### Two design corrections the audit forced
+
+**1. Namespace collision.** `club_subscriptions` and `club.subscription.view`
+from the brief are already taken by Domain A. Domain B therefore uses
+`platform_*` tables and `club.platform_billing.*` capabilities. Full
+reasoning in the architecture doc.
+
+**2. Less to build than assumed.** Invitations, notifications, jobs, audit
+and build identity all already exist and are reused rather than rebuilt.
+
+### Security note carried into Phase B
+
+`public.add_child_for_guardian` is `security definer`, granted to
+`authenticated`, and guards only on "signed in" plus "club exists and is
+active". It then creates a `players` row, a `guardians` row, and a
+`player_team_memberships` row at **any active club**, with no invitation and
+no existing relationship to that club.
+
+Mitigating: the team membership is inserted as **`pending`**, so no team or
+fixture authority is self-granted, and unmatched cases route to
+`player_duplicate_reviews` / `created_needs_club_review` for club review.
+
+Still, an unrelated signed-in person can create a player identity at an
+arbitrary club and declare themselves its guardian. That is the exact case
+§81 anticipates, and it is Phase B's main piece of work — not a blocker.
+
+### Effect on later phases
+
+- Phase B is narrower than expected: verification plus the Add Child guard.
+- Phase K is messaging/routing, not an authority change.
+- Phases D and G inherit a working job pattern and a working provider
+  transport, so both are smaller than the brief implies.
+- Phase F must not name anything `club_subscription*`.
+
+### Unresolved, inherited
+
+`policy_acknowledgements` exists locally but not in production, so a
+brand-new signup fails partway. Unrelated to this workstream but sits on the
+onboarding path Phases B and K touch. Not blocking local work.
+
+### Files
+
+`docs/COMMERCIAL_PLATFORM_ARCHITECTURE.md` (new), this report (new).
+No code or schema changed in Phase A.
+
+---
+
+## PHASE B — COMPLETE
+
+Invite-only onboarding. The invariant being defended: **authentication never
+grants a club or team relationship.**
+
+### Audit first
+
+Most of the invariant already held, and the audit is why Phase B is small:
+
+- `club_memberships` has no self-serve INSERT policy, so signing in cannot
+  produce club membership.
+- `/signup` writes a profile, consent rows and a *request*
+  (`club_claims` / `club_join_requests` / `directory_requests`) — never a
+  membership.
+- Six invitation systems already exist with server-authorised acceptance
+  RPCs. None was rebuilt.
+
+One real hole, carried over from the Phase A security note.
+
+### The hole, and the fix
+
+`public.add_child_for_guardian` is `security definer`, granted to
+`authenticated`, and guarded only on "signed in" and "club exists and is
+active". Any signed-in person could therefore create a player identity at
+**any** active club and declare themselves its guardian.
+
+`supabase/migrations/20260930100000_invite_only_add_child_guard.sql`
+reproduces the function verbatim and adds an authority guard ahead of every
+write. The caller must have one of:
+
+1. an accepted `guardian_invitations` row for that club,
+2. an existing `guardians` → `player_team_memberships` → `teams.club_id`
+   relationship at that club, or
+3. an active `club_memberships` row at that club.
+
+Otherwise: *"You need an invitation from this club before you can add a child
+to it."* Nothing else in the function changed — the team membership is still
+inserted as `pending`, and duplicate routing to `player_duplicate_reviews`
+is untouched.
+
+Condition 2 is what keeps the change non-disruptive: a guardian already
+known to the club keeps working, with no re-invitation.
+
+### Verification
+
+`supabase/tests/invite_only_onboarding.sql`, run against the local Docker
+database. Six assertions, all PASS:
+
+| # | Assertion | Result |
+|---|---|---|
+| 1 | A stranger cannot add a child at a club | PASS — rejected with the invitation message |
+| 2 | An accepted guardian invitation grants the context | PASS |
+| 3 | A club A invitation does **not** unlock club B | PASS |
+| 4 | An existing guardian can still add a second child | PASS — not disrupted |
+| 5 | Self-service add-child never yields an **active** team membership | PASS |
+| 6 | `club_memberships` still has no self-grant INSERT policy | PASS |
+
+Run with:
+
+```bash
+docker exec -i supabase_db_ovalball-saas-startup \
+  psql -U postgres -d postgres -f - < supabase/tests/invite_only_onboarding.sql
+```
+
+The script is wrapped in `begin` / `rollback`, so it leaves no fixtures
+behind.
+
+### Not applied to production
+
+The migration is applied **locally only**, per the standing instruction that
+no production migration happens in this workstream without explicit
+authorisation. It queues behind the already-outstanding
+`policy_acknowledgements` migration.
+
+### Files
+
+- `supabase/migrations/20260930100000_invite_only_add_child_guard.sql` (new)
+- `supabase/tests/invite_only_onboarding.sql` (new)
+
+No application code changed. Phase K handles the signup surface's framing.
