@@ -388,13 +388,147 @@ guessing one would put a fabricated location on a real pitch.
 
 ## 8. Remaining gaps
 
-- **Address lookup in the wizard** — step 2 captures the structured address
-  as typed fields. The shared `AddressLookupField` is not mounted there yet;
-  the provider key is absent locally, so wiring it in would have shipped a
-  path that could not be verified end to end.
+- **Live provider suggestions are unverified.** `GETADDRESS_API_KEY` is
+  absent locally, so no real suggestion list has ever been rendered from the
+  provider. What IS verified is the unconfigured path (an honest hint
+  pointing at manual entry, and no contradictory "no addresses found"
+  dropdown) and manual entry end to end. Every structured-address assertion
+  is written against the components the client extracts from a provider
+  result, so the suite holds either way — but a live provider UAT still has
+  to happen in an environment that has the key.
 - **Same-as-home away kit** — live-verified in the browser (ticking writes an
   identical `alternate` row; unticking writes nothing). The behaviour is
   client-side, so it has no SQL suite assertion of its own.
 - **Address provider not configured locally** (`GETADDRESS_API_KEY` absent), so live suggestions are unverified end to end; the unconfigured path and manual fallback are verified.
 - **Kit history** — deliberately deferred, §5.
 - **`/admin/lookups` is read-only** for a Site Admin without `site.lookups.manage`, so venue/pitch mutation UAT needs a Club Admin or that capability.
+
+---
+
+## 9. Address lookup in first-run setup
+
+Step 2 mounts the shared `AddressLookupField` — the same component Club
+Settings' venue editor and the Site Admin directory editor use, over the
+same `Autocomplete` primitive. One implementation, one set of keyboard,
+loading, empty and error behaviours.
+
+`onSelect` was extended additively rather than forked. It previously handed
+back a single joined `address` line, because `venues.address` was one
+column; it now hands back **both** that joined line and the provider's own
+`line1` / `line2`, and each caller takes the shape it needs. Nothing is
+discarded — the provider's rare `line_3` folds into `line2`.
+
+Selecting a suggestion fills the fields and writes nothing. **Save home
+ground** remains the only thing that persists, and every field stays
+editable afterwards, so a slightly wrong provider result is corrected in
+place rather than being a dead end.
+
+When the provider is not configured, the field says exactly that and points
+at manual entry. It no longer also shows "No addresses found for that
+search." — that read as "this address does not exist" when the truth is
+that nothing was searched. The `Autocomplete` primitive now suppresses the
+dropdown entirely when its caller passes an empty `emptyMessage`, which is
+what a caller does when a hint below the field is already explaining.
+
+---
+
+## 10. Profile photo / youth privacy audit (documentation only)
+
+No Matchday attendance or avatar UI was built. This records what the schema
+actually supports, for whoever builds it.
+
+**There is exactly one photo column in the entire `public` schema:**
+`profiles.avatar_storage_path`. Verified by scanning
+`information_schema.columns` for `%avatar%` / `%photo%`.
+
+Consequences, all of which the future Matchday card must respect:
+
+1. **`players` carries no photo at all.** A player is a sporting identity,
+   not an account. A minor's participation therefore has **no** photo
+   dependency of any kind — not by policy, but by construction. §41 is
+   satisfied structurally rather than by a rule someone has to remember.
+2. **No fixture or attendance table carries an avatar column.** Nothing
+   copies an avatar path or URL into a fixture, an attendance row or a
+   call-up. A participant's photo, where one legitimately exists, is
+   resolved at render time from the canonical person via
+   `resolvePersonalAvatarUrl` — the single resolver in
+   `lib/app-context/personal-avatar.ts`. A future Matchday card must keep
+   resolving, never snapshot.
+3. **An avatar belongs to a registered user, not to a player.** A photo can
+   only appear for someone who holds an account and uploaded one
+   themselves. There is no path by which a guardian, coach or club uploads
+   a photo *of a child*.
+
+**One open decision, flagged rather than resolved.** The `avatars` bucket is
+**public** (`storage.buckets.public = true`), like `club-logos` and unlike
+`club-documents`, `fixture-attachments` and `support-attachments`. For an
+adult account holder that is an ordinary product choice. But if a player
+old enough to hold their own account ever uploads an avatar, that image is
+world-readable by URL to anyone who has it. Before any avatar is rendered on
+a matchday card seen by a wider audience, someone has to decide whether the
+avatars bucket stays public or moves to signed URLs. This pass does not make
+that decision, and nothing built here depends on the answer.
+
+The fallback where no legitimate photo exists is initials, which the shell's
+own avatar already renders.
+
+---
+
+## 11. Team identity: folded teams keep their identity
+
+Found while writing the removal regressions, and worth recording because it
+changes what "remove" means in step 3.
+
+`teams` carries **two** identity constraints:
+
+- `teams_active_canonical_identity_idx` — partial, `WHERE active = true`
+- `teams_club_id_identity_key_key` — `UNIQUE (club_id, identity_key)`,
+  **unconditional**
+
+So a folded team's identity stays reserved to it permanently. A club can
+never hold two teams of the same identity in any state. That means removing
+a team by mistake during setup is undone by **reactivating** it in Team
+Administration, never by adding a second one — which is exactly what keeps
+a folded team's fixtures, memberships and season history attached to the
+team they belong to.
+
+A related fact, also asserted: omitting `canonical_team_type_id` on an
+insert does not create a free-text team. `teams_set_canonical_type_trigger`
+resolves the type from the structured fields, and
+`teams_active_requires_canonical_type` rejects the row when nothing
+resolves. The closed catalogue holds from either direction.
+
+---
+
+## 12. Incident: capability union regression (R-0, tenth occurrence)
+
+Recorded because it will happen an eleventh time otherwise.
+
+`internal.has_club_role_capability` is one function holding one inline list
+per role. Any migration that adds a capability re-declares the whole
+function, and a re-declaration written from an older copy of the list
+silently deletes every capability added since. Nothing errors. A product
+area simply stops working for every Club Admin on the platform.
+
+During this pass, four untracked `20261018*` safeguarding migrations
+appeared in the working tree from concurrent work and were applied to the
+shared local database. Their re-declaration correctly added
+`club.safeguarding.view` / `manage_contact` / `message` and silently dropped
+twelve capabilities, including all of Domain A billing, referrals, training
+and GoCardless connection. Seven previously-green suites failed at once.
+
+The R-0 assertion in `referral_attribution_integrity` named the missing
+capabilities exactly. That assertion has now paid for itself twice.
+
+`20261019000000_capability_union_restore.sql` re-declares the function as
+the **union** of both intended lists, so neither line of work loses
+anything, and carries a migration-time guard that fails the migration if the
+union does not resolve for a real Club Admin. It modifies no other
+migration; being ordered last, it is the last word regardless of the order
+the others are applied in.
+
+**The durable fix is not this migration.** It is that the inline lists are a
+bad shape for a value multiple feature areas extend. A `role_capability_defaults`
+table, or a set of additive `grant`-style migrations, would make this class
+of regression impossible. That is a Main architecture task, deliberately not
+started inside this scoped pass.

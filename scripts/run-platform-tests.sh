@@ -30,6 +30,8 @@ SUITES=(
   site_admin_dashboard_phase_b
   club_kits
   club_activation_setup
+  structured_venue_address
+  venue_pitch_team_integrity
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

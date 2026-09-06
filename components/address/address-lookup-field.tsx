@@ -33,7 +33,16 @@ export function AddressLookupField({
   onSelect,
 }: {
   search: (query: string) => Promise<AddressLookupResult>
-  onSelect: (address: { address: string; town: string; county: string; postcode: string }) => void
+  onSelect: (address: {
+    /** line1..line3 joined -- for callers writing the single legacy column. */
+    address: string
+    /** The provider's own structured lines, for callers with structured columns. */
+    line1: string
+    line2: string
+    town: string
+    county: string
+    postcode: string
+  }) => void
 }) {
   const [hint, setHint] = useState<string | null>(null)
   // Held in a ref so setting it does not re-run the debounce effect.
@@ -75,7 +84,12 @@ export function AddressLookupField({
         placeholder="e.g. BB11 or 1 Belvedere Road…"
         minChars={3}
         hint={hint ?? undefined}
-        emptyMessage="No addresses found for that search."
+        // When the hint is carrying a real explanation -- the provider is
+        // not connected, the country is unsupported, the provider errored --
+        // "No addresses found for that search." contradicts it: it reads as
+        // "that address does not exist" when the truth is that nothing was
+        // searched. The hint is the honest message in those states.
+        emptyMessage={hint ? "" : "No addresses found for that search."}
         onSearch={runSearch}
         optionKey={(c) => [c.line1, c.line2, c.postcode].filter(Boolean).join("|")}
         optionLabel={(c) => [c.line1, c.line2, c.town, c.postcode].filter(Boolean).join(", ")}
@@ -89,11 +103,15 @@ export function AddressLookupField({
         )}
         onSelect={(c) =>
           onSelect({
-            // line1..line3 are joined because `venues.address` is a single
-            // text column today. The provider's structured lines are not
-            // discarded lightly -- see the structured-address gap recorded
-            // in docs/CLUB_SETUP_AND_VENUES.md.
+            // Both shapes are handed over, and the caller picks. `address`
+            // is the joined line for whoever still writes the single legacy
+            // `venues.address` column; line1/line2 are the provider's own
+            // components, for callers writing the structured columns added
+            // in 20261016000000. Nothing is thrown away here -- line3 is
+            // rare and folds into line2 rather than being dropped.
             address: [c.line1, c.line2, c.line3].filter(Boolean).join(", "),
+            line1: c.line1,
+            line2: [c.line2, c.line3].filter(Boolean).join(", "),
             town: c.town,
             county: c.county ?? "",
             postcode: c.postcode,

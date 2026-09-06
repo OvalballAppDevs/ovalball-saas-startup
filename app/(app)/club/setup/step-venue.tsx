@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { AlertCircle, Check, Loader2, MapPin, Plus, X } from "lucide-react"
 
+import { AddressLookupField } from "@/components/address/address-lookup-field"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+import { lookupVenueAddress } from "../actions"
 import { createVenueWithPitches } from "./actions"
 
 export interface ExistingVenue {
@@ -168,6 +170,26 @@ export function StepVenue({
             />
           </div>
 
+          {/* The same lookup Club Settings and the Site Admin directory
+              editor use -- one autocomplete implementation, one set of
+              keyboard and error behaviours. It fills the fields below and
+              writes nothing: Save home ground is still the only thing that
+              persists, and every field stays editable afterwards.
+
+              When the provider is not configured the field says so and
+              points at manual entry, rather than showing an empty list that
+              reads as "no such address". */}
+          <AddressLookupField
+            search={lookupVenueAddress}
+            onSelect={(picked) => {
+              setLine1(picked.line1)
+              setLine2(picked.line2)
+              setTown(picked.town)
+              setCounty(picked.county)
+              setPostcode(picked.postcode)
+            }}
+          />
+
           <fieldset className="space-y-3">
             <legend className="text-sm font-medium text-ink">Address</legend>
 
@@ -220,7 +242,7 @@ export function StepVenue({
               </div>
             </div>
 
-            <div className="sm:max-w-[12rem]">
+            <div>
               <Label htmlFor="venue-postcode">Postcode</Label>
               <Input
                 id="venue-postcode"
@@ -228,7 +250,7 @@ export function StepVenue({
                 onChange={(e) => setPostcode(e.target.value.toUpperCase())}
                 autoComplete="postal-code"
                 spellCheck={false}
-                className="mt-1.5 font-mono uppercase"
+                className="mt-1.5 font-mono uppercase sm:max-w-[12rem]"
               />
               <p className="mt-1.5 text-xs text-ink/45">Used for directions on every fixture here.</p>
             </div>

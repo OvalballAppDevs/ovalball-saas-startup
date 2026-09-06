@@ -173,7 +173,15 @@ export function Autocomplete<T>({
     }
   }
 
-  const showList = open && (loading || options.length > 0 || (searched && query.trim().length >= minChars))
+  // An empty `emptyMessage` means the caller has nothing useful to say when
+  // there are no results -- typically because a hint below the field is
+  // already explaining why (the provider is not connected, say). Rendering
+  // an empty dropdown there is noise, and "no matches" would contradict the
+  // hint, so the list is suppressed entirely.
+  const suppressEmptyList = emptyMessage.trim() === ""
+  const showList =
+    open &&
+    (loading || options.length > 0 || (searched && query.trim().length >= minChars && !suppressEmptyList))
 
   return (
     <div ref={boxRef} className="relative">
