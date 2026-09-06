@@ -50,7 +50,14 @@ That file's own header states it is explicitly **not a migration** — "run AFTE
 
 **Fix:** `supabase/tests/season_rollover.sql` checks 15/16 changed from `commit;` to `rollback;`. Verified this does not weaken check 17 (which only queries `fixtures`, proving training creation never creates a fixture row — true regardless of whether the training_sessions row from 15/16 persists) — re-ran the file three times in succession against a throwaway database seeded from Main's real state and confirmed checks 15/16/17 all still PASS and the U13 C row count no longer grows (stayed at the pre-existing 22 across 3 additional runs, versus 28 had the leak still been present).
 
-**Cleanup scope proposed, not yet executed** (per explicit instruction not to delete without separate authorization): of the 22 real rows, keep the earliest-created row per date (`7d82247a-43ad-4819-8716-2a8605e3dbe1` for 2026-07-10, `da4b54b9-a5da-49ab-9b0d-04430bf39952` for 2026-10-20) and delete the other 20 (10 per date, all later re-runs of the same two literal test calls). All 22 IDs and their `keep_rank` are recorded in this audit's own evidence capture.
+### LOCAL TEST-POLLUTION CLEANUP — COMPLETED (2026-09-06)
+
+Cleanup executed on Main's local database only, after re-querying all 22 rows and re-confirming every field against this section's forensic record (club, team, `source = MANUAL`, `training_plan_id`/`schedule_rule_id` null, both exact date/time groups, exact seeded creator) with no discrepancy.
+
+- **Deleted**: exactly 20 rows, by explicit ID allow-list (no broad predicate) — the same 10-per-date set already recorded above (every row except the earliest-created one per date).
+- **Retained**: `7d82247a-43ad-4819-8716-2a8605e3dbe1` (2026-07-10) and `da4b54b9-a5da-49ab-9b0d-04430bf39952` (2026-10-20) — both confirmed still present after deletion.
+- **Verified after deletion**: exactly one U13 C session remains per date; the whole `training_sessions` table (which, before this cleanup, contained only these 22 rows and nothing else — confirmed by this audit's own earlier club-wide scan) now contains exactly 2 rows; the Calendar UI (Club Admin, real magic-link session) shows a single training entry per date, and the retained Friday 10 July session opens its detail panel normally (View Register / Edit Training Details / Cancel all present).
+- No migration or product code was touched by this cleanup — deletion only.
 
 ### 6.2 A distinct, genuine defect found via due diligence: **PRODUCT IDEMPOTENCY DEFECT — FIXED**
 
