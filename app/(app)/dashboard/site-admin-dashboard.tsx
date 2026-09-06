@@ -1,7 +1,9 @@
 import Link from "next/link"
 import { ChevronRight, Gauge, ShieldCheck } from "lucide-react"
 
+import { AdoptionBars, GroupedBarChart } from "@/components/dashboard/charts"
 import { AlertList } from "@/components/dashboard/alert-list"
+import { GrowthPanel } from "@/components/dashboard/growth-panel"
 import {
   DashboardSection,
   SectionError,
@@ -13,6 +15,7 @@ import { BetaBadge } from "@/components/platform/beta-badge"
 import type { BetaBadgeState } from "@/lib/platform/mode"
 import {
   buildAlerts,
+  type FixtureTodayRow,
   type CommercialSnapshot,
   type ReadState,
   type ReferralHealthStatus,
@@ -22,18 +25,23 @@ import {
 /**
  * The Site Admin command centre.
  *
- * Phase A builds the shell, the read foundation and the first two real
- * sections. It deliberately does NOT render the growth chart, the fixture
- * activity visual, the finance panel, Top Referring Clubs or the referral
- * funnel: those are later phases, and a placeholder holding invented
- * numbers would be worse than an absent section. Nothing here says "coming
- * soon" either -- a section that does not exist yet simply is not on the
- * page.
+ * Phase A built the shell, the read foundation, Platform Pulse, Needs
+ * Attention and Platform State. Phase B adds rugby activity, growth and
+ * adoption:
  *
- * What IS here is real, canonical and drill-through-able:
- *   1. Platform pulse   -- who is on Ovalball
- *   2. Needs attention  -- what a Site Admin should do next
- *   3. Platform state   -- mode, release, referral data health
+ *   1. Platform pulse    -- who is on Ovalball
+ *   2. Rugby today       -- fixtures playing today + booked counters
+ *   3. Rugby activity    -- 12 weeks, booked vs playing
+ *   4. Platform growth   -- one metric at a time, real timestamps
+ *   5. Adoption          -- what active clubs actually use
+ *   6. Needs attention   -- what a Site Admin should do next
+ *   7. Platform state    -- mode, release, referral data health
+ *
+ * Still deliberately absent: finance visuals, Top Referring Clubs, the
+ * referral funnel and the referral live log. Those are commercial phases,
+ * and a placeholder holding invented numbers would be worse than nothing.
+ * Nothing here says "coming soon" -- a section that does not exist yet
+ * simply is not on the page.
  */
 export function SiteAdminDashboard({
   firstName,
@@ -46,7 +54,7 @@ export function SiteAdminDashboard({
   badgeState: BetaBadgeState
   appVersion: string
 }) {
-  const { platform, operations, commercial } = data
+  const { platform, operations, commercial, fixturesToday, trends } = data
   const alerts = buildAlerts(operations, commercial)
 
   // The operational block is the fastest-moving read, so it owns the
@@ -141,7 +149,144 @@ export function SiteAdminDashboard({
         ) : null}
       </DashboardSection>
 
-      {/* ---------- 2. needs attention ---------- */}
+      {/* ---------- 2. rugby today ---------- */}
+      <DashboardSection
+        title="Rugby today"
+        description="Physical fixtures playing today, in kickoff order. One confirmed fixture is one row, however many clubs are involved."
+        action={{ href: "/admin/fixtures", label: "Fixture Management" }}
+      >
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {fixturesToday.state === "error" ? (
+            <SectionError what="Rugby today" message={fixturesToday.message} />
+          ) : fixturesToday.state === "unauthorized" ? (
+            <SectionUnauthorized what="Rugby today" />
+          ) : fixturesToday.state === "ok" ? (
+            <FixturesTodayList
+              rows={fixturesToday.data}
+              total={operations.state === "ok" ? operations.data.fixturesToday : null}
+            />
+          ) : null}
+
+          {operations.state === "ok" ? (
+            <dl className="divide-y divide-ink/8 rounded-lg border border-ink/10 bg-white">
+              <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <dt className="text-sm text-ink/55">Playing today</dt>
+                <dd className="font-display text-xl text-ink tabular-nums">
+                  {operations.data.fixturesToday.toLocaleString("en-GB")}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <dt className="text-sm text-ink/55">
+                  Booked this week
+                  <span className="mt-0.5 block text-xs text-ink/40">Arranged since Monday</span>
+                </dt>
+                <dd className="font-display text-xl text-ink tabular-nums">
+                  {operations.data.fixturesBookedThisWeek.toLocaleString("en-GB")}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <dt className="text-sm text-ink/55">
+                  Booked this month
+                  <span className="mt-0.5 block text-xs text-ink/40">Arranged, not played</span>
+                </dt>
+                <dd className="font-display text-xl text-ink tabular-nums">
+                  {operations.data.fixturesBookedThisMonth.toLocaleString("en-GB")}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <dt className="text-sm text-ink/55">Cancelled this month</dt>
+                <dd className="font-display text-xl text-ink tabular-nums">
+                  {operations.data.fixturesCancelledThisMonth.toLocaleString("en-GB")}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
+        </div>
+      </DashboardSection>
+
+      {/* ---------- 3. rugby activity ---------- */}
+      <DashboardSection
+        title="Rugby activity"
+        description="Twelve weeks. Two different questions, kept apart: when fixtures were arranged, and when they are played."
+      >
+        {trends.state === "error" ? (
+          <SectionError what="Rugby activity" message={trends.message} />
+        ) : trends.state === "unauthorized" ? (
+          <SectionUnauthorized what="Rugby activity" />
+        ) : trends.state === "ok" ? (
+          <div className="rounded-lg border border-ink/10 bg-white px-5 py-4">
+            <GroupedBarChart
+              title="Fixture activity, last 12 weeks"
+              summary={`Booked totals ${trends.data.fixtureWeeks.reduce((s, w) => s + w.booked, 0)} and playing totals ${trends.data.fixtureWeeks.reduce((s, w) => s + w.playing, 0)} across the period.`}
+              points={trends.data.fixtureWeeks.map((w) => ({
+                label: formatWeek(w.weekStart),
+                a: w.booked,
+                b: w.playing,
+              }))}
+              aLabel="Booked (arranged)"
+              bLabel="Playing (kickoff)"
+            />
+          </div>
+        ) : null}
+      </DashboardSection>
+
+      {/* ---------- 4. platform growth ---------- */}
+      <DashboardSection
+        title="Platform growth"
+        description="Newly registered per period, from canonical creation timestamps. Same definitions as Platform Pulse."
+      >
+        {trends.state === "error" ? (
+          <SectionError what="Platform growth" message={trends.message} />
+        ) : trends.state === "unauthorized" ? (
+          <SectionUnauthorized what="Platform growth" />
+        ) : trends.state === "ok" ? (
+          <div className="rounded-lg border border-ink/10 bg-white px-5 py-4">
+            <GrowthPanel daily={trends.data.growthDaily} monthly={trends.data.growthMonthly} />
+          </div>
+        ) : null}
+      </DashboardSection>
+
+      {/* ---------- 5. adoption ---------- */}
+      <DashboardSection
+        title="Adoption"
+        description="What active clubs actually use — measured by real usage, never by whether a menu item is visible to them."
+        action={{ href: "/admin/clubs", label: "Club Management" }}
+      >
+        {trends.state === "error" ? (
+          <SectionError what="Adoption" message={trends.message} />
+        ) : trends.state === "unauthorized" ? (
+          <SectionUnauthorized what="Adoption" />
+        ) : trends.state === "ok" ? (
+          <div className="rounded-lg border border-ink/10 bg-white px-5 py-4">
+            <AdoptionBars
+              denominator={trends.data.adoption.activeClubs}
+              denominatorLabel="active clubs"
+              rows={[
+                { label: "With an active team", value: trends.data.adoption.withActiveTeams },
+                { label: "With fixtures", value: trends.data.adoption.withFixtures },
+                { label: "With a partner club", value: trends.data.adoption.withPartnerClubs },
+                {
+                  label: "Parent / player adoption",
+                  value: trends.data.adoption.withParentPlayer,
+                  note: "A player at one of the club's teams has an active guardian.",
+                },
+                {
+                  label: "Using Training Management",
+                  value: trends.data.adoption.usingTraining,
+                  note: "An active training plan or a planned session — not menu availability.",
+                },
+                {
+                  label: "Taking member payments",
+                  value: trends.data.adoption.withMemberPayments,
+                  note: "The club charging its own members. Never Ovalball subscription money.",
+                },
+              ]}
+            />
+          </div>
+        ) : null}
+      </DashboardSection>
+
+      {/* ---------- 6. needs attention ---------- */}
       <DashboardSection
         title="Needs attention"
         description="Only signals that are non-zero and that a Site Admin can actually act on."
@@ -155,7 +300,7 @@ export function SiteAdminDashboard({
         )}
       </DashboardSection>
 
-      {/* ---------- 3. platform state ---------- */}
+      {/* ---------- 7. platform state ---------- */}
       <DashboardSection
         title="Platform state"
         description="Whether Ovalball is charging clubs, and whether referral attribution can be trusted."
@@ -282,6 +427,75 @@ function ReferralHealthCard({ commercial }: { commercial: ReadState<CommercialSn
         Commercial overview
         <ChevronRight aria-hidden="true" className="size-3.5" />
       </Link>
+    </div>
+  )
+}
+
+function formatWeek(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`)
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+}
+
+/**
+ * The first five fixtures playing today.
+ *
+ * Club and team identity come from the season-aware canonical resolver, and
+ * nothing here is player data. Each row drills into the existing Site Admin
+ * fixture detail page rather than a second implementation of it.
+ */
+function FixturesTodayList({ rows, total }: { rows: FixtureTodayRow[]; total: number | null }) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8">
+        <p className="text-sm font-medium text-ink">No fixtures playing today</p>
+        <p className="mt-1 text-sm text-ink/55">
+          Fixtures kicking off today appear here, earliest first.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-ink/10 bg-white">
+      <ul className="divide-y divide-ink/8">
+        {rows.map((f) => (
+          <li key={f.fixtureId}>
+            <Link
+              href={`/admin/fixtures/${f.fixtureId}`}
+              className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 outline-none transition-colors hover:bg-ink/[0.02] focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
+            >
+              <span className="w-12 shrink-0 font-mono text-sm text-ink/70 tabular-nums">
+                {f.kickoffTime ? f.kickoffTime.slice(0, 5) : "TBD"}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-ink">
+                  {f.homeClub} {f.homeTeam} <span className="text-ink/40">v</span> {f.awayClub}{" "}
+                  {f.awayTeam}
+                </span>
+                <span className="block truncate text-xs text-ink/50">
+                  {[f.competition, f.venue, f.rugbyCode === "league" ? "League" : "Union"]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </span>
+              <span className="shrink-0 rounded-full bg-ink/5 px-2.5 py-0.5 text-xs font-medium text-ink/60">
+                {f.status}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {total !== null && total > rows.length ? (
+        <Link
+          href="/admin/fixtures"
+          className="flex items-center gap-1 border-t border-ink/8 px-5 py-3 text-sm font-medium text-forest-800 underline underline-offset-4 outline-none hover:text-forest-950 focus-visible:ring-2 focus-visible:ring-pitch-400"
+        >
+          View all {total} fixtures today
+          <ChevronRight aria-hidden="true" className="size-3.5" />
+        </Link>
+      ) : null}
     </div>
   )
 }

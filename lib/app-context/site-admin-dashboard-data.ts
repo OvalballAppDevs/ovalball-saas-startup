@@ -55,6 +55,9 @@ export interface PlatformSnapshot {
 
 export interface OperationsSnapshot {
   fixturesToday: number
+  fixturesBookedThisWeek: number
+  fixturesBookedThisMonth: number
+  fixturesCancelledThisMonth: number
   pendingClubClaims: number
   pendingDirectoryRequests: number
   stuckFixtureRequests: number
@@ -80,10 +83,65 @@ export interface CommercialSnapshot {
 
 export type ReferralHealthStatus = "HEALTHY" | "RECONCILIATION NEEDED" | "ACTION REQUIRED"
 
+/** One fixture playing today. Club and team identity only -- never player data. */
+export interface FixtureTodayRow {
+  fixtureId: string
+  kickoffTime: string | null
+  homeClub: string
+  homeTeam: string
+  awayClub: string
+  awayTeam: string
+  competition: string | null
+  venue: string | null
+  rugbyCode: string | null
+  status: string
+}
+
+export interface FixtureWeekPoint {
+  weekStart: string
+  /** Fixtures CREATED in this week. */
+  booked: number
+  /** Fixtures whose KICKOFF falls in this week. A different question. */
+  playing: number
+}
+
+export type GrowthMetric = "users" | "clubs" | "teams" | "parents" | "players"
+
+export interface GrowthPoint {
+  bucket: string
+  users: number
+  clubs: number
+  teams: number
+  parents: number
+  players: number
+}
+
+export interface AdoptionSnapshot {
+  activeClubs: number
+  withActiveTeams: number
+  withFixtures: number
+  usingTraining: number
+  withParentPlayer: number
+  withMemberPayments: number
+  withPartnerClubs: number
+  claimsSubmitted: number
+  claimsApproved: number
+}
+
+export interface TrendsSnapshot {
+  fixtureWeeks: FixtureWeekPoint[]
+  growthDaily: GrowthPoint[]
+  growthMonthly: GrowthPoint[]
+  adoption: AdoptionSnapshot
+  generatedAt: string
+}
+
 export interface SiteAdminDashboardData {
   platform: ReadState<PlatformSnapshot>
   operations: ReadState<OperationsSnapshot>
   commercial: ReadState<CommercialSnapshot>
+  fixturesToday: ReadState<FixtureTodayRow[]>
+  trends: ReadState<TrendsSnapshot>
 }
 
 /** Postgres "insufficient privilege". The database refused, not the network. */
@@ -106,7 +164,7 @@ export async function getSiteAdminDashboardData(
   // capability itself; this is what stops the request being made at all.
   const canSeeCommercial = await hasCapability(supabase, "site.commercial.view", "site")
 
-  const [platform, operations, commercial] = await Promise.all([
+  const [platform, operations, commercial, fixturesToday, trends] = await Promise.all([
     readPlatform(supabase),
     readOperations(supabase),
     canSeeCommercial
@@ -115,9 +173,82 @@ export async function getSiteAdminDashboardData(
           state: "omitted",
           reason: "Commercial visibility is not granted to this Site Admin profile.",
         }),
+    readFixturesToday(supabase),
+    readTrends(supabase),
   ])
 
-  return { platform, operations, commercial }
+  return { platform, operations, commercial, fixturesToday, trends }
+}
+
+async function readFixturesToday(
+  supabase: SupabaseClient<Database>
+): Promise<ReadState<FixtureTodayRow[]>> {
+  const { data, error } = await supabase.rpc("site_admin_dashboard_fixtures_today", { p_limit: 5 })
+  if (error) return toErrorState(error)
+
+  // An empty list is a real answer ("nothing on today"); only an error is an
+  // error. This is the distinction Phase A introduced and Phase B keeps.
+  return {
+    state: "ok",
+    data: (data ?? []).map((r) => ({
+      fixtureId: r.fixture_id,
+      kickoffTime: r.kickoff_time,
+      homeClub: r.home_club,
+      homeTeam: r.home_team,
+      awayClub: r.away_club,
+      awayTeam: r.away_team,
+      competition: r.competition,
+      venue: r.venue,
+      rugbyCode: r.rugby_code,
+      status: r.status,
+    })),
+  }
+}
+
+async function readTrends(supabase: SupabaseClient<Database>): Promise<ReadState<TrendsSnapshot>> {
+  const { data, error } = await supabase.rpc("site_admin_dashboard_trends")
+  if (error) return toErrorState(error)
+
+  const row = data?.[0]
+  if (!row) return { state: "error", message: "The trends snapshot returned no rows." }
+
+  const a = (row.adoption ?? {}) as Record<string, number>
+
+  return {
+    state: "ok",
+    data: {
+      fixtureWeeks: ((row.fixture_weeks ?? []) as Record<string, string | number>[]).map((w) => ({
+        weekStart: String(w.week_start),
+        booked: Number(w.booked ?? 0),
+        playing: Number(w.playing ?? 0),
+      })),
+      growthDaily: toGrowthPoints(row.growth_daily),
+      growthMonthly: toGrowthPoints(row.growth_monthly),
+      adoption: {
+        activeClubs: a.active_clubs ?? 0,
+        withActiveTeams: a.with_active_teams ?? 0,
+        withFixtures: a.with_fixtures ?? 0,
+        usingTraining: a.using_training ?? 0,
+        withParentPlayer: a.with_parent_player ?? 0,
+        withMemberPayments: a.with_member_payments ?? 0,
+        withPartnerClubs: a.with_partner_clubs ?? 0,
+        claimsSubmitted: a.claims_submitted ?? 0,
+        claimsApproved: a.claims_approved ?? 0,
+      },
+      generatedAt: row.generated_at,
+    },
+  }
+}
+
+function toGrowthPoints(raw: unknown): GrowthPoint[] {
+  return ((raw ?? []) as Record<string, string | number>[]).map((p) => ({
+    bucket: String(p.bucket),
+    users: Number(p.users ?? 0),
+    clubs: Number(p.clubs ?? 0),
+    teams: Number(p.teams ?? 0),
+    parents: Number(p.parents ?? 0),
+    players: Number(p.players ?? 0),
+  }))
 }
 
 async function readPlatform(
@@ -160,6 +291,9 @@ async function readOperations(
     state: "ok",
     data: {
       fixturesToday: row.fixtures_today,
+      fixturesBookedThisWeek: row.fixtures_booked_this_week,
+      fixturesBookedThisMonth: row.fixtures_booked_this_month,
+      fixturesCancelledThisMonth: row.fixtures_cancelled_this_month,
       pendingClubClaims: row.pending_club_claims,
       pendingDirectoryRequests: row.pending_directory_requests,
       stuckFixtureRequests: row.stuck_fixture_requests,

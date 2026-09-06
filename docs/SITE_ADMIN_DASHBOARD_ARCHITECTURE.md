@@ -195,6 +195,144 @@ a true narrow viewport, not a true device.
 
 ---
 
+## Phase B — implemented
+
+Rugby activity, platform growth and adoption, on the Phase A command centre.
+Nothing in Phase A was replaced.
+
+### Fixture metric contracts
+
+Two clocks, never mixed. Conflating them is the easiest way to make a fixture
+dashboard quietly wrong, so no metric and no unlabelled chart series uses both.
+
+| Metric | Clock | Rule |
+|---|---|---|
+| Playing today | `kickoff_date` | `= today`, `is_primary_mirror`, `status <> 'Cancelled'` |
+| Booked this week | `created_at` | `>= date_trunc('week', now())` — Monday start |
+| Booked this month | `created_at` | `>= date_trunc('month', now())` |
+| Cancelled this month | `cancelled_at` | when it was called off, never kickoff |
+| Chart series "Booked" | `created_at` | weekly buckets |
+| Chart series "Playing" | `kickoff_date` | weekly buckets, cancelled excluded |
+
+**Timezone: Europe/London**, Main's only timezone convention (the
+`clubs.timezone` default). **Weeks are Monday-start.** Both are stated in the
+migration so a boundary is never a matter of opinion.
+
+Every fixture read goes through `admin_fixture_overview` with
+`is_primary_mirror` — one physical fixture, one row, one id. `conversation_id`
+is not fixture identity and is never used as one.
+
+### Playing today
+
+Total plus the first five, ordered: timed fixtures by kickoff ascending, then
+TBD (a kickoff-less fixture cannot be sequenced against 14:00), then `id` so a
+refresh never reshuffles two 14:00 fixtures. Main tracks no live-match state,
+so none is invented; completed fixtures keep their place in the day.
+
+Club and team identity come from the season-aware `admin_fixture_overview`,
+never a mutable current `display_name`. No player data. Each row drills into
+the existing `/admin/fixtures/[fixtureId]`.
+
+### Growth
+
+Same definitions as Platform Pulse — users are completed profiles, **parents
+are distinct guardian PEOPLE** (a parent of three is one parent, counted on the
+day they first became active), players are sporting identities. A card and a
+chart that disagreed about "parent" would be worse than having neither.
+
+Windows: **30D / 3M / 6M / 12M**. ALL-TIME is deliberately omitted — monthly
+buckets cover twelve months, and where the platform is younger than a year the
+12M view already is all time. Bulk-created records show as a genuine spike on
+their insertion date; nothing smooths it and no history is invented.
+
+One metric at a time by choice: five series on one axis is unreadable at 390px,
+and clubs vs players differ by an order of magnitude.
+
+### Adoption
+
+Denominator is **active Ovalball clubs**, never `club_directory` (addressable
+market, not customers). "Using Training Management" means an ACTIVE plan or a
+PLANNED session — never menu availability.
+
+The claim funnel (`claims_submitted`, `claims_approved`) is computed and
+returned but **not yet visualised**: most local clubs were seeded directly
+rather than through `approve_club_claim`, so the stages are real numbers that
+do not relate to one another. A funnel needs comparable stages, and inventing
+the comparison would be exactly the fabrication Stage 1 warned against.
+
+### Read model
+
+Phase A's grouped shape, extended — three additions, not eight:
+
+| Function | Refresh class |
+|---|---|
+| `site_admin_dashboard_operations()` *(re-declared, gains the booked counters)* | operational |
+| `site_admin_dashboard_fixtures_today(p_limit)` | operational |
+| `site_admin_dashboard_trends()` | long cache — **every** Phase B chart in one call |
+
+`trends()` returns 12 weekly fixture buckets, 30 daily and 12 monthly growth
+buckets, and adoption, pre-aggregated. The window selector slices data already
+in hand rather than issuing a request per window. The browser never receives a
+row to count.
+
+### Performance
+
+| Read | Best of 15, warm |
+|---|---|
+| `site_admin_dashboard_operations()` | ~16 ms |
+| `site_admin_dashboard_fixtures_today(5)` | ~4 ms |
+| `site_admin_dashboard_trends()` | **~18 ms** |
+
+**No indexes added.** The growth buckets filter on
+`(created_at at time zone 'Europe/London')::date`, which is not sargable — no
+index could serve it. The fix was structural: group each entity **once** and
+left-join onto the bucket series, instead of a correlated count per bucket.
+Measured head-to-head, best of 15 each:
+
+```
+correlated per bucket (30 days x 5 entities) : 1.37 ms
+group once + join                            : 0.17 ms   (8x)
+```
+
+A first single-sample comparison suggested the rewrite was slower; that was
+measurement noise, and the repeated benchmark above is what the decision rests
+on.
+
+### Chart dependency: none
+
+No charting library was added. The tree is 19 production dependencies, Phase A
+added none, and Phase B needs two shapes: a 12-bucket grouped bar chart and a
+single-series line. A framework would be more code than the charts and would
+bring an accessibility model to argue with. `components/dashboard/charts.tsx`
+is small enough to delete if a later phase needs brushing or stacked areas.
+
+### Accessibility
+
+Every chart carries a title, a text summary, an `aria-label` on the graphic,
+and a real `<table>` of the same numbers — always in the DOM behind a
+`<details>`, so a screen-reader user and a sighted user read the same data
+rather than one of them reading an apology. Series are distinguished by fill,
+outline **and** label, never colour alone. Adoption bars state the number in
+text above the bar and expose `role="meter"` with min/max/now.
+
+### Cache and refresh
+
+| Class | Content |
+|---|---|
+| Operational (60 s visible-tab refresh) | Playing today, booked counters, Needs Attention, referral health |
+| Long cache | 12-week fixture chart, growth buckets, adoption |
+
+Year-long aggregates are not recomputed every minute.
+
+### Verified at 390 px
+
+Genuine narrow layout viewport (same-origin iframe): all seven sections render,
+`documentElement.scrollWidth === clientWidth === 390`, **zero** genuinely
+overflowing elements, both charts legible, selectors wrap and stay
+touch-sized. Club context shows no Phase B analytics at all.
+
+---
+
 ## A. Current dashboard audit
 
 ### A.1 There is no Site Admin dashboard

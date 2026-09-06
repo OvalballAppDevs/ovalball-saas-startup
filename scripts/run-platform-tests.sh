@@ -27,6 +27,7 @@ SUITES=(
   referral_attribution_integrity
   site_admin_dashboard
   support_messaging
+  site_admin_dashboard_phase_b
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

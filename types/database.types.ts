@@ -13839,10 +13839,28 @@ export type Database = {
           trials_ending_soon: number
         }[]
       }
+      site_admin_dashboard_fixtures_today: {
+        Args: { p_limit?: number }
+        Returns: {
+          away_club: string
+          away_team: string
+          competition: string
+          fixture_id: string
+          home_club: string
+          home_team: string
+          kickoff_time: string
+          rugby_code: string
+          status: string
+          venue: string
+        }[]
+      }
       site_admin_dashboard_operations: {
         Args: never
         Returns: {
           disputed_results: number
+          fixtures_booked_this_month: number
+          fixtures_booked_this_week: number
+          fixtures_cancelled_this_month: number
           fixtures_today: number
           generated_at: string
           open_support_tickets: number
@@ -13866,6 +13884,16 @@ export type Database = {
           registered_teams: number
           registered_users: number
           suspended_users: number
+        }[]
+      }
+      site_admin_dashboard_trends: {
+        Args: never
+        Returns: {
+          adoption: Json
+          fixture_weeks: Json
+          generated_at: string
+          growth_daily: Json
+          growth_monthly: Json
         }[]
       }
       soft_delete_own_message: {
