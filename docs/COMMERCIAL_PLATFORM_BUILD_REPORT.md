@@ -429,3 +429,128 @@ Local only, same as Phases B and C.
 - `supabase/tests/platform_trials.sql` (new)
 - `lib/platform/trial.ts` (new)
 - `types/database.types.ts` (regenerated)
+
+---
+
+## PHASE E — COMPLETE
+
+Plans and entitlements.
+
+### The two plans
+
+| Plan | Price | Status | Purchasable |
+|---|---|---|---|
+| Standard | £15 / month | available | **yes** |
+| Pro | £25 / month | coming_soon | **no** |
+
+Prices are the brief's own (§23, §76), not invented. Pro is closed because
+**no premium feature exists yet that Standard does not already include**,
+and §25 is explicit that an empty tier must not be sold. Assertion 16
+checks that claim against the data rather than against a comment: it fails
+the moment Pro gains an entitlement Standard lacks, which is exactly when
+the Coming Soon label would become wrong.
+
+The rule is structural, not procedural. A check constraint,
+`platform_plans_purchasable_only_when_available`, makes `purchasable = true`
+impossible unless `status = 'available'`, so no code path can quietly open
+Pro without also changing what it says it is.
+
+### Price history
+
+`price_version` is bumped by a trigger whenever `price_pence` or `currency`
+changes, and only then. A commercial event can therefore snapshot
+`(code, price_pence, currency, price_version)` and a later price change
+cannot rewrite what a club was charged or what a referral reward was worth
+(§41, §74).
+
+### Entitlements
+
+`platform_entitlements` is the registry of stable keys, seeded from what
+Ovalball actually does today — audited against the live application, with
+nothing aspirational in it (§24).
+
+The registry carries a `gateable` flag, and this is the part worth
+noticing. §24 says essential safety must never sit behind Pro. Rather than
+trusting everyone to remember, four keys are marked non-gateable:
+
+```
+safety.safeguarding
+safety.permissions
+safety.audit
+safety.data_rights
+```
+
+A non-gateable entitlement is granted to **every club, on every plan, and
+on no plan at all**, and a trigger **refuses** any attempt to attach one to
+a plan. Assertion 8 proves the refusal; assertion 10 proves a club with no
+plan whatsoever still gets all four.
+
+### The resolver
+
+One function decides which plan a club is on:
+
+```sql
+internal.club_effective_plan(club_id)
+```
+
+Phase E resolves a running or paused trial to `standard`, and everyone else
+to null. **Phase F re-declares this one function** to consult
+`platform_club_subscriptions` first, and every entitlement check in the
+application picks the change up untouched. That is the whole reason §27
+asked for a resolver rather than `if plan == "pro"` scattered through pages.
+
+Features call `public.club_has_entitlement(club_id, key)`. The check is
+server-side; `lib/platform/entitlements.ts` fails closed on error, because
+an unreadable answer is not a grant (§72).
+
+### Application surface
+
+- `lib/platform/entitlements.ts` — typed keys, `getClubEntitlements()`,
+  `clubHasEntitlement()`, and `requireEntitlement()` for the top of a
+  server action, so the gate sits next to the work rather than next to the
+  button that starts it.
+- `lib/platform/plans.ts` — `getPlatformPlans()`, `formatPlanPrice()`.
+
+### Verification
+
+`supabase/tests/platform_plans_entitlements.sql`, 17 assertions, all PASS:
+
+| # | Assertion |
+|---|---|
+| 1 | Standard is £15/month and Pro is £25/month, GBP, monthly |
+| 2 | Pro is Coming Soon and not purchasable |
+| 3 | A Coming Soon plan cannot be made purchasable |
+| 4 | Pro opens correctly when its status is changed with it |
+| 5 | A price change bumps `price_version` |
+| 6 | Rewriting the same price does not bump it |
+| 7 | A Club Admin cannot change Ovalball's plan terms |
+| 8 | An essential entitlement cannot be attached to a plan |
+| 9 | A club with neither trial nor subscription is on no plan |
+| 10 | …but still has every essential entitlement |
+| 11 | Safeguarding granted, a paid feature not |
+| 12 | A club on trial resolves to Standard |
+| 13 | A trial grants the core product and the essentials together |
+| 14 | Pausing a trial does not switch the product off |
+| 15 | An unregistered entitlement key is never granted |
+| 16 | Pro includes nothing Standard does not |
+| 17 | The resolver never reads the club-charges-members domain |
+
+```bash
+docker exec -i supabase_db_ovalball-saas-startup \
+  psql -U postgres -d postgres -f - < supabase/tests/platform_plans_entitlements.sql
+```
+
+`npm run typecheck` and `eslint` clean. `types/database.types.ts`
+regenerated: additions only, 0 deletions.
+
+### Not applied to production
+
+Local only.
+
+### Files
+
+- `supabase/migrations/20261003000000_platform_plans_entitlements.sql` (new)
+- `supabase/tests/platform_plans_entitlements.sql` (new)
+- `lib/platform/entitlements.ts` (new)
+- `lib/platform/plans.ts` (new)
+- `types/database.types.ts` (regenerated)

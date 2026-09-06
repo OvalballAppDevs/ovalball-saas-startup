@@ -7083,6 +7083,33 @@ export type Database = {
           },
         ]
       }
+      platform_entitlements: {
+        Row: {
+          created_at: string
+          description: string | null
+          gateable: boolean
+          key: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          gateable?: boolean
+          key: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          gateable?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       platform_mode_events: {
         Row: {
           changed_at: string
@@ -7123,6 +7150,90 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_plan_entitlements: {
+        Row: {
+          created_at: string
+          entitlement_key: string
+          plan_code: string
+        }
+        Insert: {
+          created_at?: string
+          entitlement_key: string
+          plan_code: string
+        }
+        Update: {
+          created_at?: string
+          entitlement_key?: string
+          plan_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_plan_entitlements_entitlement_key_fkey"
+            columns: ["entitlement_key"]
+            isOneToOne: false
+            referencedRelation: "platform_entitlements"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "platform_plan_entitlements_plan_code_fkey"
+            columns: ["plan_code"]
+            isOneToOne: false
+            referencedRelation: "platform_plans"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      platform_plans: {
+        Row: {
+          billing_interval: string
+          code: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          name: string
+          price_pence: number
+          price_version: number
+          purchasable: boolean
+          sort_order: number
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          billing_interval?: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          name: string
+          price_pence: number
+          price_version?: number
+          purchasable?: boolean
+          sort_order?: number
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          billing_interval?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          name?: string
+          price_pence?: number
+          price_version?: number
+          purchasable?: boolean
+          sort_order?: number
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       platform_releases: {
         Row: {
@@ -10928,6 +11039,17 @@ export type Database = {
         Returns: undefined
       }
       clear_team_alias: { Args: { p_team_id: string }; Returns: undefined }
+      club_entitlements: {
+        Args: { p_club_id: string }
+        Returns: {
+          entitlement_key: string
+          source: string
+        }[]
+      }
+      club_has_entitlement: {
+        Args: { p_club_id: string; p_entitlement_key: string }
+        Returns: boolean
+      }
       club_trial_state: {
         Args: { p_club_id: string }
         Returns: {
@@ -12217,6 +12339,15 @@ export type Database = {
       set_platform_mode: {
         Args: { p_mode: string; p_reason?: string; p_release_id?: string }
         Returns: string
+      }
+      set_platform_plan_terms: {
+        Args: {
+          p_code: string
+          p_price_pence?: number
+          p_purchasable?: boolean
+          p_status?: string
+        }
+        Returns: number
       }
       set_responsible_payer: {
         Args: {
