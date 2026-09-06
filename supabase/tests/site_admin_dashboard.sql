@@ -260,8 +260,14 @@ begin
 
   -- ============ J. fixtures are not double-counted ============
   -- A legacy mirror pair: two rows, one real match. Only the primary counts.
+  -- London's date, NOT current_date. current_date is the session timezone
+  -- (UTC in the local container) and site_admin_dashboard_fixtures_today
+  -- correctly counts the platform's business day in Europe/London. Between
+  -- 23:00 and midnight UTC during BST those are different days, and this
+  -- assertion failed for exactly that hour every night until it was fixed.
+  -- The product is right; the test was hard-coding the wrong clock.
   insert into public.fixtures (owning_team_id, kickoff_date, home_away, status, raw_opposition_text, source, season_label)
-  values (v_team, current_date, 'Home', 'Booked', 'Mirror Opponent RUFC', 'club_created', '26/27');
+  values (v_team, (now() at time zone 'Europe/London')::date, 'Home', 'Booked', 'Mirror Opponent RUFC', 'club_created', '26/27');
 
   select fixtures_today into v_int from public.site_admin_dashboard_operations();
   if v_int = v_today + 1 then
@@ -274,12 +280,12 @@ begin
   -- is_primary_mirror filter is the canonical dedup contract
   select count(*)::int into v_count
   from public.admin_fixture_overview f
-  where f.kickoff_date = current_date and f.is_primary_mirror = false;
+  where f.kickoff_date = (now() at time zone 'Europe/London')::date and f.is_primary_mirror = false;
   raise notice 'PASS 21 (J): the operations read filters on is_primary_mirror (% non-primary row(s) excluded)', v_count;
 
   -- cancelled fixtures today are not "playing today"
   update public.fixtures set status = 'Cancelled', cancelled_at = now()
-  where owning_team_id = v_team and kickoff_date = current_date;
+  where owning_team_id = v_team and kickoff_date = (now() at time zone 'Europe/London')::date;
   select fixtures_today into v_int from public.site_admin_dashboard_operations();
   if v_int = v_today then
     raise notice 'PASS 22 (J): a cancelled fixture is not counted as playing today';
