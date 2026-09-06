@@ -7,6 +7,118 @@ export interface NavItem {
 }
 
 /**
+ * A grouped navigation section. Presentation only, exactly like NavItem:
+ * sections are assembled BELOW from the already-capability-filtered flat
+ * list, so a page can never appear in a group that the permission checks
+ * did not already produce. Expanding a section is not authorization.
+ */
+export interface NavSection {
+  key: string
+  label: string
+  /** lucide icon name, resolved by the renderer -- keeps this file server-safe. */
+  icon: string
+  items: NavItem[]
+}
+
+/**
+ * Which Site Admin group each route belongs to, and the order of groups.
+ *
+ * Site Admin had grown to eighteen top-level links, which is unusable on a
+ * phone and merely noisy on a desktop. Grouping is information
+ * architecture: no page is removed, no permission changes, and every route
+ * below still comes from the flat list built by capability checks.
+ *
+ * Depth is deliberately capped at SECTION -> PAGE. Anything deeper becomes
+ * an accordion maze, which is the failure mode this replaces.
+ */
+const SITE_ADMIN_SECTIONS: { key: string; label: string; icon: string; hrefs: string[] }[] = [
+  {
+    key: "rugby",
+    label: "Rugby operations",
+    icon: "CalendarDays",
+    hrefs: ["/admin/fixtures", "/calendar", "/admin/competitions", "/admin/seasons", "/admin/lookups"],
+  },
+  {
+    key: "clubs",
+    label: "Clubs & people",
+    icon: "Users",
+    hrefs: [
+      "/admin/clubs",
+      "/admin/claims",
+      "/admin/team-directory",
+      "/admin/users",
+      "/admin/permissions",
+      "/admin/documents",
+    ],
+  },
+  {
+    key: "commercial",
+    label: "Commercial",
+    icon: "Receipt",
+    hrefs: ["/admin/commercial"],
+  },
+  {
+    key: "system",
+    label: "Support & system",
+    icon: "LifeBuoy",
+    hrefs: [
+      "/admin/support",
+      "/admin/messages",
+      "/admin/system-health",
+      "/admin/releases",
+      "/admin/site-admins",
+    ],
+  },
+]
+
+/**
+ * Groups the Site Admin flat list, preserving the capability filtering that
+ * produced it.
+ *
+ * `/dashboard` stays a top-level item rather than joining a section: it is
+ * the landing page, and burying the destination someone arrives on would be
+ * perverse.
+ *
+ * Anything not named in the map above still appears -- in a final
+ * "More" section rather than vanishing. A new admin page added later is
+ * therefore always reachable, and the missing map entry shows up as an
+ * oddly-placed link instead of a silently unreachable one.
+ */
+export function buildSiteAdminSections(items: NavItem[]): { top: NavItem[]; sections: NavSection[] } {
+  const byHref = new Map(items.map((i) => [i.href, i]))
+  const top: NavItem[] = []
+  const claimed = new Set<string>()
+
+  const dashboard = byHref.get("/dashboard")
+  if (dashboard) {
+    top.push(dashboard)
+    claimed.add("/dashboard")
+  }
+
+  const sections: NavSection[] = []
+  for (const spec of SITE_ADMIN_SECTIONS) {
+    const sectionItems: NavItem[] = []
+    for (const href of spec.hrefs) {
+      const item = byHref.get(href)
+      if (item) {
+        sectionItems.push(item)
+        claimed.add(href)
+      }
+    }
+    if (sectionItems.length > 0) {
+      sections.push({ key: spec.key, label: spec.label, icon: spec.icon, items: sectionItems })
+    }
+  }
+
+  const leftovers = items.filter((i) => !claimed.has(i.href))
+  if (leftovers.length > 0) {
+    sections.push({ key: "more", label: "More", icon: "Ellipsis", items: leftovers })
+  }
+
+  return { top, sections }
+}
+
+/**
  * Turns a session's real permissions -- SCOPED to whichever context is
  * currently active (see active-context.ts) -- into the nav item list from
  * the brief's own worked examples. This is presentation logic only: every

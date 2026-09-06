@@ -3,6 +3,8 @@ import Link from "next/link"
 import { ChevronLeft, ShieldCheck } from "lucide-react"
 
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
+import { supportAccessLevel } from "@/lib/support/access"
+import { getSupportConversationsForAdmin } from "@/lib/support/conversations"
 import { createClient } from "@/lib/supabase/server"
 
 import { getClubDirectoryOptions, getConversationLog, getGlobalMessagePolicy, getMessageAnalytics, getTeamOptions, type MessageFilters } from "./query"
@@ -10,6 +12,7 @@ import { PolicyPanel } from "./policy-panel"
 import { MessageFiltersBar } from "./filters"
 import { ConversationTable } from "./conversation-table"
 import { CsvExportButton } from "./csv-export-button"
+import { SupportPanel } from "./support-panel"
 
 const PAGE_SIZE = 25
 
@@ -49,6 +52,13 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
   const activeSiteAdmin = await requireActiveSiteAdmin(supabase, user)
   if (!activeSiteAdmin.ok) redirect("/dashboard")
   const ctx = activeSiteAdmin.ctx
+
+  // Support visibility reuses the canonical support level
+  // (internal.site_admin_support_level), NOT "is this a Site Admin" -- a
+  // message moderator moderates club messaging and has no support role.
+  // Omitted server-side when absent, never fetched and hidden.
+  const supportLevel = supportAccessLevel(ctx)
+  const supportThreads = supportLevel === "none" ? [] : await getSupportConversationsForAdmin(supabase)
 
   const canRevealContent = ctx.siteAdminRole === "full" || ctx.siteAdminRole === "message_moderator"
   const canEditGlobalPolicy = ctx.siteAdminRole === "full"
@@ -129,6 +139,8 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
           </div>
         )}
       </div>
+
+      {supportLevel !== "none" && <SupportPanel threads={supportThreads} />}
 
       <div className="mt-10">
         <div className="flex flex-wrap items-center justify-between gap-3">

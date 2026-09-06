@@ -29,9 +29,169 @@ Confirmed by the owner after the Stage 1 audit, and binding on every later phase
 | | Decision |
 |---|---|
 | **A** | **Phase F₀ (referral attribution correctness) completes before Phase F₁ (referral analytics).** Authoritative analytics will not be built over known-incomplete attribution. *Done — see `docs/REFERRAL_ATTRIBUTION_INTEGRITY.md`.* |
+| **E** | **A referral's beneficiary is the club, its actor is the person.** When an authorized Site Admin sends a club referral invitation on behalf of a referring club, the canonical referrer and reward beneficiary is that **club** (`platform_referrals.referring_club_id`); the Site Admin is recorded only as the actor (`created_by`, `club_ovalball_invitations.invited_by`, and `audit_log`). A Site Admin never personally becomes a beneficiary, and no person-level referral reward system exists. Dashboard terminology is therefore **Top Referring Clubs**, never "Top Referring Users", unless a genuine person-level programme is designed later. *Already the implemented behaviour — verified, not changed.* |
 | **B** | **No heuristic test-record filtering.** KPI entities have no canonical test-data marker and none will be inferred from email domain or prefix, name, club name, UUID, creation date, or local seed convention. Analytics report canonical production records. Explicit classification is a separate future decision. |
 | **C** | **Referral rewards are reported as money, never as reverse-calculated months.** "One month free" is stored as a snapshotted pence amount; analytics use *reward value earned / applied / outstanding*. Product copy may still explain the offer as a free month. |
 | **D** | **Beta leaderboard ranks on referred clubs activated, not paid conversions**, because paid conversions are structurally zero during Beta. Once paid platform billing is live, successful paid referrals may become the primary commercial ranking. |
+
+---
+
+## Phase A — implemented
+
+Phase A built the foundation and the first two real sections. What follows in
+sections A–Z below is the Stage 1 **audit**, retained as the reasoning; this
+section is what actually exists in code.
+
+### Routing and context
+
+One route. `app/(app)/dashboard/page.tsx` branches on
+`activeContext.kind === "site_admin"` into `SiteAdminDashboard`; every other
+context keeps its existing behaviour untouched. There is deliberately no
+`/admin/dashboard`.
+
+**Context decides presentation; it never grants authority.** The branch
+re-authorizes with `requireActiveSiteAdmin` on the request, and all three RPCs
+authorize again in the database. A Site Admin running a *diagnostic* session is
+not caught by the branch — `resolveDiagnosticClub` gives them a synthetic club
+context, which is the point of diagnostic mode.
+
+Proven live with one account that is simultaneously a Full Site Admin, a Club
+Admin at three clubs, a Team Admin and a Parent/Guardian:
+
+| Active context | Dashboard rendered | Platform data present |
+|---|---|---|
+| Ovalball (Site Admin) | Site Admin command centre | yes |
+| Burnley RUFC (Club Admin) | existing club dashboard | no |
+| Robin — U12 (Parent/Guardian) | existing parent dashboard | no |
+
+### Read model
+
+`supabase/migrations/20261013000000_site_admin_dashboard_read_model.sql` —
+three `security definer` functions, grouped by refresh class, each authorizing
+as its first statement, each returning one row. Never one query per tile.
+
+| Function | Contents | Authorization |
+|---|---|---|
+| `site_admin_dashboard_platform()` | population counts + directory size | Site Admin |
+| `site_admin_dashboard_operations()` | fixtures today, claims, directory requests, stuck fixture requests, disputed and awaiting results, open tickets | Site Admin |
+| `site_admin_dashboard_commercial()` | trials, subscriptions, referral funnel counts, canonical `referral_data_health()` status | Site Admin **and** `site.commercial.view` |
+
+`lib/app-context/site-admin-dashboard-data.ts` issues all three in parallel and
+contains every failure to its own section. It is a **sibling** of
+`dashboard-data.ts`, not an extension: that file is correct for personal,
+team-scoped dashboards and must never hold platform-wide aggregates.
+
+### KPI definitions implemented
+
+| Metric | Rule | Regression |
+|---|---|---|
+| Registered users | `count(profiles)` — completed person accounts, **not** `auth.users` | 14, 14b |
+| Registered clubs | `count(clubs)`; a row exists only after `approve_club_claim` | 15, 16 |
+| Registered teams | `count(teams)`; active = `active and folded_at is null and archived_at is null` | — |
+| Registered parents | `count(distinct guardian_user_id) where status='active'` — **people, not relationship rows** | 17, 18 |
+| Registered players | `count(players)` — sporting identities, never summed with users | 19 |
+| Directory clubs | `count(club_directory) where active` — reported separately, labelled addressable market | 16 |
+| Fixtures today | `admin_fixture_overview` with `is_primary_mirror`, excluding `Cancelled` | 20, 21, 22 |
+
+No heuristic test-data filtering anywhere (Decision B).
+
+### Error, loading, empty and unauthorized semantics
+
+`ReadState<T>` is a discriminated union — `ok` / `omitted` / `unauthorized` /
+`error` — and the UI must handle each. This supersedes the old dashboard's
+silent error swallowing: an unauthorized read **raises 42501** and a failed read
+renders an explicit "could not be loaded — this is a read failure, not a zero"
+panel, so a query failure can never be mistaken for "0 clubs" (regression 23).
+A section's failure never blanks the rest of the page.
+
+`omitted` is distinct from `unauthorized`: it means the section was never
+requested because the capability is absent, so commercial data is omitted
+**server-side**, not fetched and hidden.
+
+### Refresh and caching
+
+No Supabase Realtime — nothing here changes fast enough to justify a socket per
+Site Admin. `UpdatedAt` re-renders the Server Component via `router.refresh()`
+every 60 s **only while the tab is visible**, plus a manual Refresh control.
+
+**No cross-request caching in Phase A, deliberately.** Measured warm timings are
+platform ~0.9 ms, operations ~0.7 ms, commercial ~8.7 ms; there is nothing to
+save, and caching privileged aggregates across users would need a correctness
+argument this phase does not need to make.
+
+### Indexes — none, with evidence
+
+`explain (analyze, buffers)` on the one selective read (fixtures today) shows a
+3-page sequential scan at 0.061 ms. A `fixtures(kickoff_date)` index was
+created, measured, found unused by the planner, and **removed**. Add it when
+`public.fixtures` exceeds roughly 50k rows or the operations RPC exceeds ~50 ms;
+note `fixtures_owning_team_id_idx` will not serve it, because its leading column
+is the team and this query supplies no team. The eight other Stage 1 candidates
+are deferred until a phase actually issues their query.
+
+### Drill-through convention
+
+A card or alert links only where a canonical Site Admin destination genuinely
+exists. Where none does, it renders without a link rather than with a plausible
+one.
+
+| Destination exists | Registered users → `/admin/users` · Registered clubs → `/admin/clubs` · Registered teams → `/admin/team-directory` · Club claims → `/admin/claims` · Disputed / awaiting results → `/admin/fixtures?resultStatus=…` · Support → `/admin/support` · Past due & trials → `/admin/commercial` · System Health → `/admin/system-health` |
+|---|
+| **Missing — recorded, not faked** | Registered parents · Registered players · directory requests · stuck fixture requests · an exact `date=today` fixture filter · the Site Admin referral administration screen (Stage 1 R-5, required before Phase F₁) |
+
+### Visual shell
+
+`max-w-7xl`, existing Operate-mode tokens only, no chart library added. Sections
+implemented: Platform pulse, Needs attention, Platform state (mode, release,
+billing, fixtures today, referral data health). Growth, rugby activity, finance
+visuals, Top Referring Clubs, referral funnel and platform activity are **absent
+rather than stubbed** — no placeholder holds an invented number and nothing says
+"coming soon".
+
+New primitives: `components/dashboard/kpi-card.tsx` (carries trend, comparison
+and sparkline slots but renders none without real data),
+`dashboard-section.tsx` (+ `SectionError`, `SectionUnauthorized`),
+`alert-list.tsx`, `updated-at.tsx`.
+
+Accessibility verified in the live DOM: `h1 → h2 ×3` with no skipped level,
+every section `aria-labelledby` resolving, 0 unlabelled SVGs, 0 images without
+alt, severity announced as text (`— Action required`) so status is never
+colour-only, and a `sr-only` expansion of the Beta badge.
+
+### Mobile UAT — CLOSED
+
+Phase A originally shipped with this gap open. It has since been closed at a
+**genuine 390 x 760 layout viewport**, using a same-origin iframe: CSS media
+queries and viewport units inside a frame resolve against the frame's own
+viewport, so the framed document really does lay out as a phone.
+`resize_window` remains unusable for this (it reports success but leaves
+`window.innerWidth` at 1512), and no headless browser is installed.
+
+Confirmed real rather than simulated: `innerWidth: 390`,
+`matchMedia("(min-width: 768px)") === false`, desktop sidebar hidden, mobile
+top bar present.
+
+| Check | Result at 390 px |
+|---|---|
+| `/dashboard` Site Admin command centre renders | yes |
+| KPI cards reflow | 5 columns to **2 x 173 px**, no shrinking |
+| Horizontal overflow | none (`scrollWidth 390 === clientWidth 390`) |
+| Headings, Beta badge, version, status cards readable | yes |
+| Updated timestamp + Refresh control usable | yes |
+| Needs Attention usable | yes |
+| Platform state / System Health summary usable | yes |
+| Commercial omission correct for a non-commercial Site Admin | yes |
+| Site Admin nav opens, scrolls to every group, closes | yes |
+| Hidden off-screen controls | none |
+| Club Admin context still gets the Club dashboard | yes |
+| Parent context still gets the Parent dashboard, no platform data | yes |
+
+Navigation, drawer scrolling and the gear/close geometry are documented with
+their measurements in `docs/ADMIN_NAVIGATION_AND_SUPPORT.md`.
+
+**Still not proven:** a real handset — touch input, a dynamic browser toolbar
+resizing `dvh`, iOS rubber-band scrolling, device pixel density. The iframe is
+a true narrow viewport, not a true device.
 
 ---
 

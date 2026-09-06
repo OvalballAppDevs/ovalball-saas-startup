@@ -8,6 +8,8 @@ import { getClubConversationSummaries, getConversationSummaries } from "@/lib/ap
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
+import { getMySupportConversations, SUPPORT_STATUS_LABEL } from "@/lib/support/conversations"
+
 import { ConversationList, type ConversationRow } from "./conversation-list"
 
 const STATUS_LABELS: Record<string, string> = {
@@ -41,6 +43,10 @@ export default async function MessagesPage() {
   const inParentOrPlayerContext = activeContext.kind === "parent" || activeContext.kind === "player"
   const conversations = inParentOrPlayerContext ? [] : await getConversationSummaries(supabase, ctx, user.id)
   const clubConversations = inParentOrPlayerContext ? [] : await getClubConversationSummaries(supabase, ctx, user.id)
+  // Deliberately NOT gated on context: a support request belongs to the
+  // person, so a Parent or Player must see their own thread here exactly as
+  // a Club Admin does. Scoped to the requester, never to their club.
+  const supportConversations = await getMySupportConversations(supabase, user.id)
   // Scoped to the ACTIVE club specifically, not "does this session hold
   // CLUB_ADMIN/FIXTURE_SECRETARY ANYWHERE" -- otherwise Parent View (or an
   // unrelated team context) offers "New message" (a club-to-club message)
@@ -66,6 +72,22 @@ export default async function MessagesPage() {
       activityAt: c.latestMessageAt ?? c.date,
       unreadCount: c.unreadCount,
     })),
+    ...supportConversations.map((c) => ({
+      key: `support:${c.ticketId}`,
+      kind: "support" as const,
+      // Straight to the canonical support thread. Messages lists it; the
+      // Support surface still owns the conversation and the reply box, so
+      // there is one place a reply can be written.
+      href: `/support/${c.ticketId}`,
+      logoUrl: null,
+      clubName: "Ovalball Support",
+      title: `Support: ${c.subject}`,
+      preview: c.latestFrom === "support" ? `Ovalball Support: ${c.latestPreview ?? ""}` : c.latestPreview,
+      status: SUPPORT_STATUS_LABEL[c.status],
+      statusLabel: SUPPORT_STATUS_LABEL[c.status],
+      activityAt: c.latestAt,
+      unreadCount: 0,
+    })),
     ...clubConversations.map((c) => ({
       key: `club:${c.id}`,
       kind: "club" as const,
@@ -88,7 +110,8 @@ export default async function MessagesPage() {
           <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Messages</p>
           <h1 className="mt-2 font-display text-display-l text-ink">Conversations</h1>
           <p className="mt-2 max-w-md text-sm text-ink/55">
-            Fixture and fixture-request conversations, plus direct club-to-club messages.
+            Fixture and fixture-request conversations, direct club-to-club messages, and your
+            Ovalball Support threads.
           </p>
         </div>
         {canMessageClubs && (

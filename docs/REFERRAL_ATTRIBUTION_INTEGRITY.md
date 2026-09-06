@@ -384,13 +384,39 @@ Unchanged by F₀ and still owner decisions:
 | P-1 | Is there a cap on referral rewards per club? | No cap in code |
 | P-2 | Do referral credits expire? | No expiry in code |
 | P-3 | Should referrals attributed during Beta qualify once billing goes Live? | Undefined. Today a `registered` referral simply waits — defensible, but not a stated policy |
-| P-4 | May a leaderboard name the person who sent the invitation, or clubs only? | Recommend clubs only; needed before F₁ |
+| P-4 | May a leaderboard name the person who sent the invitation, or clubs only? | **DECIDED (Decision E): clubs only.** The canonical referrer and reward beneficiary is `platform_referrals.referring_club_id`. A Site Admin who sends an invitation on a club's behalf is the *actor* — recorded in `created_by`, `club_ovalball_invitations.invited_by` and `audit_log` — and never the beneficiary. Dashboard terminology is **Top Referring Clubs**. No person-level referral reward system exists or is to be created |
 | P-5 | May the referral contact email appear in the Site Admin operational log? | Recommended yes, Site Admin only. Not implemented in F₀ — the health functions return no email at all |
 | P-6 | Should a fixture secretary's invitation attribute a referral to their club? | **Implemented as yes** (§3, R-1). Flagged for confirmation — reversible by moving the `ensure_club_referral` call behind a capability check |
 
 ---
 
-## 10. What F₀ deliberately did not do
+## 10. One defect F₀ introduced, found and fixed in Phase A
+
+Adding the defaulted `p_reference_at` parameter to
+`internal.reconcile_partner_invitations` did **not** replace the two-argument
+function — `create or replace function` cannot change a signature, so it created
+a second one. Both were live, and because the third parameter has a default a
+two-argument call matched both:
+
+```
+ERROR: function internal.reconcile_partner_invitations(unknown, uuid) is not unique
+```
+
+Production behaviour was never wrong: the only live caller,
+`approve_club_claim`, passes three arguments, and the two remaining
+two-argument call sites are inside function bodies that `20261012000000` itself
+superseded. But it is a landmine for the next caller and it broke
+`supabase/tests/partner_club_invitations.sql`.
+
+Fixed in `20261013000000_site_admin_dashboard_read_model.sql` by dropping the
+stale two-argument form, with a migration-time assertion that exactly one
+remains and permanent regressions (`site_admin_dashboard.sql` 29 and 30). This
+codebase had the same class of defect before — see
+`20261011120000_duplicate_function_overload_fix.sql`.
+
+---
+
+## 11. What F₀ deliberately did not do
 
 No dashboard, no charts, no Top Referrers, no referral funnel, no reward cards,
 no live referral log, no redesign of `/admin/commercial`. No reward policy change.

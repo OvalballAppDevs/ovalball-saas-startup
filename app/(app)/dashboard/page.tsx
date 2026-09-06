@@ -9,11 +9,16 @@ import { buildNavItems } from "@/lib/app-context/build-nav-items"
 import { getDashboardData, type FixtureRow, type PendingRequestRow } from "@/lib/app-context/dashboard-data"
 import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
 import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
+import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { getSessionContext } from "@/lib/app-context/session-context"
+import { getSiteAdminDashboardData } from "@/lib/app-context/site-admin-dashboard-data"
+import { getBetaBadgeState } from "@/lib/platform/mode"
 import { createClient } from "@/lib/supabase/server"
 import { FIXTURE_STATUS_BADGE_CLASS } from "@/lib/fixtures/status"
+import { APP_VERSION } from "@/lib/version"
 
 import { PlayerMovementsLog } from "./player-movements-log"
+import { SiteAdminDashboard } from "./site-admin-dashboard"
 
 function greeting(): string {
   const hour = new Date().getHours()
@@ -33,6 +38,41 @@ export default async function DashboardPage() {
   await reconcileOverdueFixtureResults(supabase)
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
+
+  // One route, two dashboards, composed by context -- never a second route.
+  //
+  // The active context decides PRESENTATION only. Authority comes from
+  // requireActiveSiteAdmin, which re-derives Site Admin status from the
+  // real site_admins table on this request, and every RPC behind
+  // getSiteAdminDashboardData authorizes again in the database. A tampered
+  // context cookie therefore changes nothing: resolveActiveContext only
+  // ever returns contexts the session genuinely holds, and even if it
+  // somehow did not, this check and then the database would both refuse.
+  //
+  // A Site Admin running a diagnostic session is deliberately NOT caught
+  // here: resolveDiagnosticClub gives them a synthetic *club* context
+  // below, which is the whole point of diagnostic mode.
+  if (activeContext.kind === "site_admin") {
+    const activeSiteAdmin = await requireActiveSiteAdmin(supabase, user)
+    if (!activeSiteAdmin.ok || !activeSiteAdmin.ctx.siteAdminRole) {
+      redirect("/dashboard?context=cleared")
+    }
+
+    const [data, badgeState] = await Promise.all([
+      getSiteAdminDashboardData(supabase),
+      getBetaBadgeState(supabase),
+    ])
+
+    return (
+      <SiteAdminDashboard
+        firstName={ctx.firstName ?? null}
+        data={data}
+        badgeState={badgeState}
+        appVersion={APP_VERSION}
+      />
+    )
+  }
+
   const { roleLabel } = buildNavItems(ctx, activeContext)
 
   // A diagnostic session (see diagnostic-access.ts) overrides the

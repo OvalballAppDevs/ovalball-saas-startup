@@ -8,7 +8,7 @@ import { ClubAvatar } from "@/components/club/club-avatar"
 
 export interface ConversationRow {
   key: string
-  kind: "request" | "fixture" | "club"
+  kind: "request" | "fixture" | "club" | "support"
   href: string
   logoUrl: string | null
   clubName: string
@@ -33,6 +33,10 @@ const STATUS_STYLES: Record<string, string> = {
   expired: "bg-ink/5 text-ink/50",
   counter_proposed: "bg-amber-500/12 text-amber-800",
   read: "bg-ink/5 text-ink/60",
+  // Support lifecycle, mapped through SUPPORT_STATUS_LABEL before display.
+  Open: "bg-amber-500/12 text-amber-800",
+  "With Ovalball": "bg-amber-500/12 text-amber-800",
+  Resolved: "bg-mint-100 text-forest-900",
 }
 
 const FILTERS = [
@@ -40,6 +44,9 @@ const FILTERS = [
   { value: "request", label: "Fixture requests" },
   { value: "fixture", label: "Fixtures" },
   { value: "club", label: "Club messages" },
+  // Support threads are Ovalball<->person, not club-to-club, so they get
+  // their own filter rather than being mixed into "Club messages".
+  { value: "support", label: "Support" },
 ] as const
 
 type SortValue = "recent" | "club-asc" | "club-desc"

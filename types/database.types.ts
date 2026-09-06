@@ -13823,6 +13823,51 @@ export type Database = {
         }
         Returns: string
       }
+      site_admin_dashboard_commercial: {
+        Args: never
+        Returns: {
+          active_subscriptions: number
+          awaiting_mandate: number
+          clubs_on_trial: number
+          generated_at: string
+          past_due_subscriptions: number
+          referral_health_status: string
+          referrals_awaiting_activation: number
+          referrals_qualified: number
+          referrals_registered: number
+          referrals_total: number
+          trials_ending_soon: number
+        }[]
+      }
+      site_admin_dashboard_operations: {
+        Args: never
+        Returns: {
+          disputed_results: number
+          fixtures_today: number
+          generated_at: string
+          open_support_tickets: number
+          pending_club_claims: number
+          pending_directory_requests: number
+          results_awaiting_confirmation: number
+          stuck_fixture_requests: number
+        }[]
+      }
+      site_admin_dashboard_platform: {
+        Args: never
+        Returns: {
+          active_clubs: number
+          active_players: number
+          active_teams: number
+          directory_clubs: number
+          generated_at: string
+          registered_clubs: number
+          registered_parents: number
+          registered_players: number
+          registered_teams: number
+          registered_users: number
+          suspended_users: number
+        }[]
+      }
       soft_delete_own_message: {
         Args: { p_message_id: string }
         Returns: undefined

@@ -9,8 +9,11 @@ import type { NotificationItem } from "@/lib/app-context/notifications"
 import type { ActiveContextKind, SwitchableContext } from "@/lib/app-context/active-context"
 import { cn } from "@/lib/utils"
 
+import type { NavSection } from "@/lib/app-context/build-nav-items"
+
 import { ContextSwitcher } from "./context-switcher"
 import { MessagesPopover } from "./messages-popover"
+import { NavSections } from "./nav-sections"
 import { NotificationBell } from "./notification-bell"
 import { ProfileButton } from "./profile-button"
 import { SupportButton } from "./support-button"
@@ -23,6 +26,10 @@ export interface NavItem {
 
 interface AppNavProps {
   primaryItems: NavItem[]
+  /** Site Admin only: ungrouped top-level items. Empty elsewhere. */
+  top: NavItem[]
+  /** Site Admin only: the grouped taxonomy, identical to the mobile drawer's. */
+  sections: NavSection[]
   contexts: SwitchableContext[]
   activeKey: string
   identityKind: ActiveContextKind
@@ -46,6 +53,8 @@ interface AppNavProps {
  */
 export function AppNav({
   primaryItems,
+  top,
+  sections,
   contexts,
   activeKey,
   identityKind,
@@ -62,7 +71,7 @@ export function AppNav({
   const pathname = usePathname()
 
   return (
-    <aside className="flex h-full w-full flex-col bg-forest-950 text-chalk md:w-64 md:shrink-0">
+    <aside className="flex h-full max-h-screen w-full flex-col bg-forest-950 text-chalk md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0">
       <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
         <OvalballLogo variant="dark" />
         <div className="flex items-center gap-0.5">
@@ -84,29 +93,40 @@ export function AppNav({
         personAvatarUrl={personAvatarUrl}
       />
 
-      <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
-        {primaryItems.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400",
-                active
-                  ? "bg-pitch-600/15 text-pitch-400"
-                  : "text-white/70 hover:bg-white/5 hover:text-white"
-              )}
-            >
-              {item.label}
-              {!!item.badge && (
-                <span className="flex size-5 items-center justify-center rounded-full bg-pitch-600 text-[11px] font-semibold text-white">
-                  {item.badge > 9 ? "9+" : item.badge}
-                </span>
-              )}
-            </Link>
-          )
-        })}
+      {/* min-h-0 + overflow-y-auto: the sidebar is inside a flex column, and
+          without min-h-0 a long Site Admin nav pushes past the viewport
+          instead of scrolling within it -- the desktop twin of the mobile
+          drawer bug. */}
+      <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        {sections.length > 0 ? (
+          <NavSections top={top} sections={sections} />
+        ) : (
+          <div className="flex flex-col gap-1">
+            {primaryItems.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400",
+                    active
+                      ? "bg-pitch-600/15 text-pitch-400"
+                      : "text-white/70 hover:bg-white/5 hover:text-white"
+                  )}
+                >
+                  {item.label}
+                  {!!item.badge && (
+                    <span className="flex size-5 items-center justify-center rounded-full bg-pitch-600 text-[11px] font-semibold text-white">
+                      {item.badge > 9 ? "9+" : item.badge}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </nav>
     </aside>
   )

@@ -25,6 +25,8 @@ SUITES=(
   platform_activation
   platform_rls_sweep
   referral_attribution_integrity
+  site_admin_dashboard
+  support_messaging
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

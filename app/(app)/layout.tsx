@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, listSwitchableContexts, resolveActiveContext } from "@/lib/app-context/active-context"
-import { buildNavItems } from "@/lib/app-context/build-nav-items"
+import { buildNavItems, buildSiteAdminSections } from "@/lib/app-context/build-nav-items"
 import { getConversationSummaries } from "@/lib/app-context/conversations"
 import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
 import { getRecentNotifications } from "@/lib/app-context/notifications"
@@ -77,6 +77,16 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
     item.href === "/admin/support" && newSupportTicketCount > 0 ? { ...item, badge: newSupportTicketCount } : item
   )
 
+  // Grouping is applied to the ALREADY capability-filtered list, and only in
+  // a Site Admin context -- Club/Team/Parent/Player keep their existing flat
+  // navigation untouched. Both the sidebar and the drawer receive the same
+  // two structures, so the two surfaces cannot drift into different
+  // taxonomies.
+  const { top: navTop, sections: navSections } =
+    activeContext.kind === "site_admin"
+      ? buildSiteAdminSections(primaryWithBadges)
+      : { top: [] as typeof primaryWithBadges, sections: [] }
+
   return (
     <SwitchContextProvider>
       <div className="flex min-h-screen flex-col bg-chalk">
@@ -94,6 +104,8 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
           <div className="hidden md:block">
             <AppNav
               primaryItems={primaryWithBadges}
+              top={navTop}
+              sections={navSections}
               contexts={contexts}
               activeKey={activeContext.key}
               identityKind={activeContext.kind}
@@ -110,6 +122,8 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
           </div>
           <AppMobileNav
             primaryItems={primaryWithBadges}
+            top={navTop}
+            sections={navSections}
             contexts={contexts}
             activeKey={activeContext.key}
             identityKind={activeContext.kind}
