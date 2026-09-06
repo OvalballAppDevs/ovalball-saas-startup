@@ -253,9 +253,22 @@ end $$;
 do $$
 declare
   v_plan uuid; v_before_count integer; v_after_count integer; v_status text;
+  v_live_before_deactivation integer; v_still_cancelled_of_those integer;
 begin
   select v::uuid into v_plan from t_tm_state where k = 'plan1';
   select count(*) into v_before_count from public.training_sessions where training_plan_id = v_plan;
+
+  -- Section 4 already left this plan with some PERMANENTLY cancelled
+  -- occurrences of its own (the Monday rule it removed) -- deactivate/
+  -- reactivate of the whole plan must never resurrect those; it should
+  -- only affect whatever is actually live right now (the Thursday rule
+  -- that survived section 4's edits). Snapshot that live set by date
+  -- before deactivating, so 5d below checks the right thing.
+  create temporary table t_tm_live_before_deactivation on commit drop as
+    select occurrence_date from public.training_sessions
+    where training_plan_id = v_plan and occurrence_date >= current_date
+      and is_overridden = false and status <> 'CANCELLED';
+  select count(*) into v_live_before_deactivation from t_tm_live_before_deactivation;
 
   perform public.deactivate_training_plan(v_plan, 'regression test deactivation');
   select status into v_status from public.training_plans where id = v_plan;
@@ -275,10 +288,31 @@ begin
   -- row -- the plan came back ACTIVE but its sessions stayed CANCELLED
   -- forever. Reactivation must actually restore them, not just flip the
   -- plan's own status column.
-  select count(*) into v_after_count from public.training_sessions
-    where training_plan_id = v_plan and occurrence_date >= current_date and is_overridden = false and status = 'CANCELLED';
-  if v_after_count = 0 then raise notice 'PASS 5d: every future non-overridden session was genuinely restored to PLANNED by reactivation, not left orphaned as CANCELLED';
-  else raise notice 'FAIL 5d: % future session(s) are still CANCELLED after reactivation', v_after_count; end if;
+  --
+  -- Scoped to exactly the dates that were live immediately before
+  -- deactivation (v_tm_live_before_deactivation), not a blanket count of
+  -- every CANCELLED row on the plan -- that blanket count would also
+  -- include the Monday occurrences section 4 permanently cancelled by
+  -- removing their rule, which reactivating the whole plan correctly does
+  -- NOT resurrect (see the 20261011140000 migration's own fix comment).
+  --
+  -- Checks that every date which was live has a LIVE row again -- not
+  -- that zero CANCELLED rows exist for that date, since a permanently-
+  -- historical CANCELLED row from an earlier, unrelated plan edit (e.g.
+  -- section 4's own cancel-and-replace when it added the Thursday rule)
+  -- legitimately continues to exist for that same date and must NOT be
+  -- mistaken for an orphaned, never-restored row.
+  select count(*) into v_still_cancelled_of_those from t_tm_live_before_deactivation lb
+    where not exists (
+      select 1 from public.training_sessions ts
+      where ts.training_plan_id = v_plan and ts.occurrence_date = lb.occurrence_date
+        and ts.is_overridden = false and ts.status <> 'CANCELLED'
+    );
+  if v_live_before_deactivation > 0 and v_still_cancelled_of_those = 0 then
+    raise notice 'PASS 5d: every one of the % date(s) that were genuinely live before deactivation has a live session again after reactivation, none left orphaned as CANCELLED-only', v_live_before_deactivation;
+  else
+    raise notice 'FAIL 5d: %/% of the dates live before deactivation have no live session after reactivation', v_still_cancelled_of_those, v_live_before_deactivation;
+  end if;
 end $$;
 
 \echo '--- 6: manual (ad-hoc) Calendar training reconciles onto the SAME canonical table (Section 31) ---'
