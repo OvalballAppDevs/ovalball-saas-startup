@@ -57,7 +57,7 @@ export default function ReferralTermsPage() {
 
       <LegalSection heading="What earns the reward">
         <p>
-          One thing, and only one: the referred club&rsquo;s <strong>first {PRODUCT_NAME}
+          One thing, and only one: the referred club&rsquo;s <strong>first {PRODUCT_NAME}{" "}
           subscription payment being successfully collected</strong>. Until that happens, nothing is
           earned.
         </p>
