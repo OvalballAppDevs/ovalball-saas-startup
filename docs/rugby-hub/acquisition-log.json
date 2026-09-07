@@ -15,7 +15,9 @@
     "OUTCOME: no candidate mirror establishes equivalence with the CURRENT",
     "season's official document. Every candidate is therefore",
     "NEEDS_HUMAN_SOURCE_VERIFICATION and no fact may be extracted from any of",
-    "them. A one-time human download is requested (see ingestion_request)."
+    "them. A one-time human download is requested (see ingestion_request).",
+    "",
+    "UPDATE 2026-09-07: the developer supplied the official Regulation 15 appendix text directly, after automated retrieval was refused. Phase 4B extraction for Union age grades is unblocked. See ingestion_request.fulfilment."
   ],
   "logged_on": "2026-09-07",
   "authority": "Rugby Football Union (England Rugby)",
@@ -116,7 +118,7 @@
     }
   },
   "ingestion_request": {
-    "state": "AWAITING_DEVELOPER",
+    "state": "PARTIALLY_FULFILLED_BY_DEVELOPER",
     "reason": "No candidate establishes equivalence with the current season's official document. Two lack any version at all; the one with a verifiable version is the 2017/18 edition.",
     "approved_directory": "research-ingestion/rfu/",
     "gitignored": true,
@@ -133,6 +135,33 @@
       "Regulation 15 Appendix 9 - U15-U18 Variations to the Laws of the Game",
       "Regulation 15 Appendix 10 and any further girls-specific appendix, IF they exist - this also settles the conflict above"
     ],
-    "note": "Once these are placed in the approved directory, extraction proceeds locally and automatically from that point onward, and the canonical provenance recorded against every extracted fact remains the englandrugby.com URL."
+    "note": "Once these are placed in the approved directory, extraction proceeds locally and automatically from that point onward, and the canonical provenance recorded against every extracted fact remains the englandrugby.com URL.",
+    "fulfilment": {
+      "acquired_at": "2026-09-07",
+      "acquisition_method": "DEVELOPER_SUPPLIED_TEXT \u2014 pasted into the session from englandrugby.com by the developer, after automated retrieval was refused. The access control was not circumvented.",
+      "documents_supplied": [
+        "Regulation 3 - Membership of RFU (Last Updated 30 Jul 2026, Effective 1 Aug 2026)",
+        "Regulation 5 - Insolvency, Funding and International Tickets (30 Jul 2026, Effective 1 Aug 2026)",
+        "Regulation 6 - Adult competitions (10 Aug 2026, Effective 1 Aug 2026)",
+        "Regulation 7 - Players, Approaches, Contracts, Payments and Player Movement (29 Jul 2026, Effective 1 Aug 2026)",
+        "Regulation 8 - Agents (30 Jul 2026, Effective 1 Aug 2026)",
+        "Regulation 15 Appendix 1 - U7 (31 Jul 2025, Effective 1 Aug 2025)",
+        "Regulation 15 Appendix 2 - U8 (31 Jul 2025, Effective 1 Aug 2025)",
+        "Regulation 15 Appendix 3 - U9 (31 Jul 2025, Effective 1 Aug 2025)",
+        "Regulation 15 Appendix 4 - U10 (31 Jul 2025, Effective 1 Aug 2025)",
+        "Regulation 15 Appendix 5 - U11 (31 Jul 2025, Effective 1 Aug 2025)",
+        "Regulation 15 Appendix 6 - U12 (31 Jul 2025, Effective 1 Aug 2025)",
+        "Regulation 15 Appendix 7 - U13 (31 Jul 2025, Effective 1 Aug 2025)",
+        "Regulation 15 Appendix 8 - U14 (31 Jul 2025, Effective 1 Aug 2025)",
+        "Regulation 15 Appendix 9 - U15-U18 Variations (31 Jul 2025, Effective 1 Aug 2025)"
+      ],
+      "corroboration": "Every Regulation 15 appendix states 'Effective from Friday 1st August 2025'. The regulatory_sources row RFU-REG15-APP1-2025-001, recorded in an INDEPENDENT earlier pass, already carried effective_from = 2025-08-01. The supplied text agrees with what the database recorded before it arrived, which is real corroboration rather than assertion.",
+      "still_outstanding": [
+        "Regulation 15 master regulation (the appendices were supplied; the parent regulation was not)",
+        "Confirmation of whether Appendix 10 (U13 Girls) and any further girls-specific appendix exist \u2014 this is the one remaining open conflict"
+      ],
+      "provenance_caveat": "Text pasted into a session cannot carry a SHA-256 or publication metadata, so it is not byte-verifiable the way a downloaded PDF would be. It is accepted because it is developer-supplied from the official source, it is internally consistent, and its stated effective date independently matches a previously recorded value. If byte-level provenance is later required, the PDFs should still be placed in research-ingestion/rfu/.",
+      "effect": "Union age grades U7-U14 and U15-U18 are now extractable in Phase 4B. This removes the single largest blocker identified in Phase 4A."
+    }
   }
 }
