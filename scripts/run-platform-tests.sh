@@ -42,6 +42,7 @@ SUITES=(
   admin_referral_administration
   referral_intelligence_accounting
   referral_reward_semantics
+  email_delivery_foundation
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
@@ -78,10 +79,46 @@ for suite in "${SUITES[@]}"; do
   fi
 done
 
+# ---------------------------------------------------------------------------
+# TypeScript suites.
+#
+# Template escaping, safe URLs and plain-text generation cannot be asserted in
+# SQL -- they are properties of the rendering layer. Node 24 runs TypeScript
+# and ships its own test runner, so these need no test framework; the loader
+# supplies nothing but path resolution. See scripts/email-test-loader.mjs for
+# why a dependency was not added.
+# ---------------------------------------------------------------------------
+js_pass=0
+js_suites=0
+if [[ -d "$TEST_DIR/js" ]]; then
+  for js_file in "$TEST_DIR"/js/*.test.mts; do
+    [[ -e "$js_file" ]] || continue
+    js_suites=$((js_suites + 1))
+    js_name=$(basename "$js_file" .test.mts)
+    js_output=$(NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}" \
+      node --import ./scripts/email-test-loader.mjs --experimental-strip-types \
+      --test "$js_file" 2>&1)
+    js_ok=$(sed -n 's/^.*# pass \([0-9]*\).*$/\1/p' <<<"$js_output" | tail -1)
+    [[ -z "$js_ok" ]] && js_ok=$(grep -oE 'pass [0-9]+' <<<"$js_output" | tail -1 | grep -oE '[0-9]+')
+    js_bad=$(grep -oE 'fail [0-9]+' <<<"$js_output" | tail -1 | grep -oE '[0-9]+')
+    js_ok=${js_ok:-0}
+    js_bad=${js_bad:-0}
+    total_pass=$((total_pass + js_ok))
+    total_fail=$((total_fail + js_bad))
+    if [[ "$js_bad" -gt 0 ]]; then
+      failed_suites+=("$js_name")
+      printf '  FAIL  %-34s %s passed, %s failed\n' "$js_name" "$js_ok" "$js_bad"
+      grep -E 'AssertionError|✖' <<<"$js_output" | head -12 | sed 's/^/          /'
+    else
+      printf '  ok    %-34s %s passed\n' "$js_name" "$js_ok"
+    fi
+  done
+fi
+
 echo
 if [[ ${#failed_suites[@]} -gt 0 ]]; then
   echo "$total_pass passed, $total_fail failed — ${failed_suites[*]}"
   exit 1
 fi
 
-echo "$total_pass passed, 0 failed across ${#SUITES[@]} suites."
+echo "$total_pass passed, 0 failed across $(( ${#SUITES[@]} + js_suites )) suites."

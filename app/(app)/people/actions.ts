@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { dispatchEmailEvent } from "@/lib/email/dispatch"
+import { sendEmailEvent } from "@/lib/email/send"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
 
@@ -26,7 +26,7 @@ export interface InviteInput {
  * (called from /invite/[token]) is the only path from here to a real
  * permission, and it requires the recipient's own authenticated session
  * email to match. No real email is sent this session -- see
- * lib/email/dispatch.ts -- so the invite link is returned directly for the
+ * lib/email/send.ts -- and the invite link is returned directly for the
  * inviter to share by hand.
  */
 export async function createInvitation(input: InviteInput): Promise<InviteResult> {
@@ -67,10 +67,20 @@ export async function createInvitation(input: InviteInput): Promise<InviteResult
 
   const inviteLink = `${getSiteUrl()}/invite/${invitation.token}`
 
-  await dispatchEmailEvent({
-    type: "club_invitation",
-    to: input.email,
-    data: { clubName: input.clubName, inviteLink },
+  // Recipient is resolved from the invitation ROW, not from `input.email`:
+  // the address is a property of the invitation this action just created
+  // under its own authorization, never an argument the browser can aim.
+  await sendEmailEvent({
+    supabase,
+    eventKey: "club_invitation",
+    idempotencyKey: `club_invitation:${invitation.id}`,
+    recipient: { kind: "club_invitation", invitationId: invitation.id },
+    data: {
+      clubName: input.clubName,
+      clubLogoUrl: null,
+      inviteToken: invitation.token,
+      roleLabel: input.declaredRole || null,
+    },
   })
 
   revalidatePath("/people")

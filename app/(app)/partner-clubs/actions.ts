@@ -5,7 +5,7 @@ import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { dispatchEmailEvent } from "@/lib/email/dispatch"
+import { sendEmailEvent } from "@/lib/email/send"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
 
@@ -88,9 +88,9 @@ export type InviteClubResult = { ok: true; inviteLink: string } | { ok: false; e
  * Invites a club that isn't on Ovalball yet -- create_partner_invitation
  * is the real authorization/validation boundary (already-claimed clubs are
  * refused server-side, not just hidden client-side). The email goes
- * through dispatchEmailEvent, the same call every other transactional
- * email in this app already uses -- but that function is itself a dev
- * no-op this session (see lib/email/dispatch.ts: no provider is
+ * through lib/email/send.ts, the same canonical path every other
+ * transactional email uses. Whether it leaves the machine depends on
+ * whether a provider is configured (see lib/email/provider.ts: none is
  * configured, and it never sent to the local Supabase/Mailpit SMTP path
  * either -- that's a separate pipe Supabase Auth's own magic-link emails
  * use internally). Matching the exact same precedent
@@ -126,7 +126,7 @@ export async function inviteClubToOvalball(clubDirectoryId: string, contactName:
   const invitingClubName = inviterClub?.club_directory?.name ?? "A club on Ovalball"
   const invitedClubName = invitedDirectory?.name ?? "your club"
 
-  const { error } = await supabase.rpc("create_partner_invitation", {
+  const { data: invitationId, error } = await supabase.rpc("create_partner_invitation", {
     p_inviting_club_id: clubId,
     p_club_directory_id: clubDirectoryId,
     p_contact_name: contactName,
@@ -145,11 +145,15 @@ export async function inviteClubToOvalball(clubDirectoryId: string, contactName:
 
   const inviteLink = `${getSiteUrl()}/signup?directory=${clubDirectoryId}`
 
-  await dispatchEmailEvent({
-    type: "partner_club_invitation",
-    to: contactEmail,
-    data: { invitingClubName, invitedClubName, inviteLink },
-  })
+  if (invitationId) {
+    await sendEmailEvent({
+      supabase,
+      eventKey: "partner_club_invitation",
+      idempotencyKey: `partner_club_invitation:${invitationId}`,
+      recipient: { kind: "partner_invitation", invitationId },
+      data: { invitingClubName, invitedClubName, directoryId: clubDirectoryId },
+    })
+  }
 
   // Deliberately no revalidatePath here: the map/list never render
   // invitation state (an invited club still shows "not yet on Ovalball"

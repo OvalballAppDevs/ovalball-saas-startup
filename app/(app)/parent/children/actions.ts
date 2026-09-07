@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { dispatchEmailEvent } from "@/lib/email/dispatch"
+import { sendEmailEvent } from "@/lib/email/send"
 import { toPublicAddChildError, toPublicPlayerAccountInviteError } from "@/lib/errors/public-error"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
@@ -62,13 +62,18 @@ export async function invitePlayerAccount(playerId: string, playerFirstName: str
     return { ok: false, error: error ? toPublicPlayerAccountInviteError(error) : "We couldn't send this invitation right now. Please try again." }
   }
 
-  const { data: invitation } = await supabase.from("player_account_invitations").select("token").eq("id", invitationId).maybeSingle()
+  const { data: invitation } = await supabase
+    .from("player_account_invitations")
+    .select("token")
+    .eq("id", invitationId)
+    .maybeSingle()
   if (invitation?.token) {
-    const siteUrl = getSiteUrl()
-    await dispatchEmailEvent({
-      type: "player_account_invitation",
-      to: email,
-      data: { playerFirstName, inviteLink: `${siteUrl}/player-invite/${invitation.token}` },
+    await sendEmailEvent({
+      supabase,
+      eventKey: "player_account_invitation",
+      idempotencyKey: `player_account_invitation:${invitationId}`,
+      recipient: { kind: "player_account_invitation", invitationId },
+      data: { playerFirstName, inviteToken: invitation.token },
     })
   }
 

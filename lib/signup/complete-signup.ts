@@ -2,7 +2,7 @@ import "server-only"
 
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 
-import { dispatchEmailEvent } from "@/lib/email/dispatch"
+import { sendEmailEvent } from "@/lib/email/send"
 import type { Database } from "@/types/database.types"
 import type { ClubSelection, PersonalDetails } from "@/lib/signup/types"
 import { getSiteUrl } from "@/lib/site-url"
@@ -137,7 +137,7 @@ export async function writeSignupRecords(
   }
 
   if (club.kind === "existing-unclaimed") {
-    const { error } = await supabase.from("club_claims").insert({
+    const { data: claim, error } = await supabase.from("club_claims").insert({
       directory_id: club.directory.id,
       claimant_user_id: user.id,
       claimed_role: club.role,
@@ -146,22 +146,31 @@ export async function writeSignupRecords(
         : "",
       proposed_teams: club.teams as unknown as Database["public"]["Tables"]["club_claims"]["Insert"]["proposed_teams"],
     })
+    .select("id")
+    .single()
     if (error) return { completed: false, error: `club_claims: ${error.message}` }
 
     // Due-diligence email to the configured Site Admin notification
     // destination -- distinct from the in-app notification every active
     // Site Admin already gets automatically via the
     // notify_site_admins_club_claim_submitted DB trigger. Never sends
-    // anything for real this session -- see lib/email/dispatch.ts.
-    await dispatchEmailEvent({
-      type: "club_claim_submitted",
-      toSiteAdminInbox: true,
+    // Delivery is recorded in email_deliveries whether or not a provider
+    // is configured to actually send it.
+    // The claimant's own email is deliberately NOT carried in this message.
+    // A Site Admin opens the claim to review it, and the review screen shows
+    // the contact detail under the app's own authorization -- putting it in
+    // an operations inbox copies personal data somewhere with no such
+    // controls, for no operational gain.
+    await sendEmailEvent({
+      supabase,
+      eventKey: "club_claim_submitted",
+      idempotencyKey: `club_claim_submitted:${claim.id}`,
+      recipient: { kind: "site_admin_inbox" },
       data: {
         clubName: club.directory.name,
         claimantName: `${personal.firstName} ${personal.surname}`.trim(),
-        claimantEmail: user.email ?? "",
         declaredRole: club.role,
-        reviewUrl: `${getSiteUrl()}/admin/claims`,
+        reviewPath: "/admin/claims",
       },
     })
   } else if (club.kind === "existing-claimed") {

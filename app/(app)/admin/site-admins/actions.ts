@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { dispatchEmailEvent } from "@/lib/email/dispatch"
+import { sendEmailEvent } from "@/lib/email/send"
 import { toPublicSubmissionError } from "@/lib/errors/public-error"
 import { createClient } from "@/lib/supabase/server"
 
@@ -24,7 +24,8 @@ export type InviteSiteAdminResult = { ok: true; inviteLink: string } | { ok: fal
  * /invite/site-admin/[token]) is the only path from here to a real
  * site_admins row, and it requires the recipient's own authenticated
  * session email to match. No real email is sent this session -- see
- * lib/email/dispatch.ts -- so the invite link is returned directly.
+ * lib/email/send.ts -- and the invite link is returned directly too, so an
+ * invitation still works when no mail provider is configured.
  */
 export async function inviteSiteAdmin(email: string, adminRole: string): Promise<InviteSiteAdminResult> {
   const supabase = await createClient()
@@ -48,7 +49,13 @@ export async function inviteSiteAdmin(email: string, adminRole: string): Promise
   const inviteLink = `${getSiteUrl()}/invite/site-admin/${invitation.token}`
   const profileLabel = PROFILE_LABEL_FN(adminRole)
 
-  await dispatchEmailEvent({ type: "site_admin_invitation", to: trimmedEmail, data: { profileLabel, inviteLink } })
+  await sendEmailEvent({
+    supabase,
+    eventKey: "site_admin_invitation",
+    idempotencyKey: `site_admin_invitation:${invitation.id}`,
+    recipient: { kind: "site_admin_invitation", invitationId: invitation.id },
+    data: { profileLabel, inviteToken: invitation.token },
+  })
 
   revalidatePath("/admin/site-admins")
   return { ok: true, inviteLink }

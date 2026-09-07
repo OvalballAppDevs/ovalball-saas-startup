@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
-import { dispatchEmailEvent } from "@/lib/email/dispatch"
+import { sendEmailEvent } from "@/lib/email/send"
 import { supportAccessLevel } from "@/lib/support/access"
 import { SUPPORT_CATEGORY_LABELS, SUPPORT_STATUS_LABELS, type SupportCategory, type SupportStatus } from "@/lib/support/types"
 import { getSessionContext } from "@/lib/app-context/session-context"
@@ -20,8 +20,9 @@ export type SimpleActionResult = { ok: true } | { ok: false; error: string }
  * ("we'll reply to your email") is email, so this app-layer step is the
  * other half of that promise: real for an authenticated ticket (handled by
  * the in-app notification already), and this dev-no-op-logged dispatch for
- * a public one -- see lib/email/dispatch.ts for why nothing is actually
- * sent yet.
+ * a public one, sent through lib/email/send.ts. Whether a provider is
+ * configured decides whether it leaves the machine; the attempt is recorded
+ * either way in email_deliveries.
  */
 async function notifyPublicRequesterIfApplicable(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -30,16 +31,33 @@ async function notifyPublicRequesterIfApplicable(
 ) {
   const { data: ticket } = await supabase
     .from("support_tickets")
-    .select("origin, contact_email, reference, subject")
+    .select("reference, subject")
     .eq("id", ticketId)
     .maybeSingle()
-  if (ticket?.origin === "public" && ticket.contact_email) {
-    await dispatchEmailEvent({
-      type: "support_ticket_reply",
-      to: ticket.contact_email,
-      data: { reference: ticket.reference, subject: ticket.subject, body },
-    })
-  }
+  if (!ticket) return
+
+  // The occurrence is the REPLY, not the ticket. Keying on the ticket would
+  // deliver the first reply and then silently swallow every later one --
+  // idempotency suppressing legitimate follow-ups instead of retries.
+  const { data: latestEvent } = await supabase
+    .from("support_ticket_events")
+    .select("id")
+    .eq("ticket_id", ticketId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!latestEvent) return
+
+  // Whether this ticket's requester may be emailed at all is decided by the
+  // resolver, which refuses a club-raised ticket. That check lives in one
+  // place rather than at every call site that might one day send a reply.
+  await sendEmailEvent({
+    supabase,
+    eventKey: "support_ticket_reply",
+    idempotencyKey: `support_ticket_reply:${latestEvent.id}`,
+    recipient: { kind: "support_ticket", ticketId },
+    data: { reference: ticket.reference, subject: ticket.subject, body },
+  })
 }
 
 function csvCell(value: string): string {

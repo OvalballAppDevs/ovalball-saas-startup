@@ -3561,6 +3561,171 @@ export type Database = {
           },
         ]
       }
+      email_deliveries: {
+        Row: {
+          attempts: number
+          club_id: string | null
+          error_code: string | null
+          error_message: string | null
+          event_key: string
+          failed_at: string | null
+          id: string
+          idempotency_key: string
+          provider: string | null
+          provider_message_id: string | null
+          queued_at: string
+          recipient_email: string
+          recipient_kind: string
+          recipient_ref: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          suppression_reason: string | null
+        }
+        Insert: {
+          attempts?: number
+          club_id?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          event_key: string
+          failed_at?: string | null
+          id?: string
+          idempotency_key: string
+          provider?: string | null
+          provider_message_id?: string | null
+          queued_at?: string
+          recipient_email: string
+          recipient_kind: string
+          recipient_ref?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+          suppression_reason?: string | null
+        }
+        Update: {
+          attempts?: number
+          club_id?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          event_key?: string
+          failed_at?: string | null
+          id?: string
+          idempotency_key?: string
+          provider?: string | null
+          provider_message_id?: string | null
+          queued_at?: string
+          recipient_email?: string
+          recipient_kind?: string
+          recipient_ref?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          suppression_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_deliveries_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_event_key_fkey"
+            columns: ["event_key"]
+            isOneToOne: false
+            referencedRelation: "email_events"
+            referencedColumns: ["event_key"]
+          },
+        ]
+      }
+      email_events: {
+        Row: {
+          active: boolean
+          classification: string
+          created_at: string
+          description: string
+          event_key: string
+          recipient_kind: string
+          topic_key: string | null
+        }
+        Insert: {
+          active?: boolean
+          classification: string
+          created_at?: string
+          description: string
+          event_key: string
+          recipient_kind: string
+          topic_key?: string | null
+        }
+        Update: {
+          active?: boolean
+          classification?: string
+          created_at?: string
+          description?: string
+          event_key?: string
+          recipient_kind?: string
+          topic_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_events_topic_key_fkey"
+            columns: ["topic_key"]
+            isOneToOne: false
+            referencedRelation: "notification_topics"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       finance_audit_log: {
         Row: {
           action: string
@@ -12925,6 +13090,18 @@ export type Database = {
         Args: { p_invitation_id: string }
         Returns: string
       }
+      claim_email_delivery: {
+        Args: {
+          p_club_id?: string
+          p_event_key: string
+          p_idempotency_key: string
+          p_recipient_email?: string
+          p_recipient_kind: string
+          p_recipient_ref?: string
+          p_subject?: string
+        }
+        Returns: string
+      }
       claim_external_fixture_result: {
         Args: {
           p_away_score: number
@@ -13297,6 +13474,17 @@ export type Database = {
       disconnect_gocardless: {
         Args: { p_club_id: string; p_reason: string }
         Returns: undefined
+      }
+      email_delivery_health: {
+        Args: never
+        Returns: {
+          failed_24h: number
+          last_failure_at: string
+          last_failure_reason: string
+          queued_backlog: number
+          sent_24h: number
+          suppressed_24h: number
+        }[]
       }
       end_membership_subscription: {
         Args: {
@@ -14225,6 +14413,18 @@ export type Database = {
           p_outcome: string
           p_proposals?: Database["public"]["CompositeTypes"]["directory_verification_proposal_input"][]
           p_run_id: string
+        }
+        Returns: undefined
+      }
+      record_email_delivery_result: {
+        Args: {
+          p_delivery_id: string
+          p_error_code?: string
+          p_error_message?: string
+          p_provider?: string
+          p_provider_message_id?: string
+          p_status: string
+          p_suppression_reason?: string
         }
         Returns: undefined
       }

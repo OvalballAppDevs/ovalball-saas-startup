@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { ChevronRight, ShieldCheck } from "lucide-react"
+import { ChevronRight, Mail, ShieldCheck } from "lucide-react"
 
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
+import { describeEmailConfiguration } from "@/lib/email/provider"
 import { AUTH_SESSION_VERSION } from "@/lib/auth/session-version"
 import { getBetaBadgeState, getPlatformMode } from "@/lib/platform/mode"
 import { createClient } from "@/lib/supabase/server"
@@ -33,7 +34,13 @@ export default async function SystemHealthPage() {
   // product uses. This card answers "what is the system doing" without
   // duplicating Release Management: there is no mutation here, only the
   // answer and a way through to the one page that owns the action.
-  const [platformMode, badgeState] = await Promise.all([getPlatformMode(supabase), getBetaBadgeState(supabase)])
+  const [platformMode, badgeState, emailHealthRes] = await Promise.all([
+    getPlatformMode(supabase),
+    getBetaBadgeState(supabase),
+    supabase.rpc("email_delivery_health"),
+  ])
+  const emailConfig = describeEmailConfiguration()
+  const emailHealth = emailHealthRes.data?.[0] ?? null
   const inBeta = platformMode.mode === "beta"
 
   const rows = [
@@ -50,7 +57,7 @@ export default async function SystemHealthPage() {
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">System Health</h1>
-      <p className="mt-2 max-w-lg text-sm text-ink/55">
+      <p className="mt-2 max-w-lg text-sm text-ink-muted">
         Release and build information. An ordinary deploy never invalidates existing sessions --
         only a deliberate Auth Session Version increase does.
       </p>
@@ -58,7 +65,7 @@ export default async function SystemHealthPage() {
       <dl className="mt-8 divide-y divide-ink/8 rounded-lg border border-ink/10 bg-white">
         {rows.map((r) => (
           <div key={r.label} className="flex items-center justify-between px-5 py-3.5">
-            <dt className="text-sm text-ink/55">{r.label}</dt>
+            <dt className="text-sm text-ink-muted">{r.label}</dt>
             <dd className="font-mono text-sm text-ink">{r.value}</dd>
           </div>
         ))}
@@ -66,14 +73,14 @@ export default async function SystemHealthPage() {
 
       <section className="mt-8">
         <h2 className="font-display text-xl text-ink">Platform state</h2>
-        <p className="mt-1 text-sm text-ink/55">
+        <p className="mt-1 text-sm text-ink-muted">
           Whether Ovalball is charging clubs. Managed on Release &amp; Platform Mode &mdash; this
           card only reports it.
         </p>
 
         <dl className="mt-4 divide-y divide-ink/8 rounded-lg border border-ink/10 bg-white">
           <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-            <dt className="text-sm text-ink/55">Platform mode</dt>
+            <dt className="text-sm text-ink-muted">Platform mode</dt>
             <dd>
               {inBeta ? (
                 <BetaBadge state={badgeState} />
@@ -85,17 +92,17 @@ export default async function SystemHealthPage() {
             </dd>
           </div>
           <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-            <dt className="text-sm text-ink/55">Published release</dt>
+            <dt className="text-sm text-ink-muted">Published release</dt>
             <dd className="font-mono text-sm text-ink">{badgeState.releaseVersion ?? "None published"}</dd>
           </div>
           <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-            <dt className="text-sm text-ink/55">Billing</dt>
+            <dt className="text-sm text-ink-muted">Billing</dt>
             <dd className={`text-sm ${inBeta ? "text-purple-900" : "text-ink"}`}>
               {inBeta ? "Paused — Beta" : "Active"}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-            <dt className="text-sm text-ink/55">Trials</dt>
+            <dt className="text-sm text-ink-muted">Trials</dt>
             <dd className={`text-sm ${inBeta ? "text-purple-900" : "text-ink"}`}>
               {inBeta ? "Paused — Beta" : "Active"}
             </dd>
@@ -111,6 +118,95 @@ export default async function SystemHealthPage() {
           Manage Release &amp; Platform Mode
           <ChevronRight aria-hidden="true" className="size-3.5" />
         </Link>
+      </section>
+
+      {/* ---------- email delivery ---------- */}
+      <section className="mt-10">
+        <div className="flex items-center gap-2.5">
+          <Mail aria-hidden="true" className="size-4 text-forest-800" />
+          <h2 className="font-display text-xl text-ink">Email delivery</h2>
+        </div>
+        <p className="mt-1 text-sm text-ink/70">
+          Whether Ovalball can send email, and what has actually happened to recent messages. A
+          domain event succeeding is not proof an email was delivered.
+        </p>
+
+        {/* "Off on purpose" and "broken" are different states and are said
+            differently. Rendering an unconfigured local machine as an outage
+            trains an operator to ignore this panel. */}
+        {emailConfig.configurationError ? (
+          <div role="alert" className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-5 py-4">
+            <p className="text-sm font-medium text-amber-950">Email is misconfigured</p>
+            <p className="mt-1 text-sm text-amber-900">{emailConfig.configurationError}</p>
+          </div>
+        ) : !emailConfig.delivers ? (
+          <p className="mt-4 rounded-lg border border-ink/10 bg-white px-5 py-4 text-sm text-ink/70">
+            No provider is configured, so nothing is sent from this environment. Attempts are still
+            recorded. This is the deliberate default outside production, not a fault.
+          </p>
+        ) : null}
+
+        <dl className="mt-4 divide-y divide-ink/8 rounded-lg border border-ink/10 bg-white">
+          <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+            <dt className="text-sm text-ink/70">Provider</dt>
+            <dd className="font-mono text-sm text-ink">{emailConfig.providerName}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+            <dt className="text-sm text-ink/70">From address</dt>
+            <dd className={`text-sm ${emailConfig.fromConfigured ? "text-ink" : "text-amber-900"}`}>
+              {emailConfig.fromConfigured ? "Configured" : "Not set"}
+            </dd>
+          </div>
+
+          {emailHealthRes.error ? (
+            <div className="px-5 py-3.5">
+              <p role="alert" className="text-sm text-amber-900">
+                Delivery figures could not be read &mdash; this is a read failure, not zero
+                activity.
+              </p>
+              <p className="mt-1 font-mono text-xs break-words text-amber-900/80">
+                {emailHealthRes.error.message}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <dt className="text-sm text-ink/70">Sent, last 24 hours</dt>
+                <dd className="font-mono text-sm text-ink tabular-nums">{emailHealth?.sent_24h ?? 0}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <dt className="text-sm text-ink/70">Failed, last 24 hours</dt>
+                <dd
+                  className={`font-mono text-sm tabular-nums ${(emailHealth?.failed_24h ?? 0) > 0 ? "text-destructive-text" : "text-ink"}`}
+                >
+                  {emailHealth?.failed_24h ?? 0}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <dt className="text-sm text-ink/70">Unresolved backlog</dt>
+                <dd
+                  className={`font-mono text-sm tabular-nums ${(emailHealth?.queued_backlog ?? 0) > 0 ? "text-amber-900" : "text-ink"}`}
+                >
+                  {emailHealth?.queued_backlog ?? 0}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <dt className="text-sm text-ink/70">Suppressed, last 24 hours</dt>
+                <dd className="font-mono text-sm text-ink tabular-nums">
+                  {emailHealth?.suppressed_24h ?? 0}
+                </dd>
+              </div>
+              {emailHealth?.last_failure_reason ? (
+                <div className="px-5 py-3.5">
+                  <dt className="text-sm text-ink/70">Most recent failure</dt>
+                  <dd className="mt-1 font-mono text-xs break-words text-destructive-text">
+                    {emailHealth.last_failure_reason}
+                  </dd>
+                </div>
+              ) : null}
+            </>
+          )}
+        </dl>
       </section>
     </div>
   )

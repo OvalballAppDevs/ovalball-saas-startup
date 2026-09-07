@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { dispatchEmailEvent } from "@/lib/email/dispatch"
+import { sendEmailEvent } from "@/lib/email/send"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
 
@@ -24,6 +24,21 @@ export type ActionResult = { ok: true } | { ok: false; error: string }
  * at all. That is the boundary; the RPCs below re-check their own
  * capability on top of it.
  */
+/**
+ * A stable fingerprint of one message, so idempotency can tell "the same
+ * message submitted twice" from "a second, different message". Not a
+ * security primitive -- it never leaves the server and guards nothing but
+ * duplicate sends -- so a short non-cryptographic digest is the right tool.
+ */
+function messageFingerprint(body: string): string {
+  let hash = 5381
+  const normalised = body.trim()
+  for (let i = 0; i < normalised.length; i++) {
+    hash = ((hash << 5) + hash + normalised.charCodeAt(i)) | 0
+  }
+  return (hash >>> 0).toString(36)
+}
+
 async function resolveOfficerDispatch(officerId: string) {
   const supabase = await createClient()
   const {
@@ -111,9 +126,10 @@ export async function updateSafeguardingOfficerContact(officerId: string, contac
  * invitation() (called from /invite/safeguarding-officer/[token]) is the
  * only path from here to a real, authorized officer, and it requires the
  * recipient's own authenticated session email to match. No real email is
- * sent this session (lib/email/dispatch.ts is a dev no-op everywhere in
- * this app) -- the invite link is also returned directly for the inviter
- * to share by hand.
+ * Email goes through lib/email/send.ts, whose recipient is resolved from
+ * the officer record rather than supplied by the caller. The invite link is
+ * also returned directly, so the inviter can share it by hand when no mail
+ * provider is configured.
  */
 export async function inviteSafeguardingOfficer(officerId: string): Promise<{ ok: true; inviteLink: string } | { ok: false; error: string }> {
   const ctx = await resolveOfficerDispatch(officerId)
@@ -123,10 +139,12 @@ export async function inviteSafeguardingOfficer(officerId: string): Promise<{ ok
   if (error || !data) return { ok: false, error: error?.message ?? "Could not create the invitation." }
 
   const inviteLink = `${getSiteUrl()}/invite/safeguarding-officer/${data.token}`
-  await dispatchEmailEvent({
-    type: "safeguarding_officer_invitation",
-    to: ctx.contactEmail,
-    data: { clubName: ctx.clubName, inviteLink },
+  await sendEmailEvent({
+    supabase: ctx.supabase,
+    eventKey: "safeguarding_officer_invitation",
+    idempotencyKey: `safeguarding_officer_invitation:${data.invitation_id}`,
+    recipient: { kind: "safeguarding_officer", officerId },
+    data: { clubName: ctx.clubName, clubLogoUrl: null, inviteToken: data.token },
   })
 
   revalidatePath("/club/settings/safeguarding")
@@ -141,10 +159,16 @@ export async function resendSafeguardingOfficerInvitation(officerId: string): Pr
   if (error || !data) return { ok: false, error: error?.message ?? "Could not resend the invitation." }
 
   const inviteLink = `${getSiteUrl()}/invite/safeguarding-officer/${data.token}`
-  await dispatchEmailEvent({
-    type: "safeguarding_officer_invitation",
-    to: ctx.contactEmail,
-    data: { clubName: ctx.clubName, inviteLink },
+  // A RESEND is a new occurrence, not a retry of the original -- the officer
+  // asked for another copy. It carries the new invitation row's own id, so
+  // idempotency protects against a double-click without ever swallowing a
+  // deliberate resend.
+  await sendEmailEvent({
+    supabase: ctx.supabase,
+    eventKey: "safeguarding_officer_invitation",
+    idempotencyKey: `safeguarding_officer_invitation:${data.invitation_id}`,
+    recipient: { kind: "safeguarding_officer", officerId },
+    data: { clubName: ctx.clubName, clubLogoUrl: null, inviteToken: data.token },
   })
 
   revalidatePath("/club/settings/safeguarding")
@@ -213,9 +237,14 @@ export async function messageSafeguardingOfficer(officerId: string, body: string
     return { ok: false, error: "You are not authorized to message this club's Safeguarding Officer." }
   }
 
-  await dispatchEmailEvent({
-    type: "safeguarding_officer_message",
-    to: ctx.contactEmail,
+  // Every distinct message is its own occurrence. The key is the officer
+  // plus a hash of this message, so a double-submitted form does not send
+  // twice while a genuinely different message always does.
+  await sendEmailEvent({
+    supabase: ctx.supabase,
+    eventKey: "safeguarding_officer_message",
+    idempotencyKey: `safeguarding_officer_message:${officerId}:${messageFingerprint(body)}`,
+    recipient: { kind: "safeguarding_officer", officerId },
     data: { clubName: ctx.clubName, senderName: ctx.senderName, body },
   })
   return { ok: true, mode: "email" }
