@@ -69,6 +69,7 @@ SUITES=(
   handover_player_placement
   handover_apply_idempotency
   handover_prepare_idempotency
+  handover_squads_and_aliases
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
