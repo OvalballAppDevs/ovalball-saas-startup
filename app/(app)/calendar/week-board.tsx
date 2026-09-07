@@ -375,8 +375,15 @@ export function WeekBoard({
                         </button>
                       )}
                       {selected.kind === "fixture" && (
-                        <Link href="/fixtures" className={FIXTURE_ACTION_BUTTON_SECONDARY}>
-                          Open Fixture
+                        // The canonical fixture id, straight from the
+                        // fixtures row this entry was built from. This used
+                        // to point at /fixtures -- the fixture-REQUEST
+                        // negotiation register, which blocks Parent/Player
+                        // server-side, so for a guardian the one action on
+                        // their child's fixture bounced them to the
+                        // dashboard. Match Centre is the fixture itself.
+                        <Link href={`/fixtures/${selected.id}`} className={FIXTURE_ACTION_BUTTON_SECONDARY}>
+                          Open Match Centre
                         </Link>
                       )}
                       {selected.kind === "fixture" && (

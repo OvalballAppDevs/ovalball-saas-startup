@@ -12,6 +12,12 @@ import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
+// Reachable from the Calendar as of Phase 2A, so it needs its own tab name.
+// Static rather than generateMetadata: the fixture's own identity would be a
+// better title, but building it means a second authorized read purely for a
+// tab label, and this page is already one resolver call.
+export const metadata = { title: "Match Centre" }
+
 /**
  * Match Centre -- the real Main implementation of the typed contract Side
  * Project 3 Stage 8 designed in isolation. One canonical fixture_id drives
@@ -71,12 +77,26 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
         <h2 id="mc-attendance-heading" className="sr-only">
           Attendance
         </h2>
-        <dl className="grid grid-cols-4 gap-2 text-center">
-          <CountCell label="Attending" value={context.attendance.counts.attending} />
-          <CountCell label="Can't attend" value={context.attendance.counts.cannotAttend} />
-          <CountCell label="Unsure" value={context.attendance.counts.unsure} />
-          <CountCell label="Awaiting" value={context.attendance.counts.awaitingResponse} />
-        </dl>
+        {/* Squad-wide counts are STAFF-level, exactly like the roster below
+            them -- get_match_centre_capabilities' own comment says this flag
+            "gates the FULL roster/aggregate-counts section", because a viewer
+            without it reads attendance through RLS that returns only their
+            own linked player's row.
+
+            Rendered ungated, this dial showed "Attending 0 · Can't attend 0"
+            to a guardian whose child had already answered ATTENDING, and to
+            a guardian from an entirely different club. Neither leaks data --
+            but both are confident zeros standing in for numbers the viewer is
+            not entitled to, which is worse than not showing the dial at all.
+            Their own response is a separate, always-available path below. */}
+        {context.actions.canViewParticipants && (
+          <dl className="grid grid-cols-4 gap-2 text-center">
+            <CountCell label="Attending" value={context.attendance.counts.attending} />
+            <CountCell label="Can't attend" value={context.attendance.counts.cannotAttend} />
+            <CountCell label="Unsure" value={context.attendance.counts.unsure} />
+            <CountCell label="Awaiting" value={context.attendance.counts.awaitingResponse} />
+          </dl>
+        )}
         <AttendancePanel fixtureId={context.fixture.fixtureId} entries={context.attendance.mine} fixtureCancelled={context.fixture.status === "CANCELLED"} />
       </section>
 

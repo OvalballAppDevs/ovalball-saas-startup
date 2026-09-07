@@ -118,8 +118,8 @@ function MobileFixtureSheet({
                 </button>
               )}
               {entry.kind === "fixture" && (
-                <Link href="/fixtures" className={cn(FIXTURE_ACTION_BUTTON_SECONDARY, "min-h-11")}>
-                  Open Fixture
+                <Link href={`/fixtures/${entry.id}`} className={cn(FIXTURE_ACTION_BUTTON_SECONDARY, "min-h-11")}>
+                  Open Match Centre
                 </Link>
               )}
               {entry.kind === "fixture" && (

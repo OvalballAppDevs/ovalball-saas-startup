@@ -306,8 +306,8 @@ export function MonthView({
                         </button>
                       )}
                       {selectedEntry.kind === "fixture" && (
-                        <Link href="/fixtures" className={FIXTURE_ACTION_BUTTON_SECONDARY}>
-                          Open Fixture
+                        <Link href={`/fixtures/${selectedEntry.id}`} className={FIXTURE_ACTION_BUTTON_SECONDARY}>
+                          Open Match Centre
                         </Link>
                       )}
                       {selectedEntry.kind === "fixture" && (
