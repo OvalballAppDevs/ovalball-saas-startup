@@ -66,6 +66,7 @@ SUITES=(
   league_age_grade_and_colts
   season_handover_progression
   player_age_resolver
+  handover_player_placement
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
