@@ -161,7 +161,7 @@ export const AUTHORITY_DECLARATION_TEXT =
  * Team") -- there is no such thing as "Men's 1st Team B", so senior groups
  * don't offer the letter toggle at all.
  *
- * Junior Colts/Senior Colts are real, closed-catalogue identities as of
+ * Junior Colts/Senior Colts were closed-catalogue identities as of
  * 20260904200000_canonical_team_catalogue.sql (`teams.category` now
  * allows 'colts') -- a claimant ticking them here produces a real team on
  * claim approval, the same as every other category.

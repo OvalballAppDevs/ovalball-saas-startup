@@ -19,9 +19,9 @@ begin
 
 -- ============ A. The exact signup catalogue, per code ============
 
-v_expected_union := 'u6,u7,u8,u9,u10,u11,u12,u13,u14,u15,u16,junior_colts,senior_colts,'
+v_expected_union := 'u6,u7,u8,u9,u10,u11,u12,u13,u14,u15,u16,'
   || 'mens_1st,mens_2nd,mens_3rd,womens_1st,womens_2nd,womens_3rd,'
-  || 'girls_u12,girls_u14,girls_u16,girls_u18';
+  || 'girls_u12,girls_u14,girls_u16,girls_u18,u17,u18';
 v_expected_league := 'u6,u7,u8,u9,u10,u11,u12,u13,u14,u15,u16,'
   || 'girls_u12,girls_u13,girls_u14,girls_u15,girls_u16,girls_u18,'
   || 'u17,u18,u19,mens_open_age,womens_open_age';
@@ -44,20 +44,23 @@ end if;
 
 -- ============ B. Colts are Union-only ============
 
+-- Colts converged onto U17/U18: RFU Regulation 15.6 lists "U17s (Yr 12)" and
+-- "U18s (Yr 13)" and "Colts" appears nowhere in RFU regulation. Neither code
+-- may offer the retired identities any more.
 select count(*) into v_count from public.canonical_team_types_by_code
-where rugby_code = 'union' and key in ('junior_colts','senior_colts') and is_offered;
-if v_count = 2 then
-  raise notice 'PASS 3 (B): Junior Colts and Senior Colts are offered in UNION';
+where key in ('junior_colts','senior_colts') and is_offered;
+if v_count = 0 then
+  raise notice 'PASS 3 (B): the retired Colts identities are offered in NEITHER code';
 else
-  raise notice 'FAIL 3 (B): only % of the two Colts identities are offered in union', v_count;
+  raise notice 'FAIL 3 (B): % Colts cell(s) still offered', v_count;
 end if;
 
-select count(*) into v_count from public.canonical_team_types_by_code
-where rugby_code = 'league' and key in ('junior_colts','senior_colts') and is_offered;
+select count(*) into v_count from public.canonical_team_types
+where key in ('junior_colts','senior_colts') and is_active;
 if v_count = 0 then
-  raise notice 'PASS 4 (B): NEITHER Colts identity is offered in LEAGUE -- a League team can never display "Colts"';
+  raise notice 'PASS 4 (B): both Colts identities are retired (inactive), not deleted -- history stays resolvable';
 else
-  raise notice 'FAIL 4 (B): % Colts identity/identities are offered in league', v_count;
+  raise notice 'FAIL 4 (B): % Colts identity/identities are still active', v_count;
 end if;
 
 -- ============ C. U17/U18/U19/Open Age are League-only ============
@@ -70,10 +73,12 @@ else
   raise notice 'FAIL 5 (C): only % of the four League identities are offered', v_count;
 end if;
 
+-- U17/U18 are now SHARED (both codes use the RFU/RFL terminology); U19 and
+-- Open Age remain League-only.
 select count(*) into v_count from public.canonical_team_types_by_code
-where rugby_code = 'union' and key in ('u17','u18','u19','mens_open_age') and is_offered;
+where rugby_code = 'union' and key in ('u19','mens_open_age','womens_open_age') and is_offered;
 if v_count = 0 then
-  raise notice 'PASS 6 (C): NONE of them is offered in UNION -- Union keeps Colts and numbered XVs';
+  raise notice 'PASS 6 (C): U19 and Open Age remain League-only';
 else
   raise notice 'FAIL 6 (C): % League-only identity/identities are offered in union', v_count;
 end if;
@@ -250,6 +255,96 @@ if not exists (
   raise notice 'PASS 22 (G): no League regulatory identity is attached to a Colts canonical type';
 else
   raise notice 'FAIL 22 (G): a League identity is attached to a Colts type';
+end if;
+
+-- ============ K. Colts -> U17/U18 convergence ============
+
+select count(*) into v_count from public.canonical_team_types where key in ('u17','u18') and is_active;
+if v_count = 2 then
+  raise notice 'PASS 32 (K): exactly ONE active U17 and ONE active U18 canonical identity exist';
+else
+  raise notice 'FAIL 32 (K): % active U17/U18 identities, expected 2', v_count;
+end if;
+
+select count(*) into v_count from public.canonical_team_types_by_code
+where key in ('u17','u18') and is_offered;
+if v_count = 4 then
+  raise notice 'PASS 33 (K): both codes offer both U17 and U18 -- one identity, two codes';
+else
+  raise notice 'FAIL 33 (K): only % of the 4 U17/U18 code cells are offered', v_count;
+end if;
+
+-- No live duplicate labels: relabelling Colts instead of converging would
+-- have produced two identities both displaying "Under 17".
+select count(*) into v_count from (
+  select label from public.canonical_team_types where is_active group by label having count(*) > 1
+) d;
+if v_count = 0 then
+  raise notice 'PASS 34 (K): no two active canonical identities share a display label';
+else
+  raise notice 'FAIL 34 (K): % duplicated active display label(s)', v_count;
+end if;
+
+-- Same canonical identity, code-specific regulatory content.
+select ri.identity_key into v_text from public.regulatory_identities ri
+join public.canonical_team_types ctt on ctt.id = ri.ovalball_canonical_team_type_id
+where ctt.key = 'u17' and ri.rugby_code = 'union';
+if v_text = 'RFU-U17' then
+  raise notice 'PASS 35 (K): canonical U17 + UNION resolves RFU-U17';
+else
+  raise notice 'FAIL 35 (K): canonical U17 + union resolves %', coalesce(v_text,'(nothing)');
+end if;
+
+select ri.identity_key into v_text from public.regulatory_identities ri
+join public.canonical_team_types ctt on ctt.id = ri.ovalball_canonical_team_type_id
+where ctt.key = 'u17' and ri.rugby_code = 'league';
+if v_text = 'RFL-U17' then
+  raise notice 'PASS 36 (K): canonical U17 + LEAGUE resolves RFL-U17 -- shared identity, separate rules';
+else
+  raise notice 'FAIL 36 (K): canonical U17 + league resolves %', coalesce(v_text,'(nothing)');
+end if;
+
+-- Nothing left pointing at a retired identity.
+select count(*) into v_count from public.teams t
+join public.canonical_team_types ctt on ctt.id = t.canonical_team_type_id
+where ctt.key in ('junior_colts','senior_colts');
+if v_count = 0 and not exists (select 1 from public.teams where age_group in ('JuniorColts','SeniorColts')) then
+  raise notice 'PASS 37 (K): no operational team references a retired Colts identity or age_group';
+else
+  raise notice 'FAIL 37 (K): % team(s) still on a retired Colts identity', v_count;
+end if;
+
+-- Legacy payloads still resolve, to the CURRENT canonical identity.
+if (select key from public.canonical_team_types where id = internal.resolve_canonical_team_type('colts','JuniorColts',null,null)) = 'u17'
+   and (select key from public.canonical_team_types where id = internal.resolve_canonical_team_type('colts','SeniorColts',null,null)) = 'u18' then
+  raise notice 'PASS 38 (K): legacy JuniorColts/SeniorColts payloads translate to canonical u17/u18';
+else
+  raise notice 'FAIL 38 (K): the legacy compatibility translation is broken';
+end if;
+
+-- The gender-ambiguity the shared grades introduced.
+if (select key from public.canonical_team_types where id = internal.resolve_canonical_team_type('youth','U18','boys',null)) = 'u18'
+   and (select key from public.canonical_team_types where id = internal.resolve_canonical_team_type('youth','U18','girls',null)) = 'girls_u18' then
+  raise notice 'PASS 39 (K): U18 resolves by gender -- boys to u18, girls to girls_u18';
+else
+  raise notice 'FAIL 39 (K): U18 gender resolution is ambiguous';
+end if;
+
+-- Shared identity must NOT mean shared pathway.
+if internal.next_age_grade_for('U18','boys','union') is null
+   and internal.next_age_grade_for('U18','boys','league') = 'U19' then
+  raise notice 'PASS 40 (K): Union U18 stops before senior; League U18 continues to U19';
+else
+  raise notice 'FAIL 40 (K): union U18 -> %, league U18 -> %',
+    coalesce(internal.next_age_grade_for('U18','boys','union'),'null'),
+    coalesce(internal.next_age_grade_for('U18','boys','league'),'null');
+end if;
+
+if internal.next_age_grade_for('U16','boys','union') = 'U17'
+   and internal.next_age_grade_for('U17','boys','union') = 'U18' then
+  raise notice 'PASS 41 (K): Union progresses U16 -> U17 -> U18';
+else
+  raise notice 'FAIL 41 (K): union later-youth progression is wrong';
 end if;
 
 -- ============ I. Senior structure is code-specific ============

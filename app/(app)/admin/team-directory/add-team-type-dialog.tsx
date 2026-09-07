@@ -13,7 +13,18 @@ import { createTeamType, type CreateTeamTypeInput } from "./actions"
 const YOUTH_AGES = ["U6", "U7", "U8", "U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U17", "U18", "U19"]
 const MIXED_ELIGIBLE_AGES = new Set(["U6", "U7", "U8", "U9", "U10", "U11"])
 
-type Category = "youth" | "colts" | "senior"
+/**
+ * "colts" is deliberately absent.
+ *
+ * Junior Colts and Senior Colts were retired on 2026-09-07 and converged onto
+ * the canonical U17/U18 age grades, which is the RFU's own terminology --
+ * Regulation 15.6 (2026/27) lists "U17s (Yr 12)" and "U18s (Yr 13)", and
+ * "Colts" appears nowhere in RFU regulation. The two retired rows stay in the
+ * catalogue so historical references resolve, but no NEW colts identity may
+ * ever be created: doing so would reintroduce the duplicate the convergence
+ * removed. Add a youth U17/U18 identity instead.
+ */
+type Category = "youth" | "senior"
 
 /**
  * CREATE A GLOBAL CANONICAL TEAM TYPE -- a genuinely privileged, product-
@@ -33,15 +44,11 @@ export function AddTeamTypeDialog() {
   const [gender, setGender] = useState<"boys" | "girls" | "mixed">("boys")
   const [seniorGender, setSeniorGender] = useState<"mens" | "womens">("mens")
   const [ordinal, setOrdinal] = useState("4th")
-  const [coltsLevel, setColtsLevel] = useState<"JuniorColts" | "SeniorColts">("JuniorColts")
   const [allowsSquads, setAllowsSquads] = useState(true)
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
 
   function buildInput(): CreateTeamTypeInput {
-    if (category === "colts") {
-      return { category: "colts", ageGroup: coltsLevel, gender: null, fixedSquadDesignation: null, allowsSquads: false }
-    }
     if (category === "senior") {
       return { category: "senior", ageGroup: null, gender: seniorGender, fixedSquadDesignation: ordinal.trim(), allowsSquads: false }
     }
@@ -49,7 +56,6 @@ export function AddTeamTypeDialog() {
   }
 
   function previewLabel(): string {
-    if (category === "colts") return coltsLevel === "JuniorColts" ? "Junior Colts" : "Senior Colts"
     if (category === "senior") return `${seniorGender === "womens" ? "Women's" : "Men's"} ${ordinal.trim() || "?"} Team`
     return gender === "girls" ? `Girls ${ageGroup}` : ageGroup
   }
@@ -96,7 +102,6 @@ export function AddTeamTypeDialog() {
             className="mt-1.5 h-11 w-full rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600"
           >
             <option value="youth">Youth / age-grade</option>
-            <option value="colts">Colts</option>
             <option value="senior">Senior</option>
           </select>
         </div>
@@ -141,20 +146,6 @@ export function AddTeamTypeDialog() {
               <span className="text-ink/70">Clubs may run additional B/C squads at this level</span>
             </label>
           </>
-        )}
-
-        {category === "colts" && (
-          <div>
-            <Label className="text-ink/80">Level</Label>
-            <select
-              value={coltsLevel}
-              onChange={(e) => setColtsLevel(e.target.value as "JuniorColts" | "SeniorColts")}
-              className="mt-1.5 h-11 w-full rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600"
-            >
-              <option value="JuniorColts">Junior Colts</option>
-              <option value="SeniorColts">Senior Colts</option>
-            </select>
-          </div>
         )}
 
         {category === "senior" && (
