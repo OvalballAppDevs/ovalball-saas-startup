@@ -1046,6 +1046,63 @@ Consequences for the dashboard:
 is exact** (earned, from `reward_amount_pence`). Label the applied/outstanding
 figures in £, not months. This is the honest reading of the actual ledger model.
 
+### N.4 What the Dashboard actually shows — and why
+
+Decision C above was read too narrowly in the first commercial build: the
+Dashboard reported "£29.00 reward earned" and never mentioned a free month,
+even though **the free month is the product**. The published Referral Terms
+say "one month of the referring club's own plan, at the price that plan cost
+at the moment the reward was earned", and `qualify_referral_for_payment`
+implements exactly that. The pence figure is the *accounting implementation*
+of the month, not a cash reward, and the two must be shown in that order.
+
+| Figure | Derivation | Exact? |
+|---|---|---|
+| Free months **earned** | `count(*)` of referrals holding a reward credit that has not been reversed | ✅ one qualifying referral = one month, by construction |
+| Free months **withdrawn** | same count where the reward credit has been reversed | ✅ |
+| Reward **value earned / withdrawn** | `sum(reward_amount_pence)` over those two sets | ✅ snapshotted at earning |
+| Credit **applied** | `abs(sum(amount_pence)) where source='application'` | ✅ **ledger-wide, not per referral** |
+| Credit **outstanding** | `sum(amount_pence)` over the whole ledger — the same definition `club_credit_balance_pence` uses | ✅ **ledger-wide, not per referral** |
+| Free months **applied / remaining** | — | ❌ **not derivable; must not be shown** |
+
+**Months are counted, never divided.** `credit_balance / current_plan_price`
+is wrong the moment pricing changes, plans differ, a balance mixes referral
+rewards with goodwill, or a reward is partially applied.
+`referral_reward_semantics.sql` demonstrates this rather than asserting it: it
+earns a month at £15, raises the plan price, and shows the division would then
+yield **0.600 months** while the true answer is still exactly 1.
+
+Applied and outstanding are labelled on screen as ledger-wide precisely
+because they are not attributable to a referral, and the UI states that months
+applied/remaining are deliberately absent for that reason.
+
+### N.5 Reward valuation integrity
+
+Nothing in the schema originally required a reward to be worth what it claimed.
+A credit was found holding **£29.00 against the Standard plan, whose price is
+£15.00**, with `snapshot_price_pence` and `snapshot_price_version` both NULL —
+so it cannot have come from the engine, which always writes them. The Dashboard
+reported it as real earned money.
+
+`20261026000000_referral_reward_integrity.sql` closes this:
+
+- `platform_credits_reward_matches_snapshot` — a `referral_reward` credit must
+  carry all three snapshot columns and its amount must equal the price it
+  snapshotted.
+- `platform_referrals_qualified_reward_is_priced` — a qualified referral must
+  record the value the Dashboard reports.
+- `referral_reward_integrity_detail()` — reports rows that cannot be verified,
+  including the cross-table case (a referral whose reported reward differs from
+  the credit it points at) that no CHECK can express.
+
+**Both constraints are `NOT VALID`, deliberately.** `platform_credits` is
+append-only (`internal.platform_append_only` refuses UPDATE and DELETE), so a
+wrong historical row cannot be corrected in place — and must not be. Rewriting
+a money ledger to make a new constraint pass is exactly what append-only
+exists to prevent. New rows are fully enforced; history is surfaced by the
+detector and shown on the Dashboard as "N rewards cannot be verified" rather
+than folded silently into a total.
+
 ---
 
 ## O. Top Referrers — data contract

@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
+export const metadata = { title: "Referral Administration" }
+
 type ReferralStatus = "pending" | "registered" | "qualified" | "rejected" | "reversed"
 
 const STATUS_LABELS: Record<ReferralStatus, string> = {
@@ -100,7 +102,7 @@ export default async function ReferralAdministrationPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/commercial" className="inline-flex items-center gap-1.5 text-sm text-ink/55 hover:text-ink/80">
+      <Link href="/admin/commercial" className="inline-flex min-h-11 items-center gap-1.5 py-2.5 -my-2.5 text-sm text-ink/55 hover:text-ink/80">
         <ArrowLeft className="size-3.5" /> Commercial
       </Link>
       <h1 className="mt-2 font-display text-display-l text-ink">Referral Administration</h1>
@@ -128,8 +130,16 @@ export default async function ReferralAdministrationPage({
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Total referrals" value={String(rows.length)} />
           <Stat label="Referred clubs activated" value={String(activated)} />
-          <Stat label="Reward £ earned" value={formatMoney(rewardEarnedPence)} />
-          <Stat label="Reward £ reversed" value={formatMoney(rewardReversedPence)} />
+          <Stat
+            label="Free months earned"
+            value={String(withReward.filter((r) => !r.reward_reversed).length)}
+            hint={`Value ${formatMoney(rewardEarnedPence)}`}
+          />
+          <Stat
+            label="Withdrawn"
+            value={String(withReward.filter((r) => r.reward_reversed).length)}
+            hint={`Value ${formatMoney(rewardReversedPence)}`}
+          />
         </div>
       )}
 
@@ -164,7 +174,7 @@ export default async function ReferralAdministrationPage({
             {healthRows?.reward_without_referral ? <li>{healthRows.reward_without_referral} reward without a referral</li> : null}
             {healthRows?.duplicate_attribution ? <li>{healthRows.duplicate_attribution} duplicate attribution</li> : null}
           </ul>
-          <Link href="/admin/commercial/referrals/data-health" className="mt-2 inline-block text-xs font-medium text-destructive underline underline-offset-2">
+          <Link href="/admin/commercial/referrals/data-health" className="mt-2 inline-flex min-h-11 items-center py-2.5 -my-2.5 text-xs font-medium text-destructive underline underline-offset-2">
             View anomaly detail
           </Link>
         </div>
@@ -264,7 +274,7 @@ export default async function ReferralAdministrationPage({
                       </dd>
                     </div>
                   </dl>
-                  <Link href={`/admin/commercial/referrals/${r.referral_id}`} className="mt-2 inline-block text-xs font-medium text-forest-800 underline underline-offset-2">
+                  <Link href={`/admin/commercial/referrals/${r.referral_id}`} className="mt-2 inline-flex min-h-11 items-center py-2.5 -my-2.5 text-xs font-medium text-forest-800 underline underline-offset-2">
                     View detail
                   </Link>
                 </li>
@@ -277,11 +287,12 @@ export default async function ReferralAdministrationPage({
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-4">
       <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">{label}</p>
       <p className="mt-1 text-lg font-semibold text-ink tabular-nums">{value}</p>
+      {hint ? <p className="mt-0.5 text-xs text-ink/45 tabular-nums">{hint}</p> : null}
     </div>
   )
 }

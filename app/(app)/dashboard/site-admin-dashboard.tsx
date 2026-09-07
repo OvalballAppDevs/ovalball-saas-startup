@@ -390,8 +390,12 @@ export function SiteAdminDashboard({
               href="/admin/commercial/referrals"
             >
               {(d) => ({
-                value: formatMoney(d.rewardEarnedPence),
-                detail: `Reward £ earned · ${d.activated} of ${d.total} referred clubs activated`,
+                // The offer is a free month, so that is what the card leads
+                // with. The pence figure is how the month is implemented in
+                // the ledger, not the promise, and belongs in the detail.
+                value:
+                  d.freeMonthsEarned === 1 ? "1 free month" : `${d.freeMonthsEarned} free months`,
+                detail: `Earned · ${d.activated} of ${d.total} referred clubs activated`,
               })}
             </MoneyCardState>
           </div>
@@ -463,21 +467,75 @@ export function SiteAdminDashboard({
             </div>
 
             <div className="rounded-lg border border-ink/10 bg-white p-5 lg:col-span-2">
-              <h3 className="text-sm font-semibold text-ink">Reward £</h3>
-              <div className="mt-3 flex flex-wrap gap-6 text-sm">
-                <span>
-                  <span className="text-ink/55">Earned:</span> <span className="font-mono tabular-nums text-ink">{formatMoney(referralIntelligence.data.rewardEarnedPence)}</span>
-                </span>
-                <span>
-                  <span className="text-ink/55">Reversed:</span> <span className="font-mono tabular-nums text-ink">{formatMoney(referralIntelligence.data.rewardReversedPence)}</span>
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-ink/45">
-                Ovalball&rsquo;s credit ledger is pooled per club, not earmarked per referral, so an &ldquo;applied vs
-                outstanding&rdquo; split cannot be attributed to a specific reward without assuming an allocation
-                order the product does not define -- earned and reversed are the two facts this schema can answer
-                honestly.
+              <h3 className="text-sm font-semibold text-ink">Referral rewards</h3>
+              <p className="mt-1 text-xs text-ink/55">
+                The offer is one month of the referring club&rsquo;s own plan, free, once a referred club&rsquo;s
+                first subscription payment is collected. Months are counted from qualifying referrals, never
+                divided out of a credit balance.
               </p>
+
+              <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                <RewardFigure
+                  label="Free months earned"
+                  value={String(referralIntelligence.data.reward.freeMonthsEarned)}
+                />
+                <RewardFigure
+                  label="Withdrawn"
+                  value={String(referralIntelligence.data.reward.freeMonthsWithdrawn)}
+                  hint="Payment later reversed"
+                />
+                <RewardFigure
+                  label="Value earned"
+                  value={formatMoney(referralIntelligence.data.reward.rewardEarnedPence)}
+                  hint="Snapshotted at earning"
+                />
+                <RewardFigure
+                  label="Value withdrawn"
+                  value={formatMoney(referralIntelligence.data.reward.rewardWithdrawnPence)}
+                />
+              </dl>
+
+              <div className="mt-5 border-t border-ink/8 pt-4">
+                <p className="text-xs font-medium text-ink/70">Club credit ledger — all sources pooled</p>
+                <dl className="mt-2.5 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                  <RewardFigure
+                    label="Applied"
+                    value={formatMoney(referralIntelligence.data.reward.ledgerAppliedPence)}
+                    hint="Against collections"
+                  />
+                  <RewardFigure
+                    label="Outstanding"
+                    value={formatMoney(referralIntelligence.data.reward.ledgerOutstandingPence)}
+                    hint="Balance remaining"
+                  />
+                </dl>
+                <p className="mt-3 text-xs text-ink/45">
+                  Applied and outstanding are ledger-wide: a credit balance can mix referral rewards with
+                  goodwill and beta adjustments, and spending it writes one pooled entry rather than
+                  decrementing a particular reward. So <strong>months</strong> applied and remaining are not
+                  derivable per referral and are deliberately not shown — only the money is exact.
+                </p>
+              </div>
+
+              {referralIntelligence.data.reward.unverifiedRewardCount > 0 && (
+                <div role="alert" className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+                  <p className="text-sm font-medium text-amber-950">
+                    {referralIntelligence.data.reward.unverifiedRewardCount} reward
+                    {referralIntelligence.data.reward.unverifiedRewardCount === 1 ? "" : "s"} cannot be
+                    verified
+                  </p>
+                  <p className="mt-1 text-sm text-amber-900">
+                    The value above includes a reward whose recorded amount does not match the plan price it
+                    snapshotted, so it may not be money that actually moved.
+                  </p>
+                  <Link
+                    href="/admin/commercial/referrals/data-health"
+                    className="mt-1.5 inline-block text-xs font-medium text-amber-900 underline underline-offset-2"
+                  >
+                    View reward integrity detail
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
           ) : null}
@@ -534,6 +592,25 @@ function MoneyCardState<T>({
         <p className="mt-1 text-xs text-amber-900/80">This is a read failure, not a zero.</p>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * dt/dd are returned as siblings, not wrapped in a div carrying a stray <p>.
+ * A <dl> may only directly contain dt/dd groups, and axe flags anything else
+ * -- which breaks the term/definition pairing a screen reader relies on. The
+ * hint therefore lives inside the <dd> it qualifies.
+ */
+function RewardFigure({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <>
+      <dt className="sr-only">{label}</dt>
+      <dd className="min-w-0">
+        <span className="block text-xs text-ink/60">{label}</span>
+        <span className="mt-0.5 block font-mono text-lg text-ink tabular-nums">{value}</span>
+        {hint ? <span className="mt-0.5 block text-xs text-ink/50">{hint}</span> : null}
+      </dd>
+    </>
   )
 }
 

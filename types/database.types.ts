@@ -14313,6 +14313,18 @@ export type Database = {
           referral_id: string
         }[]
       }
+      referral_reward_integrity_detail: {
+        Args: never
+        Returns: {
+          category: string
+          club_id: string
+          club_name: string
+          credit_id: string
+          detail: string
+          finding: string
+          referral_id: string
+        }[]
+      }
       register_referred_club: {
         Args: { p_club_id: string; p_invitation_id: string }
         Returns: boolean

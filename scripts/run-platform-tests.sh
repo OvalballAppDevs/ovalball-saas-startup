@@ -41,6 +41,7 @@ SUITES=(
   directory_admin_verification_status
   admin_referral_administration
   referral_intelligence_accounting
+  referral_reward_semantics
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

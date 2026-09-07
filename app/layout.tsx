@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { Bebas_Neue, Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
@@ -16,6 +17,21 @@ const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
+
+/**
+ * Every page needs a <title>: it is what a screen reader announces on
+ * arrival and what distinguishes one of a dozen open tabs. The app shipped
+ * without any metadata at all, so axe reported a WCAG 2.4.2 (Page Titled)
+ * failure on every route. The template lets a page name itself while
+ * keeping the product name, and the default covers any route that does not.
+ */
+export const metadata: Metadata = {
+  title: {
+    default: "Ovalball",
+    template: "%s · Ovalball",
+  },
+  description: "Run your rugby club — fixtures, teams, people and matchdays in one place.",
+}
 
 export default function RootLayout({
   children,

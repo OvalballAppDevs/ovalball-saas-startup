@@ -22,6 +22,8 @@ import { APP_VERSION } from "@/lib/version"
 import { PlayerMovementsLog } from "./player-movements-log"
 import { SiteAdminDashboard } from "./site-admin-dashboard"
 
+export const metadata = { title: "Dashboard" }
+
 function greeting(): string {
   const hour = new Date().getHours()
   if (hour < 12) return "Good morning"

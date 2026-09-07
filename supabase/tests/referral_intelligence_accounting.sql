@@ -38,7 +38,7 @@ declare
   v_credit uuid;
   v_referral uuid;
   v_count int;
-  v_earned bigint; v_reversed bigint;
+  v_earned bigint; v_reversed bigint; v_reward_price int;
   v_nullable text;
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data) values
@@ -115,16 +115,25 @@ begin
   -- A reward credit, then its reversal, on a referral that has moved to
   -- the 'reversed' terminal status -- the exact real-world shape that the
   -- old "sum reversals inside the qualified set" logic reported as zero.
-  insert into public.platform_credits (id, club_id, amount_pence, currency, source, reason, created_by)
-  values (gen_random_uuid(), v_club_ref, 2500, 'GBP', 'referral_reward', 'RIA test reward', v_site_admin)
+  -- Priced from a REAL plan and carrying its snapshot, because
+  -- platform_credits_reward_matches_snapshot now requires a reward to be
+  -- worth exactly the price it recorded. A fixture that mints an arbitrary
+  -- amount is the very defect that constraint exists to stop.
+  insert into public.platform_credits (id, club_id, amount_pence, currency, source, reason, created_by,
+                                       snapshot_plan_code, snapshot_price_pence, snapshot_price_version)
+  select gen_random_uuid(), v_club_ref, p.price_pence, 'GBP', 'referral_reward', 'RIA test reward', v_site_admin,
+         p.code, p.price_pence, p.price_version
+  from public.platform_plans p where p.code = 'pro'
   returning id into v_credit;
+
+  select amount_pence into v_reward_price from public.platform_credits where id = v_credit;
   insert into public.platform_credits (id, club_id, amount_pence, currency, source, reason, reverses_credit_id, created_by)
-  values (gen_random_uuid(), v_club_ref, -2500, 'GBP', 'reversal', 'RIA test reversal', v_credit, v_site_admin);
+  values (gen_random_uuid(), v_club_ref, -v_reward_price, 'GBP', 'reversal', 'RIA test reversal', v_credit, v_site_admin);
 
   update public.platform_referrals
   set status = 'reversed',
       reward_credit_id = v_credit,
-      reward_amount_pence = 2500,
+      reward_amount_pence = v_reward_price,
       reversed_at = now()
   where id = v_referral;
 
@@ -145,10 +154,10 @@ begin
   select coalesce(sum(reward_amount_pence), 0) into v_reversed
   from public.admin_referral_overview
   where referral_id = v_referral and reward_credit_id is not null and reward_reversed;
-  if v_reversed = 2500 then
-    raise notice 'PASS 5 (B): counting by reward_credit_id surfaces the full GBP 25.00 reversal';
+  if v_reversed = v_reward_price then
+    raise notice 'PASS 5 (B): counting by reward_credit_id surfaces the full % pence reversal', v_reward_price;
   else
-    raise exception 'FAIL 5 (B): expected 2500 reversed, got %', v_reversed;
+    raise exception 'FAIL 5 (B): expected % reversed, got %', v_reward_price, v_reversed;
   end if;
 
   select coalesce(sum(reward_amount_pence), 0) into v_earned

@@ -44,7 +44,8 @@ export interface MemberPaymentsCard {
 export interface ReferralsCard {
   total: number
   activated: number
-  rewardEarnedPence: number
+  /** The product entitlement. One qualifying referral = one free month. */
+  freeMonthsEarned: number
 }
 
 /**
@@ -82,12 +83,47 @@ export interface ReferralActivityEvent {
   occurredAt: string
 }
 
+/**
+ * What Ovalball actually promises a referring club, and its accounting.
+ *
+ * The published Referral Terms say: "one month of the referring club's own
+ * plan, at the price that plan cost at the moment the reward was earned".
+ * So the PRODUCT entitlement is a free month; the pence figure is how that
+ * month is implemented in the ledger, not a cash reward.
+ *
+ * Months are counted, never divided. One qualifying referral earns exactly
+ * one month -- `qualify_referral_for_payment` writes one credit per
+ * qualification -- so `count(qualified)` is exact. Dividing a credit balance
+ * by a current plan price would be wrong the moment pricing changes, plans
+ * differ, or the balance mixes referral rewards with goodwill.
+ *
+ * Months APPLIED and REMAINING are deliberately absent. When credit is
+ * spent, `open_platform_billing_cycle` reads the club's *balance* and writes
+ * one pooled `application` row; it does not decrement a particular reward.
+ * So no month can be traced to its use, and any "2 months remaining" figure
+ * would be invented. The money equivalents are exact and are reported
+ * instead, labelled as ledger-level rather than per-referral.
+ */
+export interface ReferralRewardSummary {
+  /** Exact: one qualifying referral = one month. Never derived by division. */
+  freeMonthsEarned: number
+  /** Exact: qualifying referrals whose reward credit was later reversed. */
+  freeMonthsWithdrawn: number
+  /** Sum of the snapshotted month prices, from the referral rows. */
+  rewardEarnedPence: number
+  rewardWithdrawnPence: number
+  /** Ledger-level, ALL credit sources pooled -- not attributable to referrals. */
+  ledgerAppliedPence: number
+  ledgerOutstandingPence: number
+  /** Rewards whose recorded value cannot be verified against its own snapshot. */
+  unverifiedRewardCount: number
+}
+
 export interface ReferralIntelligenceData {
   funnel: ReferralFunnelStage[]
   topClubs: TopReferringClub[]
   activity: ReferralActivityEvent[]
-  rewardEarnedPence: number
-  rewardReversedPence: number
+  reward: ReferralRewardSummary
   /** Beta suppresses paid conversions. Read from platform mode, never inferred from a zero count. */
   billingCollecting: boolean
 }
@@ -198,9 +234,8 @@ export async function getCommercialCardsData(
       data: {
         total: refs.length,
         activated: refs.filter((r) => r.status === "registered" || r.status === "qualified").length,
-        rewardEarnedPence: refs
-          .filter((r) => r.status === "qualified")
-          .reduce((sum, r) => sum + (r.reward_amount_pence ?? 0), 0),
+        // Counted, not divided: a qualified referral is one earned month.
+        freeMonthsEarned: refs.filter((r) => r.status === "qualified").length,
       },
     }
   }
@@ -211,7 +246,7 @@ export async function getCommercialCardsData(
 export async function getReferralIntelligenceData(
   supabase: SupabaseClient<Database>
 ): Promise<ReadState<ReferralIntelligenceData>> {
-  const [rowsRes, invitesRes, billing] = await Promise.all([
+  const [rowsRes, invitesRes, billing, creditsRes, integrityRes] = await Promise.all([
     supabase.from("admin_referral_overview").select("*"),
     // Invitations are a DIFFERENT entity from referrals: an invitation that
     // was never accepted produces no platform_referrals row at all. Counting
@@ -219,11 +254,16 @@ export async function getReferralIntelligenceData(
     // the top of the funnel -- the exact stage the funnel exists to show.
     supabase.from("club_ovalball_invitations").select("id", { count: "exact", head: true }),
     readBillingCollecting(supabase),
+    // The pooled ledger, for the two money facts that are NOT per-referral.
+    supabase.from("platform_credits").select("amount_pence, source"),
+    supabase.rpc("referral_reward_integrity_detail"),
   ])
 
   if (rowsRes.error) return toErrorState<ReferralIntelligenceData>(rowsRes.error)
   if (invitesRes.error) return toErrorState<ReferralIntelligenceData>(invitesRes.error)
   if (billing.state !== "ok") return billing as ReadState<ReferralIntelligenceData>
+  if (creditsRes.error) return toErrorState<ReferralIntelligenceData>(creditsRes.error)
+  if (integrityRes.error) return toErrorState<ReferralIntelligenceData>(integrityRes.error)
 
   const rows = rowsRes.data ?? []
   const invitationsSent = invitesRes.count ?? 0
@@ -239,12 +279,30 @@ export async function getReferralIntelligenceData(
   // overstates net reward. Reward money is counted across every row that
   // actually produced a reward credit.
   const withReward = rows.filter((r) => r.reward_credit_id !== null)
-  const rewardEarnedPence = withReward
-    .filter((r) => !r.reward_reversed)
-    .reduce((sum, r) => sum + (r.reward_amount_pence ?? 0), 0)
-  const rewardReversedPence = withReward
-    .filter((r) => r.reward_reversed)
-    .reduce((sum, r) => sum + (r.reward_amount_pence ?? 0), 0)
+  const stillHeld = withReward.filter((r) => !r.reward_reversed)
+  const withdrawn = withReward.filter((r) => r.reward_reversed)
+
+  // One qualifying referral earns exactly one month. Counted, never divided.
+  const reward: ReferralRewardSummary = {
+    freeMonthsEarned: stillHeld.length,
+    freeMonthsWithdrawn: withdrawn.length,
+    rewardEarnedPence: stillHeld.reduce((sum, r) => sum + (r.reward_amount_pence ?? 0), 0),
+    rewardWithdrawnPence: withdrawn.reduce((sum, r) => sum + (r.reward_amount_pence ?? 0), 0),
+    ledgerAppliedPence: Math.abs(
+      (creditsRes.data ?? [])
+        .filter((c) => c.source === "application")
+        .reduce((sum, c) => sum + c.amount_pence, 0)
+    ),
+    // The ledger balance IS "outstanding": earnings positive, applications
+    // and reversals negative. Same definition club_credit_balance_pence uses.
+    ledgerOutstandingPence: (creditsRes.data ?? []).reduce((sum, c) => sum + c.amount_pence, 0),
+    // Distinct rewards, not detector rows: one bad reward can trip several
+    // checks at once (its credit AND its referral record), and reporting the
+    // row count would overstate how many rewards are actually affected.
+    unverifiedRewardCount: new Set(
+      (integrityRes.data ?? []).map((r) => r.credit_id ?? r.referral_id ?? Math.random())
+    ).size,
+  }
 
   const funnel: ReferralFunnelStage[] = [
     { key: "invited", label: "Invitations sent", count: invitationsSent },
@@ -263,11 +321,12 @@ export async function getReferralIntelligenceData(
     },
     {
       key: "rewarded",
-      label: "Rewards earned",
-      count: withReward.filter((r) => !r.reward_reversed).length,
+      // The product's own words. One qualifying referral = one free month.
+      label: "Free months earned",
+      count: reward.freeMonthsEarned,
       note:
-        withReward.some((r) => r.reward_reversed)
-          ? `${withReward.filter((r) => r.reward_reversed).length} reversed and excluded.`
+        reward.freeMonthsWithdrawn > 0
+          ? `${reward.freeMonthsWithdrawn} withdrawn after a reversed payment, and excluded here.`
           : undefined,
     },
   ]
@@ -335,8 +394,7 @@ export async function getReferralIntelligenceData(
       funnel,
       topClubs,
       activity: activity.slice(0, 20),
-      rewardEarnedPence,
-      rewardReversedPence,
+      reward,
       billingCollecting,
     },
   }

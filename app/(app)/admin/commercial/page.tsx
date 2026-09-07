@@ -10,6 +10,8 @@ import { ExtendTrialDialog } from "./extend-trial-dialog"
 
 export const dynamic = "force-dynamic"
 
+export const metadata = { title: "Commercial" }
+
 const SECONDS_PER_DAY = 86_400
 const TRIAL_WARNING_DAYS = 7
 

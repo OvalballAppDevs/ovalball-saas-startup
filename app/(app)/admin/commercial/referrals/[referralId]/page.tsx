@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
+export const metadata = { title: "Referral Detail" }
+
 /**
  * R-5 drill-through detail. Shows the canonical lifecycle for one referral
  * and legitimate links to the entities that actually exist -- never
@@ -46,7 +48,7 @@ export default async function ReferralDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/commercial/referrals" className="inline-flex items-center gap-1.5 text-sm text-ink/55 hover:text-ink/80">
+      <Link href="/admin/commercial/referrals" className="inline-flex min-h-11 items-center gap-1.5 py-2.5 -my-2.5 text-sm text-ink/55 hover:text-ink/80">
         <ArrowLeft className="size-3.5" /> Referral Administration
       </Link>
       <h1 className="mt-2 font-display text-display-l text-ink">
@@ -63,17 +65,36 @@ export default async function ReferralDetailPage({ params }: { params: Promise<{
         <Field label="Invitation contact" value={r.invitation_contact_email ?? "—"} />
         <Field label="Referred club activated" value={r.referred_club_activated_at ? formatDate(r.referred_club_activated_at) : "Not yet"} />
         <Field label="Qualifying payment" value={r.qualifying_payment_status ? `${r.qualifying_payment_status} (${r.qualifying_payment_charge_date ? formatDate(r.qualifying_payment_charge_date) : "—"})` : "None yet"} />
-        <Field label="Reward earned" value={r.reward_amount_pence ? formatMoney(r.reward_amount_pence) : "None yet"} />
-        <Field label="Reward reversed" value={r.reward_reversed ? "Yes" : "No"} />
+        {/* The offer is a free month. State the entitlement first, then the
+            money that implements it -- not the money alone. */}
+        <Field
+          label="Free month"
+          value={
+            r.status === "qualified" && !r.reward_reversed
+              ? "Earned"
+              : r.reward_reversed
+                ? "Withdrawn — qualifying payment reversed"
+                : "Not yet earned"
+          }
+        />
+        <Field
+          label="Reward value"
+          value={
+            r.reward_amount_pence
+              ? `${formatMoney(r.reward_amount_pence)}${r.reward_plan_code ? ` · ${r.reward_plan_code} plan` : ""}`
+              : "None yet"
+          }
+        />
         {r.rejection_reason && <Field label="Rejection reason" value={r.rejection_reason} />}
       </div>
 
       {r.reward_credit_id && (
         <p className="mt-4 text-xs text-ink/50">
-          Ovalball&rsquo;s credit ledger is pooled per club, not earmarked per referral, so &ldquo;applied&rdquo; vs
-          &ldquo;outstanding&rdquo; cannot be attributed to this one reward without assuming an allocation order the
-          product does not define. &ldquo;Reversed&rdquo; above is the one fact this schema can answer honestly per
-          referral.
+          The reward is one month of the referring club&rsquo;s own plan, at the price that plan cost when the
+          reward was earned — recorded then and never recalculated, so a later price change does not alter it.
+          Whether that month has since been <em>used</em> cannot be answered for this referral alone: credit is
+          applied from the club&rsquo;s pooled balance, not decremented from a particular reward.
+          &ldquo;Withdrawn&rdquo; above is the one per-referral fact this schema can answer honestly.
         </p>
       )}
 
