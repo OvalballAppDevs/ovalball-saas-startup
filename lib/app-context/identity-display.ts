@@ -6,6 +6,20 @@ export interface IdentityDisplay {
   avatarKind: IdentityAvatarKind
   nameLabel: string
   subLabel: string
+  /**
+   * Whether the person avatar may show the SIGNED-IN account's photo and
+   * initials. False whenever the subject is somebody other than the viewer
+   * -- today, a guardian's child.
+   *
+   * Naming the child but drawing the parent's avatar beside the name is the
+   * same defect as the reported "clicking into Pippa still shows Callum",
+   * only in the picture instead of the text: live UAT showed "DW" (Dana
+   * Whitaker, the parent) sitting next to "Ben Whitaker". With a real
+   * uploaded photo it is worse -- an adult's face captioned with a child's
+   * name. Children have no avatar of their own yet, so callers fall back to
+   * initials derived from nameLabel and pass no URL.
+   */
+  avatarUsesPersonPhoto: boolean
 }
 
 /**
@@ -27,25 +41,45 @@ export interface IdentityDisplay {
  */
 export function resolveIdentityDisplay(
   kind: ActiveContextKind,
-  input: { contextLabel: string; roleLabel: string; personName: string }
+  input: {
+    contextLabel: string
+    roleLabel: string
+    personName: string
+    /** The child a Guardian-sourced "parent" context is about, when there is one. */
+    subjectName?: string | null
+  }
 ): IdentityDisplay {
   const personLabel = input.personName || "Ovalball User"
   switch (kind) {
     case "club":
-      return { avatarKind: "club", nameLabel: input.contextLabel, subLabel: input.roleLabel }
+      return { avatarKind: "club", nameLabel: input.contextLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: false }
     case "team":
-      return { avatarKind: "person", nameLabel: personLabel, subLabel: `${input.contextLabel} ${input.roleLabel}` }
+      return { avatarKind: "person", nameLabel: personLabel, subLabel: `${input.contextLabel} ${input.roleLabel}`, avatarUsesPersonPhoto: true }
     case "parent":
-      // roleLabel is either "Parent/Guardian" (canonical, Guardian-relationship-sourced)
-      // or the legacy teamPermissionLabel() string for a not-yet-linked
-      // view_only row (Relationship Registry §11/§40) -- shown as-is
-      // either way rather than hardcoding one wording that would go stale
-      // the moment a row is properly classified.
-      return { avatarKind: "person", nameLabel: personLabel, subLabel: input.roleLabel }
+      // The SUBJECT of a child context is the child, not the signed-in
+      // adult. This previously returned personLabel, so selecting "Pippa"
+      // left the identity block reading the parent's own name and the child
+      // disappeared from the one place that says what you are looking at --
+      // reported live as "clicking into Pippa still shows Callum Krzysik".
+      //
+      // The adult's role stays on the second line, so it is still obvious
+      // you are acting AS a guardian rather than as the child. A legacy
+      // view_only "parent" row has no child to name and keeps the old
+      // shape, roleLabel and all.
+      if (input.subjectName) {
+        return {
+          avatarKind: "person",
+          nameLabel: input.subjectName,
+          subLabel: `${input.contextLabel} · ${input.roleLabel}`,
+          avatarUsesPersonPhoto: false,
+        }
+      }
+      return { avatarKind: "person", nameLabel: personLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: true }
     case "player":
-      return { avatarKind: "person", nameLabel: personLabel, subLabel: `${input.contextLabel} Player` }
+      // A player context IS the signed-in person, so their own photo is right.
+      return { avatarKind: "person", nameLabel: personLabel, subLabel: `${input.contextLabel} Player`, avatarUsesPersonPhoto: true }
     case "site_admin":
-      return { avatarKind: "brand", nameLabel: "Ovalball", subLabel: "Site Admin" }
+      return { avatarKind: "brand", nameLabel: "Ovalball", subLabel: "Site Admin", avatarUsesPersonPhoto: false }
   }
 }
 

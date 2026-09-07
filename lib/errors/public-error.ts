@@ -137,6 +137,13 @@ const SAFE_ADD_CHILD_ERROR_PREFIXES = [
   "This date of birth is below the youngest supported youth age grade",
   "This date of birth is outside the supported youth age-grade range",
   "We found more than one possible existing match for this player",
+  // The invite-only guard's own message. Without this entry the RPC's clear,
+  // actionable refusal was replaced by the generic "sign out and back in"
+  // fallback -- which is why a brand-new parent's FIRST child appeared to
+  // fail for no reason, while their second (by which point the guardian
+  // relationship existed and the guard passed) worked. Safe to show: it
+  // reveals nothing beyond the club the parent themselves just chose.
+  "You need an invitation from this club before you can add a child to it.",
 ]
 
 export function toPublicAddChildError(error: RawErrorLike): string {

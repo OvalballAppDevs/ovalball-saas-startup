@@ -51,6 +51,21 @@ export interface SwitchableContext {
   label: string
   /** The text the context switcher's OWN dropdown list renders (Side Project 1 integration, Section 17) -- identical to `label` for every kind except a guardian-relationship-sourced "parent" context, where it's "<child's first name> — <team>" so two children on the same team read as two distinct rows instead of an unlabelled duplicate. Only the switcher list itself reads this; every other consumer (headers, nav) uses `label`. */
   switcherLabel: string
+  /**
+   * WHO this context is about, when that is not the signed-in person: the
+   * child for a Guardian-sourced "parent" context, and the user's own player
+   * for a "player" context. Null for club/team/site_admin, where the subject
+   * is the club or the account itself.
+   *
+   * Exists because the identity block used to render the signed-in ADULT's
+   * name for a child context -- so selecting "Pippa" left the sidebar saying
+   * the parent's own name, and the child vanished from the one place that
+   * says what you are looking at. Presentation only, never an authorization
+   * input, exactly like every other field here.
+   */
+  subjectName?: string | null
+  /** The club a child context belongs to, so the switcher can read "Burnley RUFC · U9" rather than a bare team name. */
+  subjectClubName?: string | null
   roleLabel: string
   logoUrl: string | null
   /** The owning club, resolved once at push time from whichever source produced this context (club membership, team_permissions, guardianRelationships, or linkedPlayerTeams) -- never re-derived by looking a team back up in team_permissions, which doesn't exist for a Guardian/Player-sourced context. null only for "site_admin" (no ambient club) or the empty fallback context. */
@@ -124,7 +139,12 @@ export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[]
       id: g.teamId,
       playerId: g.playerId,
       label: g.teamDisplayName,
-      switcherLabel: `${g.playerFirstName} — ${g.teamDisplayName}`,
+      switcherLabel: `${g.playerFirstName} ${g.playerSurname}`.trim(),
+      subjectName: `${g.playerFirstName} ${g.playerSurname}`.trim(),
+      subjectClubName: g.clubName,
+      // The VIEWER's role, not the child's. The switcher no longer prints
+      // this next to the child's name, because doing so read as though the
+      // child were the Parent/Guardian.
       roleLabel: "Parent/Guardian",
       logoUrl: null,
       clubId: g.clubId,
@@ -140,6 +160,7 @@ export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[]
       playerId: null,
       label: tp.teamDisplayName,
       switcherLabel: tp.teamDisplayName,
+      subjectClubName: tp.clubName,
       roleLabel: teamPermissionLabel(tp.permission),
       logoUrl: null,
       clubId: tp.clubId,
@@ -154,6 +175,7 @@ export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[]
       playerId: pt.playerId,
       label: pt.teamDisplayName,
       switcherLabel: pt.teamDisplayName,
+      subjectClubName: pt.clubName,
       roleLabel: "Player",
       logoUrl: null,
       clubId: pt.clubId,

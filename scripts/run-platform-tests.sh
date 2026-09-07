@@ -46,6 +46,7 @@ SUITES=(
   referral_reward_semantics
   email_delivery_foundation
   calendar_match_centre_link
+  add_child_flow
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

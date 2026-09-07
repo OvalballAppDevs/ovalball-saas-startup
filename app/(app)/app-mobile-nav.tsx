@@ -86,7 +86,14 @@ export function AppMobileNav({
   const { switchTo, isPending } = useSwitchContextState()
   const active = contexts.find((c) => c.key === activeKey) ?? null
   const settingsLink = resolveContextSettingsLink(identityKind, active?.id ?? null, clubName)
-  const identity = resolveIdentityDisplay(identityKind, { contextLabel: clubName, roleLabel, personName })
+  // Must resolve identically to the desktop ContextSwitcher -- same helper,
+  // same inputs, including the child a parent context is about.
+  const identity = resolveIdentityDisplay(identityKind, {
+    contextLabel: clubName,
+    roleLabel,
+    personName,
+    subjectName: active?.subjectName ?? null,
+  })
 
   return (
     <div className="sticky top-0 z-40 flex items-center justify-between border-b border-forest-950/10 bg-forest-950 px-4 py-3 md:hidden">
@@ -127,7 +134,12 @@ export function AppMobileNav({
                   <OvalballMark variant="dark" className="h-4 w-6" />
                 </div>
               ) : (
-                <UserAvatar avatarUrl={personAvatarUrl} name={personName} size="sm" variant="dark" />
+                <UserAvatar
+                  avatarUrl={identity.avatarUsesPersonPhoto ? personAvatarUrl : null}
+                  name={identity.avatarUsesPersonPhoto ? personName : identity.nameLabel}
+                  size="sm"
+                  variant="dark"
+                />
               )}
 
               <div className="min-w-0 flex-1">
@@ -199,8 +211,17 @@ export function AppMobileNav({
                     }
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate">{c.label}</span>
-                      <span className="block text-xs text-white/60">{c.roleLabel}</span>
+                      {/* switcherLabel, not label: `label` is the bare team
+                          name, so two children on the SAME team rendered as
+                          two identical rows here. Caption matches desktop --
+                          a child is described by club and team, never by the
+                          viewer's own "Parent/Guardian" role. */}
+                      <span className="block truncate">{c.switcherLabel}</span>
+                      <span className="block truncate text-xs text-white/60">
+                        {c.subjectName
+                          ? [c.subjectClubName, c.label].filter(Boolean).join(" · ")
+                          : c.roleLabel}
+                      </span>
                     </span>
                     {c.key === activeKey && <Check className="size-4 shrink-0" />}
                   </SheetClose>

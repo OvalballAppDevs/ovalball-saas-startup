@@ -56,7 +56,12 @@ export function ContextSwitcher({
   const active = contexts.find((c) => c.key === activeKey) ?? null
   const settingsLink = resolveContextSettingsLink(identityKind, active?.id ?? null, clubName)
 
-  const identity = resolveIdentityDisplay(identityKind, { contextLabel: clubName, roleLabel, personName })
+  const identity = resolveIdentityDisplay(identityKind, {
+    contextLabel: clubName,
+    roleLabel,
+    personName,
+    subjectName: active?.subjectName ?? null,
+  })
   const identityAvatar =
     identity.avatarKind === "club" ? (
       <ClubAvatar logoUrl={clubLogoUrl} name={clubName} size="sm" variant="dark" />
@@ -65,7 +70,12 @@ export function ContextSwitcher({
         <OvalballMark variant="dark" className="h-4 w-6" />
       </div>
     ) : (
-      <UserAvatar avatarUrl={personAvatarUrl} name={personName} size="sm" variant="dark" />
+      <UserAvatar
+        avatarUrl={identity.avatarUsesPersonPhoto ? personAvatarUrl : null}
+        name={identity.avatarUsesPersonPhoto ? personName : identity.nameLabel}
+        size="sm"
+        variant="dark"
+      />
     )
   const nameLabel = identity.nameLabel
   const subLabel = identity.subLabel
@@ -124,7 +134,17 @@ export function ContextSwitcher({
                 <Check className={cn("size-3.5 shrink-0", c.key === activeKey ? "opacity-100" : "opacity-0")} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm">{c.switcherLabel}</span>
-                  <span className="block text-xs text-muted-foreground">{c.roleLabel}</span>
+                  {/* A child row is captioned with WHO THE CHILD IS -- club
+                      and team -- not with the viewer's own role. Printing
+                      "Parent/Guardian" under "Pippa" read as though Pippa
+                      were the guardian, which is exactly how this was
+                      reported. Every other context still shows the role,
+                      because there the role IS the subject. */}
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {c.subjectName
+                      ? [c.subjectClubName, c.label].filter(Boolean).join(" · ")
+                      : c.roleLabel}
+                  </span>
                 </span>
               </DropdownMenuItem>
             ))}
