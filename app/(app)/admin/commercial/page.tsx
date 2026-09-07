@@ -37,13 +37,17 @@ export default async function AdminCommercialPage() {
 
   const canManage = await hasCapability(supabase, "site.commercial.manage", "site")
 
-  const [{ data: overviewRows }, { data: referralRows }] = await Promise.all([
+  const [overviewRes, referralRes] = await Promise.all([
     supabase.rpc("platform_commercial_overview"),
     supabase.from("platform_referrals").select("status"),
   ])
 
-  const clubs = overviewRows ?? []
-  const referrals = referralRows ?? []
+  // "Nothing needs attention" is an all-clear a Site Admin acts on -- it must
+  // never be what a failed read looks like.
+  const overviewError = overviewRes.error
+  const referralError = referralRes.error
+  const clubs = overviewRes.data ?? []
+  const referrals = referralRes.data ?? []
 
   const daysLeft = (seconds: number | null) =>
     seconds === null ? null : Math.ceil(seconds / SECONDS_PER_DAY)
@@ -102,9 +106,29 @@ export default async function AdminCommercialPage() {
         pay Ovalball &mdash; never what a club&rsquo;s own members pay the club.
       </p>
 
+      {(overviewError || referralError) && (
+        <div role="alert" className="mt-6 rounded-lg border border-amber-300 bg-amber-50 px-5 py-4">
+          <p className="text-sm font-medium text-amber-950">
+            {overviewError ? "Club commercial data" : "Referral data"} could not be loaded
+          </p>
+          <p className="mt-1 text-sm text-amber-900">
+            This is a read failure, not a zero. Treat the figures below as incomplete rather than as an
+            all-clear.
+          </p>
+          <p className="mt-1.5 font-mono text-xs break-words text-amber-900/80">
+            {(overviewError ?? referralError)?.message}
+          </p>
+        </div>
+      )}
+
       <section className="mt-8">
         <h2 className="font-display text-xl text-ink">Needs attention</h2>
-        {attention.length === 0 ? (
+        {overviewError ? (
+          <p className="mt-3 rounded-lg border border-ink/10 bg-white px-5 py-4 text-sm text-ink/70">
+            Unknown &mdash; the club commercial read failed above, so nothing can be checked for
+            attention right now.
+          </p>
+        ) : attention.length === 0 ? (
           <p className="mt-3 rounded-lg border border-ink/10 bg-white px-5 py-4 text-sm text-ink/70">
             Nothing needs attention. No failed payments, no trial ending within a week, and no club
             waiting to finish setting up a Direct Debit.

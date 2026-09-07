@@ -23,7 +23,7 @@ export default async function ReferralDataHealthPage() {
   if (!activeSiteAdmin.ok) redirect("/dashboard")
   if (!(await hasCapability(supabase, "site.commercial.view", "site"))) redirect("/dashboard")
 
-  const { data: rows } = await supabase.rpc("referral_data_health_detail")
+  const { data: rows, error } = await supabase.rpc("referral_data_health_detail")
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
@@ -36,7 +36,20 @@ export default async function ReferralDataHealthPage() {
       </p>
 
       <div className="mt-6">
-        {!rows || rows.length === 0 ? (
+        {error ? (
+          /* The page above promises findings are "never hidden behind a zero
+             count". Rendering "No anomalies found." when the check itself
+             failed would break that promise in the most dangerous direction:
+             a false all-clear on a data-integrity screen. */
+          <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-5 py-4">
+            <p className="text-sm font-medium text-amber-950">The data-health check could not be run</p>
+            <p className="mt-1 text-sm text-amber-900">
+              This is not an all-clear. Whether there are anomalies is currently unknown. Refresh to try
+              again.
+            </p>
+            <p className="mt-1.5 font-mono text-xs break-words text-amber-900/80">{error.message}</p>
+          </div>
+        ) : !rows || rows.length === 0 ? (
           <p className="rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/55">
             No anomalies found.
           </p>

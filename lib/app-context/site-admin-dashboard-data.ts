@@ -147,7 +147,13 @@ export interface SiteAdminDashboardData {
 /** Postgres "insufficient privilege". The database refused, not the network. */
 const INSUFFICIENT_PRIVILEGE = "42501"
 
-function toErrorState<T>(error: { code?: string; message: string }): ReadState<T> {
+/**
+ * Exported so every Site Admin read applies ONE definition of "the database
+ * refused" vs "the read failed". A second copy of this rule elsewhere is how
+ * one surface starts reporting a denial as a generic error -- or worse, as a
+ * zero.
+ */
+export function toErrorState<T>(error: { code?: string; message: string }): ReadState<T> {
   if (error.code === INSUFFICIENT_PRIVILEGE) return { state: "unauthorized" }
   return { state: "error", message: error.message }
 }

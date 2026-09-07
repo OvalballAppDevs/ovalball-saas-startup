@@ -54,22 +54,41 @@ export default async function ReferralAdministrationPage({
   if (params.status && ["pending", "registered", "qualified", "rejected", "reversed"].includes(params.status)) {
     query = query.eq("status", params.status)
   }
-  if (params.q?.trim()) {
-    const q = `%${params.q.trim()}%`
+  const searchTerm = params.q?.trim() ?? ""
+  if (searchTerm) {
+    // PostgREST parses `or=` as a comma-separated list wrapped in parens, so
+    // a club search containing , ( ) . or \ would not just fail -- it would
+    // re-write the filter expression. Escaped and quoted per PostgREST's own
+    // rules so the term is only ever a value, never syntax.
+    const q = `"%${searchTerm.replace(/["\\]/g, (c) => `\\${c}`)}%"`
     query = query.or(`referring_club_name.ilike.${q},referred_club_name.ilike.${q}`)
   }
 
-  const [{ data: referrals }, { data: healthRows }] = await Promise.all([
+  const [referralsRes, healthRes] = await Promise.all([
     query,
-    supabase.rpc("referral_data_health").then((r) => ({ data: r.data?.[0] ?? null })),
+    supabase.rpc("referral_data_health"),
   ])
 
-  const rows = referrals ?? []
+  // A failed read must never render as "0 referrals, £0 earned, no anomalies"
+  // -- on this page in particular, where zero anomalies is the all-clear a
+  // Site Admin acts on. Both reads are surfaced as failures instead.
+  const referralsError = referralsRes.error
+  const rows = referralsRes.data ?? []
   const activated = rows.filter((r) => r.status === "registered" || r.status === "qualified").length
-  const qualified = rows.filter((r) => r.status === "qualified")
-  const rewardEarnedPence = qualified.reduce((sum, r) => sum + (r.reward_amount_pence ?? 0), 0)
-  const rewardReversedPence = qualified.filter((r) => r.reward_reversed).reduce((sum, r) => sum + (r.reward_amount_pence ?? 0), 0)
 
+  // A reversal moves the referral to its own terminal status, so reversed
+  // rewards do not sit inside the qualified set -- counting them there
+  // reports £0 reversed however much was clawed back.
+  const withReward = rows.filter((r) => r.reward_credit_id !== null)
+  const rewardEarnedPence = withReward
+    .filter((r) => !r.reward_reversed)
+    .reduce((sum, r) => sum + (r.reward_amount_pence ?? 0), 0)
+  const rewardReversedPence = withReward
+    .filter((r) => r.reward_reversed)
+    .reduce((sum, r) => sum + (r.reward_amount_pence ?? 0), 0)
+
+  const healthError = healthRes.error
+  const healthRows = healthRes.data?.[0] ?? null
   const anomalyCount = healthRows
     ? healthRows.missing_attribution +
       healthRows.pending_for_activated_club +
@@ -96,12 +115,41 @@ export default async function ReferralAdministrationPage({
         Ovalball, not invitations sent.
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Total referrals" value={String(rows.length)} />
-        <Stat label="Referred clubs activated" value={String(activated)} />
-        <Stat label="Reward £ earned" value={formatMoney(rewardEarnedPence)} />
-        <Stat label="Reward £ reversed" value={formatMoney(rewardReversedPence)} />
-      </div>
+      {referralsError ? (
+        <div role="alert" className="mt-6 rounded-lg border border-amber-300 bg-amber-50 px-5 py-4">
+          <p className="text-sm font-medium text-amber-950">Referrals could not be loaded</p>
+          <p className="mt-1 text-sm text-amber-900">
+            This is a read failure, not a zero. No referral figures are shown below because none could be
+            counted. Refresh to try again.
+          </p>
+          <p className="mt-1.5 font-mono text-xs break-words text-amber-900/80">{referralsError.message}</p>
+        </div>
+      ) : (
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Total referrals" value={String(rows.length)} />
+          <Stat label="Referred clubs activated" value={String(activated)} />
+          <Stat label="Reward £ earned" value={formatMoney(rewardEarnedPence)} />
+          <Stat label="Reward £ reversed" value={formatMoney(rewardReversedPence)} />
+        </div>
+      )}
+
+      {/* The anomaly banner is an alarm. An alarm whose own check failed must
+          say so -- silently rendering nothing here reads as "all clear". */}
+      {healthError && (
+        <div role="alert" className="mt-6 rounded-lg border border-amber-300 bg-amber-50 px-5 py-4">
+          <p className="text-sm font-medium text-amber-950">Referral data health could not be checked</p>
+          <p className="mt-1 text-sm text-amber-900">
+            This is not an all-clear. The anomaly count below is unknown, not zero.
+          </p>
+          <p className="mt-1.5 font-mono text-xs break-words text-amber-900/80">{healthError.message}</p>
+        </div>
+      )}
+
+      {!healthError && anomalyCount === 0 && (
+        <p className="mt-6 rounded-lg border border-ink/10 bg-white px-5 py-3.5 text-sm text-ink/55">
+          No referral data-health anomalies found.
+        </p>
+      )}
 
       {anomalyCount > 0 && (
         <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3.5">

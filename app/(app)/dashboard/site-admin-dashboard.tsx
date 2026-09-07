@@ -56,9 +56,9 @@ export function SiteAdminDashboard({
   data: SiteAdminDashboardData
   badgeState: BetaBadgeState
   appVersion: string
-  /** null when the viewing Site Admin lacks site.commercial.view -- the whole section then does not render, never a locked placeholder. */
+  /** null when the viewing Site Admin lacks site.commercial.view -- the whole section then does not render, never a locked placeholder. Inside it, each card carries its own read state. */
   commercialCards: CommercialCardsData | null
-  referralIntelligence: ReferralIntelligenceData | null
+  referralIntelligence: ReadState<ReferralIntelligenceData> | null
 }) {
   const { platform, operations, commercial, fixturesToday, trends } = data
   const alerts = buildAlerts(operations, commercial)
@@ -357,29 +357,43 @@ export function SiteAdminDashboard({
           description="Three separate money domains -- what clubs pay Ovalball, what a club's own members pay the club, and referral rewards. Never mixed."
           action={{ href: "/admin/commercial", label: "Commercial" }}
         >
+          {/* Each card carries its own read state. A referral outage must not
+              turn the SaaS card into a confident, wrong "£0". */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <MoneyCard
-              label="Ovalball SaaS"
-              value={commercialCards.saas.billingCollecting ? formatMoney(commercialCards.saas.mrrPence) : "Beta"}
-              detail={
-                commercialCards.saas.billingCollecting
-                  ? `MRR · ${commercialCards.saas.activeSubscriptions} active, ${commercialCards.saas.onTrial} on trial`
-                  : `SaaS billing not currently collecting · ${commercialCards.saas.activeSubscriptions} active, ${commercialCards.saas.onTrial} on trial`
-              }
-              href="/admin/commercial"
-            />
-            <MoneyCard
+            <MoneyCardState label="Ovalball SaaS" state={commercialCards.saas} href="/admin/commercial">
+              {(d) => ({
+                value: d.billingCollecting ? formatMoney(d.mrrPence) : "Beta",
+                detail: d.billingCollecting
+                  ? `MRR · ${d.activeSubscriptions} active, ${d.onTrial} on trial`
+                  : `SaaS billing not currently collecting · ${d.activeSubscriptions} active, ${d.onTrial} on trial`,
+              })}
+            </MoneyCardState>
+            <MoneyCardState
               label="Club member payments"
-              value={formatMoney(commercialCards.memberPayments.collectedLast30dPence)}
-              detail={`Collected, last 30 days · ${commercialCards.memberPayments.clubsConnected} clubs connected`}
+              state={commercialCards.memberPayments}
               href="/admin/clubs"
-            />
-            <MoneyCard
+            >
+              {(d) => ({
+                value: formatMoney(d.collectedLast30dPence),
+                // Clubs connected comes from the same authorized adoption read
+                // the Adoption section uses, so the two can never disagree. If
+                // that read failed, the clause is dropped rather than guessed.
+                detail:
+                  trends.state === "ok"
+                    ? `Collected, last 30 days · ${trends.data.adoption.withMemberPayments} clubs taking member payments`
+                    : "Collected, last 30 days",
+              })}
+            </MoneyCardState>
+            <MoneyCardState
               label="Referrals & rewards"
-              value={formatMoney(commercialCards.referrals.rewardEarnedPence)}
-              detail={`Reward £ earned · ${commercialCards.referrals.activated} of ${commercialCards.referrals.total} referred clubs activated`}
+              state={commercialCards.referrals}
               href="/admin/commercial/referrals"
-            />
+            >
+              {(d) => ({
+                value: formatMoney(d.rewardEarnedPence),
+                detail: `Reward £ earned · ${d.activated} of ${d.total} referred clubs activated`,
+              })}
+            </MoneyCardState>
           </div>
         </DashboardSection>
       )}
@@ -391,17 +405,22 @@ export function SiteAdminDashboard({
           description="Ranked by clubs actually activated, not invitations sent -- during Beta a paid conversion is real when it happens, never assumed."
           action={{ href: "/admin/commercial/referrals", label: "Referral Administration" }}
         >
+          {referralIntelligence.state === "error" ? (
+            <SectionError what="Referral intelligence" message={referralIntelligence.message} />
+          ) : referralIntelligence.state === "unauthorized" ? (
+            <SectionUnauthorized what="Referral intelligence" />
+          ) : referralIntelligence.state === "ok" ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-ink/10 bg-white p-5">
               <h3 className="text-sm font-semibold text-ink">Referral funnel</h3>
               <ul className="mt-3 flex flex-col gap-2">
-                {referralIntelligence.funnel.map((stage) => (
-                  <li key={stage.key} className="flex items-center justify-between gap-3 text-sm">
-                    <span className={stage.active ? "text-ink/80" : "text-ink/40"}>{stage.label}</span>
-                    <span className="flex items-center gap-2">
-                      {!stage.active && stage.note && <span className="text-xs text-ink/40">{stage.note}</span>}
-                      <span className={`font-mono tabular-nums ${stage.active ? "text-ink" : "text-ink/40"}`}>{stage.count}</span>
+                {referralIntelligence.data.funnel.map((stage) => (
+                  <li key={stage.key} className="flex flex-col gap-0.5 text-sm">
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="text-ink/80">{stage.label}</span>
+                      <span className="font-mono text-ink tabular-nums">{stage.count}</span>
                     </span>
+                    {stage.note ? <span className="text-xs text-ink/45">{stage.note}</span> : null}
                   </li>
                 ))}
               </ul>
@@ -409,11 +428,11 @@ export function SiteAdminDashboard({
 
             <div className="rounded-lg border border-ink/10 bg-white p-5">
               <h3 className="text-sm font-semibold text-ink">Top referring clubs</h3>
-              {referralIntelligence.topClubs.length === 0 ? (
+              {referralIntelligence.data.topClubs.length === 0 ? (
                 <p className="mt-3 text-sm text-ink/55">No referrals yet.</p>
               ) : (
                 <ol className="mt-3 flex flex-col gap-2">
-                  {referralIntelligence.topClubs.map((c, i) => (
+                  {referralIntelligence.data.topClubs.map((c, i) => (
                     <li key={c.clubId} className="flex items-center justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate text-ink/80">
                         {i + 1}. {c.clubName}
@@ -429,11 +448,11 @@ export function SiteAdminDashboard({
 
             <div className="rounded-lg border border-ink/10 bg-white p-5 lg:col-span-2">
               <h3 className="text-sm font-semibold text-ink">Live referral activity</h3>
-              {referralIntelligence.activity.length === 0 ? (
+              {referralIntelligence.data.activity.length === 0 ? (
                 <p className="mt-3 text-sm text-ink/55">No referral activity yet.</p>
               ) : (
                 <ul className="mt-3 flex flex-col gap-2">
-                  {referralIntelligence.activity.slice(0, 8).map((event) => (
+                  {referralIntelligence.data.activity.slice(0, 8).map((event) => (
                     <li key={event.id} className="flex items-center justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate text-ink/80">{event.detail}</span>
                       <span className="shrink-0 text-xs text-ink/45 tabular-nums">{formatRelativeDate(event.occurredAt)}</span>
@@ -447,10 +466,10 @@ export function SiteAdminDashboard({
               <h3 className="text-sm font-semibold text-ink">Reward £</h3>
               <div className="mt-3 flex flex-wrap gap-6 text-sm">
                 <span>
-                  <span className="text-ink/55">Earned:</span> <span className="font-mono tabular-nums text-ink">{formatMoney(referralIntelligence.rewardEarnedPence)}</span>
+                  <span className="text-ink/55">Earned:</span> <span className="font-mono tabular-nums text-ink">{formatMoney(referralIntelligence.data.rewardEarnedPence)}</span>
                 </span>
                 <span>
-                  <span className="text-ink/55">Reversed:</span> <span className="font-mono tabular-nums text-ink">{formatMoney(referralIntelligence.rewardReversedPence)}</span>
+                  <span className="text-ink/55">Reversed:</span> <span className="font-mono tabular-nums text-ink">{formatMoney(referralIntelligence.data.rewardReversedPence)}</span>
                 </span>
               </div>
               <p className="mt-2 text-xs text-ink/45">
@@ -461,8 +480,59 @@ export function SiteAdminDashboard({
               </p>
             </div>
           </div>
+          ) : null}
         </DashboardSection>
       )}
+    </div>
+  )
+}
+
+/**
+ * A money card that knows it might not have a number.
+ *
+ * The dashboard's founding rule applied to the smallest surface on it: a
+ * read failure renders as a visible failure, never as a confident "£0" a
+ * Site Admin would take for a business fact. The render callback only ever
+ * runs on the "ok" branch, so there is no path where an error state can
+ * reach the money formatter at all.
+ */
+function MoneyCardState<T>({
+  label,
+  state,
+  href,
+  children,
+}: {
+  label: string
+  state: ReadState<T>
+  href: string
+  children: (data: T) => { value: string; detail: string }
+}) {
+  if (state.state === "ok") {
+    const { value, detail } = children(state.data)
+    return <MoneyCard label={label} value={value} detail={detail} href={href} />
+  }
+
+  const isDenied = state.state === "unauthorized"
+  return (
+    <div
+      role={isDenied ? undefined : "alert"}
+      className={`rounded-lg border px-5 py-4 ${
+        isDenied ? "border-ink/10 bg-white" : "border-amber-300 bg-amber-50"
+      }`}
+    >
+      <p className={`text-sm ${isDenied ? "text-ink/55" : "text-amber-900"}`}>{label}</p>
+      <p className={`mt-1 text-sm font-medium ${isDenied ? "text-ink" : "text-amber-950"}`}>
+        {isDenied ? "Not available to your Site Admin profile" : "Could not be loaded"}
+      </p>
+      {state.state === "error" ? (
+        <p className="mt-1 font-mono text-xs break-words text-amber-900/80">{state.message}</p>
+      ) : null}
+      {state.state === "omitted" ? (
+        <p className="mt-1 text-xs text-ink/45">{state.reason}</p>
+      ) : null}
+      {!isDenied && state.state === "error" ? (
+        <p className="mt-1 text-xs text-amber-900/80">This is a read failure, not a zero.</p>
+      ) : null}
     </div>
   )
 }

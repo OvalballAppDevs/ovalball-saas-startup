@@ -25,10 +25,18 @@ export default async function ReferralDetailPage({ params }: { params: Promise<{
   if (!activeSiteAdmin.ok) redirect("/dashboard")
   if (!(await hasCapability(supabase, "site.commercial.view", "site"))) redirect("/dashboard")
 
-  const { data: r } = await supabase.from("admin_referral_overview").select("*").eq("referral_id", referralId).maybeSingle()
+  const { data: r, error } = await supabase
+    .from("admin_referral_overview")
+    .select("*")
+    .eq("referral_id", referralId)
+    .maybeSingle()
+  // A failed read is not a missing referral. Rendering 404 for a broken query
+  // tells a Site Admin the record does not exist, which is a different -- and
+  // actionable -- claim from "the read fell over".
+  if (error) throw new Error(`Referral could not be loaded: ${error.message}`)
   if (!r) notFound()
 
-  const { data: auditRows } = await supabase
+  const { data: auditRows, error: auditError } = await supabase
     .from("audit_log")
     .select("id, action, changed_at, changed_by, before, after")
     .eq("table_name", "platform_referrals")
@@ -71,7 +79,17 @@ export default async function ReferralDetailPage({ params }: { params: Promise<{
 
       <section className="mt-8">
         <h2 className="font-display text-lg text-ink">Audit history</h2>
-        {!auditRows || auditRows.length === 0 ? (
+        {auditError ? (
+          /* "No changes recorded yet." on a failed audit read would assert an
+             absence of history that was never actually established. */
+          <div role="alert" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-medium text-amber-950">Audit history could not be loaded</p>
+            <p className="mt-1 text-sm text-amber-900">
+              This is a read failure, not an empty history.
+            </p>
+            <p className="mt-1.5 font-mono text-xs break-words text-amber-900/80">{auditError.message}</p>
+          </div>
+        ) : !auditRows || auditRows.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">No changes recorded yet.</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
