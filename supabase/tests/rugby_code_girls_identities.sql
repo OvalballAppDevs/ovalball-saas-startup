@@ -50,12 +50,17 @@ else
 end if;
 
 -- And league withholds nothing at all.
-select count(*) into v_count
-from public.canonical_team_types_by_code where rugby_code = 'league' and is_active and not is_offered;
-if v_count = 0 then
-  raise notice 'PASS 8 (A): LEAGUE withholds nothing -- union structure has not leaked across';
+-- League withholds the Union-only identities by design (Colts, numbered
+-- Men's XVs). What must never happen is league withholding anything else --
+-- above all a girls identity, or anything justified by RFU evidence.
+select string_agg(key, ',' order by key) into v_text
+from public.canonical_team_types_by_code
+where rugby_code = 'league' and is_active and not is_offered
+  and key not in ('junior_colts','senior_colts','mens_1st','mens_2nd','mens_3rd');
+if v_text is null then
+  raise notice 'PASS 8 (A): LEAGUE withholds only Union-specific identities -- union structure has not leaked across';
 else
-  raise notice 'FAIL 8 (A): LEAGUE is withholding % type(s)', v_count;
+  raise notice 'FAIL 8 (A): LEAGUE is withholding non-Union identity/identities: %', v_text;
 end if;
 
 -- ============ B. One canonical vocabulary, never duplicated per code ============
@@ -131,13 +136,25 @@ where canonical_team_type_id = (select id from public.canonical_team_types where
 
 -- There is no league girls U13/U15 regulatory identity, and that is correct:
 -- it must resolve to an honest empty state, never to a union band.
-if not exists (
-  select 1 from public.regulatory_identities
-  where rugby_code = 'league' and identity_key ~* 'girls.*(u13|u15)'
-) then
-  raise notice 'PASS 14 (D): no League girls U13/U15 regulatory identity is invented';
+-- This used to assert that no League girls U13/U15 identity existed at all,
+-- which was the right guard while there was no RFL evidence for one. There
+-- now is: RFL Operational Rules 2026 B2:2:2 publishes a female ball size for
+-- Under 12 to Under 18, which establishes those grades. So the invariant
+-- becomes the durable one -- a League girls identity may exist only if it is
+-- backed by an RFL source, never invented or mirrored from union.
+select string_agg(ri.identity_key, ', ') into v_text
+from public.regulatory_identities ri
+where ri.rugby_code = 'league' and ri.identity_key ~* 'girls'
+  and not exists (
+    select 1 from public.regulatory_fact_applicability a
+    join public.regulatory_fact_citations c on c.fact_id = a.fact_id
+    join public.regulatory_sources rs on rs.id = c.source_id
+    where a.regulatory_identity_id = ri.id and rs.rugby_code = 'league' and c.support_role = 'PRIMARY'
+  );
+if v_text is null then
+  raise notice 'PASS 14 (D): every League girls identity is backed by a primary RFL source -- none is invented';
 else
-  raise notice 'FAIL 14 (D): a League girls U13/U15 regulatory identity exists without RFL evidence';
+  raise notice 'FAIL 14 (D): League girls identity/identities with no primary RFL source: %', v_text;
 end if;
 
 -- The resolver refuses an identity that belongs to the other code outright.

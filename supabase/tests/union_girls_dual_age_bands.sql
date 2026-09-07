@@ -63,15 +63,20 @@ end if;
 
 -- ============ C. LEAGUE IS UNCHANGED -- the whole point ============
 
-select count(*) into v_count
+-- This used to assert that league withholds NOTHING, which was true while
+-- the catalogue held only Union-shaped identities. League now legitimately
+-- withholds the Union-only ones (Colts and the numbered Men's XVs), so the
+-- assertion is re-pointed at what actually needs protecting: league may
+-- withhold Union-specific identities and NOTHING ELSE -- in particular never
+-- a girls identity, and never anything on RFU evidence.
+select string_agg(key, ',' order by key) into v_text
 from public.canonical_team_types_by_code
-where rugby_code = 'league' and is_active and not is_offered;
-if v_count = 0 then
-  raise notice 'PASS 5 (C): league withholds NOTHING -- union evidence did not narrow it';
+where rugby_code = 'league' and is_active and not is_offered
+  and key not in ('junior_colts','senior_colts','mens_1st','mens_2nd','mens_3rd');
+if v_text is null then
+  raise notice 'PASS 5 (C): league withholds only Union-specific identities -- union evidence has not narrowed it';
 else
-  select string_agg(key, ',' order by key) into v_text
-  from public.canonical_team_types_by_code where rugby_code = 'league' and is_active and not is_offered;
-  raise notice 'FAIL 5 (C): league is withholding % type(s): %', v_count, v_text;
+  raise notice 'FAIL 5 (C): league is withholding non-Union identity/identities: %', v_text;
 end if;
 
 select count(*) into v_count
