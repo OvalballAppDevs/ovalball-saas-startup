@@ -9755,6 +9755,963 @@ export type Database = {
         }
         Relationships: []
       }
+      regulatory_authorities: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          rugby_code: string
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          rugby_code: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          rugby_code?: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      regulatory_competition_overlays: {
+        Row: {
+          competition_label: string
+          created_at: string
+          description: string
+          id: string
+          ovalball_competition_id: string | null
+          rugby_code: string
+          season_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          competition_label: string
+          created_at?: string
+          description: string
+          id?: string
+          ovalball_competition_id?: string | null
+          rugby_code: string
+          season_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          competition_label?: string
+          created_at?: string
+          description?: string
+          id?: string
+          ovalball_competition_id?: string | null
+          rugby_code?: string
+          season_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_competition_overlays_ovalball_competition_id_fkey"
+            columns: ["ovalball_competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_competition_overlays_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_conflict_facts: {
+        Row: {
+          conflict_id: string
+          fact_id: string
+        }
+        Insert: {
+          conflict_id: string
+          fact_id: string
+        }
+        Update: {
+          conflict_id?: string
+          fact_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_conflict_facts_conflict_id_fkey"
+            columns: ["conflict_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_conflicts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_conflict_facts_fact_id_fkey"
+            columns: ["fact_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_facts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_conflict_sources: {
+        Row: {
+          conflict_id: string
+          source_id: string
+        }
+        Insert: {
+          conflict_id: string
+          source_id: string
+        }
+        Update: {
+          conflict_id?: string
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_conflict_sources_conflict_id_fkey"
+            columns: ["conflict_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_conflicts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_conflict_sources_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_conflicts: {
+        Row: {
+          affected_regulatory_identity_id: string | null
+          conflict_key: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          review_state: string
+          rugby_code: string | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          affected_regulatory_identity_id?: string | null
+          conflict_key: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          review_state?: string
+          rugby_code?: string | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          affected_regulatory_identity_id?: string | null
+          conflict_key?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          review_state?: string
+          rugby_code?: string | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_conflicts_affected_regulatory_identity_id_fkey"
+            columns: ["affected_regulatory_identity_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_identities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_content_section_audience_copy: {
+        Row: {
+          audience: string
+          body: string
+          content_section_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          audience: string
+          body: string
+          content_section_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          audience?: string
+          body?: string
+          content_section_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_content_section_audience_cop_content_section_id_fkey"
+            columns: ["content_section_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_content_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_content_sections: {
+        Row: {
+          content_set_id: string
+          created_at: string
+          display_order: number
+          fact_id: string | null
+          id: string
+          section_key: string
+          updated_at: string
+        }
+        Insert: {
+          content_set_id: string
+          created_at?: string
+          display_order?: number
+          fact_id?: string | null
+          id?: string
+          section_key: string
+          updated_at?: string
+        }
+        Update: {
+          content_set_id?: string
+          created_at?: string
+          display_order?: number
+          fact_id?: string | null
+          id?: string
+          section_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_content_sections_content_set_id_fkey"
+            columns: ["content_set_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_content_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_content_sections_fact_id_fkey"
+            columns: ["fact_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_facts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_content_sets: {
+        Row: {
+          content_set_key: string
+          created_at: string
+          created_by: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          publication_state: string
+          published_at: string | null
+          published_by: string | null
+          regulatory_identity_id: string | null
+          rugby_code: string
+          season_id: string | null
+          supersedes_content_set_id: string | null
+          topic: string
+          updated_at: string
+          updated_by: string | null
+          verified_at: string | null
+          verified_by: string | null
+          version: number
+        }
+        Insert: {
+          content_set_key: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          publication_state?: string
+          published_at?: string | null
+          published_by?: string | null
+          regulatory_identity_id?: string | null
+          rugby_code: string
+          season_id?: string | null
+          supersedes_content_set_id?: string | null
+          topic: string
+          updated_at?: string
+          updated_by?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          version?: number
+        }
+        Update: {
+          content_set_key?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          publication_state?: string
+          published_at?: string | null
+          published_by?: string | null
+          regulatory_identity_id?: string | null
+          rugby_code?: string
+          season_id?: string | null
+          supersedes_content_set_id?: string | null
+          topic?: string
+          updated_at?: string
+          updated_by?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_content_sets_regulatory_identity_id_fkey"
+            columns: ["regulatory_identity_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_identities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_content_sets_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_content_sets_supersedes_content_set_id_fkey"
+            columns: ["supersedes_content_set_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_content_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_fact_applicability: {
+        Row: {
+          competition_overlay_id: string | null
+          created_at: string
+          fact_id: string
+          gender_pathway: string | null
+          geographic_scope: string | null
+          id: string
+          regulatory_identity_id: string
+        }
+        Insert: {
+          competition_overlay_id?: string | null
+          created_at?: string
+          fact_id: string
+          gender_pathway?: string | null
+          geographic_scope?: string | null
+          id?: string
+          regulatory_identity_id: string
+        }
+        Update: {
+          competition_overlay_id?: string | null
+          created_at?: string
+          fact_id?: string
+          gender_pathway?: string | null
+          geographic_scope?: string | null
+          id?: string
+          regulatory_identity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_fact_applicability_competition_overlay_id_fkey"
+            columns: ["competition_overlay_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_competition_overlays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_fact_applicability_fact_id_fkey"
+            columns: ["fact_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_facts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_fact_applicability_regulatory_identity_id_fkey"
+            columns: ["regulatory_identity_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_identities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_fact_citations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          fact_id: string
+          id: string
+          locator_id: string | null
+          source_id: string
+          support_role: string
+          verification_notes: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          fact_id: string
+          id?: string
+          locator_id?: string | null
+          source_id: string
+          support_role: string
+          verification_notes?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          fact_id?: string
+          id?: string
+          locator_id?: string | null
+          source_id?: string
+          support_role?: string
+          verification_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_fact_citations_fact_id_fkey"
+            columns: ["fact_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_facts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_fact_citations_locator_id_fkey"
+            columns: ["locator_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_source_locators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_fact_citations_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_facts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string | null
+          effective_to: string | null
+          fact_key: string
+          fact_type: string
+          id: string
+          notes: string | null
+          obligation_level: string | null
+          rugby_code: string
+          season_id: string | null
+          status: string
+          subtopic: string | null
+          supersedes_fact_id: string | null
+          topic: string
+          updated_at: string
+          updated_by: string | null
+          value_boolean: boolean | null
+          value_decimal: number | null
+          value_distance_metres: number | null
+          value_duration_minutes: number | null
+          value_enum: string | null
+          value_integer: number | null
+          value_json: Json | null
+          value_range_max: number | null
+          value_range_min: number | null
+          value_text: string | null
+          value_type: string
+          value_unit: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          fact_key: string
+          fact_type: string
+          id?: string
+          notes?: string | null
+          obligation_level?: string | null
+          rugby_code: string
+          season_id?: string | null
+          status?: string
+          subtopic?: string | null
+          supersedes_fact_id?: string | null
+          topic: string
+          updated_at?: string
+          updated_by?: string | null
+          value_boolean?: boolean | null
+          value_decimal?: number | null
+          value_distance_metres?: number | null
+          value_duration_minutes?: number | null
+          value_enum?: string | null
+          value_integer?: number | null
+          value_json?: Json | null
+          value_range_max?: number | null
+          value_range_min?: number | null
+          value_text?: string | null
+          value_type: string
+          value_unit?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          fact_key?: string
+          fact_type?: string
+          id?: string
+          notes?: string | null
+          obligation_level?: string | null
+          rugby_code?: string
+          season_id?: string | null
+          status?: string
+          subtopic?: string | null
+          supersedes_fact_id?: string | null
+          topic?: string
+          updated_at?: string
+          updated_by?: string | null
+          value_boolean?: boolean | null
+          value_decimal?: number | null
+          value_distance_metres?: number | null
+          value_duration_minutes?: number | null
+          value_enum?: string | null
+          value_integer?: number | null
+          value_json?: Json | null
+          value_range_max?: number | null
+          value_range_min?: number | null
+          value_text?: string | null
+          value_type?: string
+          value_unit?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_facts_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_facts_supersedes_fact_id_fkey"
+            columns: ["supersedes_fact_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_facts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_identities: {
+        Row: {
+          created_at: string
+          id: string
+          identity_key: string
+          label: string
+          mapping_notes: string | null
+          mapping_type: string
+          ovalball_canonical_team_type_id: string | null
+          rugby_code: string
+          source_register_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          identity_key: string
+          label: string
+          mapping_notes?: string | null
+          mapping_type: string
+          ovalball_canonical_team_type_id?: string | null
+          rugby_code: string
+          source_register_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          identity_key?: string
+          label?: string
+          mapping_notes?: string | null
+          mapping_type?: string
+          ovalball_canonical_team_type_id?: string | null
+          rugby_code?: string
+          source_register_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_identities_ovalball_canonical_team_type_id_fkey"
+            columns: ["ovalball_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_reporting_route_citations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          locator_id: string | null
+          route_id: string
+          source_id: string
+          support_role: string
+          verification_notes: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locator_id?: string | null
+          route_id: string
+          source_id: string
+          support_role: string
+          verification_notes?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locator_id?: string | null
+          route_id?: string
+          source_id?: string
+          support_role?: string
+          verification_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_reporting_route_citations_locator_id_fkey"
+            columns: ["locator_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_source_locators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_reporting_route_citations_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_reporting_routes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_reporting_route_citations_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_reporting_routes: {
+        Row: {
+          authority_id: string
+          classification: string
+          created_at: string
+          created_by: string | null
+          effective_from: string | null
+          effective_to: string | null
+          email: string | null
+          geographic_scope: string | null
+          id: string
+          label: string
+          notes: string | null
+          phone: string | null
+          publication_state: string
+          published_at: string | null
+          published_by: string | null
+          regulatory_identity_id: string | null
+          route_key: string
+          route_type: string
+          rugby_code: string
+          season_id: string | null
+          supersedes_route_id: string | null
+          updated_at: string
+          updated_by: string | null
+          url: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          authority_id: string
+          classification?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          email?: string | null
+          geographic_scope?: string | null
+          id?: string
+          label: string
+          notes?: string | null
+          phone?: string | null
+          publication_state?: string
+          published_at?: string | null
+          published_by?: string | null
+          regulatory_identity_id?: string | null
+          route_key: string
+          route_type: string
+          rugby_code: string
+          season_id?: string | null
+          supersedes_route_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          url?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          authority_id?: string
+          classification?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          email?: string | null
+          geographic_scope?: string | null
+          id?: string
+          label?: string
+          notes?: string | null
+          phone?: string | null
+          publication_state?: string
+          published_at?: string | null
+          published_by?: string | null
+          regulatory_identity_id?: string | null
+          route_key?: string
+          route_type?: string
+          rugby_code?: string
+          season_id?: string | null
+          supersedes_route_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          url?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_reporting_routes_authority_id_fkey"
+            columns: ["authority_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_authorities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_reporting_routes_regulatory_identity_id_fkey"
+            columns: ["regulatory_identity_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_identities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_reporting_routes_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_reporting_routes_supersedes_route_id_fkey"
+            columns: ["supersedes_route_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_reporting_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_source_locators: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          locator_type: string
+          locator_value: string
+          source_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          locator_type: string
+          locator_value: string
+          source_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          locator_type?: string
+          locator_value?: string
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_source_locators_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_sources: {
+        Row: {
+          authority_classification: string
+          authority_id: string
+          canonical_url: string
+          competition_scope: string | null
+          created_at: string
+          created_by: string | null
+          document_version: string | null
+          effective_from: string | null
+          effective_to: string | null
+          geographic_scope: string | null
+          id: string
+          landing_page_url: string | null
+          notes: string | null
+          pathway_scope: string | null
+          provenance_notes: string | null
+          publication_date: string | null
+          retrieved_on: string
+          review_state: string
+          rugby_code: string
+          season_id: string | null
+          source_key: string
+          source_type: string
+          supersedes_source_id: string | null
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          authority_classification: string
+          authority_id: string
+          canonical_url: string
+          competition_scope?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_version?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          geographic_scope?: string | null
+          id?: string
+          landing_page_url?: string | null
+          notes?: string | null
+          pathway_scope?: string | null
+          provenance_notes?: string | null
+          publication_date?: string | null
+          retrieved_on: string
+          review_state?: string
+          rugby_code: string
+          season_id?: string | null
+          source_key: string
+          source_type: string
+          supersedes_source_id?: string | null
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          authority_classification?: string
+          authority_id?: string
+          canonical_url?: string
+          competition_scope?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_version?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          geographic_scope?: string | null
+          id?: string
+          landing_page_url?: string | null
+          notes?: string | null
+          pathway_scope?: string | null
+          provenance_notes?: string | null
+          publication_date?: string | null
+          retrieved_on?: string
+          review_state?: string
+          rugby_code?: string
+          season_id?: string | null
+          source_key?: string
+          source_type?: string
+          supersedes_source_id?: string | null
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_sources_authority_id_fkey"
+            columns: ["authority_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_authorities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_sources_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_sources_supersedes_source_id_fkey"
+            columns: ["supersedes_source_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_capability_defaults: {
         Row: {
           capability_key: string
@@ -10263,6 +11220,7 @@ export type Database = {
           manage_fixture_support: boolean
           manage_global_lookups: boolean
           manage_permissions: boolean
+          manage_regulatory_content: boolean
           manage_seasons: boolean
           manage_system: boolean
           manage_team_catalogue: boolean
@@ -10272,6 +11230,7 @@ export type Database = {
           updated_at: string
           user_id: string
           view_commercial: boolean
+          view_regulatory_content: boolean
         }
         Insert: {
           admin_role?: string
@@ -10284,6 +11243,7 @@ export type Database = {
           manage_fixture_support?: boolean
           manage_global_lookups?: boolean
           manage_permissions?: boolean
+          manage_regulatory_content?: boolean
           manage_seasons?: boolean
           manage_system?: boolean
           manage_team_catalogue?: boolean
@@ -10293,6 +11253,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           view_commercial?: boolean
+          view_regulatory_content?: boolean
         }
         Update: {
           admin_role?: string
@@ -10305,6 +11266,7 @@ export type Database = {
           manage_fixture_support?: boolean
           manage_global_lookups?: boolean
           manage_permissions?: boolean
+          manage_regulatory_content?: boolean
           manage_seasons?: boolean
           manage_system?: boolean
           manage_team_catalogue?: boolean
@@ -10314,6 +11276,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           view_commercial?: boolean
+          view_regulatory_content?: boolean
         }
         Relationships: []
       }
@@ -12940,6 +13903,35 @@ export type Database = {
           team_id: string
         }[]
       }
+      add_content_section: {
+        Args: {
+          p_content_set_id: string
+          p_display_order?: number
+          p_fact_id?: string
+          p_section_key: string
+        }
+        Returns: string
+      }
+      add_fact_applicability: {
+        Args: {
+          p_competition_overlay_id?: string
+          p_fact_id: string
+          p_gender_pathway?: string
+          p_geographic_scope?: string
+          p_regulatory_identity_id: string
+        }
+        Returns: string
+      }
+      add_fact_citation: {
+        Args: {
+          p_fact_id: string
+          p_locator_id?: string
+          p_source_id: string
+          p_support_role: string
+          p_verification_notes?: string
+        }
+        Returns: string
+      }
       add_fixture_conversation_participant: {
         Args: {
           p_fixture_id: string
@@ -12947,6 +13939,15 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      add_reporting_route_citation: {
+        Args: {
+          p_locator_id?: string
+          p_route_id: string
+          p_source_id: string
+          p_support_role: string
+        }
+        Returns: string
       }
       add_support_followup: {
         Args: { p_body: string; p_ticket_id: string }
@@ -13259,6 +14260,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      copy_regulatory_content_set_to_season: {
+        Args: {
+          p_content_set_id: string
+          p_new_content_set_key: string
+          p_new_season_id: string
+        }
+        Returns: string
+      }
       correct_club_rugby_code: {
         Args: { p_directory_id: string; p_new_code: string; p_reason: string }
         Returns: undefined
@@ -13349,6 +14358,98 @@ export type Database = {
           player_id: string
           result: string
         }[]
+      }
+      create_regulatory_conflict: {
+        Args: {
+          p_affected_regulatory_identity_id?: string
+          p_conflict_key: string
+          p_description: string
+          p_rugby_code?: string
+          p_topic: string
+        }
+        Returns: string
+      }
+      create_regulatory_content_set: {
+        Args: {
+          p_content_set_key: string
+          p_effective_from?: string
+          p_effective_to?: string
+          p_regulatory_identity_id?: string
+          p_rugby_code: string
+          p_season_id?: string
+          p_topic: string
+        }
+        Returns: string
+      }
+      create_regulatory_fact: {
+        Args: {
+          p_effective_from?: string
+          p_effective_to?: string
+          p_fact_key: string
+          p_fact_type: string
+          p_notes?: string
+          p_obligation_level?: string
+          p_rugby_code: string
+          p_season_id?: string
+          p_subtopic?: string
+          p_topic: string
+          p_value_boolean?: boolean
+          p_value_decimal?: number
+          p_value_distance_metres?: number
+          p_value_duration_minutes?: number
+          p_value_enum?: string
+          p_value_integer?: number
+          p_value_range_max?: number
+          p_value_range_min?: number
+          p_value_text?: string
+          p_value_type: string
+          p_value_unit?: string
+        }
+        Returns: string
+      }
+      create_regulatory_reporting_route: {
+        Args: {
+          p_authority_id: string
+          p_classification?: string
+          p_effective_from?: string
+          p_effective_to?: string
+          p_email?: string
+          p_geographic_scope?: string
+          p_label: string
+          p_notes?: string
+          p_phone?: string
+          p_regulatory_identity_id?: string
+          p_route_key: string
+          p_route_type: string
+          p_rugby_code: string
+          p_season_id?: string
+          p_url?: string
+        }
+        Returns: string
+      }
+      create_regulatory_source: {
+        Args: {
+          p_authority_classification: string
+          p_authority_id: string
+          p_canonical_url: string
+          p_competition_scope?: string
+          p_document_version?: string
+          p_effective_from?: string
+          p_effective_to?: string
+          p_geographic_scope?: string
+          p_landing_page_url?: string
+          p_notes?: string
+          p_pathway_scope?: string
+          p_provenance_notes?: string
+          p_publication_date?: string
+          p_retrieved_on: string
+          p_rugby_code: string
+          p_season_id?: string
+          p_source_key: string
+          p_source_type: string
+          p_title: string
+        }
+        Returns: string
       }
       create_scheduling_group: {
         Args: { p_club_id: string; p_season_id: string; p_team_ids: string[] }
@@ -13805,6 +14906,91 @@ export type Database = {
           permission_key: string
         }[]
       }
+      get_rugby_hub_identity_context: {
+        Args: { p_team_id: string }
+        Returns: {
+          mapping_type: string
+          regulatory_identity_id: string
+          rugby_code: string
+        }[]
+      }
+      get_rugby_hub_rules: {
+        Args: {
+          p_as_of_date?: string
+          p_competition_overlay_id?: string
+          p_team_id: string
+        }
+        Returns: {
+          content_set_id: string
+          fact_id: string
+          fact_key: string
+          fact_type: string
+          is_overlay: boolean
+          primary_source_key: string
+          primary_source_locator: string
+          section_key: string
+          value_boolean: boolean
+          value_decimal: number
+          value_distance_metres: number
+          value_duration_minutes: number
+          value_enum: string
+          value_integer: number
+          value_range_max: number
+          value_range_min: number
+          value_text: string
+          value_type: string
+          value_unit: string
+        }[]
+      }
+      get_rugby_hub_safeguarding_content: {
+        Args: { p_as_of_date?: string; p_audience?: string; p_team_id: string }
+        Returns: {
+          body: string
+          content_set_id: string
+          display_order: number
+          fact_id: string
+          fact_type: string
+          primary_source_key: string
+          primary_source_locator: string
+          section_key: string
+          value_boolean: boolean
+          value_text: string
+          value_type: string
+        }[]
+      }
+      get_rugby_hub_safeguarding_routes: {
+        Args: { p_as_of_date?: string; p_team_id: string }
+        Returns: {
+          classification: string
+          email: string
+          label: string
+          phone: string
+          primary_source_key: string
+          primary_source_locator: string
+          route_id: string
+          route_key: string
+          route_type: string
+          url: string
+        }[]
+      }
+      get_rugby_hub_welfare: {
+        Args: { p_as_of_date?: string; p_audience?: string; p_team_id: string }
+        Returns: {
+          body: string
+          content_set_id: string
+          display_order: number
+          fact_id: string
+          fact_type: string
+          obligation_level: string
+          primary_source_key: string
+          primary_source_locator: string
+          section_key: string
+          value_integer: number
+          value_text: string
+          value_type: string
+          value_unit: string
+        }[]
+      }
       get_safeguarding_officer_invitation_preview: {
         Args: { p_token: string }
         Returns: {
@@ -13972,6 +15158,14 @@ export type Database = {
       }
       leave_fixture_conversation: {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
+        Returns: undefined
+      }
+      link_conflict_fact: {
+        Args: { p_conflict_id: string; p_fact_id: string }
+        Returns: undefined
+      }
+      link_conflict_source: {
+        Args: { p_conflict_id: string; p_source_id: string }
         Returns: undefined
       }
       link_guardian_to_existing_player: {
@@ -14357,6 +15551,14 @@ export type Database = {
         Returns: string
       }
       publish_import_row: { Args: { p_row_id: string }; Returns: string }
+      publish_regulatory_content_set: {
+        Args: { p_content_set_id: string }
+        Returns: undefined
+      }
+      publish_regulatory_reporting_route: {
+        Args: { p_route_id: string }
+        Returns: undefined
+      }
       reactivate_club: { Args: { p_club_id: string }; Returns: undefined }
       reactivate_missing_target_team: {
         Args: { p_request_id: string }
@@ -14678,6 +15880,19 @@ export type Database = {
           player_id: string
         }[]
       }
+      resolve_public_source_metadata: {
+        Args: { p_source_keys: string[] }
+        Returns: {
+          authority_name: string
+          canonical_url: string
+          source_key: string
+          title: string
+        }[]
+      }
+      resolve_regulatory_conflict: {
+        Args: { p_conflict_id: string; p_resolution_notes: string }
+        Returns: undefined
+      }
       resolve_rollover_group_flag: {
         Args: { p_flag_id: string }
         Returns: undefined
@@ -14815,6 +16030,14 @@ export type Database = {
         Args: { p_pitch_id: string; p_venue_id: string }
         Returns: undefined
       }
+      set_content_section_audience_copy: {
+        Args: {
+          p_audience: string
+          p_body: string
+          p_content_section_id: string
+        }
+        Returns: string
+      }
       set_default_venue: { Args: { p_id: string }; Returns: undefined }
       set_fixture_conversation_mute: {
         Args: {
@@ -14909,6 +16132,10 @@ export type Database = {
       }
       set_site_admin_team_catalogue_capability: {
         Args: { p_enabled: boolean; p_user_id: string }
+        Returns: undefined
+      }
+      set_source_review_state: {
+        Args: { p_new_state: string; p_notes?: string; p_source_id: string }
         Returns: undefined
       }
       set_subscription_price: {
@@ -15089,6 +16316,14 @@ export type Database = {
         }
         Returns: string
       }
+      supersede_regulatory_content_set: {
+        Args: { p_new_content_set_id: string; p_old_content_set_id: string }
+        Returns: undefined
+      }
+      supersede_regulatory_source: {
+        Args: { p_new_source_id: string; p_old_source_id: string }
+        Returns: undefined
+      }
       swap_fixture_home_away: {
         Args: { p_fixture_id: string }
         Returns: undefined
@@ -15241,6 +16476,18 @@ export type Database = {
           p_variant?: string
         }
         Returns: string
+      }
+      verify_regulatory_content_set: {
+        Args: { p_content_set_id: string }
+        Returns: undefined
+      }
+      verify_regulatory_fact: {
+        Args: { p_fact_id: string }
+        Returns: undefined
+      }
+      verify_regulatory_reporting_route: {
+        Args: { p_route_id: string }
+        Returns: undefined
       }
     }
     Enums: {
