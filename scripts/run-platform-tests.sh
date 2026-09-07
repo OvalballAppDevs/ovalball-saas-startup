@@ -56,6 +56,7 @@ SUITES=(
   union_girls_dual_age_bands
   rugby_code_girls_identities
   league_age_grade_and_colts
+  season_handover_progression
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
