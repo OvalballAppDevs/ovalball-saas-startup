@@ -145,6 +145,12 @@ export default async function AdminCommercialPage() {
         </span>
       </p>
 
+      <p className="mt-3">
+        <Link href="/admin/commercial/referrals" className="text-sm font-medium text-forest-800 underline underline-offset-4">
+          Referral Administration →
+        </Link>
+      </p>
+
       <section className="mt-8">
         <h2 className="font-display text-xl text-ink">Every club</h2>
 

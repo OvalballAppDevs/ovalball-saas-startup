@@ -11,7 +11,9 @@ import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-cont
 import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { getSessionContext } from "@/lib/app-context/session-context"
+import { getCommercialCardsData, getReferralIntelligenceData } from "@/lib/app-context/commercial-intelligence-data"
 import { getSiteAdminDashboardData } from "@/lib/app-context/site-admin-dashboard-data"
+import { hasCapability } from "@/lib/permissions/has-capability"
 import { getBetaBadgeState } from "@/lib/platform/mode"
 import { createClient } from "@/lib/supabase/server"
 import { FIXTURE_STATUS_BADGE_CLASS } from "@/lib/fixtures/status"
@@ -58,9 +60,13 @@ export default async function DashboardPage() {
       redirect("/dashboard?context=cleared")
     }
 
-    const [data, badgeState] = await Promise.all([
+    const canViewCommercial = await hasCapability(supabase, "site.commercial.view", "site")
+
+    const [data, badgeState, commercialCards, referralIntelligence] = await Promise.all([
       getSiteAdminDashboardData(supabase),
       getBetaBadgeState(supabase),
+      canViewCommercial ? getCommercialCardsData(supabase) : Promise.resolve(null),
+      canViewCommercial ? getReferralIntelligenceData(supabase) : Promise.resolve(null),
     ])
 
     return (
@@ -69,6 +75,8 @@ export default async function DashboardPage() {
         data={data}
         badgeState={badgeState}
         appVersion={APP_VERSION}
+        commercialCards={commercialCards}
+        referralIntelligence={referralIntelligence}
       />
     )
   }

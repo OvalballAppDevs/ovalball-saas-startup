@@ -293,8 +293,13 @@ begin
   end if;
 
   -- ---------- 20. no second referral system exists ----------
+  -- BASE TABLE only -- a read-only VIEW (e.g. admin_referral_overview, the
+  -- Dashboard R-5 Site Admin projection) holds no data of its own and is
+  -- not a second referral system; counting it here would fail this
+  -- assertion for the exact reporting pattern this codebase's own
+  -- admin_club_overview/admin_*_overview views already establish.
   select count(*) into v_count from information_schema.tables
-  where table_schema = 'public' and table_name like '%referral%';
+  where table_schema = 'public' and table_name like '%referral%' and table_type = 'BASE TABLE';
   if v_count = 1 then
     raise notice 'PASS 20: there is exactly one referral table, layered on the existing club invitation';
   else

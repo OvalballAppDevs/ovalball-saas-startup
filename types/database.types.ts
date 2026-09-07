@@ -12330,6 +12330,177 @@ export type Database = {
           },
         ]
       }
+      admin_referral_overview: {
+        Row: {
+          attribution_source: string | null
+          created_at: string | null
+          invitation_accepted_at: string | null
+          invitation_contact_email: string | null
+          invitation_created_at: string | null
+          invitation_id: string | null
+          invitation_status: string | null
+          qualified_at: string | null
+          qualifying_payment_charge_date: string | null
+          qualifying_payment_id: string | null
+          qualifying_payment_status: string | null
+          referral_id: string | null
+          referred_club_activated_at: string | null
+          referred_club_id: string | null
+          referred_club_name: string | null
+          referring_club_id: string | null
+          referring_club_name: string | null
+          rejection_reason: string | null
+          reversed_at: string | null
+          reward_amount_pence: number | null
+          reward_credit_id: string | null
+          reward_plan_code: string | null
+          reward_reversed: boolean | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_referrals_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: true
+            referencedRelation: "club_ovalball_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_qualifying_payment_id_fkey"
+            columns: ["qualifying_payment_id"]
+            isOneToOne: false
+            referencedRelation: "platform_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referred_club_id_fkey"
+            columns: ["referred_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_referring_club_id_fkey"
+            columns: ["referring_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_reward_credit_id_fkey"
+            columns: ["reward_credit_id"]
+            isOneToOne: true
+            referencedRelation: "platform_credits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_referrals_reward_plan_code_fkey"
+            columns: ["reward_plan_code"]
+            isOneToOne: false
+            referencedRelation: "platform_plans"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       admin_user_overview: {
         Row: {
           account_status: string | null

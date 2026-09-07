@@ -12,6 +12,7 @@ import {
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { UpdatedAt } from "@/components/dashboard/updated-at"
 import { BetaBadge } from "@/components/platform/beta-badge"
+import type { CommercialCardsData, ReferralIntelligenceData } from "@/lib/app-context/commercial-intelligence-data"
 import type { BetaBadgeState } from "@/lib/platform/mode"
 import {
   buildAlerts,
@@ -48,11 +49,16 @@ export function SiteAdminDashboard({
   data,
   badgeState,
   appVersion,
+  commercialCards,
+  referralIntelligence,
 }: {
   firstName: string | null
   data: SiteAdminDashboardData
   badgeState: BetaBadgeState
   appVersion: string
+  /** null when the viewing Site Admin lacks site.commercial.view -- the whole section then does not render, never a locked placeholder. */
+  commercialCards: CommercialCardsData | null
+  referralIntelligence: ReferralIntelligenceData | null
 }) {
   const { platform, operations, commercial, fixturesToday, trends } = data
   const alerts = buildAlerts(operations, commercial)
@@ -343,8 +349,149 @@ export function SiteAdminDashboard({
           <ReferralHealthCard commercial={commercial} />
         </div>
       </DashboardSection>
+
+      {/* ---------- 8. commercial ---------- */}
+      {commercialCards && (
+        <DashboardSection
+          title="Commercial"
+          description="Three separate money domains -- what clubs pay Ovalball, what a club's own members pay the club, and referral rewards. Never mixed."
+          action={{ href: "/admin/commercial", label: "Commercial" }}
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <MoneyCard
+              label="Ovalball SaaS"
+              value={commercialCards.saas.billingCollecting ? formatMoney(commercialCards.saas.mrrPence) : "Beta"}
+              detail={
+                commercialCards.saas.billingCollecting
+                  ? `MRR · ${commercialCards.saas.activeSubscriptions} active, ${commercialCards.saas.onTrial} on trial`
+                  : `SaaS billing not currently collecting · ${commercialCards.saas.activeSubscriptions} active, ${commercialCards.saas.onTrial} on trial`
+              }
+              href="/admin/commercial"
+            />
+            <MoneyCard
+              label="Club member payments"
+              value={formatMoney(commercialCards.memberPayments.collectedLast30dPence)}
+              detail={`Collected, last 30 days · ${commercialCards.memberPayments.clubsConnected} clubs connected`}
+              href="/admin/clubs"
+            />
+            <MoneyCard
+              label="Referrals & rewards"
+              value={formatMoney(commercialCards.referrals.rewardEarnedPence)}
+              detail={`Reward £ earned · ${commercialCards.referrals.activated} of ${commercialCards.referrals.total} referred clubs activated`}
+              href="/admin/commercial/referrals"
+            />
+          </div>
+        </DashboardSection>
+      )}
+
+      {/* ---------- 9. referral intelligence (F1) ---------- */}
+      {referralIntelligence && (
+        <DashboardSection
+          title="Referral intelligence"
+          description="Ranked by clubs actually activated, not invitations sent -- during Beta a paid conversion is real when it happens, never assumed."
+          action={{ href: "/admin/commercial/referrals", label: "Referral Administration" }}
+        >
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border border-ink/10 bg-white p-5">
+              <h3 className="text-sm font-semibold text-ink">Referral funnel</h3>
+              <ul className="mt-3 flex flex-col gap-2">
+                {referralIntelligence.funnel.map((stage) => (
+                  <li key={stage.key} className="flex items-center justify-between gap-3 text-sm">
+                    <span className={stage.active ? "text-ink/80" : "text-ink/40"}>{stage.label}</span>
+                    <span className="flex items-center gap-2">
+                      {!stage.active && stage.note && <span className="text-xs text-ink/40">{stage.note}</span>}
+                      <span className={`font-mono tabular-nums ${stage.active ? "text-ink" : "text-ink/40"}`}>{stage.count}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-ink/10 bg-white p-5">
+              <h3 className="text-sm font-semibold text-ink">Top referring clubs</h3>
+              {referralIntelligence.topClubs.length === 0 ? (
+                <p className="mt-3 text-sm text-ink/55">No referrals yet.</p>
+              ) : (
+                <ol className="mt-3 flex flex-col gap-2">
+                  {referralIntelligence.topClubs.map((c, i) => (
+                    <li key={c.clubId} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate text-ink/80">
+                        {i + 1}. {c.clubName}
+                      </span>
+                      <span className="shrink-0 font-mono text-xs text-ink/55 tabular-nums">
+                        {c.clubsActivated} activated · {formatMoney(c.rewardEarnedPence)}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-ink/10 bg-white p-5 lg:col-span-2">
+              <h3 className="text-sm font-semibold text-ink">Live referral activity</h3>
+              {referralIntelligence.activity.length === 0 ? (
+                <p className="mt-3 text-sm text-ink/55">No referral activity yet.</p>
+              ) : (
+                <ul className="mt-3 flex flex-col gap-2">
+                  {referralIntelligence.activity.slice(0, 8).map((event) => (
+                    <li key={event.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate text-ink/80">{event.detail}</span>
+                      <span className="shrink-0 text-xs text-ink/45 tabular-nums">{formatRelativeDate(event.occurredAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-ink/10 bg-white p-5 lg:col-span-2">
+              <h3 className="text-sm font-semibold text-ink">Reward £</h3>
+              <div className="mt-3 flex flex-wrap gap-6 text-sm">
+                <span>
+                  <span className="text-ink/55">Earned:</span> <span className="font-mono tabular-nums text-ink">{formatMoney(referralIntelligence.rewardEarnedPence)}</span>
+                </span>
+                <span>
+                  <span className="text-ink/55">Reversed:</span> <span className="font-mono tabular-nums text-ink">{formatMoney(referralIntelligence.rewardReversedPence)}</span>
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-ink/45">
+                Ovalball&rsquo;s credit ledger is pooled per club, not earmarked per referral, so an &ldquo;applied vs
+                outstanding&rdquo; split cannot be attributed to a specific reward without assuming an allocation
+                order the product does not define -- earned and reversed are the two facts this schema can answer
+                honestly.
+              </p>
+            </div>
+          </div>
+        </DashboardSection>
+      )}
     </div>
   )
+}
+
+function MoneyCard({ label, value, detail, href }: { label: string; value: string; detail: string; href: string }) {
+  return (
+    <Link
+      href={href}
+      className="group block rounded-lg border border-ink/10 bg-white px-5 py-4 outline-none transition-colors hover:border-forest-800/30 focus-visible:ring-2 focus-visible:ring-pitch-400"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm text-ink/55">{label}</p>
+        <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink/25 transition-colors group-hover:text-forest-800" />
+      </div>
+      <p className="mt-3 font-display text-3xl leading-none text-ink tabular-nums">{value}</p>
+      <p className="mt-2 text-xs text-ink/50">{detail}</p>
+    </Link>
+  )
+}
+
+function formatMoney(pence: number): string {
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", minimumFractionDigits: 2 }).format(pence / 100)
+}
+
+function formatRelativeDate(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  if (days <= 0) return "today"
+  if (days === 1) return "yesterday"
+  return `${days}d ago`
 }
 
 /**

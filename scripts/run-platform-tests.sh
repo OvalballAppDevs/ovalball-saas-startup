@@ -39,6 +39,7 @@ SUITES=(
   directory_public_profile
   constituent_bodies
   directory_admin_verification_status
+  admin_referral_administration
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

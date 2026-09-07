@@ -30,8 +30,10 @@ declare
   v_key text;
   v_missing text;
   v_baseline_rewards int;
+  v_baseline_qualified int;
 begin
   select count(*) into v_baseline_rewards from public.platform_credits where source = 'referral_reward';
+  select count(*) into v_baseline_qualified from public.platform_referrals where status = 'qualified';
   -- =================== fixtures ===================
   insert into auth.users (id, email, instance_id, aud, role) values
     (v_owner,     'f0owner@ovalball-test.invalid',  '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated'),
@@ -386,12 +388,18 @@ begin
   end;
 
   -- ---------- I / J. reward still requires a collected payment ----------
+  -- Compared against v_baseline_qualified (captured before this suite did
+  -- anything), not an absolute zero -- a real, legitimately qualified
+  -- referral may already exist in this shared dev database (e.g. Dashboard
+  -- R-5 UAT fixtures) with a real collected payment behind it. What this
+  -- assertion actually guards is that THIS suite's own scenario never
+  -- qualifies a referral through attribution/reconciliation alone.
   perform set_config('request.jwt.claims', json_build_object('sub', v_owner, 'role','authenticated')::text, true);
   select count(*) into v_count from public.platform_referrals where status = 'qualified';
-  if v_count = 0 then
+  if v_count = v_baseline_qualified then
     raise notice 'PASS 27 (I/J): nothing in F0 qualified a referral -- attribution never pays a reward';
   else
-    raise notice 'FAIL 27 (I/J): % referral(s) reached qualified without a collected payment', v_count;
+    raise notice 'FAIL 27 (I/J): qualified count went from % to % -- % referral(s) reached qualified without a collected payment', v_baseline_qualified, v_count, v_count - v_baseline_qualified;
   end if;
 
   -- Every reward credit now present must be either pre-existing local data
@@ -413,8 +421,11 @@ begin
   end if;
 
   -- ---------- no second referral store ----------
+  -- BASE TABLE only -- see platform_referrals.sql's identical assertion for
+  -- why a read-only reporting VIEW (Dashboard R-5's admin_referral_overview)
+  -- must not be counted here.
   select count(*) into v_count from information_schema.tables
-  where table_schema = 'public' and table_name like '%referral%';
+  where table_schema = 'public' and table_name like '%referral%' and table_type = 'BASE TABLE';
   if v_count = 1 then
     raise notice 'PASS 30: still exactly one referral table -- no second referral system was created';
   else
