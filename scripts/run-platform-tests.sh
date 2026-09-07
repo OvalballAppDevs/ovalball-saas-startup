@@ -70,6 +70,7 @@ SUITES=(
   handover_apply_idempotency
   handover_prepare_idempotency
   handover_squads_and_aliases
+  graduation_placement_safety
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
