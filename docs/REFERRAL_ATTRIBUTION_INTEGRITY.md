@@ -423,8 +423,11 @@ no live referral log, no redesign of `/admin/commercial`. No reward policy chang
 No second referral system. No remote migration, no push, no deploy. Side Project 3
 untouched.
 
-**The Site Admin referral administration surface remains a GAP** (Stage 1 R-5).
-F₀ makes the underlying truth reliable and gives that future surface its two
-canonical reads (`referral_data_health`, `referral_data_health_detail`) and its
-one canonical action (`reconcile_referral_attribution`). Building the screen is
-Phase F₁ work.
+**The Site Admin referral administration surface is now built** (Stage 1 R-5):
+`/admin/commercial/referrals`. F₀ made the underlying truth reliable and gave
+that surface its two canonical reads (`referral_data_health`,
+`referral_data_health_detail`) and its one canonical action
+(`reconcile_referral_attribution`); the screen consumes them as-is and defines
+no anomaly of its own. Findings are rendered verbatim, and when either read
+fails the page says so — it never renders "No anomalies found." for a check that
+did not run, which on a data-integrity screen would be a false all-clear.

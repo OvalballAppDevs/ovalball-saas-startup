@@ -333,6 +333,66 @@ touch-sized. Club context shows no Phase B analytics at all.
 
 ---
 
+## Phase C — implemented (commercial)
+
+The Commercial cards, F1 Referral Intelligence and the R-5 administration
+surface (§R.5). Nothing in Phase A or B was replaced.
+
+### The read-honesty rule — non-negotiable
+
+Every Site Admin read returns `ReadState<T>` (`ok` / `omitted` / `unauthorized`
+/ `error`) and the UI must branch on it. `toErrorState()` in
+`lib/app-context/site-admin-dashboard-data.ts` is the **single** definition of
+"the database refused" (`42501`) versus "the read failed"; do not write a second
+copy.
+
+**`const rows = data ?? []` is a defect, not a shortcut.** It makes "there are
+genuinely none" and "the query fell over" render identically, and on this
+dashboard the second is read as the first — a Site Admin acts on "£0 MRR" and on
+"no anomalies" as business facts. Three real instances shipped before this rule
+was written down:
+
+| Surface | What it rendered | What was actually true |
+|---|---|---|
+| Club member payments card | `£0.00 · 0 clubs connected` | `42501` — the query targeted a table with no `authenticated` grant |
+| Referral data health page | `No anomalies found.` | The RPC errored; anomaly count unknown |
+| `/admin/commercial` needs-attention | `Nothing needs attention.` | Unverified — the read was never checked |
+
+A failed read renders as a visible failure that names the failure, and the rest
+of the page still renders. An empty result renders as an empty state that says
+it is empty.
+
+### The two money domains, and the table each one lives in
+
+Conflating them is the commercial equivalent of mixing the two fixture clocks.
+
+| Domain | Question | Canonical table |
+|---|---|---|
+| **A** | What a club pays **Ovalball** | `platform_payments` (gated on `club.platform_billing.view`) |
+| **B** | What a club's **own members** pay the club | `gocardless_payments` |
+
+`gocardless_merchant_connections` belongs to neither: it holds provider access
+tokens, grants nothing to `authenticated`, and must only ever be reached through
+a `SECURITY DEFINER` accessor. "Clubs taking member payments" comes from
+`site_admin_dashboard_trends()`'s `adoption.withMemberPayments`, which is also
+what the Adoption section shows — so the two figures cannot disagree.
+
+### Referral counting rules
+
+- **Invitations are not referrals.** An unaccepted invitation produces no
+  `platform_referrals` row, so "invitations sent" is a count of
+  `club_ovalball_invitations`. Sourcing it from referral rows deletes the top of
+  the funnel.
+- **Reward money is counted by `reward_credit_id`, not by status.** A reversal
+  moves the referral to its own terminal `reversed` status, outside `qualified`.
+- **Beta claims are read from `current_platform_mode()`**, never inferred from a
+  zero count — a zero-derived "not active during Beta" would keep asserting that
+  cause after go-live.
+
+All four rules are pinned by `supabase/tests/referral_intelligence_accounting.sql`.
+
+---
+
 ## A. Current dashboard audit
 
 ### A.1 There is no Site Admin dashboard
@@ -1156,10 +1216,12 @@ provider ids, mandate ids.
 > other document for the resolution, the reconciliation semantics, the
 > data-health model and the historical-anomaly classification.
 >
-> Still open from this section: **R-5, the Site Admin referral administration
-> surface, remains a GAP.** F₀ built its two canonical reads
+> Closed since: **R-5, the Site Admin referral administration surface, is
+> built** — see §R.5. F₀ built its two canonical reads
 > (`referral_data_health`, `referral_data_health_detail`) and its one canonical
-> action (`reconcile_referral_attribution`); the screen itself is F₁ work.
+> action (`reconcile_referral_attribution`); the screen at
+> `/admin/commercial/referrals` now consumes them without adding a second
+> anomaly model of its own.
 
 ### R.1 `internal.reconcile_partner_invitations` exists, but does not reconcile referrals
 
@@ -1267,20 +1329,37 @@ The user's own constraint applies directly: the dashboard must never silently
 claim referral analytics are complete while known attribution gaps exist. Today,
 against real data, the status would read **ACTION REQUIRED**.
 
-### R.5 Referral administration surface — GAP
+### R.5 Referral administration surface — BUILT
 
-`/admin/commercial` shows exactly two referral numbers, from
-`supabase.from("platform_referrals").select("status")`:
-"1 referrals pending · 0 rewards earned" (live-verified). There is **no**
-per-referral list, no referrer identity, no funnel, no reward ledger view, and no
-reconciliation action anywhere in the Site Admin console.
+**Status: closed.** `/admin/commercial/referrals` is the canonical drill-through:
+a per-referral list with status and club search, a detail page per referral
+(including its `audit_log` history), and a data-health page rendering
+`referral_data_health_detail()` findings verbatim. All three read
+`admin_referral_overview`, a `security_invoker` view joining the real chain
+(invitation → referring club → referred club → reward credit → qualifying
+payment). The reward beneficiary is always the referring **club**; no
+person-level name column exists in the view at all.
 
-**Classification: the referral administration surface is a GAP.** Drill-throughs
-from the dashboard's referral visuals have nowhere canonical to land yet. Building
-one is a legitimate later phase; building analytics that link nowhere is not.
+Gated on `site.commercial.view` after `requireActiveSiteAdmin`, exactly as the
+rest of `/admin/commercial` is.
 
-**Do not fix any of this during Stage 1**, per instruction. It is surfaced here so
-it can be sequenced before, not after, the referral analytics build (§Y).
+**What it deliberately does not report.** `platform_credits` is a pooled,
+append-only per-club ledger: an application row records which *payment* a
+balance was applied to, never which specific earning credit funded it. So an
+"applied vs outstanding" split cannot be attributed to one referral without
+assuming an allocation order the product does not define. The surface reports
+**earned** and **reversed** only, and says so on screen.
+
+**Reward money is counted by reward credit, not by status.** A reversal moves the
+referral to its own terminal `reversed` status, so it is *not* inside the
+`qualified` set. Summing reversals within `qualified` reports £0 however much was
+clawed back. `supabase/tests/referral_intelligence_accounting.sql` pins this and
+fails if the old logic returns.
+
+**Invitations are not referrals.** An invitation nobody accepted produces no
+`platform_referrals` row, so "invitations sent" must come from
+`club_ovalball_invitations`. Counting referral rows under that label deletes the
+top of the funnel.
 
 ---
 
@@ -1548,21 +1627,21 @@ pattern `platform_commercial_overview()` uses with `site.commercial.view`. A
 | Subscriptions started this month | | `platform_subscription_events` | `event_type='activated'` | month | SC | COM | — | `/admin/commercial` | ✅ | S | Event ledger, not `started_at` |
 | Cancellations this month | | `platform_club_subscriptions` | `cancelled_at` in month | month | SC | COM | — | `/admin/commercial` | ✅ | S | |
 | SaaS cash collected | | `platform_payments` | `sum(net_pence) where status='confirmed'` | month/all | SC | COM | — | `/admin/commercial` | ✅ | S | Zero during Beta |
-| Clubs connected to GoCardless | | `gocardless_merchant_connections` | `disconnected_at is null` | now | SC | COM | — | `/admin/clubs` | ✅ | S | Domain B |
-| Gross member collections | | `gocardless_payments` | `sum(gross_amount_minor) where confirmed` | month | SC | COM | — | — (GAP) | ✅ | S | **Not Ovalball revenue** |
+| Clubs connected to GoCardless | | **`site_admin_dashboard_trends()` → `adoption.withMemberPayments`** | authorized aggregate | now | SC | COM | — | `/admin/clubs` | ✅ | S | Domain B. **Never query `gocardless_merchant_connections` from a user session** — it holds provider access tokens and grants nothing to `authenticated`, so the read returns 42501 for a Site Admin too and a swallowed error renders as "0 connected" |
+| Gross member collections | | `gocardless_payments` | `sum(gross_amount_minor) where confirmed` | month | SC | COM | — | `/admin/commercial` | ✅ | S | **Not Ovalball revenue** |
 | Member payment failures | | `gocardless_payments` | `status='failed'` | month | RT | COM | — | — (GAP) | ✅ | S | |
 | Payouts confirmed | | `gocardless_payouts` | `sum(amount_minor)` | month | SC | COM | — | — (GAP) | ✅ | S | Club money |
 | Ovalball commission | | — | — | — | — | — | — | — | **GAP** | — | **Do not render** (§K.2) |
-| Referrals sent | | `platform_referrals` | `count(*)` | cohort | SC | COM | — | referral admin (GAP) | ✅ | S | |
-| Referrals registered | | `platform_referrals` | `status in ('registered','qualified')` | cohort | SC | COM | — | referral admin (GAP) | ✅ | S | |
-| Paid referral conversions | | `platform_referrals` | `status='qualified'` | `qualified_at` | SC | COM | — | referral admin (GAP) | ✅ | S | Zero during Beta |
-| Referral funnel | 5 stages | §P | see §P | cohort by `created_at` | SC | COM | — | referral admin (GAP) | ✅ | M | No "opened" stage |
-| Top Referrers | ranked clubs | §O | see §O | month/90d/12m/all | LC | COM | AGG | referral admin (GAP) | ✅ | M | Club identity only |
+| Referrals sent | | `platform_referrals` | `count(*)` | cohort | SC | COM | — | `/admin/commercial/referrals` | ✅ | S | |
+| Referrals registered | | `platform_referrals` | `status in ('registered','qualified')` | cohort | SC | COM | — | `/admin/commercial/referrals` | ✅ | S | |
+| Paid referral conversions | | `platform_referrals` | `status='qualified'` | `qualified_at` | SC | COM | — | `/admin/commercial/referrals` | ✅ | S | Zero during Beta |
+| Referral funnel | 5 stages | §P | see §P | cohort by `created_at` | SC | COM | — | `/admin/commercial/referrals` | ✅ | M | No "opened" stage |
+| Top Referrers | ranked clubs | §O | see §O | month/90d/12m/all | LC | COM | AGG | `/admin/commercial/referrals` | ✅ | M | Club identity only |
 | Free months earned | | `platform_referrals` | `count where qualified`, `sum(reward_amount_pence)` | period | SC | COM | — | `/admin/commercial` | ✅ | S | Exact |
 | Reward credit applied | | `platform_credits` | `abs(sum) where source='application'` | period | SC | COM | — | `/admin/commercial` | ✅ | S | **£ only, not months** (§N.3) |
 | Credit outstanding | | `platform_credits` | `sum(amount_pence)` | now | SC | COM | — | `/admin/commercial` | ✅ | S | Signed ledger |
-| Referral data health | 4 detectors | §R.3 | see §R.3 | live | RT | COM | — | referral admin (GAP) | ✅ | M | **ACTION REQUIRED today** |
-| Live referral log | recent events | `audit_log` | §Q | last 20 | RT | COM | **PII** | referral admin (GAP) | ✅ | M | Email: log only |
+| Referral data health | 4 detectors | §R.3 | see §R.3 | live | RT | COM | — | `/admin/commercial/referrals` | ✅ | M | **ACTION REQUIRED today** |
+| Live referral log | recent events | `audit_log` | §Q | last 20 | RT | COM | **PII** | `/admin/commercial/referrals` | ✅ | M | Email: log only |
 | Platform activity | recent events | `audit_log` | §V | last 20 | RT | SA | AGG | per entity | ✅ | M | Field allow-list mandatory |
 | Contracts / SignNow | | — | — | — | — | — | — | — | **GAP** | — | No integration exists |
 
@@ -1736,7 +1815,7 @@ Numbers shown are the local development database, for shape only.
 | R-2 | `club_ovalball_invitations` had no expiry handling; reconciliation skipped lapsed invitations | **FIXED.** Expiry lifecycle added (nightly sweep) and reconciliation now judges validity against the moment the club submitted its claim, not approval time. This also restored the missing **partnership**, which R-2 destroyed too |
 | R-3 | `platform_credits` has no back-reference to `platform_referrals` | **ACCEPTED, WITH A DETECTOR.** The FK direction is forced by the order `qualify_referral_for_payment` must write in; a constraint would mean restructuring money code. `reward_without_referral` detects it and the ledger is append-only. See `REFERRAL_ATTRIBUTION_INTEGRITY.md` §6 |
 | R-4 | Credit application is club-level, not per-referral (§N.3) | **ACCEPTED AND LABELLED.** Confirmed as product Decision C: analytics report reward value in £, never reverse-calculated "months" |
-| R-5 | No Site Admin referral administration surface | **STILL A GAP.** Its canonical reads and action now exist; the screen is F₁ work |
+| R-5 | No Site Admin referral administration surface | **BUILT.** `/admin/commercial/referrals` — list, per-referral detail with audit history, and a data-health page over `referral_data_health_detail()`. Reads `admin_referral_overview`; adds no second anomaly model. See §R.5 |
 
 ### Product policy gaps — **owner decisions, do not invent**
 

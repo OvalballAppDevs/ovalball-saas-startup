@@ -21,8 +21,12 @@ import { toErrorState, type ReadState } from "@/lib/app-context/site-admin-dashb
  * EVERY read here returns a ReadState. The dashboard's founding rule is
  * that a failed read must never be pixel-identical to a genuine zero: "£0
  * MRR" is a business fact a Site Admin will act on, and a swallowed error
- * that renders as "£0 MRR" is a lie the page tells confidently. There is no
- * `data ?? []` anywhere in this file, and there must never be one.
+ * that renders as "£0 MRR" is a lie the page tells confidently.
+ *
+ * `?? []` appears below only on branches where the error has ALREADY been
+ * checked and returned -- there it is narrowing a type the client declares
+ * nullable, not absorbing a failure. It must never be the thing standing
+ * between a failed query and a rendered number.
  */
 
 export interface SaasCard {
