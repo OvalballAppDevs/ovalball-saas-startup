@@ -62,6 +62,18 @@ export default async function AdminClubDetailPage({
 
   const { data: club } = await supabase.from("clubs").select("*").eq("directory_id", directoryId).maybeSingle()
 
+  // Scoped to the club's own code and nation, so the selector can only ever
+  // offer bodies that actually govern this club. Rugby league returns none,
+  // which is correct rather than empty-by-accident.
+  const { data: constituentBodyRows } = await supabase
+    .from("constituent_bodies")
+    .select("id, canonical_name, body_type")
+    .eq("rugby_code", directory.rugby_code)
+    .eq("nation", directory.nation)
+    .eq("active", true)
+    .order("body_type")
+    .order("canonical_name")
+
   const [{ count: adminCount }, { data: auditRows }, { data: overviewRow }, { data: pendingClaim }, { count: anyClaimCount }] =
     await Promise.all([
       club
@@ -207,6 +219,19 @@ export default async function AdminClubDetailPage({
               name: "Directory",
               content: (
                 <DirectoryForm
+                  // Counties first: they are what all but a handful of
+                  // clubs belong to. The seven national bodies (services,
+                  // universities, schools, referees) follow, marked as such.
+                  constituentBodies={(constituentBodyRows ?? [])
+                    .map((cb) => ({ id: cb.id, canonicalName: cb.canonical_name, bodyType: cb.body_type }))
+                    .sort((a, b) => {
+                      const aGeo = a.bodyType === "GEOGRAPHIC" ? 0 : 1
+                      const bGeo = b.bodyType === "GEOGRAPHIC" ? 0 : 1
+                      return aGeo - bGeo || a.canonicalName.localeCompare(b.canonicalName)
+                    })}
+                  unreconciledConstituentBody={
+                    directory.constituent_body && !directory.constituent_body_id ? directory.constituent_body : null
+                  }
                   initial={{
                     directoryId: directory.id,
                     name: directory.name,
@@ -226,7 +251,7 @@ export default async function AdminClubDetailPage({
                     active: directory.active,
                     verificationStatus: directory.verification_status,
                     notes: directory.notes ?? "",
-                    constituentBody: directory.constituent_body ?? "",
+                    constituentBodyId: directory.constituent_body_id ?? "",
                   }}
                   initialProvenance={{
                     directoryId: directory.id,

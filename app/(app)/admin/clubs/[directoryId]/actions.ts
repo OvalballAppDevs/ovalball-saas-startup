@@ -38,7 +38,8 @@ export interface DirectoryFieldsInput {
   active: boolean
   verificationStatus: string
   notes: string
-  constituentBody: string
+  /** Canonical constituent_bodies.id, or "" for none / not applicable. */
+  constituentBodyId: string
 }
 
 /**
@@ -85,7 +86,11 @@ export async function updateDirectoryFields(input: DirectoryFieldsInput): Promis
       active: input.active,
       verification_status: input.verificationStatus.trim() || "unverified",
       notes: input.notes.trim() || null,
-      constituent_body: input.constituentBody.trim() || null,
+      // The canonical reference is what a club's governing body IS. The
+      // legacy free-text column is left untouched here: it is raw evidence
+      // from ingestion/research and the review queue for anything that did
+      // not reconcile, not something an editor overwrites by hand.
+      constituent_body_id: input.constituentBodyId || null,
     })
     .eq("id", input.directoryId)
 

@@ -949,6 +949,7 @@ export type Database = {
           address: string | null
           bio: string | null
           constituent_body: string | null
+          constituent_body_id: string | null
           country: string
           county: string | null
           created_at: string
@@ -985,6 +986,7 @@ export type Database = {
           address?: string | null
           bio?: string | null
           constituent_body?: string | null
+          constituent_body_id?: string | null
           country: string
           county?: string | null
           created_at?: string
@@ -1021,6 +1023,7 @@ export type Database = {
           address?: string | null
           bio?: string | null
           constituent_body?: string | null
+          constituent_body_id?: string | null
           country?: string
           county?: string | null
           created_at?: string
@@ -1052,7 +1055,15 @@ export type Database = {
           verification_status?: string
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "club_directory_constituent_body_id_fkey"
+            columns: ["constituent_body_id"]
+            isOneToOne: false
+            referencedRelation: "constituent_bodies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       club_directory_research_proposals: {
         Row: {
@@ -3168,6 +3179,51 @@ export type Database = {
           slug?: string
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      constituent_bodies: {
+        Row: {
+          active: boolean
+          body_type: string
+          canonical_name: string
+          created_at: string
+          id: string
+          nation: string
+          rugby_code: string
+          short_name: string | null
+          source: string
+          source_checked_on: string | null
+          source_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          body_type: string
+          canonical_name: string
+          created_at?: string
+          id?: string
+          nation: string
+          rugby_code: string
+          short_name?: string | null
+          source?: string
+          source_checked_on?: string | null
+          source_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          body_type?: string
+          canonical_name?: string
+          created_at?: string
+          id?: string
+          nation?: string
+          rugby_code?: string
+          short_name?: string | null
+          source?: string
+          source_checked_on?: string | null
+          source_url?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

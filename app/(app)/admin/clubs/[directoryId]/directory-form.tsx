@@ -12,12 +12,23 @@ import { RugbyCodeCorrectionDialog } from "./rugby-code-correction-dialog"
 
 const NATIONS = ["England", "Scotland", "Wales", "Northern Ireland"] as const
 
+export interface ConstituentBodyOption {
+  id: string
+  canonicalName: string
+  bodyType: string
+}
+
 export function DirectoryForm({
   initial,
   initialProvenance,
+  constituentBodies,
+  unreconciledConstituentBody,
 }: {
   initial: DirectoryFieldsInput
   initialProvenance: ProvenanceInput
+  constituentBodies: ConstituentBodyOption[]
+  /** Raw imported text that matched no canonical body, if any. */
+  unreconciledConstituentBody: string | null
 }) {
   const [form, setForm] = useState(initial)
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -183,11 +194,46 @@ export function DirectoryForm({
           </Label>
           <Input id="dir-verification" {...field("verificationStatus")} className="mt-1.5 h-11 border-ink/15 bg-white" />
         </div>
+        {/* Code-aware. The RFU's Constituent Bodies govern union clubs;
+            rugby league has no equivalent concept, so a league club is told
+            that plainly rather than being shown an empty or borrowed list.
+            Selection is from canonical rows only -- a club cannot type a
+            governing body into existence. */}
         <div>
           <Label htmlFor="dir-constituent" className="text-ink/80">
             Constituent body
           </Label>
-          <Input id="dir-constituent" {...field("constituentBody")} className="mt-1.5 h-11 border-ink/15 bg-white" />
+          {form.rugbyCode === "union" ? (
+            <>
+              <select
+                id="dir-constituent"
+                value={form.constituentBodyId}
+                onChange={(e) => setForm((f) => ({ ...f, constituentBodyId: e.target.value }))}
+                className="mt-1.5 h-11 w-full rounded-lg border border-ink/15 bg-white px-3 text-base text-ink outline-none focus-visible:border-pitch-600"
+              >
+                <option value="">Not set</option>
+                {constituentBodies.map((cb) => (
+                  <option key={cb.id} value={cb.id}>
+                    {cb.canonicalName}
+                    {cb.bodyType !== "GEOGRAPHIC" ? " — national" : ""}
+                  </option>
+                ))}
+              </select>
+              {unreconciledConstituentBody && (
+                <p className="mt-1.5 text-xs text-amber-700">
+                  Imported as &ldquo;{unreconciledConstituentBody}&rdquo;, which matched no Constituent Body. Pick the
+                  right one above.
+                </p>
+              )}
+            </>
+          ) : (
+            <p
+              id="dir-constituent"
+              className="mt-1.5 flex h-11 items-center text-sm text-ink/50"
+            >
+              Not applicable — rugby league has no Constituent Bodies.
+            </p>
+          )}
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="dir-notes" className="text-ink/80">
