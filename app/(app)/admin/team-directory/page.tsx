@@ -46,6 +46,20 @@ export default async function TeamDirectoryPage() {
     .select("id, key, label, category, age_group, gender, fixed_squad_designation, allows_squads, is_active, sort_order")
     .order("sort_order")
 
+  // Per-code availability. The catalogue is one shared vocabulary but the two
+  // codes do not regulate the same age grades -- union runs girls dual age
+  // bands and so does not offer Girls U13/U15, while league offers both. A
+  // Site Admin looking at this page needs to see that, or a type reads as
+  // globally available when half the clubs will never be offered it.
+  const { data: availability } = await supabase
+    .from("canonical_team_types_by_code")
+    .select("id, rugby_code, is_offered")
+  const withheldByTypeId = new Map<string, string[]>()
+  for (const row of availability ?? []) {
+    if (row.is_offered || !row.id || !row.rugby_code) continue
+    withheldByTypeId.set(row.id, [...(withheldByTypeId.get(row.id) ?? []), row.rugby_code])
+  }
+
   const byCategory = new Map<string, typeof types>()
   for (const t of types ?? []) {
     const list = byCategory.get(t.category) ?? []
@@ -97,6 +111,15 @@ export default async function TeamDirectoryPage() {
                           {t.allows_squads && " · B/C squads allowed"}
                           {!t.is_active && " · Deactivated"}
                         </p>
+                        {t.is_active && (withheldByTypeId.get(t.id)?.length ?? 0) > 0 && (
+                          <p className="mt-0.5 text-xs text-amber-700">
+                            Not offered in{" "}
+                            {withheldByTypeId
+                              .get(t.id)!
+                              .map((c) => (c === "union" ? "Rugby Union" : "Rugby League"))
+                              .join(" or ")}
+                          </p>
+                        )}
                       </div>
                       {ctx.manageTeamCatalogue && t.is_active && <DeactivateTeamTypeButton id={t.id} label={t.label} />}
                     </li>

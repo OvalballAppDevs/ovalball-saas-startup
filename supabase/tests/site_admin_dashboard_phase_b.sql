@@ -275,8 +275,30 @@ begin
   end if;
 
   -- A new canonical type definition is not a team and must not move it.
-  insert into public.canonical_team_types (key, label, category, age_group, gender, allows_squads, sort_order)
-  values ('phase-b-probe-type', 'Phase B Probe', 'youth', 'U18', 'girls', false, 9999);
+  --
+  -- The probe used to hardcode youth/U18/girls, which was a free identity
+  -- slot until girls_u18 became a real catalogue row (RFU Regulation 15.6
+  -- dual age bands, 20261108000000). canonical_team_types_identity_idx is
+  -- unique on (category, age_group, gender, fixed_squad_designation), so the
+  -- insert started colliding and aborted the whole suite. Pick a free slot
+  -- instead of naming one, so a future catalogue addition cannot break this
+  -- test again -- what is being probed is "a type is not a team", and which
+  -- age group carries the probe is irrelevant to that.
+  select a into v_text
+  from unnest(array['U18','U17','U16','U15','U14','U13','U12','U11','U10','U9','U8','U7','U6']) a
+  where not exists (
+    select 1 from public.canonical_team_types c
+    where c.category = 'youth' and c.age_group = a and c.gender = 'girls'
+      and c.fixed_squad_designation is null
+  )
+  limit 1;
+
+  if v_text is null then
+    raise notice 'SKIP 19b (K): every youth/girls age group is taken, no free identity slot to probe with';
+  else
+    insert into public.canonical_team_types (key, label, category, age_group, gender, allows_squads, sort_order)
+    values ('phase-b-probe-type', 'Phase B Probe', 'youth', v_text, 'girls', false, 9999);
+  end if;
   select growth_daily into v_daily from public.site_admin_dashboard_trends();
   select (v_daily -> 29 ->> 'teams')::int into v_count;
   if v_count = v_int then

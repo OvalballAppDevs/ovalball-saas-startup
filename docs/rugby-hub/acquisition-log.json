@@ -138,7 +138,7 @@
     "note": "Once these are placed in the approved directory, extraction proceeds locally and automatically from that point onward, and the canonical provenance recorded against every extracted fact remains the englandrugby.com URL.",
     "fulfilment": {
       "acquired_at": "2026-09-07",
-      "acquisition_method": "DEVELOPER_SUPPLIED_TEXT \u2014 pasted into the session from englandrugby.com by the developer, after automated retrieval was refused. The access control was not circumvented.",
+      "acquisition_method": "DEVELOPER_SUPPLIED_TEXT — pasted into the session from englandrugby.com by the developer, after automated retrieval was refused. The access control was not circumvented.",
       "documents_supplied": [
         "Regulation 3 - Membership of RFU (Last Updated 30 Jul 2026, Effective 1 Aug 2026)",
         "Regulation 5 - Insolvency, Funding and International Tickets (30 Jul 2026, Effective 1 Aug 2026)",
@@ -158,10 +158,312 @@
       "corroboration": "Every Regulation 15 appendix states 'Effective from Friday 1st August 2025'. The regulatory_sources row RFU-REG15-APP1-2025-001, recorded in an INDEPENDENT earlier pass, already carried effective_from = 2025-08-01. The supplied text agrees with what the database recorded before it arrived, which is real corroboration rather than assertion.",
       "still_outstanding": [
         "Regulation 15 master regulation (the appendices were supplied; the parent regulation was not)",
-        "Confirmation of whether Appendix 10 (U13 Girls) and any further girls-specific appendix exist \u2014 this is the one remaining open conflict"
+        "Confirmation of whether Appendix 10 (U13 Girls) and any further girls-specific appendix exist — this is the one remaining open conflict"
       ],
       "provenance_caveat": "Text pasted into a session cannot carry a SHA-256 or publication metadata, so it is not byte-verifiable the way a downloaded PDF would be. It is accepted because it is developer-supplied from the official source, it is internally consistent, and its stated effective date independently matches a previously recorded value. If byte-level provenance is later required, the PDFs should still be placed in research-ingestion/rfu/.",
       "effect": "Union age grades U7-U14 and U15-U18 are now extractable in Phase 4B. This removes the single largest blocker identified in Phase 4A."
     }
+  },
+  "later_acquisitions": {
+    "$comment": [
+      "Everything above concerns the RFU, whose host refuses automated retrieval. This section covers documents acquired afterwards under the same acquisition rule, including league-code sources whose host does NOT block us -- so the trail here is stronger, not weaker, than the RFU trail above.",
+      "The rule applied is identical in every case: canonical provenance is the governing body's own URL, equivalence is verified before anything is extracted, and a document that cannot be shown to be current is banked rather than used."
+    ],
+    "logged_on": "2026-09-07",
+    "acquisitions": [
+      {
+        "candidate_key": "ACQ-RFL-PRIMARY-RULES-2026-FULL",
+        "target_document": "Primary Rugby League Full Rules 2026",
+        "authority": "Rugby Football League",
+        "canonical_source_url": "https://www.rugby-league.com/get-involved/play/primary-rl-",
+        "acquisition_url": "https://www.rugby-league.com/uploads/docs/Primary%20Rugby%20League%20Full%20Rules%202026.pdf",
+        "acquisition_method": "public HTTPS GET from the governing body's own host, no authentication, no evasion",
+        "acquired_at": "2026-09-07",
+        "sha256": "289f4e0347e0359b8faab337af6570d6d10e4c385811c2e3b59530b645f6adce",
+        "bytes_retrieved": true,
+        "verification": {
+          "document_title": "VERIFIED - 'Primary Rugby League Full Rules 2026', matching the RFL's own link text",
+          "age_grade": "VERIFIED - page headings read 'UNDER 9s RULES 2026', 'UNDER 10s RULES 2026', 'UNDER 11s RULES 2026'",
+          "season_or_version": "VERIFIED - 2026 in the title and repeated in every page heading",
+          "page_count": 22,
+          "publication_metadata": "Microsoft Word for Microsoft 365, Author 'David Raybould', created 2026-01-20. Server Last-Modified 2026-02-17.",
+          "currency": "VERIFIED CURRENT - this is the only rules PDF linked from the RFL's live Primary Rugby League page"
+        },
+        "verification_state": "VERIFIED_CURRENT",
+        "usable_for_extraction": true,
+        "reasoning": "The strongest provenance in this log: fetched directly from the governing body's own host, with the authority itself linking it as its current rules. No mirror, no intermediary, no equivalence gap. This is the Primary Rugby League extraction authority."
+      },
+      {
+        "candidate_key": "ACQ-RFL-PRIMARY-RULES-2026-DEC",
+        "target_document": "Primary Rugby League Rules 2026 (10-page December edition)",
+        "authority": "Rugby Football League",
+        "canonical_source_url": "https://www.rugby-league.com/get-involved/play/primary-rl-",
+        "acquisition_url": "https://www.rugby-league.com/uploads/docs/Primary%20Rugby%20League%20Rules%202026.pdf",
+        "acquisition_method": "DEVELOPER_SUPPLIED_LOCAL_FILE, then independently re-fetched by public HTTPS GET from the RFL's own host and compared byte-for-byte",
+        "acquired_at": "2026-09-07",
+        "sha256": "a67920f300aa4909bf7b3d96150653102f8700c533eee8c76d05dc81e0b79aa3",
+        "bytes_retrieved": true,
+        "verification": {
+          "document_title": "VERIFIED - 'Primary Rugby League Rules 2026'",
+          "age_grade": "VERIFIED - 'UNDER 9s RULES 2026', 'UNDER 10s RULES 2026', 'UNDER 11s RULES 2026', the same structure as the Full Rules",
+          "season_or_version": "STATED 2026, but this is the EARLIER of two 2026 editions",
+          "page_count": 10,
+          "publication_metadata": "Microsoft Word for Microsoft 365, Author 'David Raybould', created 2025-12-12. Server Last-Modified 2025-12-12. Same author as the Full Rules.",
+          "authenticity": "PROVEN - the developer's local copy and the file served by rugby-league.com are byte-identical (SHA-256 a67920f3..., 216248 bytes, Content-Type application/pdf). Three neighbouring URL spellings were probed as a control and all returned the site's 37370-byte HTML 404 page, so the 200 on this URL is a real asset and not a catch-all.",
+          "currency": "FAILED - dated five weeks before the Full Rules, and not linked from the RFL's live Primary Rugby League page, which offers only the 22-page Full Rules"
+        },
+        "verification_state": "AUTHENTIC_BUT_NOT_CURRENT",
+        "usable_for_extraction": false,
+        "reasoning": "This is the inverse of the usual failure mode. Provenance is not the problem -- it is as strong as the Full Rules and was proved by direct comparison against the governing body's own host. What fails is currency. Two 2026 editions exist by the same author; the RFL links only the later, longer one. Whether this is a superseded draft or a condensed handout cannot be decided from the files themselves, because both embed subset fonts that defeat text extraction, and under either reading it is not what the RFL currently presents. Recorded rather than discarded because the URL is still live but orphaned, and would otherwise be rediscovered and mistaken for current. If the two documents' rule values were ever to disagree, the Full Rules governs."
+      },
+      {
+        "candidate_key": "ACQ-RFU-REG15-APP10-2017-U13-GIRLS",
+        "target_document": "RFU Regulation 15 Appendix 10 - Under 13s Rules of Play, Girls Only, 2017/18 edition",
+        "authority": "Rugby Football Union",
+        "canonical_source_url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby",
+        "acquisition_url": "DEVELOPER_SUPPLIED_LOCAL_FILE - no retrieval URL; englandrugby.com still returns HTTP 403 to automated requests, retested this pass with a single plain GET and not circumvented",
+        "acquisition_method": "DEVELOPER_SUPPLIED_LOCAL_FILE",
+        "acquired_at": "2026-09-07",
+        "sha256": "04b8f11ffe75a0c5616f978317f1a39cba552cb376931494b8f44b3bee8e3335",
+        "bytes_retrieved": true,
+        "verification": {
+          "document_title": "VERIFIED from the document's own text - 'RFU REGULATION 15 - AGE GRADE RUGBY'",
+          "appendix_number": "VERIFIED - 'Appendix 10', stated on the cover and repeated in the running head",
+          "age_grade": "VERIFIED - 'Under 13s', 'Girls Only'",
+          "season_or_version": "VERIFIED - 'Effective from 1 August 2017', stated in the document",
+          "page_count": 9,
+          "publication_metadata": "STRONG - Adobe InDesign CS6 (Macintosh) / Adobe PDF Library 10.0.1, created 2017-07-07 15:59. The independently retrieved RFURegulation15-2017.18.pdf (ACQ-RFU-REG15-2017-WHITEROSE) carries the same toolchain and a creation date in the same week. Neither file's provenance depends on the other, so the match is real mutual corroboration that both are genuine RFU-produced 2017 artefacts."
+        },
+        "verification_state": "SUPERSEDED_EDITION",
+        "usable_for_extraction": false,
+        "reasoning": "Answers a structural question decisively and a factual one not at all. Appendix 10 for U13 girls demonstrably existed in 2017, so Gloucestershire RFU's listing of it is not an invention and the disagreement with Nottinghamshire, Lincolnshire & Derbyshire RFU is no longer a straight choice between a correct page and a wrong one. What it cannot show is whether Appendix 10 survives into 2025/26 -- a document from nine seasons ago is evidence about 2017 and nothing else.",
+        "publication_prohibition": "Its rule values must NOT be published as current rules, and a '(taken from a 2017 copy)' disclaimer does not make them publishable. The developer raised exactly this option and the answer is no, for a reason specific to this product: a parent who opens Ovalball to find their U13 daughter's ball size or half length acts on the number, not the footnote, and age-grade Rules of Play have changed materially since 2017 -- the RFU's own current set is dated 'Effective from Friday 1st August 2025'. A wrong safety-relevant value carrying a date caveat is more dangerous than no value, because the caveat transfers the risk to the reader while the number still reads as authoritative. The correct use is the one taken here: bank it as historical evidence that resolves the structural question, and leave the U12-U14 girls facts unpublished until the current appendix index is confirmed."
+      },
+      {
+        "candidate_key": "ACQ-RFU-REG15-MASTER-2026-27",
+        "target_document": "RFU Regulation 15 - Age Grade Rugby, 2026/27 edition (the master regulation)",
+        "authority": "Rugby Football Union",
+        "canonical_source_url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby",
+        "acquisition_url": "DEVELOPER_SUPPLIED_LOCAL_FILE - no retrieval URL. englandrugby.com returns HTTP 403 to automated requests; retested this pass with a single plain unauthenticated GET and NOT circumvented.",
+        "acquisition_method": "DEVELOPER_SUPPLIED_BROWSER_PRINT_CAPTURE - the developer opened the official page in their own browser and printed it to PDF, which is step 8 of the standing acquisition rule (a one-time manual browser retrieval where no trustworthy acquisition copy exists)",
+        "acquired_at": "2026-09-07",
+        "sha256": "e9f6f55a210fac85eb96a8f45fef17e2ff834bf330576efdc6192b8df12028ee",
+        "bytes_retrieved": true,
+        "verification": {
+          "document_title": "VERIFIED - 'RFU REGULATION 15 - AGE GRADE RUGBY', in the page heading and in the running footer of every page",
+          "regulation_number": "VERIFIED - 15, with sections 15.1 to 15.15 present and in order",
+          "age_grade": "N/A - master regulation covering all age grades U6 to U18 plus U19s playing down",
+          "season_or_version": "VERIFIED - 'Effective from 1 August 2026' in the footer of all 25 pages, and Regulation 15.10 states 'Season 2026-27 will run from Saturday 5 September 2026 until Monday 3 May 2027', which is internally consistent and matches the current date",
+          "page_count": 25,
+          "publication_metadata": "WEAK BY DESIGN - Skia/PDF m152, Creator 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', created 2026-09-07T18:49Z. That is Chrome's print engine, not an RFU publishing toolchain, because the artefact is a capture rather than the RFU's own file. The metadata therefore attests to the CAPTURE, not to the document; the document's own authenticity rests on its content and footer instead.",
+          "text_layer": "ABSENT - pypdf extracts zero characters across all 25 pages. Content was read from rendered page images (extracted from the PDF's FlateDecode RGB XObjects at 1240x1754). Every quotation recorded from this document was read visually, not machine-extracted."
+        },
+        "verification_state": "VERIFIED_CURRENT",
+        "usable_for_extraction": true,
+        "reasoning": "The largest single gap in Phase 4A closed: the appendices were on record but the parent regulation was not. Provenance is honestly mid-strength -- a browser rendering of the official page rather than the RFU's published bytes -- but it is byte-stable, re-readable, internally consistent, and its stated season matches the calendar, so it is materially stronger than the pasted text accepted earlier. It settled two questions that months of county-page corroboration could not: 15.2(2)(a) enumerates the Rules of Play as 'Appendix 1 to 9' (closing the Appendix 10 dispute), and 15.6 defines the girls game as four dual age bands (closing the girls age-grade question and forcing a correction to Ovalball's own canonical team types). Structured extraction at docs/rugby-hub/sources/rfu-regulation-15-2026-27.md.",
+        "consequences": [
+          "RFU-REG15-GIRLS-APPENDIX-SCOPE and RFU-REG15-GIRLS-U12-U14-APPENDIX both ANSWERED, awaiting Site Admin sign-off (no Site Admin exists locally to stamp resolved_by).",
+          "Four new regulatory identities created: RFU-GIRLS-U12, RFU-GIRLS-U14, RFU-GIRLS-U16, RFU-GIRLS-U18.",
+          "Ovalball canonical data corrected: union girls team types are now U12/U14/U16/U18 only; girls_u13 and girls_u15 deactivated; girls_u18 created (it had never existed).",
+          "A NEW blocker opened, RFU-REG15-APPENDIX-SEASON-SPLIT: this master regulation is 2026/27 but the Appendix 1-9 text on record is 2025/26, so appendix-derived Rules-of-Play facts remain unpublishable until the 2026/27 appendices are obtained."
+        ]
+      },
+      {
+        "candidate_key": "ACQ-RFL-GOVERNANCE-INDEX",
+        "target_document": "RFL Rules & Regulations index, and the International Rugby League Laws of the Game it links",
+        "authority": "Rugby Football League",
+        "canonical_source_url": "https://www.rugby-league.com/governance/rules-and-regulations",
+        "acquisition_url": "https://www.rugby-league.com/uploads/docs/International_Rugby_League_Laws_of_the_Game.pdf",
+        "acquisition_method": "public HTTPS GET, no authentication, no evasion",
+        "acquired_at": "2026-09-07",
+        "sha256": "NOT_YET_HASHED - located and catalogued this pass; not retrieved in full",
+        "bytes_retrieved": false,
+        "verification": {
+          "document_title": "International Rugby League Laws of the Game, as linked from the RFL's own Laws of the Game page",
+          "season_or_version": "Site-stated last updated 26 Jan 2026",
+          "page_count": "NOT_ESTABLISHED"
+        },
+        "verification_state": "LOCATED_NOT_YET_VERIFIED",
+        "usable_for_extraction": false,
+        "reasoning": "The index page is navigation, never authority, and no fact may cite it. Its value is that it gives the league code the same structural entry point the englandrugby.com regulations index gives the union code, and it surfaced the IRL Laws of the Game -- the baseline the Primary and Youth age-grade rules vary FROM, which the manifest previously had no source for. Note the authorship: the Laws are written by International Rugby League and adopted by the RFL, so any extracted fact must cite IRL as author and record the RFL as the adopting body. Verify page count and version before extracting."
+      },
+      {
+        "candidate_key": "ACQ-RFU-REG15-APPENDICES-2026-27",
+        "target_document": "RFU Regulation 15 Appendices 1-9, 2026/27 edition (the Rules of Play)",
+        "authority": "Rugby Football Union",
+        "canonical_source_url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby",
+        "acquisition_url": "NOT ACQUIRED",
+        "acquisition_method": "ATTEMPTED public HTTPS GET, one plain unauthenticated request per appendix, no retries, no header spoofing, no proxies, no circumvention of any kind",
+        "attempted_at": "2026-09-07",
+        "result": "ALL NINE RETURNED HTTP 403",
+        "per_url_result": [
+          {
+            "key": "RFU-REG15-APP1-U7",
+            "status": 403
+          },
+          {
+            "key": "RFU-REG15-APP2-U8",
+            "status": 403
+          },
+          {
+            "key": "RFU-REG15-APP3-U9",
+            "status": 403
+          },
+          {
+            "key": "RFU-REG15-APP4-U10",
+            "status": 403
+          },
+          {
+            "key": "RFU-REG15-APP5-U11",
+            "status": 403
+          },
+          {
+            "key": "RFU-REG15-APP6-U12",
+            "status": 403
+          },
+          {
+            "key": "RFU-REG15-APP7-U13",
+            "status": 403
+          },
+          {
+            "key": "RFU-REG15-APP8-U14",
+            "status": 403
+          },
+          {
+            "key": "RFU-REG15-APP9-U15-U18",
+            "status": 403
+          }
+        ],
+        "control": "The Regulation 15 MASTER page was requested in the same pass and also returned 403, confirming the block is the host's blanket CloudFront/WAF rule rather than anything specific to the appendix URLs. The master is nonetheless on record, because the developer captured it manually in their own browser -- which is the approved route and the one that works.",
+        "verification_state": "AUTOMATION_BLOCKED",
+        "usable_for_extraction": false,
+        "reasoning": "This is now the single largest remaining blocker for Union content. The 2025/26 appendix text already on record must NOT be published as 2026/27 truth, and that is no longer a matter of reviewer discipline: 20261116000000 and 20261117000000 make a season-mixed content set unpublishable, and a regression proves a 2026/27 set citing RFU-REG15-APP1-2025-001 is refused before any state change.",
+        "developer_action_required": {
+          "what": "A one-time manual browser capture of each of the nine Regulation 15 appendix pages for 2026/27, exactly as was done for the master regulation.",
+          "why": "englandrugby.com refuses automated retrieval and the standing acquisition rule forbids circumventing that control. A manual capture by a person using an ordinary browser is not circumvention.",
+          "how": "Open each URL, print to PDF, and place the files in research-ingestion/rfu/ (gitignored). Filenames of the form RFU-Regulation-15-Appendix-N-2026-27.pdf are ideal but not required.",
+          "then": "Extraction proceeds locally and automatically from that point: hash, page count, effective date, structured extraction, and Phase 4B population of Rules-of-Play facts.",
+          "verify_on_arrival": "Each capture must state its own effective date. If any appendix does NOT read 'Effective from 1 August 2026', it is not the 2026/27 edition and must not be published as one."
+        },
+        "urls_needed": [
+          "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-1-u7-rules-of-play",
+          "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-3-u9-rules-of-play",
+          "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-4-u10-rules-of-play",
+          "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-5-u11-rules-of-play",
+          "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-6-u12-rules-of-play",
+          "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-7-u13-rules-of-play",
+          "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-8-u14-rules-of-play",
+          "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-9-u15-u18-variations-to-the-laws-of-the-game",
+          "Appendix 2 (U8) is served as a PDF asset rather than a page: https://www.englandrugby.com/dxdam/a4/a490d188-771f-48fa-8aeb-6a715891ccc5/Regulation%2015%20Appendix%202.pdf -- confirm it is the 2026/27 edition before use."
+        ]
+      },
+      {
+        "candidate_key": "ACQ-RFU-REG15-APPENDICES-SUPPLIED",
+        "target_document": "RFU Regulation 15 Appendices 1-9 (Rules of Play)",
+        "authority": "Rugby Football Union",
+        "canonical_source_url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby",
+        "acquisition_method": "DEVELOPER_SUPPLIED_BROWSER_PRINT_CAPTURE - nine pages opened in the developer's own browser and printed to PDF, after automated retrieval of all nine returned HTTP 403 (retested the same day, not circumvented)",
+        "acquired_at": "2026-09-07",
+        "captured_at": "2026-09-07 20:55-20:56",
+        "verification": {
+          "count": "9 of 9 present, numbered 1-9 with no gaps",
+          "url_provenance": "VERIFIED per file - each PDF footer carries its own correct englandrugby.com appendix URL plus the capture timestamp",
+          "text_layer": "PRESENT - machine-readable, unlike the image-only master capture",
+          "effective_date": "ALL NINE read 'Last Updated: 31 Jul 2025 / Effective from Friday 1st August 2025'",
+          "season": "2025/26 - the RFU has NOT reissued the Rules of Play for 2026/27",
+          "corroboration": "A separate developer paste of the same nine pages earlier the same day matches these captures on 178 of 180 sampled body sentences. That paste also shows Regulations 3/5/6/7/8 already at 'Effective from Saturday 1st August 2026' while the appendices had not moved -- the RFU updated the general regulations and left the Rules of Play alone.",
+          "cross_check_vs_master": "NO CONTRADICTIONS. All 8 per-half playing times match master 15.12 exactly; the contact threshold at U9 matches 15.10(3); the appendix range 1-9 matches 15.2(2)(a); Appendix 9's 'boys and girls at U15 to U18' scope matches the master's dual-age-band structure."
+        },
+        "verification_state": "VERIFIED_CURRENT_BY_CARRY_FORWARD",
+        "usable_for_extraction": true,
+        "carried_forward": {
+          "authorised_by": "the developer, explicitly, on 2026-09-07",
+          "authorisation_text": "use them even though they 25/26 that's absolutely fine",
+          "recorded_as": "regulatory_sources.carries_forward = true on all nine, each with a written carries_forward_note",
+          "justification": "Master Regulation 15 (2026/27) section 15.2(2)(a) requires play 'in accordance with the Rules of Play set out Appendix 1 to 9 of this Regulation', pointing at the appendices without dating them. These nine pages are what the RFU publishes under that master today, so a club following the RFU's own website is following exactly these documents.",
+          "residual_risk": "If the RFU reissues the appendices mid-season, the carries_forward flag is what makes that detectable: a newer source with a 2026/27 effective date trips the season-compatibility guard rather than silently coexisting."
+        },
+        "open_question": {
+          "what": "Appendices 1-8 never mention gender. Master 15.6 defines the girls game as dual age bands (U12/U11, U14/U13, U16/U15, U18/U17). Below U15 it is not stated which appendix governs a girls band -- e.g. does the U14/U13 band play Appendix 8 (U14) or Appendix 7 (U13)?",
+          "why_it_matters": "The two readings give different ball sizes, pitch sizes, scrum sizes and half lengths for the same child.",
+          "resolved_for": "U15-U18 only, where Appendix 9 states its own gender scope explicitly.",
+          "blocks": [
+            "RFU-GIRLS-U12",
+            "RFU-GIRLS-U14"
+          ],
+          "does_not_block": [
+            "RFU-U7",
+            "RFU-U8",
+            "RFU-U9",
+            "RFU-U10",
+            "RFU-U11",
+            "RFU-U12",
+            "RFU-U13",
+            "RFU-U14",
+            "RFU-U15",
+            "RFU-U16",
+            "RFU-GIRLS-U16",
+            "RFU-GIRLS-U18"
+          ]
+        },
+        "extraction": "docs/rugby-hub/sources/rfu-reg15-appendices-extraction.md",
+        "files": [
+          {
+            "appendix": 1,
+            "sha256": "d5381291e786d86e34db3d00e43718146753fe9dcac7190b0aec4ab7699c4ef5",
+            "pages": 6,
+            "bytes": 294222
+          },
+          {
+            "appendix": 2,
+            "sha256": "7d7e8587b8c4b6598f5ec5a71213302fad9416d4ce7f306aace1e0af6c25f7af",
+            "pages": 7,
+            "bytes": 304531
+          },
+          {
+            "appendix": 3,
+            "sha256": "a58a2ae2e691dbc1b6009228944575e46f976bb35cc087c8031ece0a00128644",
+            "pages": 6,
+            "bytes": 293375
+          },
+          {
+            "appendix": 4,
+            "sha256": "fe93537d33431dd4609bb8c843aa82b9e32d61abcc70bd79a22b9521decba0a9",
+            "pages": 8,
+            "bytes": 360174
+          },
+          {
+            "appendix": 5,
+            "sha256": "6fef64d8552cb04e1cc84a8554cf6dbde6122270681c68013f85bbf93e972457",
+            "pages": 8,
+            "bytes": 333737
+          },
+          {
+            "appendix": 6,
+            "sha256": "ecdb04d5ab56cd6352461c67d3dbb4d9a16323f11673139223a41ed6746fe0e7",
+            "pages": 8,
+            "bytes": 365054
+          },
+          {
+            "appendix": 7,
+            "sha256": "85c5610c300f72f51566c0ca1b2d0ef08abb17af6138faa79a133298ea0715c7",
+            "pages": 8,
+            "bytes": 326753
+          },
+          {
+            "appendix": 8,
+            "sha256": "d1303494d62a79226be4ae4e22f4c1698fb7d0c94e9c6d619623fd891ee91264",
+            "pages": 8,
+            "bytes": 334689
+          },
+          {
+            "appendix": 9,
+            "sha256": "da0e10e4eaaa8ce0d40206c93010e8b8122abe80a2a59b125e6f57bb1e8ae657",
+            "pages": 3,
+            "bytes": 234536
+          }
+        ]
+      }
+    ]
   }
 }

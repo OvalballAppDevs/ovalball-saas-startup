@@ -7237,6 +7237,163 @@ export type Database = {
           },
         ]
       }
+      heritage_entries: {
+        Row: {
+          certainty: string
+          certainty_note: string | null
+          code_scope: string
+          created_at: string
+          detail: string | null
+          ends_year: number | null
+          entry_key: string
+          entry_type: string
+          era_id: string | null
+          happened_on: string | null
+          happened_year: number
+          id: string
+          people: string[]
+          places: string[]
+          significance: number
+          summary: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          certainty: string
+          certainty_note?: string | null
+          code_scope: string
+          created_at?: string
+          detail?: string | null
+          ends_year?: number | null
+          entry_key: string
+          entry_type: string
+          era_id?: string | null
+          happened_on?: string | null
+          happened_year: number
+          id?: string
+          people?: string[]
+          places?: string[]
+          significance?: number
+          summary: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          certainty?: string
+          certainty_note?: string | null
+          code_scope?: string
+          created_at?: string
+          detail?: string | null
+          ends_year?: number | null
+          entry_key?: string
+          entry_type?: string
+          era_id?: string | null
+          happened_on?: string | null
+          happened_year?: number
+          id?: string
+          people?: string[]
+          places?: string[]
+          significance?: number
+          summary?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heritage_entries_era_id_fkey"
+            columns: ["era_id"]
+            isOneToOne: false
+            referencedRelation: "heritage_eras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      heritage_entry_sources: {
+        Row: {
+          created_at: string
+          entry_id: string
+          id: string
+          publisher: string | null
+          retrieved_on: string | null
+          source_tier: string
+          source_title: string
+          source_url: string | null
+          supports: string | null
+        }
+        Insert: {
+          created_at?: string
+          entry_id: string
+          id?: string
+          publisher?: string | null
+          retrieved_on?: string | null
+          source_tier: string
+          source_title: string
+          source_url?: string | null
+          supports?: string | null
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string
+          id?: string
+          publisher?: string | null
+          retrieved_on?: string | null
+          source_tier?: string
+          source_title?: string
+          source_url?: string | null
+          supports?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heritage_entry_sources_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "heritage_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      heritage_eras: {
+        Row: {
+          code_scope: string
+          created_at: string
+          ends_year: number | null
+          era_key: string
+          id: string
+          sort_order: number
+          starts_year: number
+          summary: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          code_scope: string
+          created_at?: string
+          ends_year?: number | null
+          era_key: string
+          id?: string
+          sort_order: number
+          starts_year: number
+          summary: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          code_scope?: string
+          created_at?: string
+          ends_year?: number | null
+          era_key?: string
+          id?: string
+          sort_order?: number
+          starts_year?: number
+          summary?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invitation_teams: {
         Row: {
           invitation_id: string
@@ -10640,6 +10797,13 @@ export type Database = {
             referencedRelation: "canonical_team_types"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "regulatory_identities_ovalball_canonical_team_type_id_fkey"
+            columns: ["ovalball_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
         ]
       }
       regulatory_reporting_route_citations: {
@@ -10853,6 +11017,8 @@ export type Database = {
           authority_classification: string
           authority_id: string
           canonical_url: string
+          carries_forward: boolean
+          carries_forward_note: string | null
           competition_scope: string | null
           created_at: string
           created_by: string | null
@@ -10881,6 +11047,8 @@ export type Database = {
           authority_classification: string
           authority_id: string
           canonical_url: string
+          carries_forward?: boolean
+          carries_forward_note?: string | null
           competition_scope?: string | null
           created_at?: string
           created_by?: string | null
@@ -10909,6 +11077,8 @@ export type Database = {
           authority_classification?: string
           authority_id?: string
           canonical_url?: string
+          carries_forward?: boolean
+          carries_forward_note?: string | null
           competition_scope?: string | null
           created_at?: string
           created_by?: string | null
@@ -10953,6 +11123,61 @@ export type Database = {
             columns: ["supersedes_source_id"]
             isOneToOne: false
             referencedRelation: "regulatory_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_team_type_mappings: {
+        Row: {
+          canonical_team_type_id: string
+          created_at: string
+          id: string
+          mapping_state: string
+          notes: string | null
+          regulatory_identity_id: string | null
+          rugby_code: string
+          updated_at: string
+        }
+        Insert: {
+          canonical_team_type_id: string
+          created_at?: string
+          id?: string
+          mapping_state: string
+          notes?: string | null
+          regulatory_identity_id?: string | null
+          rugby_code: string
+          updated_at?: string
+        }
+        Update: {
+          canonical_team_type_id?: string
+          created_at?: string
+          id?: string
+          mapping_state?: string
+          notes?: string | null
+          regulatory_identity_id?: string | null
+          rugby_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_team_type_mappings_canonical_team_type_id_fkey"
+            columns: ["canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_team_type_mappings_canonical_team_type_id_fkey"
+            columns: ["canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_team_type_mappings_regulatory_identity_id_fkey"
+            columns: ["regulatory_identity_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_identities"
             referencedColumns: ["id"]
           },
         ]
@@ -12231,6 +12456,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "teams_canonical_team_type_id_fkey"
+            columns: ["canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "teams_club_id_fkey"
             columns: ["club_id"]
             isOneToOne: false
@@ -12361,6 +12593,13 @@ export type Database = {
             columns: ["canonical_team_type_id"]
             isOneToOne: false
             referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_participants_canonical_team_type_id_fkey"
+            columns: ["canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
             referencedColumns: ["id"]
           },
           {
@@ -13896,6 +14135,24 @@ export type Database = {
         }
         Relationships: []
       }
+      canonical_team_types_by_code: {
+        Row: {
+          age_group: string | null
+          allows_squads: boolean | null
+          category: string | null
+          fixed_squad_designation: string | null
+          gender: string | null
+          id: string | null
+          is_active: boolean | null
+          is_offered: boolean | null
+          key: string | null
+          label: string | null
+          mapping_state: string | null
+          rugby_code: string | null
+          sort_order: number | null
+        }
+        Relationships: []
+      }
       club_visible_tournaments: {
         Row: {
           cancellation_reason: string | null
@@ -14078,6 +14335,30 @@ export type Database = {
           team_id: string | null
           team_name: string | null
           venue_name: string | null
+        }
+        Relationships: []
+      }
+      heritage_timeline: {
+        Row: {
+          certainty: string | null
+          certainty_note: string | null
+          code_scope: string | null
+          detail: string | null
+          ends_year: number | null
+          entry_key: string | null
+          entry_type: string | null
+          era_key: string | null
+          era_title: string | null
+          happened_on: string | null
+          happened_year: number | null
+          people: string[] | null
+          places: string[] | null
+          requires_caveat: boolean | null
+          significance: number | null
+          source_count: number | null
+          summary: string | null
+          tags: string[] | null
+          title: string | null
         }
         Relationships: []
       }
@@ -15423,6 +15704,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      heritage_content_integrity: {
+        Args: never
+        Returns: {
+          check_name: string
+          detail: string
+          violations: number
+        }[]
+      }
       invite_player_account: {
         Args: { p_email: string; p_player_id: string }
         Returns: string
@@ -16047,6 +16336,30 @@ export type Database = {
       register_referred_club: {
         Args: { p_club_id: string; p_invitation_id: string }
         Returns: boolean
+      }
+      regulatory_coverage_report: {
+        Args: never
+        Returns: {
+          fact_count: number
+          identity_key: string
+          identity_mapping_type: string
+          mapping_state: string
+          open_conflict_count: number
+          published_set_count: number
+          rugby_code: string
+          team_type_key: string
+          team_type_label: string
+        }[]
+      }
+      regulatory_season_compatibility_report: {
+        Args: never
+        Returns: {
+          content_set_key: string
+          detail: string
+          offending_sources: string
+          set_season: string
+          violation: string
+        }[]
       }
       reject_club_claim: {
         Args: { p_claim_id: string; p_notes?: string }

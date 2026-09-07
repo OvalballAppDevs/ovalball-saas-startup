@@ -53,6 +53,8 @@ SUITES=(
   match_centre_core
   fixture_communications
   regulatory_coverage
+  union_girls_dual_age_bands
+  rugby_code_girls_identities
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

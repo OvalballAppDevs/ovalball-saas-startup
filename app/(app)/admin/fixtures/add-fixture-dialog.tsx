@@ -372,6 +372,7 @@ export function AddFixtureDialog({
               <div className="mt-2 flex flex-col gap-3 rounded-lg border border-ink/10 bg-white p-4">
                 {opposition.map((o, i) => (
                   <TournamentOppositionEntry
+                    rugbyCode={rugbyCode}
                     key={i}
                     index={i}
                     value={o}

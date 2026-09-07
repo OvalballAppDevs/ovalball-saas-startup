@@ -30,13 +30,14 @@ export interface CreateTeamInput {
  */
 export async function createTeam(input: CreateTeamInput): Promise<CreateTeamResult> {
   const supabase = await createClient()
-  const groups = await loadTeamCategoryGroups(supabase)
-  const option = findCategoryOption(groups, input.categoryLabel)
-  if (!option) {
-    return { ok: false, error: "Unrecognised team. Pick one from the list." }
-  }
-  const fields = resolveStructuredFields(option, option.allowAdditionalSquads ? input.squadLetter : null)
 
+  // The club's code is resolved FIRST, because it now decides which
+  // identities are on the menu at all -- the codes do not regulate the same
+  // age grades (RFU Regulation 15.6 gives girls' union rugby four dual age
+  // bands, so Girls U13/U15 are not union identities, while league keeps
+  // them because the RFL structure is unresearched). Loading the catalogue
+  // before knowing the code would validate a submission against a list the
+  // club can never legitimately pick from.
   const { data: club } = await supabase
     .from("clubs")
     .select("club_directory(rugby_code)")
@@ -47,6 +48,16 @@ export async function createTeam(input: CreateTeamInput): Promise<CreateTeamResu
   if (!rugbyCode) {
     return { ok: false, error: "Could not determine this club's rugby code." }
   }
+  if (rugbyCode !== "union" && rugbyCode !== "league") {
+    return { ok: false, error: "Could not determine this club's rugby code." }
+  }
+
+  const groups = await loadTeamCategoryGroups(supabase, { rugbyCode })
+  const option = findCategoryOption(groups, input.categoryLabel)
+  if (!option) {
+    return { ok: false, error: "Unrecognised team. Pick one from the list." }
+  }
+  const fields = resolveStructuredFields(option, option.allowAdditionalSquads ? input.squadLetter : null)
 
   const { error } = await supabase.from("teams").insert({
     club_id: input.clubId,

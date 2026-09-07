@@ -37,9 +37,33 @@ import { normalizedSquad } from "./compact-label"
  * fixture-eligibility/rollover, per the closed catalogue's own design
  * note) -- it does not fork which of the 24 identities a team is.
  */
+/**
+ * Local alias rather than an import: `lib/signup/types.ts` re-exports from
+ * THIS module, so importing its `RugbyCode` back would be circular. Several
+ * other modules define the same two-member union for the same reason.
+ */
+export type RugbyCode = "union" | "league"
+
+export const RUGBY_CODES: readonly RugbyCode[] = ["union", "league"] as const
+
 export interface TeamCategoryOption {
   /** Matches canonical_team_types.key exactly (e.g. "u12", "girls_u12", "junior_colts", "mens_1st"). */
   key: string
+  /**
+   * The rugby codes this identity may be offered for as a NEW team.
+   *
+   * The catalogue is one shared list across both codes, but the codes do not
+   * regulate the same age grades. RFU Regulation 15.6 defines girls' union
+   * rugby as four dual age bands (U12/U11, U14/U13, U16/U15, U18/U17), so
+   * Girls U13 and Girls U15 are not union identities -- while the RFL's girls
+   * structure has never been established, so they stay offerable in league.
+   *
+   * Sourced from `canonical_team_types_by_code.is_offered`, which resolves
+   * `regulatory_team_type_mappings.mapping_state = 'NOT_OFFERED'` per code.
+   * Positive default: anything not explicitly withheld is offered, so an
+   * unresearched combination is never silently narrowed.
+   */
+  offeredForCodes: RugbyCode[]
   /** Exactly the label shown at signup, e.g. "Under 12", "Under 12 Girls", "Men's 1st Team", "Junior Colts". */
   label: string
   /** The compact, club-page display label (no "Under", e.g. "U12", "Girls U12", "Junior Colts", "Men's 1st Team"). */
@@ -59,7 +83,21 @@ export interface TeamCategoryGroup {
 
 const MINI_YOUTH_AGES = ["Under 6", "Under 7", "Under 8", "Under 9", "Under 10", "Under 11"]
 const YOUTH_AGES = ["Under 12", "Under 13", "Under 14", "Under 15", "Under 16"]
-const GIRLS_AGES = ["Under 12", "Under 13", "Under 14", "Under 15", "Under 16"]
+/**
+ * The girls list stays FULL here, and availability is expressed per code
+ * instead (see GIRLS_UNION_WITHHELD below).
+ *
+ * RFU Regulation 15.6 (Effective 1 August 2026) defines girls' union rugby as
+ * four dual age bands -- U12/U11, U14/U13, U16/U15, U18/U17 -- so a U13 girl
+ * plays in the U14 band and "Under 13 Girls" is not a union identity. But the
+ * RFL's girls age structure has never been established from a primary source,
+ * so those rows must stay offerable in league. Deleting them from this list,
+ * or deactivating them globally, would let union evidence narrow league.
+ */
+const GIRLS_AGES = ["Under 12", "Under 13", "Under 14", "Under 15", "Under 16", "Under 18"]
+
+/** Girls age grades union does not recognise (Reg 15.6 dual age bands). League is unaffected. */
+const GIRLS_UNION_WITHHELD = new Set(["girls_u13", "girls_u15"])
 const SENIOR_ORDINALS = ["1st", "2nd", "3rd"]
 
 function ageLabelToCode(label: string): string {
@@ -93,6 +131,7 @@ export const BOOTSTRAP_TEAM_CATEGORY_GROUPS: TeamCategoryGroup[] = [
         gender: "mixed" as const,
         fixedSquadDesignation: null,
         allowAdditionalSquads: true,
+        offeredForCodes: [...RUGBY_CODES],
       }
     }),
   },
@@ -109,6 +148,7 @@ export const BOOTSTRAP_TEAM_CATEGORY_GROUPS: TeamCategoryGroup[] = [
         gender: "boys" as const,
         fixedSquadDesignation: null,
         allowAdditionalSquads: true,
+        offeredForCodes: [...RUGBY_CODES],
       }
     }),
   },
@@ -126,6 +166,7 @@ export const BOOTSTRAP_TEAM_CATEGORY_GROUPS: TeamCategoryGroup[] = [
       gender: null,
       fixedSquadDesignation: null,
       allowAdditionalSquads: false,
+      offeredForCodes: [...RUGBY_CODES],
     })),
   },
   {
@@ -139,6 +180,7 @@ export const BOOTSTRAP_TEAM_CATEGORY_GROUPS: TeamCategoryGroup[] = [
       gender: "mens" as const,
       fixedSquadDesignation: ordinal,
       allowAdditionalSquads: false,
+      offeredForCodes: [...RUGBY_CODES],
     })),
   },
   {
@@ -152,14 +194,16 @@ export const BOOTSTRAP_TEAM_CATEGORY_GROUPS: TeamCategoryGroup[] = [
       gender: "womens" as const,
       fixedSquadDesignation: ordinal,
       allowAdditionalSquads: false,
+      offeredForCodes: [...RUGBY_CODES],
     })),
   },
   {
     label: "Girls",
     options: GIRLS_AGES.map((label) => {
       const code = ageLabelToCode(label)
+      const key = `girls_${code.toLowerCase()}`
       return {
-        key: `girls_${code.toLowerCase()}`,
+        key,
         label: `${label} Girls`,
         compactLabel: `Girls ${code}`,
         category: "youth" as const,
@@ -167,6 +211,8 @@ export const BOOTSTRAP_TEAM_CATEGORY_GROUPS: TeamCategoryGroup[] = [
         gender: "girls" as const,
         fixedSquadDesignation: null,
         allowAdditionalSquads: true,
+        // The only per-code divergence in the catalogue today.
+        offeredForCodes: (GIRLS_UNION_WITHHELD.has(key) ? ["league"] : [...RUGBY_CODES]) as RugbyCode[],
       }
     }),
   },
@@ -204,7 +250,7 @@ function signupLabelForRow(row: Pick<CanonicalTeamTypeRow, "category" | "age_gro
   return row.gender === "girls" ? `${readableAge} Girls` : readableAge
 }
 
-function rowToOption(row: CanonicalTeamTypeRow): TeamCategoryOption {
+function rowToOption(row: CanonicalTeamTypeRow, offeredForCodes: RugbyCode[]): TeamCategoryOption {
   return {
     key: row.key,
     label: signupLabelForRow(row),
@@ -214,7 +260,27 @@ function rowToOption(row: CanonicalTeamTypeRow): TeamCategoryOption {
     gender: row.gender as TeamCategoryOption["gender"],
     fixedSquadDesignation: row.fixed_squad_designation,
     allowAdditionalSquads: row.allows_squads,
+    offeredForCodes,
   }
+}
+
+/**
+ * Narrows a catalogue to the identities a club of one code may be offered.
+ *
+ * Pure and exported so the SAME rule runs in the two places that need it at
+ * different moments: server pages that already know the club's code filter on
+ * load, while the signup wizard cannot -- it fetches the catalogue
+ * anonymously before the visitor has picked a code, so it holds every option
+ * and filters here once `rugbyCode` is chosen in the client. One rule, two
+ * call sites, no second round trip.
+ *
+ * Groups left with no options are dropped, so a picker never renders an empty
+ * "Girls" heading.
+ */
+export function filterGroupsForCode(groups: TeamCategoryGroup[], rugbyCode: RugbyCode): TeamCategoryGroup[] {
+  return groups
+    .map((group) => ({ ...group, options: group.options.filter((o) => o.offeredForCodes.includes(rugbyCode)) }))
+    .filter((group) => group.options.length > 0)
 }
 
 /**
@@ -225,12 +291,15 @@ function rowToOption(row: CanonicalTeamTypeRow): TeamCategoryOption {
  * category/gender, never a hardcoded per-row list, so a new row lands in
  * the right bucket automatically.
  */
-export function buildTeamCategoryGroups(rows: CanonicalTeamTypeRow[]): TeamCategoryGroup[] {
+export function buildTeamCategoryGroups(rows: CanonicalTeamTypeRow[], offeredByKey?: Map<string, RugbyCode[]>): TeamCategoryGroup[] {
   const byGroup = new Map<string, TeamCategoryOption[]>()
   for (const row of [...rows].sort((a, b) => a.sort_order - b.sort_order)) {
     const groupLabel = groupLabelForRow(row)
     const existing = byGroup.get(groupLabel) ?? []
-    existing.push(rowToOption(row))
+    // Positive default when availability is unknown: offered for both codes.
+    // A missing entry must never be read as "withheld" -- silence narrowing
+    // availability is the exact failure this whole design exists to prevent.
+    existing.push(rowToOption(row, offeredByKey?.get(row.key) ?? [...RUGBY_CODES]))
     byGroup.set(groupLabel, existing)
   }
   const orderedLabels = [...GROUP_ORDER, ...Array.from(byGroup.keys()).filter((l) => !GROUP_ORDER.includes(l))]
@@ -254,16 +323,51 @@ export function buildTeamCategoryGroups(rows: CanonicalTeamTypeRow[]): TeamCateg
  * team would wrongly show "doesn't match the standard list" the moment a
  * Site Admin deactivates its type, even though deactivation explicitly
  * guarantees existing club-team history is untouched.
+ *
+ * Pass `rugbyCode` to get only what THAT code may offer. Availability comes
+ * from `canonical_team_types_by_code`, which resolves
+ * `regulatory_team_type_mappings.mapping_state = 'NOT_OFFERED'` per code --
+ * so union does not offer Girls U13/U15 (RFU Regulation 15.6 dual age bands)
+ * while league still does (the RFL structure is unresearched, and absence of
+ * research is not evidence of absence).
+ *
+ * `includeInactive: true` deliberately ALSO ignores per-code offering: that
+ * mode exists to represent identities that already exist, and an existing
+ * team must keep resolving even on a type its code no longer offers. Do not
+ * combine it with `rugbyCode` expecting a filtered list.
  */
-export async function loadTeamCategoryGroups(supabase: SupabaseClient<Database>, options?: { includeInactive?: boolean }): Promise<TeamCategoryGroup[]> {
+export async function loadTeamCategoryGroups(
+  supabase: SupabaseClient<Database>,
+  options?: { includeInactive?: boolean; rugbyCode?: RugbyCode }
+): Promise<TeamCategoryGroup[]> {
   let query = supabase
     .from("canonical_team_types")
     .select("key, label, category, age_group, gender, fixed_squad_designation, allows_squads, sort_order")
     .order("sort_order")
   if (!options?.includeInactive) query = query.eq("is_active", true)
   const { data, error } = await query
-  if (error || !data) return BOOTSTRAP_TEAM_CATEGORY_GROUPS
-  return buildTeamCategoryGroups(data)
+  if (error || !data) {
+    return options?.rugbyCode ? filterGroupsForCode(BOOTSTRAP_TEAM_CATEGORY_GROUPS, options.rugbyCode) : BOOTSTRAP_TEAM_CATEGORY_GROUPS
+  }
+
+  // Per-code availability, in one extra read. If this fails we fall back to
+  // "offered for both codes" rather than to an empty catalogue -- the DB
+  // trigger on teams is the real enforcement point, so a degraded picker
+  // shows too much rather than too little, and the insert is still refused.
+  const { data: availability } = await supabase.from("canonical_team_types_by_code").select("key, rugby_code, is_offered")
+  const offeredByKey = new Map<string, RugbyCode[]>()
+  for (const row of availability ?? []) {
+    // View columns type as nullable even though the underlying expressions
+    // never are; skip rather than coerce, so a genuinely null row could only
+    // ever widen availability, never narrow it.
+    if (!row.is_offered || !row.key || !row.rugby_code) continue
+    const existing = offeredByKey.get(row.key) ?? []
+    existing.push(row.rugby_code as RugbyCode)
+    offeredByKey.set(row.key, existing)
+  }
+
+  const groups = buildTeamCategoryGroups(data, availability && availability.length > 0 ? offeredByKey : undefined)
+  return options?.rugbyCode && !options.includeInactive ? filterGroupsForCode(groups, options.rugbyCode) : groups
 }
 
 export function resolveStructuredFields(option: TeamCategoryOption, squadLetter: string | null): CompactLabelInput & { squadDesignation: string | null } {

@@ -1,7 +1,7 @@
 "use client"
 
 import { BadgeCheck, ShieldCheck } from "lucide-react"
-import { useEffect, useImperativeHandle, useState, type Ref } from "react"
+import { useEffect, useImperativeHandle, useMemo, useState, type Ref } from "react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -11,6 +11,7 @@ import {
   CLUB_ROLES,
   COUNTRY_OPTIONS,
   EMPTY_DIRECTORY_REQUEST,
+  filterGroupsForCode,
   toSignupTeamCategoryGroups,
   type ClubDirectoryResult,
   type ClubSelection,
@@ -76,6 +77,17 @@ export function ClubStep({
   const [mode, setMode] = useState<Mode>("search")
   const [selected, setSelected] = useState<ClubDirectoryResult | null>(null)
 
+  // The catalogue is fetched on the server BEFORE a code is chosen -- this
+  // page runs anonymously, ahead of any club existing -- so every identity
+  // arrives and the per-code narrowing happens here, once the visitor has
+  // picked Union or League. Filtering with the same pure rule the server
+  // pages use, rather than a second copy of it: union does not offer Girls
+  // U13/U15 (RFU Regulation 15.6 dual age bands), league still does.
+  const offeredGroups = useMemo(
+    () => (rugbyCode ? filterGroupsForCode(teamCategoryGroups, rugbyCode) : teamCategoryGroups),
+    [teamCategoryGroups, rugbyCode]
+  )
+
   useImperativeHandle(
     ref,
     () => ({
@@ -140,7 +152,7 @@ export function ClubStep({
     return (
       <ClaimForm
         directory={selected}
-        groups={teamCategoryGroups}
+        groups={offeredGroups}
         onBack={() => setMode("search")}
         onSubmit={(role, authorityConfirmed, teams) => {
           onClubChange({
@@ -174,7 +186,7 @@ export function ClubStep({
       <NotFoundForm
         initial={club.kind === "not-found" ? club.proposal : EMPTY_DIRECTORY_REQUEST}
         initialTeams={club.kind === "not-found" ? club.teams : []}
-        groups={teamCategoryGroups}
+        groups={offeredGroups}
         onBack={() => setMode("search")}
         onSubmit={(proposal, teams) => {
           onClubChange({ kind: "not-found", proposal, teams })

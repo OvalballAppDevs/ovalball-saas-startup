@@ -166,7 +166,7 @@ export const AUTHORITY_DECLARATION_TEXT =
  * allows 'colts') -- a claimant ticking them here produces a real team on
  * claim approval, the same as every other category.
  */
-export { toSignupTeamCategoryGroups, type TeamCategoryGroup } from "@/lib/teams/catalog"
+export { filterGroupsForCode, toSignupTeamCategoryGroups, type TeamCategoryGroup } from "@/lib/teams/catalog"
 
 /**
  * A ticked team category, optionally with extra lettered teams at the same

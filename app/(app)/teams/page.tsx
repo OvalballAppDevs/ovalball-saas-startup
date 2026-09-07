@@ -65,7 +65,18 @@ export default async function TeamsPage() {
   const { data: aliasRows } = teamIds.length > 0 ? await supabase.from("team_aliases").select("team_id, alias").in("team_id", teamIds) : { data: [] }
   const aliasByTeamId = new Map((aliasRows ?? []).map((a) => [a.team_id, a.alias]))
 
-  const groups = await loadTeamCategoryGroups(supabase)
+  // The club's rugby code, resolved ONCE and used for two different things
+  // below: which team identities may be offered, and which season is current.
+  // It gates the Add Team catalogue because the codes do not regulate the
+  // same age grades -- RFU Regulation 15.6 defines girls' union rugby as four
+  // dual age bands, so Girls U13/U15 are not union identities, while league
+  // keeps them (the RFL structure has not been researched, and absence of
+  // research is not evidence of absence).
+  const { data: clubRow } = clubId ? await supabase.from("clubs").select("directory_id").eq("id", clubId).maybeSingle() : { data: null }
+  const { data: clubDirectory } = clubRow ? await supabase.from("club_directory").select("rugby_code").eq("id", clubRow.directory_id).maybeSingle() : { data: null }
+  const clubRugbyCode = clubDirectory?.rugby_code === "union" || clubDirectory?.rugby_code === "league" ? clubDirectory.rugby_code : undefined
+
+  const groups = await loadTeamCategoryGroups(supabase, { rugbyCode: clubRugbyCode })
 
   const existingForAvailability: ExistingClubTeam[] = (teams ?? []).map((t) => ({
     canonicalTypeKey: t.canonical_team_type_id ? (canonicalKeyById.get(t.canonical_team_type_id) ?? null) : null,
@@ -91,8 +102,6 @@ export default async function TeamsPage() {
   // page-local guess at "which season is active".
   let currentSeason: SeasonRow | null = null
   if (clubId) {
-    const { data: club } = await supabase.from("clubs").select("directory_id").eq("id", clubId).maybeSingle()
-    const { data: directory } = club ? await supabase.from("club_directory").select("rugby_code").eq("id", club.directory_id).maybeSingle() : { data: null }
     const { data: seasonRows } = await supabase
       .from("seasons")
       .select("id, name, season_ref, rugby_code, pre_season_starts_on, starts_on, ends_on")
@@ -109,7 +118,7 @@ export default async function TeamsPage() {
     }))
     const now = new Date()
     const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
-    currentSeason = resolveDefaultSeason(allSeasons, directory?.rugby_code ?? null, todayIso)
+    currentSeason = resolveDefaultSeason(allSeasons, clubDirectory?.rugby_code ?? null, todayIso)
   }
 
   const { data: schedulingGroupRows } = clubId && currentSeason

@@ -200,12 +200,44 @@ begin
 
   -- Every source is first-party governing material. A blog or a wiki must
   -- never become published provenance.
+  --
+  -- OPERATOR_REPORTED_NOT_RETRIEVABLE is admitted here as a third case, and
+  -- only because it is strictly weaker than the other two: it marks a
+  -- clarification obtained from the governing body by the operator, with no
+  -- retrievable artefact, and it is structurally barred from PRIMARY citation
+  -- by internal.reject_primary_citation_of_unretrievable_source(). It can
+  -- qualify a fact; it can never establish one. The two assertions below are
+  -- deliberately paired -- admitting the category is only safe while the bar
+  -- on it holds, so the bar is asserted immediately afterwards.
   select count(*) into v_n from public.regulatory_sources
-  where authority_classification not like 'PRIMARY%' and authority_classification not like 'OFFICIAL%';
+  where authority_classification not like 'PRIMARY%'
+    and authority_classification not like 'OFFICIAL%'
+    and authority_classification <> 'OPERATOR_REPORTED_NOT_RETRIEVABLE';
   if v_n = 0 then
-    raise notice 'PASS 16 (H): every registered source is primary or official governing material';
+    raise notice 'PASS 16 (H): every registered source is governing material (primary, official, or operator-reported)';
   else
     raise exception 'FAIL 16 (H): % source(s) are not authoritative', v_n;
+  end if;
+
+  select count(*) into v_n
+  from public.regulatory_fact_citations c
+  join public.regulatory_sources rs on rs.id = c.source_id
+  where rs.authority_classification = 'OPERATOR_REPORTED_NOT_RETRIEVABLE' and c.support_role = 'PRIMARY';
+  if v_n = 0 then
+    raise notice 'PASS 16b (H): no operator-reported source carries a regulatory VALUE';
+  else
+    raise exception 'FAIL 16b (H): % operator-reported citation(s) are PRIMARY', v_n;
+  end if;
+
+  -- And genuinely secondary material may not be cited at all.
+  select count(*) into v_n
+  from public.regulatory_fact_citations c
+  join public.regulatory_sources rs on rs.id = c.source_id
+  where rs.authority_classification = 'SECONDARY_DISCOVERY_ONLY';
+  if v_n = 0 then
+    raise notice 'PASS 16c (H): no discovery-only source is cited on a published fact';
+  else
+    raise exception 'FAIL 16c (H): % discovery-only citation(s) exist', v_n;
   end if;
 
   raise notice 'Regulatory coverage complete.';

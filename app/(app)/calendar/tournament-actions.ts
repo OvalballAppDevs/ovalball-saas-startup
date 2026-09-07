@@ -148,8 +148,25 @@ export interface CanonicalTeamTypeOption {
  * match, which cannot correctly express "a Boys/Mixed host must never be
  * offered a Girls identity at any age."
  */
-export async function loadTournamentTeamTypeOptions(): Promise<CanonicalTeamTypeOption[]> {
+export async function loadTournamentTeamTypeOptions(rugbyCode?: string | null): Promise<CanonicalTeamTypeOption[]> {
   const supabase = await createClient()
+
+  // Read per code where the caller knows it. The codes do not regulate the
+  // same age grades -- RFU Regulation 15.6 gives girls' union rugby four dual
+  // age bands, so Girls U13/U15 are not union identities, while league keeps
+  // them (the RFL structure is unresearched). Offering an identity the
+  // tournament's code cannot use would only fail later at
+  // create_missing_tournament_team, whose insert the teams trigger refuses.
+  if (rugbyCode === "union" || rugbyCode === "league") {
+    const { data } = await supabase
+      .from("canonical_team_types_by_code")
+      .select("id, label, category, age_group, gender, sort_order")
+      .eq("rugby_code", rugbyCode)
+      .eq("is_offered", true)
+      .order("sort_order")
+    return (data ?? []).map((t) => ({ id: t.id!, label: t.label!, category: t.category!, ageGroup: t.age_group, gender: t.gender }))
+  }
+
   const { data } = await supabase.from("canonical_team_types").select("id, label, category, age_group, gender, sort_order").eq("is_active", true).order("sort_order")
   return (data ?? []).map((t) => ({ id: t.id, label: t.label, category: t.category, ageGroup: t.age_group, gender: t.gender }))
 }

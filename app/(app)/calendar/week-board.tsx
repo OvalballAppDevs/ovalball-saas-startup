@@ -696,6 +696,7 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
                     <TournamentOppositionEntry
                       key={i}
                       index={i}
+                      rugbyCode={hostIdentity.rugbyCode}
                       value={o}
                       onChange={(next) => setNewOppositions((prev) => prev.map((p, pi) => (pi === i ? next : p)))}
                       onRemove={() => setNewOppositions((prev) => prev.filter((_, pi) => pi !== i))}

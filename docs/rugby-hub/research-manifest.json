@@ -56,9 +56,9 @@
       "title": "RFU Regulation 15 - Age Grade Rugby",
       "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby",
       "classification": "PRIMARY_REGULATION",
-      "status": "LOCATED",
+      "status": "ACQUIRED_AND_READ",
       "fetchable": false,
-      "scope": "The master regulation defining Age Grade Rugby and carrying the per-age-grade Rules of Play appendices.",
+      "scope": "The master regulation defining Age Grade Rugby. Covers 15.1 Objectives through 15.15 Competitions Regulations. NOTE it does NOT itself contain the Rules of Play -- those are Appendices 1 to 9, which are separate pages and are recorded separately.",
       "supports_identities": [
         "RFU-U7",
         "RFU-U8",
@@ -69,16 +69,30 @@
         "RFU-U13",
         "RFU-U14",
         "RFU-U15",
-        "RFU-U16"
+        "RFU-U16",
+        "RFU-GIRLS-U12",
+        "RFU-GIRLS-U14",
+        "RFU-GIRLS-U16",
+        "RFU-GIRLS-U18"
       ],
       "supports_domains": [
         "RULES_OF_PLAY",
-        "PLAYING_UP_DISPENSATION"
+        "PLAYING_UP_DISPENSATION",
+        "PLAYER_WELFARE",
+        "SEASON_STRUCTURE",
+        "REGISTRATION"
       ],
-      "effective_period": "NOT_ESTABLISHED",
-      "notes": "Regulation 15 scopes Age Grade Rugby from U7 upward. That is the primary evidence for U6 having NO_REGULATORY_EQUIVALENT in union.",
-      "acquisition_state": "AUTOMATION_BLOCKED",
-      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+      "effective_period": "2026/27 season -- 'Effective from 1 August 2026' in the running footer of all 25 pages. Regulation 15.10 defines the season as Saturday 5 September 2026 to Monday 3 May 2027.",
+      "notes": "Regulation 15 scopes Age Grade Rugby from U7 upward. That is the primary evidence for U6 having NO_REGULATORY_EQUIVALENT in union. The 2026/27 edition also settled two long-running questions: 15.2(2)(a) states the Rules of Play are 'Appendix 1 to 9' (so there is no Appendix 10 in the current set), and 15.6 defines the girls game as four DUAL AGE BANDS (U12/U11, U14/U13, U16/U15, U18/U17) rather than single years.",
+      "acquisition_state": "DEVELOPER_SUPPLIED_BROWSER_PRINT_CAPTURE",
+      "sha256": "e9f6f55a210fac85eb96a8f45fef17e2ff834bf330576efdc6192b8df12028ee",
+      "bytes": 10354078,
+      "page_count": 25,
+      "publication_metadata": "Skia/PDF m152, Creator 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', created 2026-09-07T18:49Z -- i.e. Chrome's print-to-PDF engine, not an RFU publishing toolchain.",
+      "extraction_authority": true,
+      "extraction_note": "Read page-by-page from rendered images; see docs/rugby-hub/sources/rfu-regulation-15-2026-27.md for the structured extraction. Facts drawn from THIS document are clear to publish in Phase 4B. Facts drawn from the Appendix 1-9 TEXT are not, for an unrelated reason -- that text is the 2025/26 edition while this is 2026/27. See the RFU-REG15-APPENDIX-SEASON-SPLIT conflict.",
+      "provenance_caveat": "This is a browser RENDERING of the englandrugby.com page, not the RFU's own published PDF bytes, and it carries NO TEXT LAYER -- pypdf extracts zero characters, so every quotation was read from page images rather than machine-extracted. Byte-stable and re-readable, therefore stronger than pasted text; not publisher-signed, therefore weaker than an official PDF. englandrugby.com still returns HTTP 403 to automated requests (retested 2026-09-07, not circumvented); the developer captured this manually in their own browser, which is the approved route.",
+      "acquisition_note": "Supersedes the earlier AUTOMATION_BLOCKED state for this document. The canonical provenance remains the englandrugby.com URL regardless of how the bytes were obtained."
     },
     {
       "key": "RFU-REG15-APP1-U7",
@@ -263,6 +277,28 @@
       "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
     },
     {
+      "key": "RFU-REG15-APP10-U13-GIRLS-2017",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 10 - Under 13s Rules of Play, Girls Only (2017/18 edition)",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby",
+      "classification": "PRIMARY_REGULATION",
+      "status": "HISTORICAL_EVIDENCE_ONLY",
+      "fetchable": false,
+      "scope": "U13 girls Rules of Play as they stood in the 2017/18 season. Developer-supplied local PDF.",
+      "supports_identities": [],
+      "supports_domains": [],
+      "effective_period": "2017/18 season -- 'Effective from 1 August 2017', stated in the document itself",
+      "acquisition_state": "DEVELOPER_SUPPLIED_LOCAL_FILE",
+      "sha256": "04b8f11ffe75a0c5616f978317f1a39cba552cb376931494b8f44b3bee8e3335",
+      "bytes": 73268,
+      "page_count": 9,
+      "publication_metadata": "Adobe InDesign CS6 (Macintosh) / Adobe PDF Library 10.0.1, created 2017-07-07 15:59. Same toolchain and same week as the independently retrieved RFURegulation15-2017.18.pdf artefact, which is strong mutual corroboration that both are genuine RFU-produced 2017 documents.",
+      "extraction_authority": false,
+      "extraction_note": "STRUCTURAL EVIDENCE ONLY -- NEVER A SOURCE OF CURRENT FACT. Its cover text reads 'RFU REGULATION 15 - AGE GRADE RUGBY / Appendix 10 / Under 13s / Effective from 1 August 2017 / Girls Only'. That settles ONE thing and only one thing: Appendix 10 for U13 girls demonstrably existed, so Gloucestershire RFU did not invent it. It does NOT establish that Appendix 10 survives in the current 2025/26 set, and its rule VALUES are nine seasons out of date. See the RFU-REG15-GIRLS-U12-U14-APPENDIX conflict.",
+      "publication_prohibition": "No value from this document may be published as a current rule, with or without a date caveat. Age-grade contact and Rules-of-Play provisions have changed materially since 2017, and a parent reading a ball size or a half length acts on it regardless of a '(2017)' note beside it."
+    },
+    {
       "key": "RFU-REG14-ADULT-REG",
       "authority": "RFU",
       "code": "union",
@@ -388,7 +424,77 @@
         "PLAYER_WELFARE"
       ],
       "effective_period": "2026 season (from document title; not confirmed inside the document)",
-      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+      "acquisition_state": "PUBLICLY_RETRIEVABLE",
+      "sha256": "289f4e0347e0359b8faab337af6570d6d10e4c385811c2e3b59530b645f6adce",
+      "bytes": 299770,
+      "page_count": 22,
+      "publication_metadata": "Microsoft Word for Microsoft 365, Author 'David Raybould', created 2026-01-20. Server Last-Modified 2026-02-17.",
+      "extraction_authority": true,
+      "extraction_note": "THIS is the Primary Rugby League document to extract from. It is the only one the RFL currently links from its own Primary RL page, and it is the later of the two 2026 editions. Its 10-page December sibling is recorded separately as RFL-PRIMARY-RULES-2026-DEC and must not be used."
+    },
+    {
+      "key": "RFL-PRIMARY-RULES-2026-DEC",
+      "authority": "RFL",
+      "code": "league",
+      "title": "Primary Rugby League Rules 2026 (December edition, 10 pages)",
+      "url": "https://www.rugby-league.com/uploads/docs/Primary%20Rugby%20League%20Rules%202026.pdf",
+      "classification": "PRIMARY_RULE_BOOK",
+      "status": "VERIFIED_AUTHENTIC_BUT_NOT_CURRENT",
+      "fetchable": true,
+      "scope": "Primary Rugby League U9/U10/U11 rules. Same author and same age-grade structure as the Full Rules, at half the length.",
+      "supports_identities": [
+        "RFL-PRIMARY"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "2026 season, earlier edition",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE",
+      "sha256": "a67920f300aa4909bf7b3d96150653102f8700c533eee8c76d05dc81e0b79aa3",
+      "bytes": 216248,
+      "page_count": 10,
+      "publication_metadata": "Microsoft Word for Microsoft 365, Author 'David Raybould', created 2025-12-12. Server Last-Modified 2025-12-12.",
+      "extraction_authority": false,
+      "extraction_note": "Authenticity is not in doubt -- this was supplied by the developer and then fetched independently from rugby-league.com's own host, and the two files are byte-identical (SHA-256 match, Content-Type application/pdf). What disqualifies it is currency, not provenance. It is dated five weeks EARLIER than the Full Rules and is no longer linked from the RFL's Primary Rugby League page, which offers only the 22-page Full Rules. Whether it is a superseded draft or a condensed handout cannot be settled from the files themselves (both use subset fonts that defeat text extraction), but under either reading it is not the document the RFL currently presents as its rules. Kept because an orphaned-but-live URL will otherwise be rediscovered and mistaken for current."
+    },
+    {
+      "key": "RFL-GOVERNANCE-INDEX",
+      "authority": "RFL",
+      "code": "league",
+      "title": "RFL Rules & Regulations index",
+      "url": "https://www.rugby-league.com/governance/rules-and-regulations",
+      "classification": "OFFICIAL_INDEX",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "The RFL's own top-level index of rules and regulations: Laws of the Game, Operational Rules, Disciplinary, Anti-Doping, Gender Participation, Medical Standards, Concussion, Safeguarding. This is the RFL's structural equivalent of the englandrugby.com regulations index and is the entry point for locating any further league-code authority.",
+      "supports_identities": [],
+      "supports_domains": [
+        "RULES_OF_PLAY",
+        "PLAYER_WELFARE",
+        "SAFEGUARDING",
+        "DISCIPLINE"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE",
+      "acquisition_note": "An index, not an authority. No regulatory fact may cite this page; it exists to locate the documents that can be cited."
+    },
+    {
+      "key": "IRL-LAWS-OF-THE-GAME",
+      "authority": "International Rugby League",
+      "code": "league",
+      "title": "International Rugby League Laws of the Game",
+      "url": "https://www.rugby-league.com/uploads/docs/International_Rugby_League_Laws_of_the_Game.pdf",
+      "classification": "PRIMARY_RULE_BOOK",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "The full-code Laws of the Game, adopted by the RFL and served from its own host. This is the league-code counterpart to World Rugby's Laws, and it is the baseline the Primary and Youth age-grade rules vary FROM.",
+      "supports_identities": [],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE",
+      "acquisition_note": "Authored by International Rugby League, not the RFL. Any fact extracted from it must cite IRL as the authority and record that the RFL adopts it -- the RFL is the adopting body, not the author."
     },
     {
       "key": "RFL-PRIMARY-COACHES-2026",

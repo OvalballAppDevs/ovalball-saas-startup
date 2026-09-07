@@ -44,6 +44,7 @@ export function TournamentOppositionEntry({
   removable,
   hostAgeGroup,
   hostGender,
+  rugbyCode,
 }: {
   index: number
   value: OppositionValue
@@ -52,6 +53,8 @@ export function TournamentOppositionEntry({
   removable: boolean
   hostAgeGroup: string | null
   hostGender: string | null
+  /** The tournament's rugby code, so the identity list only offers what that code actually runs. */
+  rugbyCode: string | null
 }) {
   const [clubQuery, setClubQuery] = useState("")
   const [clubResults, setClubResults] = useState<ClubSearchResult[]>([])
@@ -64,8 +67,8 @@ export function TournamentOppositionEntry({
   const [pendingOverrideId, setPendingOverrideId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadTournamentTeamTypeOptions().then(setTeamTypes)
-  }, [])
+    loadTournamentTeamTypeOptions(rugbyCode).then(setTeamTypes)
+  }, [rugbyCode])
 
   useEffect(() => {
     if (!value.clubId) return
