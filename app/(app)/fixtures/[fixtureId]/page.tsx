@@ -10,6 +10,7 @@ import { VenueBlock } from "@/components/fixtures/match-centre/venue-block"
 import { WeatherCard } from "@/components/fixtures/match-centre/weather-card"
 import { getFixtureForecast } from "@/lib/weather/fixture-forecast"
 
+import { CommunicationPanel } from "./communication-panel"
 import { StaffPanel } from "./staff-panel"
 import { getMatchCentreContext } from "@/lib/app-context/match-centre-data"
 import { createClient } from "@/lib/supabase/server"
@@ -45,6 +46,11 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
   // and its venue's coordinates. Never throws: every failure -- no
   // credential, timeout, 429, malformed payload -- comes back as a state, so
   // a weather outage can never take this page with it.
+  // Audience sizes for the staff panel. The RPC returns NULLs for a caller
+  // without fixture-management capability, so an unauthorized viewer gets no
+  // metric at all rather than an authoritative zero.
+  const { data: counts } = await supabase.rpc("fixture_communication_counts", { p_fixture_id: fixtureId }).maybeSingle()
+
   const weather = await getFixtureForecast({
     kickoffDate: context.fixture.kickoffDate,
     kickoffTime: context.fixture.kickoffTime,
@@ -122,10 +128,19 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
 
       <WeatherCard result={weather} />
 
-      {/* Staff-only, and only ever presentation: the action re-checks the
-          same capability in the database. */}
+      {/* Staff-only, and only ever presentation: every action re-checks the
+          same capability in the database. Two sections, because managing the
+          fixture and talking to families are different jobs. */}
       {context.actions.canManageFixture && (
-        <StaffPanel fixtureId={context.fixture.fixtureId} meetTime={context.fixture.meetTime} kickoffTime={context.fixture.kickoffTime} />
+        <>
+          <StaffPanel fixtureId={context.fixture.fixtureId} meetTime={context.fixture.meetTime} kickoffTime={context.fixture.kickoffTime} />
+          <CommunicationPanel
+            fixtureId={context.fixture.fixtureId}
+            outstandingCount={counts?.outstanding_count ?? null}
+            attendingCount={counts?.attending_count ?? null}
+            teamCount={counts?.team_count ?? null}
+          />
+        </>
       )}
 
       <section aria-labelledby="mc-participants-heading">

@@ -28,8 +28,13 @@ function Group({ label, items, muted = false }: { label: string; items: MatchCen
         {label} <span className="text-ink-subtle">({items.length})</span>
       </h3>
       <ul className="mt-2 flex flex-wrap gap-2.5">
+        {/* The "awaiting response" group is de-emphasised with a softer
+            GROUND, not with opacity. opacity-60 washed the initials chip from
+            forest-800 down to #6e897d -- 3.4:1, a WCAG AA failure axe caught
+            on this page. Fading a whole subtree is the easy way to say "less
+            important" and the reliable way to make it unreadable. */}
         {items.map((p) => (
-          <li key={p.playerId} className={`flex items-center gap-2 rounded-full border border-ink/10 bg-white py-1 pr-3 pl-1 ${muted ? "opacity-60" : ""}`}>
+          <li key={p.playerId} className={`flex items-center gap-2 rounded-full border py-1 pr-3 pl-1 ${muted ? "border-ink/8 bg-chalk" : "border-ink/10 bg-white"}`}>
             {p.avatarState === "PHOTO_ALLOWED" && p.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- storage-hosted profile avatar.
               <img src={p.avatarUrl} alt={p.displayName} className="size-8 shrink-0 rounded-full border border-ink/12 object-cover" />

@@ -339,3 +339,56 @@ where d.normalized_key = 'ovalball-uat-rufc' and t.age_group = 'U12' and t.squad
     select 1 from public.fixtures f3
     where f3.owning_team_id = t.id and f3.raw_opposition_text = 'Far Future Opposition RFC'
   );
+
+-- ---------------------------------------------------------------------------
+-- Match Centre Phase 3B additions
+-- ---------------------------------------------------------------------------
+-- Staff communications are only meaningful against a population with a MIX of
+-- attendance states, so the local U12 fixture needs at least one player who
+-- has not answered -- otherwise "Send attendance reminder" is permanently
+-- greyed out and unexercisable.
+--
+-- Priya also carries TWO active guardians, which is the case that proves
+-- recipient de-duplication and the "both accepted guardians receive
+-- operational communications" rule in a real browser rather than only in SQL.
+
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
+  raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+select gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+       e.email, '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', '', '', '', '', ''
+from (values ('uat.guardian.three@ovalball.test'), ('uat.guardian.four@ovalball.test')) as e(email)
+where not exists (select 1 from auth.users u where u.email = e.email);
+
+insert into public.profiles (id, first_name, surname, email)
+select u.id, v.first_name, v.surname, u.email
+from (values
+  ('uat.guardian.three@ovalball.test', 'Nadia', 'Rao'),
+  ('uat.guardian.four@ovalball.test',  'Sanjay', 'Rao')
+) as v(email, first_name, surname)
+join auth.users u on u.email = v.email
+where not exists (select 1 from public.profiles p where p.id = u.id);
+
+-- The child with no response.
+insert into public.players (first_name, surname, date_of_birth)
+select 'Priya', 'Rao', '2014-09-09'
+where not exists (select 1 from public.players p where p.first_name = 'Priya' and p.surname = 'Rao');
+
+insert into public.player_team_memberships (player_id, team_id, status)
+select p.id, t.id, 'active'
+from public.players p
+cross join public.teams t
+join public.clubs c on c.id = t.club_id
+join public.club_directory d on d.id = c.directory_id
+where p.first_name = 'Priya' and p.surname = 'Rao'
+  and d.normalized_key = 'ovalball-uat-rufc' and t.age_group = 'U12' and t.squad_designation is null
+  and not exists (select 1 from public.player_team_memberships m where m.player_id = p.id and m.team_id = t.id);
+
+-- BOTH guardians, both active.
+insert into public.guardians (guardian_user_id, player_id, relationship_type, status)
+select u.id, p.id, 'guardian', 'active'
+from public.players p
+cross join auth.users u
+where p.first_name = 'Priya' and p.surname = 'Rao'
+  and u.email in ('uat.guardian.three@ovalball.test', 'uat.guardian.four@ovalball.test')
+  and not exists (select 1 from public.guardians g where g.player_id = p.id and g.guardian_user_id = u.id);

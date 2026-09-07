@@ -3822,6 +3822,60 @@ export type Database = {
           },
         ]
       }
+      fixture_communications: {
+        Row: {
+          action: string
+          body: string | null
+          created_at: string
+          delivered_count: number
+          fixture_id: string
+          id: string
+          outcome: string
+          player_count: number
+          recipient_count: number
+          sent_by: string
+        }
+        Insert: {
+          action: string
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          fixture_id: string
+          id?: string
+          outcome: string
+          player_count?: number
+          recipient_count?: number
+          sent_by: string
+        }
+        Update: {
+          action?: string
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          fixture_id?: string
+          id?: string
+          outcome?: string
+          player_count?: number
+          recipient_count?: number
+          sent_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_communications_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_communications_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixtures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fixture_conversation_participants: {
         Row: {
           added_at: string
@@ -14831,6 +14885,14 @@ export type Database = {
         Args: { p_error: string; p_run_id: string }
         Returns: undefined
       }
+      fixture_communication_counts: {
+        Args: { p_fixture_id: string }
+        Returns: {
+          attending_count: number
+          outstanding_count: number
+          team_count: number
+        }[]
+      }
       fold_team: {
         Args: { p_reason: string; p_team_id: string }
         Returns: number
@@ -16250,6 +16312,14 @@ export type Database = {
         Args: { p_club_id: string; p_plan_code: string }
         Returns: string
       }
+      send_fixture_communication: {
+        Args: { p_action: string; p_body?: string; p_fixture_id: string }
+        Returns: {
+          outcome: string
+          player_count: number
+          recipient_count: number
+        }[]
+      }
       send_fixture_support_message: {
         Args: { p_body: string; p_fixture_id: string }
         Returns: string
@@ -16785,12 +16855,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16814,11 +16884,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16839,11 +16909,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16864,11 +16934,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16881,11 +16951,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

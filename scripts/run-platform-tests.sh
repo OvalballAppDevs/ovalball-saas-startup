@@ -51,6 +51,7 @@ SUITES=(
   player_avatars
   fixture_meet_time
   match_centre_core
+  fixture_communications
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
