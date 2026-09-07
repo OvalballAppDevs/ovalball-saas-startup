@@ -31,17 +31,17 @@ export function MessagingPanel({ fixtureId, conversation, initialMessages }: { f
   if (!conversation.canView) {
     return (
       <div className="rounded-xl border border-ink/10 bg-white px-4 py-3.5">
-        <h3 className="text-xs font-medium tracking-[0.06em] text-ink/50 uppercase">Messages</h3>
-        <p className="mt-1.5 text-sm text-ink/50">Fixture messages are currently for club/team staff only.</p>
+        <h3 className="text-xs font-medium tracking-[0.06em] text-ink-muted uppercase">Messages</h3>
+        <p className="mt-1.5 text-sm text-ink-muted">Fixture messages are currently for club/team staff only.</p>
       </div>
     )
   }
 
   return (
     <div className="rounded-xl border border-ink/10 bg-white px-4 py-3.5">
-      <h3 className="text-xs font-medium tracking-[0.06em] text-ink/50 uppercase">Messages</h3>
+      <h3 className="text-xs font-medium tracking-[0.06em] text-ink-muted uppercase">Messages</h3>
       <ul className="mt-2 flex flex-col gap-2.5">
-        {messages.length === 0 && <li className="text-sm text-ink/45">No messages yet.</li>}
+        {messages.length === 0 && <li className="text-sm text-ink-muted">No messages yet.</li>}
         {messages.map((m) => (
           <li key={m.id} className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.isOwn ? "ml-auto bg-pitch-600/10 text-pitch-900" : "bg-ink/5 text-ink"}`}>
             <p>{m.body}</p>

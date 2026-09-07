@@ -7,6 +7,10 @@ import { MatchCentreHero } from "@/components/fixtures/match-centre/hero"
 import { MessagingPanel, type FixtureMessageRow } from "@/components/fixtures/match-centre/messaging-panel"
 import { ParticipantList } from "@/components/fixtures/match-centre/participant-list"
 import { VenueBlock } from "@/components/fixtures/match-centre/venue-block"
+import { WeatherCard } from "@/components/fixtures/match-centre/weather-card"
+import { getFixtureForecast } from "@/lib/weather/fixture-forecast"
+
+import { StaffPanel } from "./staff-panel"
 import { getMatchCentreContext } from "@/lib/app-context/match-centre-data"
 import { createClient } from "@/lib/supabase/server"
 
@@ -36,6 +40,17 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
   const resolution = await getMatchCentreContext(supabase, user.id, fixtureId)
   if (resolution.status === "not_found") notFound()
   const { context } = resolution
+
+  // DERIVED data, resolved server-side from the fixture's canonical kickoff
+  // and its venue's coordinates. Never throws: every failure -- no
+  // credential, timeout, 429, malformed payload -- comes back as a state, so
+  // a weather outage can never take this page with it.
+  const weather = await getFixtureForecast({
+    kickoffDate: context.fixture.kickoffDate,
+    kickoffTime: context.fixture.kickoffTime,
+    latitude: context.venue.latitude,
+    longitude: context.venue.longitude,
+  })
 
   let messages: FixtureMessageRow[] = []
   if (context.messaging.canView) {
@@ -67,11 +82,11 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
           compose row's Send button sits directly underneath the widget at
           narrow viewports (confirmed overlapping via getBoundingClientRect
           during UAT), an inaccessible, unclickable control. */}
-      <Link href="/fixtures" className="inline-flex items-center gap-1.5 text-sm text-ink/55 hover:text-ink/80">
+      <Link href="/fixtures" className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
         <ArrowLeft className="size-3.5" /> Fixtures
       </Link>
 
-      <MatchCentreHero fixture={context.fixture} homeSide={context.homeSide} awaySide={context.awaySide} />
+      <MatchCentreHero fixture={context.fixture} homeSide={context.homeSide} awaySide={context.awaySide} venueName={context.venue.name} />
 
       <section aria-labelledby="mc-attendance-heading" className="flex flex-col gap-2.5">
         <h2 id="mc-attendance-heading" className="sr-only">
@@ -100,10 +115,18 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
         <AttendancePanel fixtureId={context.fixture.fixtureId} entries={context.attendance.mine} fixtureCancelled={context.fixture.status === "CANCELLED"} />
       </section>
 
-      {/* No sr-only h2 wrapper here -- VenueBlock already renders its own real "Venue" heading; a duplicate same-text heading one level up would show twice in a screen reader's heading list for no reason. */}
-      <section>
-        <VenueBlock venue={context.venue} pitch={context.pitch} />
-      </section>
+      {/* No sr-only h2 wrapper here -- VenueBlock and WeatherCard each render
+          their own real heading; a duplicate same-text heading one level up
+          would show twice in a screen reader's heading list for no reason. */}
+      <VenueBlock venue={context.venue} pitch={context.pitch} />
+
+      <WeatherCard result={weather} />
+
+      {/* Staff-only, and only ever presentation: the action re-checks the
+          same capability in the database. */}
+      {context.actions.canManageFixture && (
+        <StaffPanel fixtureId={context.fixture.fixtureId} meetTime={context.fixture.meetTime} kickoffTime={context.fixture.kickoffTime} />
+      )}
 
       <section aria-labelledby="mc-participants-heading">
         <h2 id="mc-participants-heading" className="mb-2 font-display text-base text-ink">
@@ -123,7 +146,7 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
 function CountCell({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-ink/8 bg-white px-2 py-2.5">
-      <dt className="text-[10px] tracking-wide text-ink/50 uppercase">{label}</dt>
+      <dt className="text-[10px] tracking-wide text-ink-muted uppercase">{label}</dt>
       <dd className="mt-0.5 font-display text-lg text-ink">{value}</dd>
     </div>
   )

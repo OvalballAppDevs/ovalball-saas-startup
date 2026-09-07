@@ -9,6 +9,7 @@ import type { Database } from "@/types/database.types"
 
 import { resolveClubLogoUrl } from "./club-logo"
 import { resolvePersonalAvatarUrl } from "./personal-avatar"
+import { resolvePlayerAgeState } from "@/lib/players/age-state"
 
 /**
  * Match Centre real data resolver (Phase 1 of the Side Project 3 -> Main
@@ -31,9 +32,11 @@ import { resolvePersonalAvatarUrl } from "./personal-avatar"
 
 export type AttendanceStatus = "ATTENDING" | "CANNOT_ATTEND" | "UNSURE"
 /**
- * Only two real states today: Main has profiles.avatar_storage_path and no
- * player-photo column, so PHOTO_ALLOWED is only ever true for a roster
- * player who is also a signed-in adult with their own profile avatar.
+ * Two real states. PHOTO_ALLOWED means BOTH that a picture exists AND that
+ * this viewer is authorized to see it -- since Phase 2B a player has their
+ * own picture in a private bucket, and "an avatar exists" says nothing about
+ * who may view it. Everything else renders initials, which is a first-class
+ * presentation and not a degraded one.
  * Side Project 3's isolated design also modelled a third HIDDEN_IDENTITY
  * state for a future, not-yet-decided visibility policy -- deliberately
  * not carried over here: there is no real policy in Main that produces it
@@ -48,6 +51,8 @@ export interface MatchCentreFixture {
   status: FixtureStatus
   kickoffDate: string
   kickoffTime: string | null
+  /** Optional canonical arrival time (fixtures.meet_time), against the same kickoff_date. Never a Match-Centre-only value -- the Calendar, Agenda and fixture management read the same column. */
+  meetTime: string | null
   homeAway: "Home" | "Away" | "TBD" | "Not Applicable"
   competitionIdentity: string | null
   cancellationReason: string | null
@@ -69,7 +74,11 @@ export interface MatchCentreSide {
 export interface MatchCentreVenue {
   venueId: string | null
   name: string | null
+  /** Free-text address as stored. Kept for display only where the structured lines are absent. */
   address: string | null
+  /** Structured address lines, so the page never has to concatenate a malformed string. */
+  addressLines: string[]
+  postcode: string | null
   latitude: number | null
   longitude: number | null
 }
@@ -160,7 +169,7 @@ export async function getMatchCentreContext(supabase: SupabaseClient<Database>, 
   const { data: f } = await supabase
     .from("fixtures")
     .select(
-      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, pitch_id, owning_scheduling_group_id, opponent_scheduling_group_id, competition_edition_id"
+      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, pitch_id, owning_scheduling_group_id, opponent_scheduling_group_id, competition_edition_id"
     )
     .eq("id", fixtureId)
     .maybeSingle()
@@ -206,7 +215,13 @@ export async function getMatchCentreContext(supabase: SupabaseClient<Database>, 
   ])
 
   const [{ data: venue }, { data: pitch }, { data: competition }] = await Promise.all([
-    f.venue_id ? supabase.from("venues").select("id, name, address, latitude, longitude").eq("id", f.venue_id).maybeSingle() : Promise.resolve({ data: null }),
+    f.venue_id
+      ? supabase
+          .from("venues")
+          .select("id, name, address, address_line_1, address_line_2, town, county, postcode, latitude, longitude")
+          .eq("id", f.venue_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     f.pitch_id ? supabase.from("club_pitches").select("id, display_name").eq("id", f.pitch_id).maybeSingle() : Promise.resolve({ data: null }),
     f.competition_edition_id
       ? supabase.from("competition_editions").select("competitions(name)").eq("id", f.competition_edition_id).maybeSingle()
@@ -270,7 +285,7 @@ export async function getMatchCentreContext(supabase: SupabaseClient<Database>, 
   if (canViewParticipants && allTeamIds.length > 0) {
     const { data: roster } = await supabase
       .from("player_team_memberships")
-      .select("player_id, team_id, players(id, first_name, surname, user_id)")
+      .select("player_id, team_id, players(id, first_name, surname, user_id, date_of_birth, avatar_storage_path)")
       .in("team_id", allTeamIds)
       .eq("status", "active")
 
@@ -286,11 +301,41 @@ export async function getMatchCentreContext(supabase: SupabaseClient<Database>, 
     const attendanceByPlayer = new Map((attendanceRows ?? []).map((a) => [a.player_id, a.status as AttendanceStatus]))
     const callUpByPlayer = new Map((callUpRows ?? []).map((c) => [c.player_id, c]))
 
-    // Profile avatars are resolved only for the small set of roster players
-    // that ARE also a signed-in adult with their own profile -- never
-    // fetched speculatively for every player, and never a substitute for a
-    // player's own photo (Main has no such column).
-    const adultUserIds = (roster ?? []).map((r) => r.players?.user_id).filter((x): x is string => !!x)
+    // ---- AVATARS: "a photo exists" is NOT "this viewer may see it" -------
+    //
+    // Two distinct sources, and the difference matters for safeguarding:
+    //
+    //   players.avatar_storage_path  -- the PLAYER's own picture, added in
+    //     Phase 2B, in a PRIVATE bucket. Authorization is not re-implemented
+    //     here: minting a signed URL goes through that bucket's own storage
+    //     policies (guardian of this child, the player themselves, or a Club
+    //     Admin holding club.guardians.manage), so a coach reading this
+    //     roster simply gets null and renders initials. The signed-URL call
+    //     IS the check.
+    //
+    //   profiles.avatar_storage_path -- the ADULT ACCOUNT's picture, in the
+    //     PUBLIC avatars bucket. Used only for players who are genuinely
+    //     adults, never as a stand-in for a child's photo: publishing a
+    //     minor's public-bucket profile image to everyone who can read a
+    //     squad list is precisely the exposure the private bucket exists to
+    //     prevent, and it is not made acceptable by the child having their
+    //     own login.
+    //
+    // A guardian's avatar is never a candidate for either -- the only user
+    // id consulted is the player's own.
+    const playerOwnedAvatars = (roster ?? [])
+      .map((r) => r.players)
+      .filter((p): p is NonNullable<typeof p> => Boolean(p?.avatar_storage_path))
+    const signedByPlayerId = new Map<string, string>()
+    for (const p of playerOwnedAvatars) {
+      const { data } = await supabase.storage.from("player-avatars").createSignedUrl(p.avatar_storage_path!, 3600)
+      if (data?.signedUrl) signedByPlayerId.set(p.id, data.signedUrl)
+    }
+
+    const adultUserIds = (roster ?? [])
+      .filter((r) => r.players?.user_id && resolvePlayerAgeState(r.players.date_of_birth, []) === "adult")
+      .map((r) => r.players!.user_id)
+      .filter((x): x is string => !!x)
     const { data: profiles } =
       adultUserIds.length > 0 ? await supabase.from("profiles").select("id, avatar_storage_path").in("id", adultUserIds) : { data: [] }
     const profileByUserId = new Map((profiles ?? []).map((p) => [p.id, p.avatar_storage_path]))
@@ -300,8 +345,9 @@ export async function getMatchCentreContext(supabase: SupabaseClient<Database>, 
       if (!p) continue
       const response = attendanceByPlayer.get(p.id) ?? null
       const callUpRow = callUpByPlayer.get(p.id)
-      const avatarPath = p.user_id ? profileByUserId.get(p.user_id) : null
-      const avatarUrl = avatarPath ? resolvePersonalAvatarUrl(supabase, avatarPath) : null
+      const isAdultPlayer = resolvePlayerAgeState(p.date_of_birth, []) === "adult"
+      const profilePath = isAdultPlayer && p.user_id ? profileByUserId.get(p.user_id) : null
+      const avatarUrl = signedByPlayerId.get(p.id) ?? (profilePath ? resolvePersonalAvatarUrl(supabase, profilePath) : null)
 
       participants.push({
         playerId: p.id,
@@ -328,6 +374,7 @@ export async function getMatchCentreContext(supabase: SupabaseClient<Database>, 
         fixtureId: f.id,
         status: mapFixtureStatus(f),
         kickoffDate: f.kickoff_date,
+        meetTime: f.meet_time ? String(f.meet_time).slice(0, 5) : null,
         kickoffTime: f.kickoff_time,
         homeAway: f.home_away as MatchCentreFixture["homeAway"],
         competitionIdentity: (competition?.competitions as { name: string } | null)?.name ?? null,
@@ -336,8 +383,18 @@ export async function getMatchCentreContext(supabase: SupabaseClient<Database>, 
       homeSide,
       awaySide,
       venue: venue
-        ? { venueId: venue.id, name: venue.name, address: venue.address, latitude: venue.latitude != null ? Number(venue.latitude) : null, longitude: venue.longitude != null ? Number(venue.longitude) : null }
-        : { venueId: null, name: null, address: null, latitude: null, longitude: null },
+        ? {
+            venueId: venue.id,
+            name: venue.name,
+            address: venue.address,
+            // Built from the structured columns, blanks dropped -- never a
+            // string concatenation that yields "Holden Road, , , BB11".
+            addressLines: [venue.address_line_1, venue.address_line_2, venue.town, venue.county].filter((l): l is string => Boolean(l && l.trim())),
+            postcode: venue.postcode,
+            latitude: venue.latitude != null ? Number(venue.latitude) : null,
+            longitude: venue.longitude != null ? Number(venue.longitude) : null,
+          }
+        : { venueId: null, name: null, address: null, addressLines: [], postcode: null, latitude: null, longitude: null },
       pitch: pitch ? { pitchId: pitch.id, label: pitch.display_name } : { pitchId: null, label: null },
       attendance: { counts, mine },
       participants,

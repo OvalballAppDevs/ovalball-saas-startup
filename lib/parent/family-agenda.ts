@@ -110,7 +110,7 @@ export async function loadFamilyAgenda(
     supabase
       .from("fixtures")
       .select(
-        "id, owning_team_id, opponent_team_id, mirror_fixture_id, kickoff_date, kickoff_time, home_away, status, raw_opposition_text, venue_address, venue_id, teams!fixtures_owning_team_id_fkey(display_name), opponent:teams!fixtures_opponent_team_id_fkey(display_name)"
+        "id, owning_team_id, opponent_team_id, mirror_fixture_id, kickoff_date, kickoff_time, meet_time, home_away, status, raw_opposition_text, venue_address, venue_id, teams!fixtures_owning_team_id_fkey(display_name), opponent:teams!fixtures_opponent_team_id_fkey(display_name)"
       )
       .or(`owning_team_id.in.(${teamIds.join(",")}),opponent_team_id.in.(${teamIds.join(",")})`)
       .gte("kickoff_date", window.startIso)
@@ -194,6 +194,7 @@ export async function loadFamilyAgenda(
         clubName: child.clubName,
         date: f.kickoff_date,
         time: f.kickoff_time ? String(f.kickoff_time).slice(0, 5) : null,
+        meetTime: f.meet_time ? String(f.meet_time).slice(0, 5) : null,
         title: fixtureTitle({ home_away: homeAway, raw_opposition_text: f.raw_opposition_text, opponentName, ownTeamName }),
         venue: (f.venue_id ? venueNameById.get(f.venue_id) : null) ?? f.venue_address ?? null,
         status: f.status,

@@ -41,6 +41,8 @@ export interface AgendaEvent {
   date: string
   /** HH:MM, or null when the time is not yet set. */
   time: string | null
+  /** Canonical arrival time (fixtures.meet_time), when the club has set one. The same column the Match Centre reads. */
+  meetTime?: string | null
   title: string
   venue: string | null
   /** The fixture's own lifecycle status; null for training. */

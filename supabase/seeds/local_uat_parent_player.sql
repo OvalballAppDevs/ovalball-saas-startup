@@ -291,3 +291,51 @@ join auth.users u on u.id = g.guardian_user_id
 where not exists (
   select 1 from public.player_fixture_attendance a where a.fixture_id = f.id and a.player_id = p.id
 );
+
+-- ---------------------------------------------------------------------------
+-- Match Centre Phase 3A additions
+-- ---------------------------------------------------------------------------
+-- Idempotent and additive, like everything above. These exist so the Match
+-- Centre's premium surfaces can be exercised locally without hand-editing a
+-- database: a kit to render, an arrival time to display, and a fixture far
+-- enough away to sit outside the forecast horizon.
+
+-- A canonical RugbyKit for the UAT club. Without one every Match Centre hero
+-- renders the (correct, but uninformative) placeholder, so the kit path was
+-- unverifiable locally.
+insert into public.club_kits (club_id, variant, pattern, primary_colour, secondary_colour, accent_colour)
+select c.id, 'primary', 'HOOPS', '#14532d', '#ffffff', '#f59e0b'
+from public.clubs c
+join public.club_directory d on d.id = c.directory_id
+where d.normalized_key = 'ovalball-uat-rufc'
+  and not exists (select 1 from public.club_kits k where k.club_id = c.id and k.variant = 'primary');
+
+-- Arrival times on the seeded fixtures: 45 minutes before kick-off, which is
+-- both realistic and safely inside the meet <= kickoff rule.
+update public.fixtures f
+set meet_time = f.kickoff_time - interval '45 minutes'
+from public.teams t, public.clubs c, public.club_directory d
+where f.owning_team_id = t.id and t.club_id = c.id and c.directory_id = d.id
+  and d.normalized_key = 'ovalball-uat-rufc'
+  and f.kickoff_time is not null
+  and f.meet_time is null;
+
+-- A fixture beyond the 7-day forecast horizon, so TOO_EARLY_FOR_FORECAST --
+-- the state most fixtures spend most of their life in -- is reachable without
+-- waiting for the calendar to move.
+insert into public.fixtures (owning_team_id, opponent_directory_id, raw_opposition_text, kickoff_date, kickoff_time, home_away, status, season_id, venue_id, created_by)
+select t.id,
+       (select id from public.club_directory where normalized_key <> 'ovalball-uat-rufc' limit 1),
+       'Far Future Opposition RFC',
+       current_date + 120, '14:00', 'Home', 'Booked',
+       (select f2.season_id from public.fixtures f2 where f2.owning_team_id = t.id limit 1),
+       (select v.id from public.venues v where v.club_id = c.id limit 1),
+       (select u.id from auth.users u where u.email = 'uat.coach@ovalball.test')
+from public.teams t
+join public.clubs c on c.id = t.club_id
+join public.club_directory d on d.id = c.directory_id
+where d.normalized_key = 'ovalball-uat-rufc' and t.age_group = 'U12' and t.squad_designation is null
+  and not exists (
+    select 1 from public.fixtures f3
+    where f3.owning_team_id = t.id and f3.raw_opposition_text = 'Far Future Opposition RFC'
+  );

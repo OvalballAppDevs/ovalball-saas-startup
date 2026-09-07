@@ -2,8 +2,8 @@ import type { MatchCentreParticipant } from "@/lib/app-context/match-centre-data
 
 /** Grouped by response only -- no ranking, no "who hasn't responded" singled out by name. Youth-safe by construction. */
 export function ParticipantList({ participants, canView }: { participants: MatchCentreParticipant[]; canView: boolean }) {
-  if (!canView) return <p className="text-sm text-ink/50">Participant list is not available in this view.</p>
-  if (participants.length === 0) return <p className="text-sm text-ink/50">No participants recorded yet.</p>
+  if (!canView) return <p className="text-sm text-ink-muted">Participant list is not available in this view.</p>
+  if (participants.length === 0) return <p className="text-sm text-ink-muted">No participants recorded yet.</p>
 
   const attending = participants.filter((p) => p.response === "ATTENDING")
   const unsure = participants.filter((p) => p.response === "UNSURE")
@@ -24,8 +24,8 @@ function Group({ label, items, muted = false }: { label: string; items: MatchCen
   if (items.length === 0) return null
   return (
     <section>
-      <h3 className="text-xs font-medium tracking-[0.06em] text-ink/50 uppercase">
-        {label} <span className="text-ink/35">({items.length})</span>
+      <h3 className="text-xs font-medium tracking-[0.06em] text-ink-muted uppercase">
+        {label} <span className="text-ink-subtle">({items.length})</span>
       </h3>
       <ul className="mt-2 flex flex-wrap gap-2.5">
         {items.map((p) => (

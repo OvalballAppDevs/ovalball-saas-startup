@@ -266,6 +266,12 @@ function AgendaRow({ event, showChild }: { event: AgendaEvent; showChild: boolea
           {event.time ? ` · ${event.time}` : ""}
           {event.venue ? ` · ${event.venue}` : ""}
         </p>
+        {/* The canonical fixtures.meet_time -- the same column the Match
+            Centre reads, surfaced here because "when do we arrive" is the
+            thing a parent is actually scanning this list for. */}
+        {event.meetTime && (
+          <p className="mt-0.5 text-sm font-medium text-forest-800">Meet {event.meetTime}</p>
+        )}
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {chip ? (
             <span className={cn("rounded-full border px-2 py-0.5 text-xs", chip.className)}>{chip.label}</span>

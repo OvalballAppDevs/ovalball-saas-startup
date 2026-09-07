@@ -5323,6 +5323,7 @@ export type Database = {
           kickoff_date: string
           kickoff_time: string | null
           legacy_fixture_ref: string | null
+          meet_time: string | null
           mirror_fixture_id: string | null
           notes: string | null
           opponent_directory_id: string | null
@@ -5394,6 +5395,7 @@ export type Database = {
           kickoff_date: string
           kickoff_time?: string | null
           legacy_fixture_ref?: string | null
+          meet_time?: string | null
           mirror_fixture_id?: string | null
           notes?: string | null
           opponent_directory_id?: string | null
@@ -5465,6 +5467,7 @@ export type Database = {
           kickoff_date?: string
           kickoff_time?: string | null
           legacy_fixture_ref?: string | null
+          meet_time?: string | null
           mirror_fixture_id?: string | null
           notes?: string | null
           opponent_directory_id?: string | null
@@ -15457,6 +15460,7 @@ export type Database = {
           kickoff_date: string
           kickoff_time: string | null
           legacy_fixture_ref: string | null
+          meet_time: string | null
           mirror_fixture_id: string | null
           notes: string | null
           opponent_directory_id: string | null
@@ -15537,6 +15541,7 @@ export type Database = {
           kickoff_date: string
           kickoff_time: string | null
           legacy_fixture_ref: string | null
+          meet_time: string | null
           mirror_fixture_id: string | null
           notes: string | null
           opponent_directory_id: string | null
@@ -16628,6 +16633,10 @@ export type Database = {
           p_kickoff_time?: string
         }
         Returns: undefined
+      }
+      update_fixture_meet_time: {
+        Args: { p_fixture_id: string; p_meet_time: string }
+        Returns: string
       }
       update_fixture_opposition: {
         Args: {
