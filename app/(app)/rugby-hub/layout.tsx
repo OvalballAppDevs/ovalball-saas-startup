@@ -42,7 +42,12 @@ export default async function RugbyHubLayout({ children }: { children: React.Rea
 
       <RugbyHubSectionNav />
 
-      <div className="mx-auto max-w-3xl px-4 py-10 md:px-8 md:py-14">
+      {/* pb-28 clears the global "Ask Ovie" floating widget (fixed
+          bottom-right on every page) -- without it, the Safeguarding
+          Officer contact form's Send button sits directly underneath it at
+          narrow viewports (confirmed overlapping via getBoundingClientRect
+          on the equivalent Match Centre control during UAT). */}
+      <div className="mx-auto max-w-3xl px-4 pt-10 pb-28 md:px-8 md:pt-14 md:pb-28">
         {activeTeamId ? (
           children
         ) : (

@@ -55,7 +55,12 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-6 md:px-8 md:py-10">
+    <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 pt-6 pb-28 md:px-8 md:pt-10 md:pb-28">
+      {/* pb-28 clears the global "Ask Ovie" floating widget, which sits
+          fixed bottom-right on every page -- without it, the messaging
+          compose row's Send button sits directly underneath the widget at
+          narrow viewports (confirmed overlapping via getBoundingClientRect
+          during UAT), an inaccessible, unclickable control. */}
       <Link href="/fixtures" className="inline-flex items-center gap-1.5 text-sm text-ink/55 hover:text-ink/80">
         <ArrowLeft className="size-3.5" /> Fixtures
       </Link>
@@ -75,10 +80,8 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
         <AttendancePanel fixtureId={context.fixture.fixtureId} entries={context.attendance.mine} fixtureCancelled={context.fixture.status === "CANCELLED"} />
       </section>
 
-      <section aria-labelledby="mc-venue-heading">
-        <h2 id="mc-venue-heading" className="sr-only">
-          Venue
-        </h2>
+      {/* No sr-only h2 wrapper here -- VenueBlock already renders its own real "Venue" heading; a duplicate same-text heading one level up would show twice in a screen reader's heading list for no reason. */}
+      <section>
         <VenueBlock venue={context.venue} pitch={context.pitch} />
       </section>
 
@@ -89,10 +92,8 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
         <ParticipantList participants={context.participants} canView={context.actions.canViewParticipants} />
       </section>
 
-      <section aria-labelledby="mc-messages-heading">
-        <h2 id="mc-messages-heading" className="sr-only">
-          Messages
-        </h2>
+      {/* No sr-only h2 wrapper here -- MessagingPanel already renders its own real "Messages" heading. */}
+      <section>
         <MessagingPanel fixtureId={context.fixture.fixtureId} conversation={context.messaging} initialMessages={messages} />
       </section>
     </div>
