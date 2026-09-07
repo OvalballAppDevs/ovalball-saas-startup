@@ -73,3 +73,9 @@ data/clublogo/
 
 # Vercel account/machine-specific link metadata
 .vercel
+
+# Governing-body source documents, fetched manually for local extraction.
+# Never committed: Ovalball stores structured facts and citations, not
+# copies of governing-body documents (see research-ingestion/README.md).
+research-ingestion/**
+!research-ingestion/README.md

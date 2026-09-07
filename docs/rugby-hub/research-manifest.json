@@ -16,15 +16,37 @@
     "'fetchable' is an operational finding, not a judgement of authority:",
     "englandrugby.com returns HTTP 403 to automated requests, so RFU material",
     "cannot be machine-extracted from CI and needs a human or an agreed access",
-    "path. rugby-league.com serves its PDFs normally."
+    "path. rugby-league.com serves its PDFs normally.",
+    "",
+    "Every RFU source now carries acquisition_state. AUTOMATION_BLOCKED means the official host refuses automated retrieval and the control was NOT circumvented -- the file is awaiting a one-time manual download, and its canonical provenance stays the englandrugby.com URL regardless of how the bytes arrive."
   ],
   "generated_for_phase": "4A",
   "generated_on": "2026-09-07",
   "authorities": [
-    { "key": "RFU", "name": "Rugby Football Union", "code": "union", "role": "Governing body for rugby union in England. Publishes the Regulations, including Regulation 15 (Age Grade Rugby), and adopts the World Rugby Laws." },
-    { "key": "RFL", "name": "Rugby Football League", "code": "league", "role": "Governing body for rugby league in England. Publishes the Operational Rules and the Primary Rugby League Rules." },
-    { "key": "WORLD_RUGBY", "name": "World Rugby", "code": "union", "role": "Publishes the Laws of the Game. Relevant to Ovalball ONLY as adopted/varied by the RFU -- never cited directly as the rule a specific English age grade plays to." },
-    { "key": "IRL", "name": "International Rugby League", "code": "league", "role": "Publishes the International Laws. Same rule as World Rugby: relevant only where the RFL adopts them." }
+    {
+      "key": "RFU",
+      "name": "Rugby Football Union",
+      "code": "union",
+      "role": "Governing body for rugby union in England. Publishes the Regulations, including Regulation 15 (Age Grade Rugby), and adopts the World Rugby Laws."
+    },
+    {
+      "key": "RFL",
+      "name": "Rugby Football League",
+      "code": "league",
+      "role": "Governing body for rugby league in England. Publishes the Operational Rules and the Primary Rugby League Rules."
+    },
+    {
+      "key": "WORLD_RUGBY",
+      "name": "World Rugby",
+      "code": "union",
+      "role": "Publishes the Laws of the Game. Relevant to Ovalball ONLY as adopted/varied by the RFU -- never cited directly as the rule a specific English age grade plays to."
+    },
+    {
+      "key": "IRL",
+      "name": "International Rugby League",
+      "code": "league",
+      "role": "Publishes the International Laws. Same rule as World Rugby: relevant only where the RFL adopts them."
+    }
   ],
   "sources": [
     {
@@ -37,43 +59,541 @@
       "status": "LOCATED",
       "fetchable": false,
       "scope": "The master regulation defining Age Grade Rugby and carrying the per-age-grade Rules of Play appendices.",
-      "supports_identities": ["RFU-U7", "RFU-U8", "RFU-U9", "RFU-U10", "RFU-U11", "RFU-U12", "RFU-U13", "RFU-U14", "RFU-U15", "RFU-U16"],
-      "supports_domains": ["RULES_OF_PLAY", "PLAYING_UP_DISPENSATION"],
+      "supports_identities": [
+        "RFU-U7",
+        "RFU-U8",
+        "RFU-U9",
+        "RFU-U10",
+        "RFU-U11",
+        "RFU-U12",
+        "RFU-U13",
+        "RFU-U14",
+        "RFU-U15",
+        "RFU-U16"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY",
+        "PLAYING_UP_DISPENSATION"
+      ],
       "effective_period": "NOT_ESTABLISHED",
-      "notes": "Regulation 15 scopes Age Grade Rugby from U7 upward. That is the primary evidence for U6 having NO_REGULATORY_EQUIVALENT in union."
+      "notes": "Regulation 15 scopes Age Grade Rugby from U7 upward. That is the primary evidence for U6 having NO_REGULATORY_EQUIVALENT in union.",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
     },
-    { "key": "RFU-REG15-APP1-U7", "authority": "RFU", "code": "union", "title": "Regulation 15 Appendix 1 - U7s Rules of Play (Tag Rugby)", "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-1-u7-rules-of-play", "classification": "PRIMARY_REGULATION", "status": "ALREADY_REGISTERED", "fetchable": false, "scope": "U7 Rules of Play.", "supports_identities": ["RFU-U7"], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "2025-08-01 onward (recorded on the existing regulatory_sources row RFU-REG15-APP1-2025-001)" },
-    { "key": "RFU-REG15-APP2-U8", "authority": "RFU", "code": "union", "title": "Regulation 15 Appendix 2 - U8s Rules of Play (Tag Rugby)", "url": "https://www.englandrugby.com/dxdam/a4/a490d188-771f-48fa-8aeb-6a715891ccc5/Regulation%2015%20Appendix%202.pdf", "classification": "PRIMARY_REGULATION", "status": "LOCATED", "fetchable": false, "scope": "U8 Rules of Play.", "supports_identities": ["RFU-U8"], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "NOT_ESTABLISHED" },
-    { "key": "RFU-REG15-APP3-U9", "authority": "RFU", "code": "union", "title": "Regulation 15 Appendix 3 - U9s Rules of Play (Transitional Contact)", "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-3-u9-rules-of-play", "classification": "PRIMARY_REGULATION", "status": "LOCATED", "fetchable": false, "scope": "U9 Rules of Play. The first contact age grade.", "supports_identities": ["RFU-U9"], "supports_domains": ["RULES_OF_PLAY", "PLAYER_WELFARE"], "effective_period": "NOT_ESTABLISHED" },
-    { "key": "RFU-REG15-APP4-U10", "authority": "RFU", "code": "union", "title": "Regulation 15 Appendix 4 - U10s Rules of Play", "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-4-u10-rules-of-play", "classification": "PRIMARY_REGULATION", "status": "LOCATED", "fetchable": false, "scope": "U10 Rules of Play.", "supports_identities": ["RFU-U10"], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "NOT_ESTABLISHED" },
-    { "key": "RFU-REG15-APP5-U11", "authority": "RFU", "code": "union", "title": "Regulation 15 Appendix 5 - U11s Rules of Play", "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-5-u11-rules-of-play", "classification": "PRIMARY_REGULATION", "status": "LOCATED", "fetchable": false, "scope": "U11 Rules of Play.", "supports_identities": ["RFU-U11"], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "NOT_ESTABLISHED" },
-    { "key": "RFU-REG15-APP6-U12", "authority": "RFU", "code": "union", "title": "Regulation 15 Appendix 6 - U12s Rules of Play", "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-6-u12-rules-of-play", "classification": "PRIMARY_REGULATION", "status": "LOCATED", "fetchable": false, "scope": "U12 Rules of Play.", "supports_identities": ["RFU-U12"], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "NOT_ESTABLISHED" },
-    { "key": "RFU-REG15-APP7-U13", "authority": "RFU", "code": "union", "title": "Regulation 15 Appendix 7 - U13s Rules of Play", "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-7-u13-rules-of-play", "classification": "PRIMARY_REGULATION", "status": "LOCATED", "fetchable": false, "scope": "U13 Rules of Play.", "supports_identities": ["RFU-U13"], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "NOT_ESTABLISHED" },
-    { "key": "RFU-REG15-APP8-U14", "authority": "RFU", "code": "union", "title": "Regulation 15 Appendix 8 - U14s Rules of Play", "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-8-u14-rules-of-play", "classification": "PRIMARY_REGULATION", "status": "LOCATED", "fetchable": false, "scope": "U14 Rules of Play.", "supports_identities": ["RFU-U14"], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "NOT_ESTABLISHED" },
-    { "key": "RFU-REG15-APP9-U15-U18", "authority": "RFU", "code": "union", "title": "Regulation 15 Appendix 9 - U15-U18 Variations to the Laws of the Game", "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-9-u15-u18-variations-to-the-laws-of-the-game", "classification": "PRIMARY_REGULATION", "status": "LOCATED", "fetchable": false, "scope": "SHARED across U15, U16, U17 and U18. Facts extracted from this document attach to every one of those identities through regulatory_fact_applicability; they are never copied.", "supports_identities": ["RFU-U15", "RFU-U16"], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "NOT_ESTABLISHED" },
-    { "key": "RFU-REG14-ADULT-REG", "authority": "RFU", "code": "union", "title": "RFU Regulation 14 - Adult Player RFU Registration Process", "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-14-adult-player-registration", "classification": "PRIMARY_REGULATION", "status": "LOCATED", "fetchable": false, "scope": "Adult player registration.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "NOT_ESTABLISHED" },
-    { "key": "RFU-REGISTER-TO-PLAY", "authority": "RFU", "code": "union", "title": "Register to Play", "url": "https://www.englandrugby.com/play/register-play", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": false, "scope": "The public entry point for player registration. This is the link Ovalball should send a parent to.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFU-AGEGRADE-REGISTRATION", "authority": "RFU", "code": "union", "title": "Age Grade Registration", "url": "https://www.englandrugby.com/run/club-management/player-and-member-management/age-grade-registration", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": false, "scope": "Club-facing age-grade registration process.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFU-HELP-AGEGRADE-PARENT", "authority": "RFU", "code": "union", "title": "How to register Age Grade Players for a parent/guardian", "url": "https://help.rfu.com/support/solutions/articles/103000064034-how-to-register-age-grade-players-for-a-parent-guardian", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": false, "scope": "The exact parent/guardian GMS journey. Directly relevant to Ovalball's Guardian audience.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFU-HELP-AGEGRADE-RENEW", "authority": "RFU", "code": "union", "title": "How to renew Age Grade registration", "url": "https://help.rfu.com/support/solutions/articles/103000064058-how-to-renew-age-grade-registration", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": false, "scope": "Annual renewal journey.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFU-HELP-GMS-ACCOUNT", "authority": "RFU", "code": "union", "title": "How do I create a GMS account?", "url": "https://help.rfu.com/support/solutions/articles/103000063984-how-do-i-create-a-gms-account-", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": false, "scope": "GMS account creation, the first step of the parent journey.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFL-PRIMARY-RULES-2026", "authority": "RFL", "code": "league", "title": "Primary Rugby League Full Rules 2026", "url": "https://www.rugby-league.com/uploads/docs/Primary%20Rugby%20League%20Full%20Rules%202026.pdf", "classification": "PRIMARY_RULE_BOOK", "status": "LOCATED", "fetchable": true, "scope": "Primary Rugby League. The RFL regulates from U6, which is the structural difference from union.", "supports_identities": ["RFL-PRIMARY"], "supports_domains": ["RULES_OF_PLAY", "PLAYER_WELFARE"], "effective_period": "2026 season (from document title; not confirmed inside the document)" },
-    { "key": "RFL-PRIMARY-COACHES-2026", "authority": "RFL", "code": "league", "title": "Primary Coaches Handbook 2026", "url": "https://www.rugby-league.com/uploads/docs/PRIMARY%20COACHES%20HANDBOOK%202026.pdf", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": true, "scope": "Coaching guidance. NOT a rule book -- must be ingested as COACHING_GUIDANCE, never as regulatory fact.", "supports_identities": ["RFL-PRIMARY"], "supports_domains": ["COACHING_DEVELOPMENT"], "effective_period": "2026 season (from title)" },
-    { "key": "RFL-PRIMARY-LANDING", "authority": "RFL", "code": "league", "title": "Primary RL", "url": "https://www.rugby-league.com/get-involved/play/primary-rl-", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": true, "scope": "Public explanation of Primary Rugby League and its age range.", "supports_identities": ["RFL-PRIMARY"], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFL-YOUTH-LANDING", "authority": "RFL", "code": "league", "title": "Youth", "url": "https://www.rugby-league.com/get-involved/play/youth", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": true, "scope": "Public explanation of the youth game above Primary age.", "supports_identities": [], "supports_domains": ["RULES_OF_PLAY"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFL-GAMEDAY-REGISTRATION", "authority": "RFL", "code": "league", "title": "GameDay Player Registration", "url": "https://www.rugby-league.com/support/gameday-support/player-registration", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": true, "scope": "The RFL registration system and journey.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFL-NEW-PLAYER-REGISTRATION", "authority": "RFL", "code": "league", "title": "New Player Registration", "url": "https://www.rugby-league.com/support/leaguenet-support/player-registration/new-player-registration", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": true, "scope": "New registration, including the youth/junior proof-of-age requirement.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFL-RE-REGISTRATION", "authority": "RFL", "code": "league", "title": "Player Re-Registration", "url": "https://www.rugby-league.com/support/leaguenet-support/player-registration/player-re-registration", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": true, "scope": "Re-registration journey.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFL-PLAYER-TRANSFER", "authority": "RFL", "code": "league", "title": "Player Transfer", "url": "https://www.rugby-league.com/support/leaguenet-support/player-registration/player-transfer", "classification": "OFFICIAL_EXPLANATORY_GUIDANCE", "status": "LOCATED", "fetchable": true, "scope": "Transfer and club-clearance journey. Union has no direct equivalent at age grade.", "supports_identities": [], "supports_domains": ["REGISTRATION"], "effective_period": "CURRENT_UNTIL_SUPERSEDED" },
-    { "key": "RFL-COMP-YORKSHIRE-2026", "authority": "RFL", "code": "league", "title": "Yorkshire Youth and Junior Competition Rules 2026", "url": "https://www.rugby-league.com/uploads/docs/Yorkshire%20Youth%20and%20Junior%20Competition%20Rules%202026.pdf", "classification": "PRIMARY_RULE_BOOK", "status": "LOCATED", "fetchable": true, "scope": "COMPETITION-SPECIFIC. Yorkshire only. Must be ingested as a competition overlay, never as universal Rugby Hub truth.", "supports_identities": [], "supports_domains": ["COMPETITION_SPECIFIC"], "effective_period": "2026 season (from title)" },
-    { "key": "RFL-COMP-NORTHWEST-2026", "authority": "RFL", "code": "league", "title": "North West Youth and Junior Competition Rules 2026 (U12-U18)", "url": "https://www.rugby-league.com/uploads/docs/North%20West%20Youth%20and%20Junior%20Competition%20Rules%202026.pdf", "classification": "PRIMARY_RULE_BOOK", "status": "LOCATED", "fetchable": true, "scope": "COMPETITION-SPECIFIC. North West only.", "supports_identities": [], "supports_domains": ["COMPETITION_SPECIFIC"], "effective_period": "2026 season (from title)" },
-    { "key": "RFL-COMP-LONDON-2026", "authority": "RFL", "code": "league", "title": "London Primary, Junior & Youth League Competition Rules 2026", "url": "https://www.rugby-league.com/uploads/docs/London%20Youth%20&%20Junior%20League%20Competition%20Rules%202026.pdf", "classification": "PRIMARY_RULE_BOOK", "status": "LOCATED", "fetchable": true, "scope": "COMPETITION-SPECIFIC. London only.", "supports_identities": [], "supports_domains": ["COMPETITION_SPECIFIC"], "effective_period": "2026 season (from title)" },
-    { "key": "RFL-COMP-HULL-2026", "authority": "RFL", "code": "league", "title": "Hull Youth and Junior Competition Rules 2026", "url": "https://www.rugby-league.com/uploads/docs/Hull%20Youth%20and%20Junior%20Competition%20Rules%202026.pdf", "classification": "PRIMARY_RULE_BOOK", "status": "LOCATED", "fetchable": true, "scope": "COMPETITION-SPECIFIC. Hull only.", "supports_identities": [], "supports_domains": ["COMPETITION_SPECIFIC"], "effective_period": "2026 season (from title)" }
+    {
+      "key": "RFU-REG15-APP1-U7",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 1 - U7s Rules of Play (Tag Rugby)",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-1-u7-rules-of-play",
+      "classification": "PRIMARY_REGULATION",
+      "status": "ALREADY_REGISTERED",
+      "fetchable": false,
+      "scope": "U7 Rules of Play.",
+      "supports_identities": [
+        "RFU-U7"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "2025-08-01 onward (recorded on the existing regulatory_sources row RFU-REG15-APP1-2025-001)",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REG15-APP2-U8",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 2 - U8s Rules of Play (Tag Rugby)",
+      "url": "https://www.englandrugby.com/dxdam/a4/a490d188-771f-48fa-8aeb-6a715891ccc5/Regulation%2015%20Appendix%202.pdf",
+      "classification": "PRIMARY_REGULATION",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "U8 Rules of Play.",
+      "supports_identities": [
+        "RFU-U8"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "NOT_ESTABLISHED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REG15-APP3-U9",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 3 - U9s Rules of Play (Transitional Contact)",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-3-u9-rules-of-play",
+      "classification": "PRIMARY_REGULATION",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "U9 Rules of Play. The first contact age grade.",
+      "supports_identities": [
+        "RFU-U9"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY",
+        "PLAYER_WELFARE"
+      ],
+      "effective_period": "NOT_ESTABLISHED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REG15-APP4-U10",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 4 - U10s Rules of Play",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-4-u10-rules-of-play",
+      "classification": "PRIMARY_REGULATION",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "U10 Rules of Play.",
+      "supports_identities": [
+        "RFU-U10"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "NOT_ESTABLISHED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REG15-APP5-U11",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 5 - U11s Rules of Play",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-5-u11-rules-of-play",
+      "classification": "PRIMARY_REGULATION",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "U11 Rules of Play.",
+      "supports_identities": [
+        "RFU-U11"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "NOT_ESTABLISHED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REG15-APP6-U12",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 6 - U12s Rules of Play",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-6-u12-rules-of-play",
+      "classification": "PRIMARY_REGULATION",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "U12 Rules of Play.",
+      "supports_identities": [
+        "RFU-U12"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "NOT_ESTABLISHED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REG15-APP7-U13",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 7 - U13s Rules of Play",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-7-u13-rules-of-play",
+      "classification": "PRIMARY_REGULATION",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "U13 Rules of Play.",
+      "supports_identities": [
+        "RFU-U13"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "NOT_ESTABLISHED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REG15-APP8-U14",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 8 - U14s Rules of Play",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-8-u14-rules-of-play",
+      "classification": "PRIMARY_REGULATION",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "U14 Rules of Play.",
+      "supports_identities": [
+        "RFU-U14"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "NOT_ESTABLISHED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REG15-APP9-U15-U18",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Regulation 15 Appendix 9 - U15-U18 Variations to the Laws of the Game",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-9-u15-u18-variations-to-the-laws-of-the-game",
+      "classification": "PRIMARY_REGULATION",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "SHARED across U15, U16, U17 and U18. Facts extracted from this document attach to every one of those identities through regulatory_fact_applicability; they are never copied.",
+      "supports_identities": [
+        "RFU-U15",
+        "RFU-U16"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "NOT_ESTABLISHED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REG14-ADULT-REG",
+      "authority": "RFU",
+      "code": "union",
+      "title": "RFU Regulation 14 - Adult Player RFU Registration Process",
+      "url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-14-adult-player-registration",
+      "classification": "PRIMARY_REGULATION",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "Adult player registration.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "NOT_ESTABLISHED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-REGISTER-TO-PLAY",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Register to Play",
+      "url": "https://www.englandrugby.com/play/register-play",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "The public entry point for player registration. This is the link Ovalball should send a parent to.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-AGEGRADE-REGISTRATION",
+      "authority": "RFU",
+      "code": "union",
+      "title": "Age Grade Registration",
+      "url": "https://www.englandrugby.com/run/club-management/player-and-member-management/age-grade-registration",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "Club-facing age-grade registration process.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-HELP-AGEGRADE-PARENT",
+      "authority": "RFU",
+      "code": "union",
+      "title": "How to register Age Grade Players for a parent/guardian",
+      "url": "https://help.rfu.com/support/solutions/articles/103000064034-how-to-register-age-grade-players-for-a-parent-guardian",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "The exact parent/guardian GMS journey. Directly relevant to Ovalball's Guardian audience.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-HELP-AGEGRADE-RENEW",
+      "authority": "RFU",
+      "code": "union",
+      "title": "How to renew Age Grade registration",
+      "url": "https://help.rfu.com/support/solutions/articles/103000064058-how-to-renew-age-grade-registration",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "Annual renewal journey.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFU-HELP-GMS-ACCOUNT",
+      "authority": "RFU",
+      "code": "union",
+      "title": "How do I create a GMS account?",
+      "url": "https://help.rfu.com/support/solutions/articles/103000063984-how-do-i-create-a-gms-account-",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": false,
+      "scope": "GMS account creation, the first step of the parent journey.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "AUTOMATION_BLOCKED",
+      "acquisition_note": "englandrugby.com returns HTTP 403 to automated requests at the CloudFront layer. Not circumvented. See docs/rugby-hub/acquisition-log.json; a one-time manual download is requested into research-ingestion/rfu/."
+    },
+    {
+      "key": "RFL-PRIMARY-RULES-2026",
+      "authority": "RFL",
+      "code": "league",
+      "title": "Primary Rugby League Full Rules 2026",
+      "url": "https://www.rugby-league.com/uploads/docs/Primary%20Rugby%20League%20Full%20Rules%202026.pdf",
+      "classification": "PRIMARY_RULE_BOOK",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "Primary Rugby League. The RFL regulates from U6, which is the structural difference from union.",
+      "supports_identities": [
+        "RFL-PRIMARY"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY",
+        "PLAYER_WELFARE"
+      ],
+      "effective_period": "2026 season (from document title; not confirmed inside the document)",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-PRIMARY-COACHES-2026",
+      "authority": "RFL",
+      "code": "league",
+      "title": "Primary Coaches Handbook 2026",
+      "url": "https://www.rugby-league.com/uploads/docs/PRIMARY%20COACHES%20HANDBOOK%202026.pdf",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "Coaching guidance. NOT a rule book -- must be ingested as COACHING_GUIDANCE, never as regulatory fact.",
+      "supports_identities": [
+        "RFL-PRIMARY"
+      ],
+      "supports_domains": [
+        "COACHING_DEVELOPMENT"
+      ],
+      "effective_period": "2026 season (from title)",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-PRIMARY-LANDING",
+      "authority": "RFL",
+      "code": "league",
+      "title": "Primary RL",
+      "url": "https://www.rugby-league.com/get-involved/play/primary-rl-",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "Public explanation of Primary Rugby League and its age range.",
+      "supports_identities": [
+        "RFL-PRIMARY"
+      ],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-YOUTH-LANDING",
+      "authority": "RFL",
+      "code": "league",
+      "title": "Youth",
+      "url": "https://www.rugby-league.com/get-involved/play/youth",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "Public explanation of the youth game above Primary age.",
+      "supports_identities": [],
+      "supports_domains": [
+        "RULES_OF_PLAY"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-GAMEDAY-REGISTRATION",
+      "authority": "RFL",
+      "code": "league",
+      "title": "GameDay Player Registration",
+      "url": "https://www.rugby-league.com/support/gameday-support/player-registration",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "The RFL registration system and journey.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-NEW-PLAYER-REGISTRATION",
+      "authority": "RFL",
+      "code": "league",
+      "title": "New Player Registration",
+      "url": "https://www.rugby-league.com/support/leaguenet-support/player-registration/new-player-registration",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "New registration, including the youth/junior proof-of-age requirement.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-RE-REGISTRATION",
+      "authority": "RFL",
+      "code": "league",
+      "title": "Player Re-Registration",
+      "url": "https://www.rugby-league.com/support/leaguenet-support/player-registration/player-re-registration",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "Re-registration journey.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-PLAYER-TRANSFER",
+      "authority": "RFL",
+      "code": "league",
+      "title": "Player Transfer",
+      "url": "https://www.rugby-league.com/support/leaguenet-support/player-registration/player-transfer",
+      "classification": "OFFICIAL_EXPLANATORY_GUIDANCE",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "Transfer and club-clearance journey. Union has no direct equivalent at age grade.",
+      "supports_identities": [],
+      "supports_domains": [
+        "REGISTRATION"
+      ],
+      "effective_period": "CURRENT_UNTIL_SUPERSEDED",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-COMP-YORKSHIRE-2026",
+      "authority": "RFL",
+      "code": "league",
+      "title": "Yorkshire Youth and Junior Competition Rules 2026",
+      "url": "https://www.rugby-league.com/uploads/docs/Yorkshire%20Youth%20and%20Junior%20Competition%20Rules%202026.pdf",
+      "classification": "PRIMARY_RULE_BOOK",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "COMPETITION-SPECIFIC. Yorkshire only. Must be ingested as a competition overlay, never as universal Rugby Hub truth.",
+      "supports_identities": [],
+      "supports_domains": [
+        "COMPETITION_SPECIFIC"
+      ],
+      "effective_period": "2026 season (from title)",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-COMP-NORTHWEST-2026",
+      "authority": "RFL",
+      "code": "league",
+      "title": "North West Youth and Junior Competition Rules 2026 (U12-U18)",
+      "url": "https://www.rugby-league.com/uploads/docs/North%20West%20Youth%20and%20Junior%20Competition%20Rules%202026.pdf",
+      "classification": "PRIMARY_RULE_BOOK",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "COMPETITION-SPECIFIC. North West only.",
+      "supports_identities": [],
+      "supports_domains": [
+        "COMPETITION_SPECIFIC"
+      ],
+      "effective_period": "2026 season (from title)",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-COMP-LONDON-2026",
+      "authority": "RFL",
+      "code": "league",
+      "title": "London Primary, Junior & Youth League Competition Rules 2026",
+      "url": "https://www.rugby-league.com/uploads/docs/London%20Youth%20&%20Junior%20League%20Competition%20Rules%202026.pdf",
+      "classification": "PRIMARY_RULE_BOOK",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "COMPETITION-SPECIFIC. London only.",
+      "supports_identities": [],
+      "supports_domains": [
+        "COMPETITION_SPECIFIC"
+      ],
+      "effective_period": "2026 season (from title)",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    },
+    {
+      "key": "RFL-COMP-HULL-2026",
+      "authority": "RFL",
+      "code": "league",
+      "title": "Hull Youth and Junior Competition Rules 2026",
+      "url": "https://www.rugby-league.com/uploads/docs/Hull%20Youth%20and%20Junior%20Competition%20Rules%202026.pdf",
+      "classification": "PRIMARY_RULE_BOOK",
+      "status": "LOCATED",
+      "fetchable": true,
+      "scope": "COMPETITION-SPECIFIC. Hull only.",
+      "supports_identities": [],
+      "supports_domains": [
+        "COMPETITION_SPECIFIC"
+      ],
+      "effective_period": "2026 season (from title)",
+      "acquisition_state": "PUBLICLY_RETRIEVABLE"
+    }
   ],
   "already_registered_in_database": [
-    "RFL-CGOR-2025-001", "RFL-CGOR-2026-001", "RFL-FIRSTAID-2026-001", "RFL-GIRLSU12-2026-001",
-    "RFL-SAFEGUARD-2026-001", "RFL-SAFEGUARDPAGE-2026-001", "RFL-SAFEPLAY-2026-001",
-    "RFU-HELPFAQ-2025-001", "RFU-REG15-APP1-2025-001", "RFU-REG21-2026-001", "RFU-REG9-2026-001"
+    "RFL-CGOR-2025-001",
+    "RFL-CGOR-2026-001",
+    "RFL-FIRSTAID-2026-001",
+    "RFL-GIRLSU12-2026-001",
+    "RFL-SAFEGUARD-2026-001",
+    "RFL-SAFEGUARDPAGE-2026-001",
+    "RFL-SAFEPLAY-2026-001",
+    "RFU-HELPFAQ-2025-001",
+    "RFU-REG15-APP1-2025-001",
+    "RFU-REG21-2026-001",
+    "RFU-REG9-2026-001"
   ],
   "excluded_from_provenance": {
     "$comment": "Encountered during research and deliberately NOT registered as authority. Useful only for locating a primary source.",

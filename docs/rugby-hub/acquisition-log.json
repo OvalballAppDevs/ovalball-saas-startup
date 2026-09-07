@@ -1,0 +1,138 @@
+{
+  "$comment": [
+    "RFU document acquisition log, recorded under the standing acquisition rule.",
+    "",
+    "THE AUTHORITY IS ALWAYS THE RFU. canonical_source_url is the provenance a",
+    "published fact cites, regardless of where the bytes were actually obtained.",
+    "A mirror is only ever an ACQUISITION COPY -- a way to get the file -- and",
+    "never becomes the cited authority.",
+    "",
+    "englandrugby.com returns HTTP 403 to every automated request, including",
+    "robots.txt, at the CloudFront layer. That control was NOT circumvented: no",
+    "proxy rotation, no client spoofing, no challenge bypass, no session reuse.",
+    "The block is recorded as a fact about acquisition, not worked around.",
+    "",
+    "OUTCOME: no candidate mirror establishes equivalence with the CURRENT",
+    "season's official document. Every candidate is therefore",
+    "NEEDS_HUMAN_SOURCE_VERIFICATION and no fact may be extracted from any of",
+    "them. A one-time human download is requested (see ingestion_request)."
+  ],
+  "logged_on": "2026-09-07",
+  "authority": "Rugby Football Union (England Rugby)",
+  "access_control": {
+    "host": "englandrugby.com",
+    "observed_status": 403,
+    "layer": "CloudFront / WAF - blanket block, robots.txt also 403",
+    "acquisition_state": "AUTOMATION_BLOCKED",
+    "evasion_attempted": false,
+    "note": "Retested this phase with a plain unauthenticated GET. No attempt was made to defeat the control."
+  },
+  "candidates": [
+    {
+      "candidate_key": "ACQ-RFU-REG15-APP3-IMR",
+      "target_document": "RFU Regulation 15 Appendix 3 - U9s Rules of Play (Transitional Contact)",
+      "canonical_source_url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby/regulation-15-appendix-3-u9-rules-of-play",
+      "acquisition_url": "https://www.internationalminirugby.com/wp-content/uploads/2024/11/Regulation-15-Appendix-3-U9.pdf",
+      "acquisition_method": "public HTTPS GET, no authentication, no evasion",
+      "acquired_at": "2026-09-07",
+      "sha256": "eb4a5608063e100a7815f3a0fd7a58945deaa7221d6766f42cf98a801af3dd75",
+      "bytes_retrieved": true,
+      "verification": {
+        "document_title": "MATCH - 'RFU REGULATION 15 AGE GRADE RUGBY (APPENDIX 3)'",
+        "appendix_number": "MATCH - Appendix 3",
+        "age_grade": "MATCH - 'UNDER 9s RULES OF PLAY (Transitional Contact)'",
+        "body_text": "MATCH - opening paragraph matches the wording on the official RFU page verbatim",
+        "season_or_version": "ABSENT - no season, version or effective date stated anywhere in the document",
+        "page_count": 5,
+        "publication_metadata": "FAILS - Author 'Richard Nunn', Creator 'Microsoft Word', created 2023-07-31. This is an individual's word-processed document, not an RFU-produced artefact."
+      },
+      "verification_state": "NEEDS_HUMAN_SOURCE_VERIFICATION",
+      "usable_for_extraction": false,
+      "reasoning": "The TEXT appears to be the RFU's, but the FILE is not. A Word document authored by a named individual is a re-creation, not an exact copy: it could have been retyped, reflowed, abridged or edited, and nothing in it says which season it represents. The 2024 upload date is misleading -- the file itself was made in 2023. This is precisely the failure mode the acquisition rule exists to catch, and the recency of the upload is exactly what would have made it tempting."
+    },
+    {
+      "candidate_key": "ACQ-RFU-REG15-MASTER-RPNS7",
+      "target_document": "RFU Regulation 15 - Age Grade Rugby (master regulation)",
+      "canonical_source_url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby",
+      "acquisition_url": "https://www.rpns7.co.uk/wp-content/uploads/2023/11/RFU-Regulation-15.pdf",
+      "acquisition_method": "public HTTPS GET, no authentication, no evasion",
+      "acquired_at": "2026-09-07",
+      "sha256": "8c340dce29518770a9bbd7177c43ad0c4b29d59a2af3e50dc3f8f82b7a604e71",
+      "bytes_retrieved": true,
+      "verification": {
+        "document_title": "MATCH - 'RFU REGULATION 15 - AGE GRADE RUGBY'",
+        "appendix_number": "N/A - master regulation",
+        "age_grade": "N/A - covers the whole Age Grade framework",
+        "body_text": "PLAUSIBLE - contains genuine numbered regulation clauses (15.1.1 onward) and links to englandrugby.com resources",
+        "season_or_version": "ABSENT - no season, version or effective date located in the extracted text",
+        "page_count": 13,
+        "publication_metadata": "ABSENT - no document-info dictionary; producer and creation date unavailable"
+      },
+      "verification_state": "NEEDS_HUMAN_SOURCE_VERIFICATION",
+      "usable_for_extraction": false,
+      "reasoning": "The content reads as genuine RFU regulation text, but with no stated version and no publication metadata there is no way to establish WHICH edition it is. Regulation 15 changes between seasons; an undated copy uploaded in 2023 cannot be asserted to be the current one. Rugby Hub is season-effective by design, so a fact with an unknown effective period is not a fact it can hold."
+    },
+    {
+      "candidate_key": "ACQ-RFU-REG15-2017-WHITEROSE",
+      "target_document": "RFU Regulation 15 - Age Grade Rugby, 2017/18 edition",
+      "canonical_source_url": "https://www.englandrugby.com/run/rules-governance/rfu-rules-and-regulations/regulation-15-age-grade-rugby",
+      "acquisition_url": "https://www.whiteroserugby.com/wp-content/uploads/2017/11/RFURegulation15-2017.18.pdf",
+      "acquisition_method": "public HTTPS GET, no authentication, no evasion",
+      "acquired_at": "2026-09-07",
+      "sha256": "f6bde8663733b2710c2b9f4adc018604cfb1dc6717052ce86376d96341807f89",
+      "bytes_retrieved": true,
+      "verification": {
+        "document_title": "MATCH - RFU Regulation 15",
+        "appendix_number": "N/A - master regulation",
+        "age_grade": "N/A",
+        "body_text": "NOT FULLY VERIFIED",
+        "season_or_version": "STATED - 2017/18, in the filename and consistent with the 2017-07-07 creation date",
+        "page_count": 10,
+        "publication_metadata": "STRONG - Adobe InDesign CS6 / Adobe PDF Library, created 2017-07-07. Consistent with a professionally produced governing-body artefact."
+      },
+      "verification_state": "SUPERSEDED_EDITION",
+      "usable_for_extraction": false,
+      "reasoning": "Ironically the most credible artefact of the three -- it looks like a genuine RFU-produced PDF -- and the least usable, because it is nine seasons out of date. Useful only if Ovalball ever wants historical regulatory context for a past season, and then only as an explicitly historical record. It must never supply a current fact. Note the contrast with the candidate above: professional typesetting metadata is what an authentic governing-body document looks like."
+    }
+  ],
+  "corroboration_findings": {
+    "$comment": "Constituent bodies were consulted to corroborate the appendix STRUCTURE. They are reputable RFU bodies but are still secondary listings, so they are evidence about what to look for -- never authority for a rule.",
+    "conflict_detected": {
+      "conflict_key": "RFU-REG15-GIRLS-APPENDIX-SCOPE",
+      "topic": "Regulation 15 appendix gender scope, and the existence of girls-specific appendices",
+      "source_a": {
+        "organisation": "Gloucestershire RFU (RFU constituent body)",
+        "url": "https://www.grfu.org/regulation-15",
+        "claim": "Appendices 6, 7, 8 and 9 are labelled BOYS ONLY, and a further Appendix 10 exists for U13 GIRLS plus a girls U15-U18 variations document."
+      },
+      "source_b": {
+        "organisation": "Nottinghamshire, Lincolnshire & Derbyshire RFU (RFU constituent body)",
+        "url": "https://nldrfu.co.uk/development/age-grade-rugby/age-grade-laws/",
+        "claim": "Appendices 6, 8 and 9 are mixed; only Appendix 7 (U13) is boys-only; no Appendix 10 is listed at all."
+      },
+      "why_it_matters": "Phase 4A recorded Union girls age grades as RESEARCH_REQUIRED on the grounds that we had not established whether girls' Rules of Play differ. One constituent body says they demonstrably do and names the appendix; the other does not list it. Both are reputable, neither is authority, and neither states a season -- so the difference may be a genuine regulatory change that one body has not reflected, or simply a stale page.",
+      "resolution": "UNRESOLVED. Not resolved by preferring the newer-looking or more detailed page. Resolving it requires the RFU's own current Regulation 15 index, which is behind the 403. Girls age grades therefore REMAIN RESEARCH_REQUIRED, and no girls identity is created on the strength of a county page.",
+      "effect_on_publication": "Blocking for all Union girls identities."
+    }
+  },
+  "ingestion_request": {
+    "state": "AWAITING_DEVELOPER",
+    "reason": "No candidate establishes equivalence with the current season's official document. Two lack any version at all; the one with a verifiable version is the 2017/18 edition.",
+    "approved_directory": "research-ingestion/rfu/",
+    "gitignored": true,
+    "requested_documents": [
+      "Regulation 15 - Age Grade Rugby (master regulation, current season)",
+      "Regulation 15 Appendix 1 - U7 Rules of Play",
+      "Regulation 15 Appendix 2 - U8 Rules of Play",
+      "Regulation 15 Appendix 3 - U9 Rules of Play",
+      "Regulation 15 Appendix 4 - U10 Rules of Play",
+      "Regulation 15 Appendix 5 - U11 Rules of Play",
+      "Regulation 15 Appendix 6 - U12 Rules of Play",
+      "Regulation 15 Appendix 7 - U13 Rules of Play",
+      "Regulation 15 Appendix 8 - U14 Rules of Play",
+      "Regulation 15 Appendix 9 - U15-U18 Variations to the Laws of the Game",
+      "Regulation 15 Appendix 10 and any further girls-specific appendix, IF they exist - this also settles the conflict above"
+    ],
+    "note": "Once these are placed in the approved directory, extraction proceeds locally and automatically from that point onward, and the canonical provenance recorded against every extracted fact remains the englandrugby.com URL."
+  }
+}
