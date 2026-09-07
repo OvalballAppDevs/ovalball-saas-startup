@@ -60,7 +60,7 @@ export default async function ClubSetupPage({
 
   const { data: club } = await supabase
     .from("clubs")
-    .select("id, slug, bio, website, facebook_url, address_display, logo_storage_path, club_directory(name, town, county)")
+    .select("id, slug, bio, website, facebook_url, address_display, logo_storage_path, club_directory(name, town, county, logo_storage_path)")
     .eq("id", clubId)
     .maybeSingle()
   if (!club) redirect("/dashboard")
@@ -115,7 +115,7 @@ async function Step1({
   supabase,
   req,
 }: {
-  club: { bio: string | null; website: string | null; facebook_url: string | null; address_display: string | null; logo_storage_path: string | null }
+  club: { bio: string | null; website: string | null; facebook_url: string | null; address_display: string | null; logo_storage_path: string | null; club_directory: { logo_storage_path: string | null } | null }
   clubId: string
   clubName: string
   supabase: Supa
@@ -124,6 +124,15 @@ async function Step1({
   const logoUrl = club.logo_storage_path
     ? supabase.storage.from("club-logos").getPublicUrl(club.logo_storage_path).data.publicUrl
     : null
+  // The crest the club INHERITS from the Club Directory when it has not
+  // uploaded its own. The rest of the product already displays it
+  // (resolveClubLogoPath), so hiding it here told the club its own logo was
+  // missing. Kept separate from logoUrl so Replace/Remove still only ever
+  // act on a real, deletable clubs.logo_storage_path.
+  const inheritedLogoUrl =
+    !club.logo_storage_path && club.club_directory?.logo_storage_path
+      ? supabase.storage.from("club-logos").getPublicUrl(club.club_directory.logo_storage_path).data.publicUrl
+      : null
 
   const { data: kitRows } = await supabase
     .from("club_kits")
@@ -159,6 +168,7 @@ async function Step1({
             facebookUrl: club.facebook_url ?? "",
             addressDisplay: club.address_display ?? "",
             logoUrl,
+            inheritedLogoUrl,
           }}
           hideHomeGroundAddress
         />

@@ -15,6 +15,8 @@ export interface ClubProfileFormData {
   facebookUrl: string
   addressDisplay: string
   logoUrl: string | null
+  /** Crest inherited from the Club Directory when the club has not uploaded its own. */
+  inheritedLogoUrl?: string | null
 }
 
 /**
@@ -37,6 +39,15 @@ export function ClubProfileForm({
   const [error, setError] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState(initial.logoUrl)
   const [logoUploading, setLogoUploading] = useState(false)
+
+  // A club that has not uploaded its own crest still HAS one if a Site
+  // Admin set it on the Club Directory entry -- and the rest of the product
+  // has always displayed it. Showing "No crest" here told the club its own
+  // logo was missing. It is shown, and named, so the club knows where it
+  // came from; Remove stays hidden because there is no own-upload to remove
+  // and the directory crest is not this club's to delete.
+  const inherited = !logoUrl && Boolean(initial.inheritedLogoUrl)
+  const displayLogoUrl = logoUrl ?? initial.inheritedLogoUrl ?? null
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleSave() {
@@ -87,9 +98,9 @@ export function ClubProfileForm({
         <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Crest</p>
         <div className="mt-3 flex items-center gap-4">
           <div className="flex size-16 items-center justify-center overflow-hidden rounded-lg border border-ink/10 bg-white">
-            {logoUrl ? (
+            {displayLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage public URL, avoids next/image's remote-pattern config for a small thumbnail
-              <img src={logoUrl} alt="Club crest" className="size-full object-contain" />
+              <img src={displayLogoUrl} alt="Club crest" className="size-full object-contain" />
             ) : (
               <span className="text-xs text-ink/30">No crest</span>
             )}
@@ -103,8 +114,11 @@ export function ClubProfileForm({
                 disabled={logoUploading}
                 onClick={() => fileInputRef.current?.click()}
               >
-                {logoUploading ? "Working…" : logoUrl ? "Replace crest" : "Upload crest"}
+                {logoUploading ? "Working…" : logoUrl ? "Replace crest" : inherited ? "Upload your own" : "Upload crest"}
               </Button>
+              {inherited && (
+                <span className="text-xs text-ink/50">From the Ovalball club directory</span>
+              )}
               {logoUrl && (
                 <Button type="button" variant="ghost" className="h-9" disabled={logoUploading} onClick={handleRemoveLogo}>
                   Remove

@@ -45,7 +45,7 @@ export default async function ClubProfilePage() {
   const { data: club } = await supabase
     .from("clubs")
     .select(
-      "id, slug, bio, website, facebook_url, address_display, logo_storage_path, club_directory(name, town, county, rugby_code)"
+      "id, slug, bio, website, facebook_url, address_display, logo_storage_path, club_directory(name, town, county, rugby_code, logo_storage_path)"
     )
     .eq("id", activeClub)
     .maybeSingle()
@@ -67,6 +67,15 @@ export default async function ClubProfilePage() {
   const logoUrl = club.logo_storage_path
     ? supabase.storage.from("club-logos").getPublicUrl(club.logo_storage_path).data.publicUrl
     : null
+  // The crest the club INHERITS from the Club Directory when it has not
+  // uploaded its own. The rest of the product already displays it
+  // (resolveClubLogoPath), so hiding it here told the club its own logo was
+  // missing. Kept separate from logoUrl so Replace/Remove still only ever
+  // act on a real, deletable clubs.logo_storage_path.
+  const inheritedLogoUrl =
+    !club.logo_storage_path && club.club_directory?.logo_storage_path
+      ? supabase.storage.from("club-logos").getPublicUrl(club.club_directory.logo_storage_path).data.publicUrl
+      : null
 
   const clubName = club.club_directory?.name ?? club.slug
 
@@ -174,6 +183,7 @@ export default async function ClubProfilePage() {
             facebookUrl: club.facebook_url ?? "",
             addressDisplay: club.address_display ?? "",
             logoUrl,
+            inheritedLogoUrl,
           }}
         />
       </div>

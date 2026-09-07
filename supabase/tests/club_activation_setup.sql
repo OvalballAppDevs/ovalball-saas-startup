@@ -101,6 +101,19 @@ begin
     raise notice 'FAIL 4 (C): step 1 still incomplete';
   end if;
 
+  -- A crest a Site Admin set on the CLUB DIRECTORY counts. The club
+  -- inherits it, the whole product displays it, and setup must not demand
+  -- an upload of something the club visibly already has.
+  update public.clubs set logo_storage_path = null where id = v_club_a;
+  update public.club_directory set logo_storage_path = 'club-logos/dir-seed.png' where id = v_dir_a;
+  select * into r from public.club_setup_requirements(v_club_a);
+  if r.has_logo and r.step1_complete then
+    raise notice 'PASS 4b (C): a Club Directory crest satisfies the logo requirement';
+  else
+    raise notice 'FAIL 4b (C): an inherited crest did not satisfy setup';
+  end if;
+  update public.club_directory set logo_storage_path = null where id = v_dir_a;
+
   -- The requirement is re-derived, so removing the logo un-finishes it.
   update public.clubs set logo_storage_path = null where id = v_club_a;
   select * into r from public.club_setup_requirements(v_club_a);
