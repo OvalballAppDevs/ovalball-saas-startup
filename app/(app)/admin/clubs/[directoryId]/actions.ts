@@ -7,6 +7,7 @@ import { toPublicSubmissionError } from "@/lib/errors/public-error"
 import { searchUkAddresses, type AddressLookupResult } from "@/lib/address-lookup/lookup"
 
 import { requireSiteAdmin } from "../../require-site-admin"
+import { ADMIN_VERIFICATION_STATUSES, type AdminVerificationStatus } from "./verification-status"
 
 /** Thin server-action wrapper -- searchUkAddresses itself is the real integration, see its own doc comment. */
 export async function lookupAddress(query: string): Promise<AddressLookupResult> {
@@ -40,6 +41,12 @@ export interface DirectoryFieldsInput {
   notes: string
   /** Canonical constituent_bodies.id, or "" for none / not applicable. */
   constituentBodyId: string
+  /**
+   * Site Admin attestation, distinct from the legacy verificationStatus
+   * provenance field above -- see the migration's own doc comment for why
+   * these are two separate columns, not one.
+   */
+  adminVerificationStatus: AdminVerificationStatus
 }
 
 /**
@@ -55,6 +62,9 @@ export async function updateDirectoryFields(input: DirectoryFieldsInput): Promis
   if (!auth.ok) return { ok: false, error: auth.error }
 
   if (!input.name.trim()) return { ok: false, error: "Club name is required." }
+  if (!ADMIN_VERIFICATION_STATUSES.has(input.adminVerificationStatus)) {
+    return { ok: false, error: "Invalid verification status." }
+  }
 
   const { error } = await supabase
     .from("club_directory")
@@ -91,6 +101,7 @@ export async function updateDirectoryFields(input: DirectoryFieldsInput): Promis
       // from ingestion/research and the review queue for anything that did
       // not reconcile, not something an editor overwrites by hand.
       constituent_body_id: input.constituentBodyId || null,
+      admin_verification_status: input.adminVerificationStatus,
     })
     .eq("id", input.directoryId)
 

@@ -947,6 +947,7 @@ export type Database = {
         Row: {
           active: boolean
           address: string | null
+          admin_verification_status: string
           bio: string | null
           constituent_body: string | null
           constituent_body_id: string | null
@@ -984,6 +985,7 @@ export type Database = {
         Insert: {
           active?: boolean
           address?: string | null
+          admin_verification_status?: string
           bio?: string | null
           constituent_body?: string | null
           constituent_body_id?: string | null
@@ -1021,6 +1023,7 @@ export type Database = {
         Update: {
           active?: boolean
           address?: string | null
+          admin_verification_status?: string
           bio?: string | null
           constituent_body?: string | null
           constituent_body_id?: string | null

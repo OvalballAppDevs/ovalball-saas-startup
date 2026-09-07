@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 
 import { mapAdminClubRow } from "../query"
 import { getClubTeams, getConnectedUsers, listSuspendedClubMembershipsAdmin } from "./actions"
+import { ADMIN_VERIFICATION_STATUS_LABELS } from "./verification-status"
 import { AuditLog } from "./audit-log"
 import { ConnectedUsers } from "./connected-users"
 import { DangerZone } from "./danger-zone"
@@ -194,7 +195,11 @@ export default async function AdminClubDetailPage({
               name: "Overview",
               content: (
                 <div className="flex flex-col gap-8">
-                  <OverviewSection directory={directory} club={club} adminCount={adminCount ?? 0} />
+                  <OverviewSection
+                    directory={{ ...directory, admin_verification_status: directory.admin_verification_status as "VERIFIED" | "FAILED" | "TBD" }}
+                    club={club}
+                    adminCount={adminCount ?? 0}
+                  />
                   <DangerZone
                     directoryId={directory.id}
                     clubName={directory.name}
@@ -252,6 +257,7 @@ export default async function AdminClubDetailPage({
                     verificationStatus: directory.verification_status,
                     notes: directory.notes ?? "",
                     constituentBodyId: directory.constituent_body_id ?? "",
+                    adminVerificationStatus: directory.admin_verification_status as "VERIFIED" | "FAILED" | "TBD",
                   }}
                   initialProvenance={{
                     directoryId: directory.id,
@@ -336,14 +342,26 @@ function OverviewSection({
   club,
   adminCount,
 }: {
-  directory: { verification_status: string; source: string; created_at: string; updated_at: string }
+  directory: {
+    verification_status: string
+    admin_verification_status: "VERIFIED" | "FAILED" | "TBD"
+    source: string
+    created_at: string
+    updated_at: string
+  }
   club: { created_at: string; slug: string } | null
   adminCount: number
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <InfoCard label="Verification status" value={directory.verification_status.replace(/_/g, " ")} />
+        <InfoCard label="Site Admin verification" value={ADMIN_VERIFICATION_STATUS_LABELS[directory.admin_verification_status]} />
+        {/* "Verification status" here is deliberately relabelled -- it is the
+            import/data-quality pipeline's own provenance tag (how this row
+            was populated), not a Site Admin attestation. Showing both under
+            the same name on one page was the exact conflation this feature
+            exists to avoid; see the migration's own doc comment. */}
+        <InfoCard label="Directory data source status" value={directory.verification_status.replace(/_/g, " ")} />
         <InfoCard label="Canonical source" value={directory.source.replace(/_/g, " ")} />
         <InfoCard label="Directory last updated" value={formatDate(directory.updated_at)} />
         <InfoCard label="Directory added" value={formatDate(directory.created_at)} />

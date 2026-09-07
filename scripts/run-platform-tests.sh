@@ -38,6 +38,7 @@ SUITES=(
   safeguarding_officer_security
   directory_public_profile
   constituent_bodies
+  directory_admin_verification_status
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

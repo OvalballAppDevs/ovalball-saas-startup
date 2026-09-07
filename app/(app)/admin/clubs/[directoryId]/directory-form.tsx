@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 import { lookupAddress, updateDirectoryFields, updateProvenance, type DirectoryFieldsInput, type ProvenanceInput } from "./actions"
+import { ADMIN_VERIFICATION_STATUS_LABELS } from "./verification-status"
 import { AddressLookupField } from "@/components/address/address-lookup-field"
 import { RugbyCodeCorrectionDialog } from "./rugby-code-correction-dialog"
 
@@ -190,9 +191,13 @@ export function DirectoryForm({
         </div>
         <div>
           <Label htmlFor="dir-verification" className="text-ink/80">
-            Verification status
+            Directory data source status
           </Label>
           <Input id="dir-verification" {...field("verificationStatus")} className="mt-1.5 h-11 border-ink/15 bg-white" />
+          <p className="mt-1.5 text-xs text-ink/45">
+            Raw provenance from the import/data-quality pipeline (how this record was populated) &mdash; not a Site
+            Admin sign-off. See Site Admin verification, below.
+          </p>
         </div>
         {/* Code-aware. The RFU's Constituent Bodies govern union clubs;
             rugby league has no equivalent concept, so a league club is told
@@ -234,6 +239,29 @@ export function DirectoryForm({
               Not applicable — rugby league has no Constituent Bodies.
             </p>
           )}
+        </div>
+        {/* Site Admin attestation -- a genuinely different question from the
+            "Directory data source status" field above. VERIFIED must mean a
+            Site Admin has confirmed this record per Club Directory policy,
+            never merely that an import ran or a Constituent Body matched. */}
+        <div>
+          <Label htmlFor="dir-admin-verification" className="text-ink/80">
+            Site Admin verification
+          </Label>
+          <select
+            id="dir-admin-verification"
+            value={form.adminVerificationStatus}
+            onChange={(e) => setForm((f) => ({ ...f, adminVerificationStatus: e.target.value as DirectoryFieldsInput["adminVerificationStatus"] }))}
+            className="mt-1.5 h-11 w-full rounded-lg border border-ink/15 bg-white px-3 text-base text-ink outline-none focus-visible:border-pitch-600"
+          >
+            <option value="TBD">{ADMIN_VERIFICATION_STATUS_LABELS.TBD}</option>
+            <option value="VERIFIED">{ADMIN_VERIFICATION_STATUS_LABELS.VERIFIED}</option>
+            <option value="FAILED">{ADMIN_VERIFICATION_STATUS_LABELS.FAILED}</option>
+          </select>
+          <p className="mt-1.5 text-xs text-ink/45">
+            Marking this Verified/Failed does not delete, deactivate, or remove the club &mdash; it is a review
+            signal only.
+          </p>
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="dir-notes" className="text-ink/80">
