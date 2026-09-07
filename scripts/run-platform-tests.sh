@@ -52,6 +52,7 @@ SUITES=(
   fixture_meet_time
   match_centre_core
   fixture_communications
+  regulatory_coverage
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

@@ -1,0 +1,1016 @@
+{
+  "$comment": [
+    "Rugby Hub Phase 4A coverage matrix. GENERATED -- do not hand-edit.",
+    "Regenerate with: node scripts/generate-rugby-hub-coverage.mjs",
+    "",
+    "The identity/mapping/fact columns are read straight out of",
+    "regulatory_coverage_report(), so this file cannot claim coverage the",
+    "product does not actually resolve. The per-domain statuses are research",
+    "judgements authored in the generator alongside their reasoning.",
+    "",
+    "SOURCE_FOUND_NEEDS_EXTRACTION is the honest majority state after 4A: the",
+    "governing document is located and its scope is known, but no value has",
+    "been read out of it. It is NOT coverage."
+  ],
+  "generated_on": "2026-09-07",
+  "phase": "4A",
+  "totals": {
+    "team_type_code_pairs": 48,
+    "mapped": 19,
+    "research_required": 29,
+    "accidental_nulls": 0,
+    "facts_published_anywhere": 5
+  },
+  "domain_summary": {
+    "RULES_OF_PLAY": {
+      "SOURCE_FOUND_NEEDS_EXTRACTION": 15,
+      "COMPETITION_SPECIFIC": 17,
+      "VERIFIED_SOURCE_FOUND": 1,
+      "NO_REGULATORY_EQUIVALENT": 1,
+      "CONFLICT": 1,
+      "NOT_YET_RESEARCHED": 13
+    },
+    "PLAYER_WELFARE": {
+      "SOURCE_FOUND_NEEDS_EXTRACTION": 34,
+      "NOT_YET_RESEARCHED": 14
+    },
+    "SAFEGUARDING": {
+      "SOURCE_FOUND_NEEDS_EXTRACTION": 48
+    },
+    "PLAYING_UP_DISPENSATION": {
+      "NOT_YET_RESEARCHED": 37,
+      "NO_REGULATORY_EQUIVALENT": 1,
+      "SOURCE_FOUND_NEEDS_EXTRACTION": 10
+    },
+    "REGISTRATION": {
+      "SOURCE_FOUND_NEEDS_EXTRACTION": 48
+    },
+    "COMPETITION_SPECIFIC": {
+      "COMPETITION_SPECIFIC": 24,
+      "NOT_APPLICABLE": 1,
+      "NOT_YET_RESEARCHED": 23
+    }
+  },
+  "matrix": [
+    {
+      "team_type_key": "u6",
+      "team_type_label": "U6",
+      "rugby_code": "league",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFL-PRIMARY",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_primary",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u7",
+      "team_type_label": "U7",
+      "rugby_code": "league",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFL-PRIMARY",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_primary",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u8",
+      "team_type_label": "U8",
+      "rugby_code": "league",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFL-PRIMARY",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_primary",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u9",
+      "team_type_label": "U9",
+      "rugby_code": "league",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFL-PRIMARY",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_primary",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u10",
+      "team_type_label": "U10",
+      "rugby_code": "league",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFL-PRIMARY",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_primary",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u11",
+      "team_type_label": "U11",
+      "rugby_code": "league",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFL-PRIMARY",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_primary",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u12",
+      "team_type_label": "U12",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u13",
+      "team_type_label": "U13",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u14",
+      "team_type_label": "U14",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u15",
+      "team_type_label": "U15",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u16",
+      "team_type_label": "U16",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "junior_colts",
+      "team_type_label": "Junior Colts",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "senior_colts",
+      "team_type_label": "Senior Colts",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "mens_1st",
+      "team_type_label": "Men's 1st Team",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "mens_2nd",
+      "team_type_label": "Men's 2nd Team",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "mens_3rd",
+      "team_type_label": "Men's 3rd Team",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "womens_1st",
+      "team_type_label": "Women's 1st Team",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "womens_2nd",
+      "team_type_label": "Women's 2nd Team",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "womens_3rd",
+      "team_type_label": "Women's 3rd Team",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "girls_u12",
+      "team_type_label": "Girls U12",
+      "rugby_code": "league",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFL-GIRLS-U12",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 5,
+      "published_set_count": 1,
+      "open_conflict_count": 0,
+      "domain_profile": "league_girls_u12",
+      "domains": {
+        "RULES_OF_PLAY": "VERIFIED_SOURCE_FOUND",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "girls_u13",
+      "team_type_label": "Girls U13",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "girls_u14",
+      "team_type_label": "Girls U14",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "girls_u15",
+      "team_type_label": "Girls U15",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "girls_u16",
+      "team_type_label": "Girls U16",
+      "rugby_code": "league",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "league_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "COMPETITION_SPECIFIC",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "COMPETITION_SPECIFIC"
+      }
+    },
+    {
+      "team_type_key": "u6",
+      "team_type_label": "U6",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U6",
+      "identity_mapping_type": "NO_DIRECT_MAPPING",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_u6",
+      "domains": {
+        "RULES_OF_PLAY": "NO_REGULATORY_EQUIVALENT",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NO_REGULATORY_EQUIVALENT",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "team_type_key": "u7",
+      "team_type_label": "U7",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U7",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 1,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "CONFLICT",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "u8",
+      "team_type_label": "U8",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U8",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "u9",
+      "team_type_label": "U9",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U9",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "u10",
+      "team_type_label": "U10",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U10",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "u11",
+      "team_type_label": "U11",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U11",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "u12",
+      "team_type_label": "U12",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U12",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "u13",
+      "team_type_label": "U13",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U13",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "u14",
+      "team_type_label": "U14",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U14",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "u15",
+      "team_type_label": "U15",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U15",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "u16",
+      "team_type_label": "U16",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-U16",
+      "identity_mapping_type": "DIRECT",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_age_grade",
+      "domains": {
+        "RULES_OF_PLAY": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYER_WELFARE": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "junior_colts",
+      "team_type_label": "Junior Colts",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "senior_colts",
+      "team_type_label": "Senior Colts",
+      "rugby_code": "union",
+      "mapping_state": "MAPPED",
+      "identity_key": "RFU-SENIOR-COLTS",
+      "identity_mapping_type": "NO_DIRECT_MAPPING",
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "mens_1st",
+      "team_type_label": "Men's 1st Team",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "mens_2nd",
+      "team_type_label": "Men's 2nd Team",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "mens_3rd",
+      "team_type_label": "Men's 3rd Team",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "womens_1st",
+      "team_type_label": "Women's 1st Team",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "womens_2nd",
+      "team_type_label": "Women's 2nd Team",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "womens_3rd",
+      "team_type_label": "Women's 3rd Team",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "girls_u12",
+      "team_type_label": "Girls U12",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "girls_u13",
+      "team_type_label": "Girls U13",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "girls_u14",
+      "team_type_label": "Girls U14",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "girls_u15",
+      "team_type_label": "Girls U15",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    },
+    {
+      "team_type_key": "girls_u16",
+      "team_type_label": "Girls U16",
+      "rugby_code": "union",
+      "mapping_state": "RESEARCH_REQUIRED",
+      "identity_key": null,
+      "identity_mapping_type": null,
+      "fact_count": 0,
+      "published_set_count": 0,
+      "open_conflict_count": 0,
+      "domain_profile": "union_unresolved",
+      "domains": {
+        "RULES_OF_PLAY": "NOT_YET_RESEARCHED",
+        "PLAYER_WELFARE": "NOT_YET_RESEARCHED",
+        "SAFEGUARDING": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "PLAYING_UP_DISPENSATION": "NOT_YET_RESEARCHED",
+        "REGISTRATION": "SOURCE_FOUND_NEEDS_EXTRACTION",
+        "COMPETITION_SPECIFIC": "NOT_YET_RESEARCHED"
+      }
+    }
+  ]
+}
