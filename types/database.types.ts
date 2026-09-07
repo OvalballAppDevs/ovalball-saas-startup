@@ -947,12 +947,14 @@ export type Database = {
         Row: {
           active: boolean
           address: string | null
+          bio: string | null
           constituent_body: string | null
           country: string
           county: string | null
           created_at: string
           created_by: string | null
           external_id: string | null
+          facebook_url: string | null
           geocode_source: string | null
           geocode_status: string
           geocoded_at: string | null
@@ -981,12 +983,14 @@ export type Database = {
         Insert: {
           active?: boolean
           address?: string | null
+          bio?: string | null
           constituent_body?: string | null
           country: string
           county?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
+          facebook_url?: string | null
           geocode_source?: string | null
           geocode_status?: string
           geocoded_at?: string | null
@@ -1015,12 +1019,14 @@ export type Database = {
         Update: {
           active?: boolean
           address?: string | null
+          bio?: string | null
           constituent_body?: string | null
           country?: string
           county?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
+          facebook_url?: string | null
           geocode_source?: string | null
           geocode_status?: string
           geocoded_at?: string | null

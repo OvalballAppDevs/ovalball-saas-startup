@@ -36,6 +36,7 @@ SUITES=(
   safeguarding_officer_foundation
   safeguarding_officer_dispensation_notifications
   safeguarding_officer_security
+  directory_public_profile
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

@@ -220,6 +220,8 @@ export default async function AdminClubDetailPage({
                     address: directory.address ?? "",
                     postcode: directory.postcode ?? "",
                     website: directory.website ?? "",
+                    bio: directory.bio ?? "",
+                    facebookUrl: directory.facebook_url ?? "",
                     officialEmail: directory.official_email ?? "",
                     active: directory.active,
                     verificationStatus: directory.verification_status,

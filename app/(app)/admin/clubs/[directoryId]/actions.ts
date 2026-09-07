@@ -33,6 +33,8 @@ export interface DirectoryFieldsInput {
   postcode: string
   website: string
   officialEmail: string
+  bio: string
+  facebookUrl: string
   active: boolean
   verificationStatus: string
   notes: string
@@ -73,6 +75,13 @@ export async function updateDirectoryFields(input: DirectoryFieldsInput): Promis
       postcode: input.postcode.trim() || null,
       website: input.website.trim() || null,
       official_email: input.officialEmail.trim() || null,
+      // Directory-level public profile. These are the SEED beneath an
+      // activated club's own clubs.bio / clubs.facebook_url, never a
+      // replacement for them -- see lib/app-context/club-public-profile.ts.
+      // Writing them for an unclaimed club is the whole point of this
+      // surface, and it creates no clubs row.
+      bio: input.bio.trim() || null,
+      facebook_url: input.facebookUrl.trim() || null,
       active: input.active,
       verification_status: input.verificationStatus.trim() || "unverified",
       notes: input.notes.trim() || null,

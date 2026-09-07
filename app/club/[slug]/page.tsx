@@ -6,6 +6,7 @@ import { ClubAvatar } from "@/components/club/club-avatar"
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { resolveClubLogoUrl } from "@/lib/app-context/club-logo"
+import { resolveClubPublicProfile } from "@/lib/app-context/club-public-profile"
 import { canManageClubFixturesAnywhere, getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -37,13 +38,18 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
   const { data: club } = await supabase
     .from("clubs")
     .select(
-      "id, bio, website, facebook_url, address_display, logo_storage_path, show_website, show_home_ground, show_address, show_postcode, club_directory(name, town, county, nation, home_ground, rugby_code, postcode, logo_storage_path)"
+      "id, bio, website, facebook_url, address_display, logo_storage_path, show_website, show_home_ground, show_address, show_postcode, club_directory(name, town, county, nation, home_ground, rugby_code, postcode, logo_storage_path, bio, website, facebook_url)"
     )
     .eq("slug", slug)
     .eq("status", "active")
     .maybeSingle()
 
   if (!club) notFound()
+
+  // Bio, website and Facebook resolve club-own-then-directory, exactly as
+  // the crest does. A club that has not written its own still shows the
+  // description a Site Admin maintains for it in the directory.
+  const publicProfile = resolveClubPublicProfile(club)
 
   const today = new Date().toISOString().slice(0, 10)
 
@@ -128,16 +134,16 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
           </div>
         </div>
 
-        {club.bio && <p className="mt-8 max-w-xl text-base text-ink/70">{club.bio}</p>}
+        {publicProfile.bio && <p className="mt-8 max-w-xl text-base text-ink/70">{publicProfile.bio}</p>}
 
         <div className="mt-8 flex flex-wrap gap-4 text-sm">
-          {club.show_website && club.website && (
-            <a href={club.website} target="_blank" rel="noopener noreferrer" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+          {club.show_website && publicProfile.website && (
+            <a href={publicProfile.website} target="_blank" rel="noopener noreferrer" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
               Website
             </a>
           )}
-          {club.facebook_url && (
-            <a href={club.facebook_url} target="_blank" rel="noopener noreferrer" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+          {publicProfile.facebookUrl && (
+            <a href={publicProfile.facebookUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
               Facebook
             </a>
           )}

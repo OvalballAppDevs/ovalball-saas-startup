@@ -146,6 +146,38 @@ export function DirectoryForm({
           <Input id="dir-email" type="email" {...field("officialEmail")} className="mt-1.5 h-11 border-ink/15 bg-white" />
         </div>
         <div>
+          <Label htmlFor="dir-facebook" className="text-ink/80">
+            Facebook page
+          </Label>
+          <Input
+            id="dir-facebook"
+            {...field("facebookUrl")}
+            className="mt-1.5 h-11 border-ink/15 bg-white"
+            placeholder="https://facebook.com/..."
+          />
+        </div>
+        {/* Public profile, maintained at directory level so a recognised
+            club that has not claimed itself can still have a description
+            and a Facebook page. If the club later activates and writes its
+            own in Club Settings, theirs wins -- these stay as the seed
+            underneath. Nothing here creates a clubs row. */}
+        <div className="sm:col-span-2">
+          <Label htmlFor="dir-bio" className="text-ink/80">
+            About the club
+          </Label>
+          <textarea
+            id="dir-bio"
+            value={form.bio}
+            onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
+            rows={4}
+            placeholder="A short description shown on this club's public page."
+            className="mt-1.5 w-full rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-base text-ink outline-none focus-visible:border-pitch-600"
+          />
+          <p className="mt-1.5 text-xs text-ink/50">
+            Shown publicly until the club claims its Ovalball page and writes its own.
+          </p>
+        </div>
+        <div>
           <Label htmlFor="dir-verification" className="text-ink/80">
             Verification status
           </Label>
