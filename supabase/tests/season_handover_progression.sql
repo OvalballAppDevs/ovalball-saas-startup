@@ -11,7 +11,7 @@
 begin;
 
 do $$
-declare v_count int; v_text text; v_det boolean;
+declare v_count int; v_text text; v_det boolean; v_def text;
 begin
 
 -- ============ A. Union male: U16 -> U17 -> U18 -> stop ============
@@ -182,11 +182,39 @@ else
   raise notice 'FAIL 20 (F): the automatic transition generator still uses the code-blind successor';
 end if;
 
-if (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname='generate_rollover_proposal') ~ 'next_age_grade_for' then
-  raise notice 'PASS 21 (F): the MANUAL transition generator uses the same code-aware successor';
+-- The real invariant is that the manual and automatic paths cannot disagree
+-- about the successor, and there are exactly two ways to guarantee that: the
+-- manual path calls the same code-aware successor, or it has no successor
+-- logic of its own and delegates to the automatic one. This assertion used to
+-- test only the first form by grepping for next_age_grade_for; when the
+-- wrapper was changed to delegate -- a STRONGER guarantee, since there is then
+-- only one implementation to keep correct -- the old form went red for the
+-- right behaviour. It is re-pointed at the invariant, not relaxed: delegation
+-- only passes if the wrapper carries no successor call of its own.
+select pg_get_functiondef(p.oid) into v_def
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'generate_rollover_proposal';
+
+if v_def ~ 'generate_rollover_proposal_core' and v_def !~ 'next_age_grade' then
+  raise notice 'PASS 21 (F): the manual generator DELEGATES -- one implementation of the progression step, so the two paths cannot diverge';
+elsif v_def ~ 'next_age_grade_for' and v_def !~ 'next_age_grade\(' then
+  raise notice 'PASS 21 (F): the manual generator uses the same code-aware successor as the automatic one';
 else
-  raise notice 'FAIL 21 (F): the manual generator diverged from the automatic one';
+  raise notice 'FAIL 21 (F): the manual generator has successor logic that can diverge from the automatic one';
+end if;
+
+-- And the progression step must exist in exactly one place. Two copies is how
+-- the code-blind successor survived in the automatic path after the manual
+-- path was already fixed.
+select count(*) into v_count
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname in ('public','internal') and p.prokind = 'f'
+  and p.proname in ('generate_rollover_proposal','generate_rollover_proposal_core')
+  and regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') ~ 'next_age_grade_for';
+if v_count = 1 then
+  raise notice 'PASS 21b (F): the handover progression step is implemented ONCE, not copied between the two paths';
+else
+  raise notice 'FAIL 21b (F): % handover generators carry their own copy of the progression step', v_count;
 end if;
 
 -- ============ G. Senior identities persist; they do not age up ============
