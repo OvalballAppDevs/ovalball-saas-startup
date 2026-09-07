@@ -42,6 +42,40 @@ export async function resolveActiveRugbyHubTeamId(supabase: SupabaseClient<Datab
 }
 
 /**
+ * Derives the real RugbyHubAudience for THIS viewer on THIS specific team,
+ * from their own real session relationships -- never a client-supplied
+ * value. Phase 3's real content import ported genuine PARENT- and
+ * PLAYER-audience copy specifically so this mechanism would have real
+ * content to exercise; every page previously called the safeguarding/
+ * welfare resolvers with a hardcoded "GENERAL" audience, which made that
+ * ported copy permanently unreachable (a real gap this Phase 4 audit
+ * found via live UAT, fixed here rather than left as dead content).
+ *
+ * Precedence, most specific relationship first: the viewer's own linked
+ * player record on this team (PLAYER) outranks a guardian relationship
+ * (PARENT), which outranks team-scoped staff authority (COACH/TEAM_ADMIN),
+ * which outranks club-wide authority (CLUB_ADMIN). A person who is both,
+ * e.g. a guardian who also coaches the team, sees the PARENT-authored
+ * wording -- the family-safety framing is the more relevant one for a
+ * safeguarding/welfare page specifically. Falls back to GENERAL when
+ * nothing more specific applies (staff roles with no authored COACH/
+ * TEAM_ADMIN/CLUB_ADMIN copy already resolve to GENERAL server-side via
+ * each resolver's own coalesce(requested, general) fallback).
+ */
+export function resolveRugbyHubAudience(ctx: SessionContext, team: RugbyHubTeamOption): RugbyHubAudience {
+  if (ctx.linkedPlayerTeams.some((p) => p.teamId === team.teamId)) return "PLAYER"
+  if (ctx.guardianRelationships.some((g) => g.teamId === team.teamId)) return "PARENT"
+  const teamPermission = ctx.teamPermissions.find((t) => t.teamId === team.teamId)?.permission
+  if (teamPermission === "team_admin" || teamPermission === "manager") return "TEAM_ADMIN"
+  if (teamPermission === "coach") return "COACH"
+  // Club-wide authority (a Club Admin reaching this team purely via
+  // clubMemberships, with no per-team teamPermissions row of their own --
+  // the same real relationship 1d75bec's own fix accounts for elsewhere).
+  if (ctx.clubMemberships.some((m) => m.clubId === team.clubId && m.role === "CLUB_ADMIN")) return "CLUB_ADMIN"
+  return "GENERAL"
+}
+
+/**
  * Every real team the viewer may reasonably mean by "my Rugby Hub":
  * guardian relationships, their own linked player, explicit team-scoped
  * permissions, AND every active team at a club they hold club-wide

@@ -17,6 +17,7 @@ import {
   getSafeguardingRoutes,
   getSourceMetadata,
   resolveActiveRugbyHubTeamId,
+  resolveRugbyHubAudience,
 } from "@/lib/app-context/rugby-hub-data"
 import { SAFEGUARDING_SECTION_LABELS } from "@/lib/app-context/rugby-hub-format"
 import { createClient } from "@/lib/supabase/server"
@@ -53,8 +54,9 @@ export default async function SafeguardingPage() {
     )
   }
 
+  const audience = team ? resolveRugbyHubAudience(ctx, team) : "GENERAL"
   const [contentResult, routesResult, officers] = await Promise.all([
-    getSafeguardingContent(supabase, teamId, "GENERAL"),
+    getSafeguardingContent(supabase, teamId, audience),
     getSafeguardingRoutes(supabase, teamId),
     team ? getSafeguardingOfficerProjections(supabase, team.clubId) : Promise.resolve([]),
   ])

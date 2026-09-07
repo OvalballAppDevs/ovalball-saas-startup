@@ -5,7 +5,7 @@ import { cookies } from "next/headers"
 import { RegulatoryFactCard } from "@/components/rugby-hub/regulatory-fact-card"
 import { ReviewStatusNotice } from "@/components/rugby-hub/review-status-notice"
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { getRugbyHubTeamOptions, getSourceMetadata, getWelfareBundle, resolveActiveRugbyHubTeamId } from "@/lib/app-context/rugby-hub-data"
+import { getRugbyHubTeamOptions, getSourceMetadata, getWelfareBundle, resolveActiveRugbyHubTeamId, resolveRugbyHubAudience, type RugbyHubAudience } from "@/lib/app-context/rugby-hub-data"
 import { formatWelfareValue, labelForObligation, WELFARE_SECTION_LABELS } from "@/lib/app-context/rugby-hub-format"
 import { createClient } from "@/lib/supabase/server"
 
@@ -38,13 +38,19 @@ export default async function PlayerWelfarePage() {
         clearance decision.
       </p>
 
-      <div className="mt-8">{teamId ? <WelfareContent supabase={supabase} teamId={teamId} /> : <ReviewStatusNotice tone="unavailable" message="No team relationship available to show player-welfare guidance for." />}</div>
+      <div className="mt-8">
+        {teamId ? (
+          <WelfareContent supabase={supabase} teamId={teamId} audience={team ? resolveRugbyHubAudience(ctx, team) : "GENERAL"} />
+        ) : (
+          <ReviewStatusNotice tone="unavailable" message="No team relationship available to show player-welfare guidance for." />
+        )}
+      </div>
     </div>
   )
 }
 
-async function WelfareContent({ supabase, teamId }: { supabase: Awaited<ReturnType<typeof createClient>>; teamId: string }) {
-  const result = await getWelfareBundle(supabase, teamId, "GENERAL")
+async function WelfareContent({ supabase, teamId, audience }: { supabase: Awaited<ReturnType<typeof createClient>>; teamId: string; audience: RugbyHubAudience }) {
+  const result = await getWelfareBundle(supabase, teamId, audience)
 
   if (result.status === "error") return <ReviewStatusNotice tone="unavailable" message="Player-welfare guidance is temporarily unavailable. Please try again shortly." />
   if (result.status === "no-mapping") return <ReviewStatusNotice tone="no-mapping" message="There isn't a separate official player-welfare identity for this context." />
