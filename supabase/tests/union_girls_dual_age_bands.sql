@@ -72,7 +72,7 @@ end if;
 select string_agg(key, ',' order by key) into v_text
 from public.canonical_team_types_by_code
 where rugby_code = 'league' and is_active and not is_offered
-  and key not in ('junior_colts','senior_colts','mens_1st','mens_2nd','mens_3rd');
+  and key not in ('junior_colts','senior_colts','mens_1st','mens_2nd','mens_3rd','womens_1st','womens_2nd','womens_3rd');
 if v_text is null then
   raise notice 'PASS 5 (C): league withholds only Union-specific identities -- union evidence has not narrowed it';
 else

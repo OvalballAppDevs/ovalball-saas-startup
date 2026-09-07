@@ -23,9 +23,8 @@ v_expected_union := 'u6,u7,u8,u9,u10,u11,u12,u13,u14,u15,u16,junior_colts,senior
   || 'mens_1st,mens_2nd,mens_3rd,womens_1st,womens_2nd,womens_3rd,'
   || 'girls_u12,girls_u14,girls_u16,girls_u18';
 v_expected_league := 'u6,u7,u8,u9,u10,u11,u12,u13,u14,u15,u16,'
-  || 'womens_1st,womens_2nd,womens_3rd,'
   || 'girls_u12,girls_u13,girls_u14,girls_u15,girls_u16,girls_u18,'
-  || 'u17,u18,u19,mens_open_age';
+  || 'u17,u18,u19,mens_open_age,womens_open_age';
 
 select string_agg(key, ',' order by sort_order) into v_text
 from public.canonical_team_types_by_code where rugby_code = 'union' and is_offered;
@@ -251,6 +250,93 @@ if not exists (
   raise notice 'PASS 22 (G): no League regulatory identity is attached to a Colts canonical type';
 else
   raise notice 'FAIL 22 (G): a League identity is attached to a Colts type';
+end if;
+
+-- ============ I. Senior structure is code-specific ============
+
+-- Union: numbered XVs. League: Open Age. Neither may cross.
+select string_agg(t.k || ':' || t.u || '/' || t.l, ' ' order by t.k) into v_text
+from (
+  select ctt.key k,
+    (select case when v.is_offered then 'U' else '-' end from public.canonical_team_types_by_code v where v.id = ctt.id and v.rugby_code = 'union') u,
+    (select case when v.is_offered then 'L' else '-' end from public.canonical_team_types_by_code v where v.id = ctt.id and v.rugby_code = 'league') l
+  from public.canonical_team_types ctt where ctt.category = 'senior'
+) t
+where (t.k, t.u, t.l) not in (
+  ('mens_1st','U','-'), ('mens_2nd','U','-'), ('mens_3rd','U','-'),
+  ('womens_1st','U','-'), ('womens_2nd','U','-'), ('womens_3rd','U','-'),
+  ('mens_open_age','-','L'), ('womens_open_age','-','L')
+);
+if v_text is null then
+  raise notice 'PASS 24 (I): the senior matrix is exactly Union=numbered XVs, League=Open Age';
+else
+  raise notice 'FAIL 24 (I): senior matrix deviates: %', v_text;
+end if;
+
+select count(*) into v_count from public.canonical_team_types_by_code
+where rugby_code = 'league' and key in ('mens_open_age','womens_open_age') and is_offered;
+if v_count = 2 then
+  raise notice 'PASS 25 (I): LEAGUE offers BOTH Men''s and Women''s Open Age';
+else
+  raise notice 'FAIL 25 (I): league offers only % Open Age identity/identities', v_count;
+end if;
+
+select count(*) into v_count from public.canonical_team_types_by_code
+where rugby_code = 'union' and key in ('mens_open_age','womens_open_age') and is_offered;
+if v_count = 0 then
+  raise notice 'PASS 26 (I): UNION offers NEITHER Open Age identity';
+else
+  raise notice 'FAIL 26 (I): union offers % Open Age identity/identities', v_count;
+end if;
+
+select count(*) into v_count from public.canonical_team_types_by_code
+where rugby_code = 'league' and key in ('womens_1st','womens_2nd','womens_3rd') and is_offered;
+if v_count = 0 then
+  raise notice 'PASS 27 (I): the numbered Women''s XVs are Union-only';
+else
+  raise notice 'FAIL 27 (I): % numbered Women''s XV(s) offered in league', v_count;
+end if;
+
+-- Open Age carries B/C squads rather than spawning numbered identities.
+select bool_and(allows_squads) into v_ok from public.canonical_team_types
+where key in ('mens_open_age','womens_open_age');
+if v_ok then
+  raise notice 'PASS 28 (I): both Open Age identities take B/C squads -- extra squads never become new identities';
+else
+  raise notice 'FAIL 28 (I): an Open Age identity does not allow squads';
+end if;
+
+-- One identity per concept, not one per code.
+select count(*) into v_count from public.canonical_team_types where key like '%open_age%';
+if v_count = 2 then
+  raise notice 'PASS 29 (I): exactly two Open Age canonical identities exist -- no per-code duplicates';
+else
+  raise notice 'FAIL 29 (I): % Open Age canonical identities exist', v_count;
+end if;
+
+-- ============ J. Stable identity is not the display name ============
+
+-- Renaming must not move the identity, its code offering or its branch.
+update public.canonical_team_types set label = 'ZZZ Renamed Probe' where key = 'womens_open_age';
+select string_agg(t.k || ':' || t.u || '/' || t.l, ' ') into v_text
+from (
+  select ctt.key k,
+    (select case when v.is_offered then 'U' else '-' end from public.canonical_team_types_by_code v where v.id = ctt.id and v.rugby_code = 'union') u,
+    (select case when v.is_offered then 'L' else '-' end from public.canonical_team_types_by_code v where v.id = ctt.id and v.rugby_code = 'league') l
+  from public.canonical_team_types ctt where ctt.key = 'womens_open_age'
+) t;
+if v_text = 'womens_open_age:-/L' then
+  raise notice 'PASS 30 (J): renaming the display label changed neither the stable key nor the code offering';
+else
+  raise notice 'FAIL 30 (J): renaming moved the identity: %', v_text;
+end if;
+
+select category || '/' || coalesce(age_group,'-') || '/' || coalesce(gender,'-') into v_text
+from public.canonical_team_types where key = 'womens_open_age';
+if v_text = 'senior/-/womens' then
+  raise notice 'PASS 31 (J): renaming changed no branch field (category/age/gender intact)';
+else
+  raise notice 'FAIL 31 (J): renaming changed the branch to %', v_text;
 end if;
 
 -- ============ H. Existing teams keep resolving ============

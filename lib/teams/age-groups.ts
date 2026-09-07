@@ -15,4 +15,4 @@
  * is the DB-boundary-matching list; server validation (the real check
  * constraint) remains authoritative regardless of what this offers.
  */
-export const YOUTH_AGE_GROUPS = ["U6", "U7", "U8", "U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U17", "U18"] as const
+export const YOUTH_AGE_GROUPS = ["U6", "U7", "U8", "U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U17", "U18", "U19"] as const

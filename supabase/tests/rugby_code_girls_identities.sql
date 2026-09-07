@@ -50,13 +50,13 @@ else
 end if;
 
 -- And league withholds nothing at all.
--- League withholds the Union-only identities by design (Colts, numbered
--- Men's XVs). What must never happen is league withholding anything else --
+-- League withholds the Union-only identities by design (Colts, and the
+-- numbered Men's and Women's XVs -- League senior rugby is Open Age). What must never happen is league withholding anything else --
 -- above all a girls identity, or anything justified by RFU evidence.
 select string_agg(key, ',' order by key) into v_text
 from public.canonical_team_types_by_code
 where rugby_code = 'league' and is_active and not is_offered
-  and key not in ('junior_colts','senior_colts','mens_1st','mens_2nd','mens_3rd');
+  and key not in ('junior_colts','senior_colts','mens_1st','mens_2nd','mens_3rd','womens_1st','womens_2nd','womens_3rd');
 if v_text is null then
   raise notice 'PASS 8 (A): LEAGUE withholds only Union-specific identities -- union structure has not leaked across';
 else

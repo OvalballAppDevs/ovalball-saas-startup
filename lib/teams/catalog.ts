@@ -81,142 +81,27 @@ export interface TeamCategoryGroup {
   options: TeamCategoryOption[]
 }
 
-const MINI_YOUTH_AGES = ["Under 6", "Under 7", "Under 8", "Under 9", "Under 10", "Under 11"]
-const YOUTH_AGES = ["Under 12", "Under 13", "Under 14", "Under 15", "Under 16"]
 /**
- * The girls list stays FULL here, and availability is expressed per code
- * instead (see GIRLS_UNION_WITHHELD below).
+ * There is deliberately NO hardcoded team catalogue in this file.
  *
- * RFU Regulation 15.6 (Effective 1 August 2026) defines girls' union rugby as
- * four dual age bands -- U12/U11, U14/U13, U16/U15, U18/U17 -- so a U13 girl
- * plays in the U14 band and "Under 13 Girls" is not a union identity. But the
- * RFL's girls age structure has never been established from a primary source,
- * so those rows must stay offerable in league. Deleting them from this list,
- * or deactivating them globally, would let union evidence narrow league.
+ * A `BOOTSTRAP_TEAM_CATEGORY_GROUPS` constant used to live here, mirroring the
+ * migration's seed rows and standing in as a last-resort fallback if the live
+ * query failed. It was removed because it had become a genuine second source
+ * of truth and had already drifted: it still listed the girls single-year
+ * grades that Rugby Union does not offer, and knew nothing of U17, U18, U19,
+ * Men's Open Age or Women's Open Age.
+ *
+ * A stale fallback is worse than none. Offering a Union club "Girls U13"
+ * because a hardcoded array said so produces a confusing failure at insert
+ * time, when the database correctly refuses it. So `loadTeamCategoryGroups`
+ * now FAILS CLOSED and returns an empty catalogue if it cannot read the live
+ * one -- callers show an honest "catalogue unavailable" state rather than a
+ * wrong menu.
+ *
+ * The canonical Team Directory (`canonical_team_types` projected per code
+ * through `canonical_team_types_by_code`) is the only authority for what team
+ * identities exist and which code may be offered them.
  */
-const GIRLS_AGES = ["Under 12", "Under 13", "Under 14", "Under 15", "Under 16", "Under 18"]
-
-/** Girls age grades union does not recognise (Reg 15.6 dual age bands). League is unaffected. */
-const GIRLS_UNION_WITHHELD = new Set(["girls_u13", "girls_u15"])
-const SENIOR_ORDINALS = ["1st", "2nd", "3rd"]
-
-function ageLabelToCode(label: string): string {
-  return `U${label.replace("Under ", "")}`
-}
-
-/**
- * The INITIAL, bootstrap/seed catalogue -- exactly the 24 rows
- * `20260904200000_canonical_team_catalogue.sql` seeds `canonical_team_types`
- * with. This is deliberately hardcoded once, here, matching the migration's
- * own seed data -- but it is NOT the live source of truth for any UI
- * anymore. Use `loadTeamCategoryGroups()` (queries `canonical_team_types`
- * live) everywhere a real catalogue is needed; a Site Admin adding a 25th
- * global type (via the Team Directory, 20260904500000) appears automatically
- * to every consumer of that live query with zero code changes -- it would
- * NOT appear here, since this constant is only ever read as the documented
- * initial bootstrap set (or a last-resort fallback if the live query
- * itself fails).
- */
-export const BOOTSTRAP_TEAM_CATEGORY_GROUPS: TeamCategoryGroup[] = [
-  {
-    label: "Mini & youth",
-    options: MINI_YOUTH_AGES.map((label) => {
-      const code = ageLabelToCode(label)
-      return {
-        key: code.toLowerCase(),
-        label,
-        compactLabel: code,
-        category: "youth" as const,
-        ageGroup: code,
-        gender: "mixed" as const,
-        fixedSquadDesignation: null,
-        allowAdditionalSquads: true,
-        offeredForCodes: [...RUGBY_CODES],
-      }
-    }),
-  },
-  {
-    label: "Youth",
-    options: YOUTH_AGES.map((label) => {
-      const code = ageLabelToCode(label)
-      return {
-        key: code.toLowerCase(),
-        label,
-        compactLabel: code,
-        category: "youth" as const,
-        ageGroup: code,
-        gender: "boys" as const,
-        fixedSquadDesignation: null,
-        allowAdditionalSquads: true,
-        offeredForCodes: [...RUGBY_CODES],
-      }
-    }),
-  },
-  {
-    label: "Colts",
-    options: [
-      { key: "junior_colts", label: "Junior Colts", ageGroup: "JuniorColts" },
-      { key: "senior_colts", label: "Senior Colts", ageGroup: "SeniorColts" },
-    ].map((c) => ({
-      key: c.key,
-      label: c.label,
-      compactLabel: c.label,
-      category: "colts" as const,
-      ageGroup: c.ageGroup,
-      gender: null,
-      fixedSquadDesignation: null,
-      allowAdditionalSquads: false,
-      offeredForCodes: [...RUGBY_CODES],
-    })),
-  },
-  {
-    label: "Senior men's",
-    options: SENIOR_ORDINALS.map((ordinal) => ({
-      key: `mens_${ordinal.replace(/\D/g, "")}${ordinal.replace(/\d/g, "")}`,
-      label: `Men's ${ordinal} Team`,
-      compactLabel: `Men's ${ordinal}`,
-      category: "senior" as const,
-      ageGroup: null,
-      gender: "mens" as const,
-      fixedSquadDesignation: ordinal,
-      allowAdditionalSquads: false,
-      offeredForCodes: [...RUGBY_CODES],
-    })),
-  },
-  {
-    label: "Senior women's",
-    options: SENIOR_ORDINALS.map((ordinal) => ({
-      key: `womens_${ordinal.replace(/\D/g, "")}${ordinal.replace(/\d/g, "")}`,
-      label: `Women's ${ordinal} Team`,
-      compactLabel: `Women's ${ordinal}`,
-      category: "senior" as const,
-      ageGroup: null,
-      gender: "womens" as const,
-      fixedSquadDesignation: ordinal,
-      allowAdditionalSquads: false,
-      offeredForCodes: [...RUGBY_CODES],
-    })),
-  },
-  {
-    label: "Girls",
-    options: GIRLS_AGES.map((label) => {
-      const code = ageLabelToCode(label)
-      const key = `girls_${code.toLowerCase()}`
-      return {
-        key,
-        label: `${label} Girls`,
-        compactLabel: `Girls ${code}`,
-        category: "youth" as const,
-        ageGroup: code,
-        gender: "girls" as const,
-        fixedSquadDesignation: null,
-        allowAdditionalSquads: true,
-        // The only per-code divergence in the catalogue today.
-        offeredForCodes: (GIRLS_UNION_WITHHELD.has(key) ? ["league"] : [...RUGBY_CODES]) as RugbyCode[],
-      }
-    }),
-  },
-]
 
 /** The additional-squad letters offered under a ticked category, matching signup exactly (B and C only -- the base tick is the unlettered first team). */
 export const ADDITIONAL_SQUAD_LETTERS = ["B", "C"] as const
@@ -310,10 +195,9 @@ export function buildTeamCategoryGroups(rows: CanonicalTeamTypeRow[], offeredByK
  * Fetches the LIVE catalogue from `canonical_team_types` -- the one
  * function every server-rendered catalogue consumer (Add Team, Edit Team,
  * claim/signup) should call instead of reading
- * `BOOTSTRAP_TEAM_CATEGORY_GROUPS` directly, so a Site-Admin-added global
- * type appears everywhere with zero further code changes. Falls back to
- * the bootstrap set only if the query itself fails (never silently drops
- * to an empty picker).
+ * a hardcoded list, so a Site-Admin-added global type appears everywhere
+ * with zero further code changes. Returns an empty catalogue if the query
+ * fails -- see the note above on why this fails closed.
  *
  * Defaults to ACTIVE-only (what Add Team and signup should ever OFFER for
  * a brand-new identity). Pass `includeInactive: true` for a context that
@@ -346,9 +230,9 @@ export async function loadTeamCategoryGroups(
     .order("sort_order")
   if (!options?.includeInactive) query = query.eq("is_active", true)
   const { data, error } = await query
-  if (error || !data) {
-    return options?.rugbyCode ? filterGroupsForCode(BOOTSTRAP_TEAM_CATEGORY_GROUPS, options.rugbyCode) : BOOTSTRAP_TEAM_CATEGORY_GROUPS
-  }
+  // Fail closed. A wrong catalogue is worse than no catalogue: it offers
+  // identities the club's code cannot use, which the database then refuses.
+  if (error || !data) return []
 
   // Per-code availability, in one extra read. If this fails we fall back to
   // "offered for both codes" rather than to an empty catalogue -- the DB
