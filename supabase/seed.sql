@@ -43,3 +43,20 @@ values
 -- (see 20260830143455_club_directory.sql), and this file only ever runs
 -- against a just-migrated, empty database via `db reset --local`, so there
 -- is nothing to conflict with.
+
+-- ============================================================
+-- Active season: several suites (invite-only onboarding, dispensation
+-- notifications, and any other flow that resolves "the current season for
+-- this rugby code") fail with "No active season is currently configured"
+-- against a genuinely fresh `db reset --local`, because this file
+-- previously seeded no seasons row at all -- the only seasons any local
+-- dev database has ever had came from ad hoc fixtures individual sessions
+-- created by hand and never committed here. One real, active season per
+-- rugby code, covering today, so a clean reset behaves like a real
+-- deployment rather than an empty edge case every downstream test has to
+-- work around.
+-- ============================================================
+insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref)
+values
+  ('2026/27 Union Season', '2026-09-01', '2027-06-30', true, 'union', 2026, 'union-2026-local-dev-seed'),
+  ('2026/27 League Season', '2026-09-01', '2027-06-30', true, 'league', 2026, 'league-2026-local-dev-seed');

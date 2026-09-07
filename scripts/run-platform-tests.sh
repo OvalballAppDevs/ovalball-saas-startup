@@ -41,6 +41,7 @@ SUITES=(
   directory_admin_verification_status
   admin_referral_administration
   referral_intelligence_accounting
+  match_centre_capabilities
   referral_reward_semantics
   email_delivery_foundation
 )

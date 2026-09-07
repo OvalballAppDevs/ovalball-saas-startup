@@ -13717,6 +13717,14 @@ export type Database = {
           status: string
         }[]
       }
+      get_match_centre_capabilities: {
+        Args: { p_fixture_id: string }
+        Returns: {
+          can_manage_fixture: boolean
+          can_message: boolean
+          can_view_participants: boolean
+        }[]
+      }
       get_membership_operational_detail: {
         Args: { p_payer_subscription_id: string }
         Returns: {
@@ -13746,6 +13754,14 @@ export type Database = {
           sibling_ordinal: number
           subscription_amount_minor: number
           subscription_status: string
+        }[]
+      }
+      get_my_attendance_authority: {
+        Args: { p_player_id: string }
+        Returns: {
+          can_respond: boolean
+          denial_reason: string
+          response_source: string
         }[]
       }
       get_my_players_for_training_session: {

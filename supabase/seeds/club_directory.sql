@@ -1435,3 +1435,43 @@ values
   ('Ystalyfera Rugby Football Club', 'union', 'United Kingdom', 'Wales', 'Wales', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'welsh_rugby_union', NULL, 'https://www.wru.wales/2026/06/community-fixtures-announced-for-2026-27-welsh-season', '2026-08-29', true, 'wru_current_league_verified', 'Official WRU 2026/27 amateur/community league participant: WRU Admiral Men''s 1 West Central 2026/27. Canonical club entity.', NULL, 'ystalyfera rugby football club'),
   ('Ystrad Rhondda Rugby Football Club', 'union', 'United Kingdom', 'Wales', 'Wales', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'welsh_rugby_union', NULL, 'https://www.wru.wales/2026/06/community-fixtures-announced-for-2026-27-welsh-season', '2026-08-29', true, 'wru_current_league_verified', 'Official WRU 2026/27 Community Premiership participant. Parent club entity; first XV competition entry does not create a separate team-level directory row.', NULL, 'ystrad rhondda rugby football club'),
   ('Ystradgynlais Rugby Football Club', 'union', 'United Kingdom', 'Wales', 'Wales', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'welsh_rugby_union', NULL, 'https://www.wru.wales/2026/06/community-fixtures-announced-for-2026-27-welsh-season', '2026-08-29', true, 'wru_current_league_verified', 'Official WRU 2026/27 amateur/community league participant: WRU Admiral Men''s 1 West Central 2026/27. Canonical club entity.', NULL, 'ystradgynlais rugby football club');
+
+-- ---------------------------------------------------------------------
+-- Constituent Body reconciliation, re-run after this seed
+-- ---------------------------------------------------------------------
+--
+-- 20261023000000_constituent_bodies.sql runs its own reconciliation UPDATE
+-- at MIGRATION-APPLY time, matching each club_directory row's raw
+-- constituent_body text against the newly seeded canonical bodies. That is
+-- correct for the real, incremental deployment this migration was written
+-- and tested against (constituent_bodies runs against an already-seeded
+-- club_directory). It is NOT correct for a full `supabase db reset`: the
+-- Supabase CLI always runs every migration BEFORE any seed file
+-- (config.toml's own documented order), so on a fresh reset the migration's
+-- reconciliation UPDATE finds an empty club_directory and reconciles
+-- nothing -- then THIS seed populates the real Lancashire/Hertfordshire/etc
+-- rows afterward, leaving them permanently unreconciled (constituent_body_id
+-- null) despite carrying matching raw text. Caught live via
+-- supabase/tests/constituent_bodies.sql's own "G. Existing values
+-- reconciled" assertions failing after a `db reset`, never failing against
+-- an incrementally-migrated dev database.
+--
+-- The fix is to re-run the identical, idempotent reconciliation here, now
+-- that club_directory is actually populated -- not to change the
+-- migration's own logic, which remains correct for its real target
+-- (incremental deployment). Idempotent by construction (`constituent_body_id
+-- is null`), so running it twice -- once with nothing to do at migration
+-- time, once for real here -- is harmless.
+update public.club_directory d
+set constituent_body_id = cb.id
+from public.constituent_bodies cb
+where d.constituent_body_id is null
+  and d.constituent_body is not null
+  and cb.rugby_code = d.rugby_code
+  and cb.active
+  and (
+    lower(btrim(d.constituent_body)) = lower(cb.canonical_name)
+    or lower(btrim(d.constituent_body)) = lower(coalesce(cb.short_name, ''))
+    or regexp_replace(lower(btrim(d.constituent_body)), '[^a-z0-9]', '', 'g')
+       = regexp_replace(lower(cb.canonical_name), '[^a-z0-9]', '', 'g')
+  );
