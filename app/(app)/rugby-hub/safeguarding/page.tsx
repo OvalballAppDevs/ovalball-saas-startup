@@ -37,8 +37,8 @@ export default async function SafeguardingPage() {
 
   const ctx = await getSessionContext(supabase, user)
   const store = await cookies()
-  const teamId = await resolveActiveRugbyHubTeamId(ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
-  const teamOptions = await getRugbyHubTeamOptions(ctx)
+  const teamId = await resolveActiveRugbyHubTeamId(supabase, ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
+  const teamOptions = await getRugbyHubTeamOptions(supabase, ctx)
   const team = teamOptions.find((t) => t.teamId === teamId)
 
   if (!teamId) {

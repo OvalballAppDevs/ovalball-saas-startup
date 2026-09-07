@@ -36,12 +36,21 @@ export interface RugbyHubTeamOption {
 }
 
 /** Shared by every Rugby Hub page: the cookie-selected team if it's still one of the viewer's real options, else their first real option, else null (no real relationship at all). */
-export async function resolveActiveRugbyHubTeamId(ctx: SessionContext, cookieTeamId: string | undefined): Promise<string | null> {
-  const options = await getRugbyHubTeamOptions(ctx)
+export async function resolveActiveRugbyHubTeamId(supabase: SupabaseClient<Database>, ctx: SessionContext, cookieTeamId: string | undefined): Promise<string | null> {
+  const options = await getRugbyHubTeamOptions(supabase, ctx)
   return options.find((t) => t.teamId === cookieTeamId)?.teamId ?? options[0]?.teamId ?? null
 }
 
-export async function getRugbyHubTeamOptions(ctx: SessionContext): Promise<RugbyHubTeamOption[]> {
+/**
+ * Every real team the viewer may reasonably mean by "my Rugby Hub":
+ * guardian relationships, their own linked player, explicit team-scoped
+ * permissions, AND every active team at a club they hold club-wide
+ * membership at (a Club Admin's authority comes from clubMemberships, not
+ * a per-team row -- missing this branch was a real bug caught live in
+ * UAT: a real Club Admin saw "no team relationship" despite genuinely
+ * managing the club).
+ */
+export async function getRugbyHubTeamOptions(supabase: SupabaseClient<Database>, ctx: SessionContext): Promise<RugbyHubTeamOption[]> {
   const seen = new Map<string, RugbyHubTeamOption>()
   for (const g of ctx.guardianRelationships) {
     seen.set(g.teamId, { teamId: g.teamId, clubId: g.clubId, teamDisplayName: g.teamDisplayName, clubName: g.clubName })
@@ -52,6 +61,19 @@ export async function getRugbyHubTeamOptions(ctx: SessionContext): Promise<Rugby
   for (const t of ctx.teamPermissions) {
     if (!seen.has(t.teamId)) seen.set(t.teamId, { teamId: t.teamId, clubId: t.clubId, teamDisplayName: t.teamDisplayName, clubName: t.clubName })
   }
+
+  if (ctx.clubMemberships.length > 0) {
+    const { data: clubTeams } = await supabase
+      .from("teams")
+      .select("id, display_name, club_id")
+      .in("club_id", ctx.clubMemberships.map((m) => m.clubId))
+      .eq("active", true)
+    const clubNameById = new Map(ctx.clubMemberships.map((m) => [m.clubId, m.clubName]))
+    for (const t of clubTeams ?? []) {
+      if (!seen.has(t.id)) seen.set(t.id, { teamId: t.id, clubId: t.club_id, teamDisplayName: t.display_name, clubName: clubNameById.get(t.club_id) ?? "Club" })
+    }
+  }
+
   return Array.from(seen.values())
 }
 

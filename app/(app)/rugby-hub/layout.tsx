@@ -18,7 +18,7 @@ export default async function RugbyHubLayout({ children }: { children: React.Rea
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const teamOptions = await getRugbyHubTeamOptions(ctx)
+  const teamOptions = await getRugbyHubTeamOptions(supabase, ctx)
   const store = await cookies()
   const cookieTeamId = store.get(RUGBY_HUB_TEAM_COOKIE)?.value
   const activeTeamId = teamOptions.find((t) => t.teamId === cookieTeamId)?.teamId ?? teamOptions[0]?.teamId ?? null
