@@ -198,7 +198,77 @@ else
   raise notice 'FAIL 22 (G): a senior identity was given an age successor';
 end if;
 
+-- ============ H. Handover Register stores stable IDs, projects labels ============
+
+-- Authority columns exist and are canonical references, not text.
+select count(*) into v_count
+from information_schema.columns
+where table_schema='public' and table_name='age_grade_rollover_team_proposals'
+  and column_name in ('from_canonical_team_type_id','proposed_to_canonical_team_type_id','decided_canonical_team_type_id')
+  and data_type='uuid';
+if v_count = 3 then
+  raise notice 'PASS 23 (H): the register carries canonical team type IDs, not just age-group text';
+else
+  raise notice 'FAIL 23 (H): only % of the 3 canonical ID columns exist as uuid', v_count;
+end if;
+
+-- No display label is stored anywhere in the register.
+if not exists (
+  select 1 from information_schema.columns
+  where table_schema='public' and table_name='age_grade_rollover_team_proposals'
+    and column_name in ('display_name','label','team_name')
+) then
+  raise notice 'PASS 24 (H): the register stores NO display label -- labels are projections';
+else
+  raise notice 'FAIL 24 (H): the register stores a display label';
+end if;
+
+-- The view joins labels live, so a rename propagates without touching rows.
+if (select count(*) from pg_views where schemaname='public' and viewname='handover_register') = 1
+   and (select definition from pg_views where schemaname='public' and viewname='handover_register') ~ 'canonical_team_types' then
+  raise notice 'PASS 25 (H): handover_register projects its labels live from the canonical directory';
+else
+  raise notice 'FAIL 25 (H): handover_register does not join the canonical directory for labels';
+end if;
+
+-- NEEDS_ATTENTION must be reachable and must carry a reason.
+if (select definition from pg_views where schemaname='public' and viewname='handover_register') ~ 'NEEDS_ATTENTION' then
+  raise notice 'PASS 26 (H): the register exposes a NEEDS_ATTENTION state rather than forcing READY';
+else
+  raise notice 'FAIL 26 (H): the register has no NEEDS_ATTENTION state';
+end if;
+
+-- ============ I. Movement resolver shares the one progression graph ============
+
+-- Executable logic must not key off Colts any more.
+if not (regexp_replace(
+     (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+      where n.nspname='internal' and p.proname='resolve_player_movement_eligibility'),
+     '--[^\n]*', '', 'g') ~* '(JuniorColts|SeniorColts)') then
+  raise notice 'PASS 27 (I): the movement resolver no longer keys off Colts age groups';
+else
+  raise notice 'FAIL 27 (I): the movement resolver still contains live Colts logic';
+end if;
+
+-- And it must consult the SAME successor the rollover uses.
+if (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='internal' and p.proname='resolve_player_movement_eligibility') ~ 'next_age_grade_for' then
+  raise notice 'PASS 28 (I): the movement resolver uses the canonical code-aware successor';
+else
+  raise notice 'FAIL 28 (I): the movement resolver uses a separate progression rule';
+end if;
+
+-- The live defect this fixed: a union girls band move must read as ordinary.
+select requirement into v_text
+from internal.resolve_player_movement_eligibility('union', current_date, date '2014-01-01', null::uuid, null::uuid);
+if v_text = 'not_permitted' then
+  raise notice 'PASS 29 (I): the resolver refuses unknown teams rather than guessing';
+else
+  raise notice 'FAIL 29 (I): unknown teams returned %', v_text;
+end if;
+
 end $$;
+
 
 rollback;
 

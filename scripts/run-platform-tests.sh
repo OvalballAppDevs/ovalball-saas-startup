@@ -11,6 +11,14 @@
 #
 set -uo pipefail
 
+# Repository-level guard: the ONE CANONICAL TEAM DIRECTORY invariant. Runs
+# before the SQL suites because a second hardcoded catalogue is an
+# architectural regression, not a data one.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-one-team-catalogue.mjs"; then
+  echo "  FAIL  one_canonical_team_directory"
+  exit 1
+fi
+
 CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 
