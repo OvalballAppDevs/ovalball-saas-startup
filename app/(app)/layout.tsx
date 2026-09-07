@@ -52,8 +52,20 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   // Guardian-only account was being bounced to /welcome ("we don't have a
   // club request on file yet"), which is both confusing and wrong -- they
   // have a real, canonical relationship, just not a club_memberships row.
+  //
+  // hasGuardianRelationship is counted straight from `guardians`, NOT from
+  // guardianRelationships: the latter is a (player, ACTIVE team) product, so
+  // it is empty for a guardian whose child has not been placed on a team
+  // yet. That is the normal state right after a first-child request is
+  // approved -- the club still has to assign the age group -- and gating on
+  // the derived list sent a freshly-approved parent back to "we don't have a
+  // club request on file yet". Found live in Phase 2B UAT.
   const hasAnyRealRelationship =
-    ctx.clubMemberships.length > 0 || ctx.teamPermissions.length > 0 || ctx.guardianRelationships.length > 0 || ctx.linkedPlayerTeams.length > 0
+    ctx.clubMemberships.length > 0 ||
+    ctx.teamPermissions.length > 0 ||
+    ctx.guardianRelationships.length > 0 ||
+    ctx.hasGuardianRelationship ||
+    ctx.linkedPlayerTeams.length > 0
   if (!ctx.isSiteAdmin && !hasAnyRealRelationship) {
     redirect("/welcome")
   }

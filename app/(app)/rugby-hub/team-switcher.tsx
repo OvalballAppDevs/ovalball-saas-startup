@@ -21,7 +21,10 @@ export function TeamSwitcher({ options, activeTeamId }: { options: RugbyHubTeamO
         >
           {options.map((t) => (
             <option key={t.teamId} value={t.teamId}>
-              {t.clubName} &middot; {t.teamDisplayName}
+              {/* Name the child when there is one: "Pippa · Under 9" is
+                  what a guardian is actually choosing between, and two
+                  children on one team would otherwise be identical rows. */}
+              {t.childName ? `${t.childName} · ${t.teamDisplayName}` : `${t.clubName} · ${t.teamDisplayName}`}
             </option>
           ))}
         </select>

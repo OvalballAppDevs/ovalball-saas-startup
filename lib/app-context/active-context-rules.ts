@@ -25,7 +25,21 @@ import type { SessionContext } from "./session-context"
  * server-side permission check actually allows (RLS and every capability
  * check remain the real, unaffected authorization boundary).
  */
-export type ActiveContextKind = "site_admin" | "club" | "team" | "parent" | "player"
+/**
+ * "family" is All Children mode -- one Guardian looking at every child they
+ * hold at once, rather than switching between them. It is a real context
+ * kind rather than a flag on "parent" because almost every consumer has to
+ * behave differently in it: the identity block names the family, the agenda
+ * aggregates across players, and Rugby Hub deliberately REFUSES it (age-grade
+ * regulation is specific to one team and there is no honest combined answer).
+ * Making it a kind means the compiler asks each of those questions instead of
+ * letting a missing branch silently fall through to single-child behaviour.
+ *
+ * Like every other kind here it is presentation/default-scope only. It widens
+ * nothing: the players it covers are exactly the session's own already-proven
+ * guardian relationships, and every read is still RLS-scoped per player.
+ */
+export type ActiveContextKind = "site_admin" | "club" | "team" | "parent" | "player" | "family"
 
 export interface SwitchableContext {
   /**
@@ -66,6 +80,10 @@ export interface SwitchableContext {
   subjectName?: string | null
   /** The club a child context belongs to, so the switcher can read "Burnley RUFC · U9" rather than a bare team name. */
   subjectClubName?: string | null
+  /** The subject's OWN picture -- the child's, never the signed-in adult's. Storage path; resolved to a signed URL at the render boundary. */
+  subjectAvatarPath?: string | null
+  /** Every player this context covers. One entry for a single child, all of them for All Children mode, empty for club/team/site_admin. Presentation scope only -- each read is still authorized per player. */
+  playerIds?: string[]
   roleLabel: string
   logoUrl: string | null
   /** The owning club, resolved once at push time from whichever source produced this context (club membership, team_permissions, guardianRelationships, or linkedPlayerTeams) -- never re-derived by looking a team back up in team_permissions, which doesn't exist for a Guardian/Player-sourced context. null only for "site_admin" (no ambient club) or the empty fallback context. */
@@ -73,6 +91,27 @@ export interface SwitchableContext {
 }
 
 export const ACTIVE_CONTEXT_COOKIE = "ovalball_ctx"
+
+/**
+ * The read-only, family-facing contexts: a Guardian viewing one child, a
+ * Guardian viewing All Children, or a Player viewing their own team.
+ *
+ * This exists as ONE predicate because the rule it encodes was previously
+ * spelled out as `kind === "parent" || kind === "player"` at a dozen call
+ * sites -- the Calendar's cancelled-fixture rule, the Messages surface, the
+ * training scheduler, the fixture register's redirect, the dashboard. Adding
+ * "family" meant every one of those had to be found and widened by hand, and
+ * a single miss would have handed All Children an admin affordance that the
+ * same account is deliberately denied when viewing one child.
+ *
+ * Callers use this to decide PRESENTATION -- what to show, what to hide,
+ * where to redirect. It is never the authorization boundary: RLS and the
+ * capability checks remain that, and they are unaffected by which context a
+ * viewer happens to have selected.
+ */
+export function isFamilyFacingContext(kind: ActiveContextKind): boolean {
+  return kind === "parent" || kind === "player" || kind === "family"
+}
 
 /**
  * Every context this session may deliberately "operate as" or "view as" --
@@ -125,6 +164,30 @@ export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[]
     })
   }
 
+  // All Children, offered only when there is genuinely more than one child to
+  // aggregate -- a single-child guardian switching between "All Children" and
+  // that same child would be choosing between two identical views.
+  const distinctChildIds = Array.from(new Set(ctx.guardianRelationships.map((g) => g.playerId)))
+  if (distinctChildIds.length > 1) {
+    out.push({
+      key: "family",
+      kind: "family",
+      id: null,
+      playerId: null,
+      playerIds: distinctChildIds,
+      label: "All Children",
+      switcherLabel: "All Children",
+      subjectName: "All Children",
+      subjectClubName: null,
+      roleLabel: "Parent/Guardian",
+      logoUrl: null,
+      // Deliberately null even when every child happens to share one club: a
+      // family view is not scoped to a club, and handing one out here would
+      // let a club-scoped default quietly narrow the aggregate.
+      clubId: null,
+    })
+  }
+
   const guardianTeamIds = new Set(ctx.guardianRelationships.map((g) => g.teamId))
   for (const g of ctx.guardianRelationships) {
     out.push({
@@ -142,6 +205,8 @@ export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[]
       switcherLabel: `${g.playerFirstName} ${g.playerSurname}`.trim(),
       subjectName: `${g.playerFirstName} ${g.playerSurname}`.trim(),
       subjectClubName: g.clubName,
+      subjectAvatarPath: g.avatarStoragePath,
+      playerIds: [g.playerId],
       // The VIEWER's role, not the child's. The switcher no longer prints
       // this next to the child's name, because doing so read as though the
       // child were the Parent/Guardian.
@@ -176,6 +241,8 @@ export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[]
       label: pt.teamDisplayName,
       switcherLabel: pt.teamDisplayName,
       subjectClubName: pt.clubName,
+      subjectAvatarPath: pt.avatarStoragePath,
+      playerIds: [pt.playerId],
       roleLabel: "Player",
       logoUrl: null,
       clubId: pt.clubId,

@@ -1,6 +1,6 @@
 import type { ActiveContextKind } from "./active-context"
 
-export type IdentityAvatarKind = "club" | "person" | "brand"
+export type IdentityAvatarKind = "club" | "person" | "brand" | "family"
 
 export interface IdentityDisplay {
   avatarKind: IdentityAvatarKind
@@ -53,6 +53,13 @@ export function resolveIdentityDisplay(
   switch (kind) {
     case "club":
       return { avatarKind: "club", nameLabel: input.contextLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: false }
+    case "family":
+      // All Children names the family, not any one child and not the adult.
+      // Its own avatar treatment exists because borrowing either would be
+      // wrong: the parent's photo is the bug this file was written to fix,
+      // and picking one child's photo to stand for all of them silently
+      // privileges a sibling.
+      return { avatarKind: "family", nameLabel: "All Children", subLabel: input.roleLabel, avatarUsesPersonPhoto: false }
     case "team":
       return { avatarKind: "person", nameLabel: personLabel, subLabel: `${input.contextLabel} ${input.roleLabel}`, avatarUsesPersonPhoto: true }
     case "parent":
@@ -129,6 +136,7 @@ export function resolveContextSettingsLink(kind: ActiveContextKind, activeId: st
       return activeId ? { href: `/teams/${activeId}`, ariaLabel: `${contextLabel} settings` } : null
     case "parent":
     case "player":
+    case "family":
       return { href: "/account", ariaLabel: "Your personal account settings" }
     case "site_admin":
       return null

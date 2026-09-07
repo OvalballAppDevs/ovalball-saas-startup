@@ -271,16 +271,46 @@ begin
   end if;
 
   -- ============ N/O. youth photo safety ============
-  -- Players carry no avatar column at all today, so no youth photograph can
-  -- be required, exposed, or made a condition of taking part.
+  -- The requirement here has always been the SENTENCE, not the schema: no
+  -- youth photograph may be required, exposed, or made a condition of taking
+  -- part. Until Phase 2B that was guaranteed trivially, because players had
+  -- no photo column at all and this assertion simply counted zero.
+  --
+  -- Players now have one (Pippa can have her own picture instead of silently
+  -- borrowing her mother's, which is what the identity block did). So the
+  -- assertion has to enforce the actual requirement rather than its old
+  -- proxy: every youth photo column must be OPTIONAL, and the bucket behind
+  -- it must be PRIVATE and authorization-scoped.
+  --
+  -- Anything else -- a NOT NULL photo column, or one whose objects sit in a
+  -- public bucket like the adult `avatars` one -- still fails here.
   select count(*)::int into v_count
   from information_schema.columns
   where table_schema='public' and table_name='players'
-    and (column_name ilike '%avatar%' or column_name ilike '%photo%' or column_name ilike '%image%');
+    and (column_name ilike '%avatar%' or column_name ilike '%photo%' or column_name ilike '%image%')
+    and is_nullable = 'NO';
   if v_count = 0 then
-    raise notice 'PASS 25 (N/O): players hold no photograph -- participation cannot depend on one';
+    raise notice 'PASS 25a (N/O): no youth photo column is mandatory -- participation cannot depend on one';
   else
-    raise notice 'FAIL 25 (N/O): players gained % photo column(s) with no consent model', v_count;
+    raise notice 'FAIL 25a (N/O): players carry % REQUIRED photo column(s)', v_count;
+  end if;
+
+  select count(*)::int into v_count
+  from storage.buckets b
+  where b.id = 'player-avatars' and b.public = false;
+  if v_count = 1 then
+    raise notice 'PASS 25b (N/O): youth photos live in a PRIVATE bucket -- never served to anyone holding a URL';
+  else
+    raise notice 'FAIL 25b (N/O): the player-avatars bucket is missing or public';
+  end if;
+
+  select count(*)::int into v_count
+  from pg_policies
+  where schemaname = 'storage' and tablename = 'objects' and policyname like 'player_avatars%';
+  if v_count >= 4 then
+    raise notice 'PASS 25c (N/O): read and write of a youth photo are both authorization-scoped (% policies)', v_count;
+  else
+    raise notice 'FAIL 25c (N/O): only % storage policies guard youth photos', v_count;
   end if;
 
   select count(*)::int into v_count

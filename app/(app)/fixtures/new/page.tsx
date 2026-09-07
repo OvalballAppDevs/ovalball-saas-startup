@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 
-import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
+import { ACTIVE_CONTEXT_COOKIE, activeClubId, isFamilyFacingContext, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getTeamsForActiveContext } from "@/lib/app-context/my-teams"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
@@ -43,7 +43,9 @@ export default async function NewFixtureRequestPage({ searchParams }: NewFixture
   // otherwise resolve. Checked before any team/club resolution so neither
   // ever reaches the team-scoped list this page used to leak (every team
   // in the whole club, via the old session-wide getMyTeams(ctx)).
-  if (activeContext.kind === "parent" || activeContext.kind === "player") redirect("/fixtures")
+  // A guardian has no part in inter-club fixture negotiation; /agenda is
+  // the fixtures surface their context actually has.
+  if (isFamilyFacingContext(activeContext.kind)) redirect("/agenda")
 
   const manageableClubId = activeClubId(ctx, activeContext)
   // Context-scoped, not session-wide -- see app/(app)/fixtures/page.tsx.

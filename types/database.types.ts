@@ -6903,6 +6903,191 @@ export type Database = {
           },
         ]
       }
+      guardian_link_requests: {
+        Row: {
+          club_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          expires_at: string
+          id: string
+          invited_email: string | null
+          kind: string
+          matched_player_id: string | null
+          requested_by_user_id: string | null
+          resolved_player_id: string | null
+          rugby_code: string | null
+          status: string
+          subject_user_id: string | null
+          submitted_date_of_birth: string | null
+          submitted_first_name: string | null
+          submitted_surname: string | null
+          target_player_id: string | null
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          club_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          expires_at?: string
+          id?: string
+          invited_email?: string | null
+          kind: string
+          matched_player_id?: string | null
+          requested_by_user_id?: string | null
+          resolved_player_id?: string | null
+          rugby_code?: string | null
+          status?: string
+          subject_user_id?: string | null
+          submitted_date_of_birth?: string | null
+          submitted_first_name?: string | null
+          submitted_surname?: string | null
+          target_player_id?: string | null
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          club_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          expires_at?: string
+          id?: string
+          invited_email?: string | null
+          kind?: string
+          matched_player_id?: string | null
+          requested_by_user_id?: string | null
+          resolved_player_id?: string | null
+          rugby_code?: string | null
+          status?: string
+          subject_user_id?: string | null
+          submitted_date_of_birth?: string | null
+          submitted_first_name?: string | null
+          submitted_surname?: string | null
+          target_player_id?: string | null
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardian_link_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_matched_player_id_fkey"
+            columns: ["matched_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_resolved_player_id_fkey"
+            columns: ["resolved_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_target_player_id_fkey"
+            columns: ["target_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guardian_player_permissions: {
         Row: {
           actor: string
@@ -9626,6 +9811,7 @@ export type Database = {
       players: {
         Row: {
           active: boolean
+          avatar_storage_path: string | null
           created_at: string
           created_by: string | null
           date_of_birth: string | null
@@ -9638,6 +9824,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          avatar_storage_path?: string | null
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
@@ -9650,6 +9837,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          avatar_storage_path?: string | null
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
@@ -14027,6 +14215,13 @@ export type Database = {
         Args: { p_notes?: string; p_request_id: string; p_rugby_code: string }
         Returns: string
       }
+      approve_guardian_link_request: {
+        Args: { p_request_id: string }
+        Returns: {
+          player_id: string
+          result: string
+        }[]
+      }
       approve_pending_team_membership: {
         Args: { p_membership_id: string }
         Returns: undefined
@@ -14066,6 +14261,10 @@ export type Database = {
       cancel_fixture: {
         Args: { p_fixture_id: string; p_reason: string }
         Returns: undefined
+      }
+      cancel_guardian_link_request: {
+        Args: { p_request_id: string }
+        Returns: string
       }
       cancel_training_session: {
         Args: { p_reason?: string; p_session_id: string }
@@ -15128,6 +15327,28 @@ export type Database = {
         }[]
       }
       graduate_team: { Args: { p_team_id: string }; Returns: number }
+      guardian_link_requests_for_approval: {
+        Args: { p_club_id?: string }
+        Returns: {
+          club_id: string
+          club_name: string
+          created_at: string
+          invited_email: string
+          kind: string
+          matched_player_id: string
+          matched_player_name: string
+          matched_team_name: string
+          request_id: string
+          requester_email: string
+          requester_name: string
+          status: string
+          submitted_date_of_birth: string
+          submitted_first_name: string
+          submitted_surname: string
+          target_player_id: string
+          target_player_name: string
+        }[]
+      }
       has_capability: {
         Args: {
           p_capability_key: string
@@ -15394,6 +15615,19 @@ export type Database = {
       moderator_delete_message: {
         Args: { p_message_id: string }
         Returns: undefined
+      }
+      my_guardian_link_requests: {
+        Args: never
+        Returns: {
+          child_label: string
+          club_id: string
+          club_name: string
+          created_at: string
+          decided_at: string
+          kind: string
+          request_id: string
+          status: string
+        }[]
       }
       nominate_safeguarding_officer: {
         Args: {
@@ -15767,6 +16001,10 @@ export type Database = {
         Args: { p_fixture_id: string }
         Returns: undefined
       }
+      reject_guardian_link_request: {
+        Args: { p_note?: string; p_request_id: string }
+        Returns: string
+      }
       reject_pending_team_membership: {
         Args: { p_membership_id: string; p_reason: string }
         Returns: undefined
@@ -15808,6 +16046,26 @@ export type Database = {
       report_fixture_message: {
         Args: { p_message_id: string; p_reason: string }
         Returns: undefined
+      }
+      request_additional_guardian: {
+        Args: { p_email: string; p_player_id: string }
+        Returns: {
+          request_id: string
+          status: string
+        }[]
+      }
+      request_child_link: {
+        Args: {
+          p_club_id: string
+          p_date_of_birth: string
+          p_first_name: string
+          p_rugby_code?: string
+          p_surname: string
+        }
+        Returns: {
+          request_id: string
+          status: string
+        }[]
       }
       request_fixture_restoration: {
         Args: { p_fixture_id: string }
@@ -16075,6 +16333,10 @@ export type Database = {
           p_status?: string
         }
         Returns: number
+      }
+      set_player_avatar: {
+        Args: { p_player_id: string; p_storage_path: string }
+        Returns: string
       }
       set_responsible_payer: {
         Args: {

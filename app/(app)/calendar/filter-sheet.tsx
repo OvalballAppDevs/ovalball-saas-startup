@@ -32,6 +32,10 @@ export function FilterSheet({
   activeSeason,
   activePhase,
   activeView,
+  activeVenue,
+  activeAttendance,
+  venueOptions,
+  showFamilyFilters,
 }: {
   activeStatuses: string[]
   activeHomeAway: string | null
@@ -41,9 +45,14 @@ export function FilterSheet({
   activeSeason: string | null
   activePhase: string | null
   activeView: string | null
+  activeVenue: string | null
+  activeAttendance: string | null
+  venueOptions: string[]
+  /** Venue and Attendance are only meaningful in a Guardian/Player context -- attendance is per-player, and a club context has no single "my response" to filter on. */
+  showFamilyFilters: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const activeCount = activeStatuses.length + (activeHomeAway ? 1 : 0) + (activeKind ? 1 : 0)
+  const activeCount = activeStatuses.length + (activeHomeAway ? 1 : 0) + (activeKind ? 1 : 0) + (activeVenue ? 1 : 0) + (activeAttendance ? 1 : 0)
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -58,7 +67,7 @@ export function FilterSheet({
         <SheetHeader>
           <SheetTitle>Filter Calendar</SheetTitle>
         </SheetHeader>
-        <form method="get" action="/calendar" className="flex flex-col gap-5 px-4 pb-4">
+        <form method="get" action="/calendar" className="flex max-h-[calc(100vh-8rem)] flex-col gap-5 overflow-y-auto px-4 pb-4">
           {activeTeam && <input type="hidden" name="team" value={activeTeam} />}
           {activeWeek && <input type="hidden" name="week" value={activeWeek} />}
           {activeSeason && <input type="hidden" name="season" value={activeSeason} />}
@@ -108,6 +117,44 @@ export function FilterSheet({
               ))}
             </div>
           </fieldset>
+
+          {showFamilyFilters && (
+            <fieldset>
+              <legend className="text-sm font-medium text-ink">Attendance</legend>
+              <div className="mt-2 flex flex-col gap-1.5">
+                {[
+                  ["", "Any response"],
+                  ["needs_response", "Needs response"],
+                  ["ATTENDING", "Attending"],
+                  ["CANNOT_ATTEND", "Can't attend"],
+                  ["UNSURE", "Unsure"],
+                ].map(([value, label]) => (
+                  <label key={value} className="flex items-center gap-2 text-sm text-ink/80">
+                    <input type="radio" name="attendance" value={value} defaultChecked={(activeAttendance ?? "") === value} className="size-4 accent-pitch-600" />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          {showFamilyFilters && venueOptions.length > 0 && (
+            <fieldset>
+              <legend className="text-sm font-medium text-ink">Venue</legend>
+              <div className="mt-2 flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 text-sm text-ink/80">
+                  <input type="radio" name="venue" value="" defaultChecked={!activeVenue} className="size-4 accent-pitch-600" />
+                  Any venue
+                </label>
+                {venueOptions.map((v) => (
+                  <label key={v} className="flex items-center gap-2 text-sm text-ink/80">
+                    <input type="radio" name="venue" value={v} defaultChecked={activeVenue === v} className="size-4 accent-pitch-600" />
+                    {v}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
 
           <div className="mt-2 flex items-center gap-3">
             <Button type="submit" className="h-9">

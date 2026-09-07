@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { cookies } from "next/headers"
 
-import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
+import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, isFamilyFacingContext, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getTeamsForActiveContext } from "@/lib/app-context/my-teams"
 import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
 import { canManageClubFixturesAnywhere, getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
@@ -48,7 +48,9 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
   // request negotiation (sent/received, accept/decline) at all -- only
   // confirmed fixtures, via the Calendar. Blocked here (not just hidden
   // from nav) so a direct link never reaches it either.
-  if (activeContext.kind === "parent" || activeContext.kind === "player") redirect("/dashboard")
+  // Send them to their own Fixtures surface rather than the Dashboard: they
+  // asked for fixtures, and /agenda is the one they are entitled to operate.
+  if (isFamilyFacingContext(activeContext.kind)) redirect("/agenda")
   await reconcileOverdueFixtureResults(supabase)
   // Context-scoped, not session-wide -- getMyTeams(ctx) used to union every
   // team from every club/team permission this account holds ANYWHERE

@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
-import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext, type SwitchableContext } from "@/lib/app-context/active-context"
+import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, isFamilyFacingContext, resolveActiveContext, type SwitchableContext } from "@/lib/app-context/active-context"
 import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
 import { getTeamsForActiveContext } from "@/lib/app-context/my-teams"
 import { getSessionContext } from "@/lib/app-context/session-context"
@@ -87,9 +87,24 @@ export default async function CalendarPage({
     status?: string | string[]
     ha?: string
     kind?: string
+    /** Family-facing only (Guardian/Player contexts) -- see the filter block below. */
+    venue?: string
+    attendance?: string
   }>
 }) {
-  const { week: weekParam, month: monthParam, team: teamFilter, view: viewParam, season: seasonParam, phase: phaseParam, status, ha, kind } = await searchParams
+  const {
+    week: weekParam,
+    month: monthParam,
+    team: teamFilter,
+    view: viewParam,
+    season: seasonParam,
+    phase: phaseParam,
+    status,
+    ha,
+    kind,
+    venue: venueParam,
+    attendance: attendanceParam,
+  } = await searchParams
   const statusFilters = status ? (Array.isArray(status) ? status : [status]) : []
   const supabase = await createClient()
   const {
@@ -213,7 +228,7 @@ export default async function CalendarPage({
   // View (the existing, canonical "parent"/"player" ActiveContextKind --
   // never a role string re-derived here) must never see it at all
   // (Section N: it must stop reading as an upcoming commitment).
-  const isParentPlayerView = boardContext.kind === "parent" || boardContext.kind === "player"
+  const isParentPlayerView = isFamilyFacingContext(boardContext.kind)
   let fixturesQuery = supabase
     .from("fixtures")
     .select(
@@ -560,6 +575,57 @@ export default async function CalendarPage({
   }
   entries.sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? ""))
 
+  // ---- Family-facing Venue and Attendance filters ----------------------
+  //
+  // Only in a Guardian/Player context, and only there because attendance is
+  // per-PLAYER: in a club or team context there is no single "my response"
+  // to filter on, and offering the control would promise something the data
+  // cannot answer.
+  //
+  // Two children with different answers to the same fixture are never
+  // collapsed into one family status. The entry survives the filter if ANY
+  // child in scope matches it, which keeps a shared fixture visible to a
+  // parent filtering on "Attending" without inventing a status for the
+  // sibling who said no.
+  const venueFilter = venueParam && venueParam.length > 0 ? venueParam : null
+  const attendanceFilter = attendanceParam && attendanceParam.length > 0 ? attendanceParam : null
+  const familyFacing = isFamilyFacingContext(boardContext.kind)
+
+  const venueOptionsForFilter = familyFacing
+    ? Array.from(new Set(entries.map((e) => e.venueAddress ?? e.pitchName).filter((v): v is string => Boolean(v)))).sort((a, b) => a.localeCompare(b))
+    : []
+
+  let calendarEntries = entries
+  if (familyFacing && (venueFilter || attendanceFilter)) {
+    let responseKeys: Set<string> | null = null
+    if (attendanceFilter) {
+      const scopedPlayerIds = Array.from(
+        new Set([...ctx.guardianRelationships.map((g) => g.playerId), ...ctx.linkedPlayerTeams.map((p) => p.playerId)])
+      )
+      const { data: responses } = scopedPlayerIds.length
+        ? await supabase.from("player_fixture_attendance").select("fixture_id, training_session_id, player_id, status").in("player_id", scopedPlayerIds)
+        : { data: [] }
+      if (attendanceFilter === "needs_response") {
+        // Answered events, so the filter can keep everything that is NOT here.
+        responseKeys = new Set((responses ?? []).map((r) => `${r.fixture_id ?? r.training_session_id}`))
+      } else {
+        responseKeys = new Set((responses ?? []).filter((r) => r.status === attendanceFilter).map((r) => `${r.fixture_id ?? r.training_session_id}`))
+      }
+    }
+
+    calendarEntries = entries.filter((e) => {
+      if (venueFilter && (e.venueAddress ?? e.pitchName) !== venueFilter) return false
+      if (responseKeys) {
+        // Tournaments carry no per-player attendance, so an attendance
+        // filter simply does not describe them.
+        if (e.kind === "tournament") return false
+        const answered = responseKeys.has(e.id)
+        if (attendanceFilter === "needs_response" ? answered : !answered) return false
+      }
+      return true
+    })
+  }
+
   const visibleLanes = teamFilter ? fullLanes.filter((l) => l.id === teamFilter) : fullLanes
 
   const manageableTeamIds = manageableTeamIdsEarly
@@ -586,7 +652,7 @@ export default async function CalendarPage({
     ? await hasCapability(supabase, "fixture.create", "club", { clubId: activeManageableClubEarly })
     : false
   const canScheduleTraining =
-    boardContext.kind !== "parent" && boardContext.kind !== "player" && (canScheduleTrainingClubWide || manageableTeamIds.size > 0)
+    !isFamilyFacingContext(boardContext.kind) && (canScheduleTrainingClubWide || manageableTeamIds.size > 0)
 
   // Pitch Allocation tab visibility -- Section 22-25: club-scoped
   // fixture.edit only (Club Admin/Fixture Secretary), never available
@@ -704,6 +770,10 @@ export default async function CalendarPage({
             activeSeason={seasonParam ?? null}
             activePhase={phaseParam ?? null}
             activeView={viewParam ?? null}
+            activeVenue={venueFilter}
+            activeAttendance={attendanceFilter}
+            venueOptions={venueOptionsForFilter}
+            showFamilyFilters={familyFacing}
           />
           <Link href="/calendar/agenda" className="text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink">
             Agenda
@@ -784,7 +854,7 @@ export default async function CalendarPage({
                 range={range}
                 lanes={visibleLanes}
                 allLanes={fullLanes}
-                entries={entries}
+                entries={calendarEntries}
                 clubId={boardContext.kind === "club" ? boardContext.id : null}
                 clubName={boardContext.label}
                 rugbyCode={clubRugbyCode}
@@ -800,7 +870,7 @@ export default async function CalendarPage({
                 range={range}
                 lanes={visibleLanes}
                 allLanes={fullLanes}
-                entries={entries}
+                entries={calendarEntries}
                 clubId={boardContext.kind === "club" ? boardContext.id : null}
                 clubName={boardContext.label}
                 rugbyCode={clubRugbyCode}
@@ -813,7 +883,7 @@ export default async function CalendarPage({
 
           <div className="mt-6 md:hidden">
             <MobileAgenda
-              entries={entries}
+              entries={calendarEntries}
               lanes={visibleLanes}
               allLanes={fullLanes}
               canScheduleTraining={canScheduleTraining}

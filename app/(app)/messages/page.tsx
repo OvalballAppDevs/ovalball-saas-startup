@@ -3,7 +3,7 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 
 import { Button } from "@/components/ui/button"
-import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
+import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, isFamilyFacingContext, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getClubConversationSummaries, getConversationSummaries } from "@/lib/app-context/conversations"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
@@ -40,7 +40,7 @@ export default async function MessagesPage() {
   // scoped to one team) is a distinct, not-yet-built conversation type --
   // this only removes the wrong one from view, it doesn't invent the
   // right one. Skip both fetches entirely rather than fetch-then-hide.
-  const inParentOrPlayerContext = activeContext.kind === "parent" || activeContext.kind === "player"
+  const inParentOrPlayerContext = isFamilyFacingContext(activeContext.kind)
   const conversations = inParentOrPlayerContext ? [] : await getConversationSummaries(supabase, ctx, user.id)
   const clubConversations = inParentOrPlayerContext ? [] : await getClubConversationSummaries(supabase, ctx, user.id)
   // Deliberately NOT gated on context: a support request belongs to the

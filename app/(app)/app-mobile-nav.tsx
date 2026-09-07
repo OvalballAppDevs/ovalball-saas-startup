@@ -8,6 +8,7 @@ import { Check, Menu, Settings, X } from "lucide-react"
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { OvalballMark } from "@/components/brand/ovalball-mark"
 import { ClubAvatar } from "@/components/club/club-avatar"
+import { FamilyAvatar } from "@/components/profile/family-avatar"
 import { UserAvatar } from "@/components/profile/user-avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -133,6 +134,8 @@ export function AppMobileNav({
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/10">
                   <OvalballMark variant="dark" className="h-4 w-6" />
                 </div>
+              ) : identity.avatarKind === "family" ? (
+                <FamilyAvatar variant="dark" />
               ) : (
                 <UserAvatar
                   avatarUrl={identity.avatarUsesPersonPhoto ? personAvatarUrl : null}
@@ -218,9 +221,11 @@ export function AppMobileNav({
                           viewer's own "Parent/Guardian" role. */}
                       <span className="block truncate">{c.switcherLabel}</span>
                       <span className="block truncate text-xs text-white/60">
-                        {c.subjectName
-                          ? [c.subjectClubName, c.label].filter(Boolean).join(" · ")
-                          : c.roleLabel}
+                        {c.kind === "family"
+                          ? `${c.playerIds?.length ?? 0} children`
+                          : c.subjectName
+                            ? [c.subjectClubName, c.label].filter(Boolean).join(" · ")
+                            : c.roleLabel}
                       </span>
                     </span>
                     {c.key === activeKey && <Check className="size-4 shrink-0" />}

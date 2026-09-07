@@ -5,6 +5,8 @@ import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { createClient } from "@/lib/supabase/server"
 import { getPendingStatus } from "@/lib/signup/pending-status"
 
+import { AddChildForm } from "@/app/(app)/parent/children/add-child-form"
+
 const LOCKED_AREAS = [
   { icon: CalendarDays, label: "Fixtures" },
   { icon: Users, label: "Teams" },
@@ -51,6 +53,12 @@ export default async function WelcomePage() {
     .maybeSingle()
 
   const status = await getPendingStatus(supabase, user.id)
+
+  // Requests this person already has in flight -- neutral by construction
+  // (the RPC returns only what they submitted, never whether it matched an
+  // existing child).
+  const { data: requestRows } = await supabase.rpc("my_guardian_link_requests")
+  const myRequests = (requestRows ?? []).filter((r) => r.status === "PENDING")
 
   // Approved (an active club_memberships row exists) or Site Admin: the
   // real authenticated product now exists behind /dashboard -- this page
@@ -132,11 +140,55 @@ export default async function WelcomePage() {
           </div>
         )}
 
+        {/* A brand-new Parent/Guardian lands HERE, not in the app: the
+            authenticated shell requires at least one real relationship, and
+            a parent whose first child has not been approved yet has none.
+            This page told them to "head back to signup", which is the wrong
+            journey entirely -- they are not joining a club as a member, they
+            are asking to be recognised as somebody's parent.
+
+            So the first-child request lives here, on the page they actually
+            reach. Submitting one grants nothing; it creates an application
+            their club decides on, and once it is approved the guardian
+            relationship exists and the full app opens on its own. */}
         {status.kind === "no-request" && (
-          <p className="mt-8 max-w-md text-base text-ink/60">
-            Your account is confirmed, but we don&apos;t have a club request
-            on file yet. Head back to signup to finish that step.
-          </p>
+          <div className="mt-8 flex flex-col gap-8">
+            {myRequests.length > 0 && (
+              <div>
+                <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Awaiting verification</p>
+                <ul className="mt-3 flex flex-col gap-2">
+                  {myRequests.map((r) => (
+                    <li key={r.request_id} className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3.5">
+                      <p className="text-sm font-medium text-amber-900">{r.child_label ?? "Your request"}</p>
+                      <p className="mt-0.5 text-sm text-amber-900/80">
+                        We&rsquo;ve received your request and need to verify the relationship. {r.club_name} will be in touch. Nothing is shared with
+                        you until then.
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div>
+              <p className="text-base text-ink/70">
+                Your account is confirmed. If you&rsquo;re a parent or guardian, add your child below and we&rsquo;ll ask their club to verify the
+                relationship.
+              </p>
+              <div className="mt-6">
+                <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Add a child</p>
+                <AddChildForm />
+              </div>
+            </div>
+
+            <p className="max-w-md text-sm text-ink-muted">
+              Joining a club as a coach, manager or club official instead?{" "}
+              <a href="/signup" className="underline underline-offset-2 hover:text-ink">
+                Finish that step in signup
+              </a>
+              .
+            </p>
+          </div>
         )}
       </div>
     </main>

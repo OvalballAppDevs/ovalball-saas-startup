@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
 
+import { isFamilyFacingContext } from "./active-context"
 import type { SwitchableContext } from "./active-context"
 import { getTeamsForActiveContext } from "./my-teams"
 import { canManageClubFixturesAnywhere, type SessionContext } from "./session-context"
@@ -108,7 +109,7 @@ export async function getDashboardData(
   // request negotiation at all (matches app/(app)/fixtures/page.tsx being
   // blocked outright for both contexts) -- skip the reads entirely rather
   // than fetch data this dashboard would then have to hide.
-  if (activeContext.kind !== "parent" && activeContext.kind !== "player") {
+  if (!isFamilyFacingContext(activeContext.kind)) {
     const { data: outgoing } = await supabase
       .from("fixture_requests")
       .select("id, venue_preference, requesting_team_id, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)")

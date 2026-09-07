@@ -24,6 +24,7 @@ function guardianRel(overrides: Partial<GuardianTeamContext>): GuardianTeamConte
     playerFirstName: "Child",
     playerSurname: "One",
     ageState: "minor",
+    avatarStoragePath: null,
     teamId: "team-1",
     teamDisplayName: "Under 9",
     clubId: "club-1",
@@ -49,6 +50,7 @@ function baseCtx(overrides: Partial<SessionContext>): SessionContext {
     teamPermissions: [],
     guardianRelationships: [],
     linkedPlayerTeams: [],
+    hasGuardianRelationship: false,
     ...overrides,
   }
 }
@@ -134,7 +136,7 @@ function baseCtx(overrides: Partial<SessionContext>): SessionContext {
 
 // ===== Player context also carries playerId (a Player's own single linked identity) =====
 {
-  const playerCtx: PlayerTeamContext = { playerId: "player-self", teamId: "team-5", teamDisplayName: "Senior Colts", clubId: "club-5", clubName: "Test Club", ageState: "adult" }
+  const playerCtx: PlayerTeamContext = { playerId: "player-self", teamId: "team-5", teamDisplayName: "Senior Colts", clubId: "club-5", clubName: "Test Club", ageState: "adult", avatarStoragePath: null }
   const ctx = baseCtx({ linkedPlayerTeams: [playerCtx] })
   const contexts = listSwitchableContexts(ctx).filter((c) => c.kind === "player")
   check("player context carries its own playerId", contexts[0]?.playerId, "player-self")

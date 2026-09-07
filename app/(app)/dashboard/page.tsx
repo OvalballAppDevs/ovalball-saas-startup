@@ -4,7 +4,7 @@ import { cookies } from "next/headers"
 import { CalendarDays, Inbox } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
-import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext, type SwitchableContext } from "@/lib/app-context/active-context"
+import { ACTIVE_CONTEXT_COOKIE, isFamilyFacingContext, resolveActiveContext, type SwitchableContext } from "@/lib/app-context/active-context"
 import { buildNavItems } from "@/lib/app-context/build-nav-items"
 import { getDashboardData, type FixtureRow, type PendingRequestRow } from "@/lib/app-context/dashboard-data"
 import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
@@ -16,6 +16,10 @@ import { getSiteAdminDashboardData } from "@/lib/app-context/site-admin-dashboar
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { getBetaBadgeState } from "@/lib/platform/mode"
 import { createClient } from "@/lib/supabase/server"
+
+import { FamilyAvatar } from "@/components/profile/family-avatar"
+
+import { FamilyPanel } from "./family-panel"
 import { FIXTURE_STATUS_BADGE_CLASS } from "@/lib/fixtures/status"
 import { APP_VERSION } from "@/lib/version"
 
@@ -117,10 +121,23 @@ export default async function DashboardPage() {
         {greeting()}, {ctx.firstName ?? "there"}
       </p>
       <div className="mt-2 flex items-center gap-3">
-        {dashboardContext.kind !== "site_admin" && <ClubAvatar logoUrl={dashboardContext.logoUrl} name={data.clubDisplayName} size="md" />}
+        {/* All Children is not a club, so it must not wear a club crest.
+            Rendered through ClubAvatar it came out as a crest-shaped tile
+            reading "AL" -- the initials of the words "All Children" -- which
+            reads as an organisation the family belongs to. */}
+        {dashboardContext.kind === "family" ? (
+          <FamilyAvatar className="size-12" />
+        ) : (
+          dashboardContext.kind !== "site_admin" && <ClubAvatar logoUrl={dashboardContext.logoUrl} name={data.clubDisplayName} size="md" />
+        )}
         <h1 className="font-display text-display-l text-ink">{data.clubDisplayName}</h1>
       </div>
       <p className="mt-1 text-sm text-ink-muted">{displayRoleLabel}</p>
+      {/* One coherent family section for Guardian/Player contexts, reading
+          the same canonical loader the agenda uses so the two can never
+          disagree about what is outstanding. */}
+      {isFamilyFacingContext(dashboardContext.kind) && <FamilyPanel supabase={supabase} ctx={ctx} activeContext={dashboardContext} />}
+
       {dashboardContext.kind === "parent" && dashboardContext.playerId && (
         <Link href={`/parent/players/${dashboardContext.playerId}/access`} className="mt-2 inline-block text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
           Manage what {dashboardContext.label} can see and do

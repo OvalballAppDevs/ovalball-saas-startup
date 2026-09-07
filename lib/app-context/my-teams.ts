@@ -109,6 +109,18 @@ export async function getTeamsForActiveContext(
     return withAliases(supabase, [team])
   }
 
+  // All Children: every team the guardian's own children are actually on.
+  // Derived from ctx.guardianRelationships -- relationships the server has
+  // already proved -- so this widens the Calendar to the family and to
+  // nothing else. A guardian with children at two different clubs correctly
+  // sees both, because the family is the scope here, not a club.
+  if (activeContext.kind === "family") {
+    const teamIds = Array.from(new Set(ctx.guardianRelationships.map((g) => g.teamId)))
+    if (teamIds.length === 0) return []
+    const { data: teams } = await supabase.from("teams").select(TEAM_FIELDS).in("id", teamIds)
+    return withAliases(supabase, teams ?? [])
+  }
+
   if (activeContext.kind === "site_admin") {
     return []
   }

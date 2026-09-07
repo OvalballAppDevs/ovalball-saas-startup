@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { addChild, searchClubs, type AddChildResult, type ClubSearchResult } from "./actions"
+import { addChild, requestChildLink, searchClubs, type AddChildResult, type ClubSearchResult } from "./actions"
 
 interface ChildDraft {
   key: string
@@ -18,11 +18,13 @@ interface ChildDraft {
   club: ClubSearchResult | null
   clubOptions: ClubSearchResult[]
   outcome: AddChildResult | null
+  /** Set when the trusted path was refused and we fell back to a request. */
+  requested: boolean
   submitting: boolean
 }
 
 function emptyDraft(key: string): ChildDraft {
-  return { key, firstName: "", surname: "", dateOfBirth: "", clubQuery: "", club: null, clubOptions: [], outcome: null, submitting: false }
+  return { key, firstName: "", surname: "", dateOfBirth: "", clubQuery: "", club: null, clubOptions: [], outcome: null, requested: false, submitting: false }
 }
 
 const OUTCOME_COPY: Record<string, { title: string; body: (ageGrade: string) => string }> = {
@@ -43,6 +45,18 @@ const OUTCOME_COPY: Record<string, { title: string; body: (ageGrade: string) => 
     body: () => "This player is already linked to your account.",
   },
 }
+
+/**
+ * The message add_child_for_guardian raises when its invite-only guard
+ * refuses a caller who holds none of the three trusted club relationships.
+ *
+ * Matching on it is how this form knows to offer the request path instead of
+ * stopping. It is not an authorization decision -- the server has already
+ * made that, and the request path re-checks everything itself. The string is
+ * kept in step with the database by add_child_error_surfacing.test.mts,
+ * which reads the live function body.
+ */
+const INVITE_ONLY_REFUSAL = "You need an invitation from this club"
 
 /**
  * Add one or more children in one journey. Each child is submitted
@@ -83,10 +97,32 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
       updateChild(key, { outcome: { ok: false, error: "First name, surname, date of birth, and club are all required." } })
       return
     }
-    updateChild(key, { submitting: true, outcome: null })
+    updateChild(key, { submitting: true, outcome: null, requested: false })
     const clubId = presetClubId ?? child.club!.id
     const rugbyCode = presetRugbyCode ?? child.club!.rugbyCode
+
+    // Try the trusted path first. A parent who already holds a relationship
+    // with this club -- an accepted invitation, another child there, or club
+    // membership -- gets the immediate, fully-resolved outcome they always
+    // did, including age-grade placement.
     const result = await addChild(child.firstName, child.surname, child.dateOfBirth, clubId, rugbyCode)
+
+    // A brand-new parent has none of those, so the guard refuses their FIRST
+    // child and would have accepted every one after it. That refusal is
+    // correct safeguarding, but it used to be the end of the journey. It now
+    // becomes a request: still no access, but a real next step instead of a
+    // dead end.
+    if (!result.ok && result.error.startsWith(INVITE_ONLY_REFUSAL)) {
+      const requested = await requestChildLink(child.firstName, child.surname, child.dateOfBirth, clubId, rugbyCode)
+      if (requested.ok) {
+        updateChild(key, { submitting: false, requested: true, outcome: null })
+        router.refresh()
+        return
+      }
+      updateChild(key, { submitting: false, outcome: { ok: false, error: requested.error } })
+      return
+    }
+
     updateChild(key, { submitting: false, outcome: result })
     if (result.ok) router.refresh()
   }
@@ -99,7 +135,15 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
 
           {child.outcome && !child.outcome.ok && <p className="mt-2 text-sm text-destructive-text">{child.outcome.error}</p>}
 
-          {child.outcome && child.outcome.ok ? (
+          {child.requested ? (
+            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5">
+              <p className="text-sm font-medium text-amber-900">Pending verification</p>
+              <p className="mt-0.5 text-sm text-amber-900/80">
+                We&rsquo;ve received your request and need to verify the relationship before this child appears on your account. Your club will be in
+                touch. You&rsquo;ll see the request under &ldquo;Awaiting verification&rdquo; until then.
+              </p>
+            </div>
+          ) : child.outcome && child.outcome.ok ? (
             <div className="mt-2 rounded-md bg-forest-50 px-3 py-2.5">
               <p className="text-sm font-medium text-ink">{OUTCOME_COPY[child.outcome.result].title}</p>
               <p className="mt-0.5 text-sm text-ink/60">{OUTCOME_COPY[child.outcome.result].body(child.outcome.ageGrade)}</p>
@@ -138,7 +182,7 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
             </div>
           )}
 
-          {!(child.outcome && child.outcome.ok) && (
+          {!child.requested && !(child.outcome && child.outcome.ok) && (
             <Button type="button" className="mt-3 h-9" disabled={child.submitting} onClick={() => handleSubmit(child.key)}>
               {child.submitting ? "Adding…" : "Add this child"}
             </Button>

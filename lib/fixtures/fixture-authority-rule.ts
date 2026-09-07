@@ -8,7 +8,11 @@
  */
 export function isActiveFixtureAuthority(
   ctx: { isSiteAdmin: boolean },
-  activeContext: { kind: "club" | "team" | "parent" | "player" | "site_admin"; id: string | null },
+  // "family" (All Children) is listed for completeness only. Like "parent"
+  // and "player" it matches none of the three grants below, so a Guardian
+  // aggregating their children can never reach a fixture write -- the rule
+  // is allow-list shaped precisely so a new context kind defaults to denied.
+  activeContext: { kind: "club" | "team" | "parent" | "player" | "family" | "site_admin"; id: string | null },
   fixture: { involvedClubIds: string[]; involvedTeamIds: string[] }
 ): boolean {
   const activeIsSiteAdmin = ctx.isSiteAdmin && activeContext.kind === "site_admin"

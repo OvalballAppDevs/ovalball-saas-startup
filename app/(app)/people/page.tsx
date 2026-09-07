@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 
@@ -102,6 +103,18 @@ export default async function PeoplePage() {
       <p className="mt-2 max-w-md text-sm text-ink-muted">
         Who has access to {clubName}, what they can do, and which teams they&apos;re assigned to.
       </p>
+
+      {/* Guardian requests live next to People because that is what they
+          are: a decision about which adult gets access to a child. The page
+          itself is scoped by club.guardians.manage server-side, so a viewer
+          without that capability lands on an empty queue rather than being
+          handed one they cannot act on. */}
+      <Link
+        href="/guardian-requests"
+        className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
+      >
+        Guardian requests awaiting approval
+      </Link>
 
       <section className="mt-8">
         {people.length === 0 ? (

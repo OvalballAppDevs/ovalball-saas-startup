@@ -47,6 +47,8 @@ SUITES=(
   email_delivery_foundation
   calendar_match_centre_link
   add_child_flow
+  guardian_link_requests
+  player_avatars
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

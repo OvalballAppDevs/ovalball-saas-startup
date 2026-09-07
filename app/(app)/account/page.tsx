@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server"
 import { AvatarForm } from "./avatar-form"
 import { EmailChangeForm } from "./email-change-form"
 import { NotificationPreferencesSection } from "./notification-preferences-section"
+import { ParentGuardianSection } from "./parent-guardian-section"
 import { PersonalDetailsForm } from "./personal-details-form"
 import { PhoneNumberForm } from "./phone-number-form"
 import { SecuritySection } from "./security-section"
@@ -110,6 +111,8 @@ export default async function AccountPage() {
       <div className="mt-6">
         <EmailChangeForm currentEmail={user.email ?? ""} />
       </div>
+
+      <ParentGuardianSection supabase={supabase} userId={user.id} />
 
       <div className="mt-6">
         <NotificationPreferencesSection topics={notificationTopics} />

@@ -33,6 +33,14 @@ export interface RugbyHubTeamOption {
   clubId: string
   teamDisplayName: string
   clubName: string
+  /**
+   * The CHILD this option is about, when the viewer reaches this team as a
+   * Guardian. A parent picking a Rugby Hub thinks "Pippa's rules", not
+   * "Under 9's rules" -- and with two children the team name alone leaves
+   * them guessing which one they just selected. Null for staff and
+   * club-wide options, where the team IS the subject.
+   */
+  childName?: string | null
 }
 
 /** Shared by every Rugby Hub page: the cookie-selected team if it's still one of the viewer's real options, else their first real option, else null (no real relationship at all). */
@@ -87,7 +95,13 @@ export function resolveRugbyHubAudience(ctx: SessionContext, team: RugbyHubTeamO
 export async function getRugbyHubTeamOptions(supabase: SupabaseClient<Database>, ctx: SessionContext): Promise<RugbyHubTeamOption[]> {
   const seen = new Map<string, RugbyHubTeamOption>()
   for (const g of ctx.guardianRelationships) {
-    seen.set(g.teamId, { teamId: g.teamId, clubId: g.clubId, teamDisplayName: g.teamDisplayName, clubName: g.clubName })
+    seen.set(g.teamId, {
+      teamId: g.teamId,
+      clubId: g.clubId,
+      teamDisplayName: g.teamDisplayName,
+      clubName: g.clubName,
+      childName: `${g.playerFirstName} ${g.playerSurname}`.trim(),
+    })
   }
   for (const p of ctx.linkedPlayerTeams) {
     seen.set(p.teamId, { teamId: p.teamId, clubId: p.clubId, teamDisplayName: p.teamDisplayName, clubName: p.clubName })

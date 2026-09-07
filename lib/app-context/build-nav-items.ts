@@ -139,11 +139,12 @@ export function buildNavItems(
   const inSiteAdminContext = activeContext.kind === "site_admin"
   const inParentContext = activeContext.kind === "parent"
   const inPlayerContext = activeContext.kind === "player"
+  const inFamilyContext = activeContext.kind === "family"
   // Player View gets exactly the same restriction as Parent View below --
   // both are read-only-by-design contexts over one team (Relationship
   // Registry §20: "this distinguishes Player View from Parent View even
   // when both experiences happen to be mostly read-only").
-  const inParentOrPlayerContext = inParentContext || inPlayerContext
+  const inParentOrPlayerContext = inParentContext || inPlayerContext || inFamilyContext
 
   // Parent/Player View is presentation-only and MUST NOT inherit whatever
   // other real authority this same account holds elsewhere in the session
@@ -161,20 +162,40 @@ export function buildNavItems(
   const hasClubFixtureAuthority = inParentOrPlayerContext ? false : canManageClubFixturesAnywhere(ctx)
   const manageable = inParentOrPlayerContext ? [] : manageableTeams(ctx)
 
-  const calendarLabel =
-    inTeamContext || inParentOrPlayerContext
-      ? activeContext.label
-      : viewOnly && ctx.teamPermissions.length === 1
-        ? ctx.teamPermissions[0].teamDisplayName
-        : "Calendar"
-  items.push({ href: "/calendar", label: calendarLabel })
-
-  // Parent/Player View: Dashboard + this one team's Calendar only, full
-  // stop -- never falls through to any of the authority-gated sections
-  // below, regardless of what else this account can do in another context.
+  // Parent/Guardian/Player navigation is a FIXED five-link set:
+  //
+  //   Dashboard · Fixtures · Calendar · Rugby Hub · Settings
+  //
+  // Fixed, because a parent's navigation should not silently change shape
+  // depending on how many children they have or which one is selected --
+  // and because everything a guardian needs is one of these five. It is
+  // returned before any of the authority-gated sections below, so a
+  // multi-role account (a Club Admin who is also a parent) sees exactly
+  // this and nothing inherited from their other authority.
+  //
+  // "Fixtures" here is /agenda, a parent-facing list of that child's real
+  // fixtures and training. It is deliberately NOT /fixtures, which is the
+  // inter-club negotiation register (requesting, accepting and rejecting
+  // fixtures between clubs) -- an admin surface a guardian has no business
+  // operating and, in Parent View, would only have offered write controls
+  // that fail.
   if (inParentOrPlayerContext) {
-    return { primary: items, roleLabel: activeContext.roleLabel, clubName: activeContext.label, clubLogoUrl: activeContext.logoUrl }
+    const parentItems: NavItem[] = [
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/agenda", label: "Fixtures" },
+      { href: "/calendar", label: "Calendar" },
+      { href: "/rugby-hub", label: "Rugby Hub" },
+      { href: "/account", label: "Settings" },
+    ]
+    return { primary: parentItems, roleLabel: activeContext.roleLabel, clubName: activeContext.label, clubLogoUrl: activeContext.logoUrl }
   }
+
+  const calendarLabel = inTeamContext
+    ? activeContext.label
+    : viewOnly && ctx.teamPermissions.length === 1
+      ? ctx.teamPermissions[0].teamDisplayName
+      : "Calendar"
+  items.push({ href: "/calendar", label: calendarLabel })
 
   // A Site Admin context is the admin console -- deliberately never the
   // club/team operational surface too, even for someone who separately

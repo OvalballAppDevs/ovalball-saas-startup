@@ -43,6 +43,8 @@ export interface GuardianTeamContext {
   playerFirstName: string
   playerSurname: string
   ageState: PlayerAgeState
+  /** The CHILD's own picture, never the guardian's. Null is the norm -- youth participation never requires a photograph, and initials are a first-class rendering. Resolved to a short-lived signed URL at the render boundary; the raw path is meaningless without one. */
+  avatarStoragePath: string | null
   teamId: string
   teamDisplayName: string
   clubId: string
@@ -57,6 +59,8 @@ export interface PlayerTeamContext {
   clubId: string
   clubName: string
   ageState: PlayerAgeState
+  /** This player's own picture (see GuardianTeamContext.avatarStoragePath). */
+  avatarStoragePath: string | null
 }
 
 export interface SessionContext {
@@ -87,6 +91,20 @@ export interface SessionContext {
   guardianRelationships: GuardianTeamContext[]
   /** This user's OWN linked player record's active team memberships, if any -- the canonical Player relationship, independent of Guardian/teamPermissions. Empty when this user has no linked player row. */
   linkedPlayerTeams: PlayerTeamContext[]
+  /**
+   * Whether this account holds ANY active guardian relationship, counted
+   * straight from `guardians` rather than derived from team memberships.
+   *
+   * guardianRelationships above is a (player, ACTIVE team) product, so it is
+   * empty for a guardian whose child has not been placed on a team yet --
+   * which is the normal state immediately after a first-child request is
+   * approved, since the club still has to assign the age group. Gating entry
+   * to the app on the derived list therefore locked an approved parent out
+   * of the product and sent them back to "we don't have a club request on
+   * file", found live in Phase 2B UAT. This flag is the honest answer to
+   * "is this person a guardian at all".
+   */
+  hasGuardianRelationship: boolean
 }
 
 /**
@@ -124,16 +142,17 @@ export async function getSessionContext(
       // one query per player set, purely from player_team_memberships.
       supabase
         .from("guardians")
-        .select("player_id, players(id, first_name, surname, date_of_birth)")
+        .select("player_id, players(id, first_name, surname, date_of_birth, avatar_storage_path)")
         .eq("guardian_user_id", user.id)
         .eq("status", "active"),
       // This user's OWN linked player record, if any -- fully independent
       // of the guardian query above (Section 15: Parent and Player are
       // independent relationships on one account).
-      supabase.from("players").select("id, date_of_birth").eq("user_id", user.id).eq("active", true).maybeSingle(),
+      supabase.from("players").select("id, date_of_birth, avatar_storage_path").eq("user_id", user.id).eq("active", true).maybeSingle(),
     ])
 
   const guardianPlayerIds = (guardianRows ?? []).map((g) => g.player_id)
+  const hasGuardianRelationship = guardianPlayerIds.length > 0
   const ownPlayerId = ownPlayerRow?.id ?? null
   const allPlayerIdsForTeamLookup = Array.from(new Set([...guardianPlayerIds, ...(ownPlayerId ? [ownPlayerId] : [])]))
 
@@ -157,6 +176,7 @@ export async function getSessionContext(
         playerId: g.player_id,
         playerFirstName: player.first_name,
         playerSurname: player.surname,
+        avatarStoragePath: player.avatar_storage_path ?? null,
         ageState: resolvePlayerAgeState(player.date_of_birth, [{ category: m.teams.category as "senior" | "youth" | "colts", ageGroup: m.teams.age_group }]),
         teamId: m.team_id,
         teamDisplayName: m.teams.display_name,
@@ -175,6 +195,7 @@ export async function getSessionContext(
           teamDisplayName: m.teams!.display_name,
           clubId: m.teams!.club_id,
           clubName: m.teams!.clubs?.club_directory?.name ?? "Club",
+          avatarStoragePath: ownPlayerRow?.avatar_storage_path ?? null,
           ageState: resolvePlayerAgeState(ownPlayerRow?.date_of_birth ?? null, [{ category: m.teams!.category as "senior" | "youth" | "colts", ageGroup: m.teams!.age_group }]),
         }))
     : []
@@ -211,6 +232,7 @@ export async function getSessionContext(
     teamPermissions,
     guardianRelationships,
     linkedPlayerTeams,
+    hasGuardianRelationship,
   }
 }
 

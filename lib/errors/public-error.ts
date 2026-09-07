@@ -154,6 +154,34 @@ export function toPublicAddChildError(error: RawErrorLike): string {
   return "We couldn't add this child right now. Please sign out and back in, then try again."
 }
 
+/**
+ * Same allowlist reasoning, for the guardian link request RPCs.
+ *
+ * Note what is NOT here, and cannot be: nothing in this list reveals whether
+ * a child exists, who their guardians are, or which club they belong to.
+ * "This request is no longer available." is deliberately the single message
+ * for both "no such request" and "not yours to decide", so the id space
+ * cannot be probed -- and it falls through to the generic fallback below
+ * rather than being echoed, since an applicant has no use for it.
+ */
+const SAFE_GUARDIAN_REQUEST_ERROR_PREFIXES = [
+  "You must be signed in.",
+  "A valid email address is required.",
+  "You are not authorized to add a guardian for this player.",
+  "This player is not attached to a club yet.",
+  "This request has already been decided.",
+  "You have submitted several requests recently.",
+  "This person needs to accept their invitation and sign in",
+]
+
+export function toPublicGuardianRequestError(error: RawErrorLike): string {
+  const message = error.message ?? ""
+  if (SAFE_GUARDIAN_REQUEST_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return message
+  }
+  return "We couldn't send this request right now. Please try again."
+}
+
 /** Same allowlist reasoning, for invite_player_account()'s own deliberately human-readable exception text. */
 const SAFE_PLAYER_ACCOUNT_INVITE_ERROR_PREFIXES = [
   "You are not authorized to invite a login for this player.",
