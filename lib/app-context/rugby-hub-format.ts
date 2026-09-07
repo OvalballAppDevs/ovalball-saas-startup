@@ -28,7 +28,9 @@ export const RULES_SECTION_LABELS: Record<string, string> = {
   OVERVIEW: "Overview",
   KEY_RULES: "Key Rules",
   MATCH_FORMAT: "Match Format",
+  PLAYER_COUNT: "Player Numbers",
   PITCH: "Pitch",
+  BALL: "Ball Size",
   SCRUM: "Scrum",
   LINEOUT: "Lineout",
   SAFETY: "Contact / Tackle",
@@ -44,7 +46,10 @@ export const SAFEGUARDING_SECTION_LABELS: Record<string, string> = {
 }
 
 export const WELFARE_SECTION_LABELS: Record<string, string> = {
+  EMERGENCY: "Emergency Signs",
+  MEDICAL_ASSESSMENT: "Medical Assessment",
   SAFETY: "Remove From Play",
+  RETURN_TO_PLAY: "Return to Play",
   CONCUSSION: "Concussion Guidance",
   OVERVIEW: "Overview",
   OTHER: "Other",

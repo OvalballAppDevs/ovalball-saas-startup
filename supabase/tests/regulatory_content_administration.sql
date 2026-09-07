@@ -129,16 +129,36 @@ begin
     raise notice 'SKIP D/E: no U6 mixed canonical_team_type seeded in this environment';
   end if;
 
-  -- F. No content exists anywhere yet (Phase 2 is schema-only) -- every resolver is honestly empty, not fabricated
+  -- F. No RULES/SAFEGUARDING-content/SAFEGUARDING-routes exist for THIS
+  -- team's own identity/rugby_code (Phase 3 ported zero RFU age-grade
+  -- RULES content and zero RFU safeguarding content/routes -- every RFU
+  -- age-grade band and RFU safeguarding source remained genuinely
+  -- inaccessible research, disclosed honestly rather than fabricated) --
+  -- these resolvers stay honestly empty, not fabricated. WELFARE is
+  -- deliberately excluded from this check: Phase 3 DID port real, general
+  -- (identity-unscoped) RFU community concussion guidance
+  -- (RFU-PLAYER-WELFARE-COMMUNITY-2026), which G below asserts IS now
+  -- correctly reachable by this team via the general-content fallback.
   reset role; set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_coach::text, 'role', 'authenticated')::text, true);
   if (select count(*) from get_rugby_hub_rules(v_team)) = 0
      and (select count(*) from get_rugby_hub_safeguarding_content(v_team)) = 0
-     and (select count(*) from get_rugby_hub_safeguarding_routes(v_team)) = 0
-     and (select count(*) from get_rugby_hub_welfare(v_team)) = 0 then
-    raise notice 'PASS F: every Rugby Hub resolver is honestly empty -- no fabricated content in a fresh schema';
+     and (select count(*) from get_rugby_hub_safeguarding_routes(v_team)) = 0 then
+    raise notice 'PASS F: RULES/SAFEGUARDING resolvers are honestly empty for this team -- no fabricated content for a topic Phase 3 never populated for this rugby_code';
   else
-    raise notice 'FAIL F: a resolver returned rows despite no content ever being published';
+    raise notice 'FAIL F: a RULES/SAFEGUARDING resolver returned rows despite no matching content ever being published for this team';
+  end if;
+
+  -- F2. WELFARE, by contrast, DOES resolve real content for this team:
+  -- Phase 3's general (identity-unscoped) RFU-PLAYER-WELFARE-COMMUNITY-2026
+  -- content set correctly falls back to any union team with no more
+  -- specific identity-scoped welfare content of its own -- proving the
+  -- general-content fallback (20261031020000) actually works end to end,
+  -- not just that the resolver no longer errors.
+  if (select count(*) from get_rugby_hub_welfare(v_team) where fact_type = 'COMMUNITY_GAME_PROTOCOL') = 1 then
+    raise notice 'PASS F2: general RFU community welfare content resolves for a team with no identity-specific welfare content of its own';
+  else
+    raise notice 'FAIL F2: general welfare content did not resolve for this team';
   end if;
 
   -- ===================================================================
