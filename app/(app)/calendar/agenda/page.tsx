@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils"
 import { SeasonPhaseHeader } from "../season-phase-header"
 import { TeamFilterBar } from "../team-filter-bar"
 
+export const metadata = { title: "Agenda" }
+
 const STATUS_STYLES: Record<string, string> = {
   Booked: "bg-mint-100 text-forest-900",
   Confirmed: "bg-mint-100 text-forest-900",

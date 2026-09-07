@@ -8,6 +8,8 @@ import { getCapabilities, getPermissionGroups } from "./actions"
 import { GroupCard } from "./group-card"
 import { GroupForm } from "./group-form"
 
+export const metadata = { title: "Permissions" }
+
 const SCOPE_LABEL: Record<string, string> = { club: "Club-wide groups", team: "Team-scoped groups", global: "Global" }
 
 /** Site Admin only. Groups are a configuration/documentation layer over the real, already-implemented club_memberships.role / team_permissions.permission enforcement -- see actions.ts and the migration comment for the full reasoning. */

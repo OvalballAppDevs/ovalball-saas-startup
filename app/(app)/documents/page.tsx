@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server"
 
 import { DocumentLibraryClient } from "./library-client"
 
+export const metadata = { title: "Documents" }
+
 export default async function DocumentsPage({ searchParams }: { searchParams: Promise<{ folder?: string }> }) {
   const { folder: folderId } = await searchParams
   const supabase = await createClient()

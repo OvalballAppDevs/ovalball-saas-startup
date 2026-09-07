@@ -11,6 +11,8 @@ import { FixtureManagementView } from "../../admin/fixtures/fixture-management-v
 import { FixtureRequestsSheet } from "../fixture-requests-sheet"
 import { getIncomingFixtureRequestsSummary } from "../incoming-requests-summary"
 
+export const metadata = { title: "Fixture Management" }
+
 /**
  * Section 14/25: the Club Admin/Fixtures Secretary Fixture Management
  * surface -- the SAME FixtureManagementView component Site Admin's /admin/

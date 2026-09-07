@@ -9,6 +9,8 @@ import { InviteSiteAdminForm } from "./invite-form"
 import { PendingInvitationRow, type PendingSiteAdminInvitationData } from "./pending-invitation-row"
 import { profileLabel } from "./profiles"
 
+export const metadata = { title: "Site Administrators" }
+
 /**
  * Site Admin only, same redirect-courtesy pattern as every other /admin
  * page -- RLS on site_admins/site_admin_invitations is the real boundary.

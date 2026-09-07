@@ -6,7 +6,7 @@ import { LegalDocumentMeta, LegalList, LegalSection, LegalSubheading, LegalTable
 import { CONTACT_EMAIL, CONTACT_MAILTO, CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Ovalball Privacy Notice",
+  title: "Privacy Notice",
   description:
     "How Ovalball handles information about rugby clubs, teams, players, parents and guardians, and authorised club staff.",
 }

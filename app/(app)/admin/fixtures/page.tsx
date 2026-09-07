@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server"
 
 import { FixtureManagementView } from "./fixture-management-view"
 
+export const metadata = { title: "Fixture Management" }
+
 export default async function AdminFixturesPage({
   searchParams,
 }: {

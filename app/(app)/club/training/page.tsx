@@ -10,6 +10,8 @@ import { fullTeamLabel } from "@/lib/teams/compact-label"
 import { getTrainingExceptions } from "./exceptions"
 import { TrainingManagementClient, type PlanRow, type PitchOption, type SeasonOption, type TeamOption, type UpcomingSession, type VenueOption } from "./training-management-client"
 
+export const metadata = { title: "Training" }
+
 /**
  * SIDE PROJECT 2 -- TRAINING MANAGEMENT landing page (Section 5-6).
  * Gated on club.training.manage (Club-Admin-only, Section 44) -- the same

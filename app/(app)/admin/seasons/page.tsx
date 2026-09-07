@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase/server"
 import { CreateSeasonForm } from "./create-season-form"
 import { SeasonRow } from "./season-row"
 
+export const metadata = { title: "Seasons" }
+
 /**
  * Site Admin reference-data for the season model (20260902150000): a real
  * Union or League campaign with an operational main-season window and,

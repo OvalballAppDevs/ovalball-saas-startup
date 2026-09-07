@@ -78,3 +78,30 @@ export function getSiteUrl(): string {
 export function absoluteUrl(path: string): string {
   return `${getSiteUrl()}${path.startsWith("/") ? path : `/${path}`}`
 }
+
+/**
+ * The same origin, for `metadata.metadataBase` only.
+ *
+ * getSiteUrl() fails closed, which is right for the thing it was written for:
+ * a missing origin must never silently mail a real user a link to their own
+ * machine. But Next evaluates root-layout metadata at BUILD time, so calling
+ * the throwing version there converts "this deployment is misconfigured" into
+ * "this build cannot be produced at all" -- including builds that legitimately
+ * have no origin yet, such as a local production build for verification.
+ *
+ * metadataBase only resolves relative Open Graph URLs. Absence degrades: Next
+ * warns and falls back. It cannot mail anyone anything, so it does not warrant
+ * the fail-closed path -- and a genuinely misconfigured production deployment
+ * still fails loudly the first time it tries to build an auth link, which is
+ * where the guard belongs.
+ *
+ * This is deliberately in THIS file so there is still exactly one place that
+ * knows how the product's origin is resolved.
+ */
+export function getSiteUrlForMetadata(): string | null {
+  try {
+    return getSiteUrl()
+  } catch {
+    return null
+  }
+}

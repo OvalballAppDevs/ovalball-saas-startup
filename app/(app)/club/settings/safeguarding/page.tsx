@@ -11,6 +11,8 @@ import { resolveClubSettingsNavCapabilities } from "../resolve-nav-capabilities"
 import { NominateOfficerForm } from "./nominate-form"
 import { OfficerRow, type OfficerData } from "./officer-row"
 
+export const metadata = { title: "Safeguarding | Club Settings" }
+
 /**
  * Safeguarding Officer Foundation -- Club Admin area. Gated on
  * club.safeguarding.view (read) with club.safeguarding.manage_contact

@@ -10,7 +10,7 @@ import { CONTACT_EMAIL, CONTACT_MAILTO, PRODUCT_NAME } from "@/lib/legal/metadat
 import { ContactForm } from "./contact-form"
 
 export const metadata: Metadata = {
-  title: "Contact Us | Ovalball",
+  title: "Contact Us",
   description:
     "Get in touch with the Ovalball team about using Ovalball at your rugby club, your account, or a question about the service.",
 }

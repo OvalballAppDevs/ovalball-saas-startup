@@ -17,6 +17,8 @@ import { QuickEditActiveToggle, QuickEditCell } from "./quick-edit-cell"
 import { buildAdminClubQuery, mapAdminClubRow } from "./query"
 import { parseAdminClubQuery } from "./types"
 
+export const metadata = { title: "Club Management" }
+
 /**
  * Site Admin only -- club_directory/clubs RLS (is_site_admin() on both)
  * is the real boundary via admin_club_overview's security_invoker

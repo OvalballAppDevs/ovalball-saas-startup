@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server"
 
 import { RequestFixtureForm } from "./request-fixture-form"
 
+export const metadata = { title: "Request a Fixture" }
+
 interface NewFixtureRequestPageProps {
   searchParams: Promise<{ opponentClubId?: string; opponentDirectoryId?: string; targetTeamId?: string; date?: string }>
 }

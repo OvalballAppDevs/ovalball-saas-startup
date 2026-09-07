@@ -15,6 +15,8 @@ import { MonthSelector } from "./month-selector"
 import { RelationshipReviewPanel, type RelationshipReviewItem } from "./relationship-review-panel"
 import { SubscriberTable } from "./subscriber-table"
 
+export const metadata = { title: "Club Finance" }
+
 function currentMonthISO() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`

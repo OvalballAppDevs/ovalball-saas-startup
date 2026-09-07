@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/server"
 import { APP_BUILD_SHA, APP_VERSION } from "@/lib/version"
 import { BetaBadge } from "@/components/platform/beta-badge"
 
+export const metadata = { title: "System Health" }
+
 /**
  * Read-only build/release metadata -- no secrets, no connection strings,
  * no service-role keys, nothing an attacker could use. Full Site Admin

@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server"
 import { AddTeamTypeDialog } from "./add-team-type-dialog"
 import { DeactivateTeamTypeButton } from "./deactivate-team-type-button"
 
+export const metadata = { title: "Team Directory" }
+
 const GROUP_LABELS: Record<string, string> = {
   youth: "Youth / age-grade",
   colts: "Colts",

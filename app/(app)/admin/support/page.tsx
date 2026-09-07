@@ -12,6 +12,8 @@ import { ExportCsvButton } from "./export-csv-button"
 import { fetchAdminSupportTickets, fetchSupportStatusCounts, parseAdminSupportQuery } from "./query"
 import { SupportFilters } from "./support-filters"
 
+export const metadata = { title: "Support" }
+
 const STATUS_BADGE_STYLE: Record<string, string> = {
   new: "bg-pitch-600/12 text-forest-800",
   in_progress: "bg-amber-500/15 text-amber-800",

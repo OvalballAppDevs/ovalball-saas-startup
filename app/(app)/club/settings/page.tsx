@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/server"
 
 import { ClubSettingsNav } from "./club-settings-nav"
 
+export const metadata = { title: "Club Settings" }
+
 /**
  * Club Settings hub -- Master Architecture Pass "Club Admin Information
  * Architecture" §1: consolidates the formerly-separate top-level Club,

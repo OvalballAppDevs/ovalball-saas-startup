@@ -6,7 +6,7 @@ import { LegalDocumentMeta, LegalList, LegalSection, LegalSubheading } from "@/c
 import { CONTACT_EMAIL, CONTACT_MAILTO, CONTACT_ROUTE, OPERATOR_NAME, PUBLIC_ORIGIN } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Your Data Rights | Ovalball",
+  title: "Your Data Rights",
   description:
     "Your rights over information held in Ovalball, how to exercise them, how to close an account, and how to request deletion including for Facebook sign-in.",
 }

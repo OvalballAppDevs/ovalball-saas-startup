@@ -14,6 +14,8 @@ import { ExportClubFixturesButton } from "./export-button"
 import { NonOvalballRow, type NonOvalballRowData } from "./non-ovalball-row"
 import { RequestRow, type RequestRowData } from "./request-row"
 
+export const metadata = { title: "Fixtures" }
+
 interface RejectedRowData {
   id: string
   direction: "outgoing" | "incoming"

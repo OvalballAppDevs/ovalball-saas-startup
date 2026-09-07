@@ -5,7 +5,7 @@ import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { CONTACT_EMAIL, CONTACT_MAILTO } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "You've been invited | Ovalball",
+  title: "You've been invited",
   description:
     "What to do if your rugby club has invited you to Ovalball: open the link in your invitation email. Ovalball is invite-only, so there is nothing to sign up for.",
 }

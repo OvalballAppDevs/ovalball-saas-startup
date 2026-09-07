@@ -11,6 +11,8 @@ import { buildAdminUserQuery, mapAdminUserRow } from "./query"
 import { accessLabel, parseAdminUserQuery, type AdminUserRow } from "./types"
 import { UserFilters } from "./user-filters"
 
+export const metadata = { title: "Users" }
+
 /** Site Admin only, same convention as /admin/clubs -- RLS (profiles_select_self_or_admin) is the real boundary. */
 export default async function AdminUsersPage({
   searchParams,

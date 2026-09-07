@@ -13,7 +13,7 @@ import {
 } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Copyright & Intellectual Property | Ovalball",
+  title: "Copyright & Intellectual Property",
   description:
     "Who owns what in Ovalball: the rights Pipaxon Technologies Ltd holds, the rights clubs and users keep, and the third-party marks Ovalball claims no ownership of.",
 }

@@ -7,7 +7,7 @@ import { LegalDocumentMeta } from "@/components/site/legal-prose"
 import { LEGAL_DOCUMENTS, OPERATOR_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Legal & Trust | Ovalball",
+  title: "Legal & Trust",
   description:
     "How Ovalball is provided, how information about clubs, players and families is handled, and the standards expected of everyone using the rugby platform.",
 }

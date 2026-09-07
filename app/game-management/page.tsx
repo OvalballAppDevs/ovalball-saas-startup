@@ -17,7 +17,7 @@ import {
 import { Reveal } from "@/lib/motion/reveal"
 
 export const metadata: Metadata = {
-  title: "Rugby Game Management | Ovalball",
+  title: "Rugby Game Management",
   description:
     "Keep coaches, players and families connected for game day with fixture information, player availability and team preparation in Ovalball.",
 }

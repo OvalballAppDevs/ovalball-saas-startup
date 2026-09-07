@@ -11,7 +11,7 @@ import {
 } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Referral Terms | Ovalball",
+  title: "Referral Terms",
   description:
     "The terms of Ovalball's club referral reward: what earns it, what does not, how it is valued, and when it can be withdrawn.",
 }

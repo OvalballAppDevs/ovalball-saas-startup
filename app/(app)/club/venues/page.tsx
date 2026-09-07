@@ -10,6 +10,8 @@ import { ClubSettingsNav } from "../settings/club-settings-nav"
 import { resolveClubSettingsNavCapabilities } from "../settings/resolve-nav-capabilities"
 import { VenuesSection } from "./venues-section"
 
+export const metadata = { title: "Venues" }
+
 /**
  * Club Lookup Administration -- one back-office place for club-specific
  * controlled lookup data (Section 2 of the Venue instruction). Venues

@@ -6,7 +6,7 @@ import { LegalDocumentMeta, LegalList, LegalSection, LegalSubheading } from "@/c
 import { CONTACT_EMAIL, CONTACT_MAILTO, CONTACT_ROUTE, OPERATOR_NAME, PRODUCT_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Ovalball Terms of Service",
+  title: "Terms of Service",
   description:
     "The terms governing access to and use of Ovalball, the rugby administration and club-management platform operated by Pipaxon Technologies Ltd.",
 }

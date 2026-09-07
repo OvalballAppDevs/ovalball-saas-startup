@@ -28,6 +28,8 @@ import { TeamFilterBar } from "./team-filter-bar"
 import { qs } from "@/lib/calendar/query-string"
 import { WeekBoard, type TournamentParticipantView, type WeekEntry } from "./week-board"
 
+export const metadata = { title: "Calendar" }
+
 /**
  * Calendar Core -- a VIEW over canonical fixtures/training_sessions/
  * teams/scheduling_groups/seasons, never a second editable calendar store

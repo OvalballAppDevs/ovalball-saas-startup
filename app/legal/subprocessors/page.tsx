@@ -6,7 +6,7 @@ import { LegalDocumentMeta, LegalSection, LegalTable } from "@/components/site/l
 import { CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Third-Party Services | Ovalball",
+  title: "Third-Party Services",
   description:
     "The service providers Ovalball relies on, what each one does, and which are currently active versus supported but not yet enabled.",
 }

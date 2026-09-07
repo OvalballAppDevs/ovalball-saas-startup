@@ -6,7 +6,7 @@ import { LegalDocumentMeta } from "@/components/site/legal-prose"
 import { CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Children & Young People Privacy | Ovalball",
+  title: "Children & Young People Privacy",
   description:
     "A plain-English guide for young rugby players explaining what Ovalball stores about them, who can see it, and the privacy rights they have.",
 }

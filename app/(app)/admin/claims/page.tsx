@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server"
 
 import { ClaimCard } from "./claim-card"
 
+export const metadata = { title: "Club Claims" }
+
 /**
  * The first functional Site Admin workflow, and the actual unlock for
  * every downstream authenticated screen: before this existed, a claim had

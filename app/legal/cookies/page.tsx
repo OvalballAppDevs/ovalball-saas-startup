@@ -6,7 +6,7 @@ import { LegalDocumentMeta, LegalSection, LegalTable } from "@/components/site/l
 import { CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Ovalball Cookie Policy",
+  title: "Cookie Policy",
   description:
     "The cookies and browser storage Ovalball actually uses to sign you in, keep your club context and keep the rugby platform secure.",
 }

@@ -13,7 +13,7 @@ import { JOURNEY_FIXTURES } from "@/lib/marketing/fixture-journey-demo"
 import { Reveal } from "@/lib/motion/reveal"
 
 export const metadata: Metadata = {
-  title: "Rugby Fixture Management | Ovalball",
+  title: "Rugby Fixture Management",
   description:
     "See how Ovalball connects fixture requests, messaging, calendars and pitch allocation in one rugby club management platform.",
 }

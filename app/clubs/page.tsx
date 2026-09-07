@@ -11,7 +11,7 @@ import { getBetaBadgeState } from "@/lib/platform/mode"
 import { Reveal } from "@/lib/motion/reveal"
 
 export const metadata: Metadata = {
-  title: "Rugby Clubs & Communities | Ovalball",
+  title: "Rugby Clubs & Communities",
   description:
     "Discover how Ovalball helps rugby clubs, teams and communities stay connected through better organisation, communication and grassroots rugby technology.",
 }

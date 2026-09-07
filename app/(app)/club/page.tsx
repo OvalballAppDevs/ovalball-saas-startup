@@ -16,6 +16,8 @@ import { KitSection } from "./kit-section"
 import { ClubSettingsNav } from "./settings/club-settings-nav"
 import { resolveClubSettingsNavCapabilities } from "./settings/resolve-nav-capabilities"
 
+export const metadata = { title: "Club" }
+
 export default async function ClubProfilePage() {
   const supabase = await createClient()
   const {

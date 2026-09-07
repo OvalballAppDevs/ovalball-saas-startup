@@ -11,6 +11,8 @@ import { ReleasePanel, type ReleaseRow } from "./release-panel"
 
 export const dynamic = "force-dynamic"
 
+export const metadata = { title: "Release & Platform Mode" }
+
 /**
  * Release history and the Beta ↔ Live switch.
  *

@@ -6,6 +6,8 @@ import { requireSiteAdmin } from "../require-site-admin"
 import { OfficerCapabilityRow, type OfficerCapabilityData } from "./officer-capability-row"
 import type { SafeguardingCapabilityKey } from "./actions"
 
+export const metadata = { title: "Safeguarding" }
+
 const CAPABILITY_KEYS: SafeguardingCapabilityKey[] = [
   "club.dispensation.view",
   "club.dispensation.notify",

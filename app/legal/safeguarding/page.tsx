@@ -6,7 +6,7 @@ import { LegalDocumentMeta, LegalList, LegalSection } from "@/components/site/le
 import { CONTACT_EMAIL, CONTACT_MAILTO, CONTACT_ROUTE, OPERATOR_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Safeguarding & Online Safety | Ovalball",
+  title: "Safeguarding & Online Safety",
   description:
     "How Ovalball supports safeguarding for rugby clubs and young players, what the platform does, and where responsibility sits.",
 }

@@ -6,7 +6,7 @@ import { LegalDocumentMeta, LegalList, LegalSection } from "@/components/site/le
 import { CONTACT_ROUTE } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "Acceptable Use & Community Standards | Ovalball",
+  title: "Acceptable Use & Community Standards",
   description:
     "The standards everyone using Ovalball is expected to meet, and what happens when they are breached.",
 }

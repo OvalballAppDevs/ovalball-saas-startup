@@ -14,6 +14,8 @@ import { SiblingDiscountPanel } from "./sibling-discount-panel"
 import { SubscriptionSettingsForm } from "./subscription-settings-form"
 import { getSiblingDiscountRules } from "./actions"
 
+export const metadata = { title: "Subscriptions & Payments | Club Settings" }
+
 /**
  * Club Settings > Subscriptions & Payments (Side Project 1 integration).
  * Renders the explicit state machine (never just an on/off checkbox), the

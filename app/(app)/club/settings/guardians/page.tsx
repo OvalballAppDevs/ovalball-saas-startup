@@ -13,6 +13,8 @@ import { DuplicateReviewRow, type DuplicateReviewData } from "./duplicate-review
 import { PendingMembershipRow, type PendingMembershipData } from "./pending-membership-row"
 import { PlayerGuardianCard, type PlayerGuardianData } from "./player-guardian-card"
 
+export const metadata = { title: "Parents & Guardians | Club Settings" }
+
 /**
  * The Club Admin's own safeguarding surface (Side Project 1 integration) --
  * Guardian relationship management (remove/replace, Club Admin only) and

@@ -8,7 +8,7 @@ import { getBetaBadgeState } from "@/lib/platform/mode"
 import { CONTACT_EMAIL, CONTACT_MAILTO, CONTACT_ROUTE, OPERATOR_NAME, PRODUCT_NAME } from "@/lib/legal/metadata"
 
 export const metadata: Metadata = {
-  title: "About Us | Ovalball",
+  title: "About Us",
   description:
     "Ovalball is technology built for rugby — bringing the day-to-day organisation of club rugby into one connected place. Operated by Pipaxon Technologies Ltd.",
 }

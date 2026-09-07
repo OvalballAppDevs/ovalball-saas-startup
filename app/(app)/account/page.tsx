@@ -14,6 +14,8 @@ import { PhoneNumberForm } from "./phone-number-form"
 import { SecuritySection } from "./security-section"
 import { SignOutButton } from "./sign-out-button"
 
+export const metadata = { title: "Your Account" }
+
 export default async function AccountPage() {
   const supabase = await createClient()
   const {

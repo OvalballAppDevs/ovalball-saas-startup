@@ -19,6 +19,8 @@ import { StartTrialButton } from "./start-trial-button"
 
 export const dynamic = "force-dynamic"
 
+export const metadata = { title: "Ovalball Subscription | Club Settings" }
+
 /**
  * Club Settings → Ovalball Plan.
  *

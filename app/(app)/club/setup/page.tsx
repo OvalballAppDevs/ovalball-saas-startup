@@ -14,6 +14,8 @@ import { SetupProgress, StepChecklist, StepNav, type StepMeta } from "./setup-ch
 import { StepTeams, type SetupTeam } from "./step-teams"
 import { StepVenue, type ExistingVenue } from "./step-venue"
 
+export const metadata = { title: "Club Setup" }
+
 /**
  * Club first-run setup.
  *

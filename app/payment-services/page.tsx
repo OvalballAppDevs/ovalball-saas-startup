@@ -11,7 +11,7 @@ import { DEMO_FAMILY, DEMO_FINANCE_SUMMARY } from "@/lib/marketing/game-day-demo
 import { Reveal } from "@/lib/motion/reveal"
 
 export const metadata: Metadata = {
-  title: "Rugby Club Membership Payments | Ovalball",
+  title: "Rugby Club Membership Payments",
   description:
     "Connect rugby club membership administration with recurring payment visibility. Ovalball integrates with GoCardless for Direct Debit collection.",
 }
