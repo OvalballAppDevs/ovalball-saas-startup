@@ -52,7 +52,7 @@ export default async function PlayerAccessPage({ params }: { params: Promise<{ p
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Dashboard
       </Link>
@@ -61,7 +61,7 @@ export default async function PlayerAccessPage({ params }: { params: Promise<{ p
       <h1 className="mt-2 font-display text-display-l text-ink">
         {player.first_name} {player.surname}
       </h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">
+      <p className="mt-2 max-w-md text-sm text-ink-muted">
         {canEdit
           ? "Choose what " + player.first_name + " can see and do on Ovalball. Each of these is independent — allowing one doesn't allow the others."
           : `${player.first_name}'s guardian controls these settings. You can see the current state below.`}
@@ -75,9 +75,9 @@ export default async function PlayerAccessPage({ params }: { params: Promise<{ p
             <li key={permission.key} className="flex items-start justify-between gap-4 rounded-lg border border-ink/10 bg-white px-4 py-3.5">
               <div>
                 <p className="text-sm font-medium text-ink">{permission.label}</p>
-                <p className="mt-0.5 text-sm text-ink/55">{permission.description}</p>
+                <p className="mt-0.5 text-sm text-ink-muted">{permission.description}</p>
               </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${permission.effective ? "bg-forest-100 text-forest-800" : "bg-ink/5 text-ink/50"}`}>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${permission.effective ? "bg-forest-100 text-forest-800" : "bg-ink/5 text-ink-muted"}`}>
                 {permission.effective ? "Allowed" : "Not allowed"}
               </span>
             </li>
@@ -85,7 +85,7 @@ export default async function PlayerAccessPage({ params }: { params: Promise<{ p
         )}
       </ul>
 
-      {!isGuardian && <p className="mt-6 text-xs text-ink/40">Only {player.first_name}&apos;s guardian can change these settings.</p>}
+      {!isGuardian && <p className="mt-6 text-xs text-ink-muted">Only {player.first_name}&apos;s guardian can change these settings.</p>}
 
       <div className="mt-8 border-t border-ink/10 pt-6">
         <Link href={`/parent/players/${playerId}/subscription`} className="text-sm font-medium text-forest-800 underline underline-offset-4 hover:text-forest-950">

@@ -49,11 +49,11 @@ export function PlayerGuardianCard({ player, clubName }: { player: PlayerGuardia
     <li className="rounded-lg border border-ink/10 bg-white px-4 py-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-ink">{player.playerName}</p>
-        <span className="text-xs text-ink/45">{player.teamLabel}</span>
+        <span className="text-xs text-ink-muted">{player.teamLabel}</span>
       </div>
 
       {orphanWarning && (
-        <div className="mt-2 flex items-start gap-2 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+        <div className="mt-2 flex items-start gap-2 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive-text">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <p>
             <strong className="font-medium">Guardian required.</strong> This player has no active guardian, so their
@@ -70,7 +70,7 @@ export function PlayerGuardianCard({ player, clubName }: { player: PlayerGuardia
         </ul>
       )}
 
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
 
       <ReplacementInviteForm playerId={player.playerId} teamId={player.teamId} clubName={clubName} teamName={player.teamLabel} />
     </li>
@@ -94,10 +94,10 @@ function GuardianRow({ guardian, onRemove }: { guardian: { id: string; name: str
     <li className="flex items-center justify-between gap-3 rounded-lg bg-ink/5 px-3 py-2">
       <div className="min-w-0">
         <p className="truncate text-sm text-ink">{guardian.name}</p>
-        <p className="truncate text-xs text-ink/45">{guardian.email}</p>
+        <p className="truncate text-xs text-ink-muted">{guardian.email}</p>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 text-destructive hover:text-destructive" />}>
+        <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 text-destructive-text hover:text-destructive-text" />}>
           Remove
         </DialogTrigger>
         <DialogContent>
@@ -188,7 +188,7 @@ function ReplacementInviteForm({ playerId, teamId, clubName, teamName }: { playe
       <Button type="button" variant="ghost" size="sm" className="h-9" onClick={() => setOpen(false)}>
         Cancel
       </Button>
-      {error && <p className="w-full text-sm text-destructive">{error}</p>}
+      {error && <p className="w-full text-sm text-destructive-text">{error}</p>}
     </form>
   )
 }

@@ -136,7 +136,7 @@ function TrainingCard({ session, conflict }: { session: TrainingOccupancy; confl
       )}
     >
       <div className="flex items-center gap-1">
-        {conflict && <AlertTriangle className={cn("size-3 shrink-0", conflict.severity === "hard" ? "text-destructive" : "text-amber-600")} />}
+        {conflict && <AlertTriangle className={cn("size-3 shrink-0", conflict.severity === "hard" ? "text-destructive-text" : "text-amber-600")} />}
         <p className="truncate text-xs font-semibold text-sky-950">{session.teamLabel} — Planned Training</p>
       </div>
       <span className="text-[10px] font-medium text-sky-900/60">{session.startTime ?? "--:--"}</span>
@@ -218,7 +218,7 @@ function FixtureCard({
       )}
     >
       <div className="flex items-center gap-1">
-        {conflict && <AlertTriangle className={cn("size-3 shrink-0", conflict.severity === "hard" ? "text-destructive" : "text-amber-600")} />}
+        {conflict && <AlertTriangle className={cn("size-3 shrink-0", conflict.severity === "hard" ? "text-destructive-text" : "text-amber-600")} />}
         <p className="truncate text-xs font-semibold text-forest-950">{fixture.homeTeamLabel}</p>
       </div>
       <p className="truncate text-[11px] text-forest-900/70">v {fixture.opponentLabel}</p>
@@ -270,7 +270,7 @@ function MoveFixtureDialog({
   return (
     <div role="dialog" aria-modal="true" aria-label={`Move ${fixture.homeTeamLabel} v ${fixture.opponentLabel}`} className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
       <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
-        <p className="text-sm font-medium text-ink/50">Move fixture</p>
+        <p className="text-sm font-medium text-ink-muted">Move fixture</p>
         <p className="mt-1 font-display text-lg text-ink">
           {fixture.homeTeamLabel} v {fixture.opponentLabel}
         </p>
@@ -371,14 +371,14 @@ function ProposalReview({ clubId, proposalId, onClose, onStage }: { clubId: stri
     <div role="dialog" aria-modal="true" aria-label="Review proposed allocation" className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
       <div className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-xl bg-white shadow-xl">
         <div className="border-b border-ink/10 px-5 py-4">
-          <p className="text-sm font-medium text-ink/50">Auto-allocate proposal</p>
+          <p className="text-sm font-medium text-ink-muted">Auto-allocate proposal</p>
           <p className="mt-1 font-display text-lg text-ink">Review before applying</p>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-3">
           {!items ? (
-            <p className="py-8 text-center text-sm text-ink/40">Loading…</p>
+            <p className="py-8 text-center text-sm text-ink-muted">Loading…</p>
           ) : items.length === 0 ? (
-            <p className="py-8 text-center text-sm text-ink/40">Nothing to allocate -- every home fixture already has a pitch and time.</p>
+            <p className="py-8 text-center text-sm text-ink-muted">Nothing to allocate -- every home fixture already has a pitch and time.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {items.map((it) => (
@@ -393,7 +393,7 @@ function ProposalReview({ clubId, proposalId, onClose, onStage }: { clubId: stri
                     {it.homeTeamLabel} v {it.opponentLabel}
                   </p>
                   {it.isUnallocated || it.conflictSeverity === "hard" ? (
-                    <p className="mt-0.5 text-xs text-destructive">{it.conflictReason ?? "Could not be allocated."}</p>
+                    <p className="mt-0.5 text-xs text-destructive-text">{it.conflictReason ?? "Could not be allocated."}</p>
                   ) : (
                     <p className="mt-0.5 text-xs text-ink/60">
                       Proposed: {it.proposedPitchName} at {it.proposedKickoffTime}
@@ -404,10 +404,10 @@ function ProposalReview({ clubId, proposalId, onClose, onStage }: { clubId: stri
               ))}
             </ul>
           )}
-          {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+          {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 px-5 py-4">
-          <p className="text-xs text-ink/45">Added to your draft -- nothing saves until you press Save Changes.</p>
+          <p className="text-xs text-ink-muted">Added to your draft -- nothing saves until you press Save Changes.</p>
           <div className="flex shrink-0 items-center gap-3">
             <Button type="button" variant="ghost" className="h-9" onClick={handleDiscard} disabled={applying}>
               Discard
@@ -734,7 +734,7 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
       <button
         type="button"
         onClick={() => guardedNavigate(() => router.push(`/calendar?week=${dateIso}`))}
-        className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+        className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
         <ArrowLeft className="size-3.5" />
         Back to Calendar View
@@ -751,7 +751,7 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
             type="button"
             onClick={() => navigate(addDaysIso(dateIso, -1))}
             aria-label="Previous day"
-            className="flex size-9 items-center justify-center rounded-lg text-ink/50 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="flex size-9 items-center justify-center rounded-lg text-ink-muted outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -760,7 +760,7 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
             type="button"
             onClick={() => navigate(addDaysIso(dateIso, 1))}
             aria-label="Next day"
-            className="flex size-9 items-center justify-center rounded-lg text-ink/50 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="flex size-9 items-center justify-center rounded-lg text-ink-muted outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <ChevronRight className="size-4" />
           </button>
@@ -851,7 +851,7 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
         </div>
       )}
 
-      {error && <p className="mt-3 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive-text">{error}</p>}
       {toast && <p className="mt-3 rounded-lg bg-forest-800/10 px-3.5 py-2.5 text-sm text-forest-900">{toast}</p>}
 
       {/* Timeline board */}
@@ -860,17 +860,17 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
           <div style={{ width: 160 + TIMELINE_WIDTH }}>
             {/* Hour header */}
             <div className="flex border-b border-ink/10 bg-chalk">
-              <div className="sticky left-0 z-10 w-40 shrink-0 border-r border-ink/10 bg-chalk px-3 py-2 text-xs font-medium tracking-wide text-ink/40 uppercase">Pitch</div>
+              <div className="sticky left-0 z-10 w-40 shrink-0 border-r border-ink/10 bg-chalk px-3 py-2 text-xs font-medium tracking-wide text-ink-muted uppercase">Pitch</div>
               <div className="relative" style={{ width: TIMELINE_WIDTH, height: 32 }}>
                 {hourMarks.map((m) => (
-                  <span key={m} className="absolute top-1.5 text-[11px] font-medium text-ink/50" style={{ left: ((m - START_MINUTES) / SLOT_MINUTES) * PX_PER_SLOT }}>
+                  <span key={m} className="absolute top-1.5 text-[11px] font-medium text-ink-muted" style={{ left: ((m - START_MINUTES) / SLOT_MINUTES) * PX_PER_SLOT }}>
                     {formatHour(m)}
                   </span>
                 ))}
               </div>
             </div>
 
-            {activePitches.length === 0 && <p className="px-4 py-8 text-sm text-ink/45">No active pitches configured for this club yet -- add pitches in Club Settings.</p>}
+            {activePitches.length === 0 && <p className="px-4 py-8 text-sm text-ink-muted">No active pitches configured for this club yet -- add pitches in Club Settings.</p>}
 
             {activePitches.map((pitch) => {
               const fixturesOnPitch = board.fixtures.filter((f) => f.pitchId === pitch.id)
@@ -909,7 +909,7 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
                     )}
                   >
                     <p className="line-clamp-2 text-sm leading-tight font-medium break-words text-ink">{pitch.displayName}</p>
-                    {isMultiLane && <p className="text-[10px] text-ink/40">{laneCount} lanes</p>}
+                    {isMultiLane && <p className="text-[10px] text-ink-muted">{laneCount} lanes</p>}
                   </div>
                   <div
                     ref={(el) => {
@@ -1032,14 +1032,14 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
       </div>
 
       {inactivePitches.length > 0 && (
-        <p className="mt-2 text-xs text-ink/40">{inactivePitches.length} inactive pitch(es) hidden from allocation (historical fixture references are preserved).</p>
+        <p className="mt-2 text-xs text-ink-muted">{inactivePitches.length} inactive pitch(es) hidden from allocation (historical fixture references are preserved).</p>
       )}
 
       {/* Unallocated tray -- Section 13 */}
       <div className="mt-6">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Unallocated fixtures ({board.unallocated.length})</p>
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Unallocated fixtures ({board.unallocated.length})</p>
         {board.unallocated.length === 0 ? (
-          <p className="mt-2 text-sm text-ink/45">Every home fixture for this day has a pitch and kick-off time.</p>
+          <p className="mt-2 text-sm text-ink-muted">Every home fixture for this day has a pitch and kick-off time.</p>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {board.unallocated.map((f) => (

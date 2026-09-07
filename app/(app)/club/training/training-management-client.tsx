@@ -331,7 +331,7 @@ function PlanForm({
               <div key={r.key} className="rounded-lg border border-ink/10 p-3">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div>
-                    <label htmlFor={`weekday-${r.key}`} className="text-[11px] font-medium text-ink/55">
+                    <label htmlFor={`weekday-${r.key}`} className="text-[11px] font-medium text-ink-muted">
                       Day
                     </label>
                     <select
@@ -348,7 +348,7 @@ function PlanForm({
                     </select>
                   </div>
                   <div>
-                    <label htmlFor={`start-${r.key}`} className="text-[11px] font-medium text-ink/55">
+                    <label htmlFor={`start-${r.key}`} className="text-[11px] font-medium text-ink-muted">
                       Start time
                     </label>
                     <input
@@ -360,7 +360,7 @@ function PlanForm({
                     />
                   </div>
                   <div>
-                    <label htmlFor={`duration-${r.key}`} className="text-[11px] font-medium text-ink/55">
+                    <label htmlFor={`duration-${r.key}`} className="text-[11px] font-medium text-ink-muted">
                       Duration
                     </label>
                     <select
@@ -382,7 +382,7 @@ function PlanForm({
                         type="button"
                         aria-label="Remove this day"
                         onClick={() => removeRule(r.key)}
-                        className="flex h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-destructive outline-none hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-destructive/40"
+                        className="flex h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-destructive-text outline-none hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-destructive/40"
                       >
                         <Trash2 className="size-3.5" />
                         Remove
@@ -393,7 +393,7 @@ function PlanForm({
                 {scheduleMode === "CUSTOM" && (
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <div>
-                      <label htmlFor={`from-${r.key}`} className="text-[11px] font-medium text-ink/55">
+                      <label htmlFor={`from-${r.key}`} className="text-[11px] font-medium text-ink-muted">
                         From date
                       </label>
                       <input
@@ -405,7 +405,7 @@ function PlanForm({
                       />
                     </div>
                     <div>
-                      <label htmlFor={`to-${r.key}`} className="text-[11px] font-medium text-ink/55">
+                      <label htmlFor={`to-${r.key}`} className="text-[11px] font-medium text-ink-muted">
                         To date
                       </label>
                       <input
@@ -430,7 +430,7 @@ function PlanForm({
           </Button>
         </div>
 
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+        {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
         <div className="mt-5 flex items-center justify-end gap-3">
           <Button type="button" variant="outline" className="h-9" onClick={onClose} disabled={saving}>
@@ -510,24 +510,24 @@ export function TrainingManagementClient({
       {/* Section 6: overview cards -- current/future emphasis, no historical clutter by default. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-ink/10 bg-white p-4">
-          <p className="text-xs font-medium tracking-wide text-ink/50 uppercase">Active Plans</p>
+          <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Active Plans</p>
           <p className="mt-1 font-display text-2xl text-ink">{overview.active_plan_count}</p>
         </div>
         <div className="rounded-xl border border-ink/10 bg-white p-4">
-          <p className="text-xs font-medium tracking-wide text-ink/50 uppercase">Teams Without a Plan</p>
+          <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Teams Without a Plan</p>
           <p className="mt-1 font-display text-2xl text-ink">{overview.teams_without_plan_count}</p>
         </div>
         <div className="rounded-xl border border-ink/10 bg-white p-4">
-          <p className="text-xs font-medium tracking-wide text-ink/50 uppercase">Upcoming Sessions</p>
+          <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Upcoming Sessions</p>
           <p className="mt-1 font-display text-2xl text-ink">{overview.upcoming_session_count}</p>
         </div>
         <div className={cn("rounded-xl border p-4", overview.needs_attention_plan_count > 0 ? "border-amber-300 bg-amber-50" : "border-ink/10 bg-white")}>
-          <p className="text-xs font-medium tracking-wide text-ink/50 uppercase">Needs Attention</p>
+          <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Needs Attention</p>
           <p className="mt-1 font-display text-2xl text-ink">{overview.needs_attention_plan_count}</p>
         </div>
       </div>
 
-      {error && <p className="mt-4 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-4 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive-text">{error}</p>}
 
       {/* Section 7-8: Automatic Training Booking control -- every active operational team, toggle on/off. */}
       <div className="mt-8">
@@ -535,9 +535,9 @@ export function TrainingManagementClient({
           <span className="inline-flex size-2.5 shrink-0 rounded-full bg-pitch-600" aria-hidden="true" />
           <h2 className="font-display text-lg text-ink">Automatic Training Booking</h2>
         </div>
-        <p className="mt-1 text-sm text-ink/55">Turn on for a team to configure its recurring schedule -- Ovalball then keeps that team&apos;s planned sessions generated for you.</p>
+        <p className="mt-1 text-sm text-ink-muted">Turn on for a team to configure its recurring schedule -- Ovalball then keeps that team&apos;s planned sessions generated for you.</p>
         <div className="mt-3 flex flex-col divide-y divide-ink/10 rounded-xl border border-ink/10 bg-white">
-          {teams.length === 0 && <p className="px-4 py-6 text-sm text-ink/45">No active teams at this club yet.</p>}
+          {teams.length === 0 && <p className="px-4 py-6 text-sm text-ink-muted">No active teams at this club yet.</p>}
           {teams.map((team) => {
             const plan = activePlans.find((p) => p.teamId === team.id)
             const isOn = !!plan && plan.status !== "INACTIVE"
@@ -546,7 +546,7 @@ export function TrainingManagementClient({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink">{team.label}</p>
                   {plan && (
-                    <p className="mt-0.5 truncate text-xs text-ink/50">
+                    <p className="mt-0.5 truncate text-xs text-ink-muted">
                       {MODE_LABELS[plan.scheduleMode]} · {plan.pitchName} · {plan.venueName}
                       {plan.status === "NEEDS_ATTENTION" && plan.needsAttentionReason ? ` · ${plan.needsAttentionReason}` : ""}
                     </p>
@@ -582,7 +582,7 @@ export function TrainingManagementClient({
           <h2 className="font-display text-lg text-ink">Active Training Plans</h2>
           <div className="mt-3 overflow-x-auto rounded-xl border border-ink/10 bg-white">
             <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="bg-chalk text-xs font-medium tracking-wide text-ink/50 uppercase">
+              <thead className="bg-chalk text-xs font-medium tracking-wide text-ink-muted uppercase">
                 <tr>
                   <th className="px-4 py-2.5">Team</th>
                   <th className="px-4 py-2.5">Schedule</th>
@@ -598,7 +598,7 @@ export function TrainingManagementClient({
                     <td className="px-4 py-2.5 text-ink/70">
                       {MODE_LABELS[p.scheduleMode]}
                       {p.rules.length > 0 && (
-                        <span className="ml-1.5 text-xs text-ink/45">
+                        <span className="ml-1.5 text-xs text-ink-muted">
                           ({p.rules.map((r) => WEEKDAYS.find((w) => w.value === r.weekday)?.label.slice(0, 3)).join(", ")})
                         </span>
                       )}
@@ -651,7 +651,7 @@ export function TrainingManagementClient({
             <AlertTriangle className="size-4 text-amber-700" />
             <h2 className="font-display text-lg text-ink">Exceptions / Conflicts</h2>
           </div>
-          <p className="mt-1 text-sm text-ink/55">Real pitch double-bookings in the next 30 days -- nothing here has been silently dropped or moved.</p>
+          <p className="mt-1 text-sm text-ink-muted">Real pitch double-bookings in the next 30 days -- nothing here has been silently dropped or moved.</p>
           <div className="mt-3 flex flex-col gap-2">
             {exceptions.map((e) => (
               <div key={e.trainingSessionId} className={cn("flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2.5 text-sm", e.severity === "hard" ? "border-destructive/30 bg-destructive/5" : "border-amber-300 bg-amber-50")}>
@@ -660,7 +660,7 @@ export function TrainingManagementClient({
                   <span className="ml-2 text-ink/60">
                     {e.date} {e.startTime?.slice(0, 5)} · {e.pitchName}
                   </span>
-                  <p className="mt-0.5 text-xs text-ink/55">{e.reason}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted">{e.reason}</p>
                 </div>
                 <a href="/calendar/pitch-allocation" className="shrink-0 text-xs font-medium text-pitch-700 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-pitch-400">
                   Resolve in Pitch Allocation
@@ -695,11 +695,11 @@ export function TrainingManagementClient({
           </div>
         </div>
         {upcomingSessions.length === 0 ? (
-          <p className="mt-3 text-sm text-ink/45">No upcoming training sessions{upcomingTeamFilter ? " for this team" : ""}.</p>
+          <p className="mt-3 text-sm text-ink-muted">No upcoming training sessions{upcomingTeamFilter ? " for this team" : ""}.</p>
         ) : (
           <div className="mt-3 overflow-x-auto rounded-xl border border-ink/10 bg-white">
             <table className="w-full min-w-[560px] text-left text-sm">
-              <thead className="bg-chalk text-xs font-medium tracking-wide text-ink/50 uppercase">
+              <thead className="bg-chalk text-xs font-medium tracking-wide text-ink-muted uppercase">
                 <tr>
                   <th className="px-4 py-2.5">Date</th>
                   <th className="px-4 py-2.5">Team</th>
@@ -720,19 +720,19 @@ export function TrainingManagementClient({
                     <td className="px-4 py-2.5 text-ink/70">
                       {s.venueName} / {s.pitchName}
                     </td>
-                    <td className="px-4 py-2.5 text-ink/55">{s.source === "AUTOMATIC_PLAN" ? "Automatic" : "Manual"}</td>
+                    <td className="px-4 py-2.5 text-ink-muted">{s.source === "AUTOMATIC_PLAN" ? "Automatic" : "Manual"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="border-t border-ink/10 px-4 py-2 text-xs text-ink/45">Showing the next 14 days{upcomingTeamFilter ? "" : " across every team"}.</p>
+            <p className="border-t border-ink/10 px-4 py-2 text-xs text-ink-muted">Showing the next 14 days{upcomingTeamFilter ? "" : " across every team"}.</p>
           </div>
         )}
       </div>
 
       {archivedPlans.length > 0 && (
         <details className="mt-8">
-          <summary className="cursor-pointer text-sm font-medium text-ink/55">Past / archived plans ({archivedPlans.length})</summary>
+          <summary className="cursor-pointer text-sm font-medium text-ink-muted">Past / archived plans ({archivedPlans.length})</summary>
           <div className="mt-3 flex flex-col gap-2">
             {archivedPlans.map((p) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg border border-ink/10 bg-white px-4 py-2.5 text-sm">

@@ -37,7 +37,7 @@ export function ExportButton({ clubId, billingPeriod }: { clubId: string; billin
       <Button type="button" variant="outline" className="h-9" disabled={status === "loading"} onClick={handleClick}>
         {status === "loading" ? "Exporting…" : "Export CSV"}
       </Button>
-      {error && <span className="text-xs text-destructive">{error}</span>}
+      {error && <span className="text-xs text-destructive-text">{error}</span>}
     </div>
   )
 }

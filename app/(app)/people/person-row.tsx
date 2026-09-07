@@ -58,7 +58,7 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
 
   if (removed) {
     return (
-      <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink/50">
+      <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink-muted">
         {person.name} &mdash; removed from the club.
       </li>
     )
@@ -70,9 +70,9 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">
             {person.name}
-            {isSelf && <span className="ml-1.5 text-xs font-normal text-ink/40">(you)</span>}
+            {isSelf && <span className="ml-1.5 text-xs font-normal text-ink-muted">(you)</span>}
           </p>
-          <p className="truncate text-xs text-ink/45">{person.email}</p>
+          <p className="truncate text-xs text-ink-muted">{person.email}</p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -92,7 +92,7 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
 
           {!isSelf && (
             <Dialog open={confirmingRemove} onOpenChange={setConfirmingRemove}>
-              <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-9 text-destructive" />}>
+              <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-9 text-destructive-text" />}>
                 Remove
               </DialogTrigger>
               <DialogContent>
@@ -123,7 +123,7 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
         </div>
       )}
 
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-xs text-destructive-text">{error}</p>}
     </li>
   )
 }

@@ -78,7 +78,7 @@ export function VenuesSection({
           onClick={() => setTab("venues")}
           className={cn(
             "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-pitch-400",
-            tab === "venues" ? "bg-white text-forest-800 shadow-sm" : "text-ink/50 hover:text-ink/80"
+            tab === "venues" ? "bg-white text-forest-800 shadow-sm" : "text-ink-muted hover:text-ink/80"
           )}
         >
           <MapPin className="size-3.5" />
@@ -91,7 +91,7 @@ export function VenuesSection({
           onClick={() => setTab("pitches")}
           className={cn(
             "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-pitch-400",
-            tab === "pitches" ? "bg-white text-forest-800 shadow-sm" : "text-ink/50 hover:text-ink/80"
+            tab === "pitches" ? "bg-white text-forest-800 shadow-sm" : "text-ink-muted hover:text-ink/80"
           )}
         >
           <LayoutGrid className="size-3.5" />
@@ -99,7 +99,7 @@ export function VenuesSection({
         </button>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-destructive-text">{error}</p>}
 
       {tab === "venues" ? (
         <VenuesTab clubId={clubId} venues={venues} setVenues={setVenues} pitches={pitches} readOnly={readOnly} setError={setError} />
@@ -217,7 +217,7 @@ function VenuesTab({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Venues</p>
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Venues</p>
         {!readOnly && !adding && (
           <Button type="button" size="sm" className="h-8" onClick={() => setAdding(true)}>
             Add venue
@@ -225,7 +225,7 @@ function VenuesTab({
         )}
       </div>
 
-      {active.length === 0 && !adding && <p className="text-sm text-ink/45">No venues added yet.</p>}
+      {active.length === 0 && !adding && <p className="text-sm text-ink-muted">No venues added yet.</p>}
 
       <ul className="flex flex-col gap-3">
         {active.map((venue) => {
@@ -260,7 +260,7 @@ function VenuesTab({
                       <Input value={directions} onChange={(e) => setDirections(e.target.value)} className="mt-1.5 h-9 border-ink/15 bg-white" />
                     </div>
                   </div>
-                  {formError && <p className="text-xs text-destructive">{formError}</p>}
+                  {formError && <p className="text-xs text-destructive-text">{formError}</p>}
                   <div className="flex items-center gap-2">
                     <Button type="button" size="sm" className="h-8" disabled={pending || !name.trim()} onClick={handleSaveEdit}>
                       Save
@@ -283,7 +283,7 @@ function VenuesTab({
                 <>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-2">
-                      <MapPin className="mt-0.5 size-4 shrink-0 text-ink/35" />
+                      <MapPin className="mt-0.5 size-4 shrink-0 text-ink-muted" />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <p className="truncate text-sm font-medium text-ink">{venue.name}</p>
@@ -292,9 +292,9 @@ function VenuesTab({
                           )}
                         </div>
                         {(venue.address || venue.postcode) && (
-                          <p className="truncate text-xs text-ink/50">{[venue.address, venue.postcode].filter(Boolean).join(", ")}</p>
+                          <p className="truncate text-xs text-ink-muted">{[venue.address, venue.postcode].filter(Boolean).join(", ")}</p>
                         )}
-                        {venue.directions && <p className="truncate text-xs text-ink/40">{venue.directions}</p>}
+                        {venue.directions && <p className="truncate text-xs text-ink-muted">{venue.directions}</p>}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -319,7 +319,7 @@ function VenuesTab({
                           <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => startEdit(venue)}>
                             Edit
                           </Button>
-                          <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive" disabled={pending} onClick={() => handleToggleActive(venue)}>
+                          <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text" disabled={pending} onClick={() => handleToggleActive(venue)}>
                             Deactivate
                           </Button>
                         </>
@@ -328,9 +328,9 @@ function VenuesTab({
                   </div>
 
                   <div className="mt-2.5 border-t border-ink/6 pt-2.5">
-                    <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Pitches</p>
+                    <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Pitches</p>
                     {venuePitches.length === 0 ? (
-                      <p className="mt-1 text-xs text-ink/40">No pitches assigned to this venue yet.</p>
+                      <p className="mt-1 text-xs text-ink-muted">No pitches assigned to this venue yet.</p>
                     ) : (
                       <ul className="mt-1.5 flex flex-wrap gap-1.5">
                         {venuePitches.map((p) => (
@@ -389,7 +389,7 @@ function VenuesTab({
             Set as default home venue
           </label>
 
-          {formError && <p className="mt-2 text-sm text-destructive">{formError}</p>}
+          {formError && <p className="mt-2 text-sm text-destructive-text">{formError}</p>}
 
           <div className="mt-3 flex items-center gap-2">
             <Button type="button" size="sm" className="h-9" disabled={pending || !name.trim()} onClick={handleAdd}>
@@ -413,7 +413,7 @@ function VenuesTab({
 
       {archived.length > 0 && (
         <div>
-          <button type="button" onClick={() => setShowArchived((v) => !v)} className="text-xs font-medium text-ink/45 underline underline-offset-2 hover:text-ink/70">
+          <button type="button" onClick={() => setShowArchived((v) => !v)} className="text-xs font-medium text-ink-muted underline underline-offset-2 hover:text-ink/70">
             {showArchived ? "Hide" : "Show"} deactivated venues ({archived.length})
           </button>
           {showArchived && (
@@ -549,8 +549,8 @@ function PitchesTab({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">All pitches</p>
-          <p className="mt-0.5 text-xs text-ink/45">Every pitch is its own record -- assign it to a venue now, or leave it unassigned and attach one later.</p>
+          <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">All pitches</p>
+          <p className="mt-0.5 text-xs text-ink-muted">Every pitch is its own record -- assign it to a venue now, or leave it unassigned and attach one later.</p>
         </div>
         {!readOnly && !adding && (
           <Button type="button" size="sm" className="h-8 shrink-0" onClick={() => setAdding(true)}>
@@ -559,7 +559,7 @@ function PitchesTab({
         )}
       </div>
 
-      {active.length === 0 && !adding && <p className="text-sm text-ink/45">No pitches added yet.</p>}
+      {active.length === 0 && !adding && <p className="text-sm text-ink-muted">No pitches added yet.</p>}
 
       <ul className="flex flex-col gap-2">
         {active.map((pitch, index) => {
@@ -580,15 +580,15 @@ function PitchesTab({
               ) : (
                 <>
                   <div className="flex min-w-0 items-center gap-2">
-                    <LayoutGrid className="size-4 shrink-0 text-ink/35" />
+                    <LayoutGrid className="size-4 shrink-0 text-ink-muted" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink">{pitch.displayName}</p>
-                      {pitch.description && <p className="truncate text-xs text-ink/50">{pitch.description}</p>}
+                      {pitch.description && <p className="truncate text-xs text-ink-muted">{pitch.description}</p>}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {readOnly ? (
-                      <span className="text-xs text-ink/50">
+                      <span className="text-xs text-ink-muted">
                         {assignedVenueInactive ? "Assigned venue is inactive" : (assignedVenue?.name ?? "Unassigned")}
                       </span>
                     ) : (
@@ -646,7 +646,7 @@ function PitchesTab({
                         >
                           Edit
                         </Button>
-                        <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive" disabled={pending} onClick={() => handleToggleActive(pitch)}>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text" disabled={pending} onClick={() => handleToggleActive(pitch)}>
                           Deactivate
                         </Button>
                       </>
@@ -681,9 +681,9 @@ function PitchesTab({
               />
             </div>
           </div>
-          <p className="mt-2 text-xs text-ink/45">You can assign it to a venue from the list above once it&apos;s added.</p>
+          <p className="mt-2 text-xs text-ink-muted">You can assign it to a venue from the list above once it&apos;s added.</p>
 
-          {formError && <p className="mt-2 text-sm text-destructive">{formError}</p>}
+          {formError && <p className="mt-2 text-sm text-destructive-text">{formError}</p>}
 
           <div className="mt-3 flex items-center gap-2">
             <Button type="button" size="sm" className="h-9" disabled={pending || !newName.trim()} onClick={handleAdd}>
@@ -707,7 +707,7 @@ function PitchesTab({
 
       {archived.length > 0 && (
         <div>
-          <button type="button" onClick={() => setShowArchived((v) => !v)} className="text-xs font-medium text-ink/45 underline underline-offset-2 hover:text-ink/70">
+          <button type="button" onClick={() => setShowArchived((v) => !v)} className="text-xs font-medium text-ink-muted underline underline-offset-2 hover:text-ink/70">
             {showArchived ? "Hide" : "Show"} deactivated pitches ({archived.length})
           </button>
           {showArchived && (

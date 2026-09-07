@@ -34,11 +34,11 @@ export default async function ReferralDataHealthPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/commercial/referrals" className="inline-flex min-h-11 items-center gap-1.5 py-2.5 -my-2.5 text-sm text-ink/55 hover:text-ink/80">
+      <Link href="/admin/commercial/referrals" className="inline-flex min-h-11 items-center gap-1.5 py-2.5 -my-2.5 text-sm text-ink-muted hover:text-ink/80">
         <ArrowLeft className="size-3.5" /> Referral Administration
       </Link>
       <h1 className="mt-2 font-display text-display-l text-ink">Referral Data Health</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         Every row below is a real finding from reconcile_referral_attribution -- never hidden behind a zero count.
       </p>
 
@@ -58,17 +58,17 @@ export default async function ReferralDataHealthPage() {
             <p className="mt-1.5 font-mono text-xs break-words text-amber-900/80">{error.message}</p>
           </div>
         ) : !rows || rows.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/55">
+          <p className="rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">
             No anomalies found.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
             {rows.map((row, i) => (
               <li key={i} className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3.5">
-                <p className="text-sm font-medium text-destructive">{row.category.replace(/_/g, " ")}</p>
+                <p className="text-sm font-medium text-destructive-text">{row.category.replace(/_/g, " ")}</p>
                 <p className="mt-1 text-sm text-ink/80">{row.finding}</p>
                 {row.club_name && (
-                  <p className="mt-1 text-xs text-ink/55">
+                  <p className="mt-1 text-xs text-ink-muted">
                     Club:{" "}
                     {row.club_id ? (
                       <Link href={`/admin/clubs/${row.club_id}`} className="font-medium text-forest-800 underline underline-offset-2">
@@ -79,7 +79,7 @@ export default async function ReferralDataHealthPage() {
                     )}
                   </p>
                 )}
-                {row.detail && <p className="mt-1 text-xs text-ink/50">{row.detail}</p>}
+                {row.detail && <p className="mt-1 text-xs text-ink-muted">{row.detail}</p>}
               </li>
             ))}
           </ul>
@@ -92,7 +92,7 @@ export default async function ReferralDataHealthPage() {
           ledger is append-only, so such a row is reported here rather than
           quietly corrected. */}
       <h2 className="mt-10 font-display text-lg text-ink">Reward value</h2>
-      <p className="mt-1 max-w-xl text-sm text-ink/55">
+      <p className="mt-1 max-w-xl text-sm text-ink-muted">
         A referral reward is one month of the referring club&rsquo;s own plan, at the price that plan cost when
         the reward was earned. Anything below is a reward whose recorded value cannot be verified against that
         rule.
@@ -107,17 +107,17 @@ export default async function ReferralDataHealthPage() {
             <p className="mt-1.5 font-mono text-xs break-words text-amber-900/80">{rewardError.message}</p>
           </div>
         ) : !rewardRows || rewardRows.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/55">
+          <p className="rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">
             Every reward matches the plan price it snapshotted.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
             {rewardRows.map((row, i) => (
               <li key={i} className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3.5">
-                <p className="text-sm font-medium text-destructive">{row.category.replace(/_/g, " ")}</p>
+                <p className="text-sm font-medium text-destructive-text">{row.category.replace(/_/g, " ")}</p>
                 <p className="mt-1 text-sm text-ink/80">{row.finding}</p>
                 {row.club_name && (
-                  <p className="mt-1 text-xs text-ink/55">
+                  <p className="mt-1 text-xs text-ink-muted">
                     Club:{" "}
                     {row.club_id ? (
                       <Link href={`/admin/clubs/${row.club_id}`} className="font-medium text-forest-800 underline underline-offset-2">
@@ -138,7 +138,7 @@ export default async function ReferralDataHealthPage() {
                     </Link>
                   </p>
                 )}
-                {row.detail && <p className="mt-1 text-xs text-ink/50">{row.detail}</p>}
+                {row.detail && <p className="mt-1 text-xs text-ink-muted">{row.detail}</p>}
               </li>
             ))}
           </ul>

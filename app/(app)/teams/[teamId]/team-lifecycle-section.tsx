@@ -74,7 +74,7 @@ export function TeamLifecycleSection({ team }: { team: TeamLifecycleData }) {
 
   return (
     <div className="mt-6 rounded-lg border border-ink/10 bg-white p-6">
-      <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Team lifecycle</p>
+      <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Team lifecycle</p>
 
       {team.active ? (
         <>
@@ -116,7 +116,7 @@ export function TeamLifecycleSection({ team }: { team: TeamLifecycleData }) {
                     className="mt-1.5 w-full rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus-visible:border-pitch-600"
                   />
                 </div>
-                {foldError && <p className="mt-2 text-sm text-destructive">{foldError}</p>}
+                {foldError && <p className="mt-2 text-sm text-destructive-text">{foldError}</p>}
                 <DialogFooter>
                   <DialogClose render={<Button type="button" variant="outline" className="h-10" />}>Cancel</DialogClose>
                   <Button type="button" variant="destructive" className="h-10" disabled={folding || !reason.trim()} onClick={handleFold}>
@@ -133,7 +133,7 @@ export function TeamLifecycleSection({ team }: { team: TeamLifecycleData }) {
             <p className="font-medium text-ink">Folded{team.foldedAt ? ` on ${new Date(team.foldedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}</p>
             {team.foldReason && <p className="mt-0.5 text-ink/60">&ldquo;{team.foldReason}&rdquo;</p>}
           </div>
-          {reactivateError && <p className="mt-2 text-sm text-destructive">{reactivateError}</p>}
+          {reactivateError && <p className="mt-2 text-sm text-destructive-text">{reactivateError}</p>}
           <Button type="button" variant="outline" className="mt-4 h-10 gap-2" disabled={reactivating} onClick={handleReactivate}>
             <ArchiveRestore className="size-4" />
             {reactivating ? "Reactivating…" : "Reactivate team"}
@@ -144,14 +144,14 @@ export function TeamLifecycleSection({ team }: { team: TeamLifecycleData }) {
       {team.active && team.restorableFixtures.length > 0 && (
         <div className="mt-6 border-t border-ink/10 pt-5">
           <p className="flex items-center gap-2 text-sm font-medium text-ink">
-            <CalendarClock className="size-4 text-ink/50" />
+            <CalendarClock className="size-4 text-ink-muted" />
             Previously cancelled fixtures
           </p>
           <p className="mt-1 text-sm text-ink/60">
             These were removed from the schedule when this team last folded. Request restoration individually —
             each is conflict-checked before being reinstated.
           </p>
-          {restoreError && <p className="mt-2 text-sm text-destructive">{restoreError}</p>}
+          {restoreError && <p className="mt-2 text-sm text-destructive-text">{restoreError}</p>}
           <ul className="mt-3 space-y-2">
             {team.restorableFixtures.map((f) => {
               const restored = restoredIds.has(f.id)

@@ -104,7 +104,7 @@ export function InviteClubDialog({
             <div>
               <Label className="text-ink/80">Invite link</Label>
               <p className="mt-1.5 break-all rounded-lg border border-ink/15 bg-ink/[0.02] px-3.5 py-2.5 text-xs text-ink/70">{sentLink}</p>
-              <p className="mt-1.5 text-xs text-ink/40">
+              <p className="mt-1.5 text-xs text-ink-muted">
                 No email provider is connected in local development &mdash; use this link directly to test the flow.
               </p>
             </div>
@@ -129,7 +129,7 @@ export function InviteClubDialog({
                 className="mt-1.5 h-10 border-ink/15 bg-white"
               />
             </div>
-            {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+            {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
           </div>
         )}
 

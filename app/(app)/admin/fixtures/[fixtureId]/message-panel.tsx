@@ -75,8 +75,8 @@ export function MessagePanel({
     <div className="flex flex-col gap-4">
       {messages.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-ink/12 bg-ink/[0.015] px-4 py-8 text-center">
-          <MessageCircle className="size-5 text-ink/25" aria-hidden="true" />
-          <p className="text-sm text-ink/45">No messages on this fixture yet.</p>
+          <MessageCircle className="size-5 text-ink-muted" aria-hidden="true" />
+          <p className="text-sm text-ink-muted">No messages on this fixture yet.</p>
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -103,7 +103,7 @@ export function MessagePanel({
                       </span>
                     )}
                   </p>
-                  <p className="shrink-0 text-xs text-ink/40">{new Date(m.createdAt).toLocaleString("en-GB")}</p>
+                  <p className="shrink-0 text-xs text-ink-muted">{new Date(m.createdAt).toLocaleString("en-GB")}</p>
                 </div>
                 <p className="mt-1 text-sm break-words text-ink/70">{m.body}</p>
               </div>
@@ -114,7 +114,7 @@ export function MessagePanel({
 
       {canSend ? (
         <div className="flex flex-col gap-2 rounded-lg border border-ink/10 bg-ink/[0.015] p-3.5">
-          <p className="text-xs text-ink/45">
+          <p className="text-xs text-ink-muted">
             {recipients === null
               ? "Checking who will receive this…"
               : recipients.length === 0
@@ -128,9 +128,9 @@ export function MessagePanel({
             rows={2}
             className="w-full rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus-visible:border-pitch-600"
           />
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive-text">{error}</p>}
           <div className="flex items-center justify-between gap-3">
-            <p className="flex items-center gap-1.5 text-xs text-ink/40">
+            <p className="flex items-center gap-1.5 text-xs text-ink-muted">
               <ShieldCheck className="size-3.5 text-forest-800/60" aria-hidden="true" />
               Posts visibly as Ovalball support, audited to your account.
             </p>
@@ -140,7 +140,7 @@ export function MessagePanel({
           </div>
         </div>
       ) : showSupportCapabilityHint ? (
-        <p className="rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] px-3.5 py-2.5 text-xs text-ink/45">
+        <p className="rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] px-3.5 py-2.5 text-xs text-ink-muted">
           Fixture support access is required to post here as Ovalball support -- a Full Site Admin can grant it from
           Site Admin Management.
         </p>

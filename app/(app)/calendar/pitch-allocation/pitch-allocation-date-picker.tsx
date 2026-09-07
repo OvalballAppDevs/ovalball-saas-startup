@@ -90,7 +90,7 @@ export function PitchAllocationDatePicker({ dateIso, onChange }: { dateIso: stri
         aria-label="Selected date, choose a different date"
         className="flex h-9 items-center gap-2 rounded-lg border border-ink/15 px-3 text-sm font-medium text-ink outline-none hover:bg-ink/5 focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
-        <CalendarIcon className="size-4 text-ink/50" />
+        <CalendarIcon className="size-4 text-ink-muted" />
         {formatFullDate(dateIso)}
       </button>
       {open && (
@@ -100,7 +100,7 @@ export function PitchAllocationDatePicker({ dateIso, onChange }: { dateIso: stri
               type="button"
               aria-label="Previous month"
               onClick={() => setMonthAnchor((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-              className="flex size-7 items-center justify-center rounded-md text-ink/50 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+              className="flex size-7 items-center justify-center rounded-md text-ink-muted outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
               <ChevronLeft className="size-4" />
             </button>
@@ -109,12 +109,12 @@ export function PitchAllocationDatePicker({ dateIso, onChange }: { dateIso: stri
               type="button"
               aria-label="Next month"
               onClick={() => setMonthAnchor((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-              className="flex size-7 items-center justify-center rounded-md text-ink/50 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+              className="flex size-7 items-center justify-center rounded-md text-ink-muted outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
               <ChevronRight className="size-4" />
             </button>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase tracking-wide text-ink/40">
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase tracking-wide text-ink-muted">
             {WEEKDAY_LABELS.map((label) => (
               <div key={label}>{label}</div>
             ))}
@@ -135,7 +135,7 @@ export function PitchAllocationDatePicker({ dateIso, onChange }: { dateIso: stri
                   aria-current={isSelected ? "date" : undefined}
                   className={cn(
                     "flex size-8 items-center justify-center rounded-md text-sm outline-none focus-visible:ring-2 focus-visible:ring-pitch-400",
-                    !inMonth && "text-ink/25 hover:bg-ink/5",
+                    !inMonth && "text-ink-muted hover:bg-ink/5",
                     inMonth && !isSelected && "text-ink hover:bg-ink/5",
                     isSelected && "bg-pitch-600 font-semibold text-white hover:bg-pitch-600",
                   )}

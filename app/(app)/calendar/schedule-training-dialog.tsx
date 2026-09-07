@@ -171,7 +171,7 @@ export function ScheduleTrainingDialog({
           </div>
         </div>
 
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+        {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="outline" className="h-10" />}>Cancel</DialogClose>

@@ -24,7 +24,7 @@ export function FormField({
       <Input
         id={id}
         className={cn(
-          "h-11 border-ink/15 bg-white px-3.5 text-base text-ink placeholder:text-ink/35",
+          "h-11 border-ink/15 bg-white px-3.5 text-base text-ink placeholder:text-ink-subtle",
           className
         )}
         {...props}

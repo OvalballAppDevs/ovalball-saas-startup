@@ -108,7 +108,7 @@ export function FixtureResultPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-medium text-ink/60">Result</p>
         <div className="flex items-center gap-2">
-          {result.status === "none" && <span className="text-sm text-ink/50">Result pending</span>}
+          {result.status === "none" && <span className="text-sm text-ink-muted">Result pending</span>}
           {result.status === "awaiting_confirmation" && (
             <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
               Result pending &middot; awaiting confirmation
@@ -132,7 +132,7 @@ export function FixtureResultPanel({
               {wld} &middot; {WLD_WORD[wld]}
             </span>
           )}
-          {result.status === "external_recorded" && <span className="text-xs text-ink/45">External opponent &middot; not mutually confirmed</span>}
+          {result.status === "external_recorded" && <span className="text-xs text-ink-muted">External opponent &middot; not mutually confirmed</span>}
         </div>
       </div>
 
@@ -144,7 +144,7 @@ export function FixtureResultPanel({
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span className="font-display text-display-l text-ink">{result.homeScore}</span>
-            <span className="text-sm font-medium text-ink/30">v</span>
+            <span className="text-sm font-medium text-ink-muted">v</span>
             <span className="font-display text-display-l text-ink">{result.awayScore}</span>
           </div>
           <div className="flex flex-1 flex-col items-center gap-2 text-center">
@@ -155,7 +155,7 @@ export function FixtureResultPanel({
       )}
 
       {deadline && (result.status === "awaiting_confirmation" || result.status === "disputed") && (
-        <p className="mt-2 text-center text-xs text-ink/45">{deadline}</p>
+        <p className="mt-2 text-center text-xs text-ink-muted">{deadline}</p>
       )}
 
       {result.status === "amendment_pending" && result.amendmentHomeScore !== null && result.amendmentAwayScore !== null && (
@@ -184,7 +184,7 @@ export function FixtureResultPanel({
                   setAwayInput(String(result.awayScore ?? ""))
                   setShowForm(true)
                 }}
-                className="rounded-md border border-destructive/30 px-3.5 py-1.5 text-sm font-medium text-destructive outline-none transition-colors hover:bg-destructive/5 focus-visible:ring-2 focus-visible:ring-destructive/40"
+                className="rounded-md border border-destructive/30 px-3.5 py-1.5 text-sm font-medium text-destructive-text outline-none transition-colors hover:bg-destructive/5 focus-visible:ring-2 focus-visible:ring-destructive/40"
               >
                 Dispute
               </button>
@@ -192,7 +192,7 @@ export function FixtureResultPanel({
           ) : (
             <div className="flex flex-col items-center gap-1">
               {result.status === "awaiting_confirmation" && result.submittedByMe && (
-                <p className="text-xs text-ink/45">You submitted this score &mdash; waiting for the other side to confirm or dispute it.</p>
+                <p className="text-xs text-ink-muted">You submitted this score &mdash; waiting for the other side to confirm or dispute it.</p>
               )}
               <button
                 type="button"
@@ -214,14 +214,14 @@ export function FixtureResultPanel({
 
       {showForm && (
         <div className="mt-3 flex flex-col gap-2 border-t border-ink/8 pt-3">
-          <p className="text-xs text-ink/50">
+          <p className="text-xs text-ink-muted">
             {result.rugbyCode === "union"
               ? `Enter total points. A try is worth ${TRY_POINTS.union} points in Rugby Union -- conversions, penalties, and drop goals all count toward the total, so it does not need to be a multiple of ${TRY_POINTS.union}.`
               : `Enter total points. A try is worth ${TRY_POINTS.league} points in Rugby League -- conversions and penalties all count toward the total, so it does not need to be a multiple of ${TRY_POINTS.league}.`}
           </p>
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-ink/50">Home ({homeClubName}) score</span>
+              <span className="text-xs font-medium text-ink-muted">Home ({homeClubName}) score</span>
               <input
                 type="number"
                 min={0}
@@ -232,7 +232,7 @@ export function FixtureResultPanel({
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-ink/50">Away ({awayClubName}) score</span>
+              <span className="text-xs font-medium text-ink-muted">Away ({awayClubName}) score</span>
               <input
                 type="number"
                 min={0}
@@ -250,13 +250,13 @@ export function FixtureResultPanel({
             >
               {pending ? "Submitting…" : "Submit"}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="text-sm font-medium text-ink/50 hover:text-ink">
+            <button type="button" onClick={() => setShowForm(false)} className="text-sm font-medium text-ink-muted hover:text-ink">
               Cancel
             </button>
           </div>
         </div>
       )}
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

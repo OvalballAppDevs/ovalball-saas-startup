@@ -72,7 +72,7 @@ export function DispensationPanel({
         <ShieldAlert className="size-4 text-forest-800" />
         <h2 className="font-display text-lg text-ink">Team dispensations</h2>
       </div>
-      <p className="mt-1.5 text-sm text-ink/55">
+      <p className="mt-1.5 text-sm text-ink-muted">
         A longer-term move outside ordinary age-grade eligibility for {seasonName ?? "the current season"}. Ovalball records each approval stage -- it
         never grants governing-body approval itself.
       </p>
@@ -80,7 +80,7 @@ export function DispensationPanel({
       {seasonId && <DispensationRequestForm seasonId={seasonId} teams={teams} players={players} />}
 
       <div className="mt-6 space-y-3 border-t border-ink/10 pt-4">
-        {rows.length === 0 ? <p className="text-sm text-ink/50">No dispensations yet.</p> : rows.map((row) => <DispensationRowItem key={row.id} row={row} />)}
+        {rows.length === 0 ? <p className="text-sm text-ink-muted">No dispensations yet.</p> : rows.map((row) => <DispensationRowItem key={row.id} row={row} />)}
       </div>
     </div>
   )
@@ -118,7 +118,7 @@ function DispensationRequestForm({ seasonId, teams, players }: { seasonId: strin
 
   return (
     <div className="mt-4 space-y-3 rounded-lg border border-ink/10 bg-chalk/60 p-4">
-      <p className="text-xs font-medium tracking-wide text-ink/55 uppercase">Request a dispensation</p>
+      <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Request a dispensation</p>
       <div className="flex flex-wrap gap-2">
         <select
           value={targetTeamId}
@@ -196,7 +196,7 @@ function DispensationRowItem({ row }: { row: DispensationRow }) {
           <p className="text-sm font-medium text-ink">
             {row.playerName}: {row.sourceTeamName} → {row.targetTeamName}
           </p>
-          <p className="text-xs text-ink/55">
+          <p className="text-xs text-ink-muted">
             {row.seasonName} · {row.eligibilityRuleReference}
             {row.governingBodyReference && ` · Ref: ${row.governingBodyReference}`}
           </p>

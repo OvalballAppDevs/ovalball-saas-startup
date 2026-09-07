@@ -43,7 +43,7 @@ export function MessageRequestRow({ request }: { request: MessageRequestRowData 
 
   if (status === "done") {
     return (
-      <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink/50">{request.clubName} &mdash; updated.</li>
+      <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink-muted">{request.clubName} &mdash; updated.</li>
     )
   }
 
@@ -53,10 +53,10 @@ export function MessageRequestRow({ request }: { request: MessageRequestRowData 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium text-ink">{request.clubName}</p>
-          <span className="shrink-0 text-xs text-ink/40">{timeLabel}</span>
+          <span className="shrink-0 text-xs text-ink-muted">{timeLabel}</span>
         </div>
         {request.firstMessagePreview && <p className="mt-1 truncate text-sm text-ink/65">&ldquo;{request.firstMessagePreview}&rdquo;</p>}
-        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
       </div>
       {request.direction === "incoming" ? (
         <div className="flex shrink-0 items-center gap-2">
@@ -68,7 +68,7 @@ export function MessageRequestRow({ request }: { request: MessageRequestRowData 
           </Button>
         </div>
       ) : (
-        <span className="shrink-0 rounded-full bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink/50">Sent &middot; awaiting response</span>
+        <span className="shrink-0 rounded-full bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink-muted">Sent &middot; awaiting response</span>
       )}
     </li>
   )

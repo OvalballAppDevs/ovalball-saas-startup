@@ -265,7 +265,7 @@ export function SignupShell({
               ))}
             </div>
           </div>
-          <p className="mt-3 text-sm text-ink/55">{imagery.line}</p>
+          <p className="mt-3 text-sm text-ink-muted">{imagery.line}</p>
         </div>
 
         <div className="flex flex-1 items-start justify-center px-4 py-8 md:items-center md:px-12 md:py-16 lg:px-20">
@@ -281,7 +281,7 @@ export function SignupShell({
                 Click the link we sent to <strong className="text-ink">{formState.email}</strong>{" "}
                 to confirm your account. You can close this tab &mdash; nothing else to do here.
               </p>
-              <p className="text-sm text-ink/45">
+              <p className="text-sm text-ink-muted">
                 Your club request won&apos;t be submitted until you confirm your email.
               </p>
               <div className="flex flex-wrap gap-2.5">
@@ -373,7 +373,7 @@ export function SignupShell({
             )}
 
             {step === "review" && submitStatus === "error" && (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-text">
                 {submitError ?? "Something went wrong. Please try again."}
               </p>
             )}

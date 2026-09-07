@@ -78,7 +78,7 @@ export function CompleteProfileForm() {
           />
         </div>
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-destructive-text">{error}</p>}
       <Button
         type="submit"
         className="h-11 self-start px-6"

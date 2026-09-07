@@ -68,7 +68,7 @@ function FilterToggle({ filter, setFilter }: { filter: "all" | "unread"; setFilt
           onClick={() => setFilter(f)}
           className={cn(
             "rounded-full px-2.5 py-1 text-xs font-medium capitalize outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400",
-            filter === f ? "bg-white text-ink shadow-sm" : "text-ink/50 hover:text-ink/75"
+            filter === f ? "bg-white text-ink shadow-sm" : "text-ink-muted hover:text-ink/75"
           )}
         >
           {f}
@@ -81,15 +81,15 @@ function FilterToggle({ filter, setFilter }: { filter: "all" | "unread"; setFilt
 function EmptyState({ filter }: { filter: "all" | "unread" }) {
   return (
     <div className="flex flex-col items-center gap-2 px-3.5 py-8 text-center">
-      <MessageSquare className="size-5 text-ink/25" />
+      <MessageSquare className="size-5 text-ink-muted" />
       <p className="text-sm font-medium text-ink">{filter === "unread" ? "No unread fixture messages" : "No fixture messages yet"}</p>
-      <p className="max-w-[220px] text-xs text-ink/45">Conversations about your fixtures will show up here.</p>
+      <p className="max-w-[220px] text-xs text-ink-muted">Conversations about your fixtures will show up here.</p>
     </div>
   )
 }
 
 function previewText(c: ConversationSummary): ReactNode {
-  if (!c.latestMessagePreview) return <span className="italic text-ink/40">No messages yet</span>
+  if (!c.latestMessagePreview) return <span className="italic text-ink-muted">No messages yet</span>
   return c.latestMessagePreview.replace(/^Shared document:/, "Shared")
 }
 
@@ -117,12 +117,12 @@ function ConversationRow({ c, onNavigate }: { c: ConversationSummary; onNavigate
           <p className={cn("truncate text-sm", unread ? "font-semibold text-ink" : "font-medium text-ink/85")}>{c.opponentClubName}</p>
           {unread && <span className="mt-0.5 size-2 shrink-0 rounded-full bg-pitch-600" aria-hidden="true" />}
         </div>
-        <p className="truncate text-xs text-ink/45">
-          {c.oppositionLabel} <span className="text-ink/25">&middot;</span> {c.myClubName} {c.myTeamDisplayName}
+        <p className="truncate text-xs text-ink-muted">
+          {c.oppositionLabel} <span className="text-ink-muted">&middot;</span> {c.myClubName} {c.myTeamDisplayName}
         </p>
         <p className={cn("mt-1 truncate text-sm", unread ? "font-medium text-ink/80" : "text-ink/60")}>{previewText(c)}</p>
         {c.latestMessageAt && (
-          <p className="mt-0.5 text-[11px] text-ink/40">
+          <p className="mt-0.5 text-[11px] text-ink-muted">
             {c.latestMessageSenderName} &middot; {relativeTime(c.latestMessageAt)}
           </p>
         )}
@@ -168,7 +168,7 @@ export function MessagesPopover({ conversations, variant = "dark" }: { conversat
             <div className="flex items-center justify-between border-b border-ink/10 px-3.5 py-2.5">
               <div>
                 <p className="text-sm font-medium text-ink">Messages</p>
-                <p className="text-xs text-ink/45">{unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}</p>
+                <p className="text-xs text-ink-muted">{unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}</p>
               </div>
               <FilterToggle filter={filter} setFilter={setFilter} />
             </div>
@@ -204,7 +204,7 @@ export function MessagesPopover({ conversations, variant = "dark" }: { conversat
           <SheetHeader className="flex-row items-center justify-between border-b border-ink/10 px-4 py-3">
             <div>
               <SheetTitle className="text-sm font-medium text-ink">Messages</SheetTitle>
-              <p className="text-xs text-ink/45">{unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}</p>
+              <p className="text-xs text-ink-muted">{unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}</p>
             </div>
             <FilterToggle filter={filter} setFilter={setFilter} />
           </SheetHeader>

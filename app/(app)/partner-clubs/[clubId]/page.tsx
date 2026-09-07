@@ -54,7 +54,7 @@ export default async function PartnerClubAvailabilityPage({ params }: { params: 
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/partner-clubs" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href="/partner-clubs" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Partner clubs
       </Link>
@@ -64,14 +64,14 @@ export default async function PartnerClubAvailabilityPage({ params }: { params: 
       {!partnership ? (
         <div className="mt-8 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
           <p className="text-sm font-medium text-ink">Not an active partner</p>
-          <p className="mt-1 text-sm text-ink/55">
+          <p className="mt-1 text-sm text-ink-muted">
             You need an active calendar-sharing agreement with this club before you can see their availability.
           </p>
         </div>
       ) : (partnerTeams ?? []).length === 0 ? (
         <div className="mt-8 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
           <p className="text-sm font-medium text-ink">No teams listed</p>
-          <p className="mt-1 text-sm text-ink/55">This club hasn&rsquo;t added any teams yet.</p>
+          <p className="mt-1 text-sm text-ink-muted">This club hasn&rsquo;t added any teams yet.</p>
         </div>
       ) : (
         <div className="mt-8">

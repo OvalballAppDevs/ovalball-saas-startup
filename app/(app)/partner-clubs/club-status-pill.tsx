@@ -14,7 +14,7 @@ export function ClubStatusPill({ club }: { club: MapClub }) {
   }
   if (!club.clubId) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive-text">
         <MapPinOff className="size-3" />
         Not yet on Ovalball
       </span>

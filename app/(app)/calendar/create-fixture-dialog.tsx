@@ -14,7 +14,7 @@ import { GAME_TYPE_OPTIONS } from "../admin/fixtures/types"
 import { getRequestingTeamIdentity, type TeamSearchResult } from "./fixture-actions"
 import { OpponentPicker } from "./opponent-picker"
 
-const SECTION_LABEL = "text-xs font-medium tracking-[0.06em] text-ink/45 uppercase"
+const SECTION_LABEL = "text-xs font-medium tracking-[0.06em] text-ink-muted uppercase"
 
 export interface CompetitionOption {
   id: string
@@ -401,12 +401,12 @@ export function CreateFixtureDialog({
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
                 placeholder="Optional"
-                className="w-full resize-none text-sm text-ink outline-none placeholder:text-ink/35"
+                className="w-full resize-none text-sm text-ink outline-none placeholder:text-ink-subtle"
               />
             </div>
           </div>
 
-          {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+          {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
         </div>
 
         <DialogFooter>

@@ -51,16 +51,16 @@ export function DeletedCalendarEventsClient({ events }: { events: DeletedEventRo
   }
 
   if (events.length === 0) {
-    return <div className="mt-6 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-10 text-center text-sm text-ink/50">Nothing has been deleted or archived.</div>
+    return <div className="mt-6 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-10 text-center text-sm text-ink-muted">Nothing has been deleted or archived.</div>
   }
 
   return (
     <div className="mt-6">
-      {error && <p className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-text">{error}</p>}
       <div className="overflow-x-auto rounded-lg border border-ink/10 bg-white">
         <table className="w-full min-w-[960px] text-sm">
           <thead>
-            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">
+            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">
               <th scope="col" className="px-4 py-3">Type</th>
               <th scope="col" className="px-4 py-3">Team</th>
               <th scope="col" className="px-4 py-3">Opponent</th>

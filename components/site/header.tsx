@@ -66,7 +66,7 @@ const NAV_LINKS = [
 // inert as before -- no hover motion invites a tap that goes nowhere.
 const NAV_LINK_CLASS =
   "nav-pill rounded-sm px-1 py-1 text-sm text-white/80 outline-none transition-colors hover:text-white focus-visible:text-white focus-visible:ring-2 focus-visible:ring-pitch-400"
-const NAV_LINK_DISABLED_CLASS = "rounded-sm px-1 py-1 text-sm text-white/35 select-none"
+const NAV_LINK_DISABLED_CLASS = "rounded-sm px-1 py-1 text-sm text-white/60 select-none"
 
 /**
  * Transparent-over-hero, solid-on-scroll navigation. The transparent/solid
@@ -271,7 +271,7 @@ export function Header({
                     accordion inside a sheet would hide the four product
                     pages behind a second tap for no benefit. The heading
                     groups them; it does not collapse them. */}
-                <p className="px-2 pt-1 pb-2 text-xs font-medium tracking-[0.08em] text-white/40 uppercase">
+                <p className="px-2 pt-1 pb-2 text-xs font-medium tracking-[0.08em] text-white/60 uppercase">
                   Platform
                 </p>
                 {PLATFORM_LINKS.map((link) => (
@@ -294,7 +294,7 @@ export function Header({
                     <span
                       key={link.href}
                       aria-disabled="true"
-                      className="rounded-md px-2 py-3 text-base text-white/35 select-none"
+                      className="rounded-md px-2 py-3 text-base text-white/60 select-none"
                     >
                       {link.label}
                     </span>
@@ -319,7 +319,7 @@ export function Header({
                       <UserAvatar avatarUrl={identity.avatarUrl} name={identity.avatarSeed} size="sm" variant="dark" />
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-chalk">{identity.fullName}</p>
-                        <p className="truncate text-xs text-white/50">
+                        <p className="truncate text-xs text-white/60">
                           {identity.roleLabel}
                           {identity.clubName ? ` · ${identity.clubName}` : ""}
                         </p>

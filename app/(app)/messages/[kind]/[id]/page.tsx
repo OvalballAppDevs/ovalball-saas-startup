@@ -40,10 +40,10 @@ const STATUS_BADGE_STYLE: Record<string, string> = {
   pending: "bg-amber-500/10 text-amber-700",
   Planned: "bg-amber-500/10 text-amber-700",
   counter_proposed: "bg-amber-500/10 text-amber-700",
-  declined: "bg-destructive/10 text-destructive",
-  cancelled: "bg-destructive/10 text-destructive",
-  Cancelled: "bg-destructive/10 text-destructive",
-  expired: "bg-ink/8 text-ink/50",
+  declined: "bg-destructive/10 text-destructive-text",
+  cancelled: "bg-destructive/10 text-destructive-text",
+  Cancelled: "bg-destructive/10 text-destructive-text",
+  expired: "bg-ink/8 text-ink-muted",
 }
 
 /**
@@ -601,7 +601,7 @@ export default async function ConversationThreadPage({
 
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-2xl flex-col px-4 py-6 md:h-screen md:px-8 md:py-10">
-      <Link href="/messages" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href="/messages" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Messages
       </Link>
@@ -612,15 +612,15 @@ export default async function ConversationThreadPage({
             <ClubAvatar logoUrl={header.myClubLogoUrl} name={header.myClubName} size="sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-ink">{header.myClubName}</p>
-              {header.myTeamName && <p className="truncate text-xs text-ink/50">{header.myTeamName}</p>}
+              {header.myTeamName && <p className="truncate text-xs text-ink-muted">{header.myTeamName}</p>}
             </div>
           </div>
-          <span className="shrink-0 text-ink/30">&harr;</span>
+          <span className="shrink-0 text-ink-muted">&harr;</span>
           <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-2.5 text-right">
             <ClubAvatar logoUrl={header.opponentClubLogoUrl} name={header.opponentClubName} size="sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-ink">{header.opponentClubName}</p>
-              {header.opponentName && <p className="truncate text-xs text-ink/50">{header.opponentName}</p>}
+              {header.opponentName && <p className="truncate text-xs text-ink-muted">{header.opponentName}</p>}
             </div>
           </div>
         </div>

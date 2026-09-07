@@ -74,7 +74,7 @@ export function AddressLookupField({
   return (
     <div className="rounded-lg border border-dashed border-ink/15 p-4">
       <p className="text-sm font-medium text-ink">Look up address</p>
-      <p className="mt-1 mb-2 text-xs text-ink/50">
+      <p className="mt-1 mb-2 text-xs text-ink-muted">
         Start typing a postcode or address — suggestions appear as you type. Nothing is applied
         until you pick one.
       </p>
@@ -96,7 +96,7 @@ export function AddressLookupField({
         renderOption={(c) => (
           <>
             <span className="block truncate">{[c.line1, c.line2].filter(Boolean).join(", ")}</span>
-            <span className="block truncate text-xs text-ink/50">
+            <span className="block truncate text-xs text-ink-muted">
               {[c.town, c.county, c.postcode].filter(Boolean).join(", ")}
             </span>
           </>

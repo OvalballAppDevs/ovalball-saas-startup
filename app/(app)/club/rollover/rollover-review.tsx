@@ -104,17 +104,17 @@ export function RolloverReview({
           </Button>
         </div>
         {toSeasonOptions.length === 0 && (
-          <p className="mt-2 text-sm text-ink/45">
+          <p className="mt-2 text-sm text-ink-muted">
             {currentSeasonName
               ? `The season after ${currentSeasonName} hasn't been added yet — ask a Site Admin to create it under Seasons.`
               : "Ask a Site Admin to add next season under Seasons first."}
           </p>
         )}
-        {generateError && <p className="mt-2 text-sm text-destructive">{generateError}</p>}
+        {generateError && <p className="mt-2 text-sm text-destructive-text">{generateError}</p>}
       </div>
 
       {batches.length === 0 && (
-        <p className="mt-6 text-sm text-ink/45">No rollover has been generated yet.</p>
+        <p className="mt-6 text-sm text-ink-muted">No rollover has been generated yet.</p>
       )}
 
       {batches.map((batch) => (
@@ -122,7 +122,7 @@ export function RolloverReview({
           <p className="text-sm font-medium text-ink">
             {batch.fromSeasonName ?? "—"} &rarr; {batch.toSeasonName}
           </p>
-          <p className="mt-0.5 text-xs text-ink/45">
+          <p className="mt-0.5 text-xs text-ink-muted">
             Generated {new Date(batch.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
           </p>
 
@@ -161,7 +161,7 @@ function GroupFlagRow({ flag }: { flag: RolloverGroupFlagRow }) {
   }
 
   return (
-    <div className={`flex items-start gap-2 rounded-lg px-3.5 py-2.5 text-sm ${resolved ? "bg-ink/5 text-ink/50" : "bg-amber-50 text-amber-900"}`}>
+    <div className={`flex items-start gap-2 rounded-lg px-3.5 py-2.5 text-sm ${resolved ? "bg-ink/5 text-ink-muted" : "bg-amber-50 text-amber-900"}`}>
       <AlertTriangle className="mt-0.5 size-4 shrink-0" />
       <div className="flex-1">
         <p className="font-medium">{flag.displayTag} Mini-Rugby Group requires reconfiguration</p>
@@ -247,13 +247,13 @@ function MixedBoundaryProposalRow({ proposal }: { proposal: RolloverTeamProposal
         <div className="mt-3.5 rounded-lg border border-ink/10 bg-white p-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-ink/50">Current</p>
+              <p className="text-xs text-ink-muted">Current</p>
               <p className="mt-0.5 text-sm font-medium text-ink">
                 {proposal.currentAgeGroup} Mixed{proposal.teamSquadDesignation ? ` ${proposal.teamSquadDesignation}` : ""}
               </p>
             </div>
             <div>
-              <p className="text-xs text-ink/50">Proposed continuation</p>
+              <p className="text-xs text-ink-muted">Proposed continuation</p>
               <p className="mt-0.5 text-sm font-medium text-ink">
                 {proposal.proposedAgeGroup} Boys{proposal.teamSquadDesignation ? ` ${proposal.teamSquadDesignation}` : ""}
               </p>
@@ -271,7 +271,7 @@ function MixedBoundaryProposalRow({ proposal }: { proposal: RolloverTeamProposal
 
         <fieldset className="mt-5 m-0 border-0 p-0">
           <legend className="p-0 text-sm font-medium text-ink">Create a new {proposal.proposedAgeGroup} Girls team for next season?</legend>
-          <p className="mt-1 text-xs text-ink/55">
+          <p className="mt-1 text-xs text-ink-muted">
             This creates a separate team with its own history. It will not inherit any of {proposal.teamDisplayName}&apos;s past
             fixtures or results.
           </p>
@@ -308,7 +308,7 @@ function MixedBoundaryProposalRow({ proposal }: { proposal: RolloverTeamProposal
           )}
         </fieldset>
 
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+        {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
         <div className="mt-4 flex items-center gap-2">
           <Button
@@ -324,7 +324,7 @@ function MixedBoundaryProposalRow({ proposal }: { proposal: RolloverTeamProposal
             Cancel
           </Button>
           {createGirlsTeam === null && (
-            <p id={`girls-choice-hint-${proposal.id}`} className="text-xs text-ink/45">
+            <p id={`girls-choice-hint-${proposal.id}`} className="text-xs text-ink-muted">
               Choose Yes or No above to continue.
             </p>
           )}
@@ -371,7 +371,7 @@ function TeamProposalRow({ proposal }: { proposal: RolloverTeamProposalRow }) {
       <li className="flex items-center justify-between gap-3 py-3">
         <div className="text-sm">
           <span className="font-medium text-ink">{proposal.teamDisplayName}</span>
-          <span className="ml-2 text-ink/50">{proposal.currentAgeGroup}</span>
+          <span className="ml-2 text-ink-muted">{proposal.currentAgeGroup}</span>
         </div>
         <span className="text-sm text-forest-800">{label}</span>
       </li>
@@ -383,7 +383,7 @@ function TeamProposalRow({ proposal }: { proposal: RolloverTeamProposalRow }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm">
           <span className="font-medium text-ink">{proposal.teamDisplayName}</span>
-          <span className="ml-2 text-ink/50">
+          <span className="ml-2 text-ink-muted">
             {proposal.currentAgeGroup} &rarr;{" "}
             {proposal.requiresManualChoice ? (
               <span className="font-medium text-amber-700">requires explicit choice</span>
@@ -476,7 +476,7 @@ function TeamProposalRow({ proposal }: { proposal: RolloverTeamProposalRow }) {
         </div>
       )}
 
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </li>
   )
 }

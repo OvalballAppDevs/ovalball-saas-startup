@@ -93,7 +93,7 @@ export default async function TeamPlayerRequestsPage({ params }: { params: Promi
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <Link href={`/teams/${team.id}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href={`/teams/${team.id}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         {team.display_name}
       </Link>
@@ -103,7 +103,7 @@ export default async function TeamPlayerRequestsPage({ params }: { params: Promi
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Team</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Player requests</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         Request a player from another team at this club for a fixture, or decide a request another team has made for one of your own players.
       </p>
 

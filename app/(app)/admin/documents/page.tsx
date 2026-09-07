@@ -59,7 +59,7 @@ export default async function AdminDocumentsPage({
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Documents</h1>
-      <p className="mt-2 max-w-lg text-sm text-ink/55">
+      <p className="mt-2 max-w-lg text-sm text-ink-muted">
         Cross-club document management -- visitor guides, ground information, and other fixture resources every
         club library holds.
       </p>

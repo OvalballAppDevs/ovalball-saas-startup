@@ -74,7 +74,7 @@ export function DirectoryForm({
               onCorrected={(next) => setForm((f) => ({ ...f, rugbyCode: next }))}
             />
           </div>
-          <p className="mt-1.5 text-xs text-ink/45">
+          <p className="mt-1.5 text-xs text-ink-muted">
             Union and League are separate canonical identities. Use Correct for a genuine fix, with a reason.
           </p>
         </div>
@@ -185,7 +185,7 @@ export function DirectoryForm({
             placeholder="A short description shown on this club's public page."
             className="mt-1.5 w-full rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-base text-ink outline-none focus-visible:border-pitch-600"
           />
-          <p className="mt-1.5 text-xs text-ink/50">
+          <p className="mt-1.5 text-xs text-ink-muted">
             Shown publicly until the club claims its Ovalball page and writes its own.
           </p>
         </div>
@@ -194,7 +194,7 @@ export function DirectoryForm({
             Directory data source status
           </Label>
           <Input id="dir-verification" {...field("verificationStatus")} className="mt-1.5 h-11 border-ink/15 bg-white" />
-          <p className="mt-1.5 text-xs text-ink/45">
+          <p className="mt-1.5 text-xs text-ink-muted">
             Raw provenance from the import/data-quality pipeline (how this record was populated) &mdash; not a Site
             Admin sign-off. See Site Admin verification, below.
           </p>
@@ -234,7 +234,7 @@ export function DirectoryForm({
           ) : (
             <p
               id="dir-constituent"
-              className="mt-1.5 flex h-11 items-center text-sm text-ink/50"
+              className="mt-1.5 flex h-11 items-center text-sm text-ink-muted"
             >
               Not applicable — rugby league has no Constituent Bodies.
             </p>
@@ -258,7 +258,7 @@ export function DirectoryForm({
             <option value="VERIFIED">{ADMIN_VERIFICATION_STATUS_LABELS.VERIFIED}</option>
             <option value="FAILED">{ADMIN_VERIFICATION_STATUS_LABELS.FAILED}</option>
           </select>
-          <p className="mt-1.5 text-xs text-ink/45">
+          <p className="mt-1.5 text-xs text-ink-muted">
             Marking this Verified/Failed does not delete, deactivate, or remove the club &mdash; it is a review
             signal only.
           </p>
@@ -288,7 +288,7 @@ export function DirectoryForm({
       </label>
 
       {error && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>
       )}
 
       <div className="flex items-center gap-3 border-t border-ink/10 pt-5">
@@ -333,8 +333,8 @@ function ProvenanceSection({ initial }: { initial: ProvenanceInput }) {
     <div className="rounded-lg border border-dashed border-ink/15 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Source &amp; provenance</p>
-          <p className="mt-1 text-sm text-ink/50">
+          <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Source &amp; provenance</p>
+          <p className="mt-1 text-sm text-ink-muted">
             Where this record came from during ingestion. Not part of routine edits &mdash; unlock only if you&apos;re
             deliberately correcting the source data itself.
           </p>
@@ -383,7 +383,7 @@ function ProvenanceSection({ initial }: { initial: ProvenanceInput }) {
               className="mt-1.5 h-11 border-ink/15 bg-white"
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive-text">{error}</p>}
           <div className="flex items-center gap-3">
             <Button type="button" variant="outline" className="h-9" disabled={status === "saving"} onClick={handleSave}>
               {status === "saving" ? "Saving…" : "Save provenance"}

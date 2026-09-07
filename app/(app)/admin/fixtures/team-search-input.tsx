@@ -39,7 +39,7 @@ export function TeamSearchInput({
         <div className="mt-1.5 flex items-center justify-between gap-3 rounded-lg border border-pitch-600/40 bg-pitch-600/5 px-3.5 py-2.5">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-ink">{selected.teamName}</p>
-            <p className="truncate text-xs text-ink/50">
+            <p className="truncate text-xs text-ink-muted">
               {selected.clubName}
               {selected.town ? `, ${selected.town}` : ""}
             </p>
@@ -47,7 +47,7 @@ export function TeamSearchInput({
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="shrink-0 rounded text-xs font-medium text-ink/50 underline outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="shrink-0 rounded text-xs font-medium text-ink-muted underline outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             Change
           </button>
@@ -68,7 +68,7 @@ export function TeamSearchInput({
       renderOption={(t) => (
         <>
           <span className="block truncate font-medium text-ink">{t.teamName}</span>
-          <span className="block truncate text-xs text-ink/50">
+          <span className="block truncate text-xs text-ink-muted">
             {t.clubName}
             {t.town ? `, ${t.town}` : ""}
           </span>

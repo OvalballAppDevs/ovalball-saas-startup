@@ -27,10 +27,10 @@ const STATUS_STYLES: Record<string, string> = {
   accepted: "bg-mint-100 text-forest-900",
   Booked: "bg-mint-100 text-forest-900",
   Confirmed: "bg-mint-100 text-forest-900",
-  declined: "bg-destructive/10 text-destructive",
-  Cancelled: "bg-destructive/10 text-destructive",
-  cancelled: "bg-destructive/10 text-destructive",
-  expired: "bg-ink/5 text-ink/50",
+  declined: "bg-destructive/10 text-destructive-text",
+  Cancelled: "bg-destructive/10 text-destructive-text",
+  cancelled: "bg-destructive/10 text-destructive-text",
+  expired: "bg-ink/5 text-ink-muted",
   counter_proposed: "bg-amber-500/12 text-amber-800",
   read: "bg-ink/5 text-ink/60",
   // Support lifecycle, mapped through SUPPORT_STATUS_LABEL before display.
@@ -92,7 +92,7 @@ export function ConversationList({ rows }: { rows: ConversationRow[] }) {
             </button>
           ))}
         </div>
-        <label className="flex items-center gap-2 text-sm text-ink/55">
+        <label className="flex items-center gap-2 text-sm text-ink-muted">
           Sort by:
           <select
             value={sort}
@@ -108,10 +108,10 @@ export function ConversationList({ rows }: { rows: ConversationRow[] }) {
 
       {visible.length === 0 ? (
         <div className="mt-6 flex flex-col items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8">
-          <MessageSquare className="size-5 text-ink/30" />
+          <MessageSquare className="size-5 text-ink-muted" />
           <div>
             <p className="text-sm font-medium text-ink">No conversations{filter === "all" ? " yet" : " in this filter"}</p>
-            <p className="mt-1 text-sm text-ink/55">
+            <p className="mt-1 text-sm text-ink-muted">
               {filter === "all"
                 ? "Once you send or receive a fixture request, or start a club message, it will appear here."
                 : "Try a different filter to see other conversations."}
@@ -136,12 +136,12 @@ export function ConversationList({ rows }: { rows: ConversationRow[] }) {
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-ink/50">{c.title}</p>
-                  <p className="mt-1.5 truncate text-sm text-ink/70">{c.preview ?? <span className="text-ink/40 italic">No messages yet</span>}</p>
+                  <p className="mt-0.5 truncate text-xs text-ink-muted">{c.title}</p>
+                  <p className="mt-1.5 truncate text-sm text-ink/70">{c.preview ?? <span className="text-ink-muted italic">No messages yet</span>}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
                   <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[c.status] ?? "bg-ink/5 text-ink/60"}`}>{c.statusLabel}</span>
-                  <span className="text-xs text-ink/40">{formatActivityTime(c.activityAt)}</span>
+                  <span className="text-xs text-ink-muted">{formatActivityTime(c.activityAt)}</span>
                 </div>
               </Link>
             </li>

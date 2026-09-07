@@ -36,11 +36,11 @@ export function KpiCard({
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm text-ink/55">{label}</p>
+        <p className="text-sm text-ink-muted">{label}</p>
         {href ? (
           <ArrowUpRight
             aria-hidden="true"
-            className="size-4 shrink-0 text-ink/25 transition-colors group-hover:text-forest-800"
+            className="size-4 shrink-0 text-ink-muted transition-colors group-hover:text-forest-800"
           />
         ) : null}
       </div>
@@ -49,10 +49,10 @@ export function KpiCard({
         {value.toLocaleString("en-GB")}
       </p>
 
-      {secondary ? <p className="mt-2 text-xs text-ink/50 tabular-nums">{secondary}</p> : null}
+      {secondary ? <p className="mt-2 text-xs text-ink-muted tabular-nums">{secondary}</p> : null}
 
       {trend ? (
-        <p className="mt-2 text-xs text-ink/50">
+        <p className="mt-2 text-xs text-ink-muted">
           {trend.direction === "up" ? "▲" : trend.direction === "down" ? "▼" : "—"} {trend.label}
         </p>
       ) : null}
@@ -81,7 +81,7 @@ export function KpiCard({
 export function KpiCardSkeleton({ label }: { label: string }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white px-5 py-4" aria-busy="true">
-      <p className="text-sm text-ink/55">{label}</p>
+      <p className="text-sm text-ink-muted">{label}</p>
       <div className="mt-3 h-9 w-20 animate-pulse rounded bg-ink/8" />
       <span className="sr-only">Loading {label}</span>
     </div>

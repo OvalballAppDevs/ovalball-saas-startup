@@ -185,7 +185,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
     <>
       <tr className="border-b border-ink/6 last:border-0 hover:bg-ink/[0.02]">
         <td className="px-4 py-3 text-ink/70">{formatFixtureDate(row.kickoffDate)}</td>
-        <td className="px-4 py-3 text-ink/70">{row.kickoffTime ? row.kickoffTime.slice(0, 5) : <span className="text-ink/30">&mdash;</span>}</td>
+        <td className="px-4 py-3 text-ink/70">{row.kickoffTime ? row.kickoffTime.slice(0, 5) : <span className="text-ink-muted">&mdash;</span>}</td>
         <td className="px-4 py-3 text-ink/60">{RUGBY_CODE_LABEL[row.rugbyCode] ?? row.rugbyCode}</td>
         <td className="px-4 py-3">
           {row.homeClubResolved ? (
@@ -193,7 +193,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
               <ClubAvatar logoUrl={row.homeClubLogoUrl} name={row.homeClubName} size="xs" />
               <div>
                 <p className="font-medium text-ink">{row.homeClubName}</p>
-                <p className="text-xs text-ink/45">{row.homeTeamName}</p>
+                <p className="text-xs text-ink-muted">{row.homeTeamName}</p>
               </div>
             </div>
           ) : (
@@ -208,7 +208,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
               <ClubAvatar logoUrl={row.awayClubLogoUrl} name={row.awayClubName} size="xs" />
               <div>
                 <p className="font-medium text-ink">{row.awayClubName}</p>
-                <p className="text-xs text-ink/45">{row.awayTeamName}</p>
+                <p className="text-xs text-ink-muted">{row.awayTeamName}</p>
               </div>
             </div>
           ) : (
@@ -221,12 +221,12 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
           {row.pitchName || row.pitchAllocation ? (
             <>
               <p className="text-ink">{row.pitchName ?? row.pitchAllocation}</p>
-              {row.venueName && <p className="text-xs text-ink/45">{row.venueName}</p>}
+              {row.venueName && <p className="text-xs text-ink-muted">{row.venueName}</p>}
             </>
           ) : row.venueName ? (
             <p className="text-ink">{row.venueName}</p>
           ) : (
-            <span className="text-ink/30">&mdash;</span>
+            <span className="text-ink-muted">&mdash;</span>
           )}
         </td>
         <td className="px-4 py-3 text-ink/60">
@@ -236,17 +236,17 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                 {row.homeScore}&ndash;{row.awayScore}
               </span>
               {row.resultStatus !== "final" && row.resultStatus !== "external_recorded" && (
-                <span className="ml-1.5 text-xs text-ink/40">({RESULT_STATUS_LABEL[row.resultStatus] ?? row.resultStatus})</span>
+                <span className="ml-1.5 text-xs text-ink-muted">({RESULT_STATUS_LABEL[row.resultStatus] ?? row.resultStatus})</span>
               )}
             </>
           ) : (
-            <span className="text-ink/30">&mdash;</span>
+            <span className="text-ink-muted">&mdash;</span>
           )}
         </td>
         <td className="px-4 py-3">
-          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${FIXTURE_STATUS_BADGE_CLASS[row.status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/8 text-ink/50"}`}>{row.status}</span>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${FIXTURE_STATUS_BADGE_CLASS[row.status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/8 text-ink-muted"}`}>{row.status}</span>
         </td>
-        <td className="px-4 py-3 text-ink/50">{SOURCE_LABEL[row.source] ?? row.source}</td>
+        <td className="px-4 py-3 text-ink-muted">{SOURCE_LABEL[row.source] ?? row.source}</td>
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-3">
             <button
@@ -254,7 +254,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
               onClick={handleToggleOpen}
               aria-expanded={open}
               aria-label={`Quick edit ${row.homeTeamName} vs ${row.awayTeamName}`}
-              className="inline-flex items-center gap-1 text-sm font-medium text-ink/50 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+              className="inline-flex items-center gap-1 text-sm font-medium text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
               <Pencil className="size-3.5" />
               Edit
@@ -275,12 +275,12 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
         <tr className="border-b border-ink/6 bg-ink/[0.015]">
           <td colSpan={10} className="px-4 py-4">
             {loading ? (
-              <p className="text-sm text-ink/45">Loading editable fields&hellip;</p>
+              <p className="text-sm text-ink-muted">Loading editable fields&hellip;</p>
             ) : (
               <div className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
-                    <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Date</label>
+                    <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Date</label>
                     <input
                       type="date"
                       value={date}
@@ -289,7 +289,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Kickoff</label>
+                    <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Kickoff</label>
                     <input
                       type="time"
                       value={time}
@@ -298,7 +298,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Competition</label>
+                    <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Competition</label>
                     <select
                       value={competitionEditionId ?? ""}
                       onChange={(e) => setCompetitionEditionId(e.target.value || null)}
@@ -319,15 +319,15 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                     narrow ones (Reconciliation-follow-up section 33/34). */}
                 <div className="flex flex-wrap items-start gap-x-6 gap-y-3 border-t border-ink/10 pt-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Status</span>
+                    <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Status</span>
                     <FixtureStatusControl fixtureId={row.id} status={row.status} />
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Pitch</span>
+                    <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Pitch</span>
                     <PitchInline fixtureId={row.id} pitch={row.pitchAllocation} pitchId={null} isHomeFixture={isHomeFixtureForPitch} availablePitches={pitches} />
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Result correction</span>
+                    <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Result correction</span>
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="sr-only" htmlFor={`home-score-${row.id}`}>
                         Home score
@@ -341,7 +341,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                         placeholder="H"
                         className="h-8 w-12 rounded-md border border-ink/15 bg-white px-2 text-center text-sm outline-none focus-visible:border-pitch-600"
                       />
-                      <span className="text-ink/40">&ndash;</span>
+                      <span className="text-ink-muted">&ndash;</span>
                       <label className="sr-only" htmlFor={`away-score-${row.id}`}>
                         Away score
                       </label>
@@ -378,7 +378,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                     resolved. */}
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-ink/10 pt-4">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">{isHome ? "Home" : "Away"} team</span>
+                    <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{isHome ? "Home" : "Away"} team</span>
                     <span className="text-sm text-ink/70">
                       {owningClubName} &middot; {isHome ? row.homeTeamName : row.awayTeamName}
                     </span>
@@ -391,11 +391,11 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                     />
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">{isHome ? "Away" : "Home"} team</span>
+                    <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{isHome ? "Away" : "Home"} team</span>
                     {opponentClubResolved ? (
                       <span className="text-sm text-ink/70">
                         {opponentClubName}
-                        {opponentTeamName ? <> &middot; {opponentTeamName}</> : <span className="text-ink/40"> &middot; team not set</span>}
+                        {opponentTeamName ? <> &middot; {opponentTeamName}</> : <span className="text-ink-muted"> &middot; team not set</span>}
                       </span>
                     ) : (
                       <span className="text-sm text-amber-700">
@@ -411,7 +411,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                       sideLabel={isHome ? "Away" : "Home"}
                     />
                   </div>
-                  <p className="w-full text-xs text-ink/35">
+                  <p className="w-full text-xs text-ink-muted">
                     Rugby code and Source are set when the fixture is created and not directly editable.
                   </p>
                 </div>
@@ -423,12 +423,12 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                       {saving ? "Saving…" : "Save changes"}
                     </Button>
                     {isDirty && (
-                      <Button type="button" size="sm" variant="ghost" className="h-9 text-ink/50" disabled={saving} onClick={handleDiscard}>
+                      <Button type="button" size="sm" variant="ghost" className="h-9 text-ink-muted" disabled={saving} onClick={handleDiscard}>
                         Discard
                       </Button>
                     )}
-                    {isDirty && !saveError && <span className="text-xs text-ink/40">You have unsaved changes.</span>}
-                    {saveError && <span className="text-xs text-destructive">{saveError}</span>}
+                    {isDirty && !saveError && <span className="text-xs text-ink-muted">You have unsaved changes.</span>}
+                    {saveError && <span className="text-xs text-destructive-text">{saveError}</span>}
                   </div>
                   <Button type="button" size="sm" className="h-9" nativeButton={false} render={<Link href={`/admin/fixtures/${row.id}`} onClick={guardNavigate} />}>
                     <FileText className="size-3.5" />

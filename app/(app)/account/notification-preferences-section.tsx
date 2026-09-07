@@ -42,23 +42,23 @@ export function NotificationPreferencesSection({ topics }: { topics: Notificatio
 
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-5">
-      <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Notifications</p>
+      <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Notifications</p>
       <p className="mt-2 text-sm text-ink/70">Choose what Ovalball notifies you about in-app. Email and push are coming soon.</p>
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-xs text-destructive-text">{error}</p>}
       <ul className="mt-4 flex flex-col gap-3">
         {topics.map((topic) => (
           <li key={topic.key} className="flex items-center justify-between gap-4 rounded-lg border border-ink/10 bg-chalk px-3.5 py-3">
             <div className="min-w-0">
               <p className="text-sm font-medium text-ink">{topic.label}</p>
-              <p className="mt-0.5 text-xs text-ink/50">{topic.description}</p>
+              <p className="mt-0.5 text-xs text-ink-muted">{topic.description}</p>
               {!topic.mandatory && (
-                <p className="mt-1 text-[11px] text-ink/35">
+                <p className="mt-1 text-[11px] text-ink-muted">
                   Email {topic.emailReady ? "available" : "coming soon"} · Push {topic.pushReady ? "available" : "coming soon"}
                 </p>
               )}
             </div>
             {topic.mandatory ? (
-              <span className="shrink-0 rounded-full border border-ink/15 px-2.5 py-1 text-[11px] font-medium tracking-wide text-ink/45 uppercase">Always on</span>
+              <span className="shrink-0 rounded-full border border-ink/15 px-2.5 py-1 text-[11px] font-medium tracking-wide text-ink-muted uppercase">Always on</span>
             ) : (
               <button
                 type="button"

@@ -56,14 +56,14 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
       {/* States the direction of money in the first line, so a Club Admin who
           lands here looking for what the club pays Ovalball knows immediately
           that they want the Ovalball Plan tab instead. */}
-      <p className="mt-2 max-w-md text-sm text-ink/55">
+      <p className="mt-2 max-w-md text-sm text-ink-muted">
         Members pay {clubName}. Monthly membership subscriptions collected through the club&rsquo;s own
         GoCardless Direct Debit. Sandbox only &mdash; no real money moves through this feature yet.
       </p>
 
       <ClubSettingsNav active="subscriptions" {...navCaps} />
 
-      {params.gc_error && <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{params.gc_error}</p>}
+      {params.gc_error && <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-text">{params.gc_error}</p>}
       {params.gc_connected && <p className="mt-6 rounded-lg border border-pitch-600/30 bg-pitch-50 px-4 py-3 text-sm text-forest-800">GoCardless connected successfully.</p>}
 
       <section className="mt-8">
@@ -72,7 +72,7 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
 
       {canConfigure && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Programme settings</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Programme settings</h2>
           <div className="mt-3">
             <SubscriptionSettingsForm
               clubId={clubId}
@@ -90,7 +90,7 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
 
       {canConfigure && programme && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Pricing</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Pricing</h2>
           <div className="mt-3">
             <PricePanel programmeId={programme.id} clubId={clubId} currentAmountMinor={currentPrice?.amount_minor ?? null} priceHistory={pricing ?? []} />
           </div>

@@ -46,7 +46,7 @@ export function CheckOnlineNowButton({ directoryId, canRun }: { directoryId: str
         {running ? "Checking…" : "Check Online Now"}
       </Button>
       {progress && (
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink-muted">
           {progress.proposalsCreated > 0
             ? `${progress.proposalsCreated} proposal(s) staged for review below.`
             : progress.conflictsFound > 0
@@ -54,7 +54,7 @@ export function CheckOnlineNowButton({ directoryId, canRun }: { directoryId: str
               : "No authoritative online result found for this club."}
         </p>
       )}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive-text">{error}</p>}
     </div>
   )
 }

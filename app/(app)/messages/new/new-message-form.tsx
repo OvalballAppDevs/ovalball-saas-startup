@@ -51,7 +51,7 @@ export function NewMessageForm({ myClubId }: { myClubId: string }) {
         <div className="mt-1.5 flex items-center justify-between rounded-lg border border-ink/15 bg-mint-100/40 px-3.5 py-2.5">
           <div>
             <p className="text-sm font-medium text-ink">{selected.name}</p>
-            <p className="text-xs text-ink/55">
+            <p className="text-xs text-ink-muted">
               {[selected.town, selected.county].filter(Boolean).join(" · ")}
               {selected.rugbyCode ? ` · Rugby ${selected.rugbyCode === "union" ? "Union" : "League"}` : ""}
             </p>
@@ -78,8 +78,8 @@ export function NewMessageForm({ myClubId }: { myClubId: string }) {
       )}
       {!selected && query.trim().length >= 2 && (
         <div className="mt-2 flex flex-col gap-1 rounded-lg border border-ink/10 bg-white p-1">
-          {searching && <p className="px-3 py-2 text-sm text-ink/45">Searching…</p>}
-          {!searching && results.length === 0 && <p className="px-3 py-2 text-sm text-ink/45">No clubs found.</p>}
+          {searching && <p className="px-3 py-2 text-sm text-ink-muted">Searching…</p>}
+          {!searching && results.length === 0 && <p className="px-3 py-2 text-sm text-ink-muted">No clubs found.</p>}
           {results.map((r) => (
             <button
               key={r.directoryId}
@@ -92,11 +92,11 @@ export function NewMessageForm({ myClubId }: { myClubId: string }) {
             >
               <span>
                 {r.name}
-                {r.town ? <span className="text-ink/45"> · {r.town}</span> : null}
+                {r.town ? <span className="text-ink-muted"> · {r.town}</span> : null}
               </span>
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                  r.isPartner ? "bg-pitch-600/15 text-forest-900" : r.isActiveOnOvalball ? "bg-mint-100 text-forest-800" : "bg-ink/8 text-ink/50"
+                  r.isPartner ? "bg-pitch-600/15 text-forest-900" : r.isActiveOnOvalball ? "bg-mint-100 text-forest-800" : "bg-ink/8 text-ink-muted"
                 }`}
               >
                 {r.isPartner ? "Partner" : r.isActiveOnOvalball ? "On Ovalball" : "Not on Ovalball"}
@@ -107,7 +107,7 @@ export function NewMessageForm({ myClubId }: { myClubId: string }) {
       )}
 
       {selected && !selected.isActiveOnOvalball && (
-        <p className="mt-3 text-sm text-ink/55">
+        <p className="mt-3 text-sm text-ink-muted">
           This club is not currently active on Ovalball. You can still use this club when creating fixtures, but
           direct Ovalball messaging isn&apos;t available yet.
         </p>
@@ -126,12 +126,12 @@ export function NewMessageForm({ myClubId }: { myClubId: string }) {
             placeholder={selected.isPartner ? "Write your message…" : "Explain why you'd like to start a conversation…"}
             className="mt-1.5 w-full resize-none rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus-visible:border-pitch-600"
           />
-          <p className="mt-1 text-xs text-ink/45">
+          <p className="mt-1 text-xs text-ink-muted">
             {selected.isPartner
               ? `${selected.name} is already a partner club -- this opens your shared conversation immediately.`
               : `${selected.name} will see this as a message request and can accept or decline it before the conversation opens.`}
           </p>
-          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
           <div className="mt-3">
             <Button type="button" className="h-10" disabled={submitting || !message.trim()} onClick={handleSend}>
               {submitting ? "Sending…" : selected.isPartner ? "Send message" : "Send message request"}

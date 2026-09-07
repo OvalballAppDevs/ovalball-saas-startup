@@ -68,7 +68,7 @@ export function InviteForm({ clubId, clubName, teams }: InviteFormProps) {
     return (
       <div className="rounded-lg border border-ink/10 bg-white p-5">
         <p className="text-sm font-medium text-ink">Invitation created for {email}</p>
-        <p className="mt-1 text-sm text-ink/55">
+        <p className="mt-1 text-sm text-ink-muted">
           No email provider is connected yet in development, so share this link with them directly:
         </p>
         <code className="mt-2 block truncate rounded-md bg-ink/5 px-3 py-2 text-xs text-ink/70">{inviteLink}</code>
@@ -166,7 +166,7 @@ export function InviteForm({ clubId, clubName, teams }: InviteFormProps) {
         </div>
       )}
 
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
       <div className="mt-4 flex items-center gap-2">
         <Button type="submit" className="h-9" disabled={!canSubmit || status === "saving"}>

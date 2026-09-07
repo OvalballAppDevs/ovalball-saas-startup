@@ -28,7 +28,7 @@ export function SiblingDiscountPanel({ programmeId, clubId, rules }: { programme
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-4">
       <p className="text-sm font-medium text-ink">Sibling discounts</p>
-      <p className="mt-1 text-xs text-ink/50">
+      <p className="mt-1 text-xs text-ink-muted">
         A discount for the 2nd, 3rd... child from the same paying family, based on how many of their children are already actively enrolled in this membership. Applies automatically at enrolment -- the Parent sees exactly why before they authorize anything. Changing a rule only
         affects NEW enrolments from today; it never re-prices an existing member.
       </p>
@@ -79,7 +79,7 @@ function SiblingRuleRow({ programmeId, clubId, ordinal, current }: { programmeId
       <div className="min-w-[4rem]">
         <p className="text-sm font-medium text-ink">{ORDINAL_WORD[ordinal] ?? `${ordinal}th`} child</p>
         {current && (
-          <p className="mt-0.5 text-xs text-ink/45">
+          <p className="mt-0.5 text-xs text-ink-muted">
             Current: {current.discountType === "NONE" ? "No discount" : current.discountType === "PERCENTAGE" ? `${current.discountValue}% off` : `${formatMinorUnits(current.discountValue)} off`}
           </p>
         )}
@@ -113,7 +113,7 @@ function SiblingRuleRow({ programmeId, clubId, ordinal, current }: { programmeId
       <Button type="button" size="sm" className="h-9" disabled={status === "saving"} onClick={handleSave}>
         {status === "saving" ? "Saving…" : "Save"}
       </Button>
-      {error && <p className="w-full text-xs text-destructive">{error}</p>}
+      {error && <p className="w-full text-xs text-destructive-text">{error}</p>}
     </div>
   )
 }

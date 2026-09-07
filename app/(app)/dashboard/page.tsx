@@ -120,7 +120,7 @@ export default async function DashboardPage() {
         {dashboardContext.kind !== "site_admin" && <ClubAvatar logoUrl={dashboardContext.logoUrl} name={data.clubDisplayName} size="md" />}
         <h1 className="font-display text-display-l text-ink">{data.clubDisplayName}</h1>
       </div>
-      <p className="mt-1 text-sm text-ink/50">{displayRoleLabel}</p>
+      <p className="mt-1 text-sm text-ink-muted">{displayRoleLabel}</p>
       {dashboardContext.kind === "parent" && dashboardContext.playerId && (
         <Link href={`/parent/players/${dashboardContext.playerId}/access`} className="mt-2 inline-block text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
           Manage what {dashboardContext.label} can see and do
@@ -134,7 +134,7 @@ export default async function DashboardPage() {
 
       <section className="mt-10">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">This week</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">This week</h2>
           <Link href="/calendar" className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
             View calendar
           </Link>
@@ -142,7 +142,7 @@ export default async function DashboardPage() {
 
         {data.thisWeekFixtures.length === 0 ? (
           <EmptyState
-            icon={<CalendarDays className="size-5 text-ink/30" />}
+            icon={<CalendarDays className="size-5 text-ink-muted" />}
             title="Nothing scheduled this week"
             body="Fixtures for your team(s) in the next 7 days will show up here."
             actionHref="/calendar"
@@ -159,7 +159,7 @@ export default async function DashboardPage() {
 
       {data.outstandingRequests.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Requests</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Requests</h2>
           <ul className="mt-4 flex flex-col gap-2">
             {data.outstandingRequests.map((r) => (
               <RequestListRow key={r.id} request={r} />
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
       {data.outstandingRequests.length === 0 && data.myTeamCount === 0 && (
         <section className="mt-10">
           <EmptyState
-            icon={<Inbox className="size-5 text-ink/30" />}
+            icon={<Inbox className="size-5 text-ink-muted" />}
             title="No team assigned yet"
             body="Once you have a team or club role, its fixtures and requests will appear here."
           />
@@ -194,20 +194,20 @@ function FixtureListRow({ fixture }: { fixture: FixtureRow }) {
     <li className="flex flex-wrap items-center gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5">
       <div className="min-w-[7rem] shrink-0">
         <p className="text-sm font-medium text-ink">{dateLabel}</p>
-        {fixture.kickoffTime && <p className="text-xs text-ink/45">{fixture.kickoffTime.slice(0, 5)}</p>}
+        {fixture.kickoffTime && <p className="text-xs text-ink-muted">{fixture.kickoffTime.slice(0, 5)}</p>}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink">
-          {fixture.teamDisplayName} <span className="text-ink/40">vs</span> {fixture.opposition}
+          {fixture.teamDisplayName} <span className="text-ink-muted">vs</span> {fixture.opposition}
         </p>
-        <p className="text-xs text-ink/50">
+        <p className="text-xs text-ink-muted">
           {fixture.homeAway}
           {fixture.venueAddress ? ` · ${fixture.venueAddress}` : ""}
         </p>
       </div>
       <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusClass}`}>{fixture.status}</span>
       {fixture.needsAction && (
-        <span className="shrink-0 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+        <span className="shrink-0 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive-text">
           Action needed
         </span>
       )}
@@ -230,9 +230,9 @@ function RequestListRow({ request }: { request: PendingRequestRow }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink">
-          {request.teamDisplayName} <span className="text-ink/40">vs</span> {request.opponentText}
+          {request.teamDisplayName} <span className="text-ink-muted">vs</span> {request.opponentText}
         </p>
-        <p className="text-xs text-ink/50">
+        <p className="text-xs text-ink-muted">
           {dateLabel} · {request.venuePreference}
         </p>
       </div>
@@ -264,7 +264,7 @@ function EmptyState({
       {icon}
       <div>
         <p className="text-sm font-medium text-ink">{title}</p>
-        <p className="mt-1 text-sm text-ink/55">{body}</p>
+        <p className="mt-1 text-sm text-ink-muted">{body}</p>
       </div>
       {actionHref && actionLabel && (
         <Link href={actionHref} className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">

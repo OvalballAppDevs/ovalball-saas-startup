@@ -47,7 +47,7 @@ export function TeamFilterBar<T extends FilterableLane>({
         <TeamChip label="All teams" active={!activeTeam} href={hrefFor(null)} />
         {groups.map((g) => (
           <div key={g.key} className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold tracking-[0.08em] text-ink/35 uppercase">{g.label}</span>
+            <span className="text-[10px] font-semibold tracking-[0.08em] text-ink-muted uppercase">{g.label}</span>
             {g.lanes.map((l) => (
               <TeamChip key={l.id} label={l.label} title={l.fullLabel} active={activeTeam === l.id} href={hrefFor(l.id)} />
             ))}
@@ -62,7 +62,7 @@ export function TeamFilterBar<T extends FilterableLane>({
         className="mt-3 flex w-full items-center justify-between gap-2 rounded-lg border border-ink/15 bg-white px-3 py-2 text-left text-sm font-medium text-ink outline-none md:hidden"
       >
         <span className="truncate">{activeLane ? activeLane.fullLabel : "All teams"}</span>
-        <ChevronDown className="size-4 shrink-0 text-ink/40" />
+        <ChevronDown className="size-4 shrink-0 text-ink-muted" />
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -83,7 +83,7 @@ export function TeamFilterBar<T extends FilterableLane>({
             </Link>
             {groups.map((g) => (
               <div key={g.key}>
-                <p className="text-xs font-semibold tracking-[0.06em] text-ink/45 uppercase">{g.label}</p>
+                <p className="text-xs font-semibold tracking-[0.06em] text-ink-muted uppercase">{g.label}</p>
                 <div className="mt-2 flex flex-col gap-1.5">
                   {g.lanes.map((l) => (
                     <Link

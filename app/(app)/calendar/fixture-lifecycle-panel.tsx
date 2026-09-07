@@ -28,15 +28,15 @@ function FixtureCancellationInfoDialog({ fixture, onClose }: { fixture: FixtureL
         <p className="font-display text-lg text-ink">Cancellation Details</p>
         <dl className="mt-3 flex flex-col gap-3 text-sm">
           <div>
-            <dt className="text-xs font-medium text-ink/50">Reason</dt>
+            <dt className="text-xs font-medium text-ink-muted">Reason</dt>
             <dd className="mt-0.5 text-ink">{fixture.cancellationReason ?? "--"}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium text-ink/50">Cancelled by</dt>
+            <dt className="text-xs font-medium text-ink-muted">Cancelled by</dt>
             <dd className="mt-0.5 text-ink">{fixture.cancelledByName ?? "Unknown"}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium text-ink/50">Cancelled</dt>
+            <dt className="text-xs font-medium text-ink-muted">Cancelled</dt>
             <dd className="mt-0.5 text-ink">{fixture.cancelledAt ? new Date(fixture.cancelledAt).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "--"}</dd>
           </div>
         </dl>
@@ -103,7 +103,7 @@ function CancelFixtureDialog({ fixture, onClose, onCancelled }: { fixture: Fixtu
         />
 
         {error && (
-          <p role="alert" className="mt-2 text-sm text-destructive">
+          <p role="alert" className="mt-2 text-sm text-destructive-text">
             {error}
           </p>
         )}
@@ -149,7 +149,7 @@ function DeleteFixtureDialog({ fixture, onClose, onDeleted }: { fixture: Fixture
   return (
     <div role="dialog" aria-modal="true" aria-label="Delete Fixture" className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
-        <p className="font-display text-lg text-destructive">Delete this fixture?</p>
+        <p className="font-display text-lg text-destructive-text">Delete this fixture?</p>
         <p className="mt-2 text-sm text-ink/70">
           The fixture against <strong>{fixture.opposition}</strong> on <strong>{dateLabel}</strong> will be removed from normal
           Calendar and Fixture Management views for everyone, including your own back-office staff.
@@ -174,7 +174,7 @@ function DeleteFixtureDialog({ fixture, onClose, onDeleted }: { fixture: Fixture
         />
 
         {error && (
-          <p role="alert" className="mt-2 text-sm text-destructive">
+          <p role="alert" className="mt-2 text-sm text-destructive-text">
             {error}
           </p>
         )}

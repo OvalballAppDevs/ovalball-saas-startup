@@ -129,7 +129,7 @@ export default async function ClubSettingsHubPage() {
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club Settings</p>
       <h1 className="mt-2 font-display text-display-l text-ink">{clubName}</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">Everything {clubName} owns and configures, in one place.</p>
+      <p className="mt-2 max-w-md text-sm text-ink-muted">Everything {clubName} owns and configures, in one place.</p>
 
       <ClubSettingsNav
         active="overview"
@@ -154,9 +154,9 @@ export default async function ClubSettingsHubPage() {
               <s.icon className="size-5 shrink-0 text-forest-800" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-ink">{s.title}</p>
-                <p className="text-xs text-ink/50">{s.description}</p>
+                <p className="text-xs text-ink-muted">{s.description}</p>
               </div>
-              <ChevronRight className="size-4 shrink-0 text-ink/30" />
+              <ChevronRight className="size-4 shrink-0 text-ink-muted" />
             </Link>
           </li>
         ))}

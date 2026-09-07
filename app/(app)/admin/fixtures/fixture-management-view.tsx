@@ -85,7 +85,7 @@ export async function FixtureManagementView({
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-display-l text-ink">Fixture management</h1>
-          <p className="mt-2 max-w-lg text-sm text-ink/55">
+          <p className="mt-2 max-w-lg text-sm text-ink-muted">
             {scope.clubId
               ? `Search, review, and maintain ${scope.clubName ?? "your club"}'s fixtures directly, including tournaments and a staged CSV import workflow.`
               : "Search, review, and maintain every fixture directly — including a staged CSV import workflow for competition-published dates."}
@@ -110,19 +110,19 @@ export async function FixtureManagementView({
       </div>
 
       {error && (
-        <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-text">
           Couldn&apos;t load fixtures right now. Please try again.
         </p>
       )}
 
-      <p className="mt-4 text-sm text-ink/45">
+      <p className="mt-4 text-sm text-ink-muted">
         {total.toLocaleString()} fixture{total === 1 ? "" : "s"} match{total === 1 ? "es" : ""}
       </p>
 
       <div className="mt-3 hidden overflow-x-auto rounded-lg border border-ink/10 bg-white md:block">
         <table className="w-full min-w-[1080px] text-sm">
           <thead>
-            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">
+            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">
               <th scope="col" className="px-4 py-3">
                 Date
               </th>
@@ -161,7 +161,7 @@ export async function FixtureManagementView({
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && !error && <div className="px-4 py-10 text-center text-sm text-ink/50">No fixtures match these filters.</div>}
+        {rows.length === 0 && !error && <div className="px-4 py-10 text-center text-sm text-ink-muted">No fixtures match these filters.</div>}
       </div>
 
       <ul className="mt-3 flex flex-col gap-2.5 md:hidden">
@@ -171,7 +171,7 @@ export async function FixtureManagementView({
           </li>
         ))}
         {rows.length === 0 && !error && (
-          <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink/50">
+          <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink-muted">
             No fixtures match these filters.
           </li>
         )}

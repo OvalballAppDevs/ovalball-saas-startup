@@ -48,10 +48,10 @@ export function FinanceDashboardDemo() {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.035] p-6 md:p-7">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-medium tracking-[0.06em] text-white/55 uppercase">
+        <h3 className="text-sm font-medium tracking-[0.06em] text-white/60 uppercase">
           Membership overview
         </h3>
-        <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/40 uppercase">
+        <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/60 uppercase">
           Product preview
         </span>
       </div>
@@ -91,7 +91,7 @@ export function FinanceDashboardDemo() {
       </div>
 
       {/* Column headers only exist where there are actually columns. */}
-      <div className="mt-5 hidden grid-cols-[1fr_auto_auto] gap-4 px-4 pb-2 text-[11px] tracking-[0.04em] text-white/35 uppercase sm:grid">
+      <div className="mt-5 hidden grid-cols-[1fr_auto_auto] gap-4 px-4 pb-2 text-[11px] tracking-[0.04em] text-white/60 uppercase sm:grid">
         <span>Member</span>
         <span className="text-right">Amount</span>
         <span className="text-right">Status</span>
@@ -105,20 +105,20 @@ export function FinanceDashboardDemo() {
           >
             <div className="min-w-0">
               <p className="text-sm text-white">{row.member}</p>
-              <p className="text-xs text-white/45">{row.ageGroup}</p>
+              <p className="text-xs text-white/60">{row.ageGroup}</p>
             </div>
             <p className="text-sm tabular-nums text-white/80 sm:text-right">{row.amount}</p>
             <StatusChip status={row.status} />
           </li>
         ))}
         {rows.length === 0 && (
-          <li className="rounded-lg bg-white/[0.03] px-4 py-6 text-center text-sm text-white/50">
+          <li className="rounded-lg bg-white/[0.03] px-4 py-6 text-center text-sm text-white/60">
             Nothing in this state right now.
           </li>
         )}
       </ul>
 
-      <p className="mt-4 text-xs text-white/40">
+      <p className="mt-4 text-xs text-white/60">
         Visible to Club Admins with finance permission &mdash; not to coaches, team admins, other
         families or players. No bank details are shown here or held by Ovalball.
       </p>
@@ -146,7 +146,7 @@ function SummaryTile({
             : "border-white/10 bg-white/[0.02]"
       )}
     >
-      <dt className="text-[11px] tracking-[0.04em] text-white/50 uppercase">{label}</dt>
+      <dt className="text-[11px] tracking-[0.04em] text-white/60 uppercase">{label}</dt>
       <dd
         className={cn(
           "mt-1 font-display text-2xl tabular-nums",

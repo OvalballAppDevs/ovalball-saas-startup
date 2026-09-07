@@ -100,7 +100,7 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
 
   if (status === "done") {
     return (
-      <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink/50">
+      <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink-muted">
         {request.teamDisplayName} vs {request.opponentText} &mdash; updated.
       </li>
     )
@@ -121,9 +121,9 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink">
-          {request.teamDisplayName} <span className="text-ink/40">vs</span> {request.opponentText}
+          {request.teamDisplayName} <span className="text-ink-muted">vs</span> {request.opponentText}
         </p>
-        <p className="text-xs text-ink/50">
+        <p className="text-xs text-ink-muted">
           {dateLabel} · {request.venuePreference}
         </p>
         {isGroupRequest && (
@@ -148,7 +148,7 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
             Fixture request for: {request.namedTeamIdentity} &mdash; {request.namedTeamMessage}
           </p>
         )}
-        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
       </div>
       {canManage && (request.direction === "incoming" ? (
         <div className="flex shrink-0 flex-wrap items-center gap-2">

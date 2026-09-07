@@ -30,7 +30,7 @@ export function CategoryControl({ ticketId, currentCategory }: { ticketId: strin
 
   return (
     <div>
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Category</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Category</p>
       <select
         value={currentCategory}
         onChange={(e) => handleChange(e.target.value as SupportCategory)}
@@ -43,7 +43,7 @@ export function CategoryControl({ ticketId, currentCategory }: { ticketId: strin
           </option>
         ))}
       </select>
-      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
     </div>
   )
 }

@@ -21,7 +21,7 @@ export function RememberMeToggle({ initialRemember }: { initialRemember: boolean
     <div className="mt-3 flex items-center justify-between gap-4 rounded-lg border border-ink/10 bg-chalk px-3.5 py-3">
       <div>
         <p className="text-sm font-medium text-ink">Keep me signed in on this device</p>
-        <p className="mt-0.5 text-xs text-ink/50">
+        <p className="mt-0.5 text-xs text-ink-muted">
           Stay signed in on this device until you sign out or Ovalball requires you to sign in
           again for security.
         </p>

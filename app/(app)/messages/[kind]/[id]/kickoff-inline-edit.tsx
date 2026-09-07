@@ -98,9 +98,9 @@ export function KickoffInlineEdit({
         onClick={() => setEditing(true)}
         className="inline-flex items-center gap-1.5 rounded-full border border-ink/12 bg-white px-2.5 py-1 text-xs font-medium text-ink/70 outline-none transition-colors hover:border-pitch-600/40 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
-        <Clock className="size-3.5 text-ink/35" />
+        <Clock className="size-3.5 text-ink-muted" />
         {formatKickoff(kickoffDate, kickoffTime)}
-        <Pencil className="size-3 text-ink/30" />
+        <Pencil className="size-3 text-ink-muted" />
       </button>
     )
   }
@@ -118,10 +118,10 @@ export function KickoffInlineEdit({
       <Button type="button" size="sm" className="h-6 rounded-full px-2 text-xs" disabled={pending || !dateValue} onClick={handleSave}>
         Save
       </Button>
-      <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink/40 hover:text-ink/70">
+      <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink-muted hover:text-ink/70">
         Cancel
       </button>
-      {error && <span className="text-xs text-destructive">{error}</span>}
+      {error && <span className="text-xs text-destructive-text">{error}</span>}
     </span>
   )
 }

@@ -146,7 +146,7 @@ export default async function PlayerMovesPage() {
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Player moves</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         Borrow a player for a single fixture, or move one onto a different team for the season -- both need the source team&apos;s consent first.
       </p>
 

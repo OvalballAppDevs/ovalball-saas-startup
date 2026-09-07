@@ -56,9 +56,9 @@ export function FixtureRequestsSheet({
 
         <div className="mt-4 flex flex-col gap-4 px-4 pb-4">
           <div>
-            <p className="text-xs font-medium tracking-[0.06em] text-ink/45 uppercase">Action required</p>
+            <p className="text-xs font-medium tracking-[0.06em] text-ink-muted uppercase">Action required</p>
             {count === 0 ? (
-              <p className="mt-2 rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-6 text-center text-sm text-ink/50">Nothing waiting on you.</p>
+              <p className="mt-2 rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-6 text-center text-sm text-ink-muted">Nothing waiting on you.</p>
             ) : (
               <ul className="mt-2 flex flex-col gap-2">
                 {incoming.map((r) => (
@@ -72,7 +72,7 @@ export function FixtureRequestsSheet({
                     <p className="text-sm font-medium text-ink">
                       Tournament invitation &middot; {t.hostClubName} &middot; {t.teamIdentityLabel}
                     </p>
-                    <p className="mt-0.5 text-xs text-ink/50">
+                    <p className="mt-0.5 text-xs text-ink-muted">
                       {new Date(t.eventDate + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
                       {t.resolution === "genuinely_missing" && " — your club does not currently have this team active"}
                       {t.resolution === "exists_folded" && " — this team is currently inactive"}

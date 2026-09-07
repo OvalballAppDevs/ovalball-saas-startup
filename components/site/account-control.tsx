@@ -48,7 +48,7 @@ export function AccountControl({ identity }: { identity: PublicHeaderIdentity })
           <UserAvatar avatarUrl={identity.avatarUrl} name={identity.avatarSeed} size="sm" />
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-ink">{identity.fullName}</p>
-            <p className="truncate text-xs text-ink/50">
+            <p className="truncate text-xs text-ink-muted">
               {identity.roleLabel}
               {identity.clubName ? ` · ${identity.clubName}` : ""}
             </p>

@@ -133,7 +133,7 @@ export function ChangeAccessForm({
   }
 
   if (loading) {
-    return <div className="rounded-lg border border-pitch-600/30 bg-pitch-600/[0.03] p-4 text-sm text-ink/50">Loading permission groups&hellip;</div>
+    return <div className="rounded-lg border border-pitch-600/30 bg-pitch-600/[0.03] p-4 text-sm text-ink-muted">Loading permission groups&hellip;</div>
   }
 
   const preview = previewCapabilities(clubGroupId, assignments, clubGroups, teamGroups, teams)
@@ -142,7 +142,7 @@ export function ChangeAccessForm({
     <div className="flex flex-col gap-5 rounded-lg border border-pitch-600/30 bg-pitch-600/[0.03] p-4">
       <div>
         <p className="text-sm font-medium text-ink">Change Ovalball access &mdash; {clubName}</p>
-        <p className="mt-0.5 text-xs text-ink/50">This never affects global Site Admin access, which is managed separately.</p>
+        <p className="mt-0.5 text-xs text-ink-muted">This never affects global Site Admin access, which is managed separately.</p>
       </div>
 
       <label className="text-sm text-ink/80">
@@ -200,14 +200,14 @@ export function ChangeAccessForm({
         <p className="mt-3 text-sm font-medium text-ink">{userName} will NOT be able to:</p>
         <ul className="mt-1.5 flex flex-col gap-0.5">
           {preview.cannot.map((c) => (
-            <li key={c} className="text-sm text-ink/55">
+            <li key={c} className="text-sm text-ink-muted">
               &bull; {c}
             </li>
           ))}
         </ul>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-destructive-text">{error}</p>}
 
       <div className="flex items-center gap-3">
         <Button type="button" className="h-9" disabled={applying || !clubGroupId} onClick={handleApply}>

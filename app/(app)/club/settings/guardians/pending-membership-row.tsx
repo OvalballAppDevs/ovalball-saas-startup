@@ -56,7 +56,7 @@ export function PendingMembershipRow({ request }: { request: PendingMembershipDa
 
   if (resolved) {
     return (
-      <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink/50">
+      <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink-muted">
         {request.playerName} — {resolved === "approved" ? "approved onto the team." : "declined."}
       </li>
     )
@@ -64,12 +64,12 @@ export function PendingMembershipRow({ request }: { request: PendingMembershipDa
 
   return (
     <li className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3.5">
-      <p className="text-xs font-medium text-ink/50">{request.teamLabel}</p>
+      <p className="text-xs font-medium text-ink-muted">{request.teamLabel}</p>
       <p className="mt-1 text-sm font-medium text-ink">{request.playerName}</p>
-      <p className="text-xs text-ink/55">
+      <p className="text-xs text-ink-muted">
         {request.playerDob ?? "No date of birth given"} · Added by {request.guardianName}
       </p>
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         <Button type="button" size="sm" className="h-8" disabled={pending} onClick={handleApprove}>
           Approve

@@ -45,7 +45,7 @@ const STATUS_STYLES: Record<string, string> = {
   Confirmed: "bg-mint-100 text-forest-900 border-mint-300",
   Planned: "bg-amber-50 text-amber-900 border-amber-300",
   "To Be Determined": "bg-amber-50 text-amber-900 border-amber-300",
-  Cancelled: "bg-destructive/10 text-destructive border-destructive/30",
+  Cancelled: "bg-destructive/10 text-destructive-text border-destructive/30",
   Completed: "bg-ink/5 text-ink/60 border-ink/15",
 }
 const ACTIONABLE_STATUSES = new Set(["Planned", "To Be Determined"])
@@ -703,11 +703,11 @@ export default async function CalendarPage({
             activePhase={phaseParam ?? null}
             activeView={viewParam ?? null}
           />
-          <Link href="/calendar/agenda" className="text-sm font-medium text-ink/50 underline underline-offset-2 hover:text-ink">
+          <Link href="/calendar/agenda" className="text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink">
             Agenda
           </Link>
           {canManagePitchAllocation && (
-            <Link href="/calendar/pitch-allocation" className="text-sm font-medium text-ink/50 underline underline-offset-2 hover:text-ink">
+            <Link href="/calendar/pitch-allocation" className="text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink">
               Pitch Allocation
             </Link>
           )}
@@ -867,7 +867,7 @@ function EmptyCalendarState({ noTeams, canScheduleTraining, hasClubFixtureAuthor
               Add fixture
             </Link>
           )}
-          {canScheduleTraining && <p className="self-center text-xs text-ink/45">Use &ldquo;Schedule training&rdquo; above to add a session.</p>}
+          {canScheduleTraining && <p className="self-center text-xs text-ink-muted">Use &ldquo;Schedule training&rdquo; above to add a session.</p>}
         </div>
       )}
     </div>

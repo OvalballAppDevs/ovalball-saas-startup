@@ -89,7 +89,7 @@ export function MonthView({
       <div className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
         <div className="grid grid-cols-7 border-b border-ink/10 bg-white">
           {DAY_LABELS.map((d, i) => (
-            <div key={d} className={cn("px-2 py-2 text-center text-[11px] font-medium tracking-wide text-ink/45 uppercase", i >= 5 && "bg-amber-50/40")}>
+            <div key={d} className={cn("px-2 py-2 text-center text-[11px] font-medium tracking-wide text-ink-muted uppercase", i >= 5 && "bg-amber-50/40")}>
               {d}
             </div>
           ))}
@@ -128,7 +128,7 @@ export function MonthView({
                     clickable && "cursor-pointer hover:bg-ink/[0.03]"
                   )}
                 >
-                  <span className={cn("text-xs font-medium", !inRange ? "text-ink/25" : !inMonth ? "text-ink/25" : isToday ? "text-forest-950" : "text-ink/60")}>{date.getDate()}</span>
+                  <span className={cn("text-xs font-medium", !inRange ? "text-ink-muted" : !inMonth ? "text-ink-muted" : isToday ? "text-forest-950" : "text-ink/60")}>{date.getDate()}</span>
                   <div className="flex flex-1 flex-col gap-0.5">
                     {visible.map((e) => (
                       <span
@@ -141,7 +141,7 @@ export function MonthView({
                         {e.kind === "training" ? "Training" : e.kind === "tournament" ? `Tournament · ${e.tournamentHostName}` : `${e.homeAway === "Home" ? "H" : "A"} ${e.opposition}`}
                       </span>
                     ))}
-                    {overflow > 0 && <span className="text-[10px] font-medium text-ink/45">+{overflow} more</span>}
+                    {overflow > 0 && <span className="text-[10px] font-medium text-ink-muted">+{overflow} more</span>}
                   </div>
                 </button>
               )
@@ -181,7 +181,7 @@ export function MonthView({
                             {e.kind === "tournament" ? `Tournament · ${e.tournamentHostName}` : laneLabel(e.laneId)}
                             {e.kind === "fixture" ? ` vs ${e.opposition}` : e.kind === "training" ? " Scheduled Training Session" : ""}
                           </span>
-                          <span className="block text-xs text-ink/50">
+                          <span className="block text-xs text-ink-muted">
                             {e.kind === "fixture" ? `${e.homeAway} · ` : ""}
                             {e.time ? e.time.slice(0, 5) : "Time TBC"}
                           </span>
@@ -199,7 +199,7 @@ export function MonthView({
                           onClick={() => setCreateOpen(true)}
                           label={`Add fixture for ${addingLane?.label}`}
                         />
-                        <button type="button" onClick={() => setAddingLaneId(null)} className="text-xs font-medium text-ink/50 underline hover:text-ink">
+                        <button type="button" onClick={() => setAddingLaneId(null)} className="text-xs font-medium text-ink-muted underline hover:text-ink">
                           Change team
                         </button>
                       </div>
@@ -207,7 +207,7 @@ export function MonthView({
                       <Button onClick={() => { setAddingLaneId(creatableLanes[0].id); setCreateOpen(true) }} label={`Add fixture for ${creatableLanes[0].label}`} />
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
-                        <span className="w-full text-xs text-ink/45">Add fixture for&hellip;</span>
+                        <span className="w-full text-xs text-ink-muted">Add fixture for&hellip;</span>
                         {creatableLanes.map((l) => (
                           <button
                             key={l.id}
@@ -270,30 +270,30 @@ export function MonthView({
                       </div>
                       <dl className="mt-3 flex flex-col gap-2 text-sm">
                         <div className="flex justify-between gap-3">
-                          <dt className="text-ink/50">Date</dt>
+                          <dt className="text-ink-muted">Date</dt>
                           <dd className="text-ink">{new Date(`${selectedEntry.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</dd>
                         </div>
                         {selectedEntry.kind === "fixture" && (
                           <div className="flex justify-between gap-3">
-                            <dt className="text-ink/50">Kick Off</dt>
+                            <dt className="text-ink-muted">Kick Off</dt>
                             <dd className="text-ink">{selectedEntry.time ? selectedEntry.time.slice(0, 5) : "Time TBC"}</dd>
                           </div>
                         )}
                         {selectedEntry.kind === "fixture" && (
                           <div className="flex justify-between gap-3">
-                            <dt className="text-ink/50">Home / Away</dt>
+                            <dt className="text-ink-muted">Home / Away</dt>
                             <dd className="text-ink capitalize">{selectedEntry.homeAway}</dd>
                           </div>
                         )}
                         {selectedEntry.venueAddress && (
                           <div className="flex justify-between gap-3">
-                            <dt className="shrink-0 text-ink/50">Venue</dt>
+                            <dt className="shrink-0 text-ink-muted">Venue</dt>
                             <dd className="text-right text-ink">{selectedEntry.venueAddress}</dd>
                           </div>
                         )}
                         {selectedEntry.pitchName && (
                           <div className="flex justify-between gap-3">
-                            <dt className="text-ink/50">Pitch</dt>
+                            <dt className="text-ink-muted">Pitch</dt>
                             <dd className="text-ink">{selectedEntry.pitchName}</dd>
                           </div>
                         )}

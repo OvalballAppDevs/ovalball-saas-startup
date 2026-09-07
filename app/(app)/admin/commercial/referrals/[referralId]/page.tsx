@@ -48,13 +48,13 @@ export default async function ReferralDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/commercial/referrals" className="inline-flex min-h-11 items-center gap-1.5 py-2.5 -my-2.5 text-sm text-ink/55 hover:text-ink/80">
+      <Link href="/admin/commercial/referrals" className="inline-flex min-h-11 items-center gap-1.5 py-2.5 -my-2.5 text-sm text-ink-muted hover:text-ink/80">
         <ArrowLeft className="size-3.5" /> Referral Administration
       </Link>
       <h1 className="mt-2 font-display text-display-l text-ink">
         {r.referring_club_name} → {r.referred_club_name ?? "(no club yet)"}
       </h1>
-      <p className="mt-2 text-sm text-ink/55">Referral id {r.referral_id}</p>
+      <p className="mt-2 text-sm text-ink-muted">Referral id {r.referral_id}</p>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Status" value={r.status ?? "—"} />
@@ -89,7 +89,7 @@ export default async function ReferralDetailPage({ params }: { params: Promise<{
       </div>
 
       {r.reward_credit_id && (
-        <p className="mt-4 text-xs text-ink/50">
+        <p className="mt-4 text-xs text-ink-muted">
           The reward is one month of the referring club&rsquo;s own plan, at the price that plan cost when the
           reward was earned — recorded then and never recalculated, so a later price change does not alter it.
           Whether that month has since been <em>used</em> cannot be answered for this referral alone: credit is
@@ -111,13 +111,13 @@ export default async function ReferralDetailPage({ params }: { params: Promise<{
             <p className="mt-1.5 font-mono text-xs break-words text-amber-900/80">{auditError.message}</p>
           </div>
         ) : !auditRows || auditRows.length === 0 ? (
-          <p className="mt-2 text-sm text-ink/55">No changes recorded yet.</p>
+          <p className="mt-2 text-sm text-ink-muted">No changes recorded yet.</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
             {auditRows.map((a) => (
               <li key={a.id} className="rounded-lg border border-ink/10 bg-white px-4 py-3 text-sm">
                 <p className="text-ink">
-                  {a.action} &middot; <span className="tabular-nums text-ink/55">{new Date(a.changed_at).toLocaleString("en-GB")}</span>
+                  {a.action} &middot; <span className="tabular-nums text-ink-muted">{new Date(a.changed_at).toLocaleString("en-GB")}</span>
                 </p>
               </li>
             ))}
@@ -131,7 +131,7 @@ export default async function ReferralDetailPage({ params }: { params: Promise<{
 function Field({ label, value, link }: { label: string; value: string; link?: string }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-4">
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">{label}</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{label}</p>
       {link ? (
         <Link href={link} className="mt-1 block text-sm text-forest-800 underline underline-offset-2">
           {value}

@@ -67,7 +67,7 @@ export default async function AccountPage() {
 
       {(ctx.clubMemberships.length > 0 || ctx.teamPermissions.length > 0) && (
         <div className="mt-6 rounded-lg border border-ink/10 bg-white p-5">
-          <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Your roles</p>
+          <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Your roles</p>
           <ul className="mt-3 flex flex-col gap-1.5 text-sm text-ink/70">
             {ctx.clubMemberships
               .filter((m) => m.role !== "BASIC_USER")

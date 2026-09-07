@@ -1,7 +1,7 @@
 /** A compact panel surfacing what needs a Club Admin's attention this month -- counts only, driven by the same canonical rows the table below shows. */
 export function AttentionPanel({ failedCount, notSetUpCount, overdueCount }: { failedCount: number; notSetUpCount: number; overdueCount: number }) {
   if (failedCount === 0 && notSetUpCount === 0 && overdueCount === 0) {
-    return <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink/50">Nothing needs attention this month.</p>
+    return <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink-muted">Nothing needs attention this month.</p>
   }
 
   const items = [
@@ -13,7 +13,7 @@ export function AttentionPanel({ failedCount, notSetUpCount, overdueCount }: { f
   return (
     <div className="flex flex-wrap gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
       {items.map((item) => (
-        <span key={item.label} className={`rounded-full px-3 py-1 text-xs font-medium ${item.tone === "danger" ? "bg-destructive/10 text-destructive" : "bg-amber-200/60 text-amber-900"}`}>
+        <span key={item.label} className={`rounded-full px-3 py-1 text-xs font-medium ${item.tone === "danger" ? "bg-destructive/10 text-destructive-text" : "bg-amber-200/60 text-amber-900"}`}>
           {item.label}
         </span>
       ))}

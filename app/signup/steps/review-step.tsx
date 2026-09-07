@@ -82,7 +82,7 @@ export function ReviewStep({ value, onConsentChange, onEditStep }: ReviewStepPro
           </>
         )}
         {club.kind === "unselected" && (
-          <p className="text-sm text-ink/50">No club selected yet.</p>
+          <p className="text-sm text-ink-muted">No club selected yet.</p>
         )}
       </ReviewCard>
 
@@ -98,10 +98,10 @@ export function ReviewStep({ value, onConsentChange, onEditStep }: ReviewStepPro
             {club.authorityConfirmed ? (
               <>&ldquo;{AUTHORITY_DECLARATION_TEXT}&rdquo;</>
             ) : (
-              <span className="text-destructive">Not yet confirmed.</span>
+              <span className="text-destructive-text">Not yet confirmed.</span>
             )}
           </p>
-          <p className="mt-2 text-sm text-ink/45">
+          <p className="mt-2 text-sm text-ink-muted">
             This does not grant access on its own &mdash; Ovalball may verify
             your authority before approving the claim.
           </p>
@@ -125,7 +125,7 @@ function ReviewCard({
   return (
     <section className="rounded-lg border border-ink/10 bg-white p-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
           {title}
         </p>
         <button
@@ -155,8 +155,8 @@ function formatTeams(teams: SelectedTeam[]): string {
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-sm">
-      <dt className="text-ink/45">{label}</dt>
-      <dd className="text-ink">{value || <span className="text-ink/35">&mdash;</span>}</dd>
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="text-ink">{value || <span className="text-ink-muted">&mdash;</span>}</dd>
     </div>
   )
 }

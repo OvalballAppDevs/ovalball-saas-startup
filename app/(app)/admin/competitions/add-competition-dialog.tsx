@@ -80,7 +80,7 @@ export function AddCompetitionDialog({ areas }: { areas: GeographicArea[] }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-5">
       <p className="text-sm font-medium text-ink">Add a competition</p>
-      <p className="mt-1 text-sm text-ink/50">
+      <p className="mt-1 text-sm text-ink-muted">
         This extends the global Competition Directory every club&apos;s fixture form picks from. Scope it to specific
         counties, or mark it National.
       </p>
@@ -141,7 +141,7 @@ export function AddCompetitionDialog({ areas }: { areas: GeographicArea[] }) {
           <div className="mt-1.5 max-h-64 overflow-y-auto rounded-lg border border-ink/15 bg-white p-3">
             {Array.from(areasByNation.entries()).map(([nation, list]) => (
               <div key={nation} className="mb-3 last:mb-0">
-                <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">{nation}</p>
+                <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{nation}</p>
                 <div className="mt-1.5 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                   {list.map((a) => (
                     <label key={a.id} className="flex items-center gap-1.5 text-sm text-ink/70">
@@ -153,11 +153,11 @@ export function AddCompetitionDialog({ areas }: { areas: GeographicArea[] }) {
               </div>
             ))}
           </div>
-          <p className="mt-1 text-xs text-ink/40">{selectedAreaIds.length} selected</p>
+          <p className="mt-1 text-xs text-ink-muted">{selectedAreaIds.length} selected</p>
         </div>
       </div>
 
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
       <div className="mt-4 flex items-center gap-2">
         <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

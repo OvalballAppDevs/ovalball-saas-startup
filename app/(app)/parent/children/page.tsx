@@ -67,14 +67,14 @@ export default async function ParentChildrenPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Dashboard
       </Link>
 
       <p className="mt-4 text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Your family</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Your children</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">
+      <p className="mt-2 max-w-md text-sm text-ink-muted">
         Add your child&rsquo;s details to create or connect their Ovalball player profile. We&rsquo;ll use their date of birth to place them in the correct rugby age group for the season.
       </p>
 
@@ -87,7 +87,7 @@ export default async function ParentChildrenPage() {
                   <p className="text-sm font-medium text-ink">
                     {child.firstName} {child.surname}
                   </p>
-                  <p className="text-xs text-ink/50">
+                  <p className="text-xs text-ink-muted">
                     {child.teamStatus === "active" && child.teamLabel && `${child.teamLabel} · Active`}
                     {child.teamStatus === "pending" && `${child.teamLabel} · Pending club approval`}
                     {child.teamStatus === "none" && "Pending club team assignment"}
@@ -112,7 +112,7 @@ export default async function ParentChildrenPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Add a child</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Add a child</h2>
         <AddChildForm />
       </section>
     </div>

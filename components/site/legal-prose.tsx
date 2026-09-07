@@ -37,15 +37,15 @@ export function LegalDocumentMeta() {
   return (
     <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-2 rounded-lg border border-ink/10 bg-white px-4 py-3.5 text-sm">
       <div>
-        <dt className="text-ink/50">Effective date</dt>
+        <dt className="text-ink-muted">Effective date</dt>
         <dd className="font-medium text-ink">{LEGAL_EFFECTIVE_DATE}</dd>
       </div>
       <div>
-        <dt className="text-ink/50">Last updated</dt>
+        <dt className="text-ink-muted">Last updated</dt>
         <dd className="font-medium text-ink">{LEGAL_LAST_UPDATED}</dd>
       </div>
       <div>
-        <dt className="text-ink/50">Version</dt>
+        <dt className="text-ink-muted">Version</dt>
         <dd className="font-medium text-ink">{LEGAL_VERSION}</dd>
       </div>
     </dl>

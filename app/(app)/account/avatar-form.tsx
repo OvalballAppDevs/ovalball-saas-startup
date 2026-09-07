@@ -67,8 +67,8 @@ export function AvatarForm({ initialUrl, name }: { initialUrl: string | null; na
             </Button>
           )}
         </div>
-        <p className="mt-1.5 text-xs text-ink/45">PNG, JPEG, or WEBP. Up to 2MB.</p>
-        {error && <p className="mt-1.5 text-sm text-destructive">{error}</p>}
+        <p className="mt-1.5 text-xs text-ink-muted">PNG, JPEG, or WEBP. Up to 2MB.</p>
+        {error && <p className="mt-1.5 text-sm text-destructive-text">{error}</p>}
         <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleChange} />
       </div>
     </div>

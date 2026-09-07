@@ -55,7 +55,7 @@ export function InviteSiteAdminForm() {
     return (
       <div className="rounded-lg border border-ink/10 bg-white p-5">
         <p className="text-sm font-medium text-ink">Invitation sent to {email}</p>
-        <p className="mt-1 text-sm text-ink/55">
+        <p className="mt-1 text-sm text-ink-muted">
           No email provider is connected yet in development, so share this link with them directly:
         </p>
         <code className="mt-2 block truncate rounded-md bg-ink/5 px-3 py-2 text-xs text-ink/70">{inviteLink}</code>
@@ -69,7 +69,7 @@ export function InviteSiteAdminForm() {
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border border-ink/10 bg-white p-5">
       <p className="text-sm font-medium text-ink">Invite Site Administrator</p>
-      <p className="mt-1 text-sm text-ink/55">
+      <p className="mt-1 text-sm text-ink-muted">
         Grants global Ovalball administrative access, entirely separate from club membership. The recipient must
         accept while signed in with this exact email address.
       </p>
@@ -108,9 +108,9 @@ export function InviteSiteAdminForm() {
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-ink/45">{ADMIN_PROFILES.find((p) => p.value === adminRole)?.description}</p>
+      <p className="mt-3 text-xs text-ink-muted">{ADMIN_PROFILES.find((p) => p.value === adminRole)?.description}</p>
 
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
       <div className="mt-4 flex items-center gap-2">
         <Button type="submit" className="h-9" disabled={!email.trim() || status === "saving"}>

@@ -82,8 +82,8 @@ export function ClubMessagingSection({ clubId, initial }: { clubId: string; init
 
   return (
     <div>
-      <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Messaging</p>
-      <p className="mt-1 text-xs text-ink/45">
+      <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Messaging</p>
+      <p className="mt-1 text-xs text-ink-muted">
         These settings apply only to messages sent by your club&apos;s own members. A capability marked
         &ldquo;set by Ovalball&rdquo; below cannot be changed here.
       </p>
@@ -95,7 +95,7 @@ export function ClubMessagingSection({ clubId, initial }: { clubId: string; init
             <div key={cap.key} className="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
               <div>
                 <p className="text-sm font-medium text-ink">{cap.label}</p>
-                <p className="text-xs text-ink/45">
+                <p className="text-xs text-ink-muted">
                   Ovalball default: {state.globalDefault ? "Allowed" : "Not allowed"}
                   {state.origin === "club_override" && <> &middot; your override: {state.effective ? "Allowed" : "Not allowed"}</>}
                 </p>
@@ -111,14 +111,14 @@ export function ClubMessagingSection({ clubId, initial }: { clubId: string; init
                   <option value="off">Override: Not allowed</option>
                 </select>
               ) : (
-                <p className="text-xs text-ink/40">Set by Ovalball -- not club-overridable</p>
+                <p className="text-xs text-ink-muted">Set by Ovalball -- not club-overridable</p>
               )}
             </div>
           )
         })}
       </div>
 
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
       {saved && !error && <p className="mt-2 text-sm text-forest-800">Messaging settings saved.</p>}
 
       <div className="mt-3">

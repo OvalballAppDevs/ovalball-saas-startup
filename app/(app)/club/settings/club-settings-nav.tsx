@@ -87,7 +87,7 @@ export function ClubSettingsNav({
           href={t.href}
           aria-current={t.key === active ? "page" : undefined}
           className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 ${
-            t.key === active ? "border-forest-800 text-forest-950" : "border-transparent text-ink/50 hover:text-ink/80"
+            t.key === active ? "border-forest-800 text-forest-950" : "border-transparent text-ink-muted hover:text-ink/80"
           }`}
         >
           {t.label}

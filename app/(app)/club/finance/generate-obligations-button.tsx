@@ -29,7 +29,7 @@ export function GenerateObligationsButton({ clubId, billingPeriod }: { clubId: s
       <Button type="button" variant="outline" className="h-9" disabled={status === "loading"} onClick={handleClick}>
         {status === "loading" ? "Generating…" : "Generate this month's obligations"}
       </Button>
-      {message && <span className={`text-xs ${status === "error" ? "text-destructive" : "text-ink/50"}`}>{message}</span>}
+      {message && <span className={`text-xs ${status === "error" ? "text-destructive-text" : "text-ink-muted"}`}>{message}</span>}
     </div>
   )
 }

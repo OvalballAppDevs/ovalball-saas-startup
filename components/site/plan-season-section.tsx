@@ -71,7 +71,16 @@ export function PlanSeasonSection() {
             right -- this fade is the affordance for that, harmless on wide
             viewports where the grid already fits. */}
         <div className="relative mt-8">
-          <div className="overflow-x-auto">
+          {/* A region that scrolls with a mouse must also scroll with a
+              keyboard, so it takes focus and is announced as a group. Without
+              tabIndex a keyboard-only visitor simply cannot reach the months
+              off to the right. */}
+          <div
+            className="overflow-x-auto focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+            tabIndex={0}
+            role="group"
+            aria-label="Season plan, scrolls horizontally by month"
+          >
             <div className="min-w-[760px]">
             {/* Month header row */}
             <div

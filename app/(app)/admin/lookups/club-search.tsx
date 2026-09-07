@@ -53,7 +53,7 @@ export function ClubSearch({ selectedLabel }: { selectedLabel: string | null }) 
         renderOption={(c) => (
           <>
             <span className="block truncate font-medium text-ink">{c.name}</span>
-            <span className="block truncate text-xs text-ink/50">
+            <span className="block truncate text-xs text-ink-muted">
               {[
                 [c.town, c.county].filter(Boolean).join(", ") || "No location recorded",
                 c.rugbyCode === "league" ? "League" : "Union",

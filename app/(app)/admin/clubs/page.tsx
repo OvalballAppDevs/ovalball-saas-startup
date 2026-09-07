@@ -70,7 +70,7 @@ export default async function AdminClubsPage({
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-display-l text-ink">Club management</h1>
-          <p className="mt-2 max-w-lg text-sm text-ink/55">
+          <p className="mt-2 max-w-lg text-sm text-ink-muted">
             Search, review and maintain every recognised club directly &mdash; no more round-tripping through SQL for
             routine changes.
           </p>
@@ -94,23 +94,23 @@ export default async function AdminClubsPage({
       </div>
 
       {error && (
-        <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-text">
           Couldn&apos;t load clubs right now. Please try again.
         </p>
       )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-ink/45">
+        <p className="text-sm text-ink-muted">
           {total.toLocaleString()} club{total === 1 ? "" : "s"} match{total === 1 ? "es" : ""}
         </p>
-        <p className="hidden text-xs text-ink/35 md:block">Click a highlighted field to quick-edit it directly.</p>
+        <p className="hidden text-xs text-ink-muted md:block">Click a highlighted field to quick-edit it directly.</p>
       </div>
 
       {/* Desktop table */}
       <div className="mt-3 hidden overflow-x-auto rounded-lg border border-ink/10 bg-white md:block">
         <table className="w-full min-w-[900px] text-sm">
           <thead>
-            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">
+            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">
               <th scope="col" className="px-4 py-3">
                 Club
               </th>
@@ -166,7 +166,7 @@ export default async function AdminClubsPage({
                   </div>
                 </td>
                 <td className="px-4 py-3 text-ink/60">{formatVerification(row.verificationStatus)}</td>
-                <td className="px-4 py-3 text-ink/50">{formatDate(row.directoryUpdatedAt)}</td>
+                <td className="px-4 py-3 text-ink-muted">{formatDate(row.directoryUpdatedAt)}</td>
                 <td className="px-4 py-3 text-right">
                   <Link
                     href={`/admin/clubs/${row.directoryId}`}
@@ -181,7 +181,7 @@ export default async function AdminClubsPage({
           </tbody>
         </table>
         {rows.length === 0 && !error && (
-          <div className="px-4 py-10 text-center text-sm text-ink/50">No clubs match these filters.</div>
+          <div className="px-4 py-10 text-center text-sm text-ink-muted">No clubs match these filters.</div>
         )}
       </div>
 
@@ -197,14 +197,14 @@ export default async function AdminClubsPage({
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium text-ink">{row.name}</p>
-                  <ChevronRight className="mt-0.5 size-4 shrink-0 text-ink/30" />
+                  <ChevronRight className="mt-0.5 size-4 shrink-0 text-ink-muted" />
                 </div>
-                <p className="mt-0.5 text-sm text-ink/55">
+                <p className="mt-0.5 text-sm text-ink-muted">
                   {[row.town, row.county].filter(Boolean).join(", ") || "No location on file"}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <StatusPill isActivated={row.isActivated} directoryActive={row.directoryActive} />
-                  <span className="text-xs text-ink/40">{row.rugbyCode === "union" ? "Union" : "League"}</span>
+                  <span className="text-xs text-ink-muted">{row.rugbyCode === "union" ? "Union" : "League"}</span>
                 </div>
                 <QualityBadges flags={row.flags} />
               </div>
@@ -212,7 +212,7 @@ export default async function AdminClubsPage({
           </li>
         ))}
         {rows.length === 0 && !error && (
-          <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink/50">
+          <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink-muted">
             No clubs match these filters.
           </li>
         )}
@@ -227,7 +227,7 @@ export default async function AdminClubsPage({
 
 function StatusPill({ isActivated, directoryActive }: { isActivated: boolean; directoryActive: boolean }) {
   if (!directoryActive) {
-    return <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink/50">Inactive</span>
+    return <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink-muted">Inactive</span>
   }
   return isActivated ? (
     <span className="rounded-full bg-pitch-600/12 px-2.5 py-1 text-xs font-medium text-forest-800">Activated</span>

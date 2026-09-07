@@ -98,7 +98,7 @@ export function FixtureJourney() {
             >
               {/* The number carries real information here: these stages are
                   genuinely sequential. */}
-              <span className={cn("text-xs tabular-nums", selected ? "text-ink/55" : "text-white/40")}>
+              <span className={cn("text-xs tabular-nums", selected ? "text-ink-muted" : "text-white/60")}>
                 {String(i + 1).padStart(2, "0")}
               </span>
               {s.label}
@@ -117,7 +117,7 @@ export function FixtureJourney() {
         <p className="text-base text-white/75 md:text-lg">{stage.blurb}</p>
 
         <div className="mt-6 rounded-lg border border-white/10 bg-forest-950/60 px-4 py-4">
-          <p className="text-xs tracking-[0.06em] text-white/40 uppercase">
+          <p className="text-xs tracking-[0.06em] text-white/60 uppercase">
             {FIXTURE.ourTeam} v {FIXTURE.opponentTeam}
           </p>
           <p className="mt-1.5 font-display text-xl text-white">{detail.line}</p>

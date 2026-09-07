@@ -265,7 +265,7 @@ export default async function ClubRolloverPage() {
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Season rollover</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         Review how {club.club_directory?.name}&apos;s age-grade teams should move up for next season. Nothing
         changes until you confirm each team individually below.
       </p>

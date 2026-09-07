@@ -95,9 +95,9 @@ export function StepTeams({
 
       {teams.length === 0 ? (
         <div className="rounded-lg border border-dashed border-ink/20 bg-white px-5 py-8 text-center">
-          <Users aria-hidden="true" className="mx-auto size-6 text-ink/30" />
+          <Users aria-hidden="true" className="mx-auto size-6 text-ink-muted" />
           <p className="mt-3 text-sm font-medium text-ink">No teams yet</p>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
+          <p className="mx-auto mt-1 max-w-sm text-sm text-ink-muted">
             Add the teams your club runs this season before you finish setup &mdash; everything else in
             Ovalball hangs off them.
           </p>
@@ -116,7 +116,7 @@ export function StepTeams({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink">{t.displayName}</p>
                   {(t.category || t.ageGroup) && (
-                    <p className="mt-0.5 truncate text-xs text-ink/50">
+                    <p className="mt-0.5 truncate text-xs text-ink-muted">
                       {[t.ageGroup, CATEGORY_LABELS[t.category ?? ""] ?? t.category]
                         .filter(Boolean)
                         .join(" · ")}
@@ -129,7 +129,7 @@ export function StepTeams({
                   size="sm"
                   disabled={pending}
                   onClick={() => handleRemove(t)}
-                  className="shrink-0 text-ink/45 hover:text-red-700"
+                  className="shrink-0 text-ink-muted hover:text-red-700"
                 >
                   {busyTeam === t.id ? (
                     <Loader2 aria-hidden="true" className="size-4 animate-spin" />
@@ -143,7 +143,7 @@ export function StepTeams({
             ))}
           </ul>
 
-          <p className="mt-3 text-sm text-ink/55">
+          <p className="mt-3 text-sm text-ink-muted">
             Missing a team? Add it in{" "}
             <Link
               href="/teams"

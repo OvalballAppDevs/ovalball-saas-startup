@@ -96,7 +96,7 @@ export default async function WelcomePage() {
             </div>
 
             <div>
-              <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">
+              <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
                 What happens next
               </p>
               <ol className="mt-3 flex flex-col gap-2 text-sm text-ink/70">
@@ -114,7 +114,7 @@ export default async function WelcomePage() {
             </div>
 
             <div>
-              <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">
+              <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
                 Available after club approval
               </p>
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -123,8 +123,8 @@ export default async function WelcomePage() {
                     key={label}
                     className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-ink/15 bg-white/60 px-3 py-5 text-center"
                   >
-                    <Icon className="size-5 text-ink/30" />
-                    <span className="text-sm text-ink/45">{label}</span>
+                    <Icon className="size-5 text-ink-muted" />
+                    <span className="text-sm text-ink-muted">{label}</span>
                   </div>
                 ))}
               </div>

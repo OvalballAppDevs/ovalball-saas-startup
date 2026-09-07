@@ -192,7 +192,7 @@ export function Autocomplete<T>({
       <div className="relative mt-1.5">
         <Search
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink/35"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
         />
         <input
           id={id}
@@ -214,7 +214,7 @@ export function Autocomplete<T>({
         {loading ? (
           <Loader2
             aria-hidden="true"
-            className="absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-ink/35"
+            className="absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-ink-muted"
           />
         ) : query ? (
           <button
@@ -226,14 +226,14 @@ export function Autocomplete<T>({
               setSearched(false)
             }}
             aria-label="Clear search"
-            className="absolute top-1/2 right-1 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-ink/40 outline-none hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="absolute top-1/2 right-1 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-ink-muted outline-none hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <X className="size-4" />
           </button>
         ) : null}
       </div>
 
-      {hint ? <p className="mt-1 text-xs text-ink/50">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-ink-muted">{hint}</p> : null}
 
       {/* Always rendered so assistive tech can observe it; the live region
           announces state changes without stealing focus. */}
@@ -255,11 +255,11 @@ export function Autocomplete<T>({
           className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-ink/12 bg-white py-1 shadow-lg"
         >
           {loading && options.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-ink/50">Searching…</li>
+            <li className="px-3 py-2 text-sm text-ink-muted">Searching…</li>
           ) : error ? (
             <li className="px-3 py-2 text-sm text-amber-900">{error}</li>
           ) : options.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-ink/50">{emptyMessage}</li>
+            <li className="px-3 py-2 text-sm text-ink-muted">{emptyMessage}</li>
           ) : (
             options.map((o, i) => (
               <li

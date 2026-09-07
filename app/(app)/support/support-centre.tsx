@@ -12,7 +12,7 @@ import { SUPPORT_CATEGORY_LABELS, SUPPORT_STATUS_LABELS, type SupportTicketSumma
 const STATUS_BADGE_STYLE: Record<string, string> = {
   new: "bg-pitch-600/12 text-forest-800",
   in_progress: "bg-amber-500/15 text-amber-800",
-  closed: "bg-ink/8 text-ink/55",
+  closed: "bg-ink/8 text-ink-muted",
 }
 
 function relativeTime(iso: string): string {
@@ -79,7 +79,7 @@ export function SupportCentre({ tickets }: { tickets: SupportTicketSummary[] }) 
           </div>
           <div>
             <p className="font-medium text-ink">Need help with Ovalball?</p>
-            <p className="mt-0.5 text-sm text-ink/55">Submit a request and we&apos;ll get back to you here.</p>
+            <p className="mt-0.5 text-sm text-ink-muted">Submit a request and we&apos;ll get back to you here.</p>
           </div>
         </div>
         <Button className="h-10 shrink-0" onClick={() => setView({ mode: "new" })}>
@@ -88,11 +88,11 @@ export function SupportCentre({ tickets }: { tickets: SupportTicketSummary[] }) 
       </div>
 
       <div className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Your requests</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Your requests</h2>
         {tickets.length === 0 ? (
           <div className="mt-4 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
             <p className="text-sm font-medium text-ink">No requests yet</p>
-            <p className="mt-1 text-sm text-ink/55">Submit a new request above if you need a hand with anything.</p>
+            <p className="mt-1 text-sm text-ink-muted">Submit a new request above if you need a hand with anything.</p>
           </div>
         ) : (
           <ul className="mt-4 flex flex-col gap-2">
@@ -104,17 +104,17 @@ export function SupportCentre({ tickets }: { tickets: SupportTicketSummary[] }) 
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-xs font-medium tracking-[0.04em] text-ink/40">{t.reference}</p>
+                      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted">{t.reference}</p>
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_BADGE_STYLE[t.status]}`}>
                         {SUPPORT_STATUS_LABELS[t.status]}
                       </span>
                     </div>
                     <p className="mt-0.5 truncate text-sm font-medium text-ink">{t.subject}</p>
-                    <p className="mt-0.5 text-xs text-ink/45">
+                    <p className="mt-0.5 text-xs text-ink-muted">
                       {SUPPORT_CATEGORY_LABELS[t.category]} &middot; Updated {relativeTime(t.updatedAt)}
                     </p>
                   </div>
-                  <ChevronRight className="size-4 shrink-0 text-ink/30" />
+                  <ChevronRight className="size-4 shrink-0 text-ink-muted" />
                 </Link>
               </li>
             ))}

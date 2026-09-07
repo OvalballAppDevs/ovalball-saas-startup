@@ -28,8 +28,8 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
 
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-5">
-      <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Account</p>
-      <p className="mt-1 text-xs text-ink/45">Email</p>
+      <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Account</p>
+      <p className="mt-1 text-xs text-ink-muted">Email</p>
       <p className="text-sm text-ink">{currentEmail}</p>
 
       {status === "sent" ? (
@@ -61,8 +61,8 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
               Cancel
             </Button>
           </div>
-          <p className="mt-1.5 text-xs text-ink/45">We&rsquo;ll email a confirmation link to the new address before it takes effect.</p>
-          {error && <p className="mt-1.5 text-sm text-destructive">{error}</p>}
+          <p className="mt-1.5 text-xs text-ink-muted">We&rsquo;ll email a confirmation link to the new address before it takes effect.</p>
+          {error && <p className="mt-1.5 text-sm text-destructive-text">{error}</p>}
         </div>
       )}
     </div>

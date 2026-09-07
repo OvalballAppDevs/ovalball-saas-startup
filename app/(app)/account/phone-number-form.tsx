@@ -28,8 +28,8 @@ export function PhoneNumberForm({ initialPhone }: { initialPhone: string | null 
 
   return (
     <div className="mt-6 rounded-lg border border-ink/10 bg-white p-5">
-      <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Telephone number</p>
-      <p className="mt-1 text-xs text-ink/45">
+      <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Telephone number</p>
+      <p className="mt-1 text-xs text-ink-muted">
         Private by default. Only shared when you deliberately share a Contact Card in a fixture conversation.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -48,7 +48,7 @@ export function PhoneNumberForm({ initialPhone }: { initialPhone: string | null 
         </Button>
         {status === "saved" && <span className="text-sm text-forest-800">Saved.</span>}
       </div>
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

@@ -47,12 +47,12 @@ export function GeocodingPanel({ initialSummary }: { initialSummary: GeocodingSt
         <MapPin className="mt-0.5 size-4 shrink-0 text-forest-800" />
         <div>
           <p className="text-sm font-medium text-ink">Map location data</p>
-          <p className="mt-0.5 text-xs text-ink/50">
+          <p className="mt-0.5 text-xs text-ink-muted">
             {summary.success} on the map &middot; {summary.pending} pending &middot; {summary.noPostcode} have no
             postcode on file &middot; {summary.failed} couldn&apos;t be resolved
           </p>
           {lastRun && <p className="mt-1 text-xs text-forest-800">{lastRun}</p>}
-          {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+          {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
         </div>
       </div>
       <Button

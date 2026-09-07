@@ -48,9 +48,9 @@ export function PitchInline({
         onClick={() => setEditing(true)}
         className="inline-flex items-center gap-1 text-sm text-ink/60 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
-        <MapPin className="size-3.5 text-ink/40" />
-        <span className="text-ink/40">Pitch:</span> {label}
-        <Pencil className="size-3 text-ink/30" />
+        <MapPin className="size-3.5 text-ink-muted" />
+        <span className="text-ink-muted">Pitch:</span> {label}
+        <Pencil className="size-3 text-ink-muted" />
       </button>
     )
   }
@@ -96,7 +96,7 @@ export function PitchInline({
         >
           Save
         </button>
-        <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink/40 hover:text-ink/70">
+        <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink-muted hover:text-ink/70">
           Cancel
         </button>
       </span>
@@ -128,7 +128,7 @@ export function PitchInline({
       >
         Save
       </button>
-      <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink/40 hover:text-ink/70">
+      <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink-muted hover:text-ink/70">
         Cancel
       </button>
     </span>

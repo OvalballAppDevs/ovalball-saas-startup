@@ -160,7 +160,7 @@ export function KitSection({
           Club kit
         </h2>
       </div>
-      <p className="mt-1 max-w-xl text-sm text-ink/55">
+      <p className="mt-1 max-w-xl text-sm text-ink-muted">
         Your playing shirts, as they will appear on fixture cards. Separate from your club badge —
         both are shown side by side.
       </p>
@@ -204,7 +204,7 @@ export function KitSection({
                   />
                 ) : null}
               </span>
-              <span className={cn("text-xs", active ? "text-white/60" : "text-ink/45")}>
+              <span className={cn("text-xs", active ? "text-white/60" : "text-ink-muted")}>
                 {configured[v.key] ? v.sub : "Not set up yet"}
               </span>
             </button>
@@ -231,7 +231,7 @@ export function KitSection({
             <span className="block text-sm font-medium text-ink">
               We play in our home shirts away too
             </span>
-            <span className="mt-0.5 block text-xs text-ink/50">
+            <span className="mt-0.5 block text-xs text-ink-muted">
               Copies your home kit across, so away fixture cards still show the right shirt.
             </span>
           </span>
@@ -312,7 +312,7 @@ export function KitSection({
                 </span>
               ) : null}
               {error ? (
-                <span className="text-sm text-destructive" role="alert">
+                <span className="text-sm text-destructive-text" role="alert">
                   {error}
                 </span>
               ) : null}
@@ -329,7 +329,7 @@ export function KitSection({
             variant={variant}
             className="size-32 text-ink"
           />
-          <p className="text-center text-xs text-ink/55">{describeKit(kit, clubName, variant)}</p>
+          <p className="text-center text-xs text-ink-muted">{describeKit(kit, clubName, variant)}</p>
         </div>
       </div>
     </section>
@@ -363,7 +363,7 @@ function ColourField({
     <div className={disabled ? "opacity-45" : undefined}>
       <label htmlFor={id} className="text-sm text-ink/70">
         {label}
-        {optional ? <span className="text-ink/40"> (optional)</span> : null}
+        {optional ? <span className="text-ink-muted"> (optional)</span> : null}
       </label>
 
       <div className="mt-1.5 flex items-center gap-2">
@@ -406,9 +406,9 @@ function ColourField({
         </div>
       )}
 
-      {hint ? <p className="mt-1 text-xs text-ink/45">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-ink-muted">{hint}</p> : null}
       {!disabled && value !== "" && !valid ? (
-        <p className="mt-1 text-xs text-destructive">Use a six-digit hex colour, e.g. #7a1f3d.</p>
+        <p className="mt-1 text-xs text-destructive-text">Use a six-digit hex colour, e.g. #7a1f3d.</p>
       ) : null}
     </div>
   )

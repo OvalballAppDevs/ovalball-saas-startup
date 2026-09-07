@@ -36,7 +36,7 @@ export function ReplyForm({ conversationId }: { conversationId: string }) {
         placeholder="Reply..."
         className="rounded-md border border-ink/15 px-2.5 py-1.5 text-sm"
       />
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive-text">{error}</p>}
       <Button type="button" size="sm" className="w-fit" disabled={working || !body.trim()} onClick={handleSend}>
         Send
       </Button>

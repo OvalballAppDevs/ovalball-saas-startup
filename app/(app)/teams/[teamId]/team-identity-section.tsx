@@ -44,10 +44,10 @@ export function TeamIdentitySection({ team }: { team: TeamIdentityData }) {
       )}
 
       <div>
-        <p className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Team identity</p>
+        <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Team identity</p>
         <p className="mt-1 font-display text-lg text-ink">{team.fullLabel}</p>
-        <p className="text-sm text-ink/50">{team.compactLabel}</p>
-        <p className="mt-3 text-xs text-ink/45">
+        <p className="text-sm text-ink-muted">{team.compactLabel}</p>
+        <p className="mt-3 text-xs text-ink-muted">
           Team age and canonical identity are progressed through Season Rollover, not edited here.
         </p>
       </div>
@@ -82,7 +82,7 @@ function AliasEditor({ teamId, alias }: { teamId: string; alias: string | null }
       <Label htmlFor="team-alias" className="text-ink/80">
         Display alias
       </Label>
-      <p className="mt-1 text-xs text-ink/50">
+      <p className="mt-1 text-xs text-ink-muted">
         Shown instead of the squad letter everywhere this team appears (e.g. &quot;U12 Blacks&quot; instead of
         &quot;U12 B&quot;). Leave blank to show the squad letter as normal.
       </p>
@@ -99,7 +99,7 @@ function AliasEditor({ teamId, alias }: { teamId: string; alias: string | null }
         </Button>
         {status === "saved" && <span className="text-sm text-forest-800">Saved.</span>}
       </div>
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

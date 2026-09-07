@@ -32,7 +32,7 @@ export function StartTrialButton() {
       <Button type="button" className="h-9" disabled={status === "saving"} onClick={handleClick}>
         {status === "saving" ? "Starting…" : "Start the free trial"}
       </Button>
-      {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+      {error ? <p className="mt-2 text-sm text-destructive-text">{error}</p> : null}
     </div>
   )
 }

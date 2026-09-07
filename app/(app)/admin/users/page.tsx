@@ -50,7 +50,7 @@ export default async function AdminUsersPage({
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-display-l text-ink">User management</h1>
-          <p className="mt-2 max-w-lg text-sm text-ink/55">
+          <p className="mt-2 max-w-lg text-sm text-ink-muted">
             Review Ovalball accounts, club membership, and permissions directly &mdash; no more editing access in code
             or SQL.
           </p>
@@ -63,12 +63,12 @@ export default async function AdminUsersPage({
       </div>
 
       {error && (
-        <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-text">
           Couldn&apos;t load users right now. Please try again.
         </p>
       )}
 
-      <p className="mt-4 text-sm text-ink/45">
+      <p className="mt-4 text-sm text-ink-muted">
         {total.toLocaleString()} user{total === 1 ? "" : "s"} match{total === 1 ? "es" : ""}
       </p>
 
@@ -76,7 +76,7 @@ export default async function AdminUsersPage({
       <div className="mt-3 hidden overflow-x-auto rounded-lg border border-ink/10 bg-white md:block">
         <table className="w-full min-w-[880px] text-sm">
           <thead>
-            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">
+            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">
               <th scope="col" className="px-4 py-3">
                 Name
               </th>
@@ -107,8 +107,8 @@ export default async function AdminUsersPage({
                   <p className="font-medium text-ink">{row.name}</p>
                 </td>
                 <td className="px-4 py-3 text-ink/60">{row.email}</td>
-                <td className="px-4 py-3 text-ink/70">{row.clubNames ?? <span className="text-ink/35">&mdash;</span>}</td>
-                <td className="px-4 py-3 text-ink/60">{row.teamNames ?? <span className="text-ink/35">&mdash;</span>}</td>
+                <td className="px-4 py-3 text-ink/70">{row.clubNames ?? <span className="text-ink-muted">&mdash;</span>}</td>
+                <td className="px-4 py-3 text-ink/60">{row.teamNames ?? <span className="text-ink-muted">&mdash;</span>}</td>
                 <td className="px-4 py-3">
                   <AccessPill row={row} />
                 </td>
@@ -128,7 +128,7 @@ export default async function AdminUsersPage({
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && !error && <div className="px-4 py-10 text-center text-sm text-ink/50">No users match these filters.</div>}
+        {rows.length === 0 && !error && <div className="px-4 py-10 text-center text-sm text-ink-muted">No users match these filters.</div>}
       </div>
 
       {/* Mobile cards */}
@@ -141,19 +141,19 @@ export default async function AdminUsersPage({
             >
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-ink">{row.name}</p>
-                <p className="mt-0.5 truncate text-sm text-ink/55">{row.email}</p>
-                <p className="mt-1 text-sm text-ink/50">{row.clubNames ?? "No club access"}</p>
+                <p className="mt-0.5 truncate text-sm text-ink-muted">{row.email}</p>
+                <p className="mt-1 text-sm text-ink-muted">{row.clubNames ?? "No club access"}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <AccessPill row={row} />
                   <StatusPill row={row} />
                 </div>
               </div>
-              <ChevronRight className="mt-0.5 size-4 shrink-0 text-ink/30" />
+              <ChevronRight className="mt-0.5 size-4 shrink-0 text-ink-muted" />
             </Link>
           </li>
         ))}
         {rows.length === 0 && !error && (
-          <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink/50">
+          <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink-muted">
             No users match these filters.
           </li>
         )}
@@ -176,14 +176,14 @@ function AccessPill({ row }: { row: AdminUserRow }) {
         : label === "Team Admin"
           ? "bg-mint-100 text-forest-800"
           : label === "No club access"
-            ? "bg-ink/8 text-ink/45"
+            ? "bg-ink/8 text-ink-muted"
             : "bg-ink/8 text-ink/60"
   return <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${style}`}>{label}</span>
 }
 
 function StatusPill({ row }: { row: AdminUserRow }) {
   if (row.accountStatus === "suspended") {
-    return <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">Suspended</span>
+    return <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive-text">Suspended</span>
   }
   if (row.hasActiveMembership || row.isSiteAdmin) {
     return <span className="rounded-full bg-mint-100 px-2.5 py-1 text-xs font-medium text-forest-800">Active</span>
@@ -191,5 +191,5 @@ function StatusPill({ row }: { row: AdminUserRow }) {
   if (row.hasPendingRequest) {
     return <span className="rounded-full bg-amber-500/12 px-2.5 py-1 text-xs font-medium text-amber-700">Pending</span>
   }
-  return <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink/50">No club access</span>
+  return <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink-muted">No club access</span>
 }

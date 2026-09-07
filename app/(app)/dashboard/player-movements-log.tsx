@@ -42,7 +42,7 @@ export function PlayerMovementsLog({ clubId, rows }: { clubId: string; rows: Pla
   return (
     <section className="mt-10">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Recent player movements</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Recent player movements</h2>
         <button
           type="button"
           onClick={() => void exportLog()}
@@ -59,9 +59,9 @@ export function PlayerMovementsLog({ clubId, rows }: { clubId: string; rows: Pla
           <li key={m.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-ink/10 bg-white px-4 py-3.5 text-sm">
             <span className="font-medium text-ink">{m.playerName}</span>
             <span className="text-ink/60">{m.fromTeamName}</span>
-            <ArrowRight className="size-3.5 text-ink/40" />
+            <ArrowRight className="size-3.5 text-ink-muted" />
             <span className="text-ink/60">{m.toTeamName}</span>
-            <span className="ml-auto text-xs text-ink/45">
+            <span className="ml-auto text-xs text-ink-muted">
               {m.date ? new Date(m.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : ""}
             </span>
           </li>

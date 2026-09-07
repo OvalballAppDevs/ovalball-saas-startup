@@ -52,12 +52,12 @@ export function VenuePitchSection({
 
   if (!isHomeFixture) {
     return (
-      <div className="mt-3 flex items-center gap-2 rounded-lg border border-ink/8 bg-ink/[0.015] px-4 py-3 text-sm text-ink/50">
-        <MapPin className="size-4 shrink-0 text-ink/35" />
+      <div className="mt-3 flex items-center gap-2 rounded-lg border border-ink/8 bg-ink/[0.015] px-4 py-3 text-sm text-ink-muted">
+        <MapPin className="size-4 shrink-0 text-ink-muted" />
         {currentVenueName ? (
           <span>
             {currentVenueName}
-            {currentPitchName ? ` · ${currentPitchName}` : ""} <span className="text-ink/35">(set by the home club)</span>
+            {currentPitchName ? ` · ${currentPitchName}` : ""} <span className="text-ink-muted">(set by the home club)</span>
           </span>
         ) : (
           <span>Venue set by the home club &mdash; not yet chosen.</span>
@@ -90,17 +90,17 @@ export function VenuePitchSection({
       <div className="flex items-start gap-3">
         <MapPin className="mt-0.5 size-4 shrink-0 text-pitch-600" />
         <div>
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Venue</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Venue</p>
           {currentVenueName ? (
             <>
               <p className="text-sm font-medium text-ink">{currentVenueName}</p>
-              {address && <p className="text-xs text-ink/50">{address}</p>}
+              {address && <p className="text-xs text-ink-muted">{address}</p>}
             </>
           ) : (
-            <p className="text-sm text-ink/40 italic">Not set</p>
+            <p className="text-sm text-ink-muted italic">Not set</p>
           )}
-          <p className="mt-1.5 text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Pitch</p>
-          <p className="text-sm text-ink/70">{currentPitchName ?? <span className="text-ink/40 italic">Not set</span>}</p>
+          <p className="mt-1.5 text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Pitch</p>
+          <p className="text-sm text-ink/70">{currentPitchName ?? <span className="text-ink-muted italic">Not set</span>}</p>
         </div>
       </div>
 
@@ -165,11 +165,11 @@ export function VenuePitchSection({
                 ))}
               </select>
               {venueValue !== TBC_VALUE && pitchOptionsForVenue.length === 0 && (
-                <span className="text-xs text-ink/45">No pitches assigned to this venue yet.</span>
+                <span className="text-xs text-ink-muted">No pitches assigned to this venue yet.</span>
               )}
             </label>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-destructive-text">{error}</p>}
           </div>
 
           <DialogFooter>

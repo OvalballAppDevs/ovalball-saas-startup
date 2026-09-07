@@ -107,11 +107,11 @@ export function OpponentPicker({
         <div className="mt-1.5 flex items-center justify-between gap-3 rounded-lg border border-pitch-600/40 bg-pitch-600/5 px-3.5 py-2.5">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-ink">{selectedTeam.clubName}</p>
-            <p className="truncate text-xs text-ink/50">
+            <p className="truncate text-xs text-ink-muted">
               {selectedTeam.teamName} &middot; {teamCategoryLabel(selectedTeam)}
             </p>
           </div>
-          <button type="button" onClick={reset} className="shrink-0 text-xs font-medium text-ink/50 underline hover:text-ink">
+          <button type="button" onClick={reset} className="shrink-0 text-xs font-medium text-ink-muted underline hover:text-ink">
             Change
           </button>
         </div>
@@ -128,7 +128,7 @@ export function OpponentPicker({
             <p className="text-sm font-medium text-ink">{selectedClub.name}</p>
             <p className="text-xs text-amber-700">Not yet active on Ovalball &mdash; recorded, no roster to match against.</p>
           </div>
-          <button type="button" onClick={reset} className="text-xs font-medium text-ink/50 underline hover:text-ink">
+          <button type="button" onClick={reset} className="text-xs font-medium text-ink-muted underline hover:text-ink">
             Change
           </button>
         </div>
@@ -158,7 +158,7 @@ export function OpponentPicker({
                 >
                   <span>
                     <span className="block text-sm font-medium text-ink">{c.name}</span>
-                    {c.town && <span className="text-xs text-ink/50">{c.town}</span>}
+                    {c.town && <span className="text-xs text-ink-muted">{c.town}</span>}
                   </span>
                   {!c.activated && <span className="shrink-0 rounded-full bg-amber-500/12 px-2 py-0.5 text-[11px] font-medium text-amber-700">Not on Ovalball</span>}
                 </button>
@@ -186,11 +186,11 @@ export function OpponentPicker({
     <div>
       <div className="flex items-center justify-between">
         <Label className="text-ink/80">Opponent</Label>
-        <button type="button" onClick={reset} className="text-xs font-medium text-ink/50 underline hover:text-ink">
+        <button type="button" onClick={reset} className="text-xs font-medium text-ink-muted underline hover:text-ink">
           Change club
         </button>
       </div>
-      {resolving && <p className="mt-1.5 text-sm text-ink/50">Resolving {selectedClub.name}&apos;s matching team&hellip;</p>}
+      {resolving && <p className="mt-1.5 text-sm text-ink-muted">Resolving {selectedClub.name}&apos;s matching team&hellip;</p>}
       {!resolving && matches && matches.length > 1 && (
         <div className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
           <p className="text-sm text-ink/80">{selectedClub.name} has {matches.length} age-eligible teams &mdash; choose one:</p>
@@ -203,7 +203,7 @@ export function OpponentPicker({
                 className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-left text-sm font-medium text-ink outline-none hover:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"
               >
                 {t.teamName}
-                <span className="ml-1.5 font-normal text-ink/45">{teamCategoryLabel(t)}</span>
+                <span className="ml-1.5 font-normal text-ink-muted">{teamCategoryLabel(t)}</span>
               </button>
             ))}
           </div>

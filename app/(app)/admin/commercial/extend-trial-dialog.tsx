@@ -84,7 +84,7 @@ export function ExtendTrialDialog({ clubId, clubName }: { clubId: string; clubNa
           </div>
         </div>
 
-        {error ? <p className="mt-1 text-sm text-destructive">{error}</p> : null}
+        {error ? <p className="mt-1 text-sm text-destructive-text">{error}</p> : null}
 
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>Cancel</DialogClose>

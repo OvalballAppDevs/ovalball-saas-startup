@@ -118,7 +118,7 @@ export function DocumentLibraryClient({
           <Link href="/documents" className="text-forest-800 underline underline-offset-2 hover:text-forest-950">
             Documents
           </Link>
-          <span className="text-ink/30">/</span>
+          <span className="text-ink-muted">/</span>
           <span className="font-medium text-ink">{currentFolderName}</span>
         </div>
       )}
@@ -147,7 +147,7 @@ export function DocumentLibraryClient({
       {uploadOpen && (
         <div className="mb-4 rounded-lg border border-ink/10 bg-white p-4">
           <p className="text-sm font-medium text-ink">Upload document</p>
-          <p className="mt-0.5 text-xs text-ink/45">PDF, JPEG, PNG, or WEBP. Up to 10MB.</p>
+          <p className="mt-0.5 text-xs text-ink-muted">PDF, JPEG, PNG, or WEBP. Up to 10MB.</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -166,7 +166,7 @@ export function DocumentLibraryClient({
           />
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-ink/50">Title</span>
+              <span className="text-xs font-medium text-ink-muted">Title</span>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -174,7 +174,7 @@ export function DocumentLibraryClient({
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-ink/50">Category</span>
+              <span className="text-xs font-medium text-ink-muted">Category</span>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
@@ -195,7 +195,7 @@ export function DocumentLibraryClient({
             >
               {uploading ? "Uploading…" : "Upload"}
             </button>
-            <button type="button" onClick={() => setUploadOpen(false)} className="text-sm font-medium text-ink/50 hover:text-ink">
+            <button type="button" onClick={() => setUploadOpen(false)} className="text-sm font-medium text-ink-muted hover:text-ink">
               Cancel
             </button>
           </div>
@@ -205,7 +205,7 @@ export function DocumentLibraryClient({
       {folderOpen && (
         <div className="mb-4 flex items-end gap-3 rounded-lg border border-ink/10 bg-white p-4">
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-ink/50">Folder name</span>
+            <span className="text-xs font-medium text-ink-muted">Folder name</span>
             <input
               autoFocus
               value={newFolderName}
@@ -221,20 +221,20 @@ export function DocumentLibraryClient({
           >
             Create
           </button>
-          <button type="button" onClick={() => setFolderOpen(false)} className="text-sm font-medium text-ink/50 hover:text-ink">
+          <button type="button" onClick={() => setFolderOpen(false)} className="text-sm font-medium text-ink-muted hover:text-ink">
             Cancel
           </button>
         </div>
       )}
 
-      {error && <p className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-2 text-sm text-destructive-text">{error}</p>}
 
       {empty ? (
         <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8">
-          <FileText className="size-5 text-ink/30" />
+          <FileText className="size-5 text-ink-muted" />
           <div>
             <p className="text-sm font-medium text-ink">Keep your important club and fixture resources in one place</p>
-            <p className="mt-1 max-w-md text-sm text-ink/55">
+            <p className="mt-1 max-w-md text-sm text-ink-muted">
               Good documents to store here: visitor guides, ground and pitch information, parking information,
               match-day documentation, fixture information, and approved images or maps.
             </p>
@@ -250,7 +250,7 @@ export function DocumentLibraryClient({
                     href={`/documents?folder=${f.id}`}
                     className="flex items-center gap-2.5 rounded-lg border border-ink/10 bg-white px-4 py-3 outline-none transition-colors hover:border-ink/20 focus-visible:ring-2 focus-visible:ring-pitch-400"
                   >
-                    <FolderClosed className="size-4 text-ink/40" />
+                    <FolderClosed className="size-4 text-ink-muted" />
                     <span className="text-sm font-medium text-ink">{f.name}</span>
                   </Link>
                 </li>
@@ -264,7 +264,7 @@ export function DocumentLibraryClient({
                   <FileText className="size-4 shrink-0 text-forest-800" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{d.title}</p>
-                    <p className="text-xs text-ink/45">
+                    <p className="text-xs text-ink-muted">
                       {d.categoryLabel} &middot; {formatBytes(d.sizeBytes)}
                       {d.usageCount > 0 && <> &middot; Shared in {d.usageCount} fixture conversation{d.usageCount === 1 ? "" : "s"}</>}
                     </p>
@@ -279,7 +279,7 @@ export function DocumentLibraryClient({
                       <button
                         type="button"
                         onClick={() => setMovingDocId(movingDocId === d.id ? null : d.id)}
-                        className="shrink-0 text-sm font-medium text-ink/55 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+                        className="shrink-0 text-sm font-medium text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
                       >
                         Move to&hellip;
                       </button>
@@ -290,7 +290,7 @@ export function DocumentLibraryClient({
                           await archiveClubDocument(d.id, true)
                           router.refresh()
                         }}
-                        className="shrink-0 rounded p-1.5 text-ink/40 outline-none hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+                        className="shrink-0 rounded p-1.5 text-ink-muted outline-none hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
                       >
                         <Archive className="size-4" />
                       </button>
@@ -299,7 +299,7 @@ export function DocumentLibraryClient({
                 </div>
                 {movingDocId === d.id && (
                   <div className="mt-2.5 flex items-center gap-2 border-t border-ink/10 pt-2.5">
-                    <label className="text-xs text-ink/50" htmlFor={`move-${d.id}`}>
+                    <label className="text-xs text-ink-muted" htmlFor={`move-${d.id}`}>
                       Move to
                     </label>
                     <select
@@ -316,7 +316,7 @@ export function DocumentLibraryClient({
                         </option>
                       ))}
                     </select>
-                    <button type="button" onClick={() => setMovingDocId(null)} className="text-xs text-ink/40 hover:text-ink/70">
+                    <button type="button" onClick={() => setMovingDocId(null)} className="text-xs text-ink-muted hover:text-ink/70">
                       Cancel
                     </button>
                   </div>

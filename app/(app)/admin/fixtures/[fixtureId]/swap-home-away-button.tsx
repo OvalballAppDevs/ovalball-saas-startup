@@ -51,7 +51,7 @@ export function SwapHomeAwayButton({ fixtureId, homeTeamName, awayTeamName, canS
             result stays correctly attributed -- this is a single, deliberate correction, not two separate label edits.
           </DialogDescription>
         </DialogHeader>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-destructive-text">{error}</p>}
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>Cancel</DialogClose>
           <Button type="button" className="h-9" disabled={working} onClick={handleConfirm}>

@@ -39,7 +39,7 @@ const SEVERITY: Record<
     icon: Info,
     row: "border-ink/10 bg-white",
     chip: "bg-ink/8 text-ink/70",
-    iconClass: "text-ink/40",
+    iconClass: "text-ink-muted",
   },
 }
 
@@ -48,7 +48,7 @@ export function AlertList({ alerts }: { alerts: DashboardAlert[] }) {
     return (
       <div className="rounded-lg border border-ink/10 bg-white px-5 py-6">
         <p className="text-sm font-medium text-ink">Nothing needs attention</p>
-        <p className="mt-1 text-sm text-ink/55">
+        <p className="mt-1 text-sm text-ink-muted">
           No claims waiting, no disputed results, no open tickets, and no failed Ovalball
           collections.
         </p>
@@ -79,7 +79,7 @@ export function AlertList({ alerts }: { alerts: DashboardAlert[] }) {
                   <p className="text-sm font-medium text-ink">{alert.title}</p>
                   <span className="sr-only">— {s.label}</span>
                 </div>
-                <p className="mt-1 text-sm text-ink/55">{alert.detail}</p>
+                <p className="mt-1 text-sm text-ink-muted">{alert.detail}</p>
               </div>
 
               {alert.href ? (

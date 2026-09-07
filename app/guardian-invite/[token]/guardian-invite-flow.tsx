@@ -48,7 +48,7 @@ export function GuardianInviteFlow({ token, invitationId, teamLabel, alreadyAcce
         <Button type="button" className="h-11 px-6" disabled={accepting} onClick={handleAccept}>
           {accepting ? "Accepting…" : "Accept invitation"}
         </Button>
-        {acceptError && <p className="mt-3 text-sm text-destructive">{acceptError}</p>}
+        {acceptError && <p className="mt-3 text-sm text-destructive-text">{acceptError}</p>}
       </div>
     )
   }
@@ -100,7 +100,7 @@ function ConfirmReplacementStep({ invitationId, playerId, playerFirstName }: { i
     <div className="rounded-lg border border-ink/10 bg-white p-5">
       <p className="text-sm font-medium text-ink">Confirm you&apos;re {playerFirstName}&apos;s guardian</p>
       <p className="mt-1 text-sm text-ink/60">The club has linked this invitation to {playerFirstName}&apos;s existing player record.</p>
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
       <Button type="button" className="mt-4 h-10" disabled={status === "saving"} onClick={handleConfirm}>
         {status === "saving" ? "Confirming…" : `Confirm — I'm ${playerFirstName}'s guardian`}
       </Button>
@@ -216,10 +216,10 @@ function AddPlayerForm({ invitationId, teamLabel }: { invitationId: string; team
           Date of birth
         </Label>
         <Input id="player-dob" type="date" required value={dob} onChange={(e) => setDob(e.target.value)} max={new Date().toISOString().slice(0, 10)} className="mt-1.5 h-11 w-full border-ink/15 bg-white sm:w-56" />
-        <p className="mt-1.5 text-xs text-ink/45">Used only to determine age-appropriate access and eligibility rules.</p>
+        <p className="mt-1.5 text-xs text-ink-muted">Used only to determine age-appropriate access and eligibility rules.</p>
       </div>
 
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
       <Button type="submit" className="mt-4 h-10" disabled={!canSubmit || status === "saving"}>
         {status === "saving" ? "Adding…" : "Add player"}

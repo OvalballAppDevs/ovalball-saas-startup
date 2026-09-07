@@ -83,8 +83,8 @@ export function QuickEditCell({
         className="group/cell -mx-2 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left outline-none hover:bg-ink/[0.04] focus-visible:ring-2 focus-visible:ring-pitch-400"
         aria-label={`Edit ${field}`}
       >
-        <span className={value ? "truncate" : "truncate text-ink/35"}>{value || placeholder}</span>
-        <Pencil className="size-3 shrink-0 text-ink/0 group-hover/cell:text-ink/30" />
+        <span className={value ? "truncate" : "truncate text-ink-muted"}>{value || placeholder}</span>
+        <Pencil className="size-3 shrink-0 text-ink/0 group-hover/cell:text-ink-muted" />
       </button>
     )
   }
@@ -117,11 +117,11 @@ export function QuickEditCell({
         onClick={cancel}
         disabled={saving}
         aria-label="Cancel"
-        className="flex size-7 shrink-0 items-center justify-center rounded-md text-ink/50 outline-none hover:bg-ink/8 focus-visible:ring-2 focus-visible:ring-pitch-400"
+        className="flex size-7 shrink-0 items-center justify-center rounded-md text-ink-muted outline-none hover:bg-ink/8 focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
         <X className="size-4" />
       </button>
-      {error && <span className="absolute mt-9 text-xs text-destructive">{error}</span>}
+      {error && <span className="absolute mt-9 text-xs text-destructive-text">{error}</span>}
     </div>
   )
 }

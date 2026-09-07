@@ -12,7 +12,7 @@ const TONE_CLASSES: Record<string, string> = {
   info: "bg-pitch-50 text-forest-800",
   warning: "bg-amber-100 text-amber-900",
   success: "bg-mint-100 text-forest-950",
-  danger: "bg-destructive/10 text-destructive",
+  danger: "bg-destructive/10 text-destructive-text",
 }
 
 /**
@@ -118,7 +118,7 @@ export function GoCardlessConnectPanel({
         <div>
           <p className="text-sm font-medium text-ink">GoCardless</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-ink/50">Connection</span>
+            <span className="text-xs text-ink-muted">Connection</span>
             <StatusBadge label={connectionMeta.label} tone={connectionMeta.tone} Icon={connectionMeta.Icon} />
           </div>
         </div>
@@ -138,13 +138,13 @@ export function GoCardlessConnectPanel({
         <>
           <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt className="text-ink/50">Verification</dt>
+              <dt className="text-ink-muted">Verification</dt>
               <dd className="mt-1">
                 <StatusBadge label={verificationMeta.label} tone={verificationMeta.tone} Icon={verificationMeta.Icon} />
               </dd>
             </div>
             <div>
-              <dt className="text-ink/50">Connected</dt>
+              <dt className="text-ink-muted">Connected</dt>
               <dd className="mt-1.5 font-medium text-ink">{connectedAt ? new Date(connectedAt).toLocaleDateString("en-GB") : "—"}</dd>
             </div>
           </dl>
@@ -152,7 +152,7 @@ export function GoCardlessConnectPanel({
         </>
       )}
 
-      <p className="mt-4 text-xs text-ink/50">Your club&rsquo;s bank details are held by GoCardless, never by Ovalball. Ovalball only sees connection and verification status.</p>
+      <p className="mt-4 text-xs text-ink-muted">Your club&rsquo;s bank details are held by GoCardless, never by Ovalball. Ovalball only sees connection and verification status.</p>
 
       {disconnecting && (
         <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
@@ -161,7 +161,7 @@ export function GoCardlessConnectPanel({
             Existing subscriptions and payment history are preserved, but no new collections can be scheduled until reconnected. This does not cancel live GoCardless subscriptions on GoCardless&rsquo;s side -- do that first if required.
           </p>
           <input type="text" placeholder="Reason for disconnecting" value={reason} onChange={(e) => setReason(e.target.value)} className="mt-3 h-10 w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600" />
-          {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+          {error && <p className="mt-2 text-xs text-destructive-text">{error}</p>}
           <div className="mt-3 flex gap-2">
             <Button type="button" variant="destructive" className="h-9" onClick={handleDisconnect}>
               Confirm disconnect

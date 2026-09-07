@@ -95,9 +95,9 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
     <div className="mt-4 flex flex-col gap-6">
       {children.map((child, index) => (
         <div key={child.key} className="rounded-lg border border-ink/10 bg-white p-4">
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Child {index + 1}</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Child {index + 1}</p>
 
-          {child.outcome && !child.outcome.ok && <p className="mt-2 text-sm text-destructive">{child.outcome.error}</p>}
+          {child.outcome && !child.outcome.ok && <p className="mt-2 text-sm text-destructive-text">{child.outcome.error}</p>}
 
           {child.outcome && child.outcome.ok ? (
             <div className="mt-2 rounded-md bg-forest-50 px-3 py-2.5">

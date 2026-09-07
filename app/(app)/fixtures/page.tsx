@@ -282,7 +282,7 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
         <div>
           <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Fixtures</p>
           <h1 className="mt-2 font-display text-display-l text-ink">Fixture Requests</h1>
-          <p className="mt-2 max-w-md text-sm text-ink/55">
+          <p className="mt-2 max-w-md text-sm text-ink-muted">
             Two-way requests with other Ovalball clubs &mdash; sent, received, and awaiting a response.
           </p>
         </div>
@@ -327,7 +327,7 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
       {visibleRequests.length === 0 ? (
         <div className="mt-8 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
           <p className="text-sm font-medium text-ink">Nothing waiting on you</p>
-          <p className="mt-1 text-sm text-ink/55">
+          <p className="mt-1 text-sm text-ink-muted">
             Fixture requests will appear here once a partner club shares availability to request against.
           </p>
         </div>
@@ -345,7 +345,7 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
             Non-Ovalball fixtures ({nonOvalball.length})
           </summary>
           <div className="border-t border-ink/10 px-4 py-3">
-            <p className="text-xs text-ink/50">
+            <p className="text-xs text-ink-muted">
               Arranged with clubs not currently active on Ovalball &mdash; recorded on your calendar, but there is
               no one on Ovalball to deliver a request to.
             </p>
@@ -359,23 +359,23 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
       )}
       {rejected.length > 0 && (
         <details className="mt-4 rounded-lg border border-destructive/15 bg-destructive/[0.02] open:bg-white">
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-destructive/80 outline-none [&::-webkit-details-marker]:hidden focus-visible:ring-2 focus-visible:ring-pitch-400">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-destructive-text outline-none [&::-webkit-details-marker]:hidden focus-visible:ring-2 focus-visible:ring-pitch-400">
             Rejected requests ({rejected.length})
           </summary>
           <div className="border-t border-destructive/10 px-4 py-3">
-            <p className="text-xs text-ink/50">Declined in the last 30 days &mdash; distinct from a Cancelled fixture, which was accepted and then called off.</p>
+            <p className="text-xs text-ink-muted">Declined in the last 30 days &mdash; distinct from a Cancelled fixture, which was accepted and then called off.</p>
             <ul className="mt-3 flex flex-col gap-2">
               {rejected.map((r) => {
                 const date = r.proposedDate ? new Date(r.proposedDate + "T00:00:00") : null
                 const dateLabel = date?.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) ?? "TBC"
                 return (
                   <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3">
-                    <span className="shrink-0 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">Rejected</span>
+                    <span className="shrink-0 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive-text">Rejected</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink/70">
-                        {r.teamDisplayName} <span className="text-ink/40">vs</span> {r.opponentText}
+                        {r.teamDisplayName} <span className="text-ink-muted">vs</span> {r.opponentText}
                       </p>
-                      <p className="text-xs text-ink/45">{dateLabel}</p>
+                      <p className="text-xs text-ink-muted">{dateLabel}</p>
                     </div>
                   </li>
                 )

@@ -38,7 +38,7 @@ export default function LegalHubPage() {
                 <p className="text-sm font-medium text-ink">{doc.label}</p>
                 <p className="mt-0.5 text-sm text-ink/60">{doc.description}</p>
               </div>
-              <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink/30" />
+              <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
             </Link>
           </li>
         ))}

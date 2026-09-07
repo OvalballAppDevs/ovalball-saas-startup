@@ -42,7 +42,7 @@ export function InviteLoginButton({ playerId, playerFirstName }: { playerId: str
         permissions.
       </p>
       <Input type="email" placeholder="Child email — optional" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2" />
-      {error && <p className="mt-1.5 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-1.5 text-sm text-destructive-text">{error}</p>}
       <div className="mt-2 flex gap-2">
         <Button
           type="button"

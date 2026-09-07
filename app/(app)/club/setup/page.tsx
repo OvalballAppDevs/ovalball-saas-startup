@@ -88,7 +88,7 @@ export default async function ClubSetupPage({
     <div className="mx-auto max-w-2xl px-4 pt-8 pb-32 md:px-8 md:pt-12 md:pb-20">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Set up your club</p>
       <h1 className="mt-2 font-display text-display-l text-ink">{clubName}</h1>
-      <p className="mt-2 max-w-lg text-sm text-ink/55">
+      <p className="mt-2 max-w-lg text-sm text-ink-muted">
         Three things before {clubName} goes live on Ovalball. Everything you set here you can change
         later, and you can stop and come back &mdash; your progress is saved as you go.
       </p>
@@ -154,7 +154,7 @@ async function Step1({
   return (
     <>
       <h2 className="font-display text-2xl text-ink">Your crest and kit</h2>
-      <p className="mt-1.5 max-w-lg text-sm text-ink/55">
+      <p className="mt-1.5 max-w-lg text-sm text-ink-muted">
         This is what players and parents see on every fixture card, every message and your public club
         page. The home kit is required; the away kit can wait.
       </p>
@@ -240,7 +240,7 @@ async function Step2({
   return (
     <>
       <h2 className="font-display text-2xl text-ink">Where do you play?</h2>
-      <p className="mt-1.5 max-w-lg text-sm text-ink/55">
+      <p className="mt-1.5 max-w-lg text-sm text-ink-muted">
         Your home ground and the pitches on it. Fixtures and training are scheduled onto pitches, and
         the address is what gives visiting clubs and parents their directions.
       </p>
@@ -300,7 +300,7 @@ async function Step3({ clubId, supabase, req }: { clubId: string; supabase: Supa
   return (
     <>
       <h2 className="font-display text-2xl text-ink">Your teams</h2>
-      <p className="mt-1.5 max-w-lg text-sm text-ink/55">
+      <p className="mt-1.5 max-w-lg text-sm text-ink-muted">
         These came from what your club told us when it joined. Check them over &mdash; fixtures,
         training, squads and messaging all hang off this list.
       </p>

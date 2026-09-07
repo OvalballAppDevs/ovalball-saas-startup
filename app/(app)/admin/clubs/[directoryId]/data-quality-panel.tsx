@@ -36,7 +36,7 @@ export function DataQualityPanel({ flags }: { flags: AdminClubRow["flags"] }) {
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
           <div>
             <p className="text-sm font-medium text-ink">{signal.label}</p>
-            <p className="text-xs text-ink/55">{signal.detail}</p>
+            <p className="text-xs text-ink-muted">{signal.detail}</p>
           </div>
         </li>
       ))}

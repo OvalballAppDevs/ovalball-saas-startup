@@ -54,11 +54,11 @@ export function PermissionRow({ permission, playerId }: { permission: Permission
         <label htmlFor={descId} className="text-sm font-medium text-ink">
           {permission.label}
         </label>
-        <p id={descId} className="mt-0.5 text-sm text-ink/55">
+        <p id={descId} className="mt-0.5 text-sm text-ink-muted">
           {permission.description}
         </p>
         {granted && permission.coGuardiansPending && <p className="mt-1.5 text-xs font-medium text-amber-700">Waiting on another guardian to also allow this.</p>}
-        {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+        {error && <p className="mt-1.5 text-xs text-destructive-text">{error}</p>}
       </div>
       <Switch aria-labelledby={descId} checked={granted} disabled={saving} onCheckedChange={handleChange} className="mt-0.5 shrink-0" />
     </li>

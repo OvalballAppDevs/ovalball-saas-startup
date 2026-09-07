@@ -59,7 +59,7 @@ export function FixtureStatusControl({ fixtureId, status }: { fixtureId: string;
   if (cancelling) {
     return (
       <div className="flex flex-col items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/[0.03] p-3 sm:items-start">
-        <p className="text-xs font-medium text-destructive">Cancel this fixture</p>
+        <p className="text-xs font-medium text-destructive-text">Cancel this fixture</p>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -82,11 +82,11 @@ export function FixtureStatusControl({ fixtureId, status }: { fixtureId: string;
           >
             {pending ? "Cancelling…" : "Confirm cancel"}
           </button>
-          <button type="button" onClick={() => setCancelling(false)} className="text-xs font-medium text-ink/50 hover:text-ink">
+          <button type="button" onClick={() => setCancelling(false)} className="text-xs font-medium text-ink-muted hover:text-ink">
             Back
           </button>
         </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-destructive-text">{error}</p>}
       </div>
     )
   }
@@ -108,7 +108,7 @@ export function FixtureStatusControl({ fixtureId, status }: { fixtureId: string;
             />
           }
         >
-          <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1", FIXTURE_STATUS_BADGE_CLASS[status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/8 text-ink/50")}>
+          <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1", FIXTURE_STATUS_BADGE_CLASS[status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/8 text-ink-muted")}>
             {status}
             <ChevronDown className="size-3" />
           </span>
@@ -124,7 +124,7 @@ export function FixtureStatusControl({ fixtureId, status }: { fixtureId: string;
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
     </div>
   )
 }

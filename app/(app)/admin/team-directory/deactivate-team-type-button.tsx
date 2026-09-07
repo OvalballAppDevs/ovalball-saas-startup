@@ -60,7 +60,7 @@ export function DeactivateTeamTypeButton({ id, label }: { id: string; label: str
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-8 text-destructive hover:bg-destructive/10" />}>
+      <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" />}>
         Deactivate
       </DialogTrigger>
       <DialogContent>
@@ -72,7 +72,7 @@ export function DeactivateTeamTypeButton({ id, label }: { id: string; label: str
           </DialogDescription>
         </DialogHeader>
 
-        {loadingImpact && <p className="text-sm text-ink/50">Checking real impact…</p>}
+        {loadingImpact && <p className="text-sm text-ink-muted">Checking real impact…</p>}
         {impact && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-3.5">
             <p className="text-sm font-medium text-amber-900">Real impact today</p>
@@ -92,7 +92,7 @@ export function DeactivateTeamTypeButton({ id, label }: { id: string; label: str
           </div>
         )}
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-destructive-text">{error}</p>}
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>Cancel</DialogClose>
           <Button type="button" variant="destructive" className="h-9" disabled={working || loadingImpact} onClick={handleConfirm}>

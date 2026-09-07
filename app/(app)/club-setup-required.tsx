@@ -49,7 +49,7 @@ export function ClubSetupRequired({ clubName }: { clubName: string }) {
         </Link>
       </div>
 
-      <p className="mt-8 text-xs text-ink/45">
+      <p className="mt-8 text-xs text-ink-muted">
         Belong to more than one club? Use the club switcher at the top of the menu to move to
         another one.
       </p>

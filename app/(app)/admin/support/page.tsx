@@ -15,7 +15,7 @@ import { SupportFilters } from "./support-filters"
 const STATUS_BADGE_STYLE: Record<string, string> = {
   new: "bg-pitch-600/12 text-forest-800",
   in_progress: "bg-amber-500/15 text-amber-800",
-  closed: "bg-ink/8 text-ink/55",
+  closed: "bg-ink/8 text-ink-muted",
 }
 
 function relativeTime(iso: string): string {
@@ -50,8 +50,8 @@ export default async function AdminSupportPage({ searchParams }: { searchParams:
   if (access === "none") {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center md:px-8">
-        <ShieldCheck className="mx-auto size-8 text-ink/30" />
-        <p className="mt-3 text-sm text-ink/55">Your Site Admin profile doesn&apos;t include Support access.</p>
+        <ShieldCheck className="mx-auto size-8 text-ink-muted" />
+        <p className="mt-3 text-sm text-ink-muted">Your Site Admin profile doesn&apos;t include Support access.</p>
       </div>
     )
   }
@@ -70,15 +70,15 @@ export default async function AdminSupportPage({ searchParams }: { searchParams:
       <div className="mt-6 flex flex-wrap gap-3">
         <div className="rounded-lg border border-ink/10 bg-white px-4 py-3">
           <p className="text-2xl font-semibold text-forest-800">{counts.new}</p>
-          <p className="text-xs text-ink/50">New</p>
+          <p className="text-xs text-ink-muted">New</p>
         </div>
         <div className="rounded-lg border border-ink/10 bg-white px-4 py-3">
           <p className="text-2xl font-semibold text-amber-700">{counts.inProgress}</p>
-          <p className="text-xs text-ink/50">In Progress</p>
+          <p className="text-xs text-ink-muted">In Progress</p>
         </div>
         <div className="rounded-lg border border-ink/10 bg-white px-4 py-3">
           <p className="text-2xl font-semibold text-ink/60">{counts.closed}</p>
-          <p className="text-xs text-ink/50">Closed</p>
+          <p className="text-xs text-ink-muted">Closed</p>
         </div>
       </div>
 
@@ -90,7 +90,7 @@ export default async function AdminSupportPage({ searchParams }: { searchParams:
       <div className="mt-4 overflow-x-auto rounded-lg border border-ink/10 bg-white">
         <table className="w-full min-w-[900px] text-sm">
           <thead>
-            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">
+            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">
               <th scope="col" className="px-4 py-3">Reference</th>
               <th scope="col" className="px-4 py-3">Status</th>
               <th scope="col" className="px-4 py-3">Category</th>
@@ -122,13 +122,13 @@ export default async function AdminSupportPage({ searchParams }: { searchParams:
                 </td>
                 <td className="px-4 py-3 text-ink/60">{r.clubName ?? "—"}</td>
                 <td className="px-4 py-3 text-ink/60">{r.raisedBy}</td>
-                <td className="px-4 py-3 text-ink/50">{r.origin === "public" ? "Public" : "Authenticated"}</td>
-                <td className="px-4 py-3 text-ink/50">{relativeTime(r.updatedAt)}</td>
+                <td className="px-4 py-3 text-ink-muted">{r.origin === "public" ? "Public" : "Authenticated"}</td>
+                <td className="px-4 py-3 text-ink-muted">{relativeTime(r.updatedAt)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && <div className="px-4 py-10 text-center text-sm text-ink/50">No support requests match these filters.</div>}
+        {rows.length === 0 && <div className="px-4 py-10 text-center text-sm text-ink-muted">No support requests match these filters.</div>}
       </div>
 
       <div className="mt-6">

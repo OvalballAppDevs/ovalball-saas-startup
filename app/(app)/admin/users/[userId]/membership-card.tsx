@@ -63,12 +63,12 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
           >
             {membership.clubName}
           </Link>
-          <p className="mt-0.5 text-xs text-ink/45">{clubRoleLabel(membership.role)}</p>
+          <p className="mt-0.5 text-xs text-ink-muted">{clubRoleLabel(membership.role)}</p>
         </div>
         <div className="flex items-center gap-2">
           {status === "revoked" ? (
             <>
-              <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink/50">Revoked</span>
+              <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink-muted">Revoked</span>
               <Button type="button" variant="outline" className="h-8" disabled={working} onClick={handleReactivate}>
                 {working ? "Working…" : "Reactivate"}
               </Button>
@@ -79,7 +79,7 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
                 Change access
               </Button>
               {!confirmingRevoke ? (
-                <Button type="button" variant="ghost" className="h-8 text-destructive hover:bg-destructive/10" onClick={() => setConfirmingRevoke(true)}>
+                <Button type="button" variant="ghost" className="h-8 text-destructive-text hover:bg-destructive/10" onClick={() => setConfirmingRevoke(true)}>
                   Revoke
                 </Button>
               ) : (
@@ -99,7 +99,7 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <p className="text-[10px] font-medium tracking-[0.06em] text-ink/40 uppercase">Real-world club role</p>
+          <p className="text-[10px] font-medium tracking-[0.06em] text-ink-muted uppercase">Real-world club role</p>
           {editingTitle ? (
             <div className="mt-1 flex items-center gap-1.5">
               <input
@@ -120,14 +120,14 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
               onClick={() => setEditingTitle(true)}
               className="mt-1 block text-left text-sm text-ink/70 underline decoration-dotted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
-              {roleTitle || <span className="text-ink/35">Not recorded &mdash; click to add</span>}
+              {roleTitle || <span className="text-ink-muted">Not recorded &mdash; click to add</span>}
             </button>
           )}
         </div>
         <div>
-          <p className="text-[10px] font-medium tracking-[0.06em] text-ink/40 uppercase">Team scope</p>
+          <p className="text-[10px] font-medium tracking-[0.06em] text-ink-muted uppercase">Team scope</p>
           {membership.teamRoles.length === 0 ? (
-            <p className="mt-1 text-sm text-ink/35">No team assignment</p>
+            <p className="mt-1 text-sm text-ink-muted">No team assignment</p>
           ) : (
             <ul className="mt-1 flex flex-col gap-0.5">
               {membership.teamRoles.map((t) => (
@@ -140,7 +140,7 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
         </div>
       </div>
 
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
 
       {changingAccess && (
         <div className="mt-4">

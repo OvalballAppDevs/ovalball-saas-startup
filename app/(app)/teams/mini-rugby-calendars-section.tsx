@@ -88,14 +88,14 @@ export function MiniRugbyCalendarsSection({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Mini-Rugby Groups &middot; {seasonName}</p>
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Mini-Rugby Groups &middot; {seasonName}</p>
         {!creating && eligibleTeams.length >= 2 && (
           <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setCreating(true)}>
             Create Mini-Rugby Group
           </Button>
         )}
       </div>
-      <p className="mt-1 text-xs text-ink/45">
+      <p className="mt-1 text-xs text-ink-muted">
         Combine two or three of your U6-U8 teams into one Mini-Rugby Group (e.g. &ldquo;U7/U8&rdquo;) for scheduling
         convenience only &mdash; each team keeps its own real fixtures, results, and stats. Teams in a Mini-Rugby
         Group share one fixture schedule: if the group has a fixture, every team included in it is unavailable for
@@ -103,21 +103,21 @@ export function MiniRugbyCalendarsSection({
       </p>
 
       {eligibleTeams.length < 2 && !creating && (
-        <p className="mt-3 text-sm text-ink/45">You need at least two U6, U7, or U8 teams to create a Mini-Rugby Group.</p>
+        <p className="mt-3 text-sm text-ink-muted">You need at least two U6, U7, or U8 teams to create a Mini-Rugby Group.</p>
       )}
 
-      {groups.length === 0 && !creating && eligibleTeams.length >= 2 && <p className="mt-3 text-sm text-ink/45">No Mini-Rugby Groups yet this season.</p>}
+      {groups.length === 0 && !creating && eligibleTeams.length >= 2 && <p className="mt-3 text-sm text-ink-muted">No Mini-Rugby Groups yet this season.</p>}
 
       <ul className="mt-3 flex flex-col gap-2">
         {groups.map((g) => (
           <li key={g.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3">
             <div className="flex min-w-0 items-center gap-2">
-              <CalendarRange className="size-4 shrink-0 text-ink/35" />
+              <CalendarRange className="size-4 shrink-0 text-ink-muted" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-ink">
-                  {miniRugbyGroupLabel(g)} {!g.active && <span className="text-ink/40">(inactive)</span>}
+                  {miniRugbyGroupLabel(g)} {!g.active && <span className="text-ink-muted">(inactive)</span>}
                 </p>
-                <p className="truncate text-xs text-ink/50">Includes: {g.members.map((m) => m.displayName).join(", ")}</p>
+                <p className="truncate text-xs text-ink-muted">Includes: {g.members.map((m) => m.displayName).join(", ")}</p>
                 {editingAliasId === g.id ? (
                   <div className="mt-1.5 flex items-center gap-1.5">
                     <input
@@ -137,7 +137,7 @@ export function MiniRugbyCalendarsSection({
                 ) : (
                   <button
                     type="button"
-                    className="mt-1 flex items-center gap-1 text-xs text-ink/40 outline-none hover:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                    className="mt-1 flex items-center gap-1 text-xs text-ink-muted outline-none hover:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400"
                     onClick={() => {
                       setEditingAliasId(g.id)
                       setAliasDraft(g.alias ?? "")
@@ -158,7 +158,7 @@ export function MiniRugbyCalendarsSection({
 
       {creating && (
         <div className="mt-3 rounded-lg border border-ink/10 bg-white p-4">
-          <p className="text-xs font-medium text-ink/50 uppercase">Select teams (at least two different ages)</p>
+          <p className="text-xs font-medium text-ink-muted uppercase">Select teams (at least two different ages)</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {eligibleTeams.map((t) => (
               <button
@@ -181,7 +181,7 @@ export function MiniRugbyCalendarsSection({
             </p>
           )}
 
-          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
 
           <div className="mt-3 flex items-center gap-2">
             <Button type="button" size="sm" className="h-9" disabled={pending || selectedTeamIds.length < 2} onClick={handleCreate}>
@@ -204,7 +204,7 @@ export function MiniRugbyCalendarsSection({
         </div>
       )}
 
-      {error && !creating && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && !creating && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

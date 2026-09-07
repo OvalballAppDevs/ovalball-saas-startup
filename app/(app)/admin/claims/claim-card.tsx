@@ -50,7 +50,7 @@ export function ClaimCard({ claim }: { claim: ClaimCardData }) {
     return (
       <div className="rounded-lg border border-ink/10 bg-white p-5 opacity-60">
         <p className="text-sm font-medium text-ink">{claim.clubName}</p>
-        <p className="mt-1 text-sm text-ink/50">
+        <p className="mt-1 text-sm text-ink-muted">
           {decided === "approved" ? "Approved" : "Rejected"} just now.
         </p>
       </div>
@@ -62,7 +62,7 @@ export function ClaimCard({ claim }: { claim: ClaimCardData }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-base font-medium text-ink">{claim.clubName}</p>
-          <p className="mt-0.5 text-sm text-ink/50">
+          <p className="mt-0.5 text-sm text-ink-muted">
             Submitted {new Date(claim.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
           </p>
         </div>
@@ -71,23 +71,23 @@ export function ClaimCard({ claim }: { claim: ClaimCardData }) {
 
       <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <dt className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Claimant</dt>
+          <dt className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Claimant</dt>
           <dd className="mt-0.5 text-sm text-ink">{claim.claimantName}</dd>
           <dd className="text-sm text-ink/60">{claim.claimantEmail}</dd>
         </div>
         <div>
-          <dt className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Declared role</dt>
+          <dt className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Declared role</dt>
           <dd className="mt-0.5 text-sm text-ink">{claim.claimedRole}</dd>
         </div>
       </dl>
 
       <div className="mt-3">
-        <dt className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Authority declaration</dt>
+        <dt className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Authority declaration</dt>
         <dd className="mt-1 text-sm text-ink/70">&ldquo;{claim.authorityDeclaration}&rdquo;</dd>
       </div>
 
       {error && (
-        <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>
+        <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>
       )}
 
       <div className="mt-5 flex items-center gap-2 border-t border-ink/10 pt-4">

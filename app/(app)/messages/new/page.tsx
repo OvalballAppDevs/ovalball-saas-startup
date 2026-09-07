@@ -27,7 +27,7 @@ export default async function NewMessagePage() {
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Messages</p>
       <h1 className="mt-2 font-display text-display-l text-ink">New message</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">
+      <p className="mt-2 max-w-md text-sm text-ink-muted">
         Message another club directly &mdash; separate from any fixture. Partner clubs open a conversation
         immediately; other Ovalball clubs get a message request to accept first.
       </p>

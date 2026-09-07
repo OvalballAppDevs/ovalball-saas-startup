@@ -129,7 +129,7 @@ function ConversationSettingsButton({ kind, id, myMuted, myLeft }: { kind: Conve
         onClick={() => setOpen((v) => !v)}
         aria-label="Conversation settings"
         title="Conversation settings"
-        className="flex size-7 items-center justify-center rounded-full border border-ink/12 bg-white text-ink/50 outline-none transition-colors hover:border-forest-800/30 hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
+        className="flex size-7 items-center justify-center rounded-full border border-ink/12 bg-white text-ink-muted outline-none transition-colors hover:border-forest-800/30 hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
         <Settings className="size-3.5" />
       </button>
@@ -137,7 +137,7 @@ function ConversationSettingsButton({ kind, id, myMuted, myLeft }: { kind: Conve
         <div className="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-ink/10 bg-white p-2 shadow-lg">
           <div className="flex items-center justify-between gap-2 px-1.5 py-1">
             <p className="text-sm font-medium text-ink">Conversation settings</p>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded p-0.5 text-ink/40 hover:text-ink">
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded p-0.5 text-ink-muted hover:text-ink">
               <X className="size-3.5" />
             </button>
           </div>
@@ -154,13 +154,13 @@ function ConversationSettingsButton({ kind, id, myMuted, myLeft }: { kind: Conve
             className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm text-ink/75 outline-none hover:bg-ink/[0.03] focus-visible:bg-ink/[0.03]"
           >
             <span>Mute notifications</span>
-            <span className={muted ? "text-forest-800" : "text-ink/30"}>{muted ? "On" : "Off"}</span>
+            <span className={muted ? "text-forest-800" : "text-ink-muted"}>{muted ? "On" : "Off"}</span>
           </button>
           {!confirmLeave ? (
             <button
               type="button"
               onClick={() => setConfirmLeave(true)}
-              className="flex w-full items-center rounded-md px-2.5 py-2 text-left text-sm text-destructive outline-none hover:bg-destructive/5 focus-visible:bg-destructive/5"
+              className="flex w-full items-center rounded-md px-2.5 py-2 text-left text-sm text-destructive-text outline-none hover:bg-destructive/5 focus-visible:bg-destructive/5"
             >
               Leave conversation
             </button>
@@ -184,7 +184,7 @@ function ConversationSettingsButton({ kind, id, myMuted, myLeft }: { kind: Conve
                 >
                   {leaving ? "Leaving…" : "Leave"}
                 </button>
-                <button type="button" onClick={() => setConfirmLeave(false)} className="text-xs font-medium text-ink/50 hover:text-ink/75">
+                <button type="button" onClick={() => setConfirmLeave(false)} className="text-xs font-medium text-ink-muted hover:text-ink/75">
                   Cancel
                 </button>
               </div>
@@ -221,7 +221,7 @@ function AddParticipantButton({ kind, id }: { kind: ConversationKind; id: string
         onClick={() => setOpen((v) => !v)}
         aria-label="Add a participant from your club"
         title="Add a participant"
-        className="flex size-7 items-center justify-center rounded-full border border-ink/12 bg-white text-ink/50 outline-none transition-colors hover:border-forest-800/30 hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
+        className="flex size-7 items-center justify-center rounded-full border border-ink/12 bg-white text-ink-muted outline-none transition-colors hover:border-forest-800/30 hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
         <Plus className="size-3.5" />
       </button>
@@ -229,16 +229,16 @@ function AddParticipantButton({ kind, id }: { kind: ConversationKind; id: string
         <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-ink/10 bg-white p-3 shadow-lg">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-ink">Add a participant</p>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded p-0.5 text-ink/40 hover:text-ink">
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded p-0.5 text-ink-muted hover:text-ink">
               <X className="size-3.5" />
             </button>
           </div>
-          <p className="mt-0.5 text-xs text-ink/45">Coaches and club/fixtures officials from your own club can be given access to this fixture conversation.</p>
+          <p className="mt-0.5 text-xs text-ink-muted">Coaches and club/fixtures officials from your own club can be given access to this fixture conversation.</p>
           <ul className="mt-2 max-h-56 overflow-y-auto">
             {members === "loading" ? (
-              <li className="px-1 py-3 text-sm text-ink/40">Loading…</li>
+              <li className="px-1 py-3 text-sm text-ink-muted">Loading…</li>
             ) : members.length === 0 ? (
-              <li className="px-1 py-3 text-sm text-ink/40">No other coaches or officials to add.</li>
+              <li className="px-1 py-3 text-sm text-ink-muted">No other coaches or officials to add.</li>
             ) : (
               members.map((m) => {
                 const added = addedIds.has(m.userId)
@@ -259,7 +259,7 @@ function AddParticipantButton({ kind, id }: { kind: ConversationKind; id: string
                         }
                         setAddedIds((prev) => new Set(prev).add(m.userId))
                       }}
-                      className="shrink-0 rounded-md bg-pitch-600 px-2.5 py-1 text-xs font-medium text-white outline-none hover:bg-pitch-600/90 disabled:bg-ink/15 disabled:text-ink/40"
+                      className="shrink-0 rounded-md bg-pitch-600 px-2.5 py-1 text-xs font-medium text-white outline-none hover:bg-pitch-600/90 disabled:bg-ink/15 disabled:text-ink-muted"
                     >
                       {added ? "Added" : addingId === m.userId ? "Adding…" : "Add"}
                     </button>
@@ -268,7 +268,7 @@ function AddParticipantButton({ kind, id }: { kind: ConversationKind; id: string
               })
             )}
           </ul>
-          {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+          {error && <p className="mt-1.5 text-xs text-destructive-text">{error}</p>}
         </div>
       )}
     </div>
@@ -298,10 +298,10 @@ function ParticipantRow({
   return (
     <li className="relative flex items-center justify-between gap-2 text-sm text-ink/75">
       <span className="min-w-0 truncate">
-        {person.name} <span className="text-ink/40">&middot; {person.roleLabel}</span>
+        {person.name} <span className="text-ink-muted">&middot; {person.roleLabel}</span>
       </span>
       <span className="flex shrink-0 items-center gap-1.5">
-        <span className="flex items-center gap-1 text-xs text-ink/45">
+        <span className="flex items-center gap-1 text-xs text-ink-muted">
           <PresenceDot online={status.online} />
           {status.label}
         </span>
@@ -310,7 +310,7 @@ function ParticipantRow({
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             aria-label={`Manage ${person.name}`}
-            className="rounded p-1 text-ink/35 outline-none hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="rounded p-1 text-ink-muted outline-none hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <MoreHorizontal className="size-3.5" />
           </button>
@@ -322,7 +322,7 @@ function ParticipantRow({
             <button
               type="button"
               onClick={() => setConfirming(true)}
-              className="flex w-full items-center rounded-md px-2.5 py-2 text-left text-sm text-destructive outline-none hover:bg-destructive/5 focus-visible:bg-destructive/5"
+              className="flex w-full items-center rounded-md px-2.5 py-2 text-left text-sm text-destructive-text outline-none hover:bg-destructive/5 focus-visible:bg-destructive/5"
             >
               Remove from conversation
             </button>
@@ -347,7 +347,7 @@ function ParticipantRow({
                 >
                   {removing ? "Removing…" : "Remove"}
                 </button>
-                <button type="button" onClick={() => setConfirming(false)} className="text-xs font-medium text-ink/50 hover:text-ink/75">
+                <button type="button" onClick={() => setConfirming(false)} className="text-xs font-medium text-ink-muted hover:text-ink/75">
                   Cancel
                 </button>
               </div>
@@ -404,7 +404,7 @@ function ParticipantsPanel({
       <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-ink/10 bg-white p-3 shadow-lg">
         {[...byClub.values()].map((group) => (
           <div key={group.clubName} className="mb-2 last:mb-0">
-            <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">{group.clubName}</p>
+            <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{group.clubName}</p>
             <ul className="mt-1 flex flex-col gap-1">
               {group.people.map((p) => (
                 <ParticipantRow

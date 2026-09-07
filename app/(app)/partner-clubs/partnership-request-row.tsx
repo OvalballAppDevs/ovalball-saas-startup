@@ -34,7 +34,7 @@ export function PartnershipRequestRow({ request }: { request: PendingPartnership
 
   if (status === "done") {
     return (
-      <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink/50">
+      <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink-muted">
         {request.clubName} &mdash; updated.
       </li>
     )
@@ -51,11 +51,11 @@ export function PartnershipRequestRow({ request }: { request: PendingPartnership
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink">{request.clubName}</p>
-        <p className="text-xs text-ink/50">{request.town ?? "Location unknown"}</p>
+        <p className="text-xs text-ink-muted">{request.town ?? "Location unknown"}</p>
         {request.fromFixture && (
           <p className="mt-1 text-xs text-forest-800">Sent automatically after a fixture was agreed between your clubs.</p>
         )}
-        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
       </div>
       {request.direction === "incoming" ? (
         <div className="flex shrink-0 gap-2">

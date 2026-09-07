@@ -81,7 +81,7 @@ export function ContextSwitcher({
       href={settingsLink.href}
       aria-label={settingsLink.ariaLabel}
       title={settingsLink.ariaLabel}
-      className="flex size-9 shrink-0 items-center justify-center rounded-md text-white/40 outline-none transition-colors hover:bg-white/5 hover:text-white/80 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
+      className="flex size-9 shrink-0 items-center justify-center rounded-md text-white/60 outline-none transition-colors hover:bg-white/5 hover:text-white/80 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
     >
       <Settings className="size-4" />
     </Link>
@@ -94,7 +94,7 @@ export function ContextSwitcher({
           {identityAvatar}
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-white">{nameLabel}</p>
-            <p className="mt-0.5 text-xs text-white/50">{subLabel}</p>
+            <p className="mt-0.5 text-xs text-white/60">{subLabel}</p>
           </div>
         </div>
         {gear}
@@ -112,9 +112,9 @@ export function ContextSwitcher({
           {identityAvatar}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-white">{nameLabel}</p>
-            <p className="mt-0.5 text-xs text-white/50">{subLabel}</p>
+            <p className="mt-0.5 text-xs text-white/60">{subLabel}</p>
           </div>
-          <ChevronsUpDown className="size-4 shrink-0 text-white/40" />
+          <ChevronsUpDown className="size-4 shrink-0 text-white/60" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
           <DropdownMenuGroup>

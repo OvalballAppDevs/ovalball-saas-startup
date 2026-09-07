@@ -12,7 +12,7 @@ const SIZE_CLASS = {
 export type ClubAvatarSize = keyof typeof SIZE_CLASS
 
 const PLACEHOLDER_VARIANT = {
-  light: "border-ink/10 bg-ink/[0.03] text-ink/30",
+  light: "border-ink/10 bg-ink/[0.03] text-ink-muted",
   dark: "border-white/15 bg-white/10 text-white/70",
 } as const
 

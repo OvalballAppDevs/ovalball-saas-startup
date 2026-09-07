@@ -22,6 +22,45 @@
     --mint-100: #dcf7e5;
     --chalk: #f8faf7;
     --ink: #101512;
+
+    /* ---------------------------------------------------------------
+     * Accessible secondary text.
+     *
+     * The palette's secondary text was written as opacity on --ink, and
+     * an axe pass over the product measured the result: text-ink/55 on
+     * chalk is 4.03:1, below the 4.5:1 WCAG AA needs for normal text --
+     * and text-ink/45 and /40, used for hints and captions, are worse
+     * (2.96:1 and 2.57:1). Roughly 1,150 places were affected across the
+     * public site, signup, legal, club and admin surfaces.
+     *
+     * These are SOLID values rather than more opacity, so the same class
+     * behaves identically on the chalk page and on a white card instead of
+     * silently losing contrast on whichever ground it lands on. Both are
+     * measured against chalk, which is the darker of the two grounds and
+     * therefore the binding constraint.
+     *
+     *   --ink-muted   #616562  5.64:1 on chalk, 5.92:1 on white
+     *   --ink-subtle  #6d716e  4.72:1 on chalk, 4.96:1 on white
+     *
+     * ink-subtle exists only so placeholder text stays visibly quieter
+     * than a value someone has actually typed, while still clearing AA.
+     * Opacity utilities on --ink remain correct for BORDERS, DIVIDERS and
+     * FILLS, which are not text and are not governed by this rule.
+     * --------------------------------------------------------------- */
+    --ink-muted: #616562;
+    --ink-subtle: #6d716e;
+
+    /* Error TEXT, distinct from the error FILL.
+     *
+     * --destructive is rgb(235,0,5): measured 4.41:1 on chalk and 4.05:1 on
+     * its own bg-destructive/5 tint, so error messages -- the text a person
+     * most needs to read -- were the least legible on the page. It stays
+     * unchanged as a background, where white sits on it and contrast is
+     * fine; this darker value is for text only.
+     *
+     *   --destructive-text  #c1221b  5.70:1 on chalk, 5.23:1 on the /5 tint
+     */
+    --destructive-text: #c1221b;
 }
 
 @theme inline {
@@ -40,6 +79,9 @@
     --color-mint-100: var(--mint-100);
     --color-chalk: var(--chalk);
     --color-ink: var(--ink);
+    --color-ink-muted: var(--ink-muted);
+    --color-ink-subtle: var(--ink-subtle);
+    --color-destructive-text: var(--destructive-text);
 
     /* Fluid display type scale (Bebas Neue). Storyboard-defined clamps. */
     --text-display-2xl: clamp(3.5rem, 3rem + 5vw, 9.5rem);

@@ -38,7 +38,7 @@ export function DashboardSection({
           </Link>
         ) : null}
       </div>
-      {description ? <p className="mt-1 max-w-2xl text-sm text-ink/55">{description}</p> : null}
+      {description ? <p className="mt-1 max-w-2xl text-sm text-ink-muted">{description}</p> : null}
       <div className="mt-4">{children}</div>
     </section>
   )
@@ -74,10 +74,10 @@ export function SectionError({ message, what }: { message: string; what: string 
 export function SectionUnauthorized({ what }: { what: string }) {
   return (
     <div className="flex items-start gap-3 rounded-lg border border-ink/10 bg-white px-5 py-4">
-      <Lock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink/40" />
+      <Lock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink-muted" />
       <div>
         <p className="text-sm font-medium text-ink">{what} is not available to your Site Admin profile</p>
-        <p className="mt-1 text-sm text-ink/55">
+        <p className="mt-1 text-sm text-ink-muted">
           A Full Site Admin can grant the capability this section needs.
         </p>
       </div>

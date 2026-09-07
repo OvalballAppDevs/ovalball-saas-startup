@@ -46,7 +46,7 @@ export default async function SafeguardingConversationPage({ params }: { params:
             }`}
           >
             <p>{m.body}</p>
-            <p className="mt-1 text-[11px] text-ink/40">{new Date(m.created_at).toLocaleString()}</p>
+            <p className="mt-1 text-[11px] text-ink-muted">{new Date(m.created_at).toLocaleString()}</p>
           </li>
         ))}
       </ul>

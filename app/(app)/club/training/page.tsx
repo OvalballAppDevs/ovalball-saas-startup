@@ -137,7 +137,7 @@ export default async function TrainingManagementPage({ searchParams }: { searchP
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club Admin</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Training Management</h1>
-      <p className="mt-2 max-w-2xl text-sm text-ink/55">
+      <p className="mt-2 max-w-2xl text-sm text-ink-muted">
         Recurring and one-off training for every active team at {clubName}. Automatic Training Booking keeps each team&apos;s planned sessions generated and visible on the Calendar and Pitch
         Allocation -- Calendar&apos;s own manual &quot;Schedule training&quot; still works exactly as before for one-off sessions.
       </p>

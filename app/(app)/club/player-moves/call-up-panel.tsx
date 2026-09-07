@@ -80,7 +80,7 @@ export function CallUpPanel({
         <ArrowRightLeft className="size-4 text-forest-800" />
         <h2 className="font-display text-lg text-ink">Fixture call-ups</h2>
       </div>
-      <p className="mt-1.5 text-sm text-ink/55">
+      <p className="mt-1.5 text-sm text-ink-muted">
         Borrow a player from another team at this club for one fixture. The source team must approve before the player is eligible to play.
       </p>
 
@@ -88,7 +88,7 @@ export function CallUpPanel({
 
       <div className="mt-6 space-y-3 border-t border-ink/10 pt-4">
         {rows.length === 0 ? (
-          <p className="text-sm text-ink/50">No call-ups yet.</p>
+          <p className="text-sm text-ink-muted">No call-ups yet.</p>
         ) : (
           rows.map((row) => <CallUpRowItem key={row.id} row={row} />)
         )}
@@ -183,7 +183,7 @@ function CallUpRequestForm({ teams, fixtures, players }: { teams: CallUpTeamOpti
 
   return (
     <div className="mt-4 space-y-3 rounded-lg border border-ink/10 bg-chalk/60 p-4">
-      <p className="text-xs font-medium tracking-wide text-ink/55 uppercase">Request a call-up</p>
+      <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Request a call-up</p>
       <div className="flex flex-wrap gap-2">
         <select
           value={targetTeamId}
@@ -253,7 +253,7 @@ function CallUpRequestForm({ teams, fixtures, players }: { teams: CallUpTeamOpti
         </div>
       )}
 
-      {previewLoading && <p className="text-sm text-ink/50">Checking eligibility...</p>}
+      {previewLoading && <p className="text-sm text-ink-muted">Checking eligibility...</p>}
       {preview && preview.requirement === "not_permitted" && (
         <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
           <ShieldAlert className="mt-0.5 size-4 shrink-0" />
@@ -313,7 +313,7 @@ function CallUpRowItem({ row }: { row: CallUpRow }) {
           <p className="text-sm font-medium text-ink">
             {row.playerName}: {row.sourceTeamName} → {row.targetTeamName}
           </p>
-          <p className="text-xs text-ink/55">
+          <p className="text-xs text-ink-muted">
             {row.fixtureLabel} · {row.eligibilityRuleReference}
           </p>
         </div>
@@ -330,7 +330,7 @@ function CallUpRowItem({ row }: { row: CallUpRow }) {
         </span>
       </div>
       {status === "awaiting_eligibility" && (
-        <p className="mt-2 text-xs text-ink/55">Waiting on a Club Admin to record the required age-grade approval before this can be decided.</p>
+        <p className="mt-2 text-xs text-ink-muted">Waiting on a Club Admin to record the required age-grade approval before this can be decided.</p>
       )}
       {row.canDecide && status === "requested" && (
         <div className="mt-2 flex gap-2">

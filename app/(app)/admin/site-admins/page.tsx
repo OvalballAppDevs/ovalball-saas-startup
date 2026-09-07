@@ -91,7 +91,7 @@ export default async function SiteAdminsPage() {
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-display-l text-ink">Site Admin Management</h1>
-          <p className="mt-2 max-w-lg text-sm text-ink/55">
+          <p className="mt-2 max-w-lg text-sm text-ink-muted">
             Global Ovalball administrative access &mdash; entirely separate from club membership. Not reachable
             through any club-level access screen.
           </p>
@@ -112,7 +112,7 @@ export default async function SiteAdminsPage() {
           {activeAdmins.map((admin) => (
             <AdminRow key={admin.userId} admin={admin} isSelf={admin.userId === user.id} />
           ))}
-          {activeAdmins.length === 0 && <p className="text-sm text-ink/45">No active Site Admins.</p>}
+          {activeAdmins.length === 0 && <p className="text-sm text-ink-muted">No active Site Admins.</p>}
         </ul>
       </div>
 
@@ -123,7 +123,7 @@ export default async function SiteAdminsPage() {
             {pendingInvitations.map((invitation) => (
               <PendingInvitationRow key={invitation.id} invitation={invitation} />
             ))}
-            {pendingInvitations.length === 0 && <p className="text-sm text-ink/45">No pending invitations.</p>}
+            {pendingInvitations.length === 0 && <p className="text-sm text-ink-muted">No pending invitations.</p>}
           </ul>
         </div>
       )}

@@ -30,7 +30,7 @@ export function AcceptSiteAdminInvitationButton({ token }: { token: string }) {
       <Button type="button" className="h-11 px-6" disabled={status === "accepting"} onClick={handleAccept}>
         {status === "accepting" ? "Accepting…" : "Accept invitation"}
       </Button>
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

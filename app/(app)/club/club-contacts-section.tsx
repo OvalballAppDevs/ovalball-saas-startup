@@ -74,19 +74,19 @@ export function ClubContactsSection({ clubId, initial }: { clubId: string; initi
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Public contacts</p>
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Public contacts</p>
         {editingId === null && (
           <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => startEdit(null)}>
             Add contact
           </Button>
         )}
       </div>
-      <p className="mt-1 text-xs text-ink/45">
+      <p className="mt-1 text-xs text-ink-muted">
         Shown on your public club page only when marked public. Never your personal login email.
       </p>
 
       {contacts.length === 0 && editingId === null && (
-        <p className="mt-3 text-sm text-ink/45">No contacts added yet.</p>
+        <p className="mt-3 text-sm text-ink-muted">No contacts added yet.</p>
       )}
 
       <ul className="mt-3 flex flex-col gap-2">
@@ -94,18 +94,18 @@ export function ClubContactsSection({ clubId, initial }: { clubId: string; initi
           <li key={c.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-ink">
-                {c.name} <span className="text-ink/40">&middot; {ROLE_LABEL[c.role]}</span>
+                {c.name} <span className="text-ink-muted">&middot; {ROLE_LABEL[c.role]}</span>
               </p>
-              <p className="truncate text-xs text-ink/50">
+              <p className="truncate text-xs text-ink-muted">
                 {[c.phone, c.email].filter(Boolean).join(" · ") || "No phone or email"}
-                {!c.isPublic && <span className="ml-1.5 text-ink/35">(private)</span>}
+                {!c.isPublic && <span className="ml-1.5 text-ink-muted">(private)</span>}
               </p>
             </div>
             <div className="flex shrink-0 gap-1">
               <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => startEdit(c)}>
                 Edit
               </Button>
-              <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive" onClick={() => handleDelete(c.id)}>
+              <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text" onClick={() => handleDelete(c.id)}>
                 Remove
               </Button>
             </div>
@@ -180,7 +180,7 @@ export function ClubContactsSection({ clubId, initial }: { clubId: string; initi
             Show on public club page
           </label>
 
-          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
 
           <div className="mt-3 flex items-center gap-2">
             <Button type="button" size="sm" className="h-9" disabled={status === "saving" || !draft.name.trim()} onClick={handleSave}>

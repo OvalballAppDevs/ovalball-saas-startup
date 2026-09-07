@@ -47,7 +47,7 @@ export function TeamCategoryPicker({
       <div className="mt-2 flex flex-col gap-4 rounded-lg border border-ink/10 bg-white p-4">
         {groups.map((group) => (
           <div key={group.label}>
-            <p className="text-xs font-medium tracking-[0.06em] text-ink/40 uppercase">{group.label}</p>
+            <p className="text-xs font-medium tracking-[0.06em] text-ink-muted uppercase">{group.label}</p>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {group.options.map((option) => {
                 const checked = option.label === categoryLabel
@@ -69,12 +69,12 @@ export function TeamCategoryPicker({
                   return (
                     <div key={option.label} className="rounded-lg border border-ink/10 bg-ink/[0.02] px-3.5 py-2.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm text-ink/40">{option.label}</span>
-                        <span className="shrink-0 text-xs font-medium text-ink/35">Already added</span>
+                        <span className="text-sm text-ink-muted">{option.label}</span>
+                        <span className="shrink-0 text-xs font-medium text-ink-muted">Already added</span>
                       </div>
                       {(addableLetters.length > 0 || inactiveLetters.length > 0) && (
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <span className="text-xs text-ink/45">Second or third team at this level?</span>
+                          <span className="text-xs text-ink-muted">Second or third team at this level?</span>
                           {addableLetters.map((letter) => {
                             const active = categoryLabel === option.label && squadLetter === letter
                             return (
@@ -84,7 +84,7 @@ export function TeamCategoryPicker({
                                 onClick={() => onChange(option.label, letter)}
                                 className={cn(
                                   "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
-                                  active ? "border-forest-900 bg-forest-900 text-white" : "border-ink/15 text-ink/55 hover:border-pitch-600 hover:text-ink"
+                                  active ? "border-forest-900 bg-forest-900 text-white" : "border-ink/15 text-ink-muted hover:border-pitch-600 hover:text-ink"
                                 )}
                               >
                                 Add {option.label} {letter}
@@ -112,7 +112,7 @@ export function TeamCategoryPicker({
                 if (primaryState === "inactive" && avail?.primary.state === "inactive") {
                   return (
                     <div key={option.label} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-ink/15 px-3.5 py-2.5">
-                      <span className="text-sm text-ink/50">{option.label}</span>
+                      <span className="text-sm text-ink-muted">{option.label}</span>
                       <Link
                         href={`/teams/${avail.primary.teamId}`}
                         className="flex shrink-0 items-center gap-1 text-xs font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
@@ -141,12 +141,12 @@ export function TeamCategoryPicker({
                     </label>
                     {checked && option.allowAdditionalSquads && (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[26px]">
-                        <span className="text-xs text-ink/45">Second or third team at this level?</span>
+                        <span className="text-xs text-ink-muted">Second or third team at this level?</span>
                         {ADDITIONAL_SQUAD_LETTERS.map((letter) => {
                           const squadState = avail?.additionalSquads[letter]?.state ?? "addable"
                           if (squadState === "active") {
                             return (
-                              <span key={letter} className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-xs font-medium text-ink/35">
+                              <span key={letter} className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-xs font-medium text-ink-muted">
                                 {option.label} {letter} · Added
                               </span>
                             )
@@ -176,7 +176,7 @@ export function TeamCategoryPicker({
                                 "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                                 active
                                   ? "border-forest-900 bg-forest-900 text-white"
-                                  : "border-ink/15 text-ink/55 hover:border-pitch-600 hover:text-ink"
+                                  : "border-ink/15 text-ink-muted hover:border-pitch-600 hover:text-ink"
                               )}
                             >
                               {option.label} {letter}
@@ -193,7 +193,7 @@ export function TeamCategoryPicker({
         ))}
       </div>
       {preview && (
-        <p className="mt-2 text-sm text-ink/55">
+        <p className="mt-2 text-sm text-ink-muted">
           This team will be shown as <span className="font-medium text-ink">{preview}</span>.
         </p>
       )}

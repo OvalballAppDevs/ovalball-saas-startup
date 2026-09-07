@@ -98,7 +98,7 @@ export function ConnectedGameVisual() {
         className="mt-5 grid gap-6 rounded-xl border border-white/10 bg-white/[0.035] p-6 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none md:grid-cols-[1fr_auto] md:items-center md:p-8"
       >
         <div>
-          <p className="text-xs tracking-[0.06em] text-white/45 uppercase">{role.label}</p>
+          <p className="text-xs tracking-[0.06em] text-white/60 uppercase">{role.label}</p>
           <p className="mt-2 text-base text-white/80 md:text-lg">{role.body}</p>
         </div>
 
@@ -108,10 +108,10 @@ export function ConnectedGameVisual() {
           <p className="text-xs tracking-[0.06em] text-pitch-400 uppercase">One game</p>
           <p className="mt-2 text-sm font-medium text-white">{DEMO_FIXTURE.ourTeam}</p>
           <p className="text-sm text-white/60">v {DEMO_FIXTURE.opponentTeam}</p>
-          <p className="mt-2 text-xs text-white/45">
+          <p className="mt-2 text-xs text-white/60">
             {DEMO_FIXTURE.date} &middot; {DEMO_FIXTURE.kickoff}
           </p>
-          <p className="text-xs text-white/45">
+          <p className="text-xs text-white/60">
             {DEMO_FIXTURE.venue} &middot; {DEMO_FIXTURE.pitch}
           </p>
         </div>

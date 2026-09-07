@@ -60,7 +60,7 @@ export function ContactForm() {
         <p className="mt-2 text-[15px] text-ink/70">
           Thanks for contacting Ovalball. Your message has been sent to our team.
         </p>
-        <p className="mt-3 text-sm text-ink/50">
+        <p className="mt-3 text-sm text-ink-muted">
           We&apos;ll reply to <strong className="text-ink/70">{email}</strong>.
         </p>
       </div>
@@ -112,7 +112,7 @@ export function ContactForm() {
             autoComplete="email"
             className="mt-1.5 h-11 border-ink/15 bg-white"
           />
-          <p className="mt-1 text-xs text-ink/45">We&apos;ll reply here &mdash; no account needed.</p>
+          <p className="mt-1 text-xs text-ink-muted">We&apos;ll reply here &mdash; no account needed.</p>
         </div>
       </div>
 
@@ -181,7 +181,7 @@ export function ContactForm() {
       {/* Errors are announced, not just painted. */}
       <div aria-live="polite">
         {status === "error" && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-text">
             <p>{error ?? "We couldn't send your message just now."}</p>
             <p className="mt-1">
               Please email us directly at{" "}
@@ -198,7 +198,7 @@ export function ContactForm() {
         {status === "submitting" ? "Sending…" : "Send message"}
       </Button>
 
-      <p className="text-sm text-ink/55">
+      <p className="text-sm text-ink-muted">
         We&apos;ll use the information you provide to respond to your enquiry. Please don&apos;t
         include sensitive information unless it is necessary, and never include passwords or
         sign-in codes. See our{" "}

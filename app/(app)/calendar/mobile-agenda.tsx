@@ -82,30 +82,30 @@ function MobileFixtureSheet({
               </div>
               <dl className="mt-3 flex flex-col gap-2 text-sm">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-ink/50">Date</dt>
+                  <dt className="text-ink-muted">Date</dt>
                   <dd className="text-ink">{new Date(`${entry.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</dd>
                 </div>
                 {entry.kind === "fixture" && (
                   <div className="flex justify-between gap-3">
-                    <dt className="text-ink/50">Kick Off</dt>
+                    <dt className="text-ink-muted">Kick Off</dt>
                     <dd className="text-ink">{entry.time ? entry.time.slice(0, 5) : "Time TBC"}</dd>
                   </div>
                 )}
                 {entry.kind === "fixture" && (
                   <div className="flex justify-between gap-3">
-                    <dt className="text-ink/50">Home / Away</dt>
+                    <dt className="text-ink-muted">Home / Away</dt>
                     <dd className="text-ink capitalize">{entry.homeAway}</dd>
                   </div>
                 )}
                 {entry.venueAddress && (
                   <div className="flex justify-between gap-3">
-                    <dt className="shrink-0 text-ink/50">Venue</dt>
+                    <dt className="shrink-0 text-ink-muted">Venue</dt>
                     <dd className="text-right text-ink">{entry.venueAddress}</dd>
                   </div>
                 )}
                 {entry.pitchName && (
                   <div className="flex justify-between gap-3">
-                    <dt className="text-ink/50">Pitch</dt>
+                    <dt className="text-ink-muted">Pitch</dt>
                     <dd className="text-ink">{entry.pitchName}</dd>
                   </div>
                 )}
@@ -257,13 +257,13 @@ export function MobileAgenda({
       {entries.length === 0 ? (
         <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-ink/15 bg-white/60 px-5 py-8">
           <p className="text-sm font-medium text-ink">No fixtures or training this period.</p>
-          {canScheduleTraining && <p className="text-xs text-ink/45">Use &ldquo;Schedule training&rdquo; above to add a session.</p>}
+          {canScheduleTraining && <p className="text-xs text-ink-muted">Use &ldquo;Schedule training&rdquo; above to add a session.</p>}
         </div>
       ) : (
         <div className="flex flex-col gap-5">
           {Array.from(grouped.entries()).map(([date, dayEntries]) => (
             <section key={date}>
-              <h2 className="text-xs font-semibold tracking-wide text-ink/50 uppercase">
+              <h2 className="text-xs font-semibold tracking-wide text-ink-muted uppercase">
                 {new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
               </h2>
               <ul className="mt-2 flex flex-col gap-2">
@@ -289,7 +289,7 @@ export function MobileAgenda({
                           {e.kind === "tournament" ? `Tournament · ${e.tournamentHostName}` : laneLabel(e.laneId)}
                           {e.kind === "fixture" ? ` vs ${e.opposition}` : e.kind === "training" ? " Scheduled Training Session" : ""}
                         </span>
-                        <span className="block text-xs text-ink/50">
+                        <span className="block text-xs text-ink-muted">
                           {e.kind === "fixture" ? `${e.homeAway} · ` : ""}
                           {e.kind === "tournament" ? `${e.tournamentParticipantCount ?? 0} team${e.tournamentParticipantCount === 1 ? "" : "s"} · ` : ""}
                           {e.time ? e.time.slice(0, 5) : "Time TBC"}

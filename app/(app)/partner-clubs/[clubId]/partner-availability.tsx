@@ -129,7 +129,7 @@ export function PartnerAvailability({
 
         {/* Tablet/desktop: a real calendar grid reads naturally at this size. */}
         <div className="hidden sm:block">
-          <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs font-medium text-ink/40">
+          <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs font-medium text-ink-muted">
             {WEEKDAY_LABELS.map((d) => (
               <div key={d} className="py-1">
                 {d}
@@ -140,7 +140,7 @@ export function PartnerAvailability({
           <div className="relative mt-1 grid grid-cols-7 gap-1">
             {loading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70">
-                <Loader2 className="size-5 animate-spin text-ink/40" aria-label="Loading availability" />
+                <Loader2 className="size-5 animate-spin text-ink-muted" aria-label="Loading availability" />
               </div>
             )}
             {cells.map((date, i) => {
@@ -158,7 +158,7 @@ export function PartnerAvailability({
                     aria-label={`${date.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}, ${isUnavailable ? "unavailable" : "past"}`}
                     className={cn(
                       "flex aspect-square min-h-11 items-center justify-center rounded-lg text-sm",
-                      isPast ? "text-ink/20" : "bg-destructive/5 text-destructive/50 line-through decoration-1"
+                      isPast ? "text-ink-muted" : "bg-destructive/5 text-destructive-text line-through decoration-1"
                     )}
                   >
                     {date.getDate()}
@@ -192,11 +192,11 @@ export function PartnerAvailability({
         <div className="relative sm:hidden">
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70">
-              <Loader2 className="size-5 animate-spin text-ink/40" aria-label="Loading availability" />
+              <Loader2 className="size-5 animate-spin text-ink-muted" aria-label="Loading availability" />
             </div>
           )}
           {agendaDays.length === 0 ? (
-            <p className="mt-3 py-6 text-center text-sm text-ink/45">Nothing left in {monthLabel} &mdash; try next month.</p>
+            <p className="mt-3 py-6 text-center text-sm text-ink-muted">Nothing left in {monthLabel} &mdash; try next month.</p>
           ) : (
             <ul className="mt-3 flex flex-col gap-1.5">
               {agendaDays.map((date) => {
@@ -211,8 +211,8 @@ export function PartnerAvailability({
                       key={iso}
                       className="flex min-h-11 items-center justify-between rounded-lg bg-destructive/5 px-3.5 py-2.5"
                     >
-                      <span className="text-sm text-destructive/60 line-through decoration-1">{dateLabel}</span>
-                      <span className="text-xs font-medium text-destructive/60">Unavailable</span>
+                      <span className="text-sm text-destructive-text line-through decoration-1">{dateLabel}</span>
+                      <span className="text-xs font-medium text-destructive-text">Unavailable</span>
                     </li>
                   )
                 }
@@ -239,12 +239,12 @@ export function PartnerAvailability({
           )}
         </div>
 
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+        {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
         {/* The mobile agenda rows already label themselves Available/
             Unavailable inline -- this legend is only needed to explain the
             grid's colour coding. */}
-        <div className="mt-4 hidden flex-wrap items-center gap-4 border-t border-ink/10 pt-3 text-xs text-ink/50 sm:flex">
+        <div className="mt-4 hidden flex-wrap items-center gap-4 border-t border-ink/10 pt-3 text-xs text-ink-muted sm:flex">
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-pitch-600/40" /> Available &mdash; click to request
           </span>

@@ -67,7 +67,7 @@ export function CompetitionEditionsPanel({
   return (
     <div className="mt-2.5 border-t border-ink/6 pt-2.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] font-medium tracking-[0.04em] text-ink/40 uppercase">Editions</span>
+        <span className="text-[11px] font-medium tracking-[0.04em] text-ink-muted uppercase">Editions</span>
         {activeEditions.length === 0 && deactivatedEditions.length === 0 && (
           <span className="text-xs text-amber-700">None yet &mdash; not selectable for any fixture until it has a season edition</span>
         )}
@@ -79,7 +79,7 @@ export function CompetitionEditionsPanel({
                 type="button"
                 disabled={saving}
                 onClick={() => handleRemove(e.id)}
-                className="ml-0.5 rounded-full px-1 text-ink/40 outline-none hover:bg-ink/10 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+                className="ml-0.5 rounded-full px-1 text-ink-muted outline-none hover:bg-ink/10 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
                 aria-label={`Remove ${e.seasonName} edition`}
               >
                 &times;
@@ -88,7 +88,7 @@ export function CompetitionEditionsPanel({
           </span>
         ))}
         {deactivatedEditions.map((e) => (
-          <span key={e.id} className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-xs text-ink/35 line-through">
+          <span key={e.id} className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-xs text-ink-muted line-through">
             {e.seasonName}
           </span>
         ))}
@@ -116,12 +116,12 @@ export function CompetitionEditionsPanel({
           <Button type="button" size="sm" className="h-8" disabled={!selectedSeasonId || saving} onClick={handleAdd}>
             {saving ? "Adding…" : "Add"}
           </Button>
-          <button type="button" onClick={() => setAdding(false)} className="text-xs text-ink/45 underline hover:text-ink">
+          <button type="button" onClick={() => setAdding(false)} className="text-xs text-ink-muted underline hover:text-ink">
             Cancel
           </button>
         </div>
       )}
-      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-destructive-text">{error}</p>}
     </div>
   )
 }

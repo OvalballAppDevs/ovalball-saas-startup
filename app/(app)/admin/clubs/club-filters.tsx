@@ -109,7 +109,7 @@ export function ClubFilters({ query }: { query: AdminClubQuery }) {
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
           aria-expanded={showAdvanced}
-          className="flex h-9 items-center gap-1 rounded-full border border-dashed border-ink/20 px-3 text-sm text-ink/55 outline-none hover:border-ink/35 hover:text-ink/75 focus-visible:ring-2 focus-visible:ring-pitch-400"
+          className="flex h-9 items-center gap-1 rounded-full border border-dashed border-ink/20 px-3 text-sm text-ink-muted outline-none hover:border-ink/35 hover:text-ink/75 focus-visible:ring-2 focus-visible:ring-pitch-400"
         >
           More filters
           <ChevronDown className={`size-3.5 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
@@ -119,7 +119,7 @@ export function ClubFilters({ query }: { query: AdminClubQuery }) {
           <button
             type="button"
             onClick={() => router.push("/admin/clubs")}
-            className="flex h-9 items-center rounded-full px-3 text-sm text-ink/45 underline decoration-dotted outline-none hover:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="flex h-9 items-center rounded-full px-3 text-sm text-ink-muted underline decoration-dotted outline-none hover:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             Clear filters
           </button>

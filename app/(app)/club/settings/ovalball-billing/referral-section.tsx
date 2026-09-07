@@ -44,7 +44,7 @@ export function ReferralSection({
       </div>
 
       {referrals.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/55">
+        <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">
           You haven&rsquo;t referred a club yet. Invitations you send from Partner Clubs count.
         </p>
       ) : (
@@ -58,7 +58,7 @@ export function ReferralSection({
               >
                 <div className="min-w-0">
                   <p className="text-sm text-ink">{referral.referredClubName}</p>
-                  <p className={`text-xs ${shown.attention ? "text-amber-900" : "text-ink/55"}`}>{shown.label}</p>
+                  <p className={`text-xs ${shown.attention ? "text-amber-900" : "text-ink-muted"}`}>{shown.label}</p>
                 </div>
                 <p className="text-sm tabular-nums text-ink/70">
                   {referral.rewardAmountPence !== null && referral.status === "qualified"

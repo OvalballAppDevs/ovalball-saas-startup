@@ -75,7 +75,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">{club?.club_directory?.name ?? "Your club"}</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Documents</h1>
-      <p className="mt-2 max-w-lg text-sm text-ink/55">
+      <p className="mt-2 max-w-lg text-sm text-ink-muted">
         Important club and fixture resources -- visitor guides, ground and pitch information, parking, match-day
         documents and approved images. Files up to 10MB. Documents are private to your club unless you share one
         into a specific fixture conversation.

@@ -15,7 +15,7 @@ export const FIXTURE_ACTION_BUTTON_PRIMARY = `${BASE} border-forest-950 bg-fores
 
 export const FIXTURE_ACTION_BUTTON_SECONDARY = `${BASE} border-ink/15 bg-white text-ink/70 shadow-[0_2px_0_0_rgba(20,20,20,0.08)] hover:border-ink/30 hover:text-ink active:shadow-none`
 
-export const FIXTURE_ACTION_BUTTON_DESTRUCTIVE = `${BASE} border-destructive/30 bg-white text-destructive shadow-[0_2px_0_0_rgba(220,38,38,0.18)] hover:bg-destructive/5 active:shadow-none`
+export const FIXTURE_ACTION_BUTTON_DESTRUCTIVE = `${BASE} border-destructive/30 bg-white text-destructive-text shadow-[0_2px_0_0_rgba(220,38,38,0.18)] hover:bg-destructive/5 active:shadow-none`
 
 /** The grid every one of these buttons lives in -- even columns, consistent gaps, never a ragged flex-wrap. */
 export const FIXTURE_ACTION_BUTTON_GRID = "grid grid-cols-2 gap-2.5"

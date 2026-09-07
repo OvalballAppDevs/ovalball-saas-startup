@@ -136,7 +136,7 @@ export function DangerZone({
           {clubStatus === "active" ? (
             <>
               <p className="text-sm font-medium text-ink">Deactivate {clubName} from Ovalball</p>
-              <p className="mt-0.5 text-sm text-ink/55">
+              <p className="mt-0.5 text-sm text-ink-muted">
                 Removes the club&apos;s active Ovalball access. Fixtures, results, messages, settings, and records are
                 retained and unaffected -- opponents keep their fixtures exactly as they are.
               </p>
@@ -180,7 +180,7 @@ export function DangerZone({
                         className="mt-1.5 w-full rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus-visible:border-pitch-600"
                       />
                     </div>
-                    {deactivateError && <p className="mt-2 text-sm text-destructive">{deactivateError}</p>}
+                    {deactivateError && <p className="mt-2 text-sm text-destructive-text">{deactivateError}</p>}
                     <DialogFooter>
                       <DialogClose render={<Button type="button" variant="outline" className="h-10" />}>Cancel</DialogClose>
                       <Button
@@ -207,12 +207,12 @@ export function DangerZone({
                     : ""}
                 </p>
                 {activatedClub.deactivationReason && <p className="mt-0.5 text-ink/60">&ldquo;{activatedClub.deactivationReason}&rdquo;</p>}
-                <p className="mt-1 text-ink/50">
+                <p className="mt-1 text-ink-muted">
                   Still a recognised club in the directory. Historical fixtures, results, messages, and records remain
                   intact for opponents and Site Admin review.
                 </p>
               </div>
-              {reactivateError && <p className="mt-2 text-sm text-destructive">{reactivateError}</p>}
+              {reactivateError && <p className="mt-2 text-sm text-destructive-text">{reactivateError}</p>}
               <Button type="button" variant="outline" className="mt-3 h-9" disabled={reactivating} onClick={handleReactivate}>
                 {reactivating ? "Reactivating…" : "Reactivate club"}
               </Button>
@@ -224,17 +224,17 @@ export function DangerZone({
       {activatedClub && clubStatus === "active" && suspendedMemberships.length > 0 && (
         <div className="rounded-lg border border-ink/10 bg-white p-4">
           <p className="text-sm font-medium text-ink">Previous club access</p>
-          <p className="mt-0.5 text-sm text-ink/55">
+          <p className="mt-0.5 text-sm text-ink-muted">
             The club is active again, but these members&apos; authority stays paused until you restore it individually
             -- data returned automatically, privileged access does not.
           </p>
-          {restoreError && <p className="mt-2 text-sm text-destructive">{restoreError}</p>}
+          {restoreError && <p className="mt-2 text-sm text-destructive-text">{restoreError}</p>}
           <ul className="mt-3 space-y-2">
             {suspendedMemberships.map((m) => (
               <li key={m.membershipId} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 px-3.5 py-2.5">
                 <div className="text-sm">
                   <span className="font-medium text-ink">{m.name}</span>
-                  <span className="ml-2 text-ink/50">Former role: {m.role === "CLUB_ADMIN" ? "Club Admin" : m.role === "FIXTURE_SECRETARY" ? "Fixture Secretary" : m.role}</span>
+                  <span className="ml-2 text-ink-muted">Former role: {m.role === "CLUB_ADMIN" ? "Club Admin" : m.role === "FIXTURE_SECRETARY" ? "Fixture Secretary" : m.role}</span>
                 </div>
                 <Button
                   type="button"
@@ -254,7 +254,7 @@ export function DangerZone({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white p-4">
         <div>
           <p className="text-sm font-medium text-ink">{active ? "Deactivate this club" : "Reactivate this club"}</p>
-          <p className="mt-0.5 text-sm text-ink/55">
+          <p className="mt-0.5 text-sm text-ink-muted">
             {active
               ? "Hides it from signup, claim, and join discovery. Existing fixtures, teams, and members are untouched, and it stays visible here."
               : "Makes it searchable again during signup and claim/join flows."}
@@ -266,8 +266,8 @@ export function DangerZone({
       </div>
 
       <div className="rounded-lg border border-destructive/25 bg-destructive/[0.03] p-4">
-        <p className="text-sm font-medium text-destructive">Permanently delete this canonical record</p>
-        <p className="mt-0.5 text-sm text-ink/55">
+        <p className="text-sm font-medium text-destructive-text">Permanently delete this canonical record</p>
+        <p className="mt-0.5 text-sm text-ink-muted">
           Only possible for a club that was never activated, claimed, or otherwise connected to real Ovalball history.
           This cannot be undone.
         </p>
@@ -279,7 +279,7 @@ export function DangerZone({
         ) : (
           <div className="mt-3 flex flex-col gap-3">
             {hasHistory && (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">
                 This club cannot be permanently deleted because it has existing Ovalball history. Deactivate it instead.
               </p>
             )}
@@ -294,7 +294,7 @@ export function DangerZone({
                     autoFocus
                   />
                 </label>
-                {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+                {deleteError && <p className="text-sm text-destructive-text">{deleteError}</p>}
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"

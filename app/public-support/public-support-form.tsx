@@ -79,7 +79,7 @@ export function PublicSupportForm() {
             required
             className="mt-1.5 h-11 border-ink/15 bg-white"
           />
-          <p className="mt-1 text-xs text-ink/45">We&apos;ll reply here -- no account or sign-in needed.</p>
+          <p className="mt-1 text-xs text-ink-muted">We&apos;ll reply here -- no account or sign-in needed.</p>
         </div>
       </div>
 
@@ -143,13 +143,13 @@ export function PublicSupportForm() {
         />
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-destructive-text">{error}</p>}
 
       <Button type="submit" disabled={status === "submitting"} className="h-11">
         {status === "submitting" ? "Sending…" : "Send request"}
       </Button>
 
-      <p className="text-center text-xs text-ink/40">
+      <p className="text-center text-xs text-ink-muted">
         Already have an Ovalball account?{" "}
         <a href="/login" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
           Sign in

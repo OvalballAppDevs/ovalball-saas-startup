@@ -35,7 +35,7 @@ export function GraduationQueue({ rows, targetTeams }: { rows: GraduationQueueRo
         <GraduationCap className="size-4 text-forest-800" />
         <h2 className="font-display text-lg text-ink">Graduating players</h2>
       </div>
-      <p className="mt-1.5 text-sm text-ink/55">
+      <p className="mt-1.5 text-sm text-ink-muted">
         Players from a graduated cohort wait here until you place them on a team or record that they&apos;ve left the club.
       </p>
 
@@ -100,7 +100,7 @@ function GraduationRow({ row, targetTeams }: { row: GraduationQueueRow; targetTe
   return (
     <div className="rounded-lg border border-ink/10 bg-chalk/60 p-4">
       <p className="text-sm font-medium text-ink">{row.playerName}</p>
-      <p className="text-xs text-ink/55">Previous team: {row.previousTeamName}</p>
+      <p className="text-xs text-ink-muted">Previous team: {row.previousTeamName}</p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <select

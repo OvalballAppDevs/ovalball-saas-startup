@@ -90,7 +90,7 @@ export function CreateSeasonForm() {
             </option>
           ))}
         </select>
-        <p className="mt-1 text-xs text-ink/45">Canonical name: {preview}</p>
+        <p className="mt-1 text-xs text-ink-muted">Canonical name: {preview}</p>
       </div>
       <div>
         <Label htmlFor="season-pre-start" className="text-ink/80">
@@ -128,7 +128,7 @@ export function CreateSeasonForm() {
           className="mt-1.5 h-11 border-ink/15 bg-white"
         />
       </div>
-      {(clientError ?? error) && <p className="text-sm text-destructive sm:col-span-2">{clientError ?? error}</p>}
+      {(clientError ?? error) && <p className="text-sm text-destructive-text sm:col-span-2">{clientError ?? error}</p>}
       <div className="sm:col-span-2">
         <Button type="button" className="h-10" disabled={status === "saving" || !canSubmit} onClick={handleCreate}>
           {status === "saving" ? "Adding…" : "Add season"}

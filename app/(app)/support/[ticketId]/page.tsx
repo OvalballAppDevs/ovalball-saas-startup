@@ -12,7 +12,7 @@ import { SupportTimeline } from "./support-timeline"
 const STATUS_BADGE_STYLE: Record<string, string> = {
   new: "bg-pitch-600/12 text-forest-800",
   in_progress: "bg-amber-500/15 text-amber-800",
-  closed: "bg-ink/8 text-ink/55",
+  closed: "bg-ink/8 text-ink-muted",
 }
 
 /**
@@ -45,16 +45,16 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/support" className="inline-flex items-center gap-1 text-sm text-ink/50 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400">
+      <Link href="/support" className="inline-flex items-center gap-1 text-sm text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400">
         <ChevronLeft className="size-4" />
         Support
       </Link>
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/40">{ticket.reference}</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted">{ticket.reference}</p>
           <h1 className="mt-1 font-display text-display-m text-ink">{ticket.subject}</h1>
-          <p className="mt-1 text-sm text-ink/50">
+          <p className="mt-1 text-sm text-ink-muted">
             {SUPPORT_CATEGORY_LABELS[ticket.category]}
             {ticket.clubName ? ` · ${ticket.clubName}` : ""}
           </p>
@@ -65,12 +65,12 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="mt-6 rounded-xl border border-ink/10 bg-white p-5">
-        <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Original request</p>
+        <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Original request</p>
         <p className="mt-2 text-sm whitespace-pre-wrap text-ink">{ticket.description}</p>
         {ticket.attachments.length > 0 && (
           <ul className="mt-3 flex flex-col gap-1.5">
             {ticket.attachments.map((a) => (
-              <li key={a.id} className="flex items-center gap-1.5 text-xs text-ink/50">
+              <li key={a.id} className="flex items-center gap-1.5 text-xs text-ink-muted">
                 <Paperclip className="size-3" />
                 {a.fileName}
               </li>
@@ -80,14 +80,14 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="mt-8 rounded-xl border border-ink/10 bg-white p-5">
-        <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Timeline</p>
+        <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Timeline</p>
         <div className="mt-4">
           <SupportTimeline events={events} viewerIsRequester={isRequester} />
         </div>
 
         {isRequester && ticket.status !== "closed" && <FollowupForm ticketId={ticket.id} />}
         {isRequester && ticket.status === "closed" && (
-          <div className="mt-4 border-t border-ink/8 pt-4 text-sm text-ink/55">
+          <div className="mt-4 border-t border-ink/8 pt-4 text-sm text-ink-muted">
             This request is closed.
             <Link href="/support" className="ml-1 font-medium text-forest-800 underline underline-offset-2">
               Create a follow-up request

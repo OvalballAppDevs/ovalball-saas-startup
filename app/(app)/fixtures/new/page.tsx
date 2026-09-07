@@ -81,7 +81,7 @@ export default async function NewFixtureRequestPage({ searchParams }: NewFixture
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Fixtures</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Request a fixture</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">
+      <p className="mt-2 max-w-md text-sm text-ink-muted">
         Ask a partner club for a date. Select as many of your teams as you like — each one can have its own
         home/away preference and gets tracked independently.
       </p>

@@ -145,7 +145,7 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
             {initial.homeAway !== "TBD" && <option value="TBD">TBD</option>}
             {initial.homeAway !== "Not Applicable" && <option value="Not Applicable">Not applicable</option>}
           </select>
-          <p className="mt-1 text-xs text-ink/40">To make the other side home, use &ldquo;Swap home/away&rdquo; above.</p>
+          <p className="mt-1 text-xs text-ink-muted">To make the other side home, use &ldquo;Swap home/away&rdquo; above.</p>
         </div>
         <div>
           <Label htmlFor="edit-status" className="text-ink/80">
@@ -218,19 +218,19 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
         />
       </div>
 
-      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
       <div className="flex items-center gap-3 border-t border-ink/10 pt-5">
         <Button type="button" className="h-10" disabled={status === "saving" || !isDirty} onClick={handleSave}>
           {status === "saving" ? "Saving…" : "Save changes"}
         </Button>
         {isDirty && status !== "saving" && (
-          <Button type="button" variant="ghost" className="h-10 text-ink/50" onClick={() => setForm(savedForm)}>
+          <Button type="button" variant="ghost" className="h-10 text-ink-muted" onClick={() => setForm(savedForm)}>
             Discard
           </Button>
         )}
         {status === "saved" && <span className="text-sm text-forest-800">Saved.</span>}
-        {isDirty && status === "idle" && <span className="text-sm text-ink/40">You have unsaved changes.</span>}
+        {isDirty && status === "idle" && <span className="text-sm text-ink-muted">You have unsaved changes.</span>}
       </div>
     </div>
   )

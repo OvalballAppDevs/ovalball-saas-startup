@@ -84,7 +84,7 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin" className="inline-flex items-center gap-1 text-sm text-ink/50 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400">
+      <Link href="/admin" className="inline-flex items-center gap-1 text-sm text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400">
         <ChevronLeft className="size-4" />
         Site Admin
       </Link>
@@ -94,7 +94,7 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Message Management</h1>
-      <p className="mt-2 max-w-2xl text-sm text-ink/55">
+      <p className="mt-2 max-w-2xl text-sm text-ink-muted">
         Operational moderation and policy for fixture messaging -- metadata is visible to every Site Admin profile;
         actual message content is available only to Full Site Admin and Message Moderator, and every reveal is
         audited.
@@ -123,18 +123,18 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
       )}
 
       <div className="mt-10">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Analytics</p>
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Analytics</p>
         {analytics && (
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {ANALYTICS_TILES.map((tile) => (
               <div key={tile.key} className="rounded-lg border border-ink/10 bg-white px-4 py-3.5">
                 <p className="text-2xl font-semibold text-ink">{String(analytics[tile.key as keyof typeof analytics] ?? 0)}</p>
-                <p className="mt-0.5 text-xs text-ink/50">{tile.label}</p>
+                <p className="mt-0.5 text-xs text-ink-muted">{tile.label}</p>
               </div>
             ))}
             <div className="rounded-lg border border-ink/10 bg-white px-4 py-3.5">
               <p className="text-2xl font-semibold text-ink">{formatBytes(analytics.attachment_storage_bytes ?? 0)}</p>
-              <p className="mt-0.5 text-xs text-ink/50">Stored attachment bytes (real files only)</p>
+              <p className="mt-0.5 text-xs text-ink-muted">Stored attachment bytes (real files only)</p>
             </div>
           </div>
         )}
@@ -144,7 +144,7 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
 
       <div className="mt-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Conversation log ({log.count})</p>
+          <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Conversation log ({log.count})</p>
           <CsvExportButton rows={log.rows} />
         </div>
         <div className="mt-3">

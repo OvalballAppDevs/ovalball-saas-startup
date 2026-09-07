@@ -77,7 +77,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
               </div>
             ) : user.email?.toLowerCase() !== preview.invited_email.toLowerCase() ? (
               <div className="mt-8 rounded-lg border border-destructive/30 bg-destructive/5 p-5">
-                <p className="text-sm text-destructive">
+                <p className="text-sm text-destructive-text">
                   You&apos;re signed in as {user.email}, but this invitation was sent to {preview.invited_email}.
                   Sign in as that address to accept it.
                 </p>

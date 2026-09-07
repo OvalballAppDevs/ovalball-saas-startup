@@ -32,7 +32,7 @@ const OPTION_ICON = {
 } as const
 
 const PANEL_CLASS = "rounded-xl border border-white/10 bg-white/[0.035] p-6 md:p-7"
-const PANEL_TITLE_CLASS = "text-sm font-medium tracking-[0.06em] text-white/55 uppercase"
+const PANEL_TITLE_CLASS = "text-sm font-medium tracking-[0.06em] text-white/60 uppercase"
 
 export function AvailabilityDemo() {
   const [response, setResponse] = useState<AttendanceStatus | null>(null)
@@ -64,7 +64,7 @@ export function AvailabilityDemo() {
         <p className="mt-1 text-sm text-white/60">
           {DEMO_FIXTURE.team} v {DEMO_FIXTURE.opponentTeam}
         </p>
-        <p className="mt-0.5 text-sm text-white/45">
+        <p className="mt-0.5 text-sm text-white/60">
           {DEMO_FIXTURE.date} &middot; {DEMO_FIXTURE.kickoff}
         </p>
 
@@ -100,7 +100,7 @@ export function AvailabilityDemo() {
           })}
         </div>
 
-        <p role="status" aria-atomic="true" className="mt-auto pt-4 min-h-5 text-sm text-white/55">
+        <p role="status" aria-atomic="true" className="mt-auto pt-4 min-h-5 text-sm text-white/60">
           {response
             ? `Saved as “${selectedLabel}”. Your team staff can see it straight away.`
             : "Choose a response — the team view updates with it."}
@@ -115,7 +115,7 @@ export function AvailabilityDemo() {
         </div>
 
         <p className="mt-5 font-display text-2xl text-white">Match availability</p>
-        <p className="mt-1 text-sm text-white/45">{DEMO_FIXTURE.squadSize} players in the squad</p>
+        <p className="mt-1 text-sm text-white/60">{DEMO_FIXTURE.squadSize} players in the squad</p>
 
         <dl className="mt-6 grid grid-cols-2 gap-3">
           <CountTile label="Attending" value={counts.ATTENDING} tone="good" />
@@ -146,7 +146,7 @@ export function AvailabilityDemo() {
           </li>
         </ul>
 
-        <p className="mt-4 text-xs text-white/40">
+        <p className="mt-4 text-xs text-white/60">
           Visible to authorised team staff for this team, not to other families.
         </p>
       </div>
@@ -174,7 +174,7 @@ function CountTile({
             : "border-white/10 bg-white/[0.02]"
       )}
     >
-      <dt className="text-xs tracking-[0.04em] text-white/50 uppercase">{label}</dt>
+      <dt className="text-xs tracking-[0.04em] text-white/60 uppercase">{label}</dt>
       <dd
         className={cn(
           "mt-1 font-display text-3xl tabular-nums",
@@ -202,8 +202,8 @@ function StatusText({ status }: { status: AttendanceStatus | "NO_RESPONSE" }) {
           : status === "UNSURE"
             ? "text-amber-300"
             : status === "CANNOT_ATTEND"
-              ? "text-white/55"
-              : "text-white/35"
+              ? "text-white/60"
+              : "text-white/60"
       )}
     >
       {label}
@@ -213,7 +213,7 @@ function StatusText({ status }: { status: AttendanceStatus | "NO_RESPONSE" }) {
 
 function DemoBadge() {
   return (
-    <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/40 uppercase">
+    <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/60 uppercase">
       Product preview
     </span>
   )

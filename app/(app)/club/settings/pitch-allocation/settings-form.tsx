@@ -54,7 +54,7 @@ export function PitchAllocationSettingsForm({ clubId, initial }: { clubId: strin
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-ink">Automatically allocate home fixtures</p>
-            <p className="mt-1 text-xs text-ink/50">
+            <p className="mt-1 text-xs text-ink-muted">
               When a Club Admin or Fixture Secretary opens Pitch Allocation for a day with unallocated home fixtures, a proposal is generated
               automatically for review. This never applies changes by itself, and never overwrites a fixture already allocated manually.
             </p>
@@ -79,8 +79,8 @@ export function PitchAllocationSettingsForm({ clubId, initial }: { clubId: strin
       </div>
 
       <div>
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Allocation buffers</p>
-        <p className="mt-1 text-xs text-ink/50">
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Allocation buffers</p>
+        <p className="mt-1 text-xs text-ink-muted">
           Time reserved on the pitch around each fixture&rsquo;s kick-off, separate from the turnaround gap between different fixtures on the same
           pitch. Shown on the board as orange bands either side of the fixture.
         </p>
@@ -122,7 +122,7 @@ export function PitchAllocationSettingsForm({ clubId, initial }: { clubId: strin
         </div>
       </div>
 
-      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
       <div className="flex items-center gap-3 border-t border-ink/10 pt-5">
         <Button type="button" className="h-10" disabled={!dirty || status === "saving"} onClick={handleSave}>

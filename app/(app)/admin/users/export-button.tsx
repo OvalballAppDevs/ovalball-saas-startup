@@ -35,7 +35,7 @@ export function ExportUsersButton({ query }: { query: AdminUserQuery }) {
       <Button type="button" variant="outline" className="h-10" disabled={status === "working"} onClick={handleExport}>
         {status === "working" ? "Preparing export…" : hasFilters ? "Export filtered results" : "Export all users"}
       </Button>
-      {status === "error" && <p className="text-xs text-destructive">Export failed. Please try again.</p>}
+      {status === "error" && <p className="text-xs text-destructive-text">Export failed. Please try again.</p>}
     </div>
   )
 }

@@ -99,11 +99,11 @@ export function AccountStep({
           placeholder="you@example.com"
         />
         {showError && (
-          <p className="mt-1.5 text-sm text-destructive">
+          <p className="mt-1.5 text-sm text-destructive-text">
             Enter a valid email address, like you@example.com.
           </p>
         )}
-        <p className="mt-2 flex items-start gap-1.5 text-sm text-ink/45">
+        <p className="mt-2 flex items-start gap-1.5 text-sm text-ink-muted">
           <Mail className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           <span>
             Ovalball has no passwords. We&apos;ll email you a one-time link to confirm your account

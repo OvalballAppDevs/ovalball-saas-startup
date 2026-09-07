@@ -141,7 +141,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
 
       <div className="mt-6 grid grid-cols-1 gap-3 rounded-lg border border-ink/10 bg-white p-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Monthly amount</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Monthly amount</p>
           {/* Uses the SNAPSHOTTED values from this member's own enrolment -- never recomputed from current policy. */}
           {detail.base_amount_minor != null && detail.sibling_discount_type && detail.sibling_discount_type !== "NONE" && (detail.sibling_discount_amount_minor ?? 0) > 0 ? (
             <div className="mt-1 space-y-0.5 text-sm text-ink">
@@ -162,15 +162,15 @@ export default async function MembershipDetailPage({ params }: { params: Promise
           )}
         </div>
         <div>
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">First-payment policy</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">First-payment policy</p>
           <p className="mt-1 text-sm text-ink">{detail.programme_first_payment_policy}</p>
         </div>
         <div>
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Direct Debit mandate</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Direct Debit mandate</p>
           <p className="mt-1 text-sm text-ink">{detail.mandate_status ? (MANDATE_STATUS_LABEL[detail.mandate_status] ?? detail.mandate_status) : "Not set up"}</p>
         </div>
         <div>
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Recurring subscription</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Recurring subscription</p>
           <p className="mt-1 text-sm text-ink">{detail.subscription_status ? (SUBSCRIPTION_STATUS_LABEL[detail.subscription_status] ?? detail.subscription_status) : "Not yet active"}</p>
         </div>
       </div>
@@ -182,11 +182,11 @@ export default async function MembershipDetailPage({ params }: { params: Promise
       )}
 
       <div className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Payment history</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Payment history</h2>
         <div className="mt-3 overflow-x-auto rounded-lg border border-ink/10 bg-white">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">
+              <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">
                 <th className="px-4 py-2">Billing period</th>
                 <th className="px-4 py-2">Amount owed</th>
                 <th className="px-4 py-2">Due date</th>
@@ -202,7 +202,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
                     <td className="px-4 py-2.5 text-ink">{o.billing_period.slice(0, 7)}</td>
                     <td className="px-4 py-2.5 tabular-nums text-ink/80">
                       {formatMinorUnits(o.amount_due_minor)}
-                      {o.is_prorated && <span className="mt-0.5 block text-[10px] font-normal text-ink/45">Pro-rata</span>}
+                      {o.is_prorated && <span className="mt-0.5 block text-[10px] font-normal text-ink-muted">Pro-rata</span>}
                     </td>
                     <td className="px-4 py-2.5 tabular-nums text-ink/60">{new Date(o.due_date).toLocaleDateString("en-GB")}</td>
                     <td className="px-4 py-2.5 text-ink/80">{isObligationOverdue(o.status, o.due_date) ? OBLIGATION_STATUS_LABEL.OVERDUE : OBLIGATION_STATUS_LABEL[o.status] ?? o.status}</td>
@@ -212,7 +212,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
               })}
               {obligations.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-ink/50">
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-ink-muted">
                     No billing history yet.
                   </td>
                 </tr>

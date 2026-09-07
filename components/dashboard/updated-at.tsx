@@ -47,7 +47,7 @@ export function UpdatedAt({ generatedAt }: { generatedAt: string | null }) {
   const label = generatedAt ? relative(generatedAt, now) : null
 
   return (
-    <div className="flex items-center gap-2 text-xs text-ink/50">
+    <div className="flex items-center gap-2 text-xs text-ink-muted">
       <span aria-live="polite" className="tabular-nums">
         {isPending ? "Updating…" : label ? `Updated ${label}` : "Not updated"}
       </span>

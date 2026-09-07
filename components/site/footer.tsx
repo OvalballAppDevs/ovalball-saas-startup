@@ -46,7 +46,7 @@ const SECONDARY_CLUSTERS: FooterCluster[] = [
   },
 ]
 
-const LINK_DISABLED_CLASS = "text-sm text-white/30 select-none"
+const LINK_DISABLED_CLASS = "text-sm text-white/60 select-none"
 
 const FOOTER_BOTTOM_LINK_CLASS =
   "footer-link py-1 text-sm text-white/75 outline-none hover:text-white focus-visible:text-white focus-visible:ring-2 focus-visible:ring-pitch-400"
@@ -55,7 +55,7 @@ const FOOTER_BOTTOM_LINK_CLASS =
 function FooterBottomGroup({ heading, children }: { heading: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-medium tracking-[0.08em] text-white/40 uppercase">{heading}</p>
+      <p className="text-xs font-medium tracking-[0.08em] text-white/60 uppercase">{heading}</p>
       <nav
         aria-label={heading.replace(/&/g, "and")}
         className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2"
@@ -107,7 +107,7 @@ export function Footer() {
             variant="dark"
             className="relative text-6xl sm:text-7xl md:text-8xl"
           />
-          <p className="relative mt-3 text-sm tracking-[0.08em] text-white/45 uppercase">
+          <p className="relative mt-3 text-sm tracking-[0.08em] text-white/60 uppercase">
             Rugby, connected.
           </p>
         </div>
@@ -133,13 +133,13 @@ export function Footer() {
                 {doc.label}
               </Link>
             ))}
-            <Link href="/legal" className={`${FOOTER_BOTTOM_LINK_CLASS} text-white/55`}>
+            <Link href="/legal" className={`${FOOTER_BOTTOM_LINK_CLASS} text-white/60`}>
               All legal documents
             </Link>
           </FooterBottomGroup>
         </div>
 
-        <div className="relative mt-8 flex flex-col gap-2 border-t border-white/10 pt-6 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative mt-8 flex flex-col gap-2 border-t border-white/10 pt-6 text-sm text-white/60 sm:flex-row sm:items-center sm:justify-between">
           <p>{copyrightLine()}</p>
           <p>{PRODUCT_NAME} is a product of {OPERATOR_NAME}</p>
         </div>
@@ -147,7 +147,7 @@ export function Footer() {
             that a curious visitor can tell they're not on a stale cache.
             Reads from the SAME lib/version.ts as Site Admin's own System
             Health page, never a second constant. */}
-        <p className="relative mt-3 text-center text-xs text-white/30 sm:text-left">Ovalball v{APP_VERSION}</p>
+        <p className="relative mt-3 text-center text-xs text-white/60 sm:text-left">Ovalball v{APP_VERSION}</p>
       </div>
     </footer>
   )
@@ -162,7 +162,7 @@ function FooterClusterRow({
 }) {
   return (
     <div className="flex flex-col items-center gap-3">
-      <p className={`font-medium tracking-[0.08em] text-white/55 uppercase ${labelClassName}`}>
+      <p className={`font-medium tracking-[0.08em] text-white/60 uppercase ${labelClassName}`}>
         {cluster.heading}
       </p>
       <nav

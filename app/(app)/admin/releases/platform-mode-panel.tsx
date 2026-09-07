@@ -107,13 +107,13 @@ export function PlatformModePanel({
                   placeholder="Sandbox UAT complete; the first cohort starts billing on 1 October."
                   className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
                 />
-                <p className="text-xs text-ink/55">
+                <p className="text-xs text-ink-muted">
                   The mode history cannot be edited afterwards, so this sentence is the whole
                   explanation anyone will have later.
                 </p>
               </div>
 
-              {error ? <p className="mt-1 text-sm text-destructive">{error}</p> : null}
+              {error ? <p className="mt-1 text-sm text-destructive-text">{error}</p> : null}
 
               <DialogFooter>
                 <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>

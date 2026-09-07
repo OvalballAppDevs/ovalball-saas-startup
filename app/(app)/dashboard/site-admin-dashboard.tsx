@@ -85,7 +85,7 @@ export function SiteAdminDashboard({
             </p>
           </div>
           <h1 className="mt-2 font-display text-display-l text-ink">Platform</h1>
-          <p className="mt-2 max-w-xl text-sm text-ink/55">
+          <p className="mt-2 max-w-xl text-sm text-ink-muted">
             {firstName ? `${firstName} — everything ` : "Everything "}
             Ovalball is doing right now, across every club.
           </p>
@@ -147,7 +147,7 @@ export function SiteAdminDashboard({
               />
             </div>
 
-            <p className="mt-3 text-xs text-ink/45">
+            <p className="mt-3 text-xs text-ink-muted">
               {platform.data.directoryClubs.toLocaleString("en-GB")} clubs in the canonical
               directory — addressable market, not customers.
             </p>
@@ -176,31 +176,31 @@ export function SiteAdminDashboard({
           {operations.state === "ok" ? (
             <dl className="divide-y divide-ink/8 rounded-lg border border-ink/10 bg-white">
               <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-                <dt className="text-sm text-ink/55">Playing today</dt>
+                <dt className="text-sm text-ink-muted">Playing today</dt>
                 <dd className="font-display text-xl text-ink tabular-nums">
                   {operations.data.fixturesToday.toLocaleString("en-GB")}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-                <dt className="text-sm text-ink/55">
+                <dt className="text-sm text-ink-muted">
                   Booked this week
-                  <span className="mt-0.5 block text-xs text-ink/40">Arranged since Monday</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">Arranged since Monday</span>
                 </dt>
                 <dd className="font-display text-xl text-ink tabular-nums">
                   {operations.data.fixturesBookedThisWeek.toLocaleString("en-GB")}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-                <dt className="text-sm text-ink/55">
+                <dt className="text-sm text-ink-muted">
                   Booked this month
-                  <span className="mt-0.5 block text-xs text-ink/40">Arranged, not played</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">Arranged, not played</span>
                 </dt>
                 <dd className="font-display text-xl text-ink tabular-nums">
                   {operations.data.fixturesBookedThisMonth.toLocaleString("en-GB")}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-                <dt className="text-sm text-ink/55">Cancelled this month</dt>
+                <dt className="text-sm text-ink-muted">Cancelled this month</dt>
                 <dd className="font-display text-xl text-ink tabular-nums">
                   {operations.data.fixturesCancelledThisMonth.toLocaleString("en-GB")}
                 </dd>
@@ -315,7 +315,7 @@ export function SiteAdminDashboard({
         <div className="grid gap-3 lg:grid-cols-2">
           <dl className="divide-y divide-ink/8 rounded-lg border border-ink/10 bg-white">
             <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-              <dt className="text-sm text-ink/55">Platform mode</dt>
+              <dt className="text-sm text-ink-muted">Platform mode</dt>
               <dd>
                 {badgeState.mode === "beta" ? (
                   <BetaBadge state={badgeState} />
@@ -327,19 +327,19 @@ export function SiteAdminDashboard({
               </dd>
             </div>
             <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-              <dt className="text-sm text-ink/55">Published release</dt>
+              <dt className="text-sm text-ink-muted">Published release</dt>
               <dd className="font-mono text-sm text-ink">
                 {badgeState.releaseVersion ?? "None published"}
               </dd>
             </div>
             <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-              <dt className="text-sm text-ink/55">Billing</dt>
+              <dt className="text-sm text-ink-muted">Billing</dt>
               <dd className={`text-sm ${badgeState.mode === "beta" ? "text-purple-900" : "text-ink"}`}>
                 {badgeState.mode === "beta" ? "Paused — Beta" : "Active"}
               </dd>
             </div>
             <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-              <dt className="text-sm text-ink/55">Fixtures today</dt>
+              <dt className="text-sm text-ink-muted">Fixtures today</dt>
               <dd className="font-mono text-sm text-ink tabular-nums">
                 {operations.state === "ok" ? operations.data.fixturesToday.toLocaleString("en-GB") : "—"}
               </dd>
@@ -424,7 +424,7 @@ export function SiteAdminDashboard({
                       <span className="text-ink/80">{stage.label}</span>
                       <span className="font-mono text-ink tabular-nums">{stage.count}</span>
                     </span>
-                    {stage.note ? <span className="text-xs text-ink/45">{stage.note}</span> : null}
+                    {stage.note ? <span className="text-xs text-ink-muted">{stage.note}</span> : null}
                   </li>
                 ))}
               </ul>
@@ -433,7 +433,7 @@ export function SiteAdminDashboard({
             <div className="rounded-lg border border-ink/10 bg-white p-5">
               <h3 className="text-sm font-semibold text-ink">Top referring clubs</h3>
               {referralIntelligence.data.topClubs.length === 0 ? (
-                <p className="mt-3 text-sm text-ink/55">No referrals yet.</p>
+                <p className="mt-3 text-sm text-ink-muted">No referrals yet.</p>
               ) : (
                 <ol className="mt-3 flex flex-col gap-2">
                   {referralIntelligence.data.topClubs.map((c, i) => (
@@ -441,7 +441,7 @@ export function SiteAdminDashboard({
                       <span className="min-w-0 truncate text-ink/80">
                         {i + 1}. {c.clubName}
                       </span>
-                      <span className="shrink-0 font-mono text-xs text-ink/55 tabular-nums">
+                      <span className="shrink-0 font-mono text-xs text-ink-muted tabular-nums">
                         {c.clubsActivated} activated · {formatMoney(c.rewardEarnedPence)}
                       </span>
                     </li>
@@ -453,13 +453,13 @@ export function SiteAdminDashboard({
             <div className="rounded-lg border border-ink/10 bg-white p-5 lg:col-span-2">
               <h3 className="text-sm font-semibold text-ink">Live referral activity</h3>
               {referralIntelligence.data.activity.length === 0 ? (
-                <p className="mt-3 text-sm text-ink/55">No referral activity yet.</p>
+                <p className="mt-3 text-sm text-ink-muted">No referral activity yet.</p>
               ) : (
                 <ul className="mt-3 flex flex-col gap-2">
                   {referralIntelligence.data.activity.slice(0, 8).map((event) => (
                     <li key={event.id} className="flex items-center justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate text-ink/80">{event.detail}</span>
-                      <span className="shrink-0 text-xs text-ink/45 tabular-nums">{formatRelativeDate(event.occurredAt)}</span>
+                      <span className="shrink-0 text-xs text-ink-muted tabular-nums">{formatRelativeDate(event.occurredAt)}</span>
                     </li>
                   ))}
                 </ul>
@@ -468,7 +468,7 @@ export function SiteAdminDashboard({
 
             <div className="rounded-lg border border-ink/10 bg-white p-5 lg:col-span-2">
               <h3 className="text-sm font-semibold text-ink">Referral rewards</h3>
-              <p className="mt-1 text-xs text-ink/55">
+              <p className="mt-1 text-xs text-ink-muted">
                 The offer is one month of the referring club&rsquo;s own plan, free, once a referred club&rsquo;s
                 first subscription payment is collected. Months are counted from qualifying referrals, never
                 divided out of a credit balance.
@@ -509,7 +509,7 @@ export function SiteAdminDashboard({
                     hint="Balance remaining"
                   />
                 </dl>
-                <p className="mt-3 text-xs text-ink/45">
+                <p className="mt-3 text-xs text-ink-muted">
                   Applied and outstanding are ledger-wide: a credit balance can mix referral rewards with
                   goodwill and beta adjustments, and spending it writes one pooled entry rather than
                   decrementing a particular reward. So <strong>months</strong> applied and remaining are not
@@ -578,7 +578,7 @@ function MoneyCardState<T>({
         isDenied ? "border-ink/10 bg-white" : "border-amber-300 bg-amber-50"
       }`}
     >
-      <p className={`text-sm ${isDenied ? "text-ink/55" : "text-amber-900"}`}>{label}</p>
+      <p className={`text-sm ${isDenied ? "text-ink-muted" : "text-amber-900"}`}>{label}</p>
       <p className={`mt-1 text-sm font-medium ${isDenied ? "text-ink" : "text-amber-950"}`}>
         {isDenied ? "Not available to your Site Admin profile" : "Could not be loaded"}
       </p>
@@ -586,7 +586,7 @@ function MoneyCardState<T>({
         <p className="mt-1 font-mono text-xs break-words text-amber-900/80">{state.message}</p>
       ) : null}
       {state.state === "omitted" ? (
-        <p className="mt-1 text-xs text-ink/45">{state.reason}</p>
+        <p className="mt-1 text-xs text-ink-muted">{state.reason}</p>
       ) : null}
       {!isDenied && state.state === "error" ? (
         <p className="mt-1 text-xs text-amber-900/80">This is a read failure, not a zero.</p>
@@ -608,7 +608,7 @@ function RewardFigure({ label, value, hint }: { label: string; value: string; hi
       <dd className="min-w-0">
         <span className="block text-xs text-ink/60">{label}</span>
         <span className="mt-0.5 block font-mono text-lg text-ink tabular-nums">{value}</span>
-        {hint ? <span className="mt-0.5 block text-xs text-ink/50">{hint}</span> : null}
+        {hint ? <span className="mt-0.5 block text-xs text-ink-muted">{hint}</span> : null}
       </dd>
     </>
   )
@@ -621,11 +621,11 @@ function MoneyCard({ label, value, detail, href }: { label: string; value: strin
       className="group block rounded-lg border border-ink/10 bg-white px-5 py-4 outline-none transition-colors hover:border-forest-800/30 focus-visible:ring-2 focus-visible:ring-pitch-400"
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm text-ink/55">{label}</p>
-        <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink/25 transition-colors group-hover:text-forest-800" />
+        <p className="text-sm text-ink-muted">{label}</p>
+        <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-muted transition-colors group-hover:text-forest-800" />
       </div>
       <p className="mt-3 font-display text-3xl leading-none text-ink tabular-nums">{value}</p>
-      <p className="mt-2 text-xs text-ink/50">{detail}</p>
+      <p className="mt-2 text-xs text-ink-muted">{detail}</p>
     </Link>
   )
 }
@@ -657,10 +657,10 @@ function ReferralHealthCard({ commercial }: { commercial: ReadState<CommercialSn
   if (commercial.state === "omitted") {
     return (
       <div className="flex items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-4">
-        <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink/35" />
+        <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink-muted" />
         <div>
           <p className="text-sm font-medium text-ink">Commercial data not shown</p>
-          <p className="mt-1 text-sm text-ink/55">{commercial.reason}</p>
+          <p className="mt-1 text-sm text-ink-muted">{commercial.reason}</p>
         </div>
       </div>
     )
@@ -680,7 +680,7 @@ function ReferralHealthCard({ commercial }: { commercial: ReadState<CommercialSn
   return (
     <div className="rounded-lg border border-ink/10 bg-white px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="text-sm text-ink/55">Referral data health</p>
+        <p className="text-sm text-ink-muted">Referral data health</p>
         <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${tone.chip}`}>
           {c.referralHealthStatus}
         </span>
@@ -690,26 +690,26 @@ function ReferralHealthCard({ commercial }: { commercial: ReadState<CommercialSn
 
       <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-ink/8 pt-3">
         <div>
-          <dt className="text-xs text-ink/50">Referrals</dt>
+          <dt className="text-xs text-ink-muted">Referrals</dt>
           <dd className="mt-0.5 font-display text-xl text-ink tabular-nums">
             {c.referralsTotal.toLocaleString("en-GB")}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-ink/50">Clubs on Ovalball</dt>
+          <dt className="text-xs text-ink-muted">Clubs on Ovalball</dt>
           <dd className="mt-0.5 font-display text-xl text-ink tabular-nums">
             {(c.referralsRegistered + c.referralsQualified).toLocaleString("en-GB")}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-ink/50">Paid conversions</dt>
+          <dt className="text-xs text-ink-muted">Paid conversions</dt>
           <dd className="mt-0.5 font-display text-xl text-ink tabular-nums">
             {c.referralsQualified.toLocaleString("en-GB")}
           </dd>
         </div>
       </dl>
 
-      <p className="mt-3 text-xs text-ink/45">
+      <p className="mt-3 text-xs text-ink-muted">
         Rewards cannot be earned while Ovalball is in Beta: a referral qualifies only when a
         referred club&rsquo;s first subscription payment is collected.
       </p>
@@ -744,7 +744,7 @@ function FixturesTodayList({ rows, total }: { rows: FixtureTodayRow[]; total: nu
     return (
       <div className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8">
         <p className="text-sm font-medium text-ink">No fixtures playing today</p>
-        <p className="mt-1 text-sm text-ink/55">
+        <p className="mt-1 text-sm text-ink-muted">
           Fixtures kicking off today appear here, earliest first.
         </p>
       </div>
@@ -765,10 +765,10 @@ function FixturesTodayList({ rows, total }: { rows: FixtureTodayRow[]; total: nu
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-ink">
-                  {f.homeClub} {f.homeTeam} <span className="text-ink/40">v</span> {f.awayClub}{" "}
+                  {f.homeClub} {f.homeTeam} <span className="text-ink-muted">v</span> {f.awayClub}{" "}
                   {f.awayTeam}
                 </span>
-                <span className="block truncate text-xs text-ink/50">
+                <span className="block truncate text-xs text-ink-muted">
                   {[f.competition, f.venue, f.rugbyCode === "league" ? "League" : "Union"]
                     .filter(Boolean)
                     .join(" · ")}

@@ -33,7 +33,7 @@ export function Pagination({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-      <p className="text-ink/50">
+      <p className="text-ink-muted">
         Showing {from.toLocaleString()}&ndash;{to.toLocaleString()} of {total.toLocaleString()}
       </p>
 
@@ -62,7 +62,7 @@ export function Pagination({
           >
             Back
           </button>
-          <span className="px-2 text-ink/50">
+          <span className="px-2 text-ink-muted">
             Page {query.page} of {totalPages}
           </span>
           <button

@@ -72,13 +72,13 @@ export default async function SafeguardingCapabilityAdminPage() {
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Safeguarding Officer Capabilities</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">
+      <p className="mt-2 max-w-md text-sm text-ink-muted">
         Every active, accepted Safeguarding Officer across the platform. Dispensation and transfer safeguarding visibility/
         notifications are never granted by default &mdash; enable them individually here.
       </p>
 
       {officers.length === 0 ? (
-        <p className="mt-8 text-sm text-ink/50">No active, accepted Safeguarding Officers yet.</p>
+        <p className="mt-8 text-sm text-ink-muted">No active, accepted Safeguarding Officers yet.</p>
       ) : (
         <ul className="mt-8 flex flex-col gap-2">
           {officers.map((officer) => (

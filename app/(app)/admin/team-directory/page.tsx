@@ -58,7 +58,7 @@ export default async function TeamDirectoryPage() {
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Team Directory</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         The closed, global list of real team identities Ovalball supports &mdash; the exact same list every club&apos;s
         Add Team screen and the signup team checklist read from live. Adding a type here never creates a team for any
         club; each club still activates it separately, on its own Add Team screen.
@@ -83,14 +83,14 @@ export default async function TeamDirectoryPage() {
           if (rows.length === 0) return null
           return (
             <div key={category}>
-              <p className="text-xs font-medium tracking-[0.06em] text-ink/40 uppercase">{GROUP_LABELS[category]}</p>
+              <p className="text-xs font-medium tracking-[0.06em] text-ink-muted uppercase">{GROUP_LABELS[category]}</p>
               <div className="mt-2 overflow-hidden rounded-lg border border-ink/10 bg-white">
                 <ul className="divide-y divide-ink/5">
                   {rows.map((t) => (
                     <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
-                        <p className={`truncate text-sm font-medium ${t.is_active ? "text-ink" : "text-ink/40 line-through"}`}>{t.label}</p>
-                        <p className="text-xs text-ink/40">
+                        <p className={`truncate text-sm font-medium ${t.is_active ? "text-ink" : "text-ink-muted line-through"}`}>{t.label}</p>
+                        <p className="text-xs text-ink-muted">
                           {t.key}
                           {t.allows_squads && " · B/C squads allowed"}
                           {!t.is_active && " · Deactivated"}

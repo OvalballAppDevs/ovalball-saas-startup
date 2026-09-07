@@ -20,7 +20,7 @@ interface AuditEntry {
  */
 export function AuditLog({ entries }: { entries: AuditEntry[] }) {
   if (entries.length === 0) {
-    return <p className="text-sm text-ink/50">No changes recorded yet for this club.</p>
+    return <p className="text-sm text-ink-muted">No changes recorded yet for this club.</p>
   }
 
   return (
@@ -31,14 +31,14 @@ export function AuditLog({ entries }: { entries: AuditEntry[] }) {
             <p className="text-sm font-medium text-ink">
               {actionLabel(entry.action)}
               {entry.action === "update" && entry.before && entry.after && (
-                <span className="ml-1.5 font-normal text-ink/50">
+                <span className="ml-1.5 font-normal text-ink-muted">
                   &middot; {diffFields(entry.before, entry.after).join(", ") || "no field changes"}
                 </span>
               )}
             </p>
-            <p className="text-xs text-ink/40">{formatTimestamp(entry.changedAt)}</p>
+            <p className="text-xs text-ink-muted">{formatTimestamp(entry.changedAt)}</p>
           </div>
-          <p className="mt-1 text-xs text-ink/45">{entry.changedByLabel}</p>
+          <p className="mt-1 text-xs text-ink-muted">{entry.changedByLabel}</p>
         </li>
       ))}
     </ul>

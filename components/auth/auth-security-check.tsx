@@ -142,7 +142,7 @@ export function AuthSecurityCheck({
         aria-live="polite"
         className={cn(
           "flex items-center gap-1.5 text-xs",
-          phase === "failed" ? "text-destructive" : "text-ink/45"
+          phase === "failed" ? "text-destructive-text" : "text-ink-muted"
         )}
       >
         {phase === "verified" ? (

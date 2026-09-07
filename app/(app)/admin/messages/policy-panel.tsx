@@ -42,8 +42,8 @@ export function PolicyPanel({
     <div className="rounded-lg border border-ink/10 bg-white p-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Global Ovalball policy</p>
-          <p className="mt-1 text-xs text-ink/45">
+          <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Global Ovalball policy</p>
+          <p className="mt-1 text-xs text-ink-muted">
             The platform default for every club. A club may only override a capability below if you leave its own
             &ldquo;club override&rdquo; switch on.
           </p>
@@ -60,7 +60,7 @@ export function PolicyPanel({
           <div key={cap.key} className="grid grid-cols-1 gap-2 py-3 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-4">
             <div>
               <p className="text-sm font-medium text-ink">{cap.label}</p>
-              <p className="text-xs text-ink/50">{cap.description}</p>
+              <p className="text-xs text-ink-muted">{cap.description}</p>
             </div>
             <label className="flex items-center gap-2 text-sm text-ink/70">
               <input
@@ -88,7 +88,7 @@ export function PolicyPanel({
 
       <div className="mt-4 grid grid-cols-1 gap-3 border-t border-ink/8 pt-4 sm:grid-cols-2">
         <div>
-          <p className="text-xs font-medium text-ink/50 uppercase">Max attachment size</p>
+          <p className="text-xs font-medium text-ink-muted uppercase">Max attachment size</p>
           <div className="mt-1 flex items-center gap-2">
             <input
               type="number"
@@ -97,14 +97,14 @@ export function PolicyPanel({
               max={2097152}
               value={draft.maxAttachmentSizeBytes}
               onChange={(e) => setDraft((d) => ({ ...d, maxAttachmentSizeBytes: Number(e.target.value) }))}
-              className="h-9 w-32 rounded-md border border-ink/15 px-2 text-sm outline-none disabled:bg-ink/[0.03] disabled:text-ink/50"
+              className="h-9 w-32 rounded-md border border-ink/15 px-2 text-sm outline-none disabled:bg-ink/[0.03] disabled:text-ink-muted"
             />
-            <span className="text-xs text-ink/45">bytes (platform ceiling is 2,097,152 / 2MB)</span>
+            <span className="text-xs text-ink-muted">bytes (platform ceiling is 2,097,152 / 2MB)</span>
           </div>
         </div>
       </div>
 
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
       {editing && (
         <div className="mt-4 flex items-center gap-2">
@@ -127,7 +127,7 @@ export function PolicyPanel({
         </div>
       )}
 
-      {!canEdit && <p className="mt-3 text-xs text-ink/40">Only a Full Site Admin may change the global policy.</p>}
+      {!canEdit && <p className="mt-3 text-xs text-ink-muted">Only a Full Site Admin may change the global policy.</p>}
     </div>
   )
 }

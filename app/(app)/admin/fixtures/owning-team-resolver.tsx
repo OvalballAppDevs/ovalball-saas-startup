@@ -98,9 +98,9 @@ export function OwningTeamResolver({
         <div className="mt-1.5 flex items-center justify-between gap-3 rounded-lg border border-pitch-600/40 bg-pitch-600/5 px-3.5 py-2.5">
           <div>
             <p className="text-sm font-medium text-ink">{selectedClubName}</p>
-            <p className="text-xs text-ink/50">{selectedTeamLabel}</p>
+            <p className="text-xs text-ink-muted">{selectedTeamLabel}</p>
           </div>
-          <button type="button" onClick={reset} className="text-xs font-medium text-ink/50 underline hover:text-ink">
+          <button type="button" onClick={reset} className="text-xs font-medium text-ink-muted underline hover:text-ink">
             Change
           </button>
         </div>
@@ -118,7 +118,7 @@ export function OwningTeamResolver({
           placeholder="Search for the club…"
           className="h-10 w-full rounded-lg border border-ink/15 bg-white px-3.5 text-sm text-ink outline-none focus-visible:border-pitch-600"
         />
-        {searchingClubs && <p className="mt-1 text-xs text-ink/40">Searching&hellip;</p>}
+        {searchingClubs && <p className="mt-1 text-xs text-ink-muted">Searching&hellip;</p>}
         {clubResults.length > 0 && (
           <ul className="mt-1.5 flex flex-col gap-1 rounded-lg border border-ink/10 bg-white p-1.5">
             {clubResults.map((c) => (
@@ -130,7 +130,7 @@ export function OwningTeamResolver({
                 >
                   <span>
                     <span className="block text-sm font-medium text-ink">{c.clubName}</span>
-                    {c.town && <span className="text-xs text-ink/50">{c.town}</span>}
+                    {c.town && <span className="text-xs text-ink-muted">{c.town}</span>}
                   </span>
                   {!c.activated && <span className="shrink-0 rounded-full bg-amber-500/12 px-2 py-0.5 text-[11px] font-medium text-amber-700">Not on Ovalball</span>}
                 </button>
@@ -150,11 +150,11 @@ export function OwningTeamResolver({
             <p className="text-sm font-medium text-ink">{pickedClub.clubName}</p>
             <p className="text-xs text-amber-700">Not yet active on Ovalball &mdash; can&apos;t be the owning side of a fixture.</p>
           </div>
-          <button type="button" onClick={reset} className="shrink-0 text-xs font-medium text-ink/50 underline hover:text-ink">
+          <button type="button" onClick={reset} className="shrink-0 text-xs font-medium text-ink-muted underline hover:text-ink">
             Change
           </button>
         </div>
-        <p className="mt-1.5 text-xs text-ink/45">A club needs a real, active team of its own to own a fixture. Choose a different club, or add {pickedClub.clubName} as the away side instead.</p>
+        <p className="mt-1.5 text-xs text-ink-muted">A club needs a real, active team of its own to own a fixture. Choose a different club, or add {pickedClub.clubName} as the away side instead.</p>
       </div>
     )
   }
@@ -163,12 +163,12 @@ export function OwningTeamResolver({
     <div>
       <div className="flex items-center justify-between">
         <Label className="text-ink/80">Team</Label>
-        <button type="button" onClick={reset} className="text-xs font-medium text-ink/50 underline hover:text-ink">
+        <button type="button" onClick={reset} className="text-xs font-medium text-ink-muted underline hover:text-ink">
           Change club
         </button>
       </div>
       {loadingTeams ? (
-        <p className="mt-1.5 text-sm text-ink/50">Loading {pickedClub.clubName}&apos;s teams&hellip;</p>
+        <p className="mt-1.5 text-sm text-ink-muted">Loading {pickedClub.clubName}&apos;s teams&hellip;</p>
       ) : teamOptions.length === 0 ? (
         <p className="mt-1.5 rounded-lg border border-ink/15 bg-ink/[0.02] p-3 text-sm text-ink/70">{pickedClub.clubName} has no active teams yet.</p>
       ) : (

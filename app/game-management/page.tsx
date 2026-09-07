@@ -75,11 +75,11 @@ export default async function GameManagementPage() {
 
               <Reveal index={2}>
                 <div className="rounded-2xl border border-white/12 bg-forest-950/75 p-6 backdrop-blur-sm md:w-80">
-                  <p className="text-xs tracking-[0.06em] text-white/45 uppercase">
+                  <p className="text-xs tracking-[0.06em] text-white/60 uppercase">
                     {DEMO_FIXTURE.date}
                   </p>
                   <p className="mt-3 font-display text-xl text-white">{DEMO_FIXTURE.ourTeam}</p>
-                  <p className="text-sm text-white/50">versus</p>
+                  <p className="text-sm text-white/60">versus</p>
                   <p className="font-display text-xl text-white">{DEMO_FIXTURE.opponentTeam}</p>
 
                   <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-white/10 pt-4">
@@ -90,14 +90,14 @@ export default async function GameManagementPage() {
                       ["Status", DEMO_FIXTURE.status],
                     ].map(([label, value]) => (
                       <div key={label}>
-                        <dt className="text-[11px] tracking-[0.04em] text-white/40 uppercase">{label}</dt>
+                        <dt className="text-[11px] tracking-[0.04em] text-white/60 uppercase">{label}</dt>
                         <dd className="mt-0.5 text-sm text-white">{value}</dd>
                       </div>
                     ))}
                   </dl>
 
                   <div className="mt-5 border-t border-white/10 pt-4">
-                    <p className="text-[11px] tracking-[0.06em] text-white/40 uppercase">Availability</p>
+                    <p className="text-[11px] tracking-[0.06em] text-white/60 uppercase">Availability</p>
                     <ul className="mt-2 space-y-1 text-sm">
                       <li className="flex justify-between text-pitch-400">
                         <span>Attending</span>
@@ -111,13 +111,13 @@ export default async function GameManagementPage() {
                         <span>Unsure</span>
                         <span className="tabular-nums">{BASELINE_COUNTS.UNSURE}</span>
                       </li>
-                      <li className="flex justify-between text-white/45">
+                      <li className="flex justify-between text-white/60">
                         <span>Awaiting response</span>
                         <span className="tabular-nums">{BASELINE_COUNTS.NO_RESPONSE}</span>
                       </li>
                     </ul>
                   </div>
-                  <p className="mt-4 text-[11px] tracking-[0.06em] text-white/35 uppercase">
+                  <p className="mt-4 text-[11px] tracking-[0.06em] text-white/60 uppercase">
                     Product preview &mdash; example data
                   </p>
                 </div>
@@ -218,7 +218,7 @@ export default async function GameManagementPage() {
                   </p>
                 </Reveal>
                 <Reveal index={2}>
-                  <p className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/55">
+                  <p className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/60">
                     Ovalball shows you who is available. It does not pick your side &mdash; the
                     grouping below is an illustration of squad shape, not a team-selection tool.
                   </p>
@@ -228,10 +228,10 @@ export default async function GameManagementPage() {
               <Reveal index={1}>
                 <div className="rounded-xl border border-white/10 bg-white/[0.035] p-6 md:p-7">
                   <div className="flex items-baseline justify-between gap-3">
-                    <p className="text-sm font-medium tracking-[0.06em] text-white/55 uppercase">
+                    <p className="text-sm font-medium tracking-[0.06em] text-white/60 uppercase">
                       Squad shape
                     </p>
-                    <p className="text-sm text-white/45">
+                    <p className="text-sm text-white/60">
                       <span className="font-medium text-pitch-400">{BASELINE_COUNTS.ATTENDING + 1}</span>{" "}
                       available &middot;{" "}
                       <span className="font-medium text-amber-300">{BASELINE_COUNTS.UNSURE}</span> unsure
@@ -254,7 +254,7 @@ export default async function GameManagementPage() {
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-4 text-xs text-white/40">
+                  <p className="mt-4 text-xs text-white/60">
                     Illustration of the standard position groups in a rugby side.
                   </p>
                 </div>
@@ -332,10 +332,10 @@ export default async function GameManagementPage() {
               <Reveal index={1}>
                 <div className="rounded-xl border border-white/10 bg-white/[0.035] p-6 md:p-7">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-medium tracking-[0.06em] text-white/55 uppercase">
+                    <p className="text-sm font-medium tracking-[0.06em] text-white/60 uppercase">
                       Fixture information
                     </p>
-                    <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/40 uppercase">
+                    <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/60 uppercase">
                       Product preview
                     </span>
                   </div>
@@ -346,14 +346,14 @@ export default async function GameManagementPage() {
                   <ul className="mt-4 flex flex-col gap-2.5">
                     {DEMO_FIXTURE_UPDATES.map((update) => (
                       <li key={update.text} className="rounded-lg bg-white/[0.03] px-4 py-3">
-                        <p className="text-[11px] tracking-[0.04em] text-white/40 uppercase">
+                        <p className="text-[11px] tracking-[0.04em] text-white/60 uppercase">
                           {update.meta}
                         </p>
                         <p className="mt-1 text-sm text-white/85">{update.text}</p>
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-4 text-xs text-white/40">
+                  <p className="mt-4 text-xs text-white/60">
                     Shown to the families and players involved in this fixture.
                   </p>
                 </div>

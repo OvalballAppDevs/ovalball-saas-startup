@@ -12,7 +12,7 @@ import type { PendingProposal } from "./query"
 const CONFIDENCE_STYLE: Record<string, string> = {
   high: "bg-pitch-600/12 text-forest-800",
   medium: "bg-amber-500/15 text-amber-800",
-  low: "bg-ink/8 text-ink/55",
+  low: "bg-ink/8 text-ink-muted",
 }
 
 /**
@@ -60,7 +60,7 @@ export function ProposalReviewCard({ proposal }: { proposal: PendingProposal }) 
           <Link href={`/admin/clubs/${proposal.directoryId}`} className="text-sm font-medium text-forest-800 hover:text-forest-950">
             {proposal.clubName}
           </Link>
-          <p className="text-xs text-ink/45">Field: {proposal.field}</p>
+          <p className="text-xs text-ink-muted">Field: {proposal.field}</p>
         </div>
         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${CONFIDENCE_STYLE[proposal.confidence] ?? ""}`}>
           {proposal.confidence} confidence
@@ -68,7 +68,7 @@ export function ProposalReviewCard({ proposal }: { proposal: PendingProposal }) 
       </div>
 
       {proposal.status === "conflicting" && (
-        <div className="mt-3 flex items-start gap-1.5 rounded-lg bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <div className="mt-3 flex items-start gap-1.5 rounded-lg bg-destructive/5 px-3 py-2 text-xs text-destructive-text">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
           <span>{proposal.conflictReason ?? "Sources disagree -- flagged for manual review."}</span>
         </div>
@@ -76,16 +76,16 @@ export function ProposalReviewCard({ proposal }: { proposal: PendingProposal }) 
 
       <div className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
         <div>
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Current</p>
-          <p className="mt-1 text-ink/70">{proposal.currentValue || <span className="text-ink/35">Empty</span>}</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Current</p>
+          <p className="mt-1 text-ink/70">{proposal.currentValue || <span className="text-ink-muted">Empty</span>}</p>
         </div>
         <div>
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Proposed</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Proposed</p>
           <p className="mt-1 text-ink">{proposal.proposedValue}</p>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-1.5 text-xs text-ink/50">
+      <div className="mt-3 flex items-center gap-1.5 text-xs text-ink-muted">
         <span>Source: {proposal.source}</span>
         {proposal.sourceUrl && (
           <a href={proposal.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-forest-800 hover:text-forest-950">
@@ -95,7 +95,7 @@ export function ProposalReviewCard({ proposal }: { proposal: PendingProposal }) 
         )}
       </div>
 
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-xs text-destructive-text">{error}</p>}
 
       <div className="mt-3 flex items-center gap-2">
         <Button type="button" size="sm" className="h-8" disabled={status === "working"} onClick={handleAccept}>

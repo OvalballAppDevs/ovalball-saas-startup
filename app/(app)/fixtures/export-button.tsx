@@ -97,11 +97,11 @@ export function ExportClubFixturesButton() {
           {exportStatus === "working" ? "Preparing export…" : hasFilters ? "Export filtered" : "Export fixtures"}
         </Button>
       </div>
-      {exportStatus === "error" && <p className="text-xs text-destructive">Export failed. Please try again.</p>}
+      {exportStatus === "error" && <p className="text-xs text-destructive-text">Export failed. Please try again.</p>}
       {open && (
         <div className="absolute top-full z-10 mt-2 flex w-64 flex-col gap-2.5 rounded-lg border border-ink/10 bg-white p-3 shadow-lg">
           <div>
-            <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor="export-filter-date">
+            <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor="export-filter-date">
               Date
             </label>
             <select
@@ -118,7 +118,7 @@ export function ExportClubFixturesButton() {
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor="export-filter-status">
+            <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor="export-filter-status">
               Status
             </label>
             <select
@@ -135,7 +135,7 @@ export function ExportClubFixturesButton() {
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor="export-filter-code">
+            <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor="export-filter-code">
               Rugby code
             </label>
             <select

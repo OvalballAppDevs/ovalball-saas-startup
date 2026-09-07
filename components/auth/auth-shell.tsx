@@ -53,12 +53,12 @@ export function AuthShell({
         <div className="relative max-w-sm">
           <OvalballMark aria-hidden="true" className="h-auto w-12 text-pitch-400" />
           <p className="mt-6 font-display text-display-l text-white text-balance">{panelLine}</p>
-          <p className="mt-4 text-sm text-white/55">
+          <p className="mt-4 text-sm text-white/60">
             Fixtures, teams, availability and club administration in one connected place.
           </p>
         </div>
 
-        <p className="relative text-xs tracking-[0.08em] text-white/35 uppercase">
+        <p className="relative text-xs tracking-[0.08em] text-white/60 uppercase">
           Rugby, connected.
         </p>
       </aside>

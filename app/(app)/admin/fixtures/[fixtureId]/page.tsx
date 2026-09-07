@@ -180,7 +180,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
-      <Link href={activeIsSiteAdmin ? "/admin/fixtures" : "/fixtures/management"} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href={activeIsSiteAdmin ? "/admin/fixtures" : "/fixtures/management"} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Fixture management
       </Link>
@@ -197,7 +197,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
             <ClubAvatar logoUrl={owningLogoUrl} name={overview.owning_club_name ?? "Club"} size="lg" />
             <div className="min-w-0">
               <p className="font-display text-display-s text-ink">{overview.owning_club_name}</p>
-              <p className="truncate text-sm text-ink/55">{owningTeamFullName}</p>
+              <p className="truncate text-sm text-ink-muted">{owningTeamFullName}</p>
               <div className="mt-1 flex items-center justify-center gap-2 sm:justify-start">
                 <HomeAwayBadge value={isHome ? "Home" : "Away"} />
                 {overview.owning_team_id && overview.owning_club_id && (
@@ -214,9 +214,9 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
           </div>
 
           <div className="flex shrink-0 flex-col items-center gap-1 border-x border-ink/8 px-5 sm:px-6">
-            <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">{formatDate(overview.kickoff_date)}</p>
+            <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{formatDate(overview.kickoff_date)}</p>
             {overview.kickoff_time && <p className="font-display text-display-s text-ink">{overview.kickoff_time.slice(0, 5)}</p>}
-            <p className="text-xs text-ink/45">{overview.game_type ?? "Friendly"}</p>
+            <p className="text-xs text-ink-muted">{overview.game_type ?? "Friendly"}</p>
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center sm:flex-row-reverse sm:text-right">
@@ -231,9 +231,9 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
                   {overview.raw_opposition_text}
                 </p>
               ) : (
-                <p className="font-display text-display-s text-ink/40">Opponent unresolved</p>
+                <p className="font-display text-display-s text-ink-muted">Opponent unresolved</p>
               )}
-              <p className={`truncate text-sm ${opponentTeamFullName ? "text-ink/55" : "text-ink/35 italic"}`}>
+              <p className={`truncate text-sm ${opponentTeamFullName ? "text-ink-muted" : "text-ink-muted italic"}`}>
                 {opponentTeamFullName || (overview.opponent_club_name ? "Team not set" : " ")}
               </p>
               <div className="mt-1 flex items-center justify-center gap-2 sm:justify-end">
@@ -252,7 +252,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
         </div>
 
         {overview.mirror_fixture_id && (
-          <p className="mt-3 border-t border-ink/8 pt-3 text-center text-xs text-ink/45">
+          <p className="mt-3 border-t border-ink/8 pt-3 text-center text-xs text-ink-muted">
             Historical mirror pair &mdash; also recorded as{" "}
             <Link href={`/admin/fixtures/${overview.mirror_fixture_id}`} className="font-medium text-forest-800 underline hover:text-forest-950">
               the other club&apos;s copy of this fixture
@@ -296,7 +296,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
         />
 
         {overview.cancelled_at && (
-          <p className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <p className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive-text">
             Cancelled {formatDateTime(overview.cancelled_at)}
             {overview.cancellation_reason ? ` — ${overview.cancellation_reason}` : ""}
           </p>
@@ -320,7 +320,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
       {/* ============ ONE conversation section -- no separate preview
           card linking out to a duplicate view (mega-spec section X/Y/Z) ============ */}
       <div className="mt-4 rounded-xl border border-ink/10 bg-white p-5">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
           Conversation {overview.message_count ? `(${overview.message_count})` : ""}
         </h2>
         <div className="mt-3">
@@ -338,7 +338,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
               }))}
             />
           ) : (
-            <p className="rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] px-3.5 py-2.5 text-sm text-ink/50">
+            <p className="rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] px-3.5 py-2.5 text-sm text-ink-muted">
               {overview.message_count
                 ? `${overview.message_count} message${overview.message_count === 1 ? "" : "s"} on this fixture -- fixture support access is required to view content.`
                 : "No messages on this fixture yet."}
@@ -355,7 +355,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
           permissions/workflow" without exposing Site-Admin correction
           tooling. ============ */}
       <div className="mt-8 rounded-xl border border-ink/10 bg-white p-5">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Match details</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Match details</h2>
         <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
           <InfoCard label="Competition" value={overview.competition_name ?? "None"} />
           <InfoCard label="Game type" value={overview.game_type ?? "Not set"} />
@@ -367,11 +367,11 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
         <details className="group mt-4 rounded-xl border border-ink/10 bg-white">
           <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-ink outline-none focus-visible:ring-2 focus-visible:ring-pitch-400">
             Site Admin details
-            <span className="text-xs font-normal text-ink/40 group-open:hidden">Edit, audit, danger zone</span>
+            <span className="text-xs font-normal text-ink-muted group-open:hidden">Edit, audit, danger zone</span>
           </summary>
           <div className="flex flex-col gap-8 border-t border-ink/10 px-5 py-6">
             <section>
-              <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Edit details</h2>
+              <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Edit details</h2>
               <div className="mt-3">
                 <EditFixtureForm
                   initial={{
@@ -394,7 +394,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
             </section>
 
             <section>
-              <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Audit</h2>
+              <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Audit</h2>
               <div className="mt-3">
                 <AuditLog
                   entries={(auditRows ?? []).map((r) => ({
@@ -410,7 +410,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
             </section>
 
             <section>
-              <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Danger zone</h2>
+              <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Danger zone</h2>
               <div className="mt-3">
                 <FixtureDangerZone fixtureId={fixtureId} status={overview.status ?? "Planned"} hasHistory={hasHistory} />
               </div>
@@ -425,7 +425,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-4">
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">{label}</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{label}</p>
       <p className="mt-1 text-sm text-ink">{value}</p>
     </div>
   )

@@ -41,7 +41,7 @@ export default async function ContactPage() {
           >
             <h2
               id="contact-email-heading"
-              className="text-sm font-medium tracking-[0.08em] text-ink/50 uppercase"
+              className="text-sm font-medium tracking-[0.08em] text-ink-muted uppercase"
             >
               Email
             </h2>
@@ -51,7 +51,7 @@ export default async function ContactPage() {
             >
               {CONTACT_EMAIL}
             </a>
-            <p className="mt-2 text-sm text-ink/55">
+            <p className="mt-2 text-sm text-ink-muted">
               Or use the form below and your message will be sent to the {PRODUCT_NAME} team.
             </p>
           </section>
@@ -60,7 +60,7 @@ export default async function ContactPage() {
             <ContactForm />
           </div>
 
-          <p className="mt-8 text-sm text-ink/50">
+          <p className="mt-8 text-sm text-ink-muted">
             Already have an {PRODUCT_NAME} account?{" "}
             <Link
               href="/support"

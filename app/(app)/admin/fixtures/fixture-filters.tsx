@@ -169,7 +169,7 @@ export function FixtureFilters({
           <button
             type="button"
             onClick={() => router.push(basePath)}
-            className="flex h-9 items-center rounded-full px-3 text-sm text-ink/45 underline decoration-dotted outline-none hover:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="flex h-9 items-center rounded-full px-3 text-sm text-ink-muted underline decoration-dotted outline-none hover:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             Clear filters
           </button>

@@ -184,8 +184,8 @@ export function WeekBoard({
                   i < 6 && "border-r border-ink/10"
                 )}
               >
-                <p className={cn("text-[11px] font-medium tracking-wide uppercase", !inRange ? "text-ink/25" : isToday ? "text-pitch-700" : "text-ink/45")}>{DAY_LABELS[i]}</p>
-                <p className={cn("mt-0.5 text-base font-medium", !inRange ? "text-ink/25" : isToday ? "text-forest-950" : "text-ink/80")}>{date.getDate()}</p>
+                <p className={cn("text-[11px] font-medium tracking-wide uppercase", !inRange ? "text-ink-muted" : isToday ? "text-pitch-700" : "text-ink-muted")}>{DAY_LABELS[i]}</p>
+                <p className={cn("mt-0.5 text-base font-medium", !inRange ? "text-ink-muted" : isToday ? "text-forest-950" : "text-ink/80")}>{date.getDate()}</p>
                 {isToday && inRange && <div className="mx-auto mt-1 h-0.5 w-5 rounded-full bg-pitch-600" />}
               </div>
             )
@@ -339,30 +339,30 @@ export function WeekBoard({
                       </div>
                       <dl className="mt-3 flex flex-col gap-2 text-sm">
                         <div className="flex justify-between gap-3">
-                          <dt className="text-ink/50">Date</dt>
+                          <dt className="text-ink-muted">Date</dt>
                           <dd className="text-ink">{new Date(`${selected.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</dd>
                         </div>
                         {selected.kind === "fixture" && (
                           <div className="flex justify-between gap-3">
-                            <dt className="text-ink/50">Kick Off</dt>
+                            <dt className="text-ink-muted">Kick Off</dt>
                             <dd className="text-ink">{selected.time ? selected.time.slice(0, 5) : "Time TBC"}</dd>
                           </div>
                         )}
                         {selected.kind === "fixture" && (
                           <div className="flex justify-between gap-3">
-                            <dt className="text-ink/50">Home / Away</dt>
+                            <dt className="text-ink-muted">Home / Away</dt>
                             <dd className="text-ink capitalize">{selected.homeAway}</dd>
                           </div>
                         )}
                         {selected.venueAddress && (
                           <div className="flex justify-between gap-3">
-                            <dt className="shrink-0 text-ink/50">Venue</dt>
+                            <dt className="shrink-0 text-ink-muted">Venue</dt>
                             <dd className="text-right text-ink">{selected.venueAddress}</dd>
                           </div>
                         )}
                         {selected.pitchName && (
                           <div className="flex justify-between gap-3">
-                            <dt className="text-ink/50">Pitch</dt>
+                            <dt className="text-ink-muted">Pitch</dt>
                             <dd className="text-ink">{selected.pitchName}</dd>
                           </div>
                         )}
@@ -493,7 +493,7 @@ const TOURNAMENT_STATUS_STYLE: Record<TournamentParticipantView["status"], strin
   host: "bg-pitch-600/10 text-forest-900 border-pitch-600/30",
   accepted: "bg-mint-100 text-forest-900 border-mint-300",
   pending: "bg-amber-50 text-amber-900 border-amber-300",
-  declined: "bg-destructive/10 text-destructive border-destructive/30",
+  declined: "bg-destructive/10 text-destructive-text border-destructive/30",
   external_recorded: "bg-ink/5 text-ink/60 border-ink/15",
 }
 const TOURNAMENT_STATUS_ICON: Record<TournamentParticipantView["status"], typeof Check> = {
@@ -594,7 +594,7 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
       <div className="flex flex-col gap-3 px-4 pb-4">
         <dl className="flex flex-col gap-1.5 text-sm">
           <div className="flex justify-between gap-3">
-            <dt className="text-ink/50">Date</dt>
+            <dt className="text-ink-muted">Date</dt>
             <dd className="text-ink">
               {new Date(`${entry.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
               {entry.time ? ` · ${entry.time.slice(0, 5)}` : ""}
@@ -602,20 +602,20 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
           </div>
           {!entry.tournamentIAmHost && entry.venueAddress && (
             <div className="flex justify-between gap-3">
-              <dt className="text-ink/50">Venue</dt>
+              <dt className="text-ink-muted">Venue</dt>
               <dd className="text-right text-ink">{entry.venueAddress}</dd>
             </div>
           )}
           {entry.pitchName && (
             <div className="flex justify-between gap-3">
-              <dt className="text-ink/50">Pitch</dt>
+              <dt className="text-ink-muted">Pitch</dt>
               <dd className="text-ink">{entry.pitchName}</dd>
             </div>
           )}
         </dl>
         {entry.tournamentIAmHost && (
           <div className="flex items-center justify-between gap-3 text-sm">
-            <Label htmlFor="tournament-venue" className="text-ink/50">
+            <Label htmlFor="tournament-venue" className="text-ink-muted">
               Venue
             </Label>
             <select
@@ -637,14 +637,14 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
         )}
         {entry.tournamentParticipants && entry.tournamentParticipants.length > 0 && (
           <div className="border-t border-ink/10 pt-3">
-            <p className="text-xs font-medium tracking-wide text-ink/45 uppercase">Participants</p>
+            <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Participants</p>
             <ul className="mt-2 flex flex-col gap-1.5">
               {entry.tournamentParticipants.map((p, i) => {
                 const StatusIcon = TOURNAMENT_STATUS_ICON[p.status]
                 return (
                   <li key={i} className="flex items-center justify-between gap-2 text-sm">
                     <span className="truncate text-ink">
-                      {p.clubName} <span className="text-ink/45">{p.teamTypeLabel}</span>
+                      {p.clubName} <span className="text-ink-muted">{p.teamTypeLabel}</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
                       <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", TOURNAMENT_STATUS_STYLE[p.status])}>
@@ -656,7 +656,7 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
                           type="button"
                           disabled={removingId === p.participantId}
                           onClick={() => handleRemove(p.participantId!)}
-                          className="text-xs font-medium text-destructive underline hover:text-destructive/80"
+                          className="text-xs font-medium text-destructive-text underline hover:text-destructive-text"
                         >
                           {removingId === p.participantId ? "Removing…" : "Remove"}
                         </button>
@@ -681,9 +681,9 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
               </button>
             ) : (
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-medium tracking-wide text-ink/45 uppercase">Add opposition</p>
+                <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Add opposition</p>
                 {!hostIdentity ? (
-                  <p className="text-sm text-ink/45">Resolving host team…</p>
+                  <p className="text-sm text-ink-muted">Resolving host team…</p>
                 ) : (
                   newOppositions.map((o, i) => (
                     <TournamentOppositionEntry
@@ -705,7 +705,7 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
                 >
                   + Add another
                 </button>
-                {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
+                {inviteError && <p className="text-sm text-destructive-text">{inviteError}</p>}
                 <div className="flex items-center gap-2">
                   <Button type="button" className="h-9" disabled={inviting || !hostIdentity} onClick={handleSendInvites}>
                     {inviting ? "Sending…" : "Send invite(s)"}
@@ -717,7 +717,7 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
                       setNewOppositions([{ ...EMPTY_OPPOSITION }])
                       setInviteError(null)
                     }}
-                    className="text-sm font-medium text-ink/50 underline hover:text-ink"
+                    className="text-sm font-medium text-ink-muted underline hover:text-ink"
                   >
                     Cancel
                   </button>

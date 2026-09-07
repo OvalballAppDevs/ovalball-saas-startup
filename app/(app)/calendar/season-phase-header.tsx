@@ -42,7 +42,7 @@ export function SeasonPhaseHeader({
           aria-disabled={!prevSeason}
           className={cn(
             "flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-pitch-400",
-            selectedPhase === "pre" ? "text-white/60 hover:bg-white/10" : "text-ink/50 hover:bg-ink/5",
+            selectedPhase === "pre" ? "text-white/60 hover:bg-white/10" : "text-ink-muted hover:bg-ink/5",
             !prevSeason && "pointer-events-none opacity-30"
           )}
           aria-label="Previous season"
@@ -55,7 +55,7 @@ export function SeasonPhaseHeader({
           aria-disabled={!nextSeason}
           className={cn(
             "flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-pitch-400",
-            selectedPhase === "pre" ? "text-white/60 hover:bg-white/10" : "text-ink/50 hover:bg-ink/5",
+            selectedPhase === "pre" ? "text-white/60 hover:bg-white/10" : "text-ink-muted hover:bg-ink/5",
             !nextSeason && "pointer-events-none opacity-30"
           )}
           aria-label="Next season"

@@ -25,7 +25,7 @@ export default async function ImportFixturesPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/fixtures" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href="/admin/fixtures" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Fixture management
       </Link>
@@ -36,7 +36,7 @@ export default async function ImportFixturesPage() {
       </div>
 
       <h1 className="mt-3 font-display text-display-l text-ink">Import fixtures</h1>
-      <p className="mt-2 text-sm text-ink/55">
+      <p className="mt-2 text-sm text-ink-muted">
         Nothing is published to live fixtures until you review and approve it. Every row is validated and matched
         against canonical club/team records first.
       </p>

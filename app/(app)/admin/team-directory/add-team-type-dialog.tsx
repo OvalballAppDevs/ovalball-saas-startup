@@ -81,7 +81,7 @@ export function AddTeamTypeDialog() {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-5">
       <p className="text-sm font-medium text-ink">Add a global team type</p>
-      <p className="mt-1 text-sm text-ink/50">
+      <p className="mt-1 text-sm text-ink-muted">
         This extends the closed catalogue every club in Ovalball picks from &mdash; it does not create a team for any
         specific club. There is no free-text name: the identity is built from the structured fields below.
       </p>
@@ -133,7 +133,7 @@ export function AddTeamTypeDialog() {
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-ink/40">Mixed is only offered for U6&ndash;U11, matching the app&apos;s real age-grade rule.</p>
+              <p className="mt-1 text-xs text-ink-muted">Mixed is only offered for U6&ndash;U11, matching the app&apos;s real age-grade rule.</p>
             </div>
             <label className="flex items-center gap-2.5 text-sm sm:col-span-2">
               <input type="checkbox" checked={allowsSquads} onChange={(e) => setAllowsSquads(e.target.checked)} className="size-4 accent-pitch-600" />
@@ -185,11 +185,11 @@ export function AddTeamTypeDialog() {
         )}
       </div>
 
-      <p className="mt-4 text-sm text-ink/55">
+      <p className="mt-4 text-sm text-ink-muted">
         This will appear everywhere as <span className="font-medium text-ink">{previewLabel()}</span>.
       </p>
 
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
       <div className="mt-4 flex items-center gap-2">
         <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

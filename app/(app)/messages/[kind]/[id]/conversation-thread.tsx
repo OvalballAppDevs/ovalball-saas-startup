@@ -89,7 +89,7 @@ function AttachmentView({ attachment }: { attachment: ThreadAttachment }) {
       <FileText className="size-5 shrink-0 text-forest-800" />
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{attachment.filename}</p>
-        <p className="text-xs text-ink/45">{formatBytes(attachment.sizeBytes)}</p>
+        <p className="text-xs text-ink-muted">{formatBytes(attachment.sizeBytes)}</p>
       </div>
     </a>
   )
@@ -106,7 +106,7 @@ function DocumentShareView({ share }: { share: ThreadDocumentShare }) {
       <FolderOpen className="size-5 shrink-0 text-forest-800" />
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{share.title}</p>
-        <p className="text-xs text-ink/45">
+        <p className="text-xs text-ink-muted">
           {DOCUMENT_CATEGORY_LABEL[share.category] ?? share.category} &middot; {formatBytes(share.sizeBytes)}
         </p>
       </div>
@@ -118,7 +118,7 @@ function ContactCardView({ card }: { card: ThreadContactCard }) {
   const [copied, setCopied] = useState(false)
   return (
     <div className="mt-2 w-64 rounded-lg border border-ink/10 bg-white px-3.5 py-3 text-ink">
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Contact</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Contact</p>
       <p className="mt-1.5 flex items-center gap-1.5 text-sm font-medium">
         <IdCard className="size-4 shrink-0 text-forest-800" />
         {card.displayName}
@@ -129,7 +129,7 @@ function ContactCardView({ card }: { card: ThreadContactCard }) {
       </p>
       <div className="mt-2 flex items-center justify-between gap-2 rounded-md bg-chalk px-2.5 py-2">
         <span className="flex items-center gap-1.5 text-sm font-medium">
-          <Phone className="size-3.5 shrink-0 text-ink/45" />
+          <Phone className="size-3.5 shrink-0 text-ink-muted" />
           {card.telephone}
         </span>
         <div className="flex shrink-0 items-center gap-0.5">
@@ -148,7 +148,7 @@ function ContactCardView({ card }: { card: ThreadContactCard }) {
             }}
             aria-label="Copy telephone number"
             title="Copy number"
-            className="flex size-9 items-center justify-center rounded text-ink/45 outline-none hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="flex size-9 items-center justify-center rounded text-ink-muted outline-none hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <Copy className="size-3.5" />
           </button>
@@ -187,12 +187,12 @@ function ContactCardPicker({
     <div className="mt-2 rounded-lg border border-ink/15 bg-white p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-ink">Share contact card</p>
-        <button type="button" onClick={onClose} aria-label="Close contact card preview" className="rounded p-0.5 text-ink/40 hover:text-ink">
+        <button type="button" onClick={onClose} aria-label="Close contact card preview" className="rounded p-0.5 text-ink-muted hover:text-ink">
           <X className="size-3.5" />
         </button>
       </div>
       {preview === "loading" ? (
-        <p className="mt-2 text-sm text-ink/40">Loading…</p>
+        <p className="mt-2 text-sm text-ink-muted">Loading…</p>
       ) : !preview || !preview.telephone || !preview.roleLabel ? (
         <div className="mt-2">
           <p className="text-sm text-ink/60">
@@ -215,11 +215,11 @@ function ContactCardPicker({
               {preview.teamName ? ` · ${preview.teamName}` : ""}
             </p>
             <p className="mt-1.5 flex items-center gap-1.5 text-sm text-ink/70">
-              <Phone className="size-3.5 text-ink/40" />
+              <Phone className="size-3.5 text-ink-muted" />
               {preview.telephone}
             </p>
           </div>
-          <p className="mt-2 text-xs text-ink/45">This shares these contact details with the authorized participants in this fixture conversation.</p>
+          <p className="mt-2 text-xs text-ink-muted">This shares these contact details with the authorized participants in this fixture conversation.</p>
           <div className="mt-2.5 flex items-center gap-2">
             <button
               type="button"
@@ -233,7 +233,7 @@ function ContactCardPicker({
             >
               {sharing ? "Sharing…" : "Share contact card"}
             </button>
-            <button type="button" onClick={onClose} className="text-sm text-ink/40 hover:text-ink/70">
+            <button type="button" onClick={onClose} className="text-sm text-ink-muted hover:text-ink/70">
               Cancel
             </button>
           </div>
@@ -270,7 +270,7 @@ function DocumentPicker({ onShare, onClose }: { onShare: (doc: ShareableDocument
     <div className="mt-2 rounded-lg border border-ink/15 bg-white p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-ink">Share a document</p>
-        <button type="button" onClick={onClose} aria-label="Close document picker" className="rounded p-0.5 text-ink/40 hover:text-ink">
+        <button type="button" onClick={onClose} aria-label="Close document picker" className="rounded p-0.5 text-ink-muted hover:text-ink">
           <X className="size-3.5" />
         </button>
       </div>
@@ -283,9 +283,9 @@ function DocumentPicker({ onShare, onClose }: { onShare: (doc: ShareableDocument
       />
       <ul className="mt-2 max-h-56 overflow-y-auto">
         {loading ? (
-          <li className="px-1 py-3 text-sm text-ink/40">Loading…</li>
+          <li className="px-1 py-3 text-sm text-ink-muted">Loading…</li>
         ) : docs.length === 0 ? (
-          <li className="px-1 py-3 text-sm text-ink/40">
+          <li className="px-1 py-3 text-sm text-ink-muted">
             {query.trim().length >= 2 ? "No documents match." : "No documents in your library yet."}
           </li>
         ) : (
@@ -293,7 +293,7 @@ function DocumentPicker({ onShare, onClose }: { onShare: (doc: ShareableDocument
             <li key={d.id} className="flex items-center justify-between gap-2 rounded-md px-1.5 py-2 hover:bg-ink/[0.03]">
               <div className="min-w-0">
                 <p className="truncate text-sm text-ink">{d.title}</p>
-                <p className="text-xs text-ink/40">
+                <p className="text-xs text-ink-muted">
                   {DOCUMENT_CATEGORY_LABEL[d.category] ?? d.category} &middot; {formatBytes(d.sizeBytes)}
                 </p>
               </div>
@@ -362,7 +362,7 @@ function MessageActions({ message, onDeleted }: { message: ThreadMessage; onDele
   }
 
   if (done === "reported") {
-    return <p className="mt-1 text-[11px] text-ink/40">Reported to Ovalball support.</p>
+    return <p className="mt-1 text-[11px] text-ink-muted">Reported to Ovalball support.</p>
   }
 
   if (mode === "reporting") {
@@ -379,12 +379,12 @@ function MessageActions({ message, onDeleted }: { message: ThreadMessage; onDele
           rows={2}
           className="mt-1 w-full resize-none rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-xs text-ink outline-none focus-visible:border-pitch-600"
         />
-        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
         <div className="mt-1.5 flex items-center gap-3">
-          <button type="button" disabled={working || !reason.trim()} onClick={handleReport} className="text-xs font-medium text-destructive disabled:opacity-50">
+          <button type="button" disabled={working || !reason.trim()} onClick={handleReport} className="text-xs font-medium text-destructive-text disabled:opacity-50">
             {working ? "Sending…" : "Send report"}
           </button>
-          <button type="button" onClick={() => setMode("idle")} className="text-xs text-ink/40 hover:text-ink/70">
+          <button type="button" onClick={() => setMode("idle")} className="text-xs text-ink-muted hover:text-ink/70">
             Cancel
           </button>
         </div>
@@ -395,11 +395,11 @@ function MessageActions({ message, onDeleted }: { message: ThreadMessage; onDele
   if (mode === "confirming-delete") {
     return (
       <div className="mt-1 flex items-center gap-2">
-        <span className="text-[11px] text-ink/40">Delete this message?</span>
-        <button type="button" disabled={working} onClick={handleDelete} className="text-[11px] font-medium text-destructive disabled:opacity-50">
+        <span className="text-[11px] text-ink-muted">Delete this message?</span>
+        <button type="button" disabled={working} onClick={handleDelete} className="text-[11px] font-medium text-destructive-text disabled:opacity-50">
           {working ? "Deleting…" : "Confirm"}
         </button>
-        <button type="button" onClick={() => setMode("idle")} className="text-[11px] text-ink/40 hover:text-ink/70">
+        <button type="button" onClick={() => setMode("idle")} className="text-[11px] text-ink-muted hover:text-ink/70">
           Cancel
         </button>
       </div>
@@ -409,16 +409,16 @@ function MessageActions({ message, onDeleted }: { message: ThreadMessage; onDele
   return (
     <div className="mt-0.5 flex items-center gap-2">
       {message.canReport && (
-        <button type="button" onClick={() => setMode("reporting")} className="text-[11px] text-ink/35 hover:text-ink/60">
+        <button type="button" onClick={() => setMode("reporting")} className="text-[11px] text-ink-muted hover:text-ink/60">
           Report
         </button>
       )}
       {message.canDelete && (
-        <button type="button" onClick={() => setMode("confirming-delete")} className="text-[11px] text-ink/35 hover:text-ink/60">
+        <button type="button" onClick={() => setMode("confirming-delete")} className="text-[11px] text-ink-muted hover:text-ink/60">
           Delete
         </button>
       )}
-      {error && <span className="text-[11px] text-destructive">{error}</span>}
+      {error && <span className="text-[11px] text-destructive-text">{error}</span>}
     </div>
   )
 }
@@ -627,7 +627,7 @@ export function ConversationThread({
       <div className="sticky top-0 z-10 border-b border-ink/10 bg-white/95 px-3 py-2.5 backdrop-blur-sm sm:px-4">
         <div className="flex items-center gap-1.5">
           <ClubAvatar logoUrl={sendingAsClubLogoUrl} name={sendingAsClubName} size="xs" />
-          <p className="text-xs text-ink/50">
+          <p className="text-xs text-ink-muted">
             Sending as{" "}
             <span className="font-medium text-ink/75">
               {sendingAsClubName}
@@ -636,7 +636,7 @@ export function ConversationThread({
           </p>
         </div>
         {!canCompose ? (
-          <p className="mt-2 rounded-lg bg-chalk px-3.5 py-2.5 text-sm text-ink/55">
+          <p className="mt-2 rounded-lg bg-chalk px-3.5 py-2.5 text-sm text-ink-muted">
             This conversation isn&apos;t open yet &mdash; it will be ready to reply in once the message request is accepted.
           </p>
         ) : (
@@ -644,16 +644,16 @@ export function ConversationThread({
             {pendingFile && (
               <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-ink/15 bg-chalk px-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
-                  <Paperclip className="size-3.5 shrink-0 text-ink/45" />
+                  <Paperclip className="size-3.5 shrink-0 text-ink-muted" />
                   <p className="truncate text-xs text-ink/70">
-                    {pendingFile.name} <span className="text-ink/40">&middot; {formatBytes(pendingFile.size)}</span>
+                    {pendingFile.name} <span className="text-ink-muted">&middot; {formatBytes(pendingFile.size)}</span>
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setPendingFile(null)}
                   aria-label="Remove attachment"
-                  className="shrink-0 rounded p-0.5 text-ink/40 hover:text-ink"
+                  className="shrink-0 rounded p-0.5 text-ink-muted hover:text-ink"
                 >
                   <X className="size-3.5" />
                 </button>
@@ -673,7 +673,7 @@ export function ConversationThread({
                           aria-label="Add to message"
                           title="Add to message"
                           className={cn(
-                            "flex size-11 shrink-0 items-center justify-center rounded-lg border text-ink/50 outline-none transition-colors hover:border-ink/25 hover:text-ink/75 focus-visible:ring-2 focus-visible:ring-pitch-400",
+                            "flex size-11 shrink-0 items-center justify-center rounded-lg border text-ink-muted outline-none transition-colors hover:border-ink/25 hover:text-ink/75 focus-visible:ring-2 focus-visible:ring-pitch-400",
                             pickerOpen || contactPickerOpen ? "border-pitch-600 text-pitch-600" : "border-ink/15"
                           )}
                         >
@@ -683,24 +683,24 @@ export function ConversationThread({
                     />
                     <DropdownMenuContent align="start" className="w-64">
                       <DropdownMenuItem className="items-start py-2" onClick={() => setPickerOpen((v) => !v)}>
-                        <FolderOpen className="mt-0.5 size-4 shrink-0 text-ink/50" />
+                        <FolderOpen className="mt-0.5 size-4 shrink-0 text-ink-muted" />
                         <div>
                           <p>Document</p>
-                          <p className="text-xs text-ink/40">Share from your club library</p>
+                          <p className="text-xs text-ink-muted">Share from your club library</p>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem className="items-start py-2" onClick={() => fileInputRef.current?.click()}>
-                        <Paperclip className="mt-0.5 size-4 shrink-0 text-ink/50" />
+                        <Paperclip className="mt-0.5 size-4 shrink-0 text-ink-muted" />
                         <div>
                           <p>Attach a file</p>
-                          <p className="text-xs text-ink/40">One-off image or PDF</p>
+                          <p className="text-xs text-ink-muted">One-off image or PDF</p>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem className="items-start py-2" onClick={() => setContactPickerOpen((v) => !v)}>
-                        <IdCard className="mt-0.5 size-4 shrink-0 text-ink/50" />
+                        <IdCard className="mt-0.5 size-4 shrink-0 text-ink-muted" />
                         <div>
                           <p>Contact card</p>
-                          <p className="text-xs text-ink/40">Share your name, role and telephone number</p>
+                          <p className="text-xs text-ink-muted">Share your name, role and telephone number</p>
                         </div>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -727,7 +727,7 @@ export function ConversationThread({
                 <Send className="size-4" />
               </button>
             </div>
-            {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+            {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
           </>
         )}
       </div>
@@ -736,7 +736,7 @@ export function ConversationThread({
         {ordered.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
             <p className="text-sm font-medium text-ink">No messages yet</p>
-            <p className="max-w-xs text-sm text-ink/50">
+            <p className="max-w-xs text-sm text-ink-muted">
               Start the conversation &mdash; confirm kick-off time, pitch allocation, or anything else about this
               fixture.
             </p>
@@ -746,15 +746,15 @@ export function ConversationThread({
             {ordered.map((m) =>
               m.isSystemEvent ? (
                 <li key={m.id} className="flex justify-center">
-                  <p className="max-w-[85%] rounded-full bg-ink/5 px-3 py-1 text-center text-xs text-ink/50">{m.body}</p>
+                  <p className="max-w-[85%] rounded-full bg-ink/5 px-3 py-1 text-center text-xs text-ink-muted">{m.body}</p>
                 </li>
               ) : (
                 <li key={m.id} className={cn("flex flex-col", m.isOwnClub ? "items-end" : "items-start")}>
                   {!m.isOwn && (
                     <div className="mb-1 flex items-center gap-1.5">
                       <UserAvatar avatarUrl={m.senderAvatarUrl} name={m.senderName} size="xs" />
-                      <p className="text-xs font-medium text-ink/50">
-                        {m.senderName} <span className="text-ink/35">&middot; {m.senderRoleLabel}, {m.senderClubName}</span>
+                      <p className="text-xs font-medium text-ink-muted">
+                        {m.senderName} <span className="text-ink-muted">&middot; {m.senderRoleLabel}, {m.senderClubName}</span>
                       </p>
                     </div>
                   )}
@@ -762,7 +762,7 @@ export function ConversationThread({
                     className={cn(
                       "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap",
                       m.isDeleted
-                        ? "border border-dashed border-ink/15 bg-transparent text-ink/40 italic"
+                        ? "border border-dashed border-ink/15 bg-transparent text-ink-muted italic"
                         : m.isOwnClub
                           ? "rounded-br-sm bg-mint-100 text-forest-950"
                           : "rounded-bl-sm border border-ink/10 bg-white text-ink"
@@ -773,7 +773,7 @@ export function ConversationThread({
                     {m.documentShare && <DocumentShareView share={m.documentShare} />}
                     {m.contactCard && <ContactCardView card={m.contactCard} />}
                   </div>
-                  <p className="mt-1 text-[11px] text-ink/35">
+                  <p className="mt-1 text-[11px] text-ink-muted">
                     {timeLabel(m.createdAt)}
                     {m.isOwn && " · Sent"}
                   </p>

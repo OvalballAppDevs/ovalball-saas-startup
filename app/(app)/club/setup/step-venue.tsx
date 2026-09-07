@@ -118,14 +118,14 @@ export function StepVenue({
                 </span>
               </p>
               {addressLine ? (
-                <p className="mt-1 text-sm text-ink/55">{addressLine}</p>
+                <p className="mt-1 text-sm text-ink-muted">{addressLine}</p>
               ) : (
                 <p className="mt-1 flex items-center gap-1.5 text-sm text-amber-700">
                   <AlertCircle aria-hidden="true" className="size-3.5" />
                   No address yet
                 </p>
               )}
-              <p className="mt-2 text-xs text-ink/45">
+              <p className="mt-2 text-xs text-ink-muted">
                 {existing.pitchCount === 0
                   ? "No pitches here yet"
                   : `${existing.pitchCount} ${existing.pitchCount === 1 ? "pitch" : "pitches"}`}
@@ -134,7 +134,7 @@ export function StepVenue({
           </div>
         </div>
 
-        <p className="text-sm text-ink/55">
+        <p className="text-sm text-ink-muted">
           Add more grounds, more pitches, or change any of this in{" "}
           <Link
             href="/club/venues"
@@ -206,7 +206,7 @@ export function StepVenue({
 
             <div>
               <Label htmlFor="venue-line2">
-                Address line 2 <span className="font-normal text-ink/45">(optional)</span>
+                Address line 2 <span className="font-normal text-ink-muted">(optional)</span>
               </Label>
               <Input
                 id="venue-line2"
@@ -230,7 +230,7 @@ export function StepVenue({
               </div>
               <div>
                 <Label htmlFor="venue-county">
-                  County <span className="font-normal text-ink/45">(optional)</span>
+                  County <span className="font-normal text-ink-muted">(optional)</span>
                 </Label>
                 <Input
                   id="venue-county"
@@ -252,14 +252,14 @@ export function StepVenue({
                 spellCheck={false}
                 className="mt-1.5 font-mono uppercase sm:max-w-[12rem]"
               />
-              <p className="mt-1.5 text-xs text-ink/45">Used for directions on every fixture here.</p>
+              <p className="mt-1.5 text-xs text-ink-muted">Used for directions on every fixture here.</p>
             </div>
           </fieldset>
         </div>
 
         <div className="mt-6 border-t border-ink/8 pt-5">
           <p className="text-sm font-medium text-ink">Pitches at this ground</p>
-          <p className="mt-0.5 text-xs text-ink/50">
+          <p className="mt-0.5 text-xs text-ink-muted">
             Name them the way your club says them out loud &mdash; &ldquo;Main Pitch&rdquo;, &ldquo;Back
             Field&rdquo;, &ldquo;AGP&rdquo;. Fixtures and training are scheduled onto these.
           </p>
@@ -279,7 +279,7 @@ export function StepVenue({
                   size="icon"
                   onClick={() => removePitch(i)}
                   aria-label={`Remove pitch ${i + 1}`}
-                  className="shrink-0 text-ink/40 hover:text-ink"
+                  className="shrink-0 text-ink-muted hover:text-ink"
                 >
                   <X className="size-4" />
                 </Button>

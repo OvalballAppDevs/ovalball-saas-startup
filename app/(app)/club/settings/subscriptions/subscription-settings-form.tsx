@@ -80,7 +80,7 @@ export function SubscriptionSettingsForm({ clubId, monthlyAmountMinor, initial }
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-ink">Enable Club Subscriptions</p>
-          <p className="mt-1 text-xs text-ink/50">Turning this on does not immediately collect money -- GoCardless must also be connected and verified, and a price must be set. See the status panel above for what&rsquo;s still needed.</p>
+          <p className="mt-1 text-xs text-ink-muted">Turning this on does not immediately collect money -- GoCardless must also be connected and verified, and a price must be set. See the status panel above for what&rsquo;s still needed.</p>
         </div>
         <button
           type="button"
@@ -98,7 +98,7 @@ export function SubscriptionSettingsForm({ clubId, monthlyAmountMinor, initial }
         <Label htmlFor="collection-day" className="text-ink/80">
           Collection day
         </Label>
-        <p className="mt-1 text-xs text-ink/50">Members are shown &ldquo;Scheduled for collection on the {form.collectionDay === 1 ? "1st" : `${form.collectionDay}th`}&rdquo; -- Direct Debit is asynchronous, so this is when collection is submitted, not a guaranteed same-day payout.</p>
+        <p className="mt-1 text-xs text-ink-muted">Members are shown &ldquo;Scheduled for collection on the {form.collectionDay === 1 ? "1st" : `${form.collectionDay}th`}&rdquo; -- Direct Debit is asynchronous, so this is when collection is submitted, not a guaranteed same-day payout.</p>
         <select id="collection-day" value={form.collectionDay} onChange={(e) => setForm((f) => ({ ...f, collectionDay: Number(e.target.value) }))} className="mt-2 h-11 w-full max-w-[10rem] rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600">
           {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
             <option key={day} value={day}>
@@ -110,14 +110,14 @@ export function SubscriptionSettingsForm({ clubId, monthlyAmountMinor, initial }
 
       <div>
         <p className="text-sm font-medium text-ink">First payment policy</p>
-        <p className="mt-1 text-xs text-ink/50">When a player joins part-way through a month:</p>
+        <p className="mt-1 text-xs text-ink-muted">When a player joins part-way through a month:</p>
 
         <div className="mt-3 flex flex-col gap-2">
           <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-ink/10 p-3 has-[:checked]:border-pitch-600 has-[:checked]:bg-pitch-50">
             <input type="radio" name="first-payment-policy" checked={form.firstPaymentPolicy === "PRORATE_CURRENT_MONTH"} onChange={() => setForm((f) => ({ ...f, firstPaymentPolicy: "PRORATE_CURRENT_MONTH" }))} className="mt-0.5" />
             <span>
               <span className="block text-sm font-medium text-ink">Charge a pro-rata amount</span>
-              <span className="mt-0.5 block text-xs text-ink/55">Charge only for the remaining days of their first month. Full monthly payments then continue from the next 1st.</span>
+              <span className="mt-0.5 block text-xs text-ink-muted">Charge only for the remaining days of their first month. Full monthly payments then continue from the next 1st.</span>
             </span>
           </label>
 
@@ -125,7 +125,7 @@ export function SubscriptionSettingsForm({ clubId, monthlyAmountMinor, initial }
             <input type="radio" name="first-payment-policy" checked={form.firstPaymentPolicy === "NEXT_COLLECTION_DAY"} onChange={() => setForm((f) => ({ ...f, firstPaymentPolicy: "NEXT_COLLECTION_DAY" }))} className="mt-0.5" />
             <span>
               <span className="block text-sm font-medium text-ink">Start payments next month</span>
-              <span className="mt-0.5 block text-xs text-ink/55">No payment is due for the remaining part of the current month. The first full monthly payment is scheduled for the next 1st.</span>
+              <span className="mt-0.5 block text-xs text-ink-muted">No payment is due for the remaining part of the current month. The first full monthly payment is scheduled for the next 1st.</span>
             </span>
           </label>
         </div>
@@ -145,23 +145,23 @@ export function SubscriptionSettingsForm({ clubId, monthlyAmountMinor, initial }
             )}
           </div>
         )}
-        {!example && <p className="mt-3 text-xs text-ink/40">Set a monthly price below to see a worked example.</p>}
+        {!example && <p className="mt-3 text-xs text-ink-muted">Set a monthly price below to see a worked example.</p>}
 
-        <p className="mt-3 text-xs text-ink/40">Changing this applies to new memberships from now on -- it never alters payments already scheduled, collected, or owed.</p>
+        <p className="mt-3 text-xs text-ink-muted">Changing this applies to new memberships from now on -- it never alters payments already scheduled, collected, or owed.</p>
       </div>
 
       <div>
         <Label htmlFor="platform-fee-mode" className="text-ink/80">
           Platform fee model
         </Label>
-        <p className="mt-1 text-xs text-ink/50">How Ovalball&rsquo;s own platform fee (if any) is applied. Only models confirmed compliant and commercially approved are offered -- see the Finance Dashboard for what this means for your club&rsquo;s payouts.</p>
+        <p className="mt-1 text-xs text-ink-muted">How Ovalball&rsquo;s own platform fee (if any) is applied. Only models confirmed compliant and commercially approved are offered -- see the Finance Dashboard for what this means for your club&rsquo;s payouts.</p>
         <select id="platform-fee-mode" value={form.platformFeeMode} onChange={(e) => setForm((f) => ({ ...f, platformFeeMode: e.target.value as SubscriptionProgrammeSettings["platformFeeMode"] }))} className="mt-2 h-11 w-full max-w-xs rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600">
           <option value="NONE">No platform fee</option>
           <option value="PARTNER_REVENUE_SHARE">Partner revenue share (Ovalball is paid separately by GoCardless, not the club)</option>
         </select>
       </div>
 
-      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
       <div className="flex items-center gap-3 border-t border-ink/10 pt-4">
         <Button type="button" className="h-10" disabled={!dirty || status === "saving"} onClick={handleSave}>

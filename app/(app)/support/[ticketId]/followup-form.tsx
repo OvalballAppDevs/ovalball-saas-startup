@@ -41,7 +41,7 @@ export function FollowupForm({ ticketId }: { ticketId: string }) {
         placeholder="Add anything else that might help…"
         className="mt-1.5 w-full resize-y rounded-lg border border-ink/15 bg-white px-3 py-2.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
       />
-      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-destructive-text">{error}</p>}
       <Button type="submit" size="sm" className="mt-2 h-9" disabled={submitting || body.trim().length === 0}>
         {submitting ? "Sending…" : "Add information"}
       </Button>

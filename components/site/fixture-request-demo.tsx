@@ -39,10 +39,10 @@ export function FixtureRequestDemo() {
       className="rounded-xl border border-white/10 bg-white/[0.035] p-6 md:p-8"
     >
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-medium tracking-[0.06em] text-white/55 uppercase">
+        <h3 className="text-sm font-medium tracking-[0.06em] text-white/60 uppercase">
           Request a fixture
         </h3>
-        <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/40 uppercase">
+        <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/60 uppercase">
           Product preview
         </span>
       </div>
@@ -54,7 +54,7 @@ export function FixtureRequestDemo() {
       </div>
 
       <div className="mt-4">
-        <label htmlFor={messageId} className="text-xs tracking-[0.04em] text-white/45 uppercase">
+        <label htmlFor={messageId} className="text-xs tracking-[0.04em] text-white/60 uppercase">
           Message
         </label>
         <textarea
@@ -84,7 +84,7 @@ export function FixtureRequestDemo() {
         )}
       </button>
 
-      <p role="status" aria-atomic="true" className="mt-3 min-h-5 text-center text-xs text-white/45">
+      <p role="status" aria-atomic="true" className="mt-3 min-h-5 text-center text-xs text-white/60">
         {sent
           ? "In Ovalball, Westbrook RFC would now see this request against their U13 team."
           : "Nothing is sent — this is a preview of the real request form."}
@@ -97,7 +97,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   const id = useId()
   return (
     <div>
-      <label htmlFor={id} className="text-xs tracking-[0.04em] text-white/45 uppercase">
+      <label htmlFor={id} className="text-xs tracking-[0.04em] text-white/60 uppercase">
         {label}
       </label>
       <input

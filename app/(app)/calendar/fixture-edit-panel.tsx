@@ -162,7 +162,7 @@ export function FixtureEditPanel({
                   single, deliberate correction, not two separate label edits.
                 </DialogDescription>
               </DialogHeader>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <p className="text-sm text-destructive-text">{error}</p>}
               <DialogFooter>
                 <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>Cancel</DialogClose>
                 <Button type="button" className="h-9" disabled={swapping} onClick={handleSwap}>
@@ -172,7 +172,7 @@ export function FixtureEditPanel({
             </DialogContent>
           </Dialog>
         </div>
-        {!fixture.opponentTeamId && <p className="mt-1 text-xs text-ink/40">Swap needs a resolved opponent team first.</p>}
+        {!fixture.opponentTeamId && <p className="mt-1 text-xs text-ink-muted">Swap needs a resolved opponent team first.</p>}
       </div>
 
       <OpponentPicker
@@ -258,7 +258,7 @@ export function FixtureEditPanel({
         />
       </div>
 
-      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
       <div className="flex items-center gap-2">
         <Button type="button" variant="ghost" className="h-9" onClick={onCancel}>

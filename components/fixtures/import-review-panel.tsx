@@ -82,9 +82,9 @@ const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   ready: { label: "Ready", className: "bg-mint-100 text-forest-800" },
   update: { label: "Update existing", className: "bg-pitch-600/10 text-forest-800" },
   needs_review: { label: "Needs review", className: "bg-amber-500/12 text-amber-700" },
-  conflict: { label: "Conflict", className: "bg-destructive/10 text-destructive" },
-  invalid: { label: "Invalid", className: "bg-destructive/10 text-destructive" },
-  excluded: { label: "Excluded", className: "bg-ink/8 text-ink/45" },
+  conflict: { label: "Conflict", className: "bg-destructive/10 text-destructive-text" },
+  invalid: { label: "Invalid", className: "bg-destructive/10 text-destructive-text" },
+  excluded: { label: "Excluded", className: "bg-ink/8 text-ink-muted" },
   published: { label: "Published", className: "bg-forest-950/8 text-forest-950" },
 }
 
@@ -188,7 +188,7 @@ export function ImportReviewPanel({
           {publishResult.failed.length > 0 && (
             <ul className="mt-2 flex flex-col gap-1">
               {publishResult.failed.map((f) => (
-                <li key={f.rowId} className="text-xs text-destructive">
+                <li key={f.rowId} className="text-xs text-destructive-text">
                   Row error: {f.error}
                 </li>
               ))}
@@ -197,14 +197,14 @@ export function ImportReviewPanel({
         </div>
       )}
 
-      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
       {!alreadyDone && (
         <div className="flex items-center gap-3 border-t border-ink/10 pt-5">
           <Button type="button" className="h-10" disabled={publishing || publishableCount === 0} onClick={handlePublish}>
             {publishing ? "Publishing…" : `Publish ${publishableCount} fixture${publishableCount === 1 ? "" : "s"}`}
           </Button>
-          {publishableCount === 0 && <span className="text-sm text-ink/45">Resolve needs-review/conflict rows first, or exclude them.</span>}
+          {publishableCount === 0 && <span className="text-sm text-ink-muted">Resolve needs-review/conflict rows first, or exclude them.</span>}
         </div>
       )}
     </div>
@@ -214,7 +214,7 @@ export function ImportReviewPanel({
 function SummaryStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-3">
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">{label}</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{label}</p>
       <p className="mt-1 font-display text-2xl text-ink">{value}</p>
     </div>
   )
@@ -245,7 +245,7 @@ function RowCard({
   const [correcting, setCorrecting] = useState(false)
   const [working, setWorking] = useState(false)
   const [correctionError, setCorrectionError] = useState<string | null>(null)
-  const statusMeta = STATUS_LABEL[excluded ? "excluded" : row.status] ?? { label: row.status, className: "bg-ink/8 text-ink/50" }
+  const statusMeta = STATUS_LABEL[excluded ? "excluded" : row.status] ?? { label: row.status, className: "bg-ink/8 text-ink-muted" }
 
   async function handleDecision(next: "replace_and_notify" | "override_no_notify" | "keep_existing" | "keep_both") {
     setWorking(true)
@@ -272,7 +272,7 @@ function RowCard({
         </div>
         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusMeta.className}`}>{statusMeta.label}</span>
       </div>
-      <p className="mt-1 text-xs text-ink/50">
+      <p className="mt-1 text-xs text-ink-muted">
         {formatDate(row.fixtureDate)}
         {row.kickoffTime ? ` · ${row.kickoffTime}` : ""}
         {row.normalizedGameType ? ` · ${row.normalizedGameType}` : ""}
@@ -281,7 +281,7 @@ function RowCard({
       {row.errors.length > 0 && (
         <ul className="mt-2 flex flex-col gap-0.5">
           {row.errors.map((e, i) => (
-            <li key={i} className="text-xs text-destructive">
+            <li key={i} className="text-xs text-destructive-text">
               {e}
             </li>
           ))}
@@ -291,21 +291,21 @@ function RowCard({
       {row.status === "conflict" && existing && !excluded && (
         <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-destructive/20 bg-destructive/[0.02] p-3 sm:grid-cols-2">
           <div>
-            <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Existing fixture</p>
+            <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Existing fixture</p>
             <p className="mt-1 text-sm text-ink">
               {existing.teamName} vs {existing.opponentText}
             </p>
-            <p className="text-xs text-ink/50">
+            <p className="text-xs text-ink-muted">
               {formatDate(existing.date)}
               {existing.time ? ` · ${existing.time.slice(0, 5)}` : ""} &middot; {existing.gameType ?? "No type"}
             </p>
           </div>
           <div>
-            <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Imported fixture</p>
+            <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Imported fixture</p>
             <p className="mt-1 text-sm text-ink">
               {row.raw.home_team} vs {row.rawOppositionText}
             </p>
-            <p className="text-xs text-ink/50">
+            <p className="text-xs text-ink-muted">
               {formatDate(row.fixtureDate)}
               {row.kickoffTime ? ` · ${row.kickoffTime}` : ""} &middot; {row.normalizedGameType ?? "No type"}
             </p>
@@ -337,7 +337,7 @@ function RowCard({
               {correcting ? "Cancel correction" : "Correct this row"}
             </Button>
           )}
-          <Button type="button" variant="ghost" className="h-8 text-ink/50" disabled={working} onClick={handleExclude}>
+          <Button type="button" variant="ghost" className="h-8 text-ink-muted" disabled={working} onClick={handleExclude}>
             Exclude this row
           </Button>
         </div>
@@ -357,7 +357,7 @@ function RowCard({
           }}
         />
       )}
-      {correctionError && <p className="mt-2 text-xs text-destructive">{correctionError}</p>}
+      {correctionError && <p className="mt-2 text-xs text-destructive-text">{correctionError}</p>}
     </div>
   )
 }
@@ -442,7 +442,7 @@ function RowCorrectionForm({
     <div className="mt-3 flex flex-col gap-3 rounded-lg border border-ink/10 bg-ink/[0.015] p-3">
       {clubTeams && clubTeams.length > 0 && (
         <div>
-          <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor={`correct-home-${row.id}`}>
+          <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-home-${row.id}`}>
             Home team
           </label>
           <select
@@ -471,26 +471,26 @@ function RowCorrectionForm({
       />
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor={`correct-date-${row.id}`}>
+          <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-date-${row.id}`}>
             Date
           </label>
           <Input id={`correct-date-${row.id}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 h-9 border-ink/15 bg-white" />
         </div>
         <div>
-          <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor={`correct-kickoff-${row.id}`}>
+          <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-kickoff-${row.id}`}>
             Kickoff
           </label>
           <Input id={`correct-kickoff-${row.id}`} type="time" value={kickoff} onChange={(e) => setKickoff(e.target.value)} className="mt-1 h-9 border-ink/15 bg-white" />
         </div>
       </div>
 
-      <p className="text-xs text-ink/40">
+      <p className="text-xs text-ink-muted">
         Rugby code{rugbyCode ? ` (${rugbyCode})` : ""} and season are derived from the resolved home team and date &mdash; not set here.
       </p>
 
       {listCompetitionEditions && (
         <div>
-          <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor={`correct-competition-${row.id}`}>
+          <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-competition-${row.id}`}>
             Competition
           </label>
           <select
@@ -508,13 +508,13 @@ function RowCorrectionForm({
               </option>
             ))}
           </select>
-          {!rugbyCode && <p className="mt-1 text-xs text-ink/40">Add a rugby_code column to the CSV to pick a competition here.</p>}
+          {!rugbyCode && <p className="mt-1 text-xs text-ink-muted">Add a rugby_code column to the CSV to pick a competition here.</p>}
         </div>
       )}
 
       {clubPitches && clubPitches.length > 0 && (
         <div>
-          <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor={`correct-pitch-${row.id}`}>
+          <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-pitch-${row.id}`}>
             Pitch / venue
           </label>
           <select
@@ -535,7 +535,7 @@ function RowCorrectionForm({
 
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor={`correct-status-${row.id}`}>
+          <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-status-${row.id}`}>
             Status
           </label>
           <select
@@ -553,7 +553,7 @@ function RowCorrectionForm({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor={`correct-home-score-${row.id}`}>
+          <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-home-score-${row.id}`}>
             Home score
           </label>
           <Input
@@ -566,7 +566,7 @@ function RowCorrectionForm({
           />
         </div>
         <div>
-          <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase" htmlFor={`correct-away-score-${row.id}`}>
+          <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-away-score-${row.id}`}>
             Away score
           </label>
           <Input
@@ -579,7 +579,7 @@ function RowCorrectionForm({
           />
         </div>
       </div>
-      <p className="text-xs text-ink/40">Set both scores for a historical/backfilled result, or leave both blank.</p>
+      <p className="text-xs text-ink-muted">Set both scores for a historical/backfilled result, or leave both blank.</p>
 
       <Button type="button" size="sm" className="h-9 w-fit" disabled={saving} onClick={handleSave}>
         {saving ? "Saving…" : "Save correction"}

@@ -47,7 +47,7 @@ export function MiniRugbyNextSeasonReview({
         <Users className="size-4 text-forest-800" />
         <h2 className="font-display text-lg text-ink">Mini-Rugby Groups -- next season</h2>
       </div>
-      <p className="mt-1.5 text-sm text-ink/55">
+      <p className="mt-1.5 text-sm text-ink-muted">
         {toSeasonName
           ? `Decide how each shared Mini-Rugby Group should continue into ${toSeasonName}. Skipping leaves it for later -- nothing here changes this season's group.`
           : "A next season must be configured before a Mini-Rugby Group can be progressed."}
@@ -118,7 +118,7 @@ function MiniRugbyGroupCard({ group, toSeasonId, toSeasonName }: { group: MiniRu
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-ink">{group.alias ?? group.displayTag}</p>
-          <p className="text-xs text-ink/55">
+          <p className="text-xs text-ink-muted">
             Currently {group.displayTag} -- {group.teams.map((t) => t.displayName).join(", ")}
           </p>
         </div>
@@ -126,7 +126,7 @@ function MiniRugbyGroupCard({ group, toSeasonId, toSeasonName }: { group: MiniRu
 
       {mode === "editing" && (
         <div className="mt-3 space-y-2 border-t border-ink/10 pt-3">
-          <p className="text-xs font-medium tracking-wide text-ink/55 uppercase">Teams in the next-season group</p>
+          <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Teams in the next-season group</p>
           {group.teams.map((t) => (
             <label key={t.teamId} className="flex items-center gap-2 text-sm text-ink">
               <input
@@ -136,11 +136,11 @@ function MiniRugbyGroupCard({ group, toSeasonId, toSeasonName }: { group: MiniRu
                 className="size-4 rounded border-ink/25 text-pitch-600 focus-visible:ring-pitch-600"
               />
               {t.displayName}
-              {t.projectedAgeGroup && <span className="text-ink/45"> -&gt; {t.projectedAgeGroup}</span>}
+              {t.projectedAgeGroup && <span className="text-ink-muted"> -&gt; {t.projectedAgeGroup}</span>}
             </label>
           ))}
           <div>
-            <label className="text-xs font-medium tracking-wide text-ink/55 uppercase">Alias (optional)</label>
+            <label className="text-xs font-medium tracking-wide text-ink-muted uppercase">Alias (optional)</label>
             <input
               value={alias}
               onChange={(e) => setAlias(e.target.value)}

@@ -52,14 +52,14 @@ export default async function SiteAdminClaimsPage() {
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Club claims</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">
+      <p className="mt-2 max-w-md text-sm text-ink-muted">
         Review who&apos;s asking to represent a club on Ovalball before they get administrative access.
       </p>
 
       {!claims || claims.length === 0 ? (
         <div className="mt-8 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
           <p className="text-sm font-medium text-ink">No claims waiting for review</p>
-          <p className="mt-1 text-sm text-ink/55">New claims will appear here as clubs are claimed.</p>
+          <p className="mt-1 text-sm text-ink-muted">New claims will appear here as clubs are claimed.</p>
         </div>
       ) : (
         <div className="mt-8 flex flex-col gap-4">

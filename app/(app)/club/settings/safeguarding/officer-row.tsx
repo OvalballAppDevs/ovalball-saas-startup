@@ -31,10 +31,10 @@ const STATUS_LABEL: Record<OfficerData["status"], string> = {
 }
 
 const STATUS_BADGE_STYLE: Record<OfficerData["status"], string> = {
-  not_invited: "bg-ink/8 text-ink/50",
+  not_invited: "bg-ink/8 text-ink-muted",
   invite_sent: "bg-amber-500/10 text-amber-700",
   active: "bg-pitch-600/10 text-pitch-700",
-  inactive: "bg-destructive/10 text-destructive",
+  inactive: "bg-destructive/10 text-destructive-text",
 }
 
 /**
@@ -124,14 +124,14 @@ export function OfficerRow({
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm font-medium text-ink">
             {officer.contactName}
-            <span className="text-xs font-normal text-ink/45">{officer.officerType === "primary" ? "Primary" : "Deputy"}</span>
+            <span className="text-xs font-normal text-ink-muted">{officer.officerType === "primary" ? "Primary" : "Deputy"}</span>
           </p>
-          <p className="truncate text-xs text-ink/45">{officer.contactEmail}</p>
+          <p className="truncate text-xs text-ink-muted">{officer.contactEmail}</p>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_STYLE[officer.status]}`}>{STATUS_LABEL[officer.status]}</span>
       </div>
 
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-xs text-destructive-text">{error}</p>}
       {notice && <p className="mt-2 text-xs text-forest-800">{notice}</p>}
 
       {editing && canManageContact ? (
@@ -180,7 +180,7 @@ export function OfficerRow({
             </Button>
           )}
           {canManageContact && officer.status !== "inactive" && (
-            <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive hover:bg-destructive/10" disabled={working} onClick={handleDeactivate}>
+            <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" disabled={working} onClick={handleDeactivate}>
               Remove assignment
             </Button>
           )}
@@ -229,10 +229,10 @@ function RevokeInviteButton({ invitationId, disabled }: { invitationId: string; 
 
   return (
     <>
-      <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive hover:bg-destructive/10" disabled={disabled || working} onClick={handleRevoke}>
+      <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" disabled={disabled || working} onClick={handleRevoke}>
         Revoke invite
       </Button>
-      {error && <span className="text-xs text-destructive">{error}</span>}
+      {error && <span className="text-xs text-destructive-text">{error}</span>}
     </>
   )
 }

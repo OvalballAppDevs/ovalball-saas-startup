@@ -22,8 +22,8 @@ export interface SubscriberRow {
 
 const STATUS_TONE: Record<string, string> = {
   PAID: "bg-mint-100 text-forest-950",
-  FAILED: "bg-destructive/10 text-destructive",
-  OVERDUE: "bg-destructive/10 text-destructive",
+  FAILED: "bg-destructive/10 text-destructive-text",
+  OVERDUE: "bg-destructive/10 text-destructive-text",
   RETRYING: "bg-amber-100 text-amber-900",
   SUBMITTED: "bg-pitch-50 text-forest-800",
   SCHEDULED: "bg-pitch-50 text-forest-800",
@@ -32,7 +32,7 @@ const STATUS_TONE: Record<string, string> = {
   WAIVED: "bg-ink/8 text-ink/60",
   CANCELLED: "bg-ink/8 text-ink/60",
   REFUNDED: "bg-ink/8 text-ink/60",
-  CHARGEDBACK: "bg-destructive/10 text-destructive",
+  CHARGEDBACK: "bg-destructive/10 text-destructive-text",
 }
 
 /** Search/filter over the canonical obligation rows -- statuses shown verbatim from the domain catalogue, never collapsed to yes/no. */
@@ -66,7 +66,7 @@ export function SubscriberTable({ clubId, rows, canManageEnrolment, canManagePay
     return (
       <div className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
         <p className="text-sm font-medium text-ink">No obligations for this period yet</p>
-        <p className="mt-1 text-sm text-ink/55">Generate this month&rsquo;s obligations above once subscribers are enrolled.</p>
+        <p className="mt-1 text-sm text-ink-muted">Generate this month&rsquo;s obligations above once subscribers are enrolled.</p>
       </div>
     )
   }
@@ -82,11 +82,11 @@ export function SubscriberTable({ clubId, rows, canManageEnrolment, canManagePay
           className="h-9 w-full max-w-xs rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
         />
       </div>
-      {error && <p className="border-b border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="border-b border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">
+            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">
               <th className="px-4 py-2">Player</th>
               <th className="px-4 py-2">Amount</th>
               <th className="px-4 py-2">Due date</th>
@@ -104,7 +104,7 @@ export function SubscriberTable({ clubId, rows, canManageEnrolment, canManagePay
                 </td>
                 <td className="px-4 py-2.5 tabular-nums text-ink/80">
                   {formatMinorUnits(row.amountMinor)}
-                  {row.isProrated && <span className="mt-0.5 block text-[10px] font-normal text-ink/45">Pro-rata first month</span>}
+                  {row.isProrated && <span className="mt-0.5 block text-[10px] font-normal text-ink-muted">Pro-rata first month</span>}
                 </td>
                 <td className="px-4 py-2.5 tabular-nums text-ink/60">{new Date(row.dueDate).toLocaleDateString("en-GB")}</td>
                 <td className="px-4 py-2.5">

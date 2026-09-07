@@ -103,7 +103,7 @@ export default async function AdminCommercialPage() {
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Commercial</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         Trials, Ovalball subscriptions, credits and referrals across every club. This is what clubs
         pay Ovalball &mdash; never what a club&rsquo;s own members pay the club.
       </p>
@@ -181,7 +181,7 @@ export default async function AdminCommercialPage() {
         <h2 className="font-display text-xl text-ink">Every club</h2>
 
         {clubs.length === 0 ? (
-          <p className="mt-3 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/55">
+          <p className="mt-3 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">
             No club has started a trial or taken a plan yet.
           </p>
         ) : (
@@ -190,7 +190,7 @@ export default async function AdminCommercialPage() {
             <div className="mt-3 hidden overflow-x-auto rounded-lg border border-ink/10 bg-white md:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-ink/10 text-left text-xs text-ink/55">
+                  <tr className="border-b border-ink/10 text-left text-xs text-ink-muted">
                     <th scope="col" className="px-5 py-3 font-medium">Club</th>
                     <th scope="col" className="px-5 py-3 font-medium">Plan</th>
                     <th scope="col" className="px-5 py-3 font-medium">Status</th>

@@ -139,7 +139,7 @@ export default async function ClubFinanceDashboardPage({ searchParams }: { searc
       </div>
 
       <div className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Subscribers -- {billingPeriod.slice(0, 7)}</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Subscribers -- {billingPeriod.slice(0, 7)}</h2>
         <div className="mt-3">
           <SubscriberTable clubId={clubId} rows={rows} canManageEnrolment={canManageEnrolment} canManagePayments={canManagePayments} />
         </div>
@@ -151,7 +151,7 @@ export default async function ClubFinanceDashboardPage({ searchParams }: { searc
 function MetricCard({ label, value, tone }: { label: string; value: string; tone?: "success" | "warning" }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-4">
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">{label}</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{label}</p>
       <p className={`mt-1.5 text-2xl font-medium tabular-nums ${tone === "success" ? "text-forest-800" : tone === "warning" ? "text-amber-700" : "text-ink"}`}>{value}</p>
     </div>
   )

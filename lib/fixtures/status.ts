@@ -58,9 +58,9 @@ export const FIXTURE_STATUS_BADGE_CLASS: Record<FixtureStatus, string> = {
   Planned: "bg-amber-500/12 text-amber-700",
   Booked: "bg-pitch-600/12 text-forest-800",
   "To Be Determined": "bg-amber-500/12 text-amber-700",
-  "Annual Holiday": "bg-ink/8 text-ink/50",
-  Festival: "bg-ink/8 text-ink/50",
-  "Lancashire Cup": "bg-ink/8 text-ink/50",
-  Cancelled: "bg-destructive/10 text-destructive",
+  "Annual Holiday": "bg-ink/8 text-ink-muted",
+  Festival: "bg-ink/8 text-ink-muted",
+  "Lancashire Cup": "bg-ink/8 text-ink-muted",
+  Cancelled: "bg-destructive/10 text-destructive-text",
   Completed: "bg-pitch-600/12 text-forest-800",
 }

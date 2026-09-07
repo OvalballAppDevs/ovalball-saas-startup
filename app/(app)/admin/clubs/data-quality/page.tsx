@@ -30,7 +30,7 @@ const TILES: { key: keyof Awaited<ReturnType<typeof getDataQualityCounts>>; labe
 const TONE_CLASS: Record<string, string> = {
   good: "text-forest-800",
   warn: "text-amber-700",
-  bad: "text-destructive",
+  bad: "text-destructive-text",
 }
 
 /**
@@ -67,7 +67,7 @@ export default async function ClubDirectoryDataQualityPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/clubs" className="inline-flex items-center gap-1 text-sm text-ink/50 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400">
+      <Link href="/admin/clubs" className="inline-flex items-center gap-1 text-sm text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400">
         <ChevronLeft className="size-4" />
         Club management
       </Link>
@@ -79,7 +79,7 @@ export default async function ClubDirectoryDataQualityPage() {
       <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-display-l text-ink">Club Directory data quality</h1>
-          <p className="mt-2 max-w-2xl text-sm text-ink/55">
+          <p className="mt-2 max-w-2xl text-sm text-ink-muted">
             Exact counts against the canonical directory of {counts.total} clubs. Nothing here is estimated or rounded.
           </p>
         </div>
@@ -87,14 +87,14 @@ export default async function ClubDirectoryDataQualityPage() {
       </div>
       {!canRunVerification && recentRuns.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Recent verification runs</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Recent verification runs</p>
           <ul className="mt-2 flex flex-col gap-1.5">
             {recentRuns.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink/8 bg-white px-3 py-2 text-xs">
                 <span className="text-ink/70">
                   {r.scope} &middot; {new Date(r.startedAt).toLocaleString()}
                 </span>
-                <span className="text-ink/50">
+                <span className="text-ink-muted">
                   {r.status} &middot; {r.processedRecords}/{r.totalRecords} checked
                 </span>
               </li>
@@ -107,21 +107,21 @@ export default async function ClubDirectoryDataQualityPage() {
         {TILES.map((tile) => (
           <div key={tile.key} className="rounded-lg border border-ink/10 bg-white px-4 py-3.5">
             <p className={`text-2xl font-semibold ${tile.tone ? TONE_CLASS[tile.tone] : "text-ink"}`}>{counts[tile.key]}</p>
-            <p className="mt-0.5 text-xs text-ink/50">{tile.label}</p>
+            <p className="mt-0.5 text-xs text-ink-muted">{tile.label}</p>
           </div>
         ))}
       </div>
 
       <div className="mt-10">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
           Research proposals awaiting review ({proposals.length})
         </p>
-        <p className="mt-1 text-xs text-ink/45">
+        <p className="mt-1 text-xs text-ink-muted">
           Every proposal here is evidence to review, not an applied change -- accepting one updates the canonical
           directory, rejecting one changes nothing.
         </p>
         {proposals.length === 0 ? (
-          <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink/50">
+          <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink-muted">
             No pending research proposals. Nothing has been staged yet.
           </p>
         ) : (

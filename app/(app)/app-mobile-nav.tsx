@@ -134,7 +134,7 @@ export function AppMobileNav({
                 <SheetTitle className="truncate font-display text-lg tracking-wide text-chalk">
                   {identity.nameLabel}
                 </SheetTitle>
-                <p className="truncate text-xs text-white/50">{identity.subLabel}</p>
+                <p className="truncate text-xs text-white/60">{identity.subLabel}</p>
               </div>
 
               {/* Gear and close are siblings with a real gap. Both are 44px
@@ -148,7 +148,7 @@ export function AppMobileNav({
                       href={settingsLink.href}
                       aria-label={settingsLink.ariaLabel}
                       title={settingsLink.ariaLabel}
-                      className="flex size-11 shrink-0 items-center justify-center rounded-md text-white/55 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
+                      className="flex size-11 shrink-0 items-center justify-center rounded-md text-white/60 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
                     />
                   }
                 >
@@ -162,7 +162,7 @@ export function AppMobileNav({
                   <button
                     type="button"
                     aria-label="Close menu"
-                    className="flex size-11 shrink-0 items-center justify-center rounded-md text-white/55 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
+                    className="flex size-11 shrink-0 items-center justify-center rounded-md text-white/60 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
                   />
                 }
               >
@@ -180,7 +180,7 @@ export function AppMobileNav({
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
           {contexts.length > 1 && (
             <div className="border-b border-white/10 px-2 pt-3 pb-2">
-              <p className="px-3 pb-1 text-xs font-medium tracking-wide text-white/40 uppercase">Switch context</p>
+              <p className="px-3 pb-1 text-xs font-medium tracking-wide text-white/60 uppercase">Switch context</p>
               <div className="flex flex-col gap-1">
                 {contexts.map((c) => (
                   <SheetClose
@@ -200,7 +200,7 @@ export function AppMobileNav({
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{c.label}</span>
-                      <span className="block text-xs text-white/40">{c.roleLabel}</span>
+                      <span className="block text-xs text-white/60">{c.roleLabel}</span>
                     </span>
                     {c.key === activeKey && <Check className="size-4 shrink-0" />}
                   </SheetClose>

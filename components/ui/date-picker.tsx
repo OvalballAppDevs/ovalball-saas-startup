@@ -113,11 +113,11 @@ export function DatePicker({
         aria-expanded={open}
         className={cn(
           "flex h-10 w-full items-center gap-2 rounded-lg border border-ink/15 bg-white px-2.5 text-left text-sm outline-none focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400",
-          !value && "text-ink/40",
+          !value && "text-ink-muted",
           className
         )}
       >
-        <CalendarIcon className="size-4 shrink-0 text-ink/40" />
+        <CalendarIcon className="size-4 shrink-0 text-ink-muted" />
         <span className="truncate">{value ? formatFullDate(value) : placeholder}</span>
       </button>
       {open && (
@@ -127,7 +127,7 @@ export function DatePicker({
               type="button"
               aria-label="Previous month"
               onClick={() => setMonthAnchor((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-              className="flex size-7 items-center justify-center rounded-md text-ink/50 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+              className="flex size-7 items-center justify-center rounded-md text-ink-muted outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
               <ChevronLeft className="size-4" />
             </button>
@@ -136,12 +136,12 @@ export function DatePicker({
               type="button"
               aria-label="Next month"
               onClick={() => setMonthAnchor((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-              className="flex size-7 items-center justify-center rounded-md text-ink/50 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+              className="flex size-7 items-center justify-center rounded-md text-ink-muted outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
               <ChevronRight className="size-4" />
             </button>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase tracking-wide text-ink/40">
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase tracking-wide text-ink-muted">
             {WEEKDAY_LABELS.map((label) => (
               <div key={label}>{label}</div>
             ))}
@@ -165,11 +165,11 @@ export function DatePicker({
                   aria-current={isSelected ? "date" : undefined}
                   className={cn(
                     "flex size-8 items-center justify-center rounded-md text-sm outline-none focus-visible:ring-2 focus-visible:ring-pitch-400",
-                    !inMonth && "text-ink/25 hover:bg-ink/5",
+                    !inMonth && "text-ink-muted hover:bg-ink/5",
                     inMonth && !isSelected && "text-ink hover:bg-ink/5",
                     isToday && !isSelected && "font-semibold text-pitch-600",
                     isSelected && "bg-pitch-600 font-semibold text-white hover:bg-pitch-600",
-                    isOutOfRange && "cursor-not-allowed text-ink/15 hover:bg-transparent"
+                    isOutOfRange && "cursor-not-allowed text-ink-muted hover:bg-transparent"
                   )}
                 >
                   {d.getDate()}

@@ -57,11 +57,11 @@ export default async function PaymentServicesPage() {
                       approved GoCardless brand asset exists in this project,
                       and redrawing one would misuse their mark. */}
                   <div className="mt-8 inline-flex flex-col gap-1 rounded-lg border border-white/12 bg-white/[0.03] px-5 py-4">
-                    <span className="text-[11px] tracking-[0.08em] text-white/40 uppercase">
+                    <span className="text-[11px] tracking-[0.08em] text-white/60 uppercase">
                       Direct Debit collection by
                     </span>
                     <span className="font-display text-xl text-white">GoCardless</span>
-                    <span className="mt-1 text-xs text-white/50">
+                    <span className="mt-1 text-xs text-white/60">
                       Ovalball integrates with GoCardless. Each club connects its own GoCardless
                       account.
                     </span>
@@ -71,12 +71,12 @@ export default async function PaymentServicesPage() {
 
               <Reveal index={1}>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 md:p-8">
-                  <p className="text-xs tracking-[0.06em] text-white/45 uppercase">
+                  <p className="text-xs tracking-[0.06em] text-white/60 uppercase">
                     Membership overview
                   </p>
                   <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-5">
                     <div>
-                      <dt className="text-[11px] tracking-[0.04em] text-white/40 uppercase">
+                      <dt className="text-[11px] tracking-[0.04em] text-white/60 uppercase">
                         Active members
                       </dt>
                       <dd className="mt-1 font-display text-3xl tabular-nums text-white">
@@ -84,7 +84,7 @@ export default async function PaymentServicesPage() {
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] tracking-[0.04em] text-white/40 uppercase">
+                      <dt className="text-[11px] tracking-[0.04em] text-white/60 uppercase">
                         Expected this month
                       </dt>
                       <dd className="mt-1 font-display text-3xl tabular-nums text-white">
@@ -92,7 +92,7 @@ export default async function PaymentServicesPage() {
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] tracking-[0.04em] text-white/40 uppercase">
+                      <dt className="text-[11px] tracking-[0.04em] text-white/60 uppercase">
                         Collected
                       </dt>
                       <dd className="mt-1 font-display text-3xl tabular-nums text-pitch-400">
@@ -100,7 +100,7 @@ export default async function PaymentServicesPage() {
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] tracking-[0.04em] text-white/40 uppercase">
+                      <dt className="text-[11px] tracking-[0.04em] text-white/60 uppercase">
                         Needs attention
                       </dt>
                       <dd className="mt-1 font-display text-3xl tabular-nums text-amber-300">
@@ -108,7 +108,7 @@ export default async function PaymentServicesPage() {
                       </dd>
                     </div>
                   </dl>
-                  <p className="mt-6 text-[11px] tracking-[0.06em] text-white/35 uppercase">
+                  <p className="mt-6 text-[11px] tracking-[0.06em] text-white/60 uppercase">
                     Product preview &mdash; example data
                   </p>
                 </div>
@@ -180,7 +180,7 @@ export default async function PaymentServicesPage() {
                   </p>
                 </Reveal>
                 <Reveal index={2}>
-                  <p className="mt-4 text-base text-white/55">
+                  <p className="mt-4 text-base text-white/60">
                     Setting it up takes a few minutes. The collection itself follows Direct Debit
                     banking timings, so a membership becomes active once the arrangement is
                     confirmed by the provider &mdash; not the instant the form is submitted.
@@ -193,7 +193,7 @@ export default async function PaymentServicesPage() {
                     claim. */}
                 <Reveal index={3}>
                   <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.03] p-5">
-                    <p className="text-sm font-medium tracking-[0.06em] text-white/55 uppercase">
+                    <p className="text-sm font-medium tracking-[0.06em] text-white/60 uppercase">
                       Families with more than one player
                     </p>
                     <ul className="mt-3 flex flex-col gap-2">
@@ -201,7 +201,7 @@ export default async function PaymentServicesPage() {
                         <li key={member.player} className="flex items-center justify-between gap-3 text-sm">
                           <span className="text-white/85">
                             {member.player} &middot;{" "}
-                            <span className="text-white/50">{member.ageGroup}</span>
+                            <span className="text-white/60">{member.ageGroup}</span>
                           </span>
                           <span className="tabular-nums text-white/70">{member.monthly} / month</span>
                         </li>
@@ -245,7 +245,7 @@ export default async function PaymentServicesPage() {
                   </p>
                 </Reveal>
                 <Reveal index={2}>
-                  <p className="mt-4 text-base text-white/55">
+                  <p className="mt-4 text-base text-white/60">
                     Direct Debit collections follow banking scheme processing times, and a
                     collection can still fail. Ovalball&rsquo;s job is to make sure the club can see
                     exactly where each one stands.
@@ -255,7 +255,7 @@ export default async function PaymentServicesPage() {
 
               <Reveal index={1}>
                 <div className="rounded-xl border border-white/10 bg-white/[0.035] p-6 md:p-7">
-                  <p className="text-sm font-medium tracking-[0.06em] text-white/55 uppercase">
+                  <p className="text-sm font-medium tracking-[0.06em] text-white/60 uppercase">
                     How a collection travels
                   </p>
                   <ol className="mt-5 flex flex-col gap-0">
@@ -284,7 +284,7 @@ export default async function PaymentServicesPage() {
                       </li>
                     ))}
                   </ol>
-                  <p className="mt-2 text-xs text-white/40">
+                  <p className="mt-2 text-xs text-white/60">
                     GoCardless performs the payment processing. Ovalball provides the membership
                     administration and the visibility.
                   </p>
@@ -342,14 +342,14 @@ export default async function PaymentServicesPage() {
             <Reveal index={2}>
               <div className="mt-10 max-w-md rounded-xl border border-ink/10 bg-white p-6">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium tracking-[0.06em] text-ink/50 uppercase">
+                  <p className="text-sm font-medium tracking-[0.06em] text-ink-muted uppercase">
                     Member account
                   </p>
-                  <span className="shrink-0 rounded-full border border-ink/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-ink/40 uppercase">
+                  <span className="shrink-0 rounded-full border border-ink/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-ink-muted uppercase">
                     Product preview
                   </span>
                 </div>
-                <p className="mt-4 text-sm text-ink/50">Membership</p>
+                <p className="mt-4 text-sm text-ink-muted">Membership</p>
                 <p className="text-base font-medium text-ink">Junior Membership &middot; £25 / month</p>
 
                 <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
@@ -360,7 +360,7 @@ export default async function PaymentServicesPage() {
                   </p>
                 </div>
 
-                <p className="mt-4 text-sm text-ink/55">
+                <p className="mt-4 text-sm text-ink-muted">
                   Shown to the member and to Club Admins with finance permission. No bank details,
                   card numbers or provider references are displayed.
                 </p>
@@ -407,7 +407,7 @@ export default async function PaymentServicesPage() {
               </div>
             </Reveal>
             <Reveal index={3}>
-              <p className="mt-6 max-w-3xl text-sm text-white/50">
+              <p className="mt-6 max-w-3xl text-sm text-white/60">
                 What information is involved, and who processes it, is set out in the{" "}
                 <Link href="/legal/privacy" className={DARK_LINK_CLASS}>
                   Privacy Notice
@@ -456,7 +456,7 @@ export default async function PaymentServicesPage() {
               </div>
             </Reveal>
             <Reveal index={3}>
-              <p className="mt-8 text-sm text-ink/50">
+              <p className="mt-8 text-sm text-ink-muted">
                 Organising the games themselves?{" "}
                 <Link href="/game-management" className={LINK_CLASS}>
                   See Game Management

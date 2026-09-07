@@ -88,7 +88,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/teams" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href="/teams" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Teams
       </Link>
@@ -96,7 +96,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Team</p>
         {!team.active && (
-          <span className="rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-medium text-ink/50">Folded</span>
+          <span className="rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-medium text-ink-muted">Folded</span>
         )}
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">{team.display_name}</h1>
@@ -146,7 +146,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       )}
 
       {!isClubAdminAnywhere(ctx) && !ctx.isSiteAdmin && (
-        <p className="mt-6 text-xs text-ink/40">Only this club&apos;s Club Admin can edit team details or assign people.</p>
+        <p className="mt-6 text-xs text-ink-muted">Only this club&apos;s Club Admin can edit team details or assign people.</p>
       )}
     </div>
   )

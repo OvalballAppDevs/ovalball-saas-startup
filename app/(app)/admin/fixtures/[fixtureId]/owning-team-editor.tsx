@@ -77,7 +77,7 @@ export function OwningTeamEditor({
         render={
           <button
             type="button"
-            className="inline-flex items-center gap-1 text-xs font-medium text-ink/45 outline-none hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="inline-flex items-center gap-1 text-xs font-medium text-ink-muted outline-none hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
           />
         }
       >
@@ -94,7 +94,7 @@ export function OwningTeamEditor({
           </DialogDescription>
         </DialogHeader>
         {loading ? (
-          <p className="text-sm text-ink/45">Loading this club&apos;s teams&hellip;</p>
+          <p className="text-sm text-ink-muted">Loading this club&apos;s teams&hellip;</p>
         ) : (
           <select
             aria-label={`${sideLabel} team`}
@@ -109,7 +109,7 @@ export function OwningTeamEditor({
             ))}
           </select>
         )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-destructive-text">{error}</p>}
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>Cancel</DialogClose>
           <Button type="button" className="h-9" disabled={working || loading} onClick={handleConfirm}>

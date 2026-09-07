@@ -60,7 +60,7 @@ export function PartnerWall() {
                     )}
                     <span className="text-sm font-medium text-ink/70">{club.name}</span>
                     {club.description && (
-                      <span className="text-xs text-ink/45">{club.description}</span>
+                      <span className="text-xs text-ink-muted">{club.description}</span>
                     )}
                   </li>
                 )

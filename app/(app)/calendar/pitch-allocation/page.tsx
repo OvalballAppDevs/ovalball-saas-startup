@@ -70,7 +70,7 @@ export default async function PitchAllocationPage({ searchParams }: { searchPara
       <div>
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">{activeContext.label}</p>
         <h1 className="mt-2 font-display text-display-l text-ink">Pitch Allocation</h1>
-        <p className="mt-1 text-sm text-ink/55">Home fixtures only -- part of Calendar, not a separate system.</p>
+        <p className="mt-1 text-sm text-ink-muted">Home fixtures only -- part of Calendar, not a separate system.</p>
       </div>
 
       <PitchAllocationBoard clubId={activeContext.id} dateIso={dateIso} initialBoard={board} />

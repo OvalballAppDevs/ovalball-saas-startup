@@ -121,7 +121,7 @@ export default async function AdminClubDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/clubs" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href="/admin/clubs" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Club management
       </Link>
@@ -137,12 +137,12 @@ export default async function AdminClubDetailPage({
             // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage public URL, avoids next/image's remote-pattern config for a small thumbnail
             <img src={logoUrl} alt="" className="size-full object-contain" />
           ) : (
-            <span className="text-xs text-ink/30">No crest</span>
+            <span className="text-xs text-ink-muted">No crest</span>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-display-l text-ink">{directory.name}</h1>
-          <p className="mt-1 text-sm text-ink/55">
+          <p className="mt-1 text-sm text-ink-muted">
             {directory.rugby_code === "union" ? "Rugby Union" : "Rugby League"}
             {[directory.town, directory.county].filter(Boolean).length > 0
               ? ` · ${[directory.town, directory.county].filter(Boolean).join(", ")}`
@@ -155,10 +155,10 @@ export default async function AdminClubDetailPage({
               <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink/60">Unclaimed</span>
             )}
             {!directory.active && (
-              <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink/50">Directory inactive</span>
+              <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink-muted">Directory inactive</span>
             )}
             {club?.status === "suspended" && (
-              <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">Suspended</span>
+              <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive-text">Suspended</span>
             )}
           </div>
         </div>
@@ -373,7 +373,7 @@ function OverviewSection({
         )}
       </div>
       {!club && (
-        <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-4 text-sm text-ink/55">
+        <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-4 text-sm text-ink-muted">
           This club exists only in the canonical directory &mdash; nobody has claimed it on Ovalball yet. It will
           activate automatically once a claim for it is approved.
         </p>
@@ -385,7 +385,7 @@ function OverviewSection({
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-4">
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">{label}</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{label}</p>
       <p className="mt-1 text-sm text-ink capitalize">{value}</p>
     </div>
   )

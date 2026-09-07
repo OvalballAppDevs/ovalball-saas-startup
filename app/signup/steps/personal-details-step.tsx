@@ -62,8 +62,8 @@ export function PersonalDetailsStep({ value, onChange }: PersonalDetailsStepProp
       />
 
       <div className="mt-2 border-t border-ink/10 pt-6">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">
-          Your address <span className="normal-case text-ink/35">(optional)</span>
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
+          Your address <span className="normal-case text-ink-muted">(optional)</span>
         </p>
 
         <div className="mt-4 flex flex-col gap-4">

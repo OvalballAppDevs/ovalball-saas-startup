@@ -28,10 +28,10 @@ export function MembershipJourneyDemo() {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.035] p-6 md:p-8">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-medium tracking-[0.06em] text-white/55 uppercase">
+        <h3 className="text-sm font-medium tracking-[0.06em] text-white/60 uppercase">
           Setting up a membership
         </h3>
-        <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/40 uppercase">
+        <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/60 uppercase">
           Product preview
         </span>
       </div>
@@ -58,7 +58,7 @@ export function MembershipJourneyDemo() {
                     ? "bg-pitch-600 text-ink"
                     : active
                       ? "bg-pitch-600/30 text-pitch-400"
-                      : "bg-white/10 text-white/45"
+                      : "bg-white/10 text-white/60"
                 )}
               >
                 {done ? <Check className="size-3" strokeWidth={3} aria-hidden="true" /> : i + 1}
@@ -75,15 +75,15 @@ export function MembershipJourneyDemo() {
       </ol>
 
       <div className="mt-6 rounded-lg border border-white/10 bg-forest-950/60 px-5 py-4">
-        <p className="text-[11px] tracking-[0.06em] text-white/40 uppercase">Player</p>
+        <p className="text-[11px] tracking-[0.06em] text-white/60 uppercase">Player</p>
         <p className="mt-1 text-sm text-white">
           {CHILD.player} &middot; {CHILD.ageGroup}
         </p>
-        <p className="mt-3 text-[11px] tracking-[0.06em] text-white/40 uppercase">Membership</p>
+        <p className="mt-3 text-[11px] tracking-[0.06em] text-white/60 uppercase">Membership</p>
         <p className="mt-1 text-sm text-white">
           {CHILD.membership} &middot; {CHILD.monthly} / month
         </p>
-        <p className="mt-3 text-[11px] tracking-[0.06em] text-white/40 uppercase">Status</p>
+        <p className="mt-3 text-[11px] tracking-[0.06em] text-white/60 uppercase">Status</p>
         <p
           className={cn(
             "mt-1 text-sm font-medium",
@@ -114,7 +114,7 @@ export function MembershipJourneyDemo() {
         )}
       </div>
 
-      <p role="status" aria-atomic="true" className="mt-3 min-h-5 text-xs text-white/45">
+      <p role="status" aria-atomic="true" className="mt-3 min-h-5 text-xs text-white/60">
         Step {stage + 1} of {MEMBERSHIP_JOURNEY.length}: {current.label}. {DEMO_PARENT} is the payer
         in this example.
       </p>

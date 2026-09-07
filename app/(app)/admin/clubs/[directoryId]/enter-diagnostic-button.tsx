@@ -33,7 +33,7 @@ export function EnterDiagnosticButton({ clubId }: { clubId: string }) {
         <ShieldAlert className="size-3.5" />
         {pending ? "Opening…" : "View as this club (diagnostic)"}
       </Button>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive-text">{error}</p>}
     </div>
   )
 }

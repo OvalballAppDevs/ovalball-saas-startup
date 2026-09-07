@@ -82,7 +82,7 @@ export function LogoManager({
           // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage public URL, avoids next/image's remote-pattern config for a small thumbnail
           <img src={logoUrl} alt="" className="size-full object-contain" onError={() => setImgBroken(true)} />
         ) : (
-          <span className="text-xs text-ink/30">{logoUrl ? "Couldn't load" : "No crest"}</span>
+          <span className="text-xs text-ink-muted">{logoUrl ? "Couldn't load" : "No crest"}</span>
         )}
         <span className="absolute inset-0 flex items-center justify-center bg-forest-950/0 text-xs font-medium text-white opacity-0 transition-all group-hover/crest:bg-forest-950/70 group-hover/crest:opacity-100 group-focus-visible/crest:bg-forest-950/70 group-focus-visible/crest:opacity-100">
           {working ? "Working…" : "Change crest"}
@@ -101,16 +101,16 @@ export function LogoManager({
             </Button>
           )}
           {logoUrl && (
-            <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink/55">
+            <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink-muted">
               {provenance === "uploaded" ? "Ovalball-uploaded" : provenance === "canonical" ? "Canonical (Site Admin)" : "Imported"}
             </span>
           )}
         </div>
-        <p className="mt-1.5 text-xs text-ink/45">
+        <p className="mt-1.5 text-xs text-ink-muted">
           {logoUrl ? "Click the crest to replace it. " : "Click the square to upload one. "}PNG, JPEG, WebP, or SVG. Up to 2MB.
           {!clubId && " This canonical crest is visible everywhere this club appears, even before it activates on Ovalball."}
         </p>
-        {error && <p className="mt-1.5 text-sm text-destructive">{error}</p>}
+        {error && <p className="mt-1.5 text-sm text-destructive-text">{error}</p>}
         <input
           ref={fileInputRef}
           type="file"

@@ -61,7 +61,7 @@ export default async function AdminSeasonsPage() {
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Seasons</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         Union and League run different campaigns, so each season row carries its own rugby code and, where relevant,
         a real pre-season start date &mdash; never a hard-coded day count that would misfire across a leap year.
       </p>
@@ -72,7 +72,7 @@ export default async function AdminSeasonsPage() {
           <CreateSeasonForm />
         </div>
       ) : (
-        <div className="mt-8 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-4 text-sm text-ink/55">
+        <div className="mt-8 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-4 text-sm text-ink-muted">
           You can view seasons, but adding, editing, archiving, or deleting one requires Seasons management access. Ask a Full Site Admin to
           grant it from Site Admin Management.
         </div>
@@ -81,7 +81,7 @@ export default async function AdminSeasonsPage() {
       <div className="mt-8 overflow-x-auto rounded-lg border border-ink/10 bg-white">
         <table className="w-full min-w-[560px] text-sm">
           <thead>
-            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-wide text-ink/50 uppercase">
+            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-wide text-ink-muted uppercase">
               <th scope="col" className="px-4 py-3">
                 Season name
               </th>
@@ -128,7 +128,7 @@ export default async function AdminSeasonsPage() {
                     <td className="px-4 py-3 font-medium text-ink">
                       {s.name}
                       {s.is_regression_fixture && (
-                        <span className="ml-2 rounded border border-ink/15 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink/45 uppercase">
+                        <span className="ml-2 rounded border border-ink/15 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink-muted uppercase">
                           Regression only
                         </span>
                       )}
@@ -156,7 +156,7 @@ export default async function AdminSeasonsPage() {
                 ))}
             {seasons.length === 0 && (
               <tr>
-                <td colSpan={canManageSeasons ? 6 : 5} className="px-4 py-8 text-center text-sm text-ink/45">
+                <td colSpan={canManageSeasons ? 6 : 5} className="px-4 py-8 text-center text-sm text-ink-muted">
                   No seasons yet.
                 </td>
               </tr>

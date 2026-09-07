@@ -39,7 +39,7 @@ export function ProgressIndicator({ current }: { current: SignupStep }) {
                     isDone && "border-pitch-600 bg-pitch-600 text-white",
                     isCurrent &&
                       "scale-110 border-forest-900 bg-forest-900 text-white shadow-[0_0_0_4px_rgba(50,166,101,0.18)]",
-                    !isDone && !isCurrent && "border-ink/15 bg-white text-ink/40"
+                    !isDone && !isCurrent && "border-ink/15 bg-white text-ink-muted"
                   )}
                 >
                   {isDone ? <Check className="size-4" strokeWidth={3} /> : index + 1}
@@ -47,7 +47,7 @@ export function ProgressIndicator({ current }: { current: SignupStep }) {
                 <span
                   className={cn(
                     "hidden text-xs font-medium tracking-[0.03em] whitespace-nowrap sm:block",
-                    isCurrent ? "text-ink" : isDone ? "text-ink/55" : "text-ink/35"
+                    isCurrent ? "text-ink" : isDone ? "text-ink-muted" : "text-ink-muted"
                   )}
                 >
                   {STEP_LABELS[step]}
@@ -69,7 +69,7 @@ export function ProgressIndicator({ current }: { current: SignupStep }) {
         })}
       </ol>
 
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase sm:hidden">
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase sm:hidden">
         Step {currentIndex + 1} of {STEP_ORDER.length} · {STEP_LABELS[current]}
       </p>
     </div>

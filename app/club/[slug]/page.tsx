@@ -128,7 +128,7 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
               {directory ? RUGBY_CODE_LABEL[directory.rugby_code] ?? directory.rugby_code : ""}
             </p>
             <h1 className="mt-1 font-display text-display-l text-ink">{directory?.name}</h1>
-            <p className="mt-1 text-sm text-ink/50">
+            <p className="mt-1 text-sm text-ink-muted">
               {[directory?.town, directory?.county, directory?.nation].filter(Boolean).join(", ")}
             </p>
           </div>
@@ -167,7 +167,7 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
 
         {(club.show_home_ground && directory?.home_ground) || (club.show_address && club.address_display) || (club.show_postcode && directory?.postcode) ? (
           <div className="mt-8 rounded-lg border border-ink/10 bg-white p-5">
-            <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Home ground</p>
+            <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Home ground</p>
             {club.show_home_ground && directory?.home_ground && <p className="mt-1.5 text-sm font-medium text-ink">{directory.home_ground}</p>}
             {club.show_address && club.address_display && <p className="mt-0.5 text-sm text-ink/60">{club.address_display}</p>}
             {club.show_postcode && directory?.postcode && <p className="mt-0.5 text-sm text-ink/60">{directory.postcode}</p>}
@@ -176,7 +176,7 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
 
         {teams && teams.length > 0 && (
           <div className="mt-8">
-            <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Teams</p>
+            <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Teams</p>
             <ul className="mt-3 flex flex-wrap gap-2">
               {teams.map((t) => (
                 <li key={t.id} className="rounded-full border border-ink/10 bg-white px-3 py-1.5 text-sm text-ink/75">
@@ -189,7 +189,7 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
 
         {clubFixtures.length > 0 && (
           <div className="mt-8">
-            <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Upcoming fixtures</p>
+            <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Upcoming fixtures</p>
             <ul className="mt-3 flex flex-col gap-2">
               {clubFixtures.map((f) => (
                 <li key={f.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3">
@@ -197,7 +197,7 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
                     <p className="truncate text-sm font-medium text-ink">
                       {f.teams?.display_name} {f.home_away === "Home" ? "vs" : f.home_away === "Away" ? "at" : "v"} {f.raw_opposition_text}
                     </p>
-                    <p className="text-xs text-ink/45">
+                    <p className="text-xs text-ink-muted">
                       {formatDate(f.kickoff_date)}
                       {f.kickoff_time ? ` · ${f.kickoff_time.slice(0, 5)}` : ""}
                     </p>
@@ -210,12 +210,12 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
 
         {contacts && contacts.length > 0 && (
           <div className="mt-8">
-            <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Contact</p>
+            <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Contact</p>
             <ul className="mt-3 flex flex-col gap-2">
               {contacts.map((c, i) => (
                 <li key={i} className="rounded-lg border border-ink/10 bg-white px-4 py-3">
                   <p className="text-sm font-medium text-ink">
-                    {c.name} <span className="text-ink/40">&middot; {CONTACT_ROLE_LABEL[c.role] ?? c.role}</span>
+                    {c.name} <span className="text-ink-muted">&middot; {CONTACT_ROLE_LABEL[c.role] ?? c.role}</span>
                   </p>
                   <p className="mt-0.5 text-sm text-ink/60">{[c.phone, c.email].filter(Boolean).join(" · ")}</p>
                 </li>

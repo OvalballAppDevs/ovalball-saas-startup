@@ -28,7 +28,7 @@ import {
  * Everything is in-memory; no network request is made from this component.
  */
 const PANEL_CLASS = "rounded-xl border border-white/10 bg-white/[0.035] p-5 md:p-6"
-const PANEL_TITLE_CLASS = "flex items-center gap-2 text-sm font-medium tracking-[0.06em] text-white/55 uppercase"
+const PANEL_TITLE_CLASS = "flex items-center gap-2 text-sm font-medium tracking-[0.06em] text-white/60 uppercase"
 
 export function ConnectedFixtureDemo() {
   const [selectedId, setSelectedId] = useState(JOURNEY_FIXTURES[0].id)
@@ -106,7 +106,7 @@ export function ConnectedFixtureDemo() {
                     </div>
                     <StatusChip status={fixture.status} />
                   </div>
-                  <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/50">
+                  <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/60">
                     <span className="flex items-center gap-1">
                       <Clock className="size-3" aria-hidden="true" />
                       {fixture.shortDate}, {fixture.kickoff}
@@ -121,7 +121,7 @@ export function ConnectedFixtureDemo() {
               )
             })}
           </div>
-          <p className="mt-4 text-xs text-white/40">
+          <p className="mt-4 text-xs text-white/60">
             Select a fixture &mdash; every panel below follows it.
           </p>
         </div>
@@ -138,7 +138,7 @@ export function ConnectedFixtureDemo() {
             </h3>
             <DemoBadge />
           </div>
-          <p className="mt-3 text-xs text-white/45">
+          <p className="mt-3 text-xs text-white/60">
             {selected.ourShort} &middot; {selected.opponentShort}
           </p>
 
@@ -148,7 +148,7 @@ export function ConnectedFixtureDemo() {
                 key={i}
                 className={cn("flex flex-col gap-1", message.side === "ours" ? "items-end" : "items-start")}
               >
-                <span className="text-[11px] text-white/40">{message.from}</span>
+                <span className="text-[11px] text-white/60">{message.from}</span>
                 <p
                   className={cn(
                     "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm",
@@ -169,7 +169,7 @@ export function ConnectedFixtureDemo() {
               Fixture confirmed
             </p>
           ) : (
-            <p className="mt-4 rounded-lg bg-white/[0.04] px-3.5 py-2.5 text-sm text-white/55">
+            <p className="mt-4 rounded-lg bg-white/[0.04] px-3.5 py-2.5 text-sm text-white/60">
               Awaiting a reply from {selected.opponentShort}.
             </p>
           )}
@@ -184,11 +184,11 @@ export function ConnectedFixtureDemo() {
             </h3>
             <DemoBadge />
           </div>
-          <p className="mt-3 text-xs text-white/45">September</p>
+          <p className="mt-3 text-xs text-white/60">September</p>
 
           <div className="mt-3 grid grid-cols-7 gap-1" role="presentation">
             {CALENDAR_WEEKDAYS.map((day, i) => (
-              <span key={i} className="pb-1 text-center text-[11px] text-white/35">
+              <span key={i} className="pb-1 text-center text-[11px] text-white/60">
                 {day}
               </span>
             ))}
@@ -206,7 +206,7 @@ export function ConnectedFixtureDemo() {
                       ? "bg-pitch-600 font-semibold text-ink"
                       : hasOther
                         ? "bg-white/[0.07] text-white/70"
-                        : "text-white/35"
+                        : "text-white/60"
                   )}
                 >
                   {day}
@@ -232,11 +232,11 @@ export function ConnectedFixtureDemo() {
             <p className="mt-0.5 text-sm text-white/65">
               {selected.ourShort} v {selected.opponentShort}
             </p>
-            <p className="mt-1 text-xs text-white/45">
+            <p className="mt-1 text-xs text-white/60">
               {selected.venue} &middot; {selected.competition}
             </p>
           </div>
-          <p className="mt-3 text-xs text-white/40">
+          <p className="mt-3 text-xs text-white/60">
             Authorised users see the fixture in the calendars relevant to their club, team or
             relationship.
           </p>
@@ -252,7 +252,7 @@ export function ConnectedFixtureDemo() {
             </h3>
             <DemoBadge />
           </div>
-          <p className="mt-3 text-xs text-white/45">{selected.venue}</p>
+          <p className="mt-3 text-xs text-white/60">{selected.venue}</p>
 
           {selected.homeOrAway === "Home" ? (
             <div className="mt-4 flex flex-1 flex-col gap-2.5">
@@ -269,13 +269,13 @@ export function ConnectedFixtureDemo() {
           ) : (
             <div className="mt-4 flex flex-1 flex-col justify-center rounded-lg border border-white/10 bg-white/[0.02] px-4 py-6 text-center">
               <p className="text-sm text-white/70">This is an away fixture.</p>
-              <p className="mt-1.5 text-sm text-white/45">
+              <p className="mt-1.5 text-sm text-white/60">
                 {selected.opponentShort} is hosting, so no pitch is allocated at{" "}
                 {JOURNEY_FIXTURES[0].venue}.
               </p>
             </div>
           )}
-          <p className="mt-3 text-xs text-white/40">
+          <p className="mt-3 text-xs text-white/60">
             Home fixtures flow into pitch planning, so the people responsible for the ground can
             see what needs accommodating.
           </p>
@@ -304,8 +304,8 @@ function PitchRow({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-medium tracking-[0.06em] text-white/50 uppercase">{pitch}</span>
-        <span className="text-xs text-white/50">{timeWindow}</span>
+        <span className="text-xs font-medium tracking-[0.06em] text-white/60 uppercase">{pitch}</span>
+        <span className="text-xs text-white/60">{timeWindow}</span>
       </div>
       <p className="mt-1.5 text-sm text-white">{title}</p>
     </div>
@@ -318,7 +318,7 @@ function StatusChip({ status }: { status: DemoJourneyFixture["status"] }) {
     <span
       className={cn(
         "flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-        confirmed ? "bg-pitch-600/15 text-pitch-400" : "bg-white/[0.08] text-white/55"
+        confirmed ? "bg-pitch-600/15 text-pitch-400" : "bg-white/[0.08] text-white/60"
       )}
     >
       {confirmed && <Check className="size-3" strokeWidth={3} aria-hidden="true" />}
@@ -330,7 +330,7 @@ function StatusChip({ status }: { status: DemoJourneyFixture["status"] }) {
 /** Quiet, not a watermark -- enough that this can't be mistaken for a live surface. */
 function DemoBadge() {
   return (
-    <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/40 uppercase">
+    <span className="shrink-0 rounded-full border border-white/12 px-2.5 py-1 text-[11px] tracking-[0.06em] text-white/60 uppercase">
       Product preview
     </span>
   )

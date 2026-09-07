@@ -57,7 +57,7 @@ export function ReleasePanel({
       ) : null}
 
       {releases.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/55">
+        <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">
           No release has been recorded yet. The first one can be the version running now.
         </p>
       ) : (
@@ -69,7 +69,7 @@ export function ReleasePanel({
                   <span className="font-mono text-sm text-ink">{release.version}</span>
                   {release.title ? <span className="text-sm text-ink/80">{release.title}</span> : null}
                 </p>
-                <p className="mt-1 text-xs text-ink/55">
+                <p className="mt-1 text-xs text-ink-muted">
                   <span className="font-mono">{release.buildSha ?? "no build recorded"}</span>
                   {" · "}
                   {formatDate(release.releasedAt)}
@@ -108,7 +108,7 @@ function PublishToggle({ release }: { release: ReleaseRow }) {
 
   return (
     <div className="flex items-center gap-2">
-      {error ? <span className="text-xs text-destructive">{error}</span> : null}
+      {error ? <span className="text-xs text-destructive-text">{error}</span> : null}
       <Button type="button" variant="ghost" className="h-8" disabled={busy} onClick={handleClick}>
         {busy ? "Saving…" : publishing ? "Publish" : "Unpublish"}
       </Button>
@@ -203,13 +203,13 @@ function RecordReleaseForm({
         />
         <span>
           Publish these notes now
-          <span className="block text-xs text-ink/55">
+          <span className="block text-xs text-ink-muted">
             Published notes are readable by anyone, including signed-out visitors.
           </span>
         </span>
       </label>
 
-      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-destructive-text">{error}</p> : null}
 
       <div className="mt-5 flex items-center gap-2">
         <Button type="button" className="h-9" disabled={!version.trim() || status === "saving"} onClick={handleSave}>

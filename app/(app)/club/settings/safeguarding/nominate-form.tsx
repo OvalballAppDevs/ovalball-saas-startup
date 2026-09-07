@@ -44,7 +44,7 @@ export function NominateOfficerForm({ clubId, officerType }: { clubId: string; o
   return (
     <div className="rounded-lg border border-dashed border-ink/20 bg-white/60 p-4">
       <p className="text-sm font-medium text-ink">Nominate {officerType === "primary" ? "Safeguarding Officer" : "Deputy Safeguarding Officer"}</p>
-      <p className="mt-1 text-xs text-ink/55">
+      <p className="mt-1 text-xs text-ink-muted">
         This adds a contact record only -- it doesn&rsquo;t give this person Ovalball access. Invite them separately once they&rsquo;re nominated.
       </p>
       <div className="mt-3 flex flex-col gap-2">
@@ -56,7 +56,7 @@ export function NominateOfficerForm({ clubId, officerType }: { clubId: string; o
           <Label htmlFor={`sg-email-${officerType}`}>Email</Label>
           <Input id={`sg-email-${officerType}`} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-destructive-text">{error}</p>}
         <div className="flex gap-2">
           <Button type="button" size="sm" disabled={working} onClick={handleSubmit}>
             Nominate

@@ -51,7 +51,7 @@ export function AdminDocumentsTable({ rows, canManage, query }: { rows: AdminDoc
       <div className="mt-4 overflow-x-auto rounded-lg border border-ink/10 bg-white">
         <table className="w-full min-w-[900px] text-sm">
           <thead>
-            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">
+            <tr className="border-b border-ink/10 text-left text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">
               <th scope="col" className="px-4 py-3">Document</th>
               <th scope="col" className="px-4 py-3">Club</th>
               <th scope="col" className="px-4 py-3">Category</th>
@@ -69,17 +69,17 @@ export function AdminDocumentsTable({ rows, canManage, query }: { rows: AdminDoc
               <tr key={r.id} className="border-b border-ink/6 last:border-0 hover:bg-ink/[0.02]">
                 <td className="px-4 py-3">
                   <p className="font-medium text-ink">{r.title}</p>
-                  <p className="text-xs text-ink/45">{r.filename}</p>
+                  <p className="text-xs text-ink-muted">{r.filename}</p>
                 </td>
                 <td className="px-4 py-3 text-ink/70">{r.clubName}</td>
                 <td className="px-4 py-3 text-ink/60">{r.category}</td>
-                <td className="px-4 py-3 text-ink/50">{r.mimeType.split("/")[1]}</td>
-                <td className="px-4 py-3 text-ink/50">{formatBytes(r.sizeBytes)}</td>
+                <td className="px-4 py-3 text-ink-muted">{r.mimeType.split("/")[1]}</td>
+                <td className="px-4 py-3 text-ink-muted">{formatBytes(r.sizeBytes)}</td>
                 <td className="px-4 py-3 text-ink/60">{r.uploadedByName}</td>
-                <td className="px-4 py-3 text-ink/50">{new Date(r.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</td>
-                <td className="px-4 py-3 text-ink/60">{r.usageCount > 0 ? `${r.usageCount} fixture${r.usageCount === 1 ? "" : "s"}` : <span className="text-ink/30">Unreferenced</span>}</td>
+                <td className="px-4 py-3 text-ink-muted">{new Date(r.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</td>
+                <td className="px-4 py-3 text-ink/60">{r.usageCount > 0 ? `${r.usageCount} fixture${r.usageCount === 1 ? "" : "s"}` : <span className="text-ink-muted">Unreferenced</span>}</td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${r.archived ? "bg-ink/8 text-ink/50" : "bg-mint-100 text-forest-900"}`}>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${r.archived ? "bg-ink/8 text-ink-muted" : "bg-mint-100 text-forest-900"}`}>
                     {r.archived ? "Archived" : "Active"}
                   </span>
                 </td>
@@ -104,7 +104,7 @@ export function AdminDocumentsTable({ rows, canManage, query }: { rows: AdminDoc
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && <div className="px-4 py-10 text-center text-sm text-ink/50">No documents match.</div>}
+        {rows.length === 0 && <div className="px-4 py-10 text-center text-sm text-ink-muted">No documents match.</div>}
       </div>
     </div>
   )

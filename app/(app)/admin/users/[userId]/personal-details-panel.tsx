@@ -39,24 +39,24 @@ export function PersonalDetailsPanel({ userId }: { userId: string }) {
         className="flex w-full items-center justify-between text-left outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
         <span className="text-sm font-medium text-ink">Personal details</span>
-        <span className="text-xs text-ink/45">{open ? "Hide" : "Show"}</span>
+        <span className="text-xs text-ink-muted">{open ? "Hide" : "Show"}</span>
       </button>
       {open && (
         <div className="mt-3 flex flex-col gap-2 text-sm">
-          {loading && <p className="text-ink/40">Loading&hellip;</p>}
+          {loading && <p className="text-ink-muted">Loading&hellip;</p>}
           {!loading && details && (
             <>
               <p>
-                <span className="text-ink/45">Date of birth: </span>
+                <span className="text-ink-muted">Date of birth: </span>
                 <span className="text-ink">{details.dateOfBirth ?? "Not on file"}</span>
               </p>
               <p>
-                <span className="text-ink/45">Address: </span>
+                <span className="text-ink-muted">Address: </span>
                 <span className="text-ink">{address || "Not on file"}</span>
               </p>
             </>
           )}
-          {!loading && !details && <p className="text-ink/40">Not available.</p>}
+          {!loading && !details && <p className="text-ink-muted">Not available.</p>}
         </div>
       )}
     </div>

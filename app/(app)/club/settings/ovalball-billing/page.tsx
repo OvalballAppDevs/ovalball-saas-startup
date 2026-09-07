@@ -113,7 +113,7 @@ export default async function OvalballBillingPage() {
       <h1 className="mt-2 font-display text-display-l text-ink">Ovalball Plan</h1>
       {/* Direction of money, in the first line. The sibling tab's lede is the
           mirror image of this sentence. */}
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         {clubName} pays Ovalball to use the platform. What your own members pay the club is under{" "}
         <Link
           href="/club/settings/subscriptions"
@@ -159,7 +159,7 @@ export default async function OvalballBillingPage() {
       <section className="mt-10">
         <h2 className="font-display text-xl text-ink">Billing history</h2>
         {(payments ?? []).length === 0 ? (
-          <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/55">
+          <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">
             Ovalball has not collected anything from {clubName} yet.
           </p>
         ) : (
@@ -171,7 +171,7 @@ export default async function OvalballBillingPage() {
               >
                 <div className="min-w-0">
                   <p className="text-sm tabular-nums text-ink">{formatMoney(payment.net_pence)}</p>
-                  <p className="text-xs text-ink/55">
+                  <p className="text-xs text-ink-muted">
                     {payment.charge_date ? formatDate(payment.charge_date) : "Not yet scheduled"}
                   </p>
                 </div>
@@ -187,7 +187,7 @@ export default async function OvalballBillingPage() {
       <section className="mt-10">
         <h2 className="font-display text-xl text-ink">Credit</h2>
         {(credits ?? []).length === 0 ? (
-          <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/55">
+          <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">
             No credit yet. Referring a club that goes on to pay is one way to earn some.
           </p>
         ) : (
@@ -202,9 +202,9 @@ export default async function OvalballBillingPage() {
                     {credit.amount_pence > 0 ? "+" : "−"}
                     {formatMoney(Math.abs(credit.amount_pence))}
                   </p>
-                  <p className="text-xs text-ink/55">{credit.reason ?? describeCreditSource(credit.source)}</p>
+                  <p className="text-xs text-ink-muted">{credit.reason ?? describeCreditSource(credit.source)}</p>
                 </div>
-                <p className="text-sm text-ink/55">{formatDate(credit.created_at)}</p>
+                <p className="text-sm text-ink-muted">{formatDate(credit.created_at)}</p>
               </li>
             ))}
           </ul>

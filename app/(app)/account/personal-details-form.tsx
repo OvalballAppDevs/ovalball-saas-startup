@@ -28,7 +28,7 @@ export function PersonalDetailsForm({ initial, dateOfBirth }: { initial: Persona
 
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-5">
-      <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Personal details</p>
+      <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Personal details</p>
       <div className="mt-3 grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="pd-first-name" className="text-ink/80">
@@ -56,17 +56,17 @@ export function PersonalDetailsForm({ initial, dateOfBirth }: { initial: Persona
 
       {dateOfBirth && (
         <div className="mt-4">
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Date of birth</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Date of birth</p>
           <p className="mt-1 text-sm text-ink/70">
             {new Date(dateOfBirth + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
           </p>
-          <p className="mt-0.5 text-xs text-ink/40">Set at signup. Contact Site Admin if this needs to change.</p>
+          <p className="mt-0.5 text-xs text-ink-muted">Set at signup. Contact Site Admin if this needs to change.</p>
         </div>
       )}
 
       <div className="mt-5 border-t border-ink/10 pt-5">
-        <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Address</p>
-        <p className="mt-1 text-xs text-ink/40">Private -- never shown to other club members, opposition, or in chat.</p>
+        <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Address</p>
+        <p className="mt-1 text-xs text-ink-muted">Private -- never shown to other club members, opposition, or in chat.</p>
         <div className="mt-3 flex flex-col gap-4">
           <div>
             <Label htmlFor="pd-address1" className="text-ink/80">
@@ -141,7 +141,7 @@ export function PersonalDetailsForm({ initial, dateOfBirth }: { initial: Persona
         </div>
       </div>
 
-      {error && <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
       <div className="mt-5 flex items-center gap-3 border-t border-ink/10 pt-5">
         <Button type="button" className="h-10" disabled={status === "saving"} onClick={handleSave}>

@@ -96,7 +96,7 @@ export function NotificationBell({
         </div>
 
         {items.length === 0 ? (
-          <p className="px-3.5 py-6 text-center text-sm text-ink/45">You&rsquo;re all caught up.</p>
+          <p className="px-3.5 py-6 text-center text-sm text-ink-muted">You&rsquo;re all caught up.</p>
         ) : (
           <ul className="max-h-96 overflow-y-auto py-1">
             {items.map((n) => (
@@ -114,9 +114,9 @@ export function NotificationBell({
                   />
                   <div className="min-w-0 flex-1">
                     <p className={cn("truncate text-sm", n.readAt ? "text-ink/70" : "font-medium text-ink")}>{n.title}</p>
-                    <p className="truncate text-xs text-ink/50">{n.body}</p>
+                    <p className="truncate text-xs text-ink-muted">{n.body}</p>
                   </div>
-                  <span className="shrink-0 pt-0.5 text-[11px] text-ink/35">{relativeTime(n.createdAt)}</span>
+                  <span className="shrink-0 pt-0.5 text-[11px] text-ink-muted">{relativeTime(n.createdAt)}</span>
                 </DropdownMenuItem>
               </li>
             ))}

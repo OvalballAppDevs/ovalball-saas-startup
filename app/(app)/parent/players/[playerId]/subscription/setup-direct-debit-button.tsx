@@ -27,7 +27,7 @@ export function SetupDirectDebitButton({ playerId, programmeId, clubId }: { play
       <Button type="button" className="h-11 w-full" disabled={loading} onClick={handleClick}>
         {loading ? "Starting…" : "Set Up Direct Debit"}
       </Button>
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

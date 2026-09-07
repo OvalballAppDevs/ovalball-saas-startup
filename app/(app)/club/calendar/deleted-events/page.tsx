@@ -70,7 +70,7 @@ export default async function DeletedCalendarEventsPage() {
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Calendar / Operations</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Deleted Calendar Events</h1>
-      <p className="mt-2 max-w-lg text-sm text-ink/55">
+      <p className="mt-2 max-w-lg text-sm text-ink-muted">
         Archived fixtures and removed training for {clubName}. Nothing here was physically deleted -- every record can be
         traced back to its real, canonical fixture or training session. Never shown to Parents or Players.
       </p>

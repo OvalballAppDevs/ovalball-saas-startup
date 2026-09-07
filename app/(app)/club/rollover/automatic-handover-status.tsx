@@ -74,7 +74,7 @@ export function AutomaticHandoverStatus({
         <ShieldCheck className="size-4 text-forest-800" />
         <h2 className="font-display text-lg text-ink">Automatic season handover</h2>
       </div>
-      <p className="mt-1.5 text-sm text-ink/55">
+      <p className="mt-1.5 text-sm text-ink-muted">
         {fromSeasonName ? `${fromSeasonName} → ` : ""}
         {toSeasonName}
       </p>

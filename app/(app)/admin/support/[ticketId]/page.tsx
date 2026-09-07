@@ -47,7 +47,7 @@ export default async function AdminSupportTicketPage({ params }: { params: Promi
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/support" className="inline-flex items-center gap-1 text-sm text-ink/50 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400">
+      <Link href="/admin/support" className="inline-flex items-center gap-1 text-sm text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400">
         <ChevronLeft className="size-4" />
         Support
       </Link>
@@ -57,7 +57,7 @@ export default async function AdminSupportTicketPage({ params }: { params: Promi
         <p className="text-xs font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
 
-      <p className="mt-2 text-xs font-medium tracking-[0.04em] text-ink/40">{ticket.reference}</p>
+      <p className="mt-2 text-xs font-medium tracking-[0.04em] text-ink-muted">{ticket.reference}</p>
       <h1 className="mt-1 font-display text-display-m text-ink">{ticket.subject}</h1>
 
       <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-ink/10 bg-white p-5 sm:grid-cols-4">
@@ -65,33 +65,33 @@ export default async function AdminSupportTicketPage({ params }: { params: Promi
           <StatusControl ticketId={ticket.id} currentStatus={ticket.status} />
         </div>
         <div>
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Raised by</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Raised by</p>
           <p className="mt-1.5 text-sm text-ink">{requesterName}</p>
-          <p className="text-xs text-ink/40">{requesterEmail}</p>
+          <p className="text-xs text-ink-muted">{requesterEmail}</p>
           {ticket.origin === "public" && (
-            <span className="mt-1 inline-block rounded-full bg-ink/8 px-2 py-0.5 text-[10px] font-medium tracking-[0.04em] text-ink/55 uppercase">
+            <span className="mt-1 inline-block rounded-full bg-ink/8 px-2 py-0.5 text-[10px] font-medium tracking-[0.04em] text-ink-muted uppercase">
               Public / anonymous
             </span>
           )}
         </div>
         <div>
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Club</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Club</p>
           <p className="mt-1.5 text-sm text-ink">{ticket.clubName ?? "—"}</p>
         </div>
         <div>{access === "manage" ? <CategoryControl ticketId={ticket.id} currentCategory={ticket.category} /> : <ReadOnlyCategory category={ticket.category} />}</div>
       </div>
 
-      <p className="mt-3 text-xs text-ink/40">
+      <p className="mt-3 text-xs text-ink-muted">
         Created {new Date(ticket.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
       </p>
 
       <div className="mt-6 rounded-xl border border-ink/10 bg-white p-5">
-        <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Original request (immutable)</p>
+        <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Original request (immutable)</p>
         <p className="mt-2 text-sm whitespace-pre-wrap text-ink">{ticket.description}</p>
         {ticket.attachments.length > 0 && (
           <ul className="mt-3 flex flex-col gap-1.5">
             {ticket.attachments.map((a) => (
-              <li key={a.id} className="flex items-center gap-1.5 text-xs text-ink/50">
+              <li key={a.id} className="flex items-center gap-1.5 text-xs text-ink-muted">
                 <Paperclip className="size-3" />
                 {a.fileName}
               </li>
@@ -101,7 +101,7 @@ export default async function AdminSupportTicketPage({ params }: { params: Promi
       </div>
 
       <div className="mt-8 rounded-xl border border-ink/10 bg-white p-5">
-        <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Timeline</p>
+        <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Timeline</p>
         <div className="mt-4">
           <SupportTimeline events={events} viewerIsRequester={false} />
         </div>
@@ -125,7 +125,7 @@ export default async function AdminSupportTicketPage({ params }: { params: Promi
 function ReadOnlyCategory({ category }: { category: SupportCategory }) {
   return (
     <>
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Category</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Category</p>
       <p className="mt-1.5 text-sm text-ink">{SUPPORT_CATEGORY_LABELS[category]}</p>
     </>
   )

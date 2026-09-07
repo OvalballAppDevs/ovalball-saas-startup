@@ -53,7 +53,7 @@ export function CalendarAccessAction({
 
   if (current === "pending") {
     return (
-      <span className="inline-flex h-10 items-center rounded-lg border border-ink/15 bg-white px-4 text-sm font-medium text-ink/50">
+      <span className="inline-flex h-10 items-center rounded-lg border border-ink/15 bg-white px-4 text-sm font-medium text-ink-muted">
         Calendar access requested
       </span>
     )
@@ -64,7 +64,7 @@ export function CalendarAccessAction({
       <Button type="button" variant="outline" className="h-10" disabled={working} onClick={handleRequest}>
         {working ? "Requesting…" : `Request calendar access from ${targetClubName}`}
       </Button>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive-text">{error}</p>}
     </div>
   )
 }

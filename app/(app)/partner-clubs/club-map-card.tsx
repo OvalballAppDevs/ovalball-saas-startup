@@ -58,7 +58,7 @@ export function ClubMapCard({ club, dense = false }: { club: MapClub; dense?: bo
         <ClubAvatar logoUrl={club.logoUrl} name={club.name} size={dense ? "sm" : "md"} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{club.name}</p>
-          <p className="mt-0.5 text-xs text-ink/50">
+          <p className="mt-0.5 text-xs text-ink-muted">
             {locationText}
             {club.postcode ? ` · ${club.postcode}` : ""} &middot; {RUGBY_CODE_LABEL[club.rugbyCode] ?? club.rugbyCode}
           </p>
@@ -68,7 +68,7 @@ export function ClubMapCard({ club, dense = false }: { club: MapClub; dense?: bo
         </div>
       </div>
 
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive-text">{error}</p>}
 
       {!club.isOwnClub && club.clubId && (
         <div className="flex flex-wrap items-center gap-2">

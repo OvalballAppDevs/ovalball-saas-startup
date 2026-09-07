@@ -45,7 +45,7 @@ export function DuplicateReviewRow({ review }: { review: DuplicateReviewData }) 
 
   if (resolved) {
     return (
-      <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink/50">
+      <li className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink-muted">
         {review.submittedName} — {resolved === "existing" ? "linked to the existing player." : "created as a new player."}
       </li>
     )
@@ -53,20 +53,20 @@ export function DuplicateReviewRow({ review }: { review: DuplicateReviewData }) 
 
   return (
     <li className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3.5">
-      <p className="text-xs font-medium text-ink/50">{review.teamLabel}</p>
+      <p className="text-xs font-medium text-ink-muted">{review.teamLabel}</p>
       <div className="mt-1.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <p className="text-xs text-ink/45 uppercase">Submitted</p>
+          <p className="text-xs text-ink-muted uppercase">Submitted</p>
           <p className="text-sm font-medium text-ink">{review.submittedName}</p>
-          <p className="text-xs text-ink/55">{review.submittedDob ?? "No date of birth given"}</p>
+          <p className="text-xs text-ink-muted">{review.submittedDob ?? "No date of birth given"}</p>
         </div>
         <div>
-          <p className="text-xs text-ink/45 uppercase">Matches existing player</p>
+          <p className="text-xs text-ink-muted uppercase">Matches existing player</p>
           <p className="text-sm font-medium text-ink">{review.matchedName}</p>
-          <p className="text-xs text-ink/55">{review.matchedDob ?? "No date of birth on record"}</p>
+          <p className="text-xs text-ink-muted">{review.matchedDob ?? "No date of birth on record"}</p>
         </div>
       </div>
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         <Button type="button" size="sm" className="h-8" disabled={pending} onClick={() => handle("existing")}>
           Same child — link them

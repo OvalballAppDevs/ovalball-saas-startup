@@ -38,15 +38,15 @@ function CancellationInfoDialog({ card, onClose }: { card: TrainingSessionCard; 
         <p className="font-display text-lg text-ink">Cancellation Details</p>
         <dl className="mt-3 flex flex-col gap-3 text-sm">
           <div>
-            <dt className="text-xs font-medium text-ink/50">Reason</dt>
+            <dt className="text-xs font-medium text-ink-muted">Reason</dt>
             <dd className="mt-0.5 text-ink">{card.cancellationReason}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium text-ink/50">Cancelled by</dt>
+            <dt className="text-xs font-medium text-ink-muted">Cancelled by</dt>
             <dd className="mt-0.5 text-ink">{card.cancelledByName ?? "Unknown"}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium text-ink/50">Cancelled</dt>
+            <dt className="text-xs font-medium text-ink-muted">Cancelled</dt>
             <dd className="mt-0.5 text-ink">{card.cancelledAt ? new Date(card.cancelledAt).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "--"}</dd>
           </div>
         </dl>
@@ -110,7 +110,7 @@ function CancelSessionDialog({ card, onClose, onCancelled }: { card: TrainingSes
         />
 
         {error && (
-          <p role="alert" className="mt-2 text-sm text-destructive">
+          <p role="alert" className="mt-2 text-sm text-destructive-text">
             {error}
           </p>
         )}
@@ -166,9 +166,9 @@ function DeleteTrainingPlanDialog({ card, onClose, onDeleted }: { card: Training
         <p className="font-display text-lg text-ink">Delete Training Plan</p>
         <p className="mt-2 text-sm text-ink/70">This training session is part of a recurring plan.</p>
         {!impact ? (
-          <p className="mt-3 text-sm text-ink/45">Loading impact…</p>
+          <p className="mt-3 text-sm text-ink-muted">Loading impact…</p>
         ) : !impactData ? (
-          <p className="mt-3 text-sm text-destructive">{impact.ok ? "" : impact.error}</p>
+          <p className="mt-3 text-sm text-destructive-text">{impact.ok ? "" : impact.error}</p>
         ) : (
           <>
             <p className="mt-2 text-sm text-ink/70">
@@ -177,19 +177,19 @@ function DeleteTrainingPlanDialog({ card, onClose, onDeleted }: { card: Training
             <p className="mt-2 text-sm text-ink/70">Past training records and registers will be kept.</p>
             <dl className="mt-3 flex flex-col gap-1 rounded-lg bg-chalk px-3 py-2.5 text-sm">
               <div className="flex justify-between">
-                <dt className="text-ink/50">Team</dt>
+                <dt className="text-ink-muted">Team</dt>
                 <dd className="text-ink">{impactData.teamLabel}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-ink/50">Schedule</dt>
+                <dt className="text-ink-muted">Schedule</dt>
                 <dd className="text-ink">{impactData.scheduleMode}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-ink/50">Venue</dt>
+                <dt className="text-ink-muted">Venue</dt>
                 <dd className="text-ink">{impactData.venueName ?? "--"}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-ink/50">Preferred Pitch</dt>
+                <dt className="text-ink-muted">Preferred Pitch</dt>
                 <dd className="text-ink">{impactData.pitchName ?? "--"}</dd>
               </div>
             </dl>
@@ -209,7 +209,7 @@ function DeleteTrainingPlanDialog({ card, onClose, onDeleted }: { card: Training
         />
 
         {error && (
-          <p role="alert" className="mt-2 text-sm text-destructive">
+          <p role="alert" className="mt-2 text-sm text-destructive-text">
             {error}
           </p>
         )}
@@ -260,7 +260,7 @@ function EditSessionDialog({ card, onClose, onSaved }: { card: TrainingSessionCa
     <div role="dialog" aria-modal="true" aria-label="Edit Training Details" className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink/40 p-4">
       <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
         <p className="font-display text-lg text-ink">Edit Training Details</p>
-        <p className="mt-1 text-xs text-ink/50">Changes apply to this session only -- the recurring plan&apos;s own defaults are unaffected.</p>
+        <p className="mt-1 text-xs text-ink-muted">Changes apply to this session only -- the recurring plan&apos;s own defaults are unaffected.</p>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div>
@@ -317,7 +317,7 @@ function EditSessionDialog({ card, onClose, onSaved }: { card: TrainingSessionCa
         />
 
         {error && (
-          <p role="alert" className="mt-2 text-sm text-destructive">
+          <p role="alert" className="mt-2 text-sm text-destructive-text">
             {error}
           </p>
         )}
@@ -359,8 +359,8 @@ function RegisterView({ sessionId, onClose }: { sessionId: string; onClose: () =
           <p className="font-display text-lg text-ink">Register</p>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-3">
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {!rows && !error && <p className="text-sm text-ink/45">Loading…</p>}
+          {error && <p className="text-sm text-destructive-text">{error}</p>}
+          {!rows && !error && <p className="text-sm text-ink-muted">Loading…</p>}
           {counts && (
             <p className="mb-3 text-sm text-ink/60">
               <span className="font-medium text-forest-900">{counts.attending} Attending</span> · {counts.cannotAttend} Cannot Attend · {counts.unsure} Unsure · {counts.noResponse} No Response
@@ -373,7 +373,7 @@ function RegisterView({ sessionId, onClose }: { sessionId: string; onClose: () =
                   <span className="text-ink">
                     {r.firstName} {r.surname}
                   </span>
-                  <span className={cn("text-xs font-medium", r.status === "ATTENDING" ? "text-forest-800" : r.status === "CANNOT_ATTEND" ? "text-destructive" : r.status === "UNSURE" ? "text-amber-700" : "text-ink/40")}>
+                  <span className={cn("text-xs font-medium", r.status === "ATTENDING" ? "text-forest-800" : r.status === "CANNOT_ATTEND" ? "text-destructive-text" : r.status === "UNSURE" ? "text-amber-700" : "text-ink-muted")}>
                     {r.status ? ATTENDANCE_LABEL[r.status] : "No response"}
                   </span>
                 </li>
@@ -422,8 +422,8 @@ export function TrainingSessionDetail({ sessionId, fallbackLabel, onChanged, onC
     if (result.ok) reload()
   }
 
-  if (error) return <p className="px-4 text-sm text-destructive">{error}</p>
-  if (!card) return <p className="px-4 text-sm text-ink/45">Loading {fallbackLabel}…</p>
+  if (error) return <p className="px-4 text-sm text-destructive-text">{error}</p>
+  if (!card) return <p className="px-4 text-sm text-ink-muted">Loading {fallbackLabel}…</p>
 
   const isCancelled = card.status === "CANCELLED"
   const dateLabel = new Date(`${card.sessionDate}T00:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })
@@ -431,7 +431,7 @@ export function TrainingSessionDetail({ sessionId, fallbackLabel, onChanged, onC
   return (
     <div className="flex flex-col gap-3 px-4 pb-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", isCancelled ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-sky-400/40 bg-sky-50 text-sky-900")}>
+        <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", isCancelled ? "border-destructive/40 bg-destructive/10 text-destructive-text" : "border-sky-400/40 bg-sky-50 text-sky-900")}>
           {isCancelled ? "CANCELLED" : card.status}
         </span>
         {isCancelled && (
@@ -449,7 +449,7 @@ export function TrainingSessionDetail({ sessionId, fallbackLabel, onChanged, onC
 
       <dl className="flex flex-col gap-1.5 text-sm">
         <div className="flex justify-between gap-3">
-          <dt className="text-ink/50">Date</dt>
+          <dt className="text-ink-muted">Date</dt>
           <dd className="text-ink">
             {dateLabel}
             {card.startTime ? ` · ${card.startTime.slice(0, 5)}${card.endTime ? `–${card.endTime.slice(0, 5)}` : ""}` : ""}
@@ -457,32 +457,32 @@ export function TrainingSessionDetail({ sessionId, fallbackLabel, onChanged, onC
         </div>
         {card.venueName && (
           <div className="flex justify-between gap-3">
-            <dt className="text-ink/50">Venue</dt>
+            <dt className="text-ink-muted">Venue</dt>
             <dd className="text-ink">{card.venueName}</dd>
           </div>
         )}
         {card.pitchName && (
           <div className="flex justify-between gap-3">
-            <dt className="text-ink/50">Pitch</dt>
+            <dt className="text-ink-muted">Pitch</dt>
             <dd className="text-ink">{card.pitchName}</dd>
           </div>
         )}
       </dl>
 
       <div className="rounded-lg border border-ink/10 bg-chalk px-3 py-2.5">
-        <p className="text-xs font-medium tracking-wide text-ink/50 uppercase">Agenda</p>
+        <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Agenda</p>
         <p className="mt-1 text-sm whitespace-pre-wrap text-ink">{card.agenda}</p>
       </div>
       {card.furtherNotes && (
         <div className="rounded-lg border border-ink/10 px-3 py-2.5">
-          <p className="text-xs font-medium tracking-wide text-ink/50 uppercase">Notes for players and families</p>
+          <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Notes for players and families</p>
           <p className="mt-1 text-sm whitespace-pre-wrap text-ink">{card.furtherNotes}</p>
         </div>
       )}
 
       {!isCancelled && myPlayers && myPlayers.length > 0 && (
         <div className="border-t border-ink/10 pt-3">
-          <p className="text-xs font-medium tracking-wide text-ink/50 uppercase">Attendance</p>
+          <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Attendance</p>
           {myPlayers.map((mp) => (
             <div key={mp.playerId} className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm text-ink">
@@ -511,7 +511,7 @@ export function TrainingSessionDetail({ sessionId, fallbackLabel, onChanged, onC
       )}
       {isCancelled && myPlayers && myPlayers.some((p) => p.currentStatus) && (
         <div className="border-t border-ink/10 pt-3">
-          <p className="text-xs font-medium tracking-wide text-ink/50 uppercase">Attendance (historical -- session cancelled)</p>
+          <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Attendance (historical -- session cancelled)</p>
           {myPlayers
             .filter((p) => p.currentStatus)
             .map((mp) => (
@@ -546,7 +546,7 @@ export function TrainingSessionDetail({ sessionId, fallbackLabel, onChanged, onC
           <button
             type="button"
             onClick={() => setDialog("cancel")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-white px-3 py-2 text-sm font-medium text-destructive outline-none hover:bg-destructive/5 focus-visible:ring-2 focus-visible:ring-destructive/40"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-white px-3 py-2 text-sm font-medium text-destructive-text outline-none hover:bg-destructive/5 focus-visible:ring-2 focus-visible:ring-destructive/40"
           >
             <AlertTriangle className="size-3.5" />
             Cancel This Training Session
@@ -556,7 +556,7 @@ export function TrainingSessionDetail({ sessionId, fallbackLabel, onChanged, onC
           <button
             type="button"
             onClick={() => setDialog("delete-plan")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-white px-3 py-2 text-sm font-medium text-destructive outline-none hover:bg-destructive/5 focus-visible:ring-2 focus-visible:ring-destructive/40"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-white px-3 py-2 text-sm font-medium text-destructive-text outline-none hover:bg-destructive/5 focus-visible:ring-2 focus-visible:ring-destructive/40"
           >
             Delete Training Plan
           </button>

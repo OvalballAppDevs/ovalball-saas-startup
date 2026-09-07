@@ -41,7 +41,7 @@ function ChartFrame({
         {children}
       </div>
       <details className="mt-3 group">
-        <summary className="cursor-pointer text-xs text-ink/50 outline-none hover:text-ink/80 focus-visible:ring-2 focus-visible:ring-pitch-400">
+        <summary className="cursor-pointer text-xs text-ink-muted outline-none hover:text-ink/80 focus-visible:ring-2 focus-visible:ring-pitch-400">
           View as table
         </summary>
         <div className="mt-2 overflow-x-auto">{table}</div>
@@ -51,7 +51,7 @@ function ChartFrame({
 }
 
 const TABLE_CLS = "w-full text-left text-xs tabular-nums"
-const TH_CLS = "border-b border-ink/10 px-2 py-1.5 font-medium text-ink/55"
+const TH_CLS = "border-b border-ink/10 px-2 py-1.5 font-medium text-ink-muted"
 const TD_CLS = "border-b border-ink/5 px-2 py-1.5 text-ink/80"
 
 /* ------------------------------------------------------------------ */
@@ -131,7 +131,7 @@ export function GroupedBarChart({
         aria-hidden="true"
         focusable="false"
       >
-        <line x1="0" y1={H} x2={W} y2={H} stroke="currentColor" className="text-ink/15" strokeWidth="0.3" />
+        <line x1="0" y1={H} x2={W} y2={H} stroke="currentColor" className="text-ink-muted" strokeWidth="0.3" />
         {points.map((p, i) => {
           const x = i * slot + slot / 2
           const ha = (p.a / max) * (H - 2)
@@ -162,7 +162,7 @@ export function GroupedBarChart({
 
       {/* Only the ends are labelled: twelve rotated dates at 390px is
           unreadable, and the table carries every value anyway. */}
-      <div className="mt-1 flex justify-between text-[11px] text-ink/45">
+      <div className="mt-1 flex justify-between text-[11px] text-ink-muted">
         <span>{points[0]?.label}</span>
         <span>{points[points.length - 1]?.label}</span>
       </div>
@@ -238,7 +238,7 @@ export function LineChart({
         aria-hidden="true"
         focusable="false"
       >
-        <line x1="0" y1={H} x2={W} y2={H} stroke="currentColor" className="text-ink/15" strokeWidth="0.3" />
+        <line x1="0" y1={H} x2={W} y2={H} stroke="currentColor" className="text-ink-muted" strokeWidth="0.3" />
         <path d={area} className="fill-pitch-600/12" />
         <path
           d={path}
@@ -250,7 +250,7 @@ export function LineChart({
         />
       </svg>
 
-      <div className="mt-1 flex justify-between text-[11px] text-ink/45">
+      <div className="mt-1 flex justify-between text-[11px] text-ink-muted">
         <span>{points[0]?.label}</span>
         <span>{points[points.length - 1]?.label}</span>
       </div>
@@ -296,12 +296,12 @@ export function AdoptionBars({
               >
                 <div className="h-full rounded-full bg-forest-800" style={{ width: `${pct}%` }} />
               </div>
-              {r.note ? <p className="mt-1 text-xs text-ink/45">{r.note}</p> : null}
+              {r.note ? <p className="mt-1 text-xs text-ink-muted">{r.note}</p> : null}
             </li>
           )
         })}
       </ul>
-      <p className="mt-3 text-xs text-ink/45">
+      <p className="mt-3 text-xs text-ink-muted">
         Measured against {denominator.toLocaleString("en-GB")} {denominatorLabel} — never the
         canonical club directory, which is addressable market rather than customers.
       </p>

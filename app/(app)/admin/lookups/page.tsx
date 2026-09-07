@@ -99,7 +99,7 @@ export default async function AdminLookupsPage({
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Lookup Administration</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         A parent view over every club&apos;s venues and pitches &mdash; the same records each club manages for
         itself under its own Lookup Administration.
         {!ctx.manageGlobalLookups && (
@@ -114,9 +114,9 @@ export default async function AdminLookupsPage({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/10 pb-3">
             <div>
               <p className="text-sm font-medium text-ink">{selectedClub.name}</p>
-              {selectedClub.status !== "active" && <p className="text-xs text-ink/40 capitalize">{selectedClub.status}</p>}
+              {selectedClub.status !== "active" && <p className="text-xs text-ink-muted capitalize">{selectedClub.status}</p>}
             </div>
-            <a href="/admin/lookups" className="text-xs text-ink/45 underline underline-offset-2 hover:text-ink/70">
+            <a href="/admin/lookups" className="text-xs text-ink-muted underline underline-offset-2 hover:text-ink/70">
               Choose a different club
             </a>
           </div>

@@ -93,17 +93,17 @@ function PlanCardView({
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h3 className={`font-display text-lg ${unavailable ? "text-ink/60" : "text-ink"}`}>{plan.name}</h3>
-        <p className={`text-sm tabular-nums ${unavailable ? "text-ink/50" : "text-ink/80"}`}>{plan.priceLabel}</p>
+        <p className={`text-sm tabular-nums ${unavailable ? "text-ink-muted" : "text-ink/80"}`}>{plan.priceLabel}</p>
       </div>
 
       {plan.status === "coming_soon" ? (
-        <p className="mt-1 text-sm text-ink/55">Coming soon</p>
+        <p className="mt-1 text-sm text-ink-muted">Coming soon</p>
       ) : isCurrent ? (
         <p className="mt-1 text-sm font-medium text-forest-800">Your current plan</p>
       ) : null}
 
       {plan.description ? (
-        <p className={`mt-3 text-sm leading-relaxed ${unavailable ? "text-ink/55" : "text-ink/70"}`}>
+        <p className={`mt-3 text-sm leading-relaxed ${unavailable ? "text-ink-muted" : "text-ink/70"}`}>
           {plan.description}
         </p>
       ) : null}
@@ -111,13 +111,13 @@ function PlanCardView({
       {/* The honest sentence, in place of a disabled button. It is true, and
           the Phase E test suite fails the moment it stops being true. */}
       {unavailable && plan.addsNothingYet && plan.comparedWithPlanName ? (
-        <p className="mt-3 text-sm leading-relaxed text-ink/55">
+        <p className="mt-3 text-sm leading-relaxed text-ink-muted">
           {plan.name} doesn&rsquo;t include anything {plan.comparedWithPlanName} doesn&rsquo;t yet.
           When it does, you&rsquo;ll be able to switch.
         </p>
       ) : null}
 
-      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-destructive-text">{error}</p> : null}
 
       {plan.purchasable && !isCurrent && canManage ? (
         <div className="mt-5">

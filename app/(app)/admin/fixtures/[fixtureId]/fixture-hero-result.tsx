@@ -62,7 +62,7 @@ export function FixtureHeroResult({ fixtureId, result }: { fixtureId: string; re
       {result.homeScore !== null && result.awayScore !== null && (
         <div className="flex items-center gap-4">
           <span className="font-display text-display-l text-ink">{result.homeScore}</span>
-          <span className="text-sm font-medium text-ink/35">V</span>
+          <span className="text-sm font-medium text-ink-muted">V</span>
           <span className="font-display text-display-l text-ink">{result.awayScore}</span>
         </div>
       )}
@@ -94,7 +94,7 @@ export function FixtureHeroResult({ fixtureId, result }: { fixtureId: string; re
       {showForm && (
         <div className="mt-1 flex flex-wrap items-end justify-center gap-3">
           <label className="flex flex-col items-center gap-1">
-            <span className="text-xs font-medium text-ink/50">Home</span>
+            <span className="text-xs font-medium text-ink-muted">Home</span>
             <input
               type="number"
               min={0}
@@ -104,7 +104,7 @@ export function FixtureHeroResult({ fixtureId, result }: { fixtureId: string; re
             />
           </label>
           <label className="flex flex-col items-center gap-1">
-            <span className="text-xs font-medium text-ink/50">Away</span>
+            <span className="text-xs font-medium text-ink-muted">Away</span>
             <input
               type="number"
               min={0}
@@ -121,12 +121,12 @@ export function FixtureHeroResult({ fixtureId, result }: { fixtureId: string; re
           >
             {pending ? "Submitting…" : "Submit Result"}
           </button>
-          <button type="button" onClick={() => setShowForm(false)} className="text-sm font-medium text-ink/50 hover:text-ink">
+          <button type="button" onClick={() => setShowForm(false)} className="text-sm font-medium text-ink-muted hover:text-ink">
             Cancel
           </button>
         </div>
       )}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

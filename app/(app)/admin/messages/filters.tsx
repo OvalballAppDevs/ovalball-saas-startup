@@ -29,7 +29,7 @@ export function MessageFiltersBar({ clubOptions, teamOptions }: { clubOptions: O
         className="h-9 rounded-md border border-ink/15 px-2 text-sm outline-none focus-visible:border-pitch-600"
         aria-label="From date"
       />
-      <span className="text-xs text-ink/40">to</span>
+      <span className="text-xs text-ink-muted">to</span>
       <input
         type="date"
         value={searchParams.get("to") ?? ""}
@@ -79,7 +79,7 @@ export function MessageFiltersBar({ clubOptions, teamOptions }: { clubOptions: O
       </select>
 
       {(searchParams.get("from") || searchParams.get("to") || searchParams.get("club") || searchParams.get("team") || searchParams.get("type")) && (
-        <button type="button" onClick={() => router.push("/admin/messages")} className="text-xs font-medium text-ink/45 underline underline-offset-2 hover:text-ink/70">
+        <button type="button" onClick={() => router.push("/admin/messages")} className="text-xs font-medium text-ink-muted underline underline-offset-2 hover:text-ink/70">
           Clear filters
         </button>
       )}

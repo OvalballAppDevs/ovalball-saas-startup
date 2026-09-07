@@ -15,7 +15,7 @@ import type { MapClub } from "./map-data"
 
 const ClubMap = dynamic(() => import("./club-map").then((m) => m.ClubMap), {
   ssr: false,
-  loading: () => <div className="flex h-full w-full items-center justify-center bg-ink/[0.03] text-sm text-ink/40">Loading map…</div>,
+  loading: () => <div className="flex h-full w-full items-center justify-center bg-ink/[0.03] text-sm text-ink-muted">Loading map…</div>,
 })
 
 type StatusFilter = "all" | "on_ovalball" | "not_on_ovalball" | "partners"
@@ -83,7 +83,7 @@ export function PartnerClubsExplorer({ clubs }: { clubs: MapClub[] }) {
         Search all clubs by name, town or postcode
       </Label>
       <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink/35" />
+        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-muted" />
         <Input
           id="club-map-search"
           value={query}
@@ -124,11 +124,11 @@ export function PartnerClubsExplorer({ clubs }: { clubs: MapClub[] }) {
       <div className="mt-4 grid gap-4 md:grid-cols-[360px_1fr]">
         <div className="order-2 md:order-1">
           {!showList && (
-            <div className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink/50">
+            <div className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink-muted">
               Search by name, town or postcode, or use a filter above, to list clubs here alongside the map.
             </div>
           )}
-          {showList && listRows.length === 0 && <div className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink/50">No clubs match.</div>}
+          {showList && listRows.length === 0 && <div className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center text-sm text-ink-muted">No clubs match.</div>}
           {showList && listRows.length > 0 && (
             <ul className="flex max-h-[560px] flex-col gap-1.5 overflow-y-auto pr-1">
               {listRows.map((club) => {
@@ -144,21 +144,21 @@ export function PartnerClubsExplorer({ clubs }: { clubs: MapClub[] }) {
                       <ClubAvatar logoUrl={club.logoUrl} name={club.name} size="xs" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-ink">{club.name}</p>
-                        <p className="truncate text-xs text-ink/45">{club.town ?? club.postcode ?? "No location on file"}</p>
+                        <p className="truncate text-xs text-ink-muted">{club.town ?? club.postcode ?? "No location on file"}</p>
                       </div>
                       <ClubStatusPill club={club} />
-                      <ChevronDown className={`size-4 shrink-0 text-ink/30 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                      <ChevronDown className={`size-4 shrink-0 text-ink-muted transition-transform ${expanded ? "rotate-180" : ""}`} />
                     </button>
                     {expanded && (
                       <div className="border-t border-ink/8 px-3 py-3">
                         <ClubMapCard club={club} dense />
-                        {!club.hasLocation && <p className="mt-2 text-xs text-ink/40">Location unavailable &mdash; no pin on the map for this club yet.</p>}
+                        {!club.hasLocation && <p className="mt-2 text-xs text-ink-muted">Location unavailable &mdash; no pin on the map for this club yet.</p>}
                       </div>
                     )}
                   </li>
                 )
               })}
-              {filtered.length > listRows.length && <li className="px-3 py-2 text-center text-xs text-ink/40">Showing first {listRows.length} of {filtered.length} &mdash; narrow your search to see more.</li>}
+              {filtered.length > listRows.length && <li className="px-3 py-2 text-center text-xs text-ink-muted">Showing first {listRows.length} of {filtered.length} &mdash; narrow your search to see more.</li>}
             </ul>
           )}
         </div>

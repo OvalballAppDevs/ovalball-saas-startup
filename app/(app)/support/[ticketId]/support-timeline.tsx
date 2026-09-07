@@ -18,7 +18,7 @@ export function SupportTimeline({ events, viewerIsRequester }: { events: Support
       {events.map((e) => {
         if (e.eventType === "created") {
           return (
-            <li key={e.id} className="flex items-center gap-3 text-xs text-ink/40">
+            <li key={e.id} className="flex items-center gap-3 text-xs text-ink-muted">
               <span className="h-px flex-1 border-t border-dashed border-ink/15" />
               <span>
                 {viewerIsRequester ? "You submitted this request." : `${e.actorName} submitted this request.`} &middot;{" "}
@@ -32,7 +32,7 @@ export function SupportTimeline({ events, viewerIsRequester }: { events: Support
           const to = (e.metadata.to as string) ?? ""
           const label = to === "in_progress" ? "In Progress" : to === "closed" ? "Closed" : to
           return (
-            <li key={e.id} className="flex items-center gap-3 text-xs text-ink/40">
+            <li key={e.id} className="flex items-center gap-3 text-xs text-ink-muted">
               <span className="h-px flex-1 border-t border-dashed border-ink/15" />
               <span className="inline-flex items-center gap-1">
                 {to === "closed" ? <CheckCircle2 className="size-3.5" /> : <PlayCircle className="size-3.5" />}
@@ -56,17 +56,17 @@ export function SupportTimeline({ events, viewerIsRequester }: { events: Support
                   : "self-end bg-mint-100"
             }`}
           >
-            <div className="flex items-center gap-1.5 text-xs font-medium text-ink/50">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
               <User className="size-3" />
               {isInternal ? "Internal note (Site Admin only)" : e.actorName}
-              <span className="text-ink/30">&middot; {formatDateTime(e.createdAt)}</span>
+              <span className="text-ink-muted">&middot; {formatDateTime(e.createdAt)}</span>
             </div>
             <p className="mt-1.5 text-sm whitespace-pre-wrap text-ink">{e.body}</p>
           </li>
         )
       })}
       {events.length === 0 && (
-        <li className="flex items-center gap-2 text-sm text-ink/40">
+        <li className="flex items-center gap-2 text-sm text-ink-muted">
           <MessageSquare className="size-4" />
           No activity yet.
         </li>

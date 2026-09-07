@@ -93,14 +93,14 @@ export function NewSupportRequestForm({ onCreated }: { onCreated: (id: string, r
           placeholder="Tell us what happened or what you need help with…"
           className="mt-1.5 w-full resize-y rounded-lg border border-ink/15 bg-white px-3 py-2.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
         />
-        <p className="mt-1.5 text-xs text-ink/45">Include what you were trying to do and what happened.</p>
+        <p className="mt-1.5 text-xs text-ink-muted">Include what you were trying to do and what happened.</p>
         <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
           <span>Never include passwords or authentication codes in a support request.</span>
         </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-destructive-text">{error}</p>}
 
       <Button type="submit" disabled={submitting} className="h-11">
         {submitting ? "Submitting…" : "Submit request"}

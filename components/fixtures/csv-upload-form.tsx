@@ -108,7 +108,7 @@ export function CsvUploadForm({
         {stage === "processing" && <p className="text-sm text-ink/60">Parsing {rowCount ?? "…"} rows, matching clubs and teams, checking for conflicts&hellip;</p>}
       </div>
 
-      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

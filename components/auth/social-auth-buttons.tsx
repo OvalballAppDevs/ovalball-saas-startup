@@ -88,7 +88,7 @@ export function SocialAuthButtons({
           >
             <span className="flex size-[18px] shrink-0 items-center justify-center">
               {isPending ? (
-                <Loader2 className="size-[18px] animate-spin text-ink/40" aria-hidden="true" />
+                <Loader2 className="size-[18px] animate-spin text-ink-muted" aria-hidden="true" />
               ) : (
                 <Mark className="size-[18px]" />
               )}
@@ -102,7 +102,7 @@ export function SocialAuthButtons({
       })}
 
       <div aria-live="polite">
-        {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
+        {error && <p className="mt-1 text-sm text-destructive-text">{error}</p>}
       </div>
     </div>
   )
@@ -113,7 +113,7 @@ export function AuthDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3" role="separator" aria-orientation="horizontal">
       <span aria-hidden="true" className="h-px flex-1 bg-ink/10" />
-      <span className="text-[11px] tracking-[0.1em] text-ink/40 uppercase">{label}</span>
+      <span className="text-[11px] tracking-[0.1em] text-ink-muted uppercase">{label}</span>
       <span aria-hidden="true" className="h-px flex-1 bg-ink/10" />
     </div>
   )

@@ -135,7 +135,7 @@ export function AdminRow({ admin, isSelf }: { admin: ActiveSiteAdminData; isSelf
 
   if (revoked) {
     return (
-      <li className="rounded-lg border border-dashed border-ink/15 bg-white/40 px-4 py-3 text-sm text-ink/40">
+      <li className="rounded-lg border border-dashed border-ink/15 bg-white/40 px-4 py-3 text-sm text-ink-muted">
         {admin.name} &mdash; Site Admin access revoked.
       </li>
     )
@@ -145,8 +145,8 @@ export function AdminRow({ admin, isSelf }: { admin: ActiveSiteAdminData; isSelf
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-ink">{admin.name}</p>
-        <p className="truncate text-xs text-ink/45">{admin.email ?? "No email on file"}</p>
-        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        <p className="truncate text-xs text-ink-muted">{admin.email ?? "No email on file"}</p>
+        {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <Button
@@ -228,9 +228,9 @@ export function AdminRow({ admin, isSelf }: { admin: ActiveSiteAdminData; isSelf
           ))}
         </select>
         {isSelf ? (
-          <span className="text-xs text-ink/45">You</span>
+          <span className="text-xs text-ink-muted">You</span>
         ) : (
-          <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive hover:bg-destructive/10" disabled={working} onClick={handleRevoke}>
+          <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" disabled={working} onClick={handleRevoke}>
             Revoke
           </Button>
         )}

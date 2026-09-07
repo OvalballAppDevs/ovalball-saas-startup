@@ -140,14 +140,14 @@ export function RunVerificationPanel({ activeFilterFlag, recentRuns }: { activeF
                 </div>
               )}
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <p className="text-sm text-destructive-text">{error}</p>}
             </div>
           )}
 
           {progress && (
             <div className="flex flex-col gap-2 py-2 text-sm" aria-live="polite" aria-busy={running}>
               <p className="flex items-center gap-2 font-medium text-ink">
-                {running && <Loader2 className="size-4 animate-spin text-ink/40" aria-hidden="true" />}
+                {running && <Loader2 className="size-4 animate-spin text-ink-muted" aria-hidden="true" />}
                 {statusLabel(progress)}
               </p>
               <p className="text-ink/70">
@@ -159,7 +159,7 @@ export function RunVerificationPanel({ activeFilterFlag, recentRuns }: { activeF
                 <li>No authoritative result: {progress.noResultCount.toLocaleString()}</li>
                 {progress.failedCount > 0 && <li>Failed: {progress.failedCount.toLocaleString()}</li>}
               </ul>
-              {error && <p className="mt-1 text-destructive">{error}</p>}
+              {error && <p className="mt-1 text-destructive-text">{error}</p>}
             </div>
           )}
 
@@ -176,14 +176,14 @@ export function RunVerificationPanel({ activeFilterFlag, recentRuns }: { activeF
 
       {recentRuns.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">Recent verification runs</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Recent verification runs</p>
           <ul className="mt-2 flex flex-col gap-1.5">
             {recentRuns.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink/8 bg-white px-3 py-2 text-xs">
                 <span className="text-ink/70">
                   {SCOPE_LABEL[r.scope as VerificationScope] ?? r.scope} &middot; {new Date(r.startedAt).toLocaleString()}
                 </span>
-                <span className="text-ink/50">
+                <span className="text-ink-muted">
                   {r.status} &middot; {r.processedRecords}/{r.totalRecords} checked &middot; {r.proposalsCreated} proposals &middot; {r.conflictsFound} conflicts
                 </span>
               </li>

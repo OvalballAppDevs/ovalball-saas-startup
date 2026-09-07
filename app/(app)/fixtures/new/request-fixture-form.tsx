@@ -133,7 +133,7 @@ export function RequestFixtureForm({
   if (step === "review") {
     return (
       <div className="rounded-lg border border-ink/10 bg-white p-6">
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Review request</p>
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Review request</p>
         <h2 className="mt-2 font-display text-display-l text-ink">
           vs {opponent?.name}
           {targetTeam && selectedTeams.length === 1 ? ` ${targetTeam.displayName}` : ""}
@@ -142,11 +142,11 @@ export function RequestFixtureForm({
             : ""}
         </h2>
         {namedIdentity && (
-          <p className="mt-1 text-xs text-ink/45">
+          <p className="mt-1 text-xs text-ink-muted">
             They don&apos;t appear to have this team yet -- {opponent?.name} can create it when reviewing your request.
           </p>
         )}
-        <p className="mt-1 text-sm text-ink/55">
+        <p className="mt-1 text-sm text-ink-muted">
           {date ? new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : ""}
         </p>
 
@@ -172,7 +172,7 @@ export function RequestFixtureForm({
           </div>
         )}
 
-        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+        {error && <p className="mt-4 text-sm text-destructive-text">{error}</p>}
 
         <div className="mt-6 flex items-center gap-3">
           <Button type="button" variant="ghost" className="h-10" onClick={() => setStep("details")} disabled={submitting}>
@@ -197,7 +197,7 @@ export function RequestFixtureForm({
             <div>
               <p className="text-sm font-medium text-ink">{opponent.name}</p>
               {targetTeam && (
-                <p className="text-xs text-ink/55">Checking availability for their {targetTeam.displayName}</p>
+                <p className="text-xs text-ink-muted">Checking availability for their {targetTeam.displayName}</p>
               )}
             </div>
             <button
@@ -224,8 +224,8 @@ export function RequestFixtureForm({
         )}
         {editingOpponent && !opponent && query.trim().length >= 2 && (
           <div className="mt-2 flex flex-col gap-1 rounded-lg border border-ink/10 bg-white p-1">
-            {searching && <p className="px-3 py-2 text-sm text-ink/45">Searching…</p>}
-            {!searching && results.length === 0 && <p className="px-3 py-2 text-sm text-ink/45">No clubs found.</p>}
+            {searching && <p className="px-3 py-2 text-sm text-ink-muted">Searching…</p>}
+            {!searching && results.length === 0 && <p className="px-3 py-2 text-sm text-ink-muted">No clubs found.</p>}
             {results.map((r) => (
               <button
                 key={r.directoryId}
@@ -239,7 +239,7 @@ export function RequestFixtureForm({
                 className="rounded-md px-3 py-2 text-left text-sm text-ink hover:bg-ink/5"
               >
                 {r.name}
-                {r.town ? <span className="text-ink/45"> · {r.town}</span> : null}
+                {r.town ? <span className="text-ink-muted"> · {r.town}</span> : null}
               </button>
             ))}
           </div>
@@ -319,7 +319,7 @@ export function RequestFixtureForm({
           ) : (
             <div className="rounded-lg border border-ink/10 bg-ink/5 px-3.5 py-3">
               <p className="text-sm font-medium text-ink">Which of their teams?</p>
-              <p className="mt-0.5 text-xs text-ink/55">
+              <p className="mt-0.5 text-xs text-ink-muted">
                 If {opponent?.name} doesn&apos;t have this team yet, they can create it when reviewing your request.
                 It won&apos;t be accepted until they do.
               </p>
@@ -355,7 +355,7 @@ export function RequestFixtureForm({
                 <button
                   type="button"
                   onClick={() => setNamingIdentity(false)}
-                  className="text-sm text-ink/55 underline underline-offset-2 hover:text-ink"
+                  className="text-sm text-ink-muted underline underline-offset-2 hover:text-ink"
                 >
                   Remove
                 </button>

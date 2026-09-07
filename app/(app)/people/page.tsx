@@ -99,7 +99,7 @@ export default async function PeoplePage() {
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club</p>
       <h1 className="mt-2 font-display text-display-l text-ink">People</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">
+      <p className="mt-2 max-w-md text-sm text-ink-muted">
         Who has access to {clubName}, what they can do, and which teams they&apos;re assigned to.
       </p>
 
@@ -107,7 +107,7 @@ export default async function PeoplePage() {
         {people.length === 0 ? (
           <div className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
             <p className="text-sm font-medium text-ink">Just you, for now</p>
-            <p className="mt-1 text-sm text-ink/55">Invite coaches, team managers, or other club officials below.</p>
+            <p className="mt-1 text-sm text-ink-muted">Invite coaches, team managers, or other club officials below.</p>
           </div>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -120,7 +120,7 @@ export default async function PeoplePage() {
 
       {invitations && invitations.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Pending invitations</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Pending invitations</h2>
           <ul className="mt-3 flex flex-col gap-2">
             {invitations.map((inv) => (
               <PendingInvitationRow

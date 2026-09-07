@@ -23,7 +23,7 @@ export function ConnectedUsers({ directoryId, users }: { directoryId: string; us
   const revoked = users.filter((u) => u.status === "revoked")
 
   if (users.length === 0) {
-    return <p className="text-sm text-ink/50">No one is connected to this club yet.</p>
+    return <p className="text-sm text-ink-muted">No one is connected to this club yet.</p>
   }
 
   return (
@@ -33,7 +33,7 @@ export function ConnectedUsers({ directoryId, users }: { directoryId: string; us
       ))}
       {revoked.length > 0 && (
         <details className="mt-2">
-          <summary className="cursor-pointer text-sm text-ink/45 select-none">
+          <summary className="cursor-pointer text-sm text-ink-muted select-none">
             {revoked.length} revoked membership{revoked.length === 1 ? "" : "s"}
           </summary>
           <div className="mt-3 flex flex-col gap-3">
@@ -103,16 +103,16 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
           >
             {user.name}
           </Link>
-          <p className="text-xs text-ink/45">{user.email}</p>
+          <p className="text-xs text-ink-muted">{user.email}</p>
         </div>
         {!revoked && !confirmingRevoke && (
-          <Button type="button" variant="ghost" className="h-8 text-destructive hover:bg-destructive/10" onClick={() => setConfirmingRevoke(true)}>
+          <Button type="button" variant="ghost" className="h-8 text-destructive-text hover:bg-destructive/10" onClick={() => setConfirmingRevoke(true)}>
             Revoke access
           </Button>
         )}
         {!revoked && confirmingRevoke && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-ink/55">Revoke {user.name.split(" ")[0]}&apos;s access?</span>
+            <span className="text-xs text-ink-muted">Revoke {user.name.split(" ")[0]}&apos;s access?</span>
             <Button type="button" variant="destructive" className="h-8" disabled={revoking} onClick={handleRevoke}>
               {revoking ? "Revoking…" : "Confirm"}
             </Button>
@@ -123,7 +123,7 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
         )}
         {revoked && (
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink/50">Revoked</span>
+            <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink-muted">Revoked</span>
             <Button type="button" variant="outline" className="h-8" disabled={reactivating} onClick={handleReactivate}>
               {reactivating ? "Working…" : "Reactivate"}
             </Button>
@@ -133,7 +133,7 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
-          <p className="text-[10px] font-medium tracking-[0.06em] text-ink/40 uppercase">Ovalball access</p>
+          <p className="text-[10px] font-medium tracking-[0.06em] text-ink-muted uppercase">Ovalball access</p>
           {user.isSiteAdmin && (
             <p className="mt-1 flex items-center gap-1 text-sm font-medium text-forest-800">
               <ShieldCheck className="size-3.5" />
@@ -144,7 +144,7 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
         </div>
 
         <div>
-          <p className="text-[10px] font-medium tracking-[0.06em] text-ink/40 uppercase">Real-world club role</p>
+          <p className="text-[10px] font-medium tracking-[0.06em] text-ink-muted uppercase">Real-world club role</p>
           {editingTitle ? (
             <div className="mt-1 flex items-center gap-1.5">
               <input
@@ -165,15 +165,15 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
               onClick={() => setEditingTitle(true)}
               className="mt-1 block text-left text-sm text-ink/70 underline decoration-dotted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
-              {roleTitle || <span className="text-ink/35">Not recorded — click to add</span>}
+              {roleTitle || <span className="text-ink-muted">Not recorded — click to add</span>}
             </button>
           )}
         </div>
 
         <div>
-          <p className="text-[10px] font-medium tracking-[0.06em] text-ink/40 uppercase">Team scope</p>
+          <p className="text-[10px] font-medium tracking-[0.06em] text-ink-muted uppercase">Team scope</p>
           {user.teamRoles.length === 0 ? (
-            <p className="mt-1 text-sm text-ink/35">No team assignment</p>
+            <p className="mt-1 text-sm text-ink-muted">No team assignment</p>
           ) : (
             <ul className="mt-1 flex flex-col gap-0.5">
               {user.teamRoles.map((t) => (
@@ -186,7 +186,7 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
         </div>
       </div>
 
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

@@ -92,13 +92,13 @@ export default async function ClubImportBatchPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/fixtures" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href="/fixtures" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Fixtures
       </Link>
 
       <h1 className="mt-3 font-display text-display-l text-ink">{batch.filename}</h1>
-      <p className="mt-1 text-sm text-ink/55">
+      <p className="mt-1 text-sm text-ink-muted">
         {batch.row_count} rows &middot; {STATE_LABEL[batch.state] ?? batch.state}
       </p>
 

@@ -109,7 +109,7 @@ export default async function MessagesPage() {
         <div>
           <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Messages</p>
           <h1 className="mt-2 font-display text-display-l text-ink">Conversations</h1>
-          <p className="mt-2 max-w-md text-sm text-ink/55">
+          <p className="mt-2 max-w-md text-sm text-ink-muted">
             Fixture and fixture-request conversations, direct club-to-club messages, and your
             Ovalball Support threads.
           </p>

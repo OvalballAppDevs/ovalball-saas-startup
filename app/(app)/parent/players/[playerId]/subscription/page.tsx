@@ -79,7 +79,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
         <h1 className="mt-2 font-display text-display-l text-ink">
           {player.first_name} {player.surname}
         </h1>
-        <p className="mt-4 max-w-md text-sm text-ink/55">{relation.clubName} does not have Club Subscriptions set up yet.</p>
+        <p className="mt-4 max-w-md text-sm text-ink-muted">{relation.clubName} does not have Club Subscriptions set up yet.</p>
       </div>
     )
   }
@@ -221,7 +221,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
                   <span className="text-sm font-medium text-ink">First membership charge</span>
                   <span className="text-lg font-medium tabular-nums text-ink">{formatMinorUnits(preview.first_charge_amount_minor)}</span>
                 </div>
-                <p className="mt-1 text-xs text-ink/50">
+                <p className="mt-1 text-xs text-ink-muted">
                   Covers {new Date(preview.covers_from).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}&ndash;{new Date(preview.covers_to).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}. Then{" "}
                   {formatMinorUnits(preview.monthly_amount_minor)} per month from the 1st.
                 </p>
@@ -233,7 +233,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
                   <span className="text-sm font-medium text-ink">First membership charge</span>
                   <span className="text-lg font-medium tabular-nums text-ink">{formatMinorUnits(preview.first_charge_amount_minor)}</span>
                 </div>
-                <p className="mt-1 text-xs text-ink/50">Billing period {new Date(preview.first_charge_billing_period).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}. Normal collection date: 1st of each month.</p>
+                <p className="mt-1 text-xs text-ink-muted">Billing period {new Date(preview.first_charge_billing_period).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}. Normal collection date: 1st of each month.</p>
               </>
             ) : (
               <div className="flex items-center justify-between">
@@ -241,7 +241,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
                 <span className="text-lg font-medium tabular-nums text-ink">{formatMinorUnits(preview.first_charge_amount_minor)}</span>
               </div>
             )}
-            <p className="mt-2 text-xs text-ink/40">Shown in full before you authorize anything. The actual first collection date is confirmed by GoCardless once your Direct Debit is set up -- this is not a promise of same-day collection.</p>
+            <p className="mt-2 text-xs text-ink-muted">Shown in full before you authorize anything. The actual first collection date is confirmed by GoCardless once your Direct Debit is set up -- this is not a promise of same-day collection.</p>
           </div>
         )}
       </div>
@@ -259,7 +259,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
               <SetupDirectDebitButton playerId={playerId} programmeId={eligibility.programme_id} clubId={relation.clubId} />
             </>
           ) : (
-            <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-4 text-center text-sm text-ink/55">This club is still setting up subscriptions. Check back soon.</p>
+            <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-4 text-center text-sm text-ink-muted">This club is still setting up subscriptions. Check back soon.</p>
           )
         ) : localMandate ? (
           <div className="flex flex-col gap-3">
@@ -275,10 +275,10 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
                 {localPayment ? (
                   <>
                     <p className="mt-2 text-xs font-medium text-ink/70">Status: {PAYMENT_STATUS_LABEL[localPayment.status] ?? localPayment.status}</p>
-                    {localPayment.charge_date && <p className="mt-1 text-xs text-ink/50">Expected collection date: {new Date(localPayment.charge_date).toLocaleDateString("en-GB")}</p>}
+                    {localPayment.charge_date && <p className="mt-1 text-xs text-ink-muted">Expected collection date: {new Date(localPayment.charge_date).toLocaleDateString("en-GB")}</p>}
                   </>
                 ) : (
-                  <p className="mt-2 text-xs text-ink/50">Not yet submitted to GoCardless.</p>
+                  <p className="mt-2 text-xs text-ink-muted">Not yet submitted to GoCardless.</p>
                 )}
               </div>
             )}
@@ -305,7 +305,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
             <p className="mt-1 text-xs text-ink/70">GoCardless hasn&rsquo;t confirmed your mandate yet. Refresh this page once you&rsquo;ve completed their secure setup page.</p>
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-4 text-center text-sm text-ink/55">You&rsquo;re set as the responsible payer for {player.first_name}. Set up Direct Debit below to activate the subscription.</p>
+          <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-4 text-center text-sm text-ink-muted">You&rsquo;re set as the responsible payer for {player.first_name}. Set up Direct Debit below to activate the subscription.</p>
         )}
       </div>
     </div>
@@ -314,7 +314,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
 
 function BackLink({ playerId }: { playerId: string }) {
   return (
-    <Link href={`/parent/players/${playerId}/access`} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+    <Link href={`/parent/players/${playerId}/access`} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
       <ChevronLeft className="size-4" />
       Back
     </Link>
@@ -330,7 +330,7 @@ function ordinalWord(n: number): string {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <dt className="text-ink/50">{label}</dt>
+      <dt className="text-ink-muted">{label}</dt>
       <dd className="font-medium text-ink">{value}</dd>
     </div>
   )

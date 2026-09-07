@@ -20,7 +20,7 @@ import { TournamentOppositionEntry, type OppositionValue } from "./tournament-op
 
 const EMPTY_OPPOSITION: OppositionValue = { clubDirectoryId: null, clubName: null, clubActivated: false, clubId: null, canonicalTeamTypeId: null }
 
-const SECTION_LABEL = "text-xs font-medium tracking-[0.06em] text-ink/45 uppercase"
+const SECTION_LABEL = "text-xs font-medium tracking-[0.06em] text-ink-muted uppercase"
 
 export function AddFixtureDialog({
   lockedClubId,
@@ -315,7 +315,7 @@ export function AddFixtureDialog({
                   setHomeTeamLabel(teamLabel)
                 }}
               />
-              {rugbyCode && <p className="mt-2.5 text-xs text-ink/40">Rugby {rugbyCode === "union" ? "Union" : "League"}</p>}
+              {rugbyCode && <p className="mt-2.5 text-xs text-ink-muted">Rugby {rugbyCode === "union" ? "Union" : "League"}</p>}
             </div>
           </div>
 
@@ -332,7 +332,7 @@ export function AddFixtureDialog({
             Tournament
           </label>
           {isTournament && (
-            <p className="-mt-3 text-xs text-ink/45">
+            <p className="-mt-3 text-xs text-ink-muted">
               The host team&apos;s own side is fixed as home &mdash; an away club cannot create or control another club&apos;s tournament from this form.
             </p>
           )}
@@ -435,7 +435,7 @@ export function AddFixtureDialog({
                   <Input id="kickoff-time" type="time" value={kickoffTime} onChange={(e) => setKickoffTime(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
                 </div>
               </div>
-              <p className="mt-2.5 text-xs text-ink/40">Season is determined automatically from the kickoff date.</p>
+              <p className="mt-2.5 text-xs text-ink-muted">Season is determined automatically from the kickoff date.</p>
             </div>
           </div>
 
@@ -499,7 +499,7 @@ export function AddFixtureDialog({
                       </option>
                     ))}
                   </select>
-                  {rugbyCode && competitions.length === 0 && <p className="mt-1 text-xs text-ink/40">No active competitions for this rugby code yet.</p>}
+                  {rugbyCode && competitions.length === 0 && <p className="mt-1 text-xs text-ink-muted">No active competitions for this rugby code yet.</p>}
                 </div>
                 <div>
                   <Label htmlFor="venue" className="text-ink/80">
@@ -546,7 +546,7 @@ export function AddFixtureDialog({
                       </option>
                     ))}
                   </select>
-                  {venueId && pitches.length === 0 && <p className="mt-1 text-xs text-ink/40">No pitches assigned to this venue yet.</p>}
+                  {venueId && pitches.length === 0 && <p className="mt-1 text-xs text-ink-muted">No pitches assigned to this venue yet.</p>}
                 </div>
               </div>
 
@@ -565,7 +565,7 @@ export function AddFixtureDialog({
             </div>
           </div>
 
-          {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+          {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
           <Button type="button" className="h-10 w-full" disabled={creating} onClick={handleCreate}>
             {creating ? "Creating…" : isTournament ? "Create tournament" : "Create fixture"}

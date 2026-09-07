@@ -77,7 +77,7 @@ export default async function ClubVenuesPage() {
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Lookup Administration</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Venues &amp; Pitches</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         Venues are physical locations your club uses; pitches are their own records, each optionally assigned to a
         venue. Fixture Administration reads from this same list everywhere &mdash; deactivate a venue or pitch
         instead of removing it if a fixture already references it.

@@ -155,7 +155,7 @@ export default async function ClubProfilePage() {
         <div>
           <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club</p>
           <h1 className="mt-2 font-display text-display-l text-ink">{club.club_directory?.name}</h1>
-          <p className="mt-1 text-sm text-ink/50">
+          <p className="mt-1 text-sm text-ink-muted">
             {[club.club_directory?.town, club.club_directory?.county].filter(Boolean).join(", ")}
           </p>
         </div>
@@ -167,7 +167,7 @@ export default async function ClubProfilePage() {
           View public page &rarr;
         </Link>
       </div>
-      <p className="mt-4 max-w-md text-sm text-ink/55">
+      <p className="mt-4 max-w-md text-sm text-ink-muted">
         Club name, location, and rugby code come from Ovalball&apos;s canonical directory and can&apos;t be edited
         here &mdash; contact support if any of that is wrong. Everything below is yours to manage.
       </p>
@@ -206,7 +206,7 @@ export default async function ClubProfilePage() {
       <div className="mt-8 flex items-center justify-between rounded-lg border border-ink/10 bg-white px-4 py-3.5">
         <div>
           <p className="text-sm font-medium text-ink">Venues &amp; pitches</p>
-          <p className="mt-0.5 text-xs text-ink/50">Managed under Lookup Administration &mdash; used throughout fixture creation and editing.</p>
+          <p className="mt-0.5 text-xs text-ink-muted">Managed under Lookup Administration &mdash; used throughout fixture creation and editing.</p>
         </div>
         <Link href="/club/venues" className="shrink-0 text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
           Manage &rarr;

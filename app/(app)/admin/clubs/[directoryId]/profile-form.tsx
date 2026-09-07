@@ -92,7 +92,7 @@ export function ProfileForm({ initial }: { initial: ClubProfileInput }) {
 
       <div className="rounded-lg border border-ink/10 bg-white p-4">
         <p className="text-sm font-medium text-ink">What&apos;s shown on the public club page</p>
-        <p className="mt-1 text-xs text-ink/50">
+        <p className="mt-1 text-xs text-ink-muted">
           Name, crest, town/county, bio and teams are always shown. These fields are optional &mdash; the default is
           privacy-conscious, so a club&apos;s exact address and postcode stay hidden unless deliberately turned on.
         </p>
@@ -118,7 +118,7 @@ export function ProfileForm({ initial }: { initial: ClubProfileInput }) {
             onChange={(v) => setForm((f) => ({ ...f, showPostcode: v }))}
           />
         </div>
-        <p className="mt-3 text-xs text-ink/45">
+        <p className="mt-3 text-xs text-ink-muted">
           Public phone and email are set per named contact (Fixture Secretary, Minis Secretary, General) on the
           club&apos;s own Club page, not here &mdash; each contact has its own independent public/private toggle.
         </p>
@@ -137,14 +137,14 @@ export function ProfileForm({ initial }: { initial: ClubProfileInput }) {
           <option value="active">Active</option>
           <option value="suspended">Suspended</option>
         </select>
-        <p className="mt-1 text-xs text-ink/45">
+        <p className="mt-1 text-xs text-ink-muted">
           Suspended hides the club&apos;s public page. Its administrators keep their own access &mdash; this doesn&apos;t
           remove or pause anyone&apos;s permissions.
         </p>
       </div>
 
       {error && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>
       )}
 
       <div className="flex items-center gap-3 border-t border-ink/10 pt-5">

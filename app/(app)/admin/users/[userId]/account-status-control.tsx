@@ -45,7 +45,7 @@ export function AccountStatusControl({ userId, userName, status, isSelf }: { use
   return (
     <div className={`rounded-lg border p-4 ${current === "suspended" ? "border-destructive/25 bg-destructive/[0.03]" : "border-ink/10 bg-white"}`}>
       <p className="text-sm font-medium text-ink">Account status</p>
-      <p className="mt-1 text-sm text-ink/55">
+      <p className="mt-1 text-sm text-ink-muted">
         {current === "suspended"
           ? "Suspended -- every protected action (club/team administration, fixtures, messaging) is blocked for this account, even though they can still sign in."
           : "Active. Suspending blocks all protected actions immediately without deleting the account or any of its history."}
@@ -56,9 +56,9 @@ export function AccountStatusControl({ userId, userName, status, isSelf }: { use
           {working ? "Working…" : "Reactivate account"}
         </Button>
       ) : isSelf ? (
-        <p className="mt-3 text-xs text-ink/45">You cannot suspend your own account.</p>
+        <p className="mt-3 text-xs text-ink-muted">You cannot suspend your own account.</p>
       ) : !confirming ? (
-        <Button type="button" variant="ghost" className="mt-3 h-9 text-destructive hover:bg-destructive/10" onClick={() => setConfirming(true)}>
+        <Button type="button" variant="ghost" className="mt-3 h-9 text-destructive-text hover:bg-destructive/10" onClick={() => setConfirming(true)}>
           Suspend account
         </Button>
       ) : (
@@ -73,7 +73,7 @@ export function AccountStatusControl({ userId, userName, status, isSelf }: { use
         </div>
       )}
 
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

@@ -49,7 +49,7 @@ export function CreateTeamForm({ clubId, groups, availability }: { clubId: strin
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border border-ink/10 bg-white p-5">
       <p className="text-sm font-medium text-ink">Add a team</p>
-      <p className="mt-1 text-sm text-ink/50">
+      <p className="mt-1 text-sm text-ink-muted">
         Pick from the same team list your club confirmed when it joined Ovalball &mdash; there&apos;s no free-text
         name to type or get out of sync.
       </p>
@@ -67,7 +67,7 @@ export function CreateTeamForm({ clubId, groups, availability }: { clubId: strin
         />
       </div>
 
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
       <div className="mt-4 flex items-center gap-2">
         <Button type="submit" className="h-9" disabled={status === "saving" || !categoryLabel}>

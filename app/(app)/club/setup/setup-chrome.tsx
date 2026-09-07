@@ -48,7 +48,7 @@ export function SetupProgress({ steps, current }: { steps: StepMeta[]; current: 
                 "focus-visible:ring-2 focus-visible:ring-pitch-400",
                 isCurrent && "bg-forest-950 pr-3.5 font-medium text-white",
                 !isCurrent && reachable && "text-ink/70 hover:bg-ink/5",
-                !reachable && "cursor-default text-ink/35"
+                !reachable && "cursor-default text-ink-muted"
               )}
             >
               <span
@@ -58,7 +58,7 @@ export function SetupProgress({ steps, current }: { steps: StepMeta[]; current: 
                   s.done && !isCurrent && "bg-mint-100 text-forest-950",
                   s.done && isCurrent && "bg-white/20 text-white",
                   !s.done && isCurrent && "bg-white/20 text-white",
-                  !s.done && !isCurrent && "border border-ink/20 text-ink/45"
+                  !s.done && !isCurrent && "border border-ink/20 text-ink-muted"
                 )}
               >
                 {s.done ? <Check className="size-3.5" strokeWidth={3} /> : s.n}
@@ -170,7 +170,7 @@ export function StepNav({
 
         <div className="ml-auto flex items-center gap-3">
           {!canContinue && blockedReason && (
-            <p className="text-xs text-ink/50">{blockedReason}</p>
+            <p className="text-xs text-ink-muted">{blockedReason}</p>
           )}
           {step < 3 ? (
             <Button type="button" disabled={!canContinue || pending} onClick={() => go((step + 1) as 2 | 3)}>

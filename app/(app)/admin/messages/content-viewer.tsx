@@ -55,17 +55,17 @@ export function ContentViewer({
           <DialogTitle>{label}</DialogTitle>
         </DialogHeader>
 
-        {loading && <p className="py-6 text-center text-sm text-ink/50">Loading message content…</p>}
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {loading && <p className="py-6 text-center text-sm text-ink-muted">Loading message content…</p>}
+        {error && <p className="text-sm text-destructive-text">{error}</p>}
 
         {!loading && !error && (
           <div className="flex max-h-96 flex-col gap-3 overflow-y-auto">
-            {messages.length === 0 && <p className="text-sm text-ink/45">No messages in this conversation.</p>}
+            {messages.length === 0 && <p className="text-sm text-ink-muted">No messages in this conversation.</p>}
             {messages.map((m) => (
               <div key={m.id} className="rounded-lg border border-ink/10 bg-ink/[0.02] px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-medium text-ink/70">{m.senderName}</p>
-                  <p className="text-xs text-ink/40">{new Date(m.createdAt).toLocaleString()}</p>
+                  <p className="text-xs text-ink-muted">{new Date(m.createdAt).toLocaleString()}</p>
                 </div>
                 <p className="mt-1 text-sm whitespace-pre-wrap text-ink">{m.body}</p>
                 {m.reportStatus && (

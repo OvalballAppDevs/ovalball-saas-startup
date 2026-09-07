@@ -102,11 +102,11 @@ export default async function ReferralAdministrationPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/commercial" className="inline-flex min-h-11 items-center gap-1.5 py-2.5 -my-2.5 text-sm text-ink/55 hover:text-ink/80">
+      <Link href="/admin/commercial" className="inline-flex min-h-11 items-center gap-1.5 py-2.5 -my-2.5 text-sm text-ink-muted hover:text-ink/80">
         <ArrowLeft className="size-3.5" /> Commercial
       </Link>
       <h1 className="mt-2 font-display text-display-l text-ink">Referral Administration</h1>
-      <p className="mt-2 max-w-2xl text-sm text-ink/55">
+      <p className="mt-2 max-w-2xl text-sm text-ink-muted">
         The canonical referral chain: an invited club, the club that referred it, and what it earned. The
         reward beneficiary is always the referring club, never a person.
       </p>
@@ -156,17 +156,17 @@ export default async function ReferralAdministrationPage({
       )}
 
       {!healthError && anomalyCount === 0 && (
-        <p className="mt-6 rounded-lg border border-ink/10 bg-white px-5 py-3.5 text-sm text-ink/55">
+        <p className="mt-6 rounded-lg border border-ink/10 bg-white px-5 py-3.5 text-sm text-ink-muted">
           No referral data-health anomalies found.
         </p>
       )}
 
       {anomalyCount > 0 && (
         <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3.5">
-          <p className="text-sm font-medium text-destructive">
+          <p className="text-sm font-medium text-destructive-text">
             {anomalyCount} data-health {anomalyCount === 1 ? "anomaly" : "anomalies"} found
           </p>
-          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-destructive/80">
+          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-destructive-text">
             {healthRows?.missing_attribution ? <li>{healthRows.missing_attribution} missing attribution</li> : null}
             {healthRows?.pending_for_activated_club ? <li>{healthRows.pending_for_activated_club} pending for an activated club</li> : null}
             {healthRows?.ambiguous_referrer ? <li>{healthRows.ambiguous_referrer} ambiguous referrer</li> : null}
@@ -174,7 +174,7 @@ export default async function ReferralAdministrationPage({
             {healthRows?.reward_without_referral ? <li>{healthRows.reward_without_referral} reward without a referral</li> : null}
             {healthRows?.duplicate_attribution ? <li>{healthRows.duplicate_attribution} duplicate attribution</li> : null}
           </ul>
-          <Link href="/admin/commercial/referrals/data-health" className="mt-2 inline-flex min-h-11 items-center py-2.5 -my-2.5 text-xs font-medium text-destructive underline underline-offset-2">
+          <Link href="/admin/commercial/referrals/data-health" className="mt-2 inline-flex min-h-11 items-center py-2.5 -my-2.5 text-xs font-medium text-destructive-text underline underline-offset-2">
             View anomaly detail
           </Link>
         </div>
@@ -213,7 +213,7 @@ export default async function ReferralAdministrationPage({
 
       <section className="mt-6">
         {rows.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/55">
+          <p className="rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">
             No referrals match this filter.
           </p>
         ) : (
@@ -221,7 +221,7 @@ export default async function ReferralAdministrationPage({
             <div className="hidden overflow-x-auto rounded-lg border border-ink/10 bg-white md:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-ink/10 text-left text-xs text-ink/55">
+                  <tr className="border-b border-ink/10 text-left text-xs text-ink-muted">
                     <th scope="col" className="px-5 py-3 font-medium">Referring club</th>
                     <th scope="col" className="px-5 py-3 font-medium">Referred club</th>
                     <th scope="col" className="px-5 py-3 font-medium">Status</th>
@@ -240,7 +240,7 @@ export default async function ReferralAdministrationPage({
                       <td className="px-5 py-3.5 text-ink/70 tabular-nums">{formatDate(r.invitation_created_at ?? r.created_at)}</td>
                       <td className="px-5 py-3.5 text-right text-ink/70 tabular-nums">
                         {r.reward_amount_pence ? formatMoney(r.reward_amount_pence) : "—"}
-                        {r.reward_reversed && <span className="ml-1 text-xs text-destructive">(reversed)</span>}
+                        {r.reward_reversed && <span className="ml-1 text-xs text-destructive-text">(reversed)</span>}
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <Link href={`/admin/commercial/referrals/${r.referral_id}`} className="text-xs font-medium text-forest-800 underline underline-offset-2">
@@ -260,7 +260,7 @@ export default async function ReferralAdministrationPage({
                     <p className="text-sm font-medium text-ink">{r.referring_club_name}</p>
                     <StatusPill status={r.status as ReferralStatus} />
                   </div>
-                  <p className="mt-1 text-xs text-ink/55">Referred: {r.referred_club_name ?? "—"}</p>
+                  <p className="mt-1 text-xs text-ink-muted">Referred: {r.referred_club_name ?? "—"}</p>
                   <dl className="mt-2 space-y-1 text-xs text-ink/60">
                     <div className="flex justify-between gap-3">
                       <dt>Invited</dt>
@@ -290,9 +290,9 @@ export default async function ReferralAdministrationPage({
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-4">
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">{label}</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{label}</p>
       <p className="mt-1 text-lg font-semibold text-ink tabular-nums">{value}</p>
-      {hint ? <p className="mt-0.5 text-xs text-ink/45 tabular-nums">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 text-xs text-ink-muted tabular-nums">{hint}</p> : null}
     </div>
   )
 }
@@ -305,7 +305,7 @@ function StatusPill({ status }: { status: ReferralStatus }) {
         ? "bg-pitch-600/10 text-forest-900"
         : status === "pending"
           ? "bg-ink/5 text-ink/60"
-          : "bg-destructive/10 text-destructive"
+          : "bg-destructive/10 text-destructive-text"
   return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${toneClass}`}>{STATUS_LABELS[status]}</span>
 }
 

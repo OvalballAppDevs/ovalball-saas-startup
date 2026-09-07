@@ -160,7 +160,7 @@ export function GroupForm({
                     <input type="radio" checked={mapsToRole === opt.value} onChange={() => setMapsToRole(opt.value)} className="mt-0.5" />
                     <span>
                       <span className="font-medium text-ink">{opt.label}</span>
-                      <span className="block text-xs text-ink/50">{opt.hint}</span>
+                      <span className="block text-xs text-ink-muted">{opt.hint}</span>
                     </span>
                   </label>
                 ))}
@@ -187,13 +187,13 @@ export function GroupForm({
 
           <div>
             <Label className="text-ink/80">Documented capabilities</Label>
-            <p className="mt-0.5 text-xs text-ink/45">
+            <p className="mt-0.5 text-xs text-ink-muted">
               What this group is documented to include -- for clarity, not the enforcement itself.
             </p>
             <div className="mt-2 flex flex-col gap-3">
               {groupCapabilities(capabilities).map(([category, caps]) => (
                 <div key={category}>
-                  <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">{CATEGORY_LABEL[category] ?? category}</p>
+                  <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{CATEGORY_LABEL[category] ?? category}</p>
                   <div className="mt-1 flex flex-col gap-1">
                     {caps.map((cap) => (
                       <label key={cap.key} className="flex items-center gap-2 text-sm text-ink/80">
@@ -207,7 +207,7 @@ export function GroupForm({
             </div>
           </div>
 
-          {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+          {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>}
 
           <Button type="button" className="h-10 w-full" disabled={saving} onClick={handleSave}>
             {saving ? "Saving…" : editing ? "Save changes" : "Create group"}

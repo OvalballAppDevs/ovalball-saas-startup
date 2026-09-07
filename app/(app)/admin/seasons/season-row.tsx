@@ -102,10 +102,10 @@ export function SeasonRow({ season }: { season: SeasonRowData }) {
       <td className="px-4 py-3 align-top font-medium text-ink">
         {season.name}
         {season.isRegressionFixture && (
-          <span className="ml-2 rounded border border-ink/15 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink/45 uppercase">Regression only</span>
+          <span className="ml-2 rounded border border-ink/15 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-ink-muted uppercase">Regression only</span>
         )}
         {!season.active && <span className="ml-2 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-amber-900 uppercase">Archived</span>}
-        {error && <p className="mt-1 max-w-xs text-xs font-normal text-destructive">{error}</p>}
+        {error && <p className="mt-1 max-w-xs text-xs font-normal text-destructive-text">{error}</p>}
       </td>
       <td className="px-4 py-3 align-top font-medium text-ink/70">{season.seasonRef}</td>
       <td className="px-4 py-3 align-top text-ink/70 capitalize">{season.rugbyCode ?? "—"}</td>
@@ -125,7 +125,7 @@ export function SeasonRow({ season }: { season: SeasonRowData }) {
               <Input type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} className="mt-1 h-9 border-ink/15 bg-white text-sm" />
             </div>
           </div>
-          {clientError && <p className="mt-2 text-xs text-destructive">{clientError}</p>}
+          {clientError && <p className="mt-2 text-xs text-destructive-text">{clientError}</p>}
         </td>
       ) : (
         <>
@@ -161,16 +161,16 @@ export function SeasonRow({ season }: { season: SeasonRowData }) {
               </Button>
               {confirmingDelete ? (
                 <>
-                  <span className="text-xs text-ink/50">Delete permanently?</span>
+                  <span className="text-xs text-ink-muted">Delete permanently?</span>
                   <Button type="button" variant="ghost" size="sm" className="h-8 text-ink/60" onClick={() => setConfirmingDelete(false)}>
                     Cancel
                   </Button>
-                  <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive hover:bg-destructive/10" onClick={handleDelete} disabled={busyAction !== null}>
+                  <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" onClick={handleDelete} disabled={busyAction !== null}>
                     {busyAction === "delete" ? "Deleting…" : "Confirm delete"}
                   </Button>
                 </>
               ) : (
-                <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive hover:bg-destructive/10" onClick={() => setConfirmingDelete(true)}>
+                <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" onClick={() => setConfirmingDelete(true)}>
                   Delete
                 </Button>
               )}

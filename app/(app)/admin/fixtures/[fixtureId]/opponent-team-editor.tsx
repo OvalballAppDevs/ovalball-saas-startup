@@ -104,7 +104,7 @@ export function OpponentTeamEditor({
         render={
           <button
             type="button"
-            className="inline-flex items-center gap-1 text-xs font-medium text-ink/45 outline-none hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="inline-flex items-center gap-1 text-xs font-medium text-ink-muted outline-none hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
           />
         }
       >
@@ -131,7 +131,7 @@ export function OpponentTeamEditor({
           missingTeamAgeGroup={missingTeamAgeGroup}
           onMissingTeamAgeGroupChange={setMissingTeamAgeGroup}
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-destructive-text">{error}</p>}
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>Cancel</DialogClose>
           <Button type="button" className="h-9" disabled={working} onClick={handleConfirm}>

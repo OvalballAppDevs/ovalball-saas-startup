@@ -150,14 +150,14 @@ export default async function ClubGuardiansPage() {
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club Settings</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Guardians &amp; Players</h1>
-      <p className="mt-2 max-w-md text-sm text-ink/55">Guardian relationships and player-record safeguarding for {clubName}.</p>
+      <p className="mt-2 max-w-md text-sm text-ink-muted">Guardian relationships and player-record safeguarding for {clubName}.</p>
 
       <ClubSettingsNav active="guardians" {...navCaps} />
 
       {pendingRequests.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Parent / Guardian requests</h2>
-          <p className="mt-1 text-sm text-ink/55">A parent added a child directly and needs the club to confirm their team.</p>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Parent / Guardian requests</h2>
+          <p className="mt-1 text-sm text-ink-muted">A parent added a child directly and needs the club to confirm their team.</p>
           <ul className="mt-3 flex flex-col gap-2">
             {pendingRequests.map((r) => (
               <PendingMembershipRow key={r.id} request={r} />
@@ -168,8 +168,8 @@ export default async function ClubGuardiansPage() {
 
       {duplicates.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Possible duplicate players</h2>
-          <p className="mt-1 text-sm text-ink/55">A parent tried to add a child whose name and date of birth match an existing player at this club. Confirm whether this is the same child.</p>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Possible duplicate players</h2>
+          <p className="mt-1 text-sm text-ink-muted">A parent tried to add a child whose name and date of birth match an existing player at this club. Confirm whether this is the same child.</p>
           <ul className="mt-3 flex flex-col gap-2">
             {duplicates.map((d) => (
               <DuplicateReviewRow key={d.id} review={d} />
@@ -179,11 +179,11 @@ export default async function ClubGuardiansPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Players &amp; guardians</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Players &amp; guardians</h2>
         {players.length === 0 ? (
           <div className="mt-3 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
             <p className="text-sm font-medium text-ink">No players yet</p>
-            <p className="mt-1 text-sm text-ink/55">Players appear here once a parent accepts a team invitation and adds their child.</p>
+            <p className="mt-1 text-sm text-ink-muted">Players appear here once a parent accepts a team invitation and adds their child.</p>
           </div>
         ) : (
           <ul className="mt-3 flex flex-col gap-2">

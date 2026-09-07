@@ -51,9 +51,9 @@ export function PitchInlineEdit({
         onClick={() => setEditing(true)}
         className="inline-flex items-center gap-1.5 rounded-full border border-ink/12 bg-white px-2.5 py-1 text-xs font-medium text-ink/70 outline-none transition-colors hover:border-pitch-600/40 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
-        <MapPin className="size-3.5 text-ink/35" />
+        <MapPin className="size-3.5 text-ink-muted" />
         {label}
-        <Pencil className="size-3 text-ink/30" />
+        <Pencil className="size-3 text-ink-muted" />
       </button>
     )
   }
@@ -99,7 +99,7 @@ export function PitchInlineEdit({
         >
           Save
         </button>
-        <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink/40 hover:text-ink/70">
+        <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink-muted hover:text-ink/70">
           Cancel
         </button>
       </span>
@@ -131,7 +131,7 @@ export function PitchInlineEdit({
       >
         Save
       </button>
-      <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink/40 hover:text-ink/70">
+      <button type="button" onClick={() => setEditing(false)} className="text-xs text-ink-muted hover:text-ink/70">
         Cancel
       </button>
     </span>

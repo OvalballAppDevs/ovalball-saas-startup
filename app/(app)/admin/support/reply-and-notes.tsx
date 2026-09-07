@@ -29,7 +29,7 @@ export function ReplyToUserForm({ ticketId }: { ticketId: string }) {
 
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-4">
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Reply to user</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Reply to user</p>
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
@@ -37,7 +37,7 @@ export function ReplyToUserForm({ ticketId }: { ticketId: string }) {
         placeholder="We've identified the problem and are working on a fix."
         className="mt-2 w-full resize-y rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
       />
-      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-destructive-text">{error}</p>}
       <Button size="sm" className="mt-2 h-9" disabled={submitting || body.trim().length === 0} onClick={handleSend}>
         {submitting ? "Sending…" : "Send Update"}
       </Button>
@@ -75,7 +75,7 @@ export function InternalNoteForm({ ticketId }: { ticketId: string }) {
         placeholder="Reproduced locally. Appears related to..."
         className="mt-2 w-full resize-y rounded-lg border border-amber-400/50 bg-white px-3 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
       />
-      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-destructive-text">{error}</p>}
       <Button size="sm" variant="outline" className="mt-2 h-9 border-amber-400/50" disabled={submitting || body.trim().length === 0} onClick={handleAdd}>
         {submitting ? "Adding…" : "Add Internal Note"}
       </Button>

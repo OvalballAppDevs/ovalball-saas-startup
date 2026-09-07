@@ -36,7 +36,7 @@ export function PartnerClubCard({ partner }: { partner: ActivePartnerData }) {
 
   if (revoked) {
     return (
-      <div className="rounded-lg border border-ink/10 bg-white/50 px-5 py-4 text-sm text-ink/50">
+      <div className="rounded-lg border border-ink/10 bg-white/50 px-5 py-4 text-sm text-ink-muted">
         {partner.clubName} &mdash; calendar sharing revoked.
       </div>
     )
@@ -46,10 +46,10 @@ export function PartnerClubCard({ partner }: { partner: ActivePartnerData }) {
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-ink/10 bg-white px-5 py-4">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-ink">{partner.clubName}</p>
-        <p className="mt-0.5 text-xs text-ink/50">
+        <p className="mt-0.5 text-xs text-ink-muted">
           {[partner.town, partner.county].filter(Boolean).join(", ") || "Location unknown"} · {RUGBY_CODE_LABEL[partner.rugbyCode] ?? partner.rugbyCode}
         </p>
-        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <Button

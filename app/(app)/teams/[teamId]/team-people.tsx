@@ -88,10 +88,10 @@ export function TeamPeople({
 
   return (
     <div className="mt-8">
-      <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Team people</p>
+      <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Team people</p>
 
       {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-ink/45">No one assigned to this team yet.</p>
+        <p className="mt-3 text-sm text-ink-muted">No one assigned to this team yet.</p>
       ) : (
         <div className="mt-3 flex flex-col gap-5">
           {PERMISSION_GROUPS.map((group) => {
@@ -99,7 +99,7 @@ export function TeamPeople({
             if (groupRows.length === 0) return null
             return (
               <div key={group.value}>
-                <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">{group.label}</p>
+                <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{group.label}</p>
                 <ul className="mt-2 flex flex-col gap-1.5">
                   {groupRows.map((row) => (
                     <li key={row.teamPermissionId} className="flex items-center justify-between rounded-lg border border-ink/10 bg-white px-3.5 py-2.5">
@@ -109,7 +109,7 @@ export function TeamPeople({
                           type="button"
                           disabled={removingId === row.teamPermissionId}
                           onClick={() => handleRemove(row)}
-                          className="text-xs font-medium text-destructive outline-none hover:text-destructive/80 focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:opacity-50"
+                          className="text-xs font-medium text-destructive-text outline-none hover:text-destructive-text focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:opacity-50"
                         >
                           {removingId === row.teamPermissionId ? "Removing…" : "Remove"}
                         </button>
@@ -127,7 +127,7 @@ export function TeamPeople({
         <div className="mt-5 rounded-lg border border-dashed border-ink/15 bg-white/60 p-4">
           <p className="text-sm font-medium text-ink/70">Assign an existing club member</p>
           {available.length === 0 ? (
-            <p className="mt-2 text-sm text-ink/45">
+            <p className="mt-2 text-sm text-ink-muted">
               Every active club member is already assigned here, or there&apos;s no one to assign yet &mdash; invite
               someone from People first.
             </p>
@@ -166,7 +166,7 @@ export function TeamPeople({
         </div>
       )}
 
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

@@ -51,7 +51,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/admin/users" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink">
+      <Link href="/admin/users" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         User management
       </Link>
@@ -62,11 +62,11 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       </div>
 
       <h1 className="mt-3 font-display text-display-l text-ink">{person.name}</h1>
-      <p className="mt-1 text-sm text-ink/55">{person.email}</p>
+      <p className="mt-1 text-sm text-ink-muted">{person.email}</p>
 
       <div className="mt-8 flex flex-col gap-8">
         <section>
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Account</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Account</h2>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <InfoCard label="Account created" value={formatDate(person.createdAt)} />
             <InfoCard
@@ -97,14 +97,14 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         </section>
 
         <section>
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Club memberships</h2>
-          <p className="mt-1 text-sm text-ink/50">
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Club memberships</h2>
+          <p className="mt-1 text-sm text-ink-muted">
             Ovalball access, real-world club role, and team scope are three separate things &mdash; each shown and
             edited on its own.
           </p>
           <div className="mt-3 flex flex-col gap-3">
             {person.memberships.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-6 text-center text-sm text-ink/50">
+              <p className="rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-6 text-center text-sm text-ink-muted">
                 No club memberships.
               </p>
             ) : (
@@ -115,8 +115,8 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
 
         {person.pendingRequests.length > 0 && (
           <section>
-            <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Pending requests</h2>
-            <p className="mt-1 text-sm text-ink/50">No authority is granted until these are approved &mdash; reviewed in Claims, not here.</p>
+            <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Pending requests</h2>
+            <p className="mt-1 text-sm text-ink-muted">No authority is granted until these are approved &mdash; reviewed in Claims, not here.</p>
             <div className="mt-3 flex flex-col gap-2">
               {person.pendingRequests.map((r, i) => (
                 <div key={i} className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3">
@@ -134,7 +134,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         )}
 
         <section>
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Audit</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Audit</h2>
           <div className="mt-3">
             <AuditLog
               entries={(auditRows ?? []).map((r) => ({
@@ -156,7 +156,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-4">
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/45 uppercase">{label}</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{label}</p>
       <p className="mt-1 text-sm text-ink">{value}</p>
     </div>
   )

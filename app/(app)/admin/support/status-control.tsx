@@ -64,7 +64,7 @@ export function StatusControl({ ticketId, currentStatus }: { ticketId: string; c
 
   return (
     <div>
-      <p className="text-xs font-medium tracking-[0.04em] text-ink/40 uppercase">Status</p>
+      <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Status</p>
       <div className="mt-1.5 flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-ink/8 px-3 py-1 text-sm font-medium text-ink">{SUPPORT_STATUS_LABELS[currentStatus]}</span>
         {nextOptions.map((s) => (
@@ -97,7 +97,7 @@ export function StatusControl({ ticketId, currentStatus }: { ticketId: string; c
                 disabled={!sendUpdate}
                 rows={3}
                 placeholder={target === "closed" ? "What was the resolution?" : "Message to user…"}
-                className="mt-1.5 w-full resize-y rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none disabled:bg-ink/5 disabled:text-ink/40 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                className="mt-1.5 w-full resize-y rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none disabled:bg-ink/5 disabled:text-ink-muted focus-visible:ring-2 focus-visible:ring-pitch-400"
               />
             </div>
 
@@ -112,7 +112,7 @@ export function StatusControl({ ticketId, currentStatus }: { ticketId: string; c
               />
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-destructive-text">{error}</p>}
           </div>
 
           <DialogFooter>

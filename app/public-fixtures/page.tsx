@@ -78,7 +78,7 @@ export default async function FixturesPage() {
               <Reveal index={1}>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 md:p-8">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs tracking-[0.06em] text-white/45 uppercase">
+                    <span className="text-xs tracking-[0.06em] text-white/60 uppercase">
                       {FIXTURE.competition}
                     </span>
                     <span className="rounded-full bg-pitch-600/15 px-2.5 py-1 text-xs font-medium text-pitch-400">
@@ -86,7 +86,7 @@ export default async function FixturesPage() {
                     </span>
                   </div>
                   <p className="mt-5 font-display text-2xl text-white">{FIXTURE.ourTeam}</p>
-                  <p className="text-sm text-white/45">versus</p>
+                  <p className="text-sm text-white/60">versus</p>
                   <p className="font-display text-2xl text-white">{FIXTURE.opponentTeam}</p>
 
                   <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-white/10 pt-5">
@@ -97,12 +97,12 @@ export default async function FixturesPage() {
                       ["Pitch", FIXTURE.pitch],
                     ].map(([label, value]) => (
                       <div key={label}>
-                        <dt className="text-xs tracking-[0.04em] text-white/40 uppercase">{label}</dt>
+                        <dt className="text-xs tracking-[0.04em] text-white/60 uppercase">{label}</dt>
                         <dd className="mt-1 text-sm text-white">{value}</dd>
                       </div>
                     ))}
                   </dl>
-                  <p className="mt-5 text-[11px] tracking-[0.06em] text-white/35 uppercase">
+                  <p className="mt-5 text-[11px] tracking-[0.06em] text-white/60 uppercase">
                     Product preview &mdash; example data
                   </p>
                 </div>
@@ -180,7 +180,7 @@ export default async function FixturesPage() {
                   </p>
                 </Reveal>
                 <Reveal index={2}>
-                  <p className="mt-4 text-base text-white/55">
+                  <p className="mt-4 text-base text-white/60">
                     Not a loose message with no shared context, where the reply arrives three days
                     later and nobody is sure which team it was about.
                   </p>
@@ -218,7 +218,7 @@ export default async function FixturesPage() {
               <ConnectedFixtureDemo />
             </Reveal>
             <Reveal index={2}>
-              <p className="mt-6 text-sm text-white/45">
+              <p className="mt-6 text-sm text-white/60">
                 Product previews using example data. Club names, teams and messages shown here are
                 fictitious.
               </p>
@@ -286,7 +286,7 @@ export default async function FixturesPage() {
               </div>
             </Reveal>
             <Reveal index={3}>
-              <p className="mt-8 text-sm text-white/50">
+              <p className="mt-8 text-sm text-white/60">
                 Once the fixture is agreed, get the team ready &mdash;{" "}
                 <Link
                   href="/game-management"

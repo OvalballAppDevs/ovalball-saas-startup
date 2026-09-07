@@ -92,7 +92,7 @@ export default async function CompetitionsPage() {
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Competitions</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink/55">
+      <p className="mt-2 max-w-xl text-sm text-ink-muted">
         The global list of real competitions every club&apos;s fixture form selects from &mdash; leagues, cups, and
         friendlies&apos; own categorisation. Clubs enter each season&apos;s edition of a competition; this directory
         defines the competition itself.
@@ -117,7 +117,7 @@ export default async function CompetitionsPage() {
           if (rows.length === 0) return null
           return (
             <div key={code}>
-              <p className="text-xs font-medium tracking-[0.06em] text-ink/40 uppercase">{code === "union" ? "Rugby Union" : "Rugby League"}</p>
+              <p className="text-xs font-medium tracking-[0.06em] text-ink-muted uppercase">{code === "union" ? "Rugby Union" : "Rugby League"}</p>
               <div className="mt-2 overflow-hidden rounded-lg border border-ink/10 bg-white">
                 <ul className="divide-y divide-ink/5">
                   {rows.map((c) => {
@@ -126,12 +126,12 @@ export default async function CompetitionsPage() {
                       <li key={c.id} className="px-4 py-3">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <p className={`truncate text-sm font-medium ${c.active ? "text-ink" : "text-ink/40 line-through"}`}>{c.name}</p>
-                            <p className="truncate text-xs text-ink/40">
+                            <p className={`truncate text-sm font-medium ${c.active ? "text-ink" : "text-ink-muted line-through"}`}>{c.name}</p>
+                            <p className="truncate text-xs text-ink-muted">
                               {scope}
                               {!c.active && " · Deactivated"}
                             </p>
-                            {c.description && <p className="mt-0.5 truncate text-xs text-ink/35">{c.description}</p>}
+                            {c.description && <p className="mt-0.5 truncate text-xs text-ink-muted">{c.description}</p>}
                           </div>
                           {ctx.manageCompetitions && c.active && <DeactivateCompetitionButton id={c.id} name={c.name} />}
                         </div>
@@ -152,7 +152,7 @@ export default async function CompetitionsPage() {
             </div>
           )
         })}
-        {(competitions ?? []).length === 0 && <p className="text-sm text-ink/45">No competitions yet.</p>}
+        {(competitions ?? []).length === 0 && <p className="text-sm text-ink-muted">No competitions yet.</p>}
       </div>
     </div>
   )

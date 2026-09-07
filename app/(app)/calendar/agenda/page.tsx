@@ -25,8 +25,8 @@ const STATUS_STYLES: Record<string, string> = {
   Confirmed: "bg-mint-100 text-forest-900",
   Planned: "bg-mint-100/60 text-forest-800",
   "To Be Determined": "bg-mint-100/60 text-forest-800",
-  Cancelled: "bg-destructive/10 text-destructive",
-  Completed: "bg-ink/5 text-ink/50",
+  Cancelled: "bg-destructive/10 text-destructive-text",
+  Completed: "bg-ink/5 text-ink-muted",
 }
 
 interface CalendarEntry {
@@ -258,10 +258,10 @@ export default async function CalendarAgendaPage({
 
       {grouped.size === 0 ? (
         <div className="mt-8 flex flex-col items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8">
-          <CalendarDays className="size-5 text-ink/30" />
+          <CalendarDays className="size-5 text-ink-muted" />
           <div>
             <p className="text-sm font-medium text-ink">No fixtures yet</p>
-            <p className="mt-1 text-sm text-ink/55">Fixtures and training for your team(s) will appear here once scheduled.</p>
+            <p className="mt-1 text-sm text-ink-muted">Fixtures and training for your team(s) will appear here once scheduled.</p>
           </div>
         </div>
       ) : (
@@ -275,7 +275,7 @@ export default async function CalendarAgendaPage({
               lastMonthKey = monthKey
               return (
                 <div key={dateIso} className="flex flex-col gap-3">
-                  {showMonthHeader && <h2 className="mt-2 text-xs font-medium tracking-[0.08em] text-ink/40 uppercase first:mt-0">{monthKey}</h2>}
+                  {showMonthHeader && <h2 className="mt-2 text-xs font-medium tracking-[0.08em] text-ink-muted uppercase first:mt-0">{monthKey}</h2>}
                   <section className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-[0_2px_0_0_rgba(20,20,20,0.05)]">
                     <h3 className="border-b border-ink/10 bg-ink/[0.02] px-4 py-2.5 text-sm font-semibold text-ink">
                       {date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
@@ -291,7 +291,7 @@ export default async function CalendarAgendaPage({
                               {e.kind === "training" && <Dumbbell className="size-3.5 shrink-0 text-forest-800/60" />}
                               {e.title}
                             </p>
-                            {e.subtitle && <p className="text-xs text-ink/50">{e.subtitle}</p>}
+                            {e.subtitle && <p className="text-xs text-ink-muted">{e.subtitle}</p>}
                           </div>
                           <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-medium", e.statusClass)}>{e.statusLabel}</span>
                         </li>

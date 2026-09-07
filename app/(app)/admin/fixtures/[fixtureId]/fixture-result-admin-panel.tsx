@@ -35,22 +35,22 @@ export function FixtureResultAdminPanel({
           ? `Disputed. Recorded result: ${homeScore ?? "—"} – ${awayScore ?? "—"}.`
           : `Amendment proposed: ${amendmentHomeScore ?? "—"} – ${amendmentAwayScore ?? "—"} (original ${homeScore ?? "—"} – ${awayScore ?? "—"} preserved until resolved).`}
       </p>
-      <p className="mt-1 text-xs text-ink/50">
+      <p className="mt-1 text-xs text-ink-muted">
         Resolving requires a reason and is fully audited (who/when/old score/new score/reason) -- the original result is never
         silently overwritten, it stays in the fixture&apos;s history.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-ink/50">Home score</span>
+          <span className="text-xs font-medium text-ink-muted">Home score</span>
           <input type="number" min={0} value={home} onChange={(e) => setHome(e.target.value)} className="w-20 rounded-md border border-ink/15 px-2.5 py-1.5 text-sm" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-ink/50">Away score</span>
+          <span className="text-xs font-medium text-ink-muted">Away score</span>
           <input type="number" min={0} value={away} onChange={(e) => setAway(e.target.value)} className="w-20 rounded-md border border-ink/15 px-2.5 py-1.5 text-sm" />
         </label>
       </div>
       <label className="mt-3 flex flex-col gap-1">
-        <span className="text-xs font-medium text-ink/50">Reason (required)</span>
+        <span className="text-xs font-medium text-ink-muted">Reason (required)</span>
         <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} className="rounded-md border border-ink/15 px-2.5 py-1.5 text-sm" />
       </label>
       <button
@@ -71,7 +71,7 @@ export function FixtureResultAdminPanel({
       >
         {pending ? "Resolving…" : "Resolve dispute"}
       </button>
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

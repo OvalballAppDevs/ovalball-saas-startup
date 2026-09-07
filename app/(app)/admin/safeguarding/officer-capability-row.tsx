@@ -77,15 +77,15 @@ export function OfficerCapabilityRow({ officer }: { officer: OfficerCapabilityDa
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-ink">
           {officer.officerName}{" "}
-          <span className="text-xs font-normal text-ink/45">
+          <span className="text-xs font-normal text-ink-muted">
             ({officer.officerType === "primary" ? "Primary" : "Deputy"})
           </span>
         </p>
-        <p className="truncate text-xs text-ink/45">{officer.clubName}</p>
+        <p className="truncate text-xs text-ink-muted">{officer.clubName}</p>
       </div>
 
       {error && (
-        <p role="alert" className="mt-2 text-xs text-destructive">
+        <p role="alert" className="mt-2 text-xs text-destructive-text">
           {error}
         </p>
       )}
@@ -101,7 +101,7 @@ export function OfficerCapabilityRow({ officer }: { officer: OfficerCapabilityDa
                 </span>
               )}
             </legend>
-            <p className="mt-1 text-xs text-ink/45">{group.hint}</p>
+            <p className="mt-1 text-xs text-ink-muted">{group.hint}</p>
 
             <div className="mt-2 space-y-2">
               {group.capabilities.map((cap) => (
@@ -115,7 +115,7 @@ export function OfficerCapabilityRow({ officer }: { officer: OfficerCapabilityDa
                   />
                   <span className="min-w-0">
                     <span className="block text-sm text-ink">{cap.label}</span>
-                    <span className="block text-xs text-ink/45">{cap.hint}</span>
+                    <span className="block text-xs text-ink-muted">{cap.hint}</span>
                   </span>
                 </label>
               ))}

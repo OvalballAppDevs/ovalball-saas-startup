@@ -44,10 +44,10 @@ export function CancelOwnMembershipButton({ playerId, playerName }: { playerId: 
     // extra clearance, a fixed-position chat/support widget can overlap
     // it at the bottom of a short page on mobile.
     <div className="mt-3 mb-16">
-      <Button type="button" variant="outline" className="h-9 border-destructive/30 text-destructive hover:bg-destructive/5" disabled={status === "loading"} onClick={handleClick}>
+      <Button type="button" variant="outline" className="h-9 border-destructive/30 text-destructive-text hover:bg-destructive/5" disabled={status === "loading"} onClick={handleClick}>
         {status === "loading" ? "Cancelling…" : "Cancel membership"}
       </Button>
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

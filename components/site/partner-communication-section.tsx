@@ -93,7 +93,7 @@ export function PartnerCommunicationSection() {
               <ClubBadge name="Burnley RUFC" />
               <div className="flex flex-col items-center gap-1">
                 <Link2 className="size-4 text-pitch-400" />
-                <span className="text-xs text-white/55">Sat 12 Sep &middot; 11:00</span>
+                <span className="text-xs text-white/60">Sat 12 Sep &middot; 11:00</span>
               </div>
               <ClubBadge name="Opposition Club" align="right" />
             </div>
@@ -119,7 +119,7 @@ export function PartnerCommunicationSection() {
                 </div>
               ))}
               {visibleCount === 0 && (
-                <p className="py-6 text-center text-sm text-white/30">
+                <p className="py-6 text-center text-sm text-white/60">
                   Scroll to watch the fixture get confirmed.
                 </p>
               )}
@@ -127,7 +127,7 @@ export function PartnerCommunicationSection() {
 
             {/* Status footer -- flips automatically once the thread plays out */}
             <div className="flex items-center justify-between border-t border-white/10 px-6 py-4">
-              <span className="text-xs text-white/55">Fixture status</span>
+              <span className="text-xs text-white/60">Fixture status</span>
               <span
                 role="status"
                 aria-atomic="true"

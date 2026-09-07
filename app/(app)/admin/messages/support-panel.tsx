@@ -42,13 +42,13 @@ export function SupportPanel({ threads }: { threads: SupportConversationSummary[
           <ChevronRight aria-hidden="true" className="size-3.5" />
         </Link>
       </div>
-      <p className="mt-1 max-w-2xl text-sm text-ink/55">
+      <p className="mt-1 max-w-2xl text-sm text-ink-muted">
         Conversations between a person and Ovalball. Separate from club and fixture messaging below:
         different participants, and internal notes are never shown to the requester.
       </p>
 
       {threads.length === 0 ? (
-        <p className="mt-3 rounded-lg border border-dashed border-ink/15 px-5 py-6 text-center text-sm text-ink/55">
+        <p className="mt-3 rounded-lg border border-dashed border-ink/15 px-5 py-6 text-center text-sm text-ink-muted">
           No support conversations yet.
         </p>
       ) : (
@@ -63,7 +63,7 @@ export function SupportPanel({ threads }: { threads: SupportConversationSummary[
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{t.subject}</p>
-                    <p className="mt-0.5 truncate text-xs text-ink/55">
+                    <p className="mt-0.5 truncate text-xs text-ink-muted">
                       <span className="font-mono">{t.reference}</span>
                       {t.clubName ? ` · ${t.clubName}` : ""}
                       {t.latestPreview

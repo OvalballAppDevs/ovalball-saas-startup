@@ -83,7 +83,7 @@ export function OrganiseFixturesSection() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-lg font-medium text-white">{heroFixture.opponent}</p>
-                  <p className="mt-1 flex items-center gap-3 text-sm text-white/50">
+                  <p className="mt-1 flex items-center gap-3 text-sm text-white/60">
                     <span className="flex items-center gap-1">
                       <MapPin className="size-3.5" /> {heroFixture.venue}
                     </span>
@@ -126,7 +126,7 @@ export function OrganiseFixturesSection() {
                         <span
                           className={cn(
                             "text-center text-xs font-medium whitespace-nowrap",
-                            isCurrent ? "text-white" : isDone ? "text-white/60" : "text-white/45"
+                            isCurrent ? "text-white" : isDone ? "text-white/60" : "text-white/60"
                           )}
                         >
                           {stage.label}
@@ -202,7 +202,7 @@ export function OrganiseFixturesSection() {
                     <span
                       className={cn(
                         "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-                        isConfirmed ? "bg-pitch-600/15 text-pitch-400" : "bg-white/8 text-white/50"
+                        isConfirmed ? "bg-pitch-600/15 text-pitch-400" : "bg-white/8 text-white/60"
                       )}
                     >
                       {isConfirmed && <Check className="size-3" strokeWidth={3} />}
@@ -216,7 +216,7 @@ export function OrganiseFixturesSection() {
         </Reveal>
 
         <Reveal index={3}>
-          <p className="mt-6 text-sm text-white/50">
+          <p className="mt-6 text-sm text-white/60">
             Demonstration data &mdash; try switching teams or walking the fixture through its workflow above.
           </p>
         </Reveal>

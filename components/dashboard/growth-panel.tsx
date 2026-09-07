@@ -116,7 +116,7 @@ export function GrowthPanel({
         />
       </div>
 
-      <p className="mt-2 text-xs text-ink/45">
+      <p className="mt-2 text-xs text-ink-muted">
         Newly added per {win.source === "daily" ? "day" : "month"}, from canonical creation
         timestamps. Records created in bulk show as a genuine spike on the day they were created —
         no history is invented to smooth it.

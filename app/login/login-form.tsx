@@ -144,7 +144,7 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
             {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend link"}
           </Button>
         </div>
-        <p className="text-sm text-ink/50">
+        <p className="text-sm text-ink-muted">
           Nothing after a few minutes? Check the spelling above, or{" "}
           <Link
             href={`/signup?email=${encodeURIComponent(email)}`}
@@ -184,7 +184,7 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
           onClick={() => setShowEmail(true)}
           className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-ink/12 bg-gradient-to-b from-white to-[#f6f8f6] px-4 text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_1px_rgba(16,21,18,0.05),0_2px_4px_rgba(16,21,18,0.06)] transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-px hover:border-ink/22 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_3px_rgba(16,21,18,0.07),0_6px_12px_rgba(16,21,18,0.09)] active:translate-y-px active:shadow-[inset_0_2px_4px_rgba(16,21,18,0.10)] focus-visible:border-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
         >
-          <Mail className="size-[18px] text-ink/55" aria-hidden="true" />
+          <Mail className="size-[18px] text-ink-muted" aria-hidden="true" />
           Sign in with email
         </button>
       ) : (
@@ -217,15 +217,15 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
               aria-describedby={`${emailId}-hint`}
               placeholder="you@example.com"
               className={cn(
-                "h-12 rounded-xl border-ink/15 bg-white px-3.5 text-base text-ink placeholder:text-ink/35",
+                "h-12 rounded-xl border-ink/15 bg-white px-3.5 text-base text-ink placeholder:text-ink-subtle",
                 showSyntaxError && "border-destructive focus-visible:border-destructive"
               )}
             />
-            <p id={`${emailId}-hint`} className="text-xs text-ink/45">
+            <p id={`${emailId}-hint`} className="text-xs text-ink-muted">
               We&apos;ll email you a one-time sign-in link. Ovalball has no passwords.
             </p>
             {showSyntaxError && (
-              <p className="text-sm text-destructive">
+              <p className="text-sm text-destructive-text">
                 Enter a valid email address, like you@example.com.
               </p>
             )}
@@ -244,7 +244,7 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
 
           <div aria-live="polite">
             {status === "error" && (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive-text">
                 {errorMessage ?? "Something went wrong. Please try again."}
               </p>
             )}
@@ -262,7 +262,7 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
             <button
               type="button"
               onClick={() => setShowEmail(false)}
-              className="flex items-center justify-center gap-1.5 text-sm text-ink/55 underline-offset-2 hover:text-ink hover:underline focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+              className="flex items-center justify-center gap-1.5 text-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
             >
               <ArrowLeft className="size-3.5" aria-hidden="true" />
               Use another method
@@ -294,7 +294,7 @@ function Notice({ tone, children }: { tone: "info" | "danger"; children: React.R
       className={cn(
         "rounded-xl border px-4 py-3 text-sm",
         tone === "danger"
-          ? "border-destructive/30 bg-destructive/5 text-destructive"
+          ? "border-destructive/30 bg-destructive/5 text-destructive-text"
           : "border-ink/10 bg-white text-ink/70"
       )}
     >

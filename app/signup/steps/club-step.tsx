@@ -236,7 +236,7 @@ export function ClubStep({
           />
 
           {searching && (
-            <div className="flex items-center gap-2 text-sm text-ink/50">
+            <div className="flex items-center gap-2 text-sm text-ink-muted">
               <span className="size-3.5 animate-spin rounded-full border-2 border-ink/20 border-t-pitch-600" />
               Searching&hellip;
             </div>
@@ -266,7 +266,7 @@ export function ClubStep({
                           />
                         )}
                       </span>
-                      <span className="mt-0.5 block text-sm text-ink/55">
+                      <span className="mt-0.5 block text-sm text-ink-muted">
                         {[result.town, result.county, result.postcode]
                           .filter(Boolean)
                           .join(" · ")}
@@ -289,7 +289,7 @@ export function ClubStep({
           )}
 
           {!searching && queryIsSearchable && visibleResults.length === 0 && (
-            <p className="text-sm text-ink/50">
+            <p className="text-sm text-ink-muted">
               No clubs matched &ldquo;{query}&rdquo;.
             </p>
           )}
@@ -338,7 +338,7 @@ function CodeCard({ label, onClick }: { label: string; onClick: () => void }) {
       className="group rounded-lg border border-ink/15 bg-white px-6 py-8 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-pitch-600 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
     >
       <span className="font-display text-2xl text-ink">{label}</span>
-      <span className="mt-1 block text-sm text-ink/50 group-hover:text-forest-800">
+      <span className="mt-1 block text-sm text-ink-muted group-hover:text-forest-800">
         Select &rarr;
       </span>
     </button>
@@ -349,7 +349,7 @@ function SelectedClubSummary({ directory }: { directory: ClubDirectoryResult }) 
   return (
     <div className="rounded-lg border border-ink/10 bg-white px-4 py-3.5">
       <p className="text-base font-medium text-ink">{directory.name}</p>
-      <p className="mt-0.5 text-sm text-ink/55">
+      <p className="mt-0.5 text-sm text-ink-muted">
         {[directory.town, directory.county, directory.postcode].filter(Boolean).join(" · ")}
       </p>
     </div>
@@ -450,7 +450,7 @@ function TeamsPicker({
         <p className="text-sm leading-none font-medium text-ink/80">
           Which teams does your club run?
         </p>
-        <p className="mt-1.5 text-sm text-ink/45">
+        <p className="mt-1.5 text-sm text-ink-muted">
           Optional &mdash; tick everything that applies. If a level has more
           than one team, tick B and/or C once it&apos;s ticked; each
           registers as its own team with its own fixtures.
@@ -460,7 +460,7 @@ function TeamsPicker({
       <div className="flex flex-col gap-4 rounded-lg border border-ink/10 bg-white p-4">
         {signupGroups.map((group) => (
           <div key={group.label}>
-            <p className="text-xs font-medium tracking-[0.06em] text-ink/40 uppercase">
+            <p className="text-xs font-medium tracking-[0.06em] text-ink-muted uppercase">
               {group.label}
             </p>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -488,7 +488,7 @@ function TeamsPicker({
                     </label>
                     {checked && group.allowMultiple && (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[26px]">
-                        <span className="text-xs text-ink/45">More than one team?</span>
+                        <span className="text-xs text-ink-muted">More than one team?</span>
                         {["B", "C"].map((letter) => {
                           const active = team.additionalLetters.includes(letter)
                           return (
@@ -500,7 +500,7 @@ function TeamsPicker({
                                 "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400",
                                 active
                                   ? "border-forest-900 bg-forest-900 text-white"
-                                  : "border-ink/15 text-ink/55 hover:border-pitch-600 hover:text-ink"
+                                  : "border-ink/15 text-ink-muted hover:border-pitch-600 hover:text-ink"
                               )}
                             >
                               {category} {letter}
@@ -562,7 +562,7 @@ function ClaimForm({
             />
             <span className="text-sm text-ink/75">{AUTHORITY_DECLARATION_TEXT}</span>
           </label>
-          <p className="-mt-3 text-sm text-ink/45">
+          <p className="-mt-3 text-sm text-ink-muted">
             Submitting this request does not automatically grant control of the
             club. Ovalball may verify your authority before approving access.
           </p>
@@ -751,7 +751,7 @@ function NotFoundForm({
 
       <TeamsPicker groups={groups} value={teams} onChange={setTeams} />
 
-      <p className="text-sm text-ink/45">
+      <p className="text-sm text-ink-muted">
         Club logo upload is added once your account is confirmed, on the next
         screen after signup &mdash; not part of this form.
       </p>

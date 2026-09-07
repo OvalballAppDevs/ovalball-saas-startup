@@ -47,7 +47,7 @@ export function FixtureDangerZone({ fixtureId, status, hasHistory }: { fixtureId
       {status !== "Cancelled" && (
         <div className="rounded-lg border border-ink/10 bg-white p-4">
           <p className="text-sm font-medium text-ink">Cancel this fixture</p>
-          <p className="mt-0.5 text-sm text-ink/55">
+          <p className="mt-0.5 text-sm text-ink-muted">
             Marks it cancelled. History, messages, and audit stay intact -- this is the normal way to remove a
             fixture from play.
           </p>
@@ -78,14 +78,14 @@ export function FixtureDangerZone({ fixtureId, status, hasHistory }: { fixtureId
       )}
 
       <div className="rounded-lg border border-destructive/25 bg-destructive/[0.03] p-4">
-        <p className="text-sm font-medium text-destructive">Permanently delete this fixture</p>
-        <p className="mt-0.5 text-sm text-ink/55">Only possible when nothing else references it. This cannot be undone.</p>
+        <p className="text-sm font-medium text-destructive-text">Permanently delete this fixture</p>
+        <p className="mt-0.5 text-sm text-ink-muted">Only possible when nothing else references it. This cannot be undone.</p>
         {!deleteOpen ? (
           <Button type="button" variant="destructive" className="mt-3 h-9" onClick={() => setDeleteOpen(true)}>
             Permanently delete&hellip;
           </Button>
         ) : hasHistory ? (
-          <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">
             This fixture cannot be permanently deleted because it has messages or a fixture request linked to it. Cancel it instead.
           </p>
         ) : (
@@ -100,7 +100,7 @@ export function FixtureDangerZone({ fixtureId, status, hasHistory }: { fixtureId
         )}
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

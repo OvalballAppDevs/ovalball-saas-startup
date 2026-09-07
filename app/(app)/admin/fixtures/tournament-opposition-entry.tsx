@@ -132,9 +132,9 @@ export function TournamentOppositionEntry({
   return (
     <div className="rounded-lg border border-ink/10 bg-white p-3.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Opposition {index + 1}</span>
+        <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Opposition {index + 1}</span>
         {removable && (
-          <button type="button" onClick={onRemove} className="text-xs font-medium text-destructive underline hover:text-destructive/80">
+          <button type="button" onClick={onRemove} className="text-xs font-medium text-destructive-text underline hover:text-destructive-text">
             Remove
           </button>
         )}
@@ -177,7 +177,7 @@ export function TournamentOppositionEntry({
                 onChange({ clubDirectoryId: null, clubName: null, clubActivated: false, clubId: null, canonicalTeamTypeId: null })
                 setOverriding(false)
               }}
-              className="text-xs font-medium text-ink/50 underline hover:text-ink"
+              className="text-xs font-medium text-ink-muted underline hover:text-ink"
             >
               Change
             </button>
@@ -191,7 +191,7 @@ export function TournamentOppositionEntry({
                 <p className="mt-1 text-sm text-ink">
                   {selectedType ? selectedType.label : "Resolving…"}
                   {value.clubActivated && value.canonicalTeamTypeId && (
-                    <span className="ml-1.5 text-xs text-ink/40">({STATE_LABEL[stateFor(value.canonicalTeamTypeId)]})</span>
+                    <span className="ml-1.5 text-xs text-ink-muted">({STATE_LABEL[stateFor(value.canonicalTeamTypeId)]})</span>
                   )}
                 </p>
               </div>
@@ -208,7 +208,7 @@ export function TournamentOppositionEntry({
                 <button
                   type="button"
                   onClick={() => setOverriding(false)}
-                  className="text-xs font-medium text-ink/50 underline hover:text-ink"
+                  className="text-xs font-medium text-ink-muted underline hover:text-ink"
                 >
                   Use host&apos;s age
                 </button>
@@ -275,7 +275,7 @@ export function TournamentOppositionEntry({
           </Dialog>
 
           {value.canonicalTeamTypeId && !isDefaultAge && (
-            <p className="text-xs text-ink/50">
+            <p className="text-xs text-ink-muted">
               Inviting {selectedType?.label} &mdash; a different age group than the host ({defaultType?.label ?? hostAgeGroup}).
             </p>
           )}

@@ -8,7 +8,7 @@ export function ClubCrest({ logoUrl, name }: { logoUrl: string | null; name: str
 
   if (!logoUrl || broken) {
     return (
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-ink/10 bg-ink/[0.03] text-[9px] font-medium text-ink/30">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-ink/10 bg-ink/[0.03] text-[9px] font-medium text-ink-muted">
         {name.slice(0, 2).toUpperCase()}
       </div>
     )

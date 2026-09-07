@@ -131,7 +131,7 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
     <>
       <div className="flex items-start justify-between gap-3 rounded-lg border border-ink/10 bg-white p-4">
         <button type="button" onClick={handleOpen} className="min-w-0 flex-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-pitch-400">
-          <p className="text-xs text-ink/45">
+          <p className="text-xs text-ink-muted">
             {formatFixtureDate(row.kickoffDate)}
             {row.kickoffTime && ` · ${row.kickoffTime.slice(0, 5)}`} &middot; {RUGBY_CODE_LABEL[row.rugbyCode] ?? row.rugbyCode}
           </p>
@@ -139,14 +139,14 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
             {row.homeTeamName} ({row.homeClubName}) vs {row.awayTeamName} ({row.awayClubName})
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${FIXTURE_STATUS_BADGE_CLASS[row.status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/8 text-ink/50"}`}>{row.status}</span>
-            {row.gameType && <span className="text-xs text-ink/40">{row.gameType}</span>}
+            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${FIXTURE_STATUS_BADGE_CLASS[row.status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/8 text-ink-muted"}`}>{row.status}</span>
+            {row.gameType && <span className="text-xs text-ink-muted">{row.gameType}</span>}
             {row.homeScore !== null && row.awayScore !== null && (
               <span className="text-xs font-medium text-ink/60">
                 {row.homeScore}&ndash;{row.awayScore}
               </span>
             )}
-            {row.pitchAllocation && <span className="text-xs text-ink/40">{row.pitchAllocation}</span>}
+            {row.pitchAllocation && <span className="text-xs text-ink-muted">{row.pitchAllocation}</span>}
           </div>
         </button>
         <div className="flex shrink-0 flex-col items-end gap-2">
@@ -154,14 +154,14 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
             type="button"
             onClick={handleOpen}
             aria-label={`Edit ${row.homeTeamName} vs ${row.awayTeamName}`}
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-ink/15 text-ink/50 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="inline-flex size-9 items-center justify-center rounded-lg border border-ink/15 text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <Pencil className="size-4" />
           </button>
           <a
             href={`/admin/fixtures/${row.id}`}
             aria-label="Open full details"
-            className="inline-flex size-9 items-center justify-center rounded-lg text-ink/30 outline-none hover:text-ink/60 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="inline-flex size-9 items-center justify-center rounded-lg text-ink-muted outline-none hover:text-ink/60 focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <ChevronRight className="size-4" />
           </a>
@@ -184,7 +184,7 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
 
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-ink/10 pt-4">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">{isHome ? "Home" : "Away"}</span>
+                <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{isHome ? "Home" : "Away"}</span>
                 <span className="text-sm text-ink/70">{isHome ? row.homeTeamName : row.awayTeamName}</span>
                 <OwningTeamEditor
                   fixtureId={row.id}
@@ -195,7 +195,7 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
                 />
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">{isHome ? "Away" : "Home"}</span>
+                <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{isHome ? "Away" : "Home"}</span>
                 <span className="text-sm text-ink/70">{(isHome ? row.awayTeamName : row.homeTeamName) || row.rawOppositionText || "Unresolved"}</span>
                 <OpponentTeamEditor
                   fixtureId={row.id}
@@ -210,7 +210,7 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
 
             <div className="grid grid-cols-2 gap-3 border-t border-ink/10 pt-4">
               <div>
-                <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Date</label>
+                <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Date</label>
                 <input
                   type="date"
                   value={date}
@@ -219,7 +219,7 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Kickoff</label>
+                <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Kickoff</label>
                 <input
                   type="time"
                   value={time}
@@ -228,7 +228,7 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
                 />
               </div>
               <div className="col-span-2">
-                <label className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Competition</label>
+                <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Competition</label>
                 <select
                   value={competitionEditionId ?? ""}
                   onChange={(e) => setCompetitionEditionId(e.target.value || null)}
@@ -251,10 +251,10 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
                 Save competition
               </Button>
             </div>
-            {dateError && <p className="text-xs text-destructive">{dateError}</p>}
+            {dateError && <p className="text-xs text-destructive-text">{dateError}</p>}
 
             <div className="border-t border-ink/10 pt-4">
-              <span className="text-xs font-medium tracking-[0.04em] text-ink/50 uppercase">Result correction</span>
+              <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Result correction</span>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <input
                   type="number"
@@ -264,7 +264,7 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
                   placeholder="Home"
                   className="h-10 w-20 rounded-md border border-ink/15 bg-white px-2.5 text-sm outline-none focus-visible:border-pitch-600"
                 />
-                <span className="text-ink/40">&ndash;</span>
+                <span className="text-ink-muted">&ndash;</span>
                 <input
                   type="number"
                   min={0}
@@ -283,10 +283,10 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
               <Button type="button" size="sm" className="mt-2 h-9" disabled={resultSaving} onClick={handleSaveResult}>
                 {resultSaving ? "Saving…" : "Save result"}
               </Button>
-              {resultError && <p className="mt-1 text-xs text-destructive">{resultError}</p>}
+              {resultError && <p className="mt-1 text-xs text-destructive-text">{resultError}</p>}
             </div>
 
-            <p className="border-t border-ink/10 pt-4 text-xs text-ink/40">
+            <p className="border-t border-ink/10 pt-4 text-xs text-ink-muted">
               Source: {SOURCE_LABEL[row.source] ?? row.source}. Rugby code and Source aren&apos;t directly editable.{" "}
               <a href={`/admin/fixtures/${row.id}`} className="font-medium text-forest-800 underline">
                 Open full details

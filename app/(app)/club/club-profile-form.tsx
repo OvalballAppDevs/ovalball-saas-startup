@@ -95,14 +95,14 @@ export function ClubProfileForm({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <p className="text-sm font-medium tracking-[0.04em] text-ink/50 uppercase">Crest</p>
+        <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Crest</p>
         <div className="mt-3 flex items-center gap-4">
           <div className="flex size-16 items-center justify-center overflow-hidden rounded-lg border border-ink/10 bg-white">
             {displayLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage public URL, avoids next/image's remote-pattern config for a small thumbnail
               <img src={displayLogoUrl} alt="Club crest" className="size-full object-contain" />
             ) : (
-              <span className="text-xs text-ink/30">No crest</span>
+              <span className="text-xs text-ink-muted">No crest</span>
             )}
           </div>
           <div>
@@ -117,7 +117,7 @@ export function ClubProfileForm({
                 {logoUploading ? "Working…" : logoUrl ? "Replace crest" : inherited ? "Upload your own" : "Upload crest"}
               </Button>
               {inherited && (
-                <span className="text-xs text-ink/50">From the Ovalball club directory</span>
+                <span className="text-xs text-ink-muted">From the Ovalball club directory</span>
               )}
               {logoUrl && (
                 <Button type="button" variant="ghost" className="h-9" disabled={logoUploading} onClick={handleRemoveLogo}>
@@ -125,7 +125,7 @@ export function ClubProfileForm({
                 </Button>
               )}
             </div>
-            <p className="mt-1 text-xs text-ink/45">PNG, JPEG, WebP, or SVG. Up to 2MB.</p>
+            <p className="mt-1 text-xs text-ink-muted">PNG, JPEG, WebP, or SVG. Up to 2MB.</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -193,7 +193,7 @@ export function ClubProfileForm({
       )}
 
       {error && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive-text">{error}</p>
       )}
 
       <div className="flex items-center gap-3 border-t border-ink/10 pt-5">
