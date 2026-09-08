@@ -3,7 +3,7 @@ import { join } from "node:path"
 
 import { NextResponse } from "next/server"
 
-import { EMAIL_BRAND_BUCKET, readBrandLogoState } from "@/lib/email/brand"
+import { EMAIL_BRAND_BUCKET, readActiveLogoPath } from "@/lib/email/brand"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -33,16 +33,28 @@ const ASSETS: Record<string, { kind: "logo" }> = {
 }
 
 /**
- * A week, revalidated. Mail clients and their image proxies cache
- * aggressively and mostly ignore what they are told, so a changed logo
- * propagates when it propagates; `stale-while-revalidate` is the honest
- * middle, and the alternative -- a cache-busting query string -- would break
- * the permanence the whole design is built on.
+ * An hour, then revalidate.
+ *
+ * This was a week, which was wrong in a way that only showed up once the logo
+ * actually changed: the new image was served correctly and nothing that had
+ * already fetched the old one asked again, so a change reached nobody for
+ * seven days. A logo is a few hundred kilobytes fetched rarely -- there is
+ * almost nothing to win by caching it hard, and a brand change that does not
+ * appear is a real cost.
+ *
+ * The ETag is what makes the shorter window cheap: a revalidation that has not
+ * changed costs a 304 and no bytes. Query-string busting is deliberately not
+ * used, because the URL's permanence is what keeps already-sent email working.
  */
-const CACHE_CONTROL = "public, max-age=604800, stale-while-revalidate=86400"
+const CACHE_CONTROL = "public, max-age=3600, stale-while-revalidate=86400"
+
+/** Changes when, and only when, the chosen image does. */
+function etagFor(activePath: string | null): string {
+  return `W/"${activePath ?? "bundled"}"`
+}
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ asset: string }> }
 ) {
   const { asset } = await params
@@ -57,9 +69,14 @@ export async function GET(
   // Ovalball's own logo is a correct email, and one with a broken image icon
   // reads as a broken product.
   try {
-    const { activePath } = await readBrandLogoState(supabase)
+    const activePath = await readActiveLogoPath(supabase)
 
     if (activePath) {
+      const etag = etagFor(activePath)
+      if (request.headers.get("if-none-match") === etag) {
+        return new NextResponse(null, { status: 304, headers: { ETag: etag, "Cache-Control": CACHE_CONTROL } })
+      }
+
       const { data, error } = await supabase.storage.from(EMAIL_BRAND_BUCKET).download(activePath)
       if (!error && data) {
         return new NextResponse(await data.arrayBuffer(), {
@@ -67,6 +84,7 @@ export async function GET(
           headers: {
             "Content-Type": data.type || "image/png",
             "Cache-Control": CACHE_CONTROL,
+            ETag: etag,
           },
         })
       }
@@ -83,6 +101,6 @@ export async function GET(
   const bundled = await readFile(join(process.cwd(), "public", "email", "ovalball-logo.png"))
   return new NextResponse(new Uint8Array(bundled), {
     status: 200,
-    headers: { "Content-Type": "image/png", "Cache-Control": CACHE_CONTROL },
+    headers: { "Content-Type": "image/png", "Cache-Control": CACHE_CONTROL, ETag: etagFor(null) },
   })
 }

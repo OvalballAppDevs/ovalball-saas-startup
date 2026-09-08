@@ -100,7 +100,10 @@ export default async function EmailConfigurationPage() {
         images={brandImages}
         activePath={brand.activePath}
         lockVersion={brand.lockVersion}
-        logoUrl={EMAIL_LOGO_PATH}
+        // Versioned by the lock, which increments on every logo change:
+        // identical across server and client renders, and different the
+        // moment the logo is not.
+        logoUrl={`${EMAIL_LOGO_PATH}?v=${brand.lockVersion}`}
       />
 
       {categories.map((category) => (

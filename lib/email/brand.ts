@@ -24,13 +24,32 @@ export interface BrandLogoState {
 }
 
 /**
- * Reads which image is currently the logo.
+ * The chosen logo's path, readable WITHOUT a session.
  *
- * Deliberately NOT called by the renderer. The email shell references one
- * fixed Ovalball URL and never learns which file is behind it -- that is what
- * lets renderEmail stay synchronous, keeps every URL in an Ovalball email
- * pointing at Ovalball, and stops an email sent last year from breaking when
- * somebody changes the logo today.
+ * This is the one the public endpoint uses, and it goes through a function
+ * rather than the table on purpose. The endpoint is fetched by a mail client:
+ * no cookies, no account. Reading the table under the caller's own authority
+ * returned nothing for every real recipient, so the endpoint fell back to the
+ * bundled logo while Site Admin -- whose own read succeeded, because a browser
+ * does send cookies -- displayed the chosen image and reported success.
+ */
+export async function readActiveLogoPath(
+  supabase: SupabaseClient<Database>
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("active_email_logo_path")
+  if (error) {
+    console.error(`[email-brand] the chosen logo could not be read: ${error.message}`)
+    return null
+  }
+  return data ?? null
+}
+
+/**
+ * The same value plus the concurrency token, for the Site Admin screen.
+ *
+ * Reads the table directly, so it needs a Site Admin session -- which the
+ * screen has, and which the public endpoint above deliberately does not
+ * require.
  */
 export async function readBrandLogoState(
   supabase: SupabaseClient<Database>

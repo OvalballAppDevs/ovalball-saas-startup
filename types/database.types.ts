@@ -15939,6 +15939,7 @@ export type Database = {
         Args: { p_token: string }
         Returns: undefined
       }
+      active_email_logo_path: { Args: never; Returns: string }
       add_child_for_guardian: {
         Args: {
           p_club_id: string

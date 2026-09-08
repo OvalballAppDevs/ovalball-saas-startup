@@ -188,6 +188,49 @@ else
   raise notice 'FAIL 13 (G): only % of 2 write functions are properly guarded', v_count;
 end if;
 
+
+-- ============ H. A recipient can actually see the chosen logo ============
+
+-- THE REGRESSION THIS PINS DOWN.
+--
+-- The endpoint that serves the logo into an email is fetched by a mail client
+-- with no session. It once read email_brand_settings under the caller's own
+-- authority, got nothing back, and fell back to the bundled logo -- so every
+-- recipient received the placeholder while Site Admin displayed the chosen
+-- image and reported success, because an administrator's own browser DOES
+-- send cookies. The only person able to notice was the only person guaranteed
+-- not to, which is why this is asserted as anon rather than as a superuser.
+
+declare
+  v_expected text;
+  v_anon_path text;
+  v_anon_row integer;
+begin
+  select active_logo_path into v_expected from public.email_brand_settings where id = 'brand';
+
+  set local role anon;
+  select public.active_email_logo_path() into v_anon_path;
+  reset role;
+
+  if v_anon_path is not distinct from v_expected then
+    raise notice 'PASS 14 (H): a caller with no session reads the same chosen logo the setting names';
+  else
+    raise notice 'FAIL 14 (H): anon reads %, the setting says %', coalesce(v_anon_path, 'null'), coalesce(v_expected, 'null');
+  end if;
+
+  -- The function is the ONLY thing that got public: the row itself, with who
+  -- changed the logo and when, stays Site Admin's business.
+  set local role anon;
+  select count(*) into v_anon_row from public.email_brand_settings;
+  reset role;
+
+  if v_anon_row = 0 then
+    raise notice 'PASS 15 (H): the settings row itself is still not readable without a session';
+  else
+    raise notice 'FAIL 15 (H): an anonymous caller can read % settings row(s)', v_anon_row;
+  end if;
+end;
+
 end $$;
 
 rollback;
