@@ -76,6 +76,7 @@ SUITES=(
   handover_security_matrix
   handover_automation_and_privacy
   union_u18_free_agent
+  master_site_admin_authority
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
