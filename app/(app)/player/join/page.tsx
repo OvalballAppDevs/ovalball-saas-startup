@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 
 import { JoinAsPlayer } from "./join-as-player"
 
-export const metadata = { title: "Join As A Player" }
+export const metadata = { title: "Join as a Player" }
 
 /**
  * ADULT PLAYER REGISTRATION.
@@ -120,7 +120,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Player</p>
-      <h1 className="mt-2 font-display text-display-l text-ink">Join As A Player</h1>
+      <h1 className="mt-2 font-display text-display-l text-ink">Join as a Player</h1>
       <p className="mt-2 mb-6 max-w-md text-sm text-ink-muted">
         Register yourself with a club. Ovalball works out which rugby category you play in, and the club decides which
         of their sides you join.

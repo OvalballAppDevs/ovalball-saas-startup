@@ -13,7 +13,7 @@ declare
   v_clubmgr uuid := gen_random_uuid();
   v_teammgr uuid := gen_random_uuid();
   v_outsider uuid := gen_random_uuid();
-  v_clubmgr_m uuid; v_teammgr_m uuid;
+  v_clubmgr_m uuid; v_teammgr_m uuid; v_coachonly uuid := gen_random_uuid(); v_coachonly_m uuid;
   v_1st uuid; v_2nd uuid; v_womens uuid; v_open uuid;
   v_player uuid; v_player2 uuid; v_req uuid; v_req2 uuid;
   v_dob_adult date := (current_date - interval '25 years')::date;
@@ -26,13 +26,15 @@ insert into auth.users (id, email, instance_id, aud, role) values
   (v_adult2,'adult2@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
   (v_clubmgr,'clubmgr@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
   (v_teammgr,'teammgr@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
-  (v_outsider,'outsider@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated');
+  (v_outsider,'outsider@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
+  (v_coachonly,'coachonly@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated');
 insert into public.profiles (id, first_name, surname, email) values
   (v_adult,'Owen','Adults','adult1@ovalball-test.invalid'),
   (v_adult2,'Nia','Adults','adult2@ovalball-test.invalid'),
   (v_clubmgr,'Cara','Clubmanager','clubmgr@ovalball-test.invalid'),
   (v_teammgr,'Tom','Teammanager','teammgr@ovalball-test.invalid'),
-  (v_outsider,'Olly','Outsider','outsider@ovalball-test.invalid');
+  (v_outsider,'Olly','Outsider','outsider@ovalball-test.invalid'),
+  (v_coachonly,'Cai','Coachonly','coachonly@ovalball-test.invalid');
 
 insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
 values ('Adult Union RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','adu-'||substr(gen_random_uuid()::text,1,8))
@@ -61,22 +63,17 @@ values (v_lclub,'league','senior','mens') returning id into v_open;
 insert into public.team_permissions (membership_id, team_id, permission, created_by)
 values (v_teammgr_m, v_2nd, 'team_admin', v_clubmgr);
 
--- AND he holds team.roster.manage on that team, by explicit grant.
---
--- This is deliberate, and it is the crux of how team-level approval works.
--- internal.has_team_role_capability records a standing decision that team staff
--- hold NO roster write capability by default -- team.roster.manage is named in
--- its comment as one of the keys deliberately withheld. This pass does not
--- reverse that decision by handing the capability to every team staffer
--- everywhere. It uses the mechanism the capability engine already provides for
--- exactly this: a scoped grant to one person on one team.
---
--- So the join-request functions are capability-driven, never role-name driven,
--- and a team manager can resolve a request the moment somebody with the
--- authority to say so grants it -- which is what the engine is for.
-insert into public.capability_overrides (user_id, capability_key, scope_type, club_id, team_id, effect, granted_by, reason)
-values (v_teammgr, 'team.roster.manage', 'team', v_uclub, v_2nd, 'grant', v_clubmgr,
-        'Team manager resolves join requests for their own squad.');
+-- No capability override. Tom holds 'team_admin' on the 2nd XV, which resolves
+-- to TEAM_MANAGER, and TEAM_MANAGER holds team.roster.manage by default at
+-- that team's scope. That is the whole point of the split: the person who runs
+-- the side can accept a player into it without anybody granting a one-off
+-- permission, and without every coach at the club gaining the same authority.
+
+-- And a coach, for the contrast that matters. Same team, same club, no roster
+-- authority whatsoever.
+insert into public.club_memberships (user_id, club_id, role, status) values (v_coachonly, v_uclub,'BASIC_USER','active') returning id into v_coachonly_m;
+insert into public.team_permissions (membership_id, team_id, permission, created_by)
+values (v_coachonly_m, v_2nd, 'coach', v_clubmgr);
 
 -- =========================================================================
 -- A. AN ADULT CREATES THEIR OWN PLAYER
@@ -181,9 +178,34 @@ exception when others then
   raise notice 'PASS 15 (D): a team manager can only place into the team they manage';
 end;
 
+-- A COACH ON THE SAME TEAM IS NOT A MANAGER. This is the assertion that
+-- proves roster authority was not handed to everybody wearing a tracksuit.
+perform set_config('request.jwt.claims', json_build_object('sub', v_coachonly,'role','authenticated')::text, true);
+begin
+  perform public.approve_player_club_join_request(v_req, v_2nd);
+  raise notice 'FAIL 15b (D): a coach approved a join request';
+exception when others then
+  raise notice 'PASS 15b (D): a coach on the same team has no roster authority';
+end;
+
+if not internal.has_capability('team.roster.manage', 'team', v_uclub, v_2nd) then
+  raise notice 'PASS 15c (D): the coach genuinely lacks team.roster.manage, not merely the button';
+else
+  raise notice 'FAIL 15c (D): the coach holds team.roster.manage';
+end if;
+
 -- =========================================================================
 -- E. FIRST AUTHORISED APPROVER WINS
 -- =========================================================================
+
+perform set_config('request.jwt.claims', json_build_object('sub', v_teammgr,'role','authenticated')::text, true);
+
+-- The team manager holds it BY DEFAULT, from the permission they were given.
+if internal.has_capability('team.roster.manage', 'team', v_uclub, v_2nd) then
+  raise notice 'PASS 15d (E): a team manager holds team.roster.manage at their own team by default';
+else
+  raise notice 'FAIL 15d (E): the team manager does not hold team.roster.manage';
+end if;
 
 perform public.approve_player_club_join_request(v_req, v_2nd);
 
@@ -304,6 +326,42 @@ begin
   exception when others then
     raise notice 'PASS 28 (H): a player cannot answer for another player';
   end;
+end;
+
+-- =========================================================================
+-- H2. LEAGUE ADULT IDENTITIES ARE LEAGUE'S OWN
+-- =========================================================================
+--
+-- Re-asserted here rather than assumed: the numbered Union XVs must never be
+-- the answer for a League club, and Open Age must never be the answer for a
+-- Union one.
+
+declare v_l record;
+begin
+  select * into v_l from public.resolve_adult_category('league','MALE');
+  if v_l.display_label = 'Men''s Open Age'
+     and exists (select 1 from public.canonical_team_types_by_code v
+                 where v.id = v_l.canonical_team_type_id and v.rugby_code='league' and v.is_offered) then
+    raise notice 'PASS 33 (H2): a League man is allocated a League identity, from the League catalogue';
+  else
+    raise notice 'FAIL 33 (H2): %', v_l.display_label;
+  end if;
+
+  select * into v_l from public.resolve_adult_category('league','FEMALE');
+  if v_l.display_label = 'Women''s Open Age' then
+    raise notice 'PASS 34 (H2): a League woman is allocated Women''s Open Age';
+  else raise notice 'FAIL 34 (H2): %', v_l.display_label; end if;
+
+  -- And the resolver that builds a team row agrees, which is what stopped a
+  -- League club creating its adult side at all before this pass.
+  if (select key from public.canonical_team_types
+      where id = internal.resolve_canonical_team_type('senior', null, 'mens', null, 'league')) = 'mens_open_age'
+     and (select key from public.canonical_team_types
+      where id = internal.resolve_canonical_team_type('senior', null, 'mens', null, 'union')) = 'mens_1st' then
+    raise notice 'PASS 35 (H2): the team resolver gives each code its own senior identity';
+  else
+    raise notice 'FAIL 35 (H2): the team resolver crossed the codes';
+  end if;
 end;
 
 -- =========================================================================

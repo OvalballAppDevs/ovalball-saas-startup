@@ -136,14 +136,33 @@ export default async function DashboardPage() {
       {/* One coherent family section for Guardian/Player contexts, reading
           the same canonical loader the agenda uses so the two can never
           disagree about what is outstanding. */}
-      {isFamilyFacingContext(dashboardContext.kind) && <FamilyPanel supabase={supabase} ctx={ctx} activeContext={dashboardContext} />}
+      {isFamilyFacingContext(dashboardContext.kind) && (
+        <FamilyPanel
+          supabase={supabase}
+          ctx={ctx}
+          activeContext={dashboardContext}
+          // Passed explicitly rather than inferred from the route or the
+          // context kind, so a shared component is never left guessing whose
+          // dashboard it is on.
+          isGuardian={ctx.guardianRelationships.length > 0}
+        />
+      )}
 
       {dashboardContext.kind === "parent" && dashboardContext.playerId && (
         <Link href={`/parent/players/${dashboardContext.playerId}/access`} className="mt-2 inline-block text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
           Manage what {dashboardContext.label} can see and do
         </Link>
       )}
-      {dashboardContext.kind !== "site_admin" && (
+      {/*
+        Only for somebody who actually guardians a child. It used to render for
+        every context that was not Site Admin, which meant an adult managing
+        their OWN player profile was offered "Your children" -- an adult who
+        has none is being told they have some, and an adult who does have some
+        is being shown a parent control inside a player context. Guardianship
+        is a real relationship, so the condition is that relationship rather
+        than "not an administrator".
+      */}
+      {ctx.guardianRelationships.length > 0 && dashboardContext.kind !== "player" && (
         <Link href="/parent/children" className="mt-2 block text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
           Your children
         </Link>

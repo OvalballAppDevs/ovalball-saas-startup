@@ -38,6 +38,10 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
   } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
+  // One Match Centre, and every section on it gated by a real capability
+  // rather than by which context the person is currently switched into. A
+  // club admin who also plays keeps the fixture controls they legitimately
+  // hold; a player who holds none simply does not see them.
   const resolution = await getMatchCentreContext(supabase, user.id, fixtureId)
   if (resolution.status === "not_found") notFound()
   const { context } = resolution

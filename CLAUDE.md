@@ -66,6 +66,41 @@ The public marketing surfaces (`app/clubs`, `app/game-management`,
 editorial sentence-case headlines and display typography on purpose. Do not
 "correct" them. The standard governs product UI.
 
+## Match Centre is one shared surface
+
+Match Centre is **one shared role-aware surface**. Roles and capabilities
+filter the data and the actions; they never create a separate design or a
+separate implementation. There is no Parent Match Centre, Player Match Centre,
+Staff Match Centre or Club Match Centre.
+
+One physical fixture is one `fixture_id` and one canonical route
+(`app/(app)/fixtures/[fixtureId]`). Wrapper routes may exist for navigation,
+but they converge on that implementation rather than carrying their own. The
+components in `components/fixtures/match-centre/` are built once — never
+copied under `parent/`, `player/` or `staff/` with slightly different markup.
+
+The shape is one component tree plus a server-derived view model
+(`lib/app-context/match-centre-data.ts`) carrying the viewer's capabilities —
+never `if (role === "PARENT") return <ParentMatchCentre />`. Privacy is
+filtered **before** render: the same UI does not mean the same payload, and
+private participant data is excluded server-side rather than hidden in React.
+
+Wording may be contextual — "Your response" for an adult player, "Harry's
+response" for a guardian, a participant summary for staff — but typography,
+spacing, component, position and state design stay shared, and staff controls
+integrate into the page rather than replacing it. The fixture stays the centre
+of the page; administration is contextual.
+
+The consequence that matters: a redesign of Match Centre must reach every
+viewer automatically because they all consume the same components. If changing
+one role's design leaves another unchanged, the implementation has drifted.
+`scripts/verify-match-centre-shared.mjs` guards this structurally (one route,
+one component set, no role-named copies, no whole-surface role branch) and runs
+as part of `scripts/run-platform-tests.sh`. Any Match Centre change is
+incomplete until it has been checked as parent/guardian, adult player and
+team/club staff against the **same** fixture, with only the authorised data and
+actions differing.
+
 ## Guardrails
 
 `scripts/verify-content-standard.mjs` checks canonical navigation labels,

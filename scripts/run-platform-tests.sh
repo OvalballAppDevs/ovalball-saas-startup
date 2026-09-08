@@ -26,6 +26,12 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-content-standard.mjs"; then
   exit 1
 fi
 
+# Match Centre is one shared role-aware surface. See the script's own header
+# for why this is structural rather than a visual snapshot.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-match-centre-shared.mjs"; then
+  exit 1
+fi
+
 CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 

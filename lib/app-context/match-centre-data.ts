@@ -172,7 +172,26 @@ function initialsFromName(first: string, surname: string): string {
   return `${first[0] ?? ""}${surname[0] ?? ""}`.toUpperCase() || "?"
 }
 
-export async function getMatchCentreContext(supabase: SupabaseClient<Database>, userId: string, fixtureId: string): Promise<MatchCentreResolution> {
+/**
+ * ONE MATCH CENTRE, DERIVED FOR THE VIEWER.
+ *
+ * CAPABILITY DECIDES WHICH SECTIONS APPEAR -- not the context the person
+ * happens to be switched into. A club admin who also plays for the club still
+ * holds fixture-management authority while they are looking at the game as a
+ * player, and taking the meet-time control and the attendance reminder away
+ * from them is subtracting a working feature to satisfy a tidiness rule.
+ *
+ * This was tried the other way for exactly one iteration and reverted: the
+ * fuller page is the good one, and the way to make it consistent is for other
+ * viewers to inherit it wherever their capabilities allow, never to level it
+ * down. Sections stay in the same place for everybody; what changes is whether
+ * a given viewer's capabilities put them there.
+ */
+export async function getMatchCentreContext(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  fixtureId: string
+): Promise<MatchCentreResolution> {
   const { data: f } = await supabase
     .from("fixtures")
     .select(

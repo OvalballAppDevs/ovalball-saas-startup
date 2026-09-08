@@ -34,10 +34,17 @@ export async function FamilyPanel({
   supabase,
   ctx,
   activeContext,
+  isGuardian,
 }: {
   supabase: SupabaseClient<Database>
   ctx: SessionContext
   activeContext: SwitchableContext
+  /**
+   * Whether this person actually guardians anybody. Passed in rather than
+   * worked out here, because this panel also serves an adult looking at their
+   * OWN player card, and guardian controls have no place there.
+   */
+  isGuardian: boolean
 }) {
   const children = resolveFamilyScope(ctx, activeContext)
   if (children.length === 0) return null
@@ -176,13 +183,20 @@ export async function FamilyPanel({
         })}
       </ul>
 
-      <Link
-        href="/guardian-requests"
-        className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
-      >
-        <ShieldCheck className="size-3.5" aria-hidden="true" />
-        Guardian requests awaiting your approval
-      </Link>
+      {/*
+        Approving another adult's request to become a guardian is a
+        guardian's job. An adult player looking at their own card is not being
+        asked to vet anybody.
+      */}
+      {isGuardian && activeContext.kind !== "player" && (
+        <Link
+          href="/guardian-requests"
+          className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
+        >
+          <ShieldCheck className="size-3.5" aria-hidden="true" />
+          Guardian requests awaiting your approval
+        </Link>
+      )}
     </section>
   )
 }

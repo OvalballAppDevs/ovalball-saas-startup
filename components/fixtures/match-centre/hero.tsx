@@ -157,24 +157,33 @@ function TimeCell({
 function SideColumn({ side }: { side: MatchCentreSide }) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-2 text-center">
-      {side.kit ? (
-        <RugbyKit kit={side.kit} clubName={side.clubDisplayName} variant="primary" className="size-16 text-white sm:size-24" />
-      ) : (
-        // A club with no structured kit is a real and common state -- an
-        // unclaimed opposition almost always is. It gets a deliberate,
-        // finished placeholder rather than an empty box.
-        <KitPlaceholder className="size-16 text-white/30 sm:size-24" />
-      )}
-
-      <div className="flex min-w-0 flex-col items-center gap-1.5">
+      {/*
+        The crest and the kit sit side by side at the SAME size. The crest used
+        to be a third of the kit's height and tucked underneath it, which read
+        as a caption on the shirt rather than as the club's own mark -- two
+        equal marks beside each other is what a matchday programme does, and it
+        is what the club recognises.
+      */}
+      <div className="flex items-center justify-center gap-2 sm:gap-3">
         {side.clubLogoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- storage-hosted club logo, not a Next/Image-managed remote source.
-          <img src={side.clubLogoUrl} alt="" className="size-7 shrink-0 rounded-md bg-white/10 object-contain p-0.5 sm:size-8" />
+          <img src={side.clubLogoUrl} alt="" className="size-16 shrink-0 rounded-lg bg-white/10 object-contain p-1 sm:size-24" />
         ) : (
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/10 text-[9px] font-semibold text-white/50 sm:size-8">
+          <span className="flex size-16 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-base font-semibold text-white/50 sm:size-24 sm:text-xl">
             {side.clubDisplayName.slice(0, 2).toUpperCase()}
           </span>
         )}
+        {side.kit ? (
+          <RugbyKit kit={side.kit} clubName={side.clubDisplayName} variant="primary" className="size-16 text-white sm:size-24" />
+        ) : (
+          // A club with no structured kit is a real and common state -- an
+          // unclaimed opposition almost always is. It gets a deliberate,
+          // finished placeholder rather than an empty box.
+          <KitPlaceholder className="size-16 text-white/30 sm:size-24" />
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-col items-center gap-1.5">
         <div className="min-w-0">
           {/* Wraps, never truncates. text-balance keeps a two-line club name
               from leaving one orphan word on the second line. */}

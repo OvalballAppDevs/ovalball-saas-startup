@@ -2,17 +2,22 @@ import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/server"
 
+import { SubscriptionView } from "../../parent/players/[playerId]/subscription/page"
+
+export const metadata = { title: "Payments & Subscriptions" }
+
 /**
  * PAYMENTS & SUBSCRIPTIONS, for a player managing their own membership.
  *
- * Deliberately not a second payments screen. Ovalball already has one, built
- * on real GoCardless mandates, subscriptions and collections, and it already
- * admits an adult player managing their own membership alongside a guardian
- * managing a child's -- so this resolves who is asking and sends them to it.
+ * A real Player-facing route, not a redirect into a guardian one. It used to
+ * send the adult to /parent/players/<id>/subscription, which worked and read
+ * as though they were their own child's parent.
  *
- * Duplicating it would mean two places where a person could be told a
- * different thing about their own money, which is the one subject where that
- * is least acceptable.
+ * It renders the SAME SubscriptionView the guardian route renders, so there is
+ * still exactly one implementation of a person's membership, one set of
+ * GoCardless facts, and no second place anybody could be told something
+ * different about their own money. What `isSelf` changes is the wording and
+ * where Back goes -- never the figures.
  */
 export default async function PlayerPaymentsPage() {
   const supabase = await createClient()
@@ -23,10 +28,9 @@ export default async function PlayerPaymentsPage() {
 
   const { data: ctx } = await supabase.rpc("my_player_context").single()
 
-  // No player record yet, or no club: there is nothing to pay for, and the
+  // No player record, or no club yet: there is nothing to pay for, and the
   // honest next step is the journey that would create one.
-  if (!ctx?.player_id) redirect("/player/join")
-  if (ctx.state !== "ACTIVE") redirect("/player/join")
+  if (!ctx?.player_id || ctx.state !== "ACTIVE") redirect("/player/join")
 
-  redirect(`/parent/players/${ctx.player_id}/subscription`)
+  return <SubscriptionView playerId={ctx.player_id} isSelf />
 }

@@ -53,6 +53,20 @@ const GC_SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
  */
 export default async function PlayerSubscriptionPage({ params }: { params: Promise<{ playerId: string }> }) {
   const { playerId } = await params
+  return <SubscriptionView playerId={playerId} />
+}
+
+/**
+ * The subscription surface itself, rendered by BOTH the guardian route and the
+ * player's own /player/payments route.
+ *
+ * Extracted rather than duplicated: there must not be two places a person can
+ * be told a different thing about their own money. `isSelf` changes only the
+ * words and where Back goes -- an adult managing their own membership is not
+ * "your child registered for this membership", and their Back button does not
+ * belong in a parent route.
+ */
+export async function SubscriptionView({ playerId, isSelf = false }: { playerId: string; isSelf?: boolean }) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -74,7 +88,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
   if (!eligibility || !eligibility.programme_id) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-        <BackLink playerId={playerId} />
+        <BackLink playerId={playerId} isSelf={isSelf} />
         <p className="mt-4 text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Subscription</p>
         <h1 className="mt-2 font-display text-display-l text-ink">
           {player.first_name} {player.surname}
@@ -177,7 +191,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <BackLink playerId={playerId} />
+      <BackLink playerId={playerId} isSelf={isSelf} />
       <p className="mt-4 text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Subscription</p>
       <h1 className="mt-2 font-display text-display-l text-ink">
         {player.first_name} {player.surname}
@@ -194,7 +208,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
           ? (payerSnapshot.sibling_ordinal ?? 0) >= 2 &&
             payerSnapshot.sibling_discount_type !== "NONE" && (
               <div className="mt-4 rounded-md bg-mint-50 px-3 py-2 text-xs text-forest-800">
-                This is your {ordinalWord(payerSnapshot.sibling_ordinal ?? 0)} child registered for this membership at {relation.clubName}. {relation.clubName} gives{" "}
+                {isSelf ? "This is the" : "This is your"} {ordinalWord(payerSnapshot.sibling_ordinal ?? 0)} {isSelf ? "membership you pay for" : "child registered for this membership"} at {relation.clubName}. {relation.clubName} gives{" "}
                 {payerSnapshot.sibling_discount_type === "PERCENTAGE" ? `a ${payerSnapshot.sibling_discount_value}% sibling discount` : `a ${formatMinorUnits(payerSnapshot.sibling_discount_value ?? 0)} sibling discount`}.
               </div>
             )
@@ -202,7 +216,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
             preview.sibling_ordinal >= 2 &&
             preview.sibling_discount_type !== "NONE" && (
               <div className="mt-4 rounded-md bg-mint-50 px-3 py-2 text-xs text-forest-800">
-                This is your {ordinalWord(preview.sibling_ordinal)} child registered for this membership at {relation.clubName}. {relation.clubName} gives{" "}
+                {isSelf ? "This is the" : "This is your"} {ordinalWord(preview.sibling_ordinal)} {isSelf ? "membership you pay for" : "child registered for this membership"} at {relation.clubName}. {relation.clubName} gives{" "}
                 {preview.sibling_discount_type === "PERCENTAGE" ? `a ${preview.sibling_discount_value}% sibling discount` : `a ${formatMinorUnits(preview.sibling_discount_value)} sibling discount`}.
               </div>
             )}
@@ -312,9 +326,12 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
   )
 }
 
-function BackLink({ playerId }: { playerId: string }) {
+function BackLink({ playerId, isSelf }: { playerId: string; isSelf: boolean }) {
   return (
-    <Link href={`/parent/players/${playerId}/access`} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
+    <Link
+      href={isSelf ? "/dashboard" : `/parent/players/${playerId}/access`}
+      className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink"
+    >
       <ChevronLeft className="size-4" />
       Back
     </Link>
