@@ -16932,6 +16932,10 @@ export type Database = {
         }
         Returns: string
       }
+      provision_missing_placement_team: {
+        Args: { p_proposal_id: string }
+        Returns: string
+      }
       publish_import_row: { Args: { p_row_id: string }; Returns: string }
       publish_regulatory_content_set: {
         Args: { p_content_set_id: string }

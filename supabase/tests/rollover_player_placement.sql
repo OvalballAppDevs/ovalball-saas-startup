@@ -16,7 +16,7 @@ declare
   v_admin uuid := gen_random_uuid();
   v_outsider uuid := gen_random_uuid();
   v_dir uuid; v_club uuid; v_other_club uuid; v_other_dir uuid; v_to uuid;
-  v_u15 uuid; v_u15b uuid; v_u16 uuid; v_u16b uuid; v_u17 uuid; v_foreign uuid;
+  v_u14 uuid; v_u15 uuid; v_u15b uuid; v_u16 uuid; v_u16b uuid; v_u17 uuid; v_foreign uuid;
   v_player uuid; v_prop uuid; v_roll uuid;
   v_kind text; v_req text; v_review text; v_reason text; v_disp boolean;
   v_n int; v_err text; v_ok boolean; v_txt text;
@@ -40,6 +40,10 @@ insert into public.clubs (directory_id, slug, status) values (v_other_dir,'ppo-'
 insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
 values ('PP 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true,'2027-08-01') returning id into v_to;
 
+-- A U14 side: next season it becomes U15, which is what makes it a genuine
+-- age-grade DROP for a U16-age player rather than a squad change.
+insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
+values (v_club,'union','youth','U14','boys','x','pp14') returning id into v_u14;
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U15','boys','x','pp15') returning id into v_u15;
 insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug)
@@ -86,13 +90,29 @@ else
   raise notice 'FAIL 3: an ordinary progression was flagged for review';
 end if;
 
+-- The squad, not just the age grade: his own U15 B side becomes U16 B, and he
+-- is already in it, so the normal placement is that team.
+if (select proposed_team_id from public.age_grade_rollover_player_proposals where id=v_prop) = v_u15b then
+  raise notice 'PASS 3b: normal placement is his OWN squad (U15 B, which becomes U16 B) -- not the primary U16';
+else
+  raise notice 'FAIL 3b: normal placement is [%]',
+    (select display_name from public.teams where id=(select proposed_team_id from public.age_grade_rollover_player_proposals where id=v_prop));
+end if;
+
 -- ============ 2. Only this club's real teams may be chosen ============
 
 select count(*) into v_n from public.rollover_placement_options(v_prop);
-if v_n = 5 then
-  raise notice 'PASS 4: the reviewer is offered this club''s five real youth teams, and nothing else';
+if v_n = 6 then
+  raise notice 'PASS 4: the reviewer is offered this club''s six real youth teams, and nothing else';
 else
   raise notice 'FAIL 4: % placement options offered', v_n;
+end if;
+
+-- Options are labelled by what each team will BE next season, not by today.
+if exists (select 1 from public.rollover_placement_options(v_prop) o where o.team_id = v_u15 and o.age_group = 'U16') then
+  raise notice 'PASS 4b: the U15 side is offered as U16 -- the identity it will hold in the season being decided';
+else
+  raise notice 'FAIL 4b: placement options are labelled with today''s age grades';
 end if;
 
 if not exists (select 1 from public.rollover_placement_options(v_prop) o where o.team_id = v_foreign) then
@@ -114,11 +134,13 @@ end if;
 
 -- ============ 3. Same age grade, different squad ============
 
+-- The U15 primary becomes U16 next season: same age grade as his normal
+-- placement, different squad letter.
 select * into v_kind, v_req, v_review, v_reason, v_disp
-from public.set_rollover_player_placement(v_prop, v_u16b);
+from public.set_rollover_player_placement(v_prop, v_u15);
 
 if v_kind = 'SAME_AGE_SQUAD' then
-  raise notice 'PASS 7: U16 -> U16 B is classified as an operational squad decision, not an age-grade change';
+  raise notice 'PASS 7: moving him to the side that also becomes U16 is an operational squad decision, not an age-grade change';
 else
   raise notice 'FAIL 7: classified as [%]', coalesce(v_kind,'nothing');
 end if;
@@ -129,7 +151,7 @@ else
   raise notice 'FAIL 8: a squad change demanded approval (review %, dispensation %)', v_review, v_disp;
 end if;
 
-if (select selected_team_id from public.age_grade_rollover_player_proposals where id=v_prop) = v_u16b then
+if (select selected_team_id from public.age_grade_rollover_player_proposals where id=v_prop) = v_u15 then
   raise notice 'PASS 9: the decision is persisted against the canonical team id, not a display string';
 else
   raise notice 'FAIL 9: the selection was not persisted';
@@ -137,11 +159,14 @@ end if;
 
 -- ============ 4. Different age grade runs the canonical resolver ============
 
+-- The U14 side becomes U15 next season: a real age-grade drop for a
+-- U16-age player. Judged by today's labels this looked like a two-grade move;
+-- judged by next season's, it is the one-grade drop it actually is.
 select * into v_kind, v_req, v_review, v_reason, v_disp
-from public.set_rollover_player_placement(v_prop, v_u15);
+from public.set_rollover_player_placement(v_prop, v_u14);
 
 if v_kind = 'AGE_GRADE_CHANGE' then
-  raise notice 'PASS 10: U16 -> U15 is classified as an age-grade change';
+  raise notice 'PASS 10: placing him in the side that becomes U15 is an age-grade change';
 else
   raise notice 'FAIL 10: classified as [%]', coalesce(v_kind,'nothing');
 end if;
@@ -182,10 +207,10 @@ end if;
 
 insert into public.player_team_dispensation
   (player_id, source_team_id, target_team_id, season_id, status, governing_body_reference, eligibility_rule_reference, requested_by)
-values (v_player, v_u15b, v_u15, v_to, 'approved', 'RFU-TEST-REF-001', 'RFU Regulation 15', v_admin);
+values (v_player, v_u15b, v_u14, v_to, 'approved', 'RFU-TEST-REF-001', 'RFU Regulation 15', v_admin);
 
 select * into v_kind, v_req, v_review, v_reason, v_disp
-from public.set_rollover_player_placement(v_prop, v_u15);
+from public.set_rollover_player_placement(v_prop, v_u14);
 if v_review = 'READY' then
   raise notice 'PASS 15: once the governing approval is on file for that exact player, team and season, the placement is ready';
 else
@@ -197,7 +222,7 @@ end if;
 perform public.apply_rollover_player_placement(v_prop);
 
 if (select count(*) from public.player_team_memberships where player_id=v_player and status='active') = 1
-   and (select team_id from public.player_team_memberships where player_id=v_player and status='active') = v_u15 then
+   and (select team_id from public.player_team_memberships where player_id=v_player and status='active') = v_u14 then
   raise notice 'PASS 16: applying moved the player to the chosen team, and left exactly one active membership';
 else
   raise notice 'FAIL 16: membership state after apply is wrong';
@@ -228,7 +253,7 @@ if exists (
     and after->>'event' = 'HANDOVER_PLACEMENT_DECIDED'
     and after->>'override_kind' = 'AGE_GRADE_CHANGE'
     and after->>'movement_requirement' = 'external_approval_required'
-    and (after->>'selected_team_id')::uuid = v_u15
+    and (after->>'selected_team_id')::uuid = v_u14
     and after->>'target_season_id' is not null
 ) then
   raise notice 'PASS 19: the audit records actor, stable ids, the movement decision and the season -- no display strings as authority';
