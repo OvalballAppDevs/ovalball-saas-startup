@@ -28,9 +28,15 @@ insert into public.site_admins (user_id, status, admin_role) values (v_admin,'ac
 perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
 
 -- ---------- target seasons ----------
-insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
-values ('E2E Union 27/28', '2027-09-01','2028-06-30', true, 'union', 2027, '27/28', true, '2027-08-01')
-returning id into v_to_u;
+-- Reuse the platform's next Union season when one exists; a test must not
+-- assume the club-facing calendar is empty.
+select id into v_to_u from public.seasons
+where rugby_code = 'union' and season_year_start = 2027 limit 1;
+if v_to_u is null then
+  insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
+  values ('E2E Union 27/28', '2027-09-01','2028-06-30', true, 'union', 2027, '27/28', true, '2027-08-01')
+  returning id into v_to_u;
+end if;
 insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
 values ('E2E League 2027', '2027-02-01','2027-10-31', true, 'league', 2027, '2027', true, '2027-01-15')
 returning id into v_to_l;

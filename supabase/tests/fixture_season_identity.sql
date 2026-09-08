@@ -27,18 +27,26 @@ perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role',
 insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
 values ('FxId RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','fxid-'||substr(gen_random_uuid()::text,1,8)) returning id into v_dir;
 insert into public.clubs (directory_id, slug, status) values (v_dir,'fxid-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club;
-insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
-values ('FxId 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true,'2027-08-01') returning id into v_to;
+-- Use the club-facing next season if the platform already has one, and
+-- only create a synthetic one when it does not. Hardcoding an insert here
+-- made the suite abort the moment a real 27/28 season existed.
+select id into v_to from public.seasons
+where rugby_code = 'union' and season_year_start = 2027 limit 1;
+if v_to is null then
+  insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
+  values ('FxId 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true,'2027-08-01') returning id into v_to;
+end if;
 select id into v_from from public.seasons where rugby_code='union' and season_year_start=2026 and not is_regression_fixture limit 1;
 
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U16','boys','x','fxid1') returning id into v_team;
 
--- A result already played inside the 26/27 season, and a friendly booked for 27/28.
+-- A result played inside 26/27, and a friendly booked beyond every season
+-- this platform defines -- which is the case the resolver's fallback covers.
 insert into public.fixtures (owning_team_id, kickoff_date, home_away, status, raw_opposition_text)
 values (v_team, date '2026-09-05', 'Home', 'Completed', 'Old Rivals') returning id into v_past;
 insert into public.fixtures (owning_team_id, kickoff_date, home_away, status, raw_opposition_text)
-values (v_team, date '2027-10-10', 'Away', 'Booked', 'Next Season Rivals') returning id into v_future;
+values (v_team, date '2040-10-10', 'Away', 'Booked', 'Next Season Rivals') returning id into v_future;
 
 -- The past fixture is filed against the season it was played in. The future
 -- one is booked beyond any season this database defines, so it has no

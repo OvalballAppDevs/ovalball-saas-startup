@@ -69,16 +69,19 @@ else
 end if;
 
 -- A date 20 days BEFORE the season starts is outside it...
-v_resolved := internal.resolve_season_for_date('union', (select starts_on - 20 from public.seasons where id = v_season));
+-- Before the season's OWN boundary, which is pre_season_starts_on when set.
+-- Using starts_on - 20 assumed no pre-season window existed.
+v_resolved := internal.resolve_season_for_date('union',
+  (select coalesce(pre_season_starts_on, starts_on) - 20 from public.seasons where id = v_season));
 if v_resolved is distinct from v_season then
-  raise notice 'PASS 5: a date before the season starts does not belong to it';
+  raise notice 'PASS 5: a date before the season opens does not belong to it';
 else
   raise notice 'FAIL 5: a pre-season date resolved into the season anyway';
 end if;
 
 -- ...until Site Admin opens pre-season earlier. One canonical edit.
 update public.seasons set pre_season_starts_on = starts_on - 40 where id = v_season;
-v_resolved := internal.resolve_season_for_date('union', (select starts_on - 20 from public.seasons where id = v_season));
+v_resolved := internal.resolve_season_for_date('union', (select starts_on - 30 from public.seasons where id = v_season));
 if v_resolved = v_season then
   raise notice 'PASS 6: moving pre_season_starts_on in Site Admin immediately changed which season that date belongs to';
 else
@@ -96,7 +99,7 @@ begin
   values (v_club,'union','youth','U12','boys','x','sot1') returning id into v_team;
 
   insert into public.fixtures (owning_team_id, kickoff_date, home_away, status, raw_opposition_text)
-  values (v_team, (select starts_on - 20 from public.seasons where id = v_season), 'Home', 'Booked', 'X')
+  values (v_team, (select starts_on - 30 from public.seasons where id = v_season), 'Home', 'Booked', 'X')
   returning id into v_fx;
 
   if (select season_id from public.fixtures where id = v_fx) = v_season then

@@ -35,7 +35,10 @@ declare
   v_season uuid;
   v_count int; v_text text;
 begin
-  select id into v_season from public.seasons where rugby_code='union' and active order by starts_on desc limit 1;
+  -- The season that CONTAINS today, from the canonical resolver. Taking the
+  -- latest season by starts_on picked a FUTURE season the moment one existed,
+  -- so a group filed against it no longer matched its own fixtures' kickoff.
+  v_season := internal.resolve_season_for_date('union', current_date);
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data) values
     (v_site,'cmc-site-'||v_site::text||'@ovalball.test','',now(),now(),now(),'{}'::jsonb,'{}'::jsonb),

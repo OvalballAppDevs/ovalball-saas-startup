@@ -37,8 +37,15 @@ insert into public.club_directory (name, town, county, rugby_code, country, nati
 values ('PP Other RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','ppo-'||substr(gen_random_uuid()::text,1,8)) returning id into v_other_dir;
 insert into public.clubs (directory_id, slug, status) values (v_other_dir,'ppo-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_other_club;
 
-insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
-values ('PP 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true,'2027-08-01') returning id into v_to;
+-- Use the club-facing next season if the platform already has one, and
+-- only create a synthetic one when it does not. Hardcoding an insert here
+-- made the suite abort the moment a real 27/28 season existed.
+select id into v_to from public.seasons
+where rugby_code = 'union' and season_year_start = 2027 limit 1;
+if v_to is null then
+  insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
+  values ('PP 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true,'2027-08-01') returning id into v_to;
+end if;
 
 -- A U14 side: next season it becomes U15, which is what makes it a genuine
 -- age-grade DROP for a U16-age player rather than a squad change.

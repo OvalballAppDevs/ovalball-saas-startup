@@ -32,8 +32,16 @@ insert into public.club_memberships (club_id, user_id, role, status) values (v_c
 
 -- A season whose pre-season boundary has already passed, so the automatic
 -- handover is due right now rather than merely upcoming.
-insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
-values ('Auto 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true, current_date - 1) returning id into v_to;
+-- Reuse the platform's next Union season when one exists, and force its
+-- pre-season boundary into the past so the automatic handover is due now.
+select id into v_to from public.seasons
+where rugby_code = 'union' and season_year_start = 2027 limit 1;
+if v_to is null then
+  insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
+  values ('Auto 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true, current_date - 1) returning id into v_to;
+else
+  update public.seasons set pre_season_starts_on = current_date - 1 where id = v_to;
+end if;
 
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U16','boys','x','auto1') returning id into v_team;

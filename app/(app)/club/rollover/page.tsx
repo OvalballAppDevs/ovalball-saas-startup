@@ -77,7 +77,7 @@ export default async function ClubRolloverPage() {
     supabase
       .from("age_grade_rollovers")
       .select(
-        "id, created_at, from_season_id, from_season:from_season_id(name), to_season:to_season_id(name), age_grade_rollover_team_proposals(id, team_id, current_age_group, proposed_age_group, requires_manual_choice, is_mixed_boundary, decision, decided_age_group, girls_team_created, girls_team_id, teams!age_grade_rollover_team_proposals_team_id_fkey(display_name, gender, squad_designation)), age_grade_rollover_group_flags(id, scheduling_group_id, reason, resolved, scheduling_groups(display_tag))"
+        "id, created_at, from_season_id, to_season_id, from_season:from_season_id(name), to_season:to_season_id(name), age_grade_rollover_team_proposals(id, team_id, current_age_group, proposed_age_group, requires_manual_choice, is_mixed_boundary, decision, decided_age_group, girls_team_created, girls_team_id, teams!age_grade_rollover_team_proposals_team_id_fkey(display_name, gender, squad_designation)), age_grade_rollover_group_flags(id, scheduling_group_id, reason, resolved, scheduling_groups(display_tag))"
       )
       .eq("club_id", club.id)
       // Defence in depth: generate_rollover_proposal now rejects a
@@ -242,16 +242,37 @@ export default async function ClubRolloverPage() {
    * Team names come from the joined team rows rather than being reconstructed
    * from age labels, so a squad designation survives ("U16 B", not "U16").
    * ---------------------------------------------------------------- */
-  const currentRollover = (rollovers ?? []).find((r) => r.to_season?.name && r.to_season.name === nextSeasonOption?.name) ?? null
+  const currentRollover = (rollovers ?? []).find((r) => r.to_season_id === nextSeasonOption?.id) ?? null
 
   const { data: playerProposalRows } = currentRollover
     ? await supabase
         .from("age_grade_rollover_player_proposals")
         .select(
-          "id, player_id, review_state, allocation_status, movement_requirement, regulatory_age_label, reason, placement_applied_at, normal_canonical_team_type_id, players(first_name, surname), current_team:teams!age_grade_rollover_player_proposals_current_team_id_fkey(display_name), proposed_team:teams!age_grade_rollover_player_proposals_proposed_team_id_fkey(display_name), selected_team:teams!age_grade_rollover_player_proposals_selected_team_id_fkey(display_name)"
+          "id, player_id, proposed_team_id, selected_team_id, review_state, allocation_status, movement_requirement, regulatory_age_label, reason, placement_applied_at, normal_canonical_team_type_id, players(first_name, surname), current_team:teams!age_grade_rollover_player_proposals_current_team_id_fkey(display_name), proposed_team:teams!age_grade_rollover_player_proposals_proposed_team_id_fkey(display_name), selected_team:teams!age_grade_rollover_player_proposals_selected_team_id_fkey(display_name)"
         )
         .eq("rollover_id", currentRollover.id)
     : { data: null }
+
+  // "Current" is today's identity, but "Normal next" and "Selected" describe
+  // the season being decided, so they are resolved through the canonical
+  // season-aware projection. Showing a team's present label in those columns
+  // says U12 for a side that will be U13 -- naming a destination that will not
+  // exist by the time the player gets there.
+  const playerTeamIdentities = currentRollover
+    ? await loadTeamIdentitiesForSeason(
+        supabase,
+        (playerProposalRows ?? []).flatMap((p) =>
+          [p.proposed_team_id, p.selected_team_id]
+            .filter((id): id is string => Boolean(id))
+            .map((teamId) => ({ teamId, seasonId: currentRollover.to_season_id as string }))
+        )
+      )
+    : new Map()
+
+  const nextSeasonLabel = (teamId: string | null, fallback: string | null): string | null => {
+    if (!teamId || !currentRollover?.to_season_id) return fallback
+    return playerTeamIdentities.get(teamIdentityKey(teamId, currentRollover.to_season_id))?.displayName ?? fallback
+  }
 
   const playerProposals: PlayerProposalRow[] = (playerProposalRows ?? [])
     .map((p) => ({
@@ -259,8 +280,8 @@ export default async function ClubRolloverPage() {
       playerId: p.player_id,
       playerName: [p.players?.first_name, p.players?.surname].filter(Boolean).join(" ") || "Player",
       currentTeamName: p.current_team?.display_name ?? "Unknown team",
-      normalPlacementName: p.proposed_team?.display_name ?? null,
-      selectedPlacementName: p.selected_team?.display_name ?? null,
+      normalPlacementName: nextSeasonLabel(p.proposed_team_id, p.proposed_team?.display_name ?? null),
+      selectedPlacementName: nextSeasonLabel(p.selected_team_id, p.selected_team?.display_name ?? null),
       regulatoryAgeLabel: p.regulatory_age_label,
       reviewState: p.review_state as PlayerProposalRow["reviewState"],
       allocationStatus: p.allocation_status,

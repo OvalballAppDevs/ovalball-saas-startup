@@ -40,8 +40,15 @@ values ('MS RUFC','T','T','union','United Kingdom','England',true,'unverified','
 insert into public.clubs (directory_id, slug, status) values (v_dir,'ms-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club;
 insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_clubadmin,'CLUB_ADMIN','active');
 
-insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
-values ('MS 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true,'2027-08-01') returning id into v_to;
+-- Use the club-facing next season if the platform already has one, and
+-- only create a synthetic one when it does not. Hardcoding an insert here
+-- made the suite abort the moment a real 27/28 season existed.
+select id into v_to from public.seasons
+where rugby_code = 'union' and season_year_start = 2027 limit 1;
+if v_to is null then
+  insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
+  values ('MS 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true,'2027-08-01') returning id into v_to;
+end if;
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U16','boys','x','ms1') returning id into v_team;
 
