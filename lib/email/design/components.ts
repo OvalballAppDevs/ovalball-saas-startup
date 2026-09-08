@@ -1,5 +1,10 @@
 import "server-only"
 
+// The company, product and contact identity are read from the SAME constants
+// the public legal pages use, so an email and a legal page can never disagree
+// about who Ovalball is or where to reach it. Nothing is re-typed here.
+import { CONTACT_EMAIL, OPERATOR_STATEMENT, PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/legal/metadata"
+
 /**
  * The Ovalball email design system.
  *
@@ -163,6 +168,20 @@ export function divider(): string {
  * subject; without one, clients scrape the first visible text, which is
  * usually the wordmark.
  */
+/**
+ * The shared shell every Ovalball email is rendered into.
+ *
+ * The footer at the bottom is deliberately the quietest thing on the page: a
+ * transactional email is a service message, and a footer that competes with
+ * the content reads as marketing. There are no social icons, no campaign
+ * links and no unsubscribe -- offering to unsubscribe from the invitation that
+ * lets somebody into their club would be an offer the product cannot honour.
+ *
+ * The contact address is rendered as TEXT rather than a mailto link. Every
+ * href in an Ovalball email must point at Ovalball's own origin, which is what
+ * stops a template ever emitting a redirect out of trusted mail; that rule is
+ * worth more than a clickable address, and clients linkify a bare one anyway.
+ */
 export function renderEmailDocument(options: {
   title: string
   preheader: string
@@ -198,9 +217,16 @@ export function renderEmailDocument(options: {
         <p style="margin:0 0 8px;font-family:${FONT_STACK};font-size:13px;line-height:1.5;color:${EMAIL_COLORS.inkMuted};">
           Need help? <a href="${escapeHtml(siteUrl)}/support" style="color:${EMAIL_COLORS.forest800};">Contact Ovalball support</a>
         </p>
-        <p style="margin:0;font-family:${FONT_STACK};font-size:12px;line-height:1.5;color:${EMAIL_COLORS.inkMuted};">
+        <p style="margin:0 0 14px;font-family:${FONT_STACK};font-size:12px;line-height:1.5;color:${EMAIL_COLORS.inkMuted};">
           <a href="${escapeHtml(siteUrl)}/legal/terms" style="color:${EMAIL_COLORS.inkMuted};">Terms</a> &nbsp;&middot;&nbsp;
           <a href="${escapeHtml(siteUrl)}/legal/privacy" style="color:${EMAIL_COLORS.inkMuted};">Privacy</a>
+        </p>
+
+        <p style="margin:0;font-family:${FONT_STACK};font-size:12px;line-height:1.6;color:${EMAIL_COLORS.inkMuted};">
+          <span style="font-weight:700;color:${EMAIL_COLORS.forest950};">${escapeHtml(PRODUCT_NAME)}</span>
+          &nbsp;&middot;&nbsp; ${escapeHtml(PRODUCT_TAGLINE)}<br />
+          ${escapeHtml(OPERATOR_STATEMENT)}<br />
+          Replies to this email go to ${escapeHtml(CONTACT_EMAIL)}.
         </p>
       </td></tr>
 

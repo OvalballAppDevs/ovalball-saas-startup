@@ -1,5 +1,6 @@
 import "server-only"
 
+import { CONTACT_EMAIL, OPERATOR_STATEMENT, PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/legal/metadata"
 import { getSiteUrl } from "@/lib/site-url"
 
 import type { EmailEventKey } from "./catalogue"
@@ -62,6 +63,20 @@ function link(path: string, siteUrl: string): string {
 }
 
 const SUPPORT_LINE = (siteUrl: string) => `Need help? ${siteUrl}/support`
+
+/**
+ * The plain-text counterpart of the shared HTML footer, appended once by
+ * {@link renderEmail} rather than composed by each template.
+ *
+ * It carries the same three facts the HTML footer carries: the product, who
+ * operates it, and where a reply lands. A recipient whose client shows the
+ * text part must not be told materially less than one reading the HTML.
+ */
+const TEXT_FOOTER = [
+  `${PRODUCT_NAME} - ${PRODUCT_TAGLINE}`,
+  OPERATOR_STATEMENT,
+  `Replies to this email go to ${CONTACT_EMAIL}.`,
+].join("\n")
 
 /* ------------------------------------------------------------------ */
 /* Identity and invitations                                            */
@@ -481,5 +496,15 @@ export function renderEmail<K extends EmailEventKey>(
   siteUrl: string = getSiteUrl()
 ): RenderedEmail {
   const renderer = RENDERERS[eventKey] as Renderer<K>
-  return renderer(data, siteUrl)
+  const rendered = renderer(data, siteUrl)
+
+  // The plain-text brand footer is appended HERE, not in each template.
+  //
+  // It was previously carried by SUPPORT_LINE, which every template happened
+  // to end with -- except one. club_claim_submitted did not, and a template
+  // added next year would be just as free to forget. The HTML side cannot have
+  // that problem because every template renders through one shell; doing the
+  // same for text makes the two structurally equal rather than equal by
+  // convention.
+  return { ...rendered, text: `${rendered.text.trimEnd()}\n\n${TEXT_FOOTER}` }
 }

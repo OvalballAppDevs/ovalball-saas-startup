@@ -5,6 +5,7 @@ import { EMAIL_EVENT_KEYS, EMAIL_EVENTS, emailEventDefinition } from "@/lib/emai
 import { escapeHtml, safeUrl } from "@/lib/email/design/components"
 import { PREVIEW_FIXTURES } from "@/lib/email/preview-fixtures"
 import { renderEmail } from "@/lib/email/templates"
+import { CONTACT_EMAIL, OPERATOR_NAME, OPERATOR_STATEMENT, PRODUCT_TAGLINE } from "@/lib/legal/metadata"
 
 /**
  * Template and escaping regressions.
@@ -224,5 +225,59 @@ test("no marketing classification exists in the transactional pipeline", () => {
       "MARKETING",
       `${key} is marketing and does not belong in the transactional sender`
     )
+  }
+})
+
+/* ------------------------------------------------------------------ */
+/* Shared brand footer                                                 */
+/* ------------------------------------------------------------------ */
+
+test("every email carries the shared Ovalball footer, in HTML and in plain text", () => {
+  for (const { key, label, rendered } of eachRendered()) {
+    const where = `${key} / ${label}`
+
+    assert.ok(rendered.html.includes(PRODUCT_TAGLINE), `${where}: HTML footer is missing the product line`)
+    assert.ok(rendered.html.includes(OPERATOR_STATEMENT), `${where}: HTML footer does not say who operates Ovalball`)
+    assert.ok(rendered.html.includes(CONTACT_EMAIL), `${where}: HTML footer does not say where a reply goes`)
+
+    // Plain-text parity: a recipient whose client shows the text part must not
+    // be told materially less than one reading the HTML.
+    assert.ok(rendered.text.includes(PRODUCT_TAGLINE), `${where}: text footer is missing the product line`)
+    assert.ok(rendered.text.includes(OPERATOR_STATEMENT), `${where}: text footer does not say who operates Ovalball`)
+    assert.ok(rendered.text.includes(CONTACT_EMAIL), `${where}: text footer does not say where a reply goes`)
+  }
+})
+
+test("the footer names the operator from canonical metadata", () => {
+  assert.ok(OPERATOR_STATEMENT.includes(OPERATOR_NAME), "the operator statement must name the canonical operator")
+  for (const { rendered } of eachRendered()) {
+    assert.ok(rendered.html.includes(OPERATOR_NAME))
+    assert.ok(rendered.text.includes(OPERATOR_NAME))
+  }
+})
+
+test("the footer invents no legal registration detail", () => {
+  // Company number, registered office and VAT are not in trusted repository
+  // configuration. Neither a real-looking value nor a "[COMPANY NUMBER]"
+  // placeholder belongs in mail a person actually receives.
+  const forbidden = [/company\s*(number|no\.?)/i, /registered\s+office/i, /\bVAT\b/i, /\[[A-Z _]{3,}\]/]
+  for (const { key, label, rendered } of eachRendered()) {
+    for (const pattern of forbidden) {
+      assert.ok(!pattern.test(rendered.html), `${key} / ${label}: HTML contains unverified legal detail (${pattern})`)
+      assert.ok(!pattern.test(rendered.text), `${key} / ${label}: text contains unverified legal detail (${pattern})`)
+    }
+  }
+})
+
+test("the footer stays a service footer, not a newsletter one", () => {
+  // Transactional mail carries no campaign furniture. An unsubscribe link in
+  // particular would be an offer the product cannot honour: nobody can opt out
+  // of the invitation that lets them into their club.
+  const marketing = [/unsubscribe/i, /view (this )?in browser/i, /follow us/i, /twitter|facebook|instagram/i]
+  for (const { key, rendered } of eachRendered()) {
+    for (const pattern of marketing) {
+      assert.ok(!pattern.test(rendered.html), `${key}: HTML footer has newsletter furniture (${pattern})`)
+      assert.ok(!pattern.test(rendered.text), `${key}: text footer has newsletter furniture (${pattern})`)
+    }
   }
 })

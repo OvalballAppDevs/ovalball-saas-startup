@@ -6,7 +6,7 @@ import { getSiteUrl } from "@/lib/site-url"
 import type { Database } from "@/types/database.types"
 
 import { emailEventDefinition, type EmailEventKey } from "./catalogue"
-import { getFromAddress, selectEmailProvider } from "./provider"
+import { getSenderIdentity, selectEmailProvider } from "./provider"
 import { resolveRecipients, type RecipientRef } from "./recipients"
 import { renderEmail, type EmailEventData } from "./templates"
 
@@ -96,7 +96,7 @@ export async function sendEmailEvent<K extends EmailEventKey>(
   const siteUrl = getSiteUrl()
   const rendered = renderEmail(eventKey, data, siteUrl)
   const { provider, configurationError } = selectEmailProvider()
-  const from = getFromAddress()
+  const sender = getSenderIdentity()
 
   let sent = 0
   let lastFailure: string | null = null
@@ -131,7 +131,7 @@ export async function sendEmailEvent<K extends EmailEventKey>(
       lastFailure = configurationError
       continue
     }
-    if (!from) {
+    if (!sender) {
       const reason = "EMAIL_FROM_ADDRESS is not configured."
       await recordResult(supabase, deliveryId, "suppressed", provider.name, null, null, null, reason)
       lastFailure = reason
@@ -153,11 +153,11 @@ export async function sendEmailEvent<K extends EmailEventKey>(
 
     const result = await provider.send(
       { to: target.email, subject: rendered.subject, html: rendered.html, text: rendered.text },
-      from
+      sender
     )
 
     if (result.ok) {
-      await recordResult(supabase, deliveryId, "sent", provider.name, result.providerMessageId, null, null, null)
+      await recordResult(supabase, deliveryId, "sent", provider.name, result.providerReference, null, null, null)
       sent += 1
     } else {
       await recordResult(
@@ -188,7 +188,7 @@ async function recordResult(
   deliveryId: string,
   status: string,
   providerName: string,
-  providerMessageId: string | null,
+  providerReference: string | null,
   errorCode: string | null,
   errorMessage: string | null,
   suppressionReason: string | null
@@ -199,7 +199,7 @@ async function recordResult(
     p_provider: providerName,
     // The generated RPC arg types model a nullable SQL default as `undefined`,
     // so an explicit "no value" is passed as undefined rather than null.
-    p_provider_message_id: providerMessageId ?? undefined,
+    p_provider_reference: providerReference ?? undefined,
     p_error_code: errorCode ?? undefined,
     p_error_message: errorMessage ?? undefined,
     p_suppression_reason: suppressionReason ?? undefined,

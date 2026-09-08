@@ -4141,7 +4141,7 @@ export type Database = {
           id: string
           idempotency_key: string
           provider: string | null
-          provider_message_id: string | null
+          provider_reference: string | null
           queued_at: string
           recipient_email: string
           recipient_kind: string
@@ -4161,7 +4161,7 @@ export type Database = {
           id?: string
           idempotency_key: string
           provider?: string | null
-          provider_message_id?: string | null
+          provider_reference?: string | null
           queued_at?: string
           recipient_email: string
           recipient_kind: string
@@ -4181,7 +4181,7 @@ export type Database = {
           id?: string
           idempotency_key?: string
           provider?: string | null
-          provider_message_id?: string | null
+          provider_reference?: string | null
           queued_at?: string
           recipient_email?: string
           recipient_kind?: string
@@ -17658,7 +17658,7 @@ export type Database = {
           p_error_code?: string
           p_error_message?: string
           p_provider?: string
-          p_provider_message_id?: string
+          p_provider_reference?: string
           p_status: string
           p_suppression_reason?: string
         }

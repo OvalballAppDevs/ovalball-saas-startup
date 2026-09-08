@@ -152,10 +152,29 @@ asserts a different occurrence still sends.
 | `zeptomail` | Zoho ZeptoMail REST Send API. |
 
 ZeptoMail's REST API is used rather than SMTP because it returns a structured
-per-message id and a machine-readable error code — which is what the ledger
-needs. SMTP would give a `250` and a text blob. ZeptoMail's own error codes
-are preserved (`TM_3201 sender address not verified` is actionable; `http_400`
-is not).
+result and a machine-readable error code — which is what the ledger needs.
+SMTP would give a `250` and a text blob. ZeptoMail's own error codes are
+preserved (`TM_3201 sender address not verified` is actionable; `http_400` is
+not).
+
+### There is no per-message id, and the ledger no longer claims one
+
+Zoho documents the success body as:
+
+```
+{ data: [{ code, additional_info, message }], message, request_id, object }
+```
+
+There is **no message identifier anywhere in it**. The adapter previously read
+`data[0].message_id` — a field the API does not return — and fell through to
+`request_id` every time, so the ledger was in fact holding a request reference
+under a column called `provider_message_id`.
+
+The column is now `provider_reference` and holds `request_id`, which identifies
+**the API call Ovalball made**, not a delivered message. That is what an
+operator quotes to Zoho support when a club says nothing arrived, and it keeps
+the ledger's central honesty intact: `sent` has always meant "the provider
+accepted this", never "it arrived".
 
 ### Required server-side environment
 
@@ -169,10 +188,57 @@ browser bundle. Documented in `.env.example`; no credential is hardcoded.
 | `ZEPTOMAIL_API_URL` | Only for a non-global (EU/IN) data centre |
 | `EMAIL_FROM_ADDRESS` | Must be a ZeptoMail-verified domain. No default is invented |
 | `EMAIL_FROM_NAME` | Optional display name |
+| `EMAIL_REPLY_TO_ADDRESS` | Where replies land — `hello@ovalball.co.uk`. Unset is legitimate, not an error |
+| `EMAIL_REPLY_TO_NAME` | Optional display name for the reply address |
 | `SITE_ADMIN_NOTIFICATION_EMAIL` | Where club-claim due-diligence mail goes |
+
+### From and Reply-To are two different settings
+
+`From` must be a sender ZeptoMail has **verified for the domain** — a delivery
+constraint. `Reply-To` is a mailbox a **human reads** — a product one. Tying
+them together would mean either mailing from an address nobody monitors, or
+being unable to send at all.
+
+Both are resolved once, by `getSenderIdentity()`, and handed to the provider as
+a single object. **No feature, and certainly no browser request, can name its
+own Reply-To.** An arbitrary reply address redirects a real person's response,
+which is the same class of problem that removed `to` from this pipeline.
+
+Leaving `EMAIL_REPLY_TO_ADDRESS` unset is a legitimate state and is reported by
+System Health as `replyToConfigured: false` rather than as a configuration
+error: mail still sends, it simply carries no reply address. An unmonitored
+inbox is worse than none, so no address is defaulted in code.
 
 Zoho Mail is the right home for human mailboxes (support@, admin@); this
 pipeline sends application-generated mail only.
+
+### Domain authentication — what the operator configures, outside this repo
+
+Ovalball already uses **Zoho Mail** on `ovalball.co.uk`, so the dangerous move
+here is a second, conflicting SPF record. It is not needed:
+
+> **ZeptoMail no longer requires an SPF record for domain verification.**
+> Zoho removed that requirement — modern receivers check SPF alignment on the
+> *return-path*, and ZeptoMail's bounce domain is its own, which it configures
+> itself. Verification is by **DKIM (TXT)** plus a **CNAME** for the bounce /
+> return-path domain.
+
+So:
+
+- **Do not add a ZeptoMail `include:` to the existing SPF record.**
+- **Do not create a second SPF TXT record.** A domain with two SPF records
+  fails SPF outright, which would break the existing Zoho Mail delivery that
+  is working today.
+- **Leave the Zoho Mail SPF record exactly as it is.**
+- Add the **DKIM TXT** and **CNAME** records the ZeptoMail console generates,
+  copying the host and value **verbatim from that console**. No token, host or
+  selector is written down here, because inventing one produces a domain that
+  silently fails to authenticate.
+- Records take up to 24–48 hours to propagate; the domain will not verify and
+  sending will not work until they do.
+
+DMARC is a domain-wide policy already governed by the existing Zoho Mail setup
+and is deliberately not changed by adding a second sender.
 
 ## 8. Templates and plain text
 
