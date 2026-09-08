@@ -27,8 +27,9 @@
 --                                            pre_season_starts_on with no
 --                                            hardcoded fallback: a missing
 --                                            date produces NEEDS_ATTENTION
---   internal.team_identity_for_season     -- what a team was called in a
---                                            season, keyed on season_id
+--   public.get_team_identity_for_season   -- what a team was called (or will
+--                                            be called) in a season, keyed on
+--                                            season_id
 --
 -- ONE COMPETING CALENDAR, REMOVED
 --
@@ -116,9 +117,9 @@ begin
   end if;
 
   if (select pg_get_function_arguments(p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'internal' and p.proname = 'team_identity_for_season')
+      where n.nspname = 'public' and p.proname = 'get_team_identity_for_season')
      !~ 'season_id' then
-    raise exception 'team_identity_for_season is no longer keyed on a canonical season id.';
+    raise exception 'get_team_identity_for_season is no longer keyed on a canonical season id.';
   end if;
 
   -- The handover boundary must not carry a hardcoded date.

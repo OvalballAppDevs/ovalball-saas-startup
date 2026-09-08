@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
 import Link from "next/link"
 import { cookies } from "next/headers"
 
@@ -58,7 +59,7 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
     supabase.from("teams").select("id, display_name, category, age_group").eq("club_id", club.id).eq("active", true).order("category").order("age_group"),
     supabase
       .from("fixtures")
-      .select("id, kickoff_date, kickoff_time, home_away, raw_opposition_text, owning_team_id, teams!fixtures_owning_team_id_fkey(club_id, display_name)")
+      .select("id, kickoff_date, kickoff_time, home_away, raw_opposition_text, owning_team_id, season_id, teams!fixtures_owning_team_id_fkey(club_id, display_name)")
       .eq("status", "Booked")
       .gte("kickoff_date", today)
       .order("kickoff_date")
@@ -70,6 +71,20 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
   // app-side, from a safe field list only -- never notes/venue_address/
   // pitch_allocation/changing_room/confirmation flags.
   const clubFixtures = (fixtures ?? []).filter((f) => f.teams?.club_id === club.id)
+
+  // Name each fixture's team as it stands in THAT fixture's season, through
+  // the same projection the Calendar and Match Centre use. A public results
+  // page is exactly where a relabelled cohort is most visible: without this a
+  // season handover would rewrite what the club is publicly recorded as having
+  // fielded.
+  const publicFixtureIdentities = await loadTeamIdentitiesForSeason(
+    supabase,
+    clubFixtures.filter((f) => f.season_id).map((f) => ({ teamId: f.owning_team_id, seasonId: f.season_id as string }))
+  )
+  const publicTeamLabel = (f: (typeof clubFixtures)[number]): string =>
+    (f.season_id && publicFixtureIdentities.get(teamIdentityKey(f.owning_team_id, f.season_id))?.displayName) ||
+    f.teams?.display_name ||
+    "Team"
 
   const logoUrl = resolveClubLogoUrl(supabase, club)
 
@@ -195,7 +210,7 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
                 <li key={f.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-ink">
-                      {f.teams?.display_name} {f.home_away === "Home" ? "vs" : f.home_away === "Away" ? "at" : "v"} {f.raw_opposition_text}
+                      {publicTeamLabel(f)} {f.home_away === "Home" ? "vs" : f.home_away === "Away" ? "at" : "v"} {f.raw_opposition_text}
                     </p>
                     <p className="text-xs text-ink-muted">
                       {formatDate(f.kickoff_date)}

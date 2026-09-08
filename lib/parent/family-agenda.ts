@@ -1,4 +1,5 @@
 import "server-only"
+import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -110,7 +111,7 @@ export async function loadFamilyAgenda(
     supabase
       .from("fixtures")
       .select(
-        "id, owning_team_id, opponent_team_id, mirror_fixture_id, kickoff_date, kickoff_time, meet_time, home_away, status, raw_opposition_text, venue_address, venue_id, teams!fixtures_owning_team_id_fkey(display_name), opponent:teams!fixtures_opponent_team_id_fkey(display_name)"
+        "id, owning_team_id, opponent_team_id, season_id, mirror_fixture_id, kickoff_date, kickoff_time, meet_time, home_away, status, raw_opposition_text, venue_address, venue_id, teams!fixtures_owning_team_id_fkey(display_name), opponent:teams!fixtures_opponent_team_id_fkey(display_name)"
       )
       .or(`owning_team_id.in.(${teamIds.join(",")}),opponent_team_id.in.(${teamIds.join(",")})`)
       .gte("kickoff_date", window.startIso)
@@ -143,6 +144,21 @@ export async function loadFamilyAgenda(
   // see. A missing row is a genuine "not answered yet", which is exactly what
   // the outstanding-response card counts.
   const fixtureIds = (fixtures ?? []).map((f) => f.id)
+
+  // One batch lookup of every (team, season) pair these fixtures touch, so
+  // each side is labelled for the fixture's own season rather than for what
+  // the team is called today.
+  const agendaTeamIdentities = await loadTeamIdentitiesForSeason(
+    supabase,
+    (fixtures ?? []).flatMap((f) =>
+      f.season_id
+        ? [
+            { teamId: f.owning_team_id, seasonId: f.season_id as string },
+            ...(f.opponent_team_id ? [{ teamId: f.opponent_team_id, seasonId: f.season_id as string }] : []),
+          ]
+        : []
+    )
+  )
   const trainingIds = (training ?? []).map((t) => t.id)
   const { data: attendance } =
     fixtureIds.length + trainingIds.length > 0
@@ -178,8 +194,17 @@ export async function loadFamilyAgenda(
 
       // Read the fixture from this child's side, so "home or away" and the
       // title are about their team, not whoever happened to create it.
-      const ownTeamName = isOwning ? (f.teams?.display_name ?? child.teamName) : (f.opponent?.display_name ?? child.teamName)
-      const opponentName = isOwning ? (f.opponent?.display_name ?? null) : (f.teams?.display_name ?? null)
+      // A child's team is named as it stood in the fixture's own season. A
+      // parent looking back at last season must see the age grade their child
+      // actually played, not the one that cohort has since become.
+      const seasonLabel = (teamId: string | null): string | null =>
+        (teamId && f.season_id && agendaTeamIdentities.get(teamIdentityKey(teamId, f.season_id))?.displayName) || null
+      const ownTeamName = isOwning
+        ? (seasonLabel(f.owning_team_id) ?? f.teams?.display_name ?? child.teamName)
+        : (seasonLabel(f.opponent_team_id) ?? f.opponent?.display_name ?? child.teamName)
+      const opponentName = isOwning
+        ? (seasonLabel(f.opponent_team_id) ?? f.opponent?.display_name ?? null)
+        : (seasonLabel(f.owning_team_id) ?? f.teams?.display_name ?? null)
       const homeAway = isOwning ? f.home_away : f.home_away === "Home" ? "Away" : f.home_away === "Away" ? "Home" : f.home_away
 
       events.push({

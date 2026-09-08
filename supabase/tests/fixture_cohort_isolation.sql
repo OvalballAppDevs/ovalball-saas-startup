@@ -84,8 +84,10 @@ if v_label = 'U12' then
 else
   raise notice 'FAIL 3: the old fixture now reads [%]', v_label;
 end if;
-if v_src = 'register' then
-  raise notice 'PASS 4: that came from the Handover Register keyed on the fixture''s season, not a date guess';
+-- A played fixture must be labelled from a RECORDED identity, never from a
+-- projection: what happened is not something to be re-derived.
+if v_src = 'recorded' then
+  raise notice 'PASS 4: the played fixture is labelled from a recorded identity, not a projection';
 else
   raise notice 'FAIL 4: resolved via [%]', v_src;
 end if;

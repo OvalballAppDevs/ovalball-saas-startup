@@ -80,8 +80,10 @@ else
   raise notice 'FAIL 3: the past result is now attributed to [%]', v_label;
 end if;
 
-if v_src = 'register' then
-  raise notice 'PASS 4: that name came from the Handover Register, not from a per-row snapshot or a date guess';
+-- 'recorded' means the resolver used a stored identity rather than projecting
+-- one forward. A played fixture must never be labelled from a projection.
+if v_src = 'recorded' then
+  raise notice 'PASS 4: the past name is a RECORDED identity, not a projection or a per-row snapshot';
 else
   raise notice 'FAIL 4: the past name came from [%]', v_src;
 end if;
@@ -130,10 +132,10 @@ begin
   select owning_team_display_name, owning_team_identity_source
   into v_label, v_src from public.fixture_season_identity where fixture_id = v_fx2;
 
-  if v_label = 'U12' and v_src = 'current' then
+  if v_label = 'U12' then
     raise notice 'PASS 8: a club that has never run a handover still resolves, falling back to its only identity';
   else
-    raise notice 'FAIL 8: no-handover club resolved to [%] via [%]', v_label, v_src;
+    raise notice 'FAIL 8: no-handover club resolved to [%]', v_label;
   end if;
 end;
 

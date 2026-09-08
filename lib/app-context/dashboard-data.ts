@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
 import type { Database } from "@/types/database.types"
 
 import { isFamilyFacingContext } from "./active-context"
@@ -83,16 +84,31 @@ export async function getDashboardData(
   const { data: fixtures } = await supabase
     .from("fixtures")
     .select(
-      "id, kickoff_date, kickoff_time, home_away, status, raw_opposition_text, venue_address, teams!fixtures_owning_team_id_fkey(display_name)"
+      "id, kickoff_date, kickoff_time, home_away, status, raw_opposition_text, venue_address, owning_team_id, season_id, teams!fixtures_owning_team_id_fkey(display_name)"
     )
     .in("owning_team_id", myTeamIds)
     .gte("kickoff_date", todayStr)
     .lte("kickoff_date", weekAheadStr)
     .order("kickoff_date", { ascending: true })
 
+  // A team's age grade belongs to a SEASON, not to the team: the stable team
+  // id survives the handover, the label on it does not. Read the label through
+  // the same season-aware projection the Calendar, Agenda and Match Centre
+  // use, so a fixture is never named for what its team happens to be called
+  // today. teams.display_name stays only as the fallback.
+  const fixtureIdentities = await loadTeamIdentitiesForSeason(
+    supabase,
+    (fixtures ?? [])
+      .filter((f) => f.season_id)
+      .map((f) => ({ teamId: f.owning_team_id, seasonId: f.season_id as string }))
+  )
+
   const thisWeekFixtures: FixtureRow[] = (fixtures ?? []).map((f) => ({
     id: f.id,
-    teamDisplayName: f.teams?.display_name ?? "Team",
+    teamDisplayName:
+      (f.season_id && fixtureIdentities.get(teamIdentityKey(f.owning_team_id, f.season_id))?.displayName) ||
+      f.teams?.display_name ||
+      "Team",
     kickoffDate: f.kickoff_date,
     kickoffTime: f.kickoff_time,
     homeAway: f.home_away,

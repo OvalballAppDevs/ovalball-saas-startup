@@ -34,8 +34,8 @@ date. If one is ever needed it becomes a modelled column on this record.
 | `public.resolve_normal_operational_identity` | The team that age points at | delegates to the above |
 | `capture_fixture_team_snapshot` | `fixtures.season_id` | `resolve_season_for_date` |
 | `internal.process_due_season_transitions` | The handover boundary | target season's `pre_season_starts_on` |
-| `internal.team_identity_for_season` | What a team was called in a season | keyed on canonical `season_id` |
-| `public.fixture_season_identity` | Fixture team names per season | `fixtures.season_id` + the register |
+| `public.get_team_identity_for_season` | What a team was called, or will be called, in a season | keyed on canonical `season_id` |
+| `public.fixture_season_identity` | Fixture team names per season | `fixtures.season_id` + `get_team_identity_for_season` |
 
 A missing canonical date is never guessed. If a target season has no
 `pre_season_starts_on`, the automatic handover sets the transition to
