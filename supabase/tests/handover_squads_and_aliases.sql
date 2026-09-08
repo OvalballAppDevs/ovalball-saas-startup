@@ -198,6 +198,75 @@ else
   raise notice 'FAIL 13: the suggested remedy did not work, team is %', (select display_name from public.teams where id=v_clash);
 end if;
 
+-- ============ 4b. Squads are decided independently ============
+--
+-- PRODUCT RULE: the club may progress the primary and FOLD the B squad, or
+-- progress primary + B and fold C. Confirming the primary must therefore NOT
+-- cascade a decision onto its squads -- each proposal stays independently
+-- decidable.
+
+declare
+  v_dir3 uuid; v_club3 uuid; v_a uuid; v_bsq uuid; v_csq uuid;
+  v_ap uuid; v_bp uuid; v_cp uuid;
+begin
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('Fold RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','fold-'||substr(gen_random_uuid()::text,1,8)) returning id into v_dir3;
+  insert into public.clubs (directory_id, slug, status) values (v_dir3,'fold-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club3;
+
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
+  values (v_club3,'union','youth','U13','boys','x','f1') returning id into v_a;
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug)
+  values (v_club3,'union','youth','U13','boys','B','x','f2') returning id into v_bsq;
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug)
+  values (v_club3,'union','youth','U13','boys','C','x','f3') returning id into v_csq;
+
+  perform public.generate_rollover_proposal(v_club3,'union',v_to);
+  select id into v_ap from public.age_grade_rollover_team_proposals where team_id = v_a;
+  select id into v_bp from public.age_grade_rollover_team_proposals where team_id = v_bsq;
+  select id into v_cp from public.age_grade_rollover_team_proposals where team_id = v_csq;
+
+  perform public.confirm_rollover_team_proposal(v_ap,'confirm',null,null,null,null);
+
+  if (select decision from public.age_grade_rollover_team_proposals where id = v_bp) = 'pending'
+     and (select decision from public.age_grade_rollover_team_proposals where id = v_cp) = 'pending' then
+    raise notice 'PASS 14a: confirming the primary did NOT cascade a decision onto its B and C squads';
+  else
+    raise notice 'FAIL 14a: the squads were auto-decided by the primary';
+  end if;
+
+  -- Progress B, fold C.
+  perform public.confirm_rollover_team_proposal(v_bp,'confirm',null,null,null,null);
+  perform public.confirm_rollover_team_proposal(v_cp,'fold','Not enough players.',null,'Not enough players.',null);
+
+  if (select display_name from public.teams where id = v_a) = 'U14'
+     and (select display_name from public.teams where id = v_bsq) = 'U14 B' then
+    raise notice 'PASS 14b: primary and B progressed together to U14 and U14 B';
+  else
+    raise notice 'FAIL 14b: [%] / [%]',
+      (select display_name from public.teams where id=v_a), (select display_name from public.teams where id=v_bsq);
+  end if;
+
+  if not (select active from public.teams where id = v_csq)
+     and (select age_group from public.teams where id = v_csq) = 'U13' then
+    raise notice 'PASS 14c: the C squad was folded -- inactive, and left at the age it actually was';
+  else
+    raise notice 'FAIL 14c: the folded C squad was progressed or left active';
+  end if;
+
+  if exists (select 1 from public.teams where id = v_csq) then
+    raise notice 'PASS 14d: the folded squad keeps its stable team_id and history -- it is not deleted or merged';
+  else
+    raise notice 'FAIL 14d: the folded squad was destroyed';
+  end if;
+
+  if (select decision from public.age_grade_rollover_team_proposals where id = v_cp) = 'folded'
+     and (select decision from public.age_grade_rollover_team_proposals where id = v_bp) = 'confirmed' then
+    raise notice 'PASS 14e: the board records different decisions for squads at the same level';
+  else
+    raise notice 'FAIL 14e: squad decisions were not recorded independently';
+  end if;
+end;
+
 -- ============ 5. Check violations name the real field ============
 
 select count(*) into v_n from public.teams where club_id = v_club and active;
@@ -208,9 +277,9 @@ begin
 exception when others then v_ok := true; v_err := sqlerrm;
 end;
 if v_ok then
-  raise notice 'PASS 14: an actual gender/age-band violation is still caught';
+  raise notice 'PASS 15: an actual gender/age-band violation is still caught';
 else
-  raise notice 'FAIL 14: union girls U15 was accepted';
+  raise notice 'FAIL 15: union girls U15 was accepted';
 end if;
 
 end $$;
