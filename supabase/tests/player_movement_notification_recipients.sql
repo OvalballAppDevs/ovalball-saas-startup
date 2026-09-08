@@ -64,8 +64,8 @@ insert into public.team_permissions (membership_id, team_id, permission, created
   ('9d000000-0000-0000-0000-000000c00004', '9d000000-0000-0000-0000-00000000f104', 'team_admin', '00000000-0000-0000-0000-000000000002'),
   ('9d000000-0000-0000-0000-000000c00005', '9d000000-0000-0000-0000-00000000f105', 'team_admin', '00000000-0000-0000-0000-000000000002');
 
-insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-  ('9d000000-0000-0000-0000-00000000f110', 'Notify', 'AdultCrossing17', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002'),
+insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-00000000f110', 'Notify', 'AdultCrossing17', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE'),
   ('9d000000-0000-0000-0000-00000000f111', 'Notify', 'SameAge14', (current_date - interval '14 years')::date, true, '00000000-0000-0000-0000-000000000002');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-00000000f110', '9d000000-0000-0000-0000-00000000f101', 'active', '00000000-0000-0000-0000-000000000002'),

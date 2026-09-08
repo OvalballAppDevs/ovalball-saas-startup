@@ -50,8 +50,8 @@ values (v_club,'union','youth','U16','boys','x','auto1') returning id into v_tea
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U18','boys','x','auto2') returning id into v_manual;
 
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Auto','Player',(current_date - interval '15 years 3 months')::date,true) returning id into v_player;
+insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
+values ('Auto','Player',(current_date - interval '15 years 3 months')::date,true, 'MALE') returning id into v_player;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team,'active');
 
 -- ============ 1. First run ============

@@ -45,7 +45,7 @@ begin
   insert into public.teams (id, club_id, rugby_code, display_name, slug, category, age_group, gender, active, canonical_team_type_id) values
     (v_team_1, v_club, 'union', 'U12', 'u12-policy-lock-1', 'youth', 'U12', 'boys', true, internal.resolve_canonical_team_type('youth', 'U12', 'boys', null)),
     (v_team_2, v_club, 'union', 'U13', 'u13-policy-lock-2', 'youth', 'U13', 'boys', true, internal.resolve_canonical_team_type('youth', 'U13', 'boys', null));
-  insert into public.players (id, first_name, surname, date_of_birth, created_by) values (v_player_id, 'Policy', 'Lock', '2014-01-01', v_admin);
+  insert into public.players (id, first_name, surname, date_of_birth, created_by, playing_pathway) values (v_player_id, 'Policy', 'Lock', '2014-01-01', v_admin, 'MALE');
   insert into public.player_team_memberships (id, player_id, team_id, status) values (gen_random_uuid(), v_player_id, v_team_1, 'active');
   insert into public.guardians (id, guardian_user_id, player_id, relationship_type, status, created_by) values
     (gen_random_uuid(), v_guardian_1, v_player_id, 'parent', 'active', v_admin),

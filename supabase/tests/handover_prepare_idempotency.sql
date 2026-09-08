@@ -51,8 +51,8 @@ values (v_club,'union','youth','U16','boys','PI U16','pi-u16-'||gen_random_uuid(
 -- A real player, so the per-player half of prepare has something to check.
 declare v_player uuid;
 begin
-  insert into public.players (first_name, surname, date_of_birth, active)
-  values ('Prep','Player',(current_date - interval '15 years 2 months')::date,true) returning id into v_player;
+  insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
+  values ('Prep','Player',(current_date - interval '15 years 2 months')::date,true, 'MALE') returning id into v_player;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team,'active');
 end;
 

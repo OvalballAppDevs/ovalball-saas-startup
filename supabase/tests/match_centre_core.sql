@@ -47,8 +47,8 @@ begin
   end loop;
   insert into public.club_memberships (user_id, club_id, role, status) values (v_staff, v_club, 'CLUB_ADMIN', 'active');
 
-  insert into public.players (first_name, surname, date_of_birth) values ('Mccchild','Mccfamily','2014-03-03') returning id into v_child;
-  insert into public.players (first_name, surname, date_of_birth) values ('Mccother','Mccfamily','2014-04-04') returning id into v_other_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Mccchild','Mccfamily','2014-03-03', 'MALE') returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Mccother','Mccfamily','2014-04-04', 'MALE') returning id into v_other_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_team, 'active');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_other_child, v_team, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_guardian, v_child, 'guardian', 'active');

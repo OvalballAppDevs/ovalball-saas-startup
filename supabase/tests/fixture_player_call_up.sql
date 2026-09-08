@@ -39,8 +39,8 @@ insert into public.teams (id, club_id, rugby_code, category, age_group, squad_de
   ('9d000000-0000-0000-0000-0000000000b3', '9d000000-0000-0000-0000-0000000c0006', 'union', 'youth', 'U11', null, 'U11', 'cu-u11', true),
   ('9d000000-0000-0000-0000-0000000000b4', '9d000000-0000-0000-0000-0000000c0007', 'union', 'youth', 'U13', null, 'U13', 'cu-foreign-u13', true),
   ('9d000000-0000-0000-0000-0000000000b6', '9d000000-0000-0000-0000-0000000c0006', 'union', 'youth', 'U13', 'B', 'U13 B', 'cu-u14', true);
-insert into public.players (id, first_name, surname, active, created_by) values
-  ('9d000000-0000-0000-0000-0000000000b5', 'Jamie', 'Callup', true, '00000000-0000-0000-0000-000000000002');
+insert into public.players (id, first_name, surname, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-0000000000b5', 'Jamie', 'Callup', true, '00000000-0000-0000-0000-000000000002', 'MALE');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-0000000000b5', '9d000000-0000-0000-0000-0000000000b1', 'active', '00000000-0000-0000-0000-000000000002');
 -- Fixture A: U13 (target) plays at home today -- the real call-up target.

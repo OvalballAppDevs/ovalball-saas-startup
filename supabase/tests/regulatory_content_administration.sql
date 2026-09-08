@@ -65,7 +65,7 @@ begin
   values (gen_random_uuid(), v_club, 'union', 'youth', 'U12', 'girls', 'RCA Test Girls U12', 'rca-test-girls-u12-' || gen_random_uuid()::text, v_u12_type)
   returning id into v_team;
 
-  insert into players (id, first_name, surname, date_of_birth) values (gen_random_uuid(), 'RCA', 'Player', current_date - interval '11 years') returning id into v_player;
+  insert into players (id, first_name, surname, date_of_birth, playing_pathway) values (gen_random_uuid(), 'RCA', 'Player', current_date - interval '11 years', 'FEMALE') returning id into v_player;
   insert into player_team_memberships (player_id, team_id, status) values (v_player, v_team, 'active');
   insert into guardians (guardian_user_id, player_id, relationship_type, status) values (v_guardian, v_player, 'guardian', 'active');
 

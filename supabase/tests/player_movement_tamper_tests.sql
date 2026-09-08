@@ -19,8 +19,8 @@ insert into public.club_memberships (id, club_id, user_id, role, status) values
 insert into public.teams (id, club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug, active) values
   ('9d000000-0000-0000-0000-000000000f50', '9d000000-0000-0000-0000-0000000c0042', 'union', 'colts', 'SeniorColts', null, null, 'Senior Colts', 'tt-sc', true),
   ('9d000000-0000-0000-0000-000000000f51', '9d000000-0000-0000-0000-0000000c0042', 'union', 'senior', null, 'mens', '2nd', 'Men''s 2nd', 'tt-mens2', true);
-insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-  ('9d000000-0000-0000-0000-000000000f52', 'Drew', 'Seventeen', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002');
+insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-000000000f52', 'Drew', 'Seventeen', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-000000000f52', '9d000000-0000-0000-0000-000000000f50', 'active', '00000000-0000-0000-0000-000000000002');
 insert into public.fixtures (id, owning_team_id, kickoff_date, home_away, raw_opposition_text, status) values
@@ -117,8 +117,8 @@ declare
   v_disp_id uuid;
   v_status text;
 begin
-  insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-    ('9d000000-0000-0000-0000-000000000f55', 'Revoke', 'Test', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002');
+  insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+    ('9d000000-0000-0000-0000-000000000f55', 'Revoke', 'Test', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE');
   insert into public.player_team_memberships (player_id, team_id, status, created_by) values
     ('9d000000-0000-0000-0000-000000000f55', '9d000000-0000-0000-0000-000000000f50', 'active', '00000000-0000-0000-0000-000000000002');
   insert into public.fixtures (id, owning_team_id, kickoff_date, home_away, raw_opposition_text, status) values

@@ -115,7 +115,7 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
     // becomes a request: still no access, but a real next step instead of a
     // dead end.
     if (!result.ok && result.error.startsWith(INVITE_ONLY_REFUSAL)) {
-      const requested = await requestChildLink(child.firstName, child.surname, child.dateOfBirth, clubId, rugbyCode)
+      const requested = await requestChildLink(child.firstName, child.surname, child.dateOfBirth, clubId, rugbyCode, child.playingPathway)
       if (requested.ok) {
         updateChild(key, { submitting: false, requested: true, outcome: null })
         router.refresh()
@@ -165,7 +165,7 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
                 <Input id={`dob-${child.key}`} type="date" max={new Date().toISOString().slice(0, 10)} value={child.dateOfBirth} onChange={(e) => updateChild(child.key, { dateOfBirth: e.target.value })} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`pathway-${child.key}`}>Playing pathway</Label>
+                <Label htmlFor={`pathway-${child.key}`}>Gender</Label>
                 <select
                   id={`pathway-${child.key}`}
                   className="h-11 rounded-lg border border-ink/15 bg-white px-3.5 text-sm text-ink outline-none focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"

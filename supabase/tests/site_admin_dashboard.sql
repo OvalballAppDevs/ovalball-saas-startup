@@ -89,9 +89,9 @@ begin
 
   -- Three players, and two guardians. The parent count must be 2 (people),
   -- not 3 (relationship rows) -- v_parent guardians two of the children.
-  insert into public.players (first_name, surname, active) values ('Kid','One',true) returning id into v_p1;
-  insert into public.players (first_name, surname, active) values ('Kid','Two',true) returning id into v_p2;
-  insert into public.players (first_name, surname, active) values ('Kid','Three',true) returning id into v_p3;
+  insert into public.players (first_name, surname, active, playing_pathway) values ('Kid','One',true, 'MALE') returning id into v_p1;
+  insert into public.players (first_name, surname, active, playing_pathway) values ('Kid','Two',true, 'MALE') returning id into v_p2;
+  insert into public.players (first_name, surname, active, playing_pathway) values ('Kid','Three',true, 'MALE') returning id into v_p3;
 
   insert into public.guardians (guardian_user_id, player_id, status) values
     (v_parent,  v_p1, 'active'),

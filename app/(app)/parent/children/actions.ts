@@ -121,7 +121,9 @@ export async function requestChildLink(
   surname: string,
   dateOfBirth: string,
   clubId: string,
-  rugbyCode: string
+  rugbyCode: string,
+  /** Carried onto the request so the approver reads it rather than inventing one. */
+  playingPathway: string
 ): Promise<RequestChildLinkResult> {
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -131,6 +133,7 @@ export async function requestChildLink(
       p_date_of_birth: dateOfBirth,
       p_club_id: clubId,
       p_rugby_code: rugbyCode,
+      p_playing_pathway: playingPathway,
     })
     .single()
   if (error || !data) {

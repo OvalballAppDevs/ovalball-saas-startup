@@ -26,8 +26,8 @@ insert into public.teams (id, club_id, rugby_code, category, age_group, display_
   ('9d000000-0000-0000-0000-0000000000d1', '9d000000-0000-0000-0000-0000000c0008', 'union', 'youth', 'U14', 'U14', 'disp-u14', true),
   ('9d000000-0000-0000-0000-0000000000d2', '9d000000-0000-0000-0000-0000000c0008', 'union', 'youth', 'U16', 'U16', 'disp-u16', true),
   ('9d000000-0000-0000-0000-0000000000d3', '9d000000-0000-0000-0000-0000000c0009', 'union', 'youth', 'U16', 'U16', 'disp-foreign-u16', true);
-insert into public.players (id, first_name, surname, active, created_by) values
-  ('9d000000-0000-0000-0000-0000000000d5', 'Robin', 'Dispensed', true, '00000000-0000-0000-0000-000000000002');
+insert into public.players (id, first_name, surname, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-0000000000d5', 'Robin', 'Dispensed', true, '00000000-0000-0000-0000-000000000002', 'MALE');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-0000000000d5', '9d000000-0000-0000-0000-0000000000d1', 'active', '00000000-0000-0000-0000-000000000002');
 

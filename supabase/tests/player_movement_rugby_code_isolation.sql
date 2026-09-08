@@ -48,8 +48,8 @@ insert into public.teams (id, club_id, rugby_code, category, age_group, gender, 
 -- rciu-u12 is inserted active=false directly to model "folded" without
 -- going through fold_team()'s own authorization -- fine here, since
 -- this test only cares about the resolver's own reaction to teams.active.
-insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-  ('9d000000-0000-0000-0000-00000000c001', 'Union', 'Player17', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002'),
+insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-00000000c001', 'Union', 'Player17', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE'),
   ('9d000000-0000-0000-0000-00000000c002', 'League', 'Player17', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000003'),
   ('9d000000-0000-0000-0000-00000000c003', 'Folded', 'SourcePlayer', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002'),
   ('9d000000-0000-0000-0000-00000000c004', 'Fresh', 'FixtureTest', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002');

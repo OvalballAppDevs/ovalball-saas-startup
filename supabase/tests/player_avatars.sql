@@ -42,8 +42,8 @@ begin
     insert into public.profiles (id, first_name, surname, email) values (v_r.id,'PAV','Tester','pav-'||v_r.id::text||'@ovalball.test');
   end loop;
 
-  insert into public.players (first_name, surname, date_of_birth) values ('Pippa','Pavfamily','2016-01-01') returning id into v_child;
-  insert into public.players (first_name, surname, date_of_birth) values ('Jaxon','Pavfamily','2013-01-01') returning id into v_other_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Pippa','Pavfamily','2016-01-01', 'MALE') returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Jaxon','Pavfamily','2013-01-01', 'MALE') returning id into v_other_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_team, 'active');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_other_child, v_team, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_guardian, v_child, 'guardian', 'active');

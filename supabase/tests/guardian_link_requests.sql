@@ -46,7 +46,7 @@ begin
   end loop;
 
   -- A known child with an existing guardian, at the UAT club.
-  insert into public.players (first_name, surname, date_of_birth) values ('Knownchild','Glrfamily','2015-05-05') returning id into v_known_player;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Knownchild','Glrfamily','2015-05-05', 'MALE') returning id into v_known_player;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_known_player, v_team, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status)
   values (v_existing_guardian, v_known_player, 'guardian', 'active');

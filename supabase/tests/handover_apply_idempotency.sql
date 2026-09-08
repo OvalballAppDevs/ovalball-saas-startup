@@ -55,8 +55,8 @@ select id into v_from from public.seasons where rugby_code='union' and season_ye
 
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U16','boys','AI U16','ai-u16-'||gen_random_uuid()) returning id into v_team;
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Apply','Player', date '2010-09-01', true) returning id into v_player;
+insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
+values ('Apply','Player', date '2010-09-01', true, 'MALE') returning id into v_player;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team,'active');
 
 perform public.generate_rollover_proposal(v_club,'union',v_to);

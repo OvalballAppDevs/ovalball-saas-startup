@@ -30,8 +30,8 @@ insert into public.teams (id, club_id, rugby_code, category, age_group, gender, 
 -- no-extra-gate placement path. Sam has no recorded DOB and is only
 -- ever recorded as "left the club" (mark_graduating_player_left), never
 -- placed, so their missing DOB is never exercised.
-insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-  ('9d000000-0000-0000-0000-0000000000a1', 'Alex', 'Graduate', (current_date - interval '19 years')::date, true, '00000000-0000-0000-0000-000000000002'),
+insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-0000000000a1', 'Alex', 'Graduate', (current_date - interval '19 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE'),
   ('9d000000-0000-0000-0000-0000000000a2', 'Sam', 'Graduate', null, true, '00000000-0000-0000-0000-000000000002');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-0000000000a1', '9d000000-0000-0000-0000-0000000000f1', 'active', '00000000-0000-0000-0000-000000000002'),
@@ -123,8 +123,8 @@ end $$;
 -- dispensation for that exact player and target team must exist first.
 -- A missing-DOB graduate must be blocked outright from adult placement.
 reset role;
-insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-  ('9d000000-0000-0000-0000-0000000000a3', 'Jordan', 'Underage', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002'),
+insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-0000000000a3', 'Jordan', 'Underage', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE'),
   ('9d000000-0000-0000-0000-0000000000a4', 'Casey', 'Nodob', null, true, '00000000-0000-0000-0000-000000000002');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-0000000000a3', '9d000000-0000-0000-0000-0000000000f1', 'active', '00000000-0000-0000-0000-000000000002'),

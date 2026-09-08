@@ -71,16 +71,16 @@ begin
   returning id into v_team;
 
   -- Players. DOBs chosen so the age bands are unambiguous.
-  insert into public.players (first_name, surname, date_of_birth) values ('Alpha','Fcfam','2014-01-01') returning id into pA;
-  insert into public.players (first_name, surname, date_of_birth) values ('Bravo','Fcfam','2014-02-02') returning id into pB;
-  insert into public.players (first_name, surname, date_of_birth) values ('Charlie','Fcfam','2014-03-03') returning id into pC;
-  insert into public.players (first_name, surname, date_of_birth) values ('Delta','Fcfam','2014-04-04') returning id into pD;
-  insert into public.players (first_name, surname, date_of_birth) values ('Echo','Fcfam','2014-05-05') returning id into pE;
-  insert into public.players (first_name, surname, date_of_birth) values ('Foxtrot','Fcfam','2014-06-06') returning id into pF;
-  insert into public.players (first_name, surname, date_of_birth, user_id) values ('Minor','Fcfam', (current_date - interval '12 years')::date, v_uMinor) returning id into pMinor;
-  insert into public.players (first_name, surname, date_of_birth, user_id) values ('Teen','Fcfam', (current_date - interval '16 years' - interval '2 months')::date, v_uTeen) returning id into pTeen;
-  insert into public.players (first_name, surname, date_of_birth, user_id) values ('Adult','Fcfam', (current_date - interval '19 years')::date, v_uAdult) returning id into pAdult;
-  insert into public.players (first_name, surname, date_of_birth) values ('Unrelated','Fcfam','2014-07-07') returning id into pUnrelated;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Alpha','Fcfam','2014-01-01', 'MALE') returning id into pA;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Bravo','Fcfam','2014-02-02', 'MALE') returning id into pB;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Charlie','Fcfam','2014-03-03', 'MALE') returning id into pC;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Delta','Fcfam','2014-04-04', 'MALE') returning id into pD;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Echo','Fcfam','2014-05-05', 'MALE') returning id into pE;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Foxtrot','Fcfam','2014-06-06', 'MALE') returning id into pF;
+  insert into public.players (first_name, surname, date_of_birth, user_id, playing_pathway) values ('Minor','Fcfam', (current_date - interval '12 years')::date, v_uMinor, 'MALE') returning id into pMinor;
+  insert into public.players (first_name, surname, date_of_birth, user_id, playing_pathway) values ('Teen','Fcfam', (current_date - interval '16 years' - interval '2 months')::date, v_uTeen, 'MALE') returning id into pTeen;
+  insert into public.players (first_name, surname, date_of_birth, user_id, playing_pathway) values ('Adult','Fcfam', (current_date - interval '19 years')::date, v_uAdult, 'MALE') returning id into pAdult;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Unrelated','Fcfam','2014-07-07', 'MALE') returning id into pUnrelated;
 
   for v_r in select unnest(array[pA,pB,pC,pD,pE,pMinor,pTeen,pAdult]) as id loop
     insert into public.player_team_memberships (player_id, team_id, status) values (v_r.id, v_team, 'active');
@@ -447,7 +447,7 @@ begin
   values (v_club, 'Minis', v_season, v_coach) returning id into v_group;
   insert into public.scheduling_group_members (group_id, team_id) values (v_group, v_mini_a), (v_group, v_mini_b);
 
-  insert into public.players (first_name, surname, date_of_birth) values ('Overlap','Fcfam','2019-01-01') returning id into pMiniOverlap;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Overlap','Fcfam','2019-01-01', 'MALE') returning id into pMiniOverlap;
   -- The SAME child, active in BOTH components.
   insert into public.player_team_memberships (player_id, team_id, status) values (pMiniOverlap, v_mini_a, 'active');
   insert into public.player_team_memberships (player_id, team_id, status) values (pMiniOverlap, v_mini_b, 'active');

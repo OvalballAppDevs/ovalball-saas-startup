@@ -47,7 +47,7 @@ begin
     (gen_random_uuid(), v_club_b, v_admin_b, 'CLUB_ADMIN', 'active');
   insert into public.teams (id, club_id, rugby_code, display_name, slug, category, age_group, gender, active, canonical_team_type_id)
   values (v_team_id, v_club_a, 'union', 'U12', 'u12-ops-regression', 'youth', 'U12', 'boys', true, internal.resolve_canonical_team_type('youth', 'U12', 'boys', null));
-  insert into public.players (id, first_name, surname, date_of_birth, created_by) values (v_player_id, 'Ops', 'Regression', '2015-01-01', v_admin_a);
+  insert into public.players (id, first_name, surname, date_of_birth, created_by, playing_pathway) values (v_player_id, 'Ops', 'Regression', '2015-01-01', v_admin_a, 'MALE');
   insert into public.player_team_memberships (id, player_id, team_id, status) values (gen_random_uuid(), v_player_id, v_team_id, 'active');
   insert into public.guardians (id, guardian_user_id, player_id, relationship_type, status, created_by) values
     (gen_random_uuid(), v_guardian_1, v_player_id, 'parent', 'active', v_admin_a),

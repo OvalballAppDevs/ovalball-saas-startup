@@ -58,8 +58,8 @@ begin
     (v_team, v_club, 'union', 'youth', 'U12', 'boys', 'TM2 Ext U12', 'tm2ext-u12-' || v_team::text, true),
     (v_other_team, v_club, 'union', 'youth', 'U13', 'boys', 'TM2 Ext U13', 'tm2ext-u13-' || v_other_team::text, true);
 
-  insert into public.players (id, first_name, surname, date_of_birth, created_by) values
-    (v_child, 'Alex', 'Child', '2015-01-01', v_admin),
+  insert into public.players (id, first_name, surname, date_of_birth, created_by, playing_pathway) values
+    (v_child, 'Alex', 'Child', '2015-01-01', v_admin, 'MALE'),
     (v_other_child, 'Jamie', 'Other', '2014-01-01', v_admin);
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, created_by) values
     (v_guardian, v_child, 'guardian', 'active', v_admin),
@@ -68,7 +68,7 @@ begin
     (v_child, v_team, 'active', v_admin),
     (v_other_child, v_other_team, 'active', v_admin);
 
-  insert into public.players (id, first_name, surname, date_of_birth, user_id, created_by) values (v_adult_player, 'Sam', 'Adult', '1999-01-01', v_adult_user, v_admin);
+  insert into public.players (id, first_name, surname, date_of_birth, user_id, created_by, playing_pathway) values (v_adult_player, 'Sam', 'Adult', '1999-01-01', v_adult_user, v_admin, 'MALE');
   insert into public.player_team_memberships (player_id, team_id, status, created_by) values (v_adult_player, v_team, 'active', v_admin);
 
   insert into t_tm2_state values

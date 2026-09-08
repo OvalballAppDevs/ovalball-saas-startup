@@ -38,12 +38,12 @@ values (v_club,'union','youth','U16','boys','x','h3') returning id into v_u16;
 insert into public.teams (club_id, rugby_code, category, gender, team_number, display_name, slug)
 values (v_club,'union','senior','mens',1,'x','h4') returning id into v_snr;
 
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Adult','Grad', (current_date - interval '18 years 2 months')::date, true) returning id into v_adult;
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Young','Grad', (current_date - interval '15 years 1 month')::date, true) returning id into v_young;
-insert into public.players (first_name, surname, active)
-values ('NoDob','Grad', true) returning id into v_nodob;
+insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
+values ('Adult','Grad', (current_date - interval '18 years 2 months')::date, true, 'MALE') returning id into v_adult;
+insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
+values ('Young','Grad', (current_date - interval '15 years 1 month')::date, true, 'MALE') returning id into v_young;
+insert into public.players (first_name, surname, active, playing_pathway)
+values ('NoDob','Grad', true, 'MALE') returning id into v_nodob;
 
 insert into public.player_team_memberships (player_id, team_id, status) values (v_adult, v_u18,'active');
 insert into public.player_team_memberships (player_id, team_id, status) values (v_young, v_u18,'active');

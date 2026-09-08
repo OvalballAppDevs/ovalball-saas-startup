@@ -158,7 +158,7 @@ do $$
 declare v_orphan_player uuid;
 declare v_effective boolean;
 begin
-  insert into public.players (first_name, surname, date_of_birth) values ('Orphan', 'Testplayer', '2018-01-01') returning id into v_orphan_player;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Orphan', 'Testplayer', '2018-01-01', 'MALE') returning id into v_orphan_player;
   v_effective := internal.guardian_permission_effective(v_orphan_player, 'view_team_conversation');
   if v_effective is false then
     raise notice 'PASS G: a player with zero active guardians fails closed (every permission resolves to false)';

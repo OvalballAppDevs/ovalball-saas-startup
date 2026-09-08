@@ -49,8 +49,8 @@ begin
   insert into public.teams (id, club_id, rugby_code, display_name, slug, category, age_group, gender, active, canonical_team_type_id)
   values (v_team_id, v_club_id, 'union', 'U12', 'u12-recon-regression', 'youth', 'U12', 'boys', true,
     internal.resolve_canonical_team_type('youth', 'U12', 'boys', null));
-  insert into public.players (id, first_name, surname, date_of_birth, created_by)
-  values (v_player_id, 'Recon', 'Tester', '2015-01-01', v_admin);
+  insert into public.players (id, first_name, surname, date_of_birth, created_by, playing_pathway)
+  values (v_player_id, 'Recon', 'Tester', '2015-01-01', v_admin, 'MALE');
   insert into public.player_team_memberships (id, player_id, team_id, status)
   values (gen_random_uuid(), v_player_id, v_team_id, 'active');
 

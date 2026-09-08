@@ -71,8 +71,8 @@ begin
     ('99e00000-0000-0000-0000-000000700001', '99e00000-0000-0000-0000-000000600004', '99e00000-0000-0000-0000-000000100001', 'coach')
   on conflict (id) do nothing;
 
-  insert into public.players (id, first_name, surname, date_of_birth) values
-    ('99e00000-0000-0000-0000-000000300001', 'Cap Engine', 'TestPlayer', null)
+  insert into public.players (id, first_name, surname, date_of_birth, playing_pathway) values
+    ('99e00000-0000-0000-0000-000000300001', 'Cap Engine', 'TestPlayer', null, 'MALE')
   on conflict (id) do nothing;
   insert into public.guardians (id, guardian_user_id, player_id, relationship_type, status) values
     ('99e00000-0000-0000-0000-000000400001', '99e00000-0000-0000-0000-000000200004', '99e00000-0000-0000-0000-000000300001', 'guardian', 'active')

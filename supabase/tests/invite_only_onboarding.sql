@@ -85,8 +85,8 @@ begin
   end;
 
   -- ---------- 4. an existing guardian is not disrupted (adding a 2nd child) ----------
-  insert into public.players (first_name, surname, date_of_birth)
-  values ('Existing', 'Child', (current_date - interval '12 years')::date) returning id into v_player;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway)
+  values ('Existing', 'Child', (current_date - interval '12 years')::date, 'MALE') returning id into v_player;
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status)
   values (v_existing, v_player, 'parent', 'active');
   insert into public.player_team_memberships (player_id, team_id, status)

@@ -79,9 +79,9 @@ begin
   values (gen_random_uuid(), v_team_home, v_team_away, current_date + 7, 'Home', 'Booked', 'MC Test Away U12')
   returning id into v_fixture;
 
-  insert into players (id, first_name, surname, date_of_birth, user_id) values (gen_random_uuid(), 'Adult', 'Player', current_date - interval '20 years', v_adult_player) returning id into v_player_adult;
-  insert into players (id, first_name, surname, date_of_birth, user_id) values (gen_random_uuid(), 'Sixteen', 'Seventeen', current_date - interval '17 years', v_1617_player) returning id into v_player_1617;
-  insert into players (id, first_name, surname, date_of_birth, user_id) values (gen_random_uuid(), 'Under', 'Sixteen', current_date - interval '11 years', null) returning id into v_player_u16;
+  insert into players (id, first_name, surname, date_of_birth, user_id, playing_pathway) values (gen_random_uuid(), 'Adult', 'Player', current_date - interval '20 years', v_adult_player, 'MALE') returning id into v_player_adult;
+  insert into players (id, first_name, surname, date_of_birth, user_id, playing_pathway) values (gen_random_uuid(), 'Sixteen', 'Seventeen', current_date - interval '17 years', v_1617_player, 'MALE') returning id into v_player_1617;
+  insert into players (id, first_name, surname, date_of_birth, user_id, playing_pathway) values (gen_random_uuid(), 'Under', 'Sixteen', current_date - interval '11 years', null, 'MALE') returning id into v_player_u16;
 
   insert into player_team_memberships (player_id, team_id, status) values
     (v_player_adult, v_team_home, 'active'),

@@ -48,7 +48,7 @@ begin
   values (v_dir_id, 'Identity Regression Club', 'union', 'England', 'England', 'manual', 'identity regression club', 'verified');
   insert into public.clubs (id, directory_id, slug, status) values (v_club_id, v_dir_id, 'identity-regression', 'active');
   insert into public.club_memberships (id, club_id, user_id, role, status) values (gen_random_uuid(), v_club_id, v_admin, 'CLUB_ADMIN', 'active');
-  insert into public.players (id, first_name, surname, date_of_birth, created_by) values (v_player_id, 'Identity', 'Regression', '2015-01-01', v_admin);
+  insert into public.players (id, first_name, surname, date_of_birth, created_by, playing_pathway) values (v_player_id, 'Identity', 'Regression', '2015-01-01', v_admin, 'MALE');
 
   insert into t_identity_state values
     ('club_id', v_club_id::text), ('admin', v_admin::text), ('payer_parent', v_payer_parent::text),

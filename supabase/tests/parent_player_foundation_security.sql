@@ -85,8 +85,8 @@ begin
   -- Players. player_shared has TWO guardians (aggregation test).
   -- player_lone has ONE guardian (orphan test after removal). player16/
   -- player12 are self-linked.
-  insert into public.players (id, first_name, surname, date_of_birth, user_id) values
-    (v_player_shared, 'SharedChild', 'Test', '2014-06-01', null),
+  insert into public.players (id, first_name, surname, date_of_birth, user_id, playing_pathway) values
+    (v_player_shared, 'SharedChild', 'Test', '2014-06-01', null, 'MALE'),
     (v_player_lone, 'LoneChild', 'Test', '2014-06-01', null),
     (v_player_16, 'Sixteen', 'Test', (current_date - interval '16 years' - interval '2 months')::date, v_player16_user),
     (v_player_12, 'Twelve', 'Test', '2014-06-01', v_player12_user);

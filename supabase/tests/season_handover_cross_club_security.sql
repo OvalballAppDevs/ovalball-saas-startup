@@ -120,8 +120,8 @@ begin
   values ('5ea50000-0000-0000-0000-00000000ee31', '5ea50000-0000-0000-0000-00000000ee11', '5ea50000-0000-0000-0000-00000000ee61', 'SHX test flag', false)
   on conflict (id) do nothing;
 
-  insert into public.players (id, first_name, surname, date_of_birth)
-  values ('5ea50000-0000-0000-0000-00000000ee41', 'SHX', 'GradPlayer', '2008-01-01')
+  insert into public.players (id, first_name, surname, date_of_birth, playing_pathway)
+  values ('5ea50000-0000-0000-0000-00000000ee41', 'SHX', 'GradPlayer', '2008-01-01', 'MALE')
   on conflict (id) do nothing;
 
   insert into public.player_graduation_queue (id, player_id, source_team_id, club_id, status)

@@ -53,8 +53,8 @@ begin
     (v_team_1, v_club_a, 'union', 'U10', 'u10-sib-a', 'youth', 'U10', 'boys', true, internal.resolve_canonical_team_type('youth', 'U10', 'boys', null)),
     (v_team_2, v_club_a, 'union', 'U12', 'u12-sib-a', 'youth', 'U12', 'boys', true, internal.resolve_canonical_team_type('youth', 'U12', 'boys', null)),
     (v_team_b, v_club_b, 'union', 'U10', 'u10-sib-b', 'youth', 'U10', 'boys', true, internal.resolve_canonical_team_type('youth', 'U10', 'boys', null));
-  insert into public.players (id, first_name, surname, date_of_birth, created_by) values
-    (v_player_a, 'Alpha', 'Sib', '2014-01-01', v_admin_a),
+  insert into public.players (id, first_name, surname, date_of_birth, created_by, playing_pathway) values
+    (v_player_a, 'Alpha', 'Sib', '2014-01-01', v_admin_a, 'MALE'),
     (v_player_b, 'Beta', 'Sib', '2015-01-01', v_admin_a),
     (v_player_c, 'Gamma', 'Sib', '2016-01-01', v_admin_a),
     (v_player_multi_team, 'Delta', 'Sib', '2013-01-01', v_admin_a),
@@ -176,8 +176,8 @@ begin
   insert into public.club_memberships (id, club_id, user_id, role, status) values (gen_random_uuid(), v_club_id, v_admin, 'CLUB_ADMIN', 'active');
   insert into public.teams (id, club_id, rugby_code, display_name, slug, category, age_group, gender, active, canonical_team_type_id)
   values (v_team_id, v_club_id, 'union', 'U10', 'u10-floor', 'youth', 'U10', 'boys', true, internal.resolve_canonical_team_type('youth', 'U10', 'boys', null));
-  insert into public.players (id, first_name, surname, date_of_birth, created_by) values
-    (v_player_1, 'Floor', 'One', '2014-01-01', v_admin),
+  insert into public.players (id, first_name, surname, date_of_birth, created_by, playing_pathway) values
+    (v_player_1, 'Floor', 'One', '2014-01-01', v_admin, 'MALE'),
     (v_player_2, 'Floor', 'Two', '2015-01-01', v_admin),
     (v_player_3, 'Floor', 'Three', '2016-01-01', v_admin);
   insert into public.player_team_memberships (id, player_id, team_id, status) values
@@ -258,8 +258,8 @@ begin
   insert into public.club_memberships (id, club_id, user_id, role, status) values (gen_random_uuid(), v_club_id, v_admin, 'CLUB_ADMIN', 'active');
   insert into public.teams (id, club_id, rugby_code, display_name, slug, category, age_group, gender, active, canonical_team_type_id)
   values (v_team_id, v_club_id, 'union', 'U10', 'u10-fp', 'youth', 'U10', 'boys', true, internal.resolve_canonical_team_type('youth', 'U10', 'boys', null));
-  insert into public.players (id, first_name, surname, date_of_birth, created_by) values
-    (v_player_1, 'FP', 'One', '2014-01-01', v_admin),
+  insert into public.players (id, first_name, surname, date_of_birth, created_by, playing_pathway) values
+    (v_player_1, 'FP', 'One', '2014-01-01', v_admin, 'MALE'),
     (v_player_2, 'FP', 'Two', '2015-01-01', v_admin);
   insert into public.player_team_memberships (id, player_id, team_id, status) values
     (gen_random_uuid(), v_player_1, v_team_id, 'active'),
@@ -330,8 +330,8 @@ begin
   insert into public.club_memberships (id, club_id, user_id, role, status) values (gen_random_uuid(), v_club_id, v_admin, 'CLUB_ADMIN', 'active');
   insert into public.teams (id, club_id, rugby_code, display_name, slug, category, age_group, gender, active, canonical_team_type_id)
   values (v_team_id, v_club_id, 'union', 'U10', 'u10-ncd-fp', 'youth', 'U10', 'boys', true, internal.resolve_canonical_team_type('youth', 'U10', 'boys', null));
-  insert into public.players (id, first_name, surname, date_of_birth, created_by) values
-    (v_player_1, 'NCDFP', 'One', '2014-01-01', v_admin),
+  insert into public.players (id, first_name, surname, date_of_birth, created_by, playing_pathway) values
+    (v_player_1, 'NCDFP', 'One', '2014-01-01', v_admin, 'MALE'),
     (v_player_2, 'NCDFP', 'Two', '2015-01-01', v_admin);
   insert into public.player_team_memberships (id, player_id, team_id, status) values
     (gen_random_uuid(), v_player_1, v_team_id, 'active'),

@@ -20,8 +20,8 @@ insert into public.club_memberships (id, club_id, user_id, role, status) values
 insert into public.teams (id, club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug, active) values
   ('9d000000-0000-0000-0000-000000000f90', '9d000000-0000-0000-0000-0000000c0090', 'union', 'colts', 'SeniorColts', null, null, 'Senior Colts', 'et-sc', true),
   ('9d000000-0000-0000-0000-000000000f91', '9d000000-0000-0000-0000-0000000c0090', 'union', 'senior', null, 'mens', '2nd', 'Men''s 2nd', 'et-mens2', true);
-insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-  ('9d000000-0000-0000-0000-000000000f92', 'Expire', 'Player17', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002');
+insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-000000000f92', 'Expire', 'Player17', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-000000000f92', '9d000000-0000-0000-0000-000000000f90', 'active', '00000000-0000-0000-0000-000000000002');
 insert into public.fixtures (id, owning_team_id, kickoff_date, home_away, raw_opposition_text, status) values

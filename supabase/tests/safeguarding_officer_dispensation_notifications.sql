@@ -43,7 +43,7 @@ begin
     (v_admin, 'Disp', 'Admin', 'sg-disp-admin-' || v_admin::text || '@ovalball.test'),
     (v_officer_user, 'Disp', 'Officer', 'sg-disp-officer-' || v_officer_user::text || '@ovalball.test');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin, 'CLUB_ADMIN', 'active');
-  insert into public.players (id, first_name, surname, active, created_by) values (v_player, 'Test', 'Player', true, v_admin);
+  insert into public.players (id, first_name, surname, active, created_by, playing_pathway) values (v_player, 'Test', 'Player', true, v_admin, 'MALE');
   insert into public.player_team_memberships (player_id, team_id, status, created_by) values (v_player, v_team_source, 'active', v_admin);
 
   -- Nominate + invite + accept a Safeguarding Officer, then grant

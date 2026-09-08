@@ -63,8 +63,8 @@ end if;
 
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club_a,'union','youth','U16','boys','x','hs1') returning id into v_team;
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('HS','Player',(current_date - interval '15 years')::date,true) returning id into v_player;
+insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
+values ('HS','Player',(current_date - interval '15 years')::date,true, 'MALE') returning id into v_player;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team, 'active');
 
 -- ============ 1. A stranger's Club Admin cannot touch this club ============

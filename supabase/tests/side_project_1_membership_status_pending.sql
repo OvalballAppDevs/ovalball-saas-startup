@@ -22,8 +22,8 @@ insert into public.clubs (id, directory_id, slug, status, timezone) values
   ('9f100000-0000-0000-0000-000000000001', '9f100000-0000-0000-0000-000000000001', 'pending-status-test-club-9f100000', 'active', 'Europe/London');
 insert into public.teams (id, club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug, active) values
   ('9f100000-0000-0000-0000-000000000002', '9f100000-0000-0000-0000-000000000001', 'union', 'youth', 'U12', 'boys', null, 'Pending Status U12', 'pending-status-u12', true);
-insert into public.players (id, first_name, surname, date_of_birth) values
-  ('9f100000-0000-0000-0000-000000000003', 'Pending', 'Testplayer', '2014-01-01');
+insert into public.players (id, first_name, surname, date_of_birth, playing_pathway) values
+  ('9f100000-0000-0000-0000-000000000003', 'Pending', 'Testplayer', '2014-01-01', 'MALE');
 
 -- ===== A. A pending row satisfies both check constraints =====
 do $$

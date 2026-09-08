@@ -42,8 +42,8 @@ insert into public.team_permissions (membership_id, team_id, permission, created
   ('9d000000-0000-0000-0000-000000800003', '9d000000-0000-0000-0000-00000000e001', 'team_admin', '00000000-0000-0000-0000-000000000005'),
   ('9d000000-0000-0000-0000-000000800004', '9d000000-0000-0000-0000-00000000e003', 'team_admin', '00000000-0000-0000-0000-000000000006');
 
-insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-  ('9d000000-0000-0000-0000-00000000e010', 'Auth', 'MatrixPlayer', (current_date - interval '14 years')::date, true, '00000000-0000-0000-0000-000000000002');
+insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-00000000e010', 'Auth', 'MatrixPlayer', (current_date - interval '14 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-00000000e010', '9d000000-0000-0000-0000-00000000e001', 'active', '00000000-0000-0000-0000-000000000002');
 insert into public.fixtures (id, owning_team_id, kickoff_date, home_away, raw_opposition_text, status) values
@@ -157,8 +157,8 @@ on conflict (id) do nothing;
 insert into public.team_permissions (membership_id, team_id, permission, created_by) values
   ('9d000000-0000-0000-0000-000000800005', '9d000000-0000-0000-0000-00000000e031', 'team_admin', '00000000-0000-0000-0000-000000000002')
 on conflict do nothing;
-insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-  ('9d000000-0000-0000-0000-00000000e032', 'Auth', 'MatrixColt', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002');
+insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-00000000e032', 'Auth', 'MatrixColt', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-00000000e032', '9d000000-0000-0000-0000-00000000e030', 'active', '00000000-0000-0000-0000-000000000002');
 insert into public.fixtures (id, owning_team_id, kickoff_date, home_away, raw_opposition_text, status) values

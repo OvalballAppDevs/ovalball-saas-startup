@@ -209,8 +209,8 @@ begin
   end if;
 
   -- H. one guardian with TWO children is ONE new parent
-  insert into public.players (first_name, surname, active) values ('PB','KidOne',true) returning id into v_p1;
-  insert into public.players (first_name, surname, active) values ('PB','KidTwo',true) returning id into v_p2;
+  insert into public.players (first_name, surname, active, playing_pathway) values ('PB','KidOne',true, 'MALE') returning id into v_p1;
+  insert into public.players (first_name, surname, active, playing_pathway) values ('PB','KidTwo',true, 'MALE') returning id into v_p2;
 
   select (v_daily -> 29 ->> 'parents')::int into v_before_parents;
   insert into public.guardians (guardian_user_id, player_id, status) values

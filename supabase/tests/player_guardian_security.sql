@@ -84,8 +84,8 @@ begin
   on conflict (id) do nothing;
 
   -- Players. Scenario letters match the Master Architecture Pass §42.
-  insert into public.players (id, first_name, surname, date_of_birth, user_id) values
-    ('99d00000-0000-0000-0000-000000300001', 'PlayerA1', 'Test', null, null),                                            -- A: ordinary parent's one player
+  insert into public.players (id, first_name, surname, date_of_birth, user_id, playing_pathway) values
+    ('99d00000-0000-0000-0000-000000300001', 'PlayerA1', 'Test', null, null, 'MALE'),                                            -- A: ordinary parent's one player
     ('99d00000-0000-0000-0000-000000300002', 'PlayerB1', 'Test', null, null),                                            -- B: multi-child parent, child 1 -> U12
     ('99d00000-0000-0000-0000-000000300003', 'PlayerB2', 'Test', null, null),                                            -- B: multi-child parent, child 2 -> U14
     ('99d00000-0000-0000-0000-000000300004', 'PlayerC1', 'Test', null, null),                                            -- C: one player, two teams (U12 + U14)

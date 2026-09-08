@@ -21,8 +21,8 @@ insert into public.club_memberships (id, club_id, user_id, role, status) values
 insert into public.teams (id, club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug, active) values
   ('9d000000-0000-0000-0000-000000000f01', '9d000000-0000-0000-0000-0000000c0040', 'union', 'colts', 'SeniorColts', null, null, 'Senior Colts', 'lwt-sc', true),
   ('9d000000-0000-0000-0000-000000000f02', '9d000000-0000-0000-0000-0000000c0040', 'union', 'senior', null, 'mens', '2nd', 'Men''s 2nd', 'lwt-mens2', true);
-insert into public.players (id, first_name, surname, date_of_birth, active, created_by) values
-  ('9d000000-0000-0000-0000-000000000f10', 'Robin', 'Seventeen', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002'),
+insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
+  ('9d000000-0000-0000-0000-000000000f10', 'Robin', 'Seventeen', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE'),
   ('9d000000-0000-0000-0000-000000000f11', 'Sam', 'Sixteen', (current_date - interval '16 years')::date, true, '00000000-0000-0000-0000-000000000002');
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-000000000f10', '9d000000-0000-0000-0000-000000000f01', 'active', '00000000-0000-0000-0000-000000000002'),
