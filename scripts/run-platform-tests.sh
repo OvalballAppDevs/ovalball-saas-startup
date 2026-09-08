@@ -72,6 +72,7 @@ SUITES=(
   handover_squads_and_aliases
   graduation_placement_safety
   fixture_season_identity
+  mini_rugby_handover
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
