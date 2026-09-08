@@ -118,13 +118,21 @@ end if;
 
 -- ============ E. Creation is refused for union, allowed for league ============
 
--- Must join: most club_directory rows are unclaimed and have no clubs row,
--- so selecting a directory first and then its club finds nothing.
-select c.id into v_club
-from public.clubs c
-join public.club_directory d on d.id = c.directory_id
-where d.rugby_code = 'union'
-limit 1;
+-- A club created FOR this check, not whichever union club happens to exist.
+--
+-- Borrowing one made the result depend on what that club already runs: a club
+-- that had been through a season handover and now fields a Girls U14 would
+-- fail the "the band identity IS accepted" assertion on a unique violation,
+-- which says nothing about the age-band rule under test.
+declare v_ugdab_dir uuid;
+begin
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('UGDAB RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual',
+          'ugdab-'||substr(gen_random_uuid()::text,1,8))
+  returning id into v_ugdab_dir;
+  insert into public.clubs (directory_id, slug, status)
+  values (v_ugdab_dir,'ugdab-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club;
+end;
 
 if v_club is null then
   raise notice 'SKIP 10 (E): no union club in this database to test creation against';

@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { AlertTriangle, CheckCircle2, Undo2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -143,6 +144,7 @@ export function RolloverReview({
 }
 
 function BatchCard({ batch }: { batch: RolloverBatch }) {
+  const router = useRouter()
   const [bulkWorking, setBulkWorking] = useState(false)
   const [bulkResult, setBulkResult] = useState<string | null>(null)
 
@@ -181,6 +183,9 @@ function BatchCard({ batch }: { batch: RolloverBatch }) {
       else failures.push(`${p.teamDisplayName}: ${result.error}`)
     }
     setBulkWorking(false)
+    // Each row holds its own decision state, so the list has to be re-read
+    // from the server rather than left showing Confirm on rows just decided.
+    router.refresh()
     setBulkResult(
       failures.length === 0
         ? `${done} team${done === 1 ? "" : "s"} recorded. Nothing has changed yet — apply the handover to carry these out.`
@@ -226,7 +231,7 @@ function BatchCard({ batch }: { batch: RolloverBatch }) {
         <section key={group.age} aria-label={`${group.age} teams`} className="border-b border-ink/8 last:border-b-0">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 bg-ink/[0.02] px-5 py-2.5">
             <h3 className="text-sm font-medium text-ink">{group.age}</h3>
-            {group.rows.length > 1 && (
+            {group.rows.some((r) => r.teamSquadDesignation) && (
               <p className="text-xs text-ink/55">
                 Each squad is decided on its own — confirming {group.age} does not decide{" "}
                 {group.rows

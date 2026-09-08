@@ -92,15 +92,23 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
   // The handover's lifecycle, its readiness and everything standing in its way
   // all come from the server, computed from live state. A board that decided
   // any of this for itself could tell a club it was ready while Apply refused.
-  const [{ data: stateValue }, { data: readinessRows }, { data: blockerRows }, { data: consequenceRows }, { data: auditRows }] = currentRollover
-    ? await Promise.all([
-        supabase.rpc("handover_state", { p_rollover_id: currentRollover.id }),
-        supabase.rpc("rollover_readiness", { p_rollover_id: currentRollover.id }),
-        supabase.rpc("handover_apply_blockers", { p_rollover_id: currentRollover.id }),
-        supabase.rpc("handover_consequences", { p_rollover_id: currentRollover.id }),
-        supabase.rpc("handover_audit", { p_rollover_id: currentRollover.id }),
-      ])
-    : [{ data: null }, { data: null }, { data: null }, { data: null }, { data: null }]
+  const [{ data: stateValue }, { data: readinessRows }, { data: blockerRows }, { data: consequenceRows }, { data: auditRows }, { data: labelRows }] =
+    currentRollover
+      ? await Promise.all([
+          supabase.rpc("handover_state", { p_rollover_id: currentRollover.id }),
+          supabase.rpc("rollover_readiness", { p_rollover_id: currentRollover.id }),
+          supabase.rpc("handover_apply_blockers", { p_rollover_id: currentRollover.id }),
+          supabase.rpc("handover_consequences", { p_rollover_id: currentRollover.id }),
+          supabase.rpc("handover_audit", { p_rollover_id: currentRollover.id }),
+          supabase.rpc("handover_team_labels", { p_rollover_id: currentRollover.id }),
+        ])
+      : [{ data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }]
+
+  // What each team will be CALLED next season, according to the decisions on
+  // this handover. The season-aware projection is right everywhere else in
+  // Ovalball and wrong here: nothing is recorded until Apply, so it falls back
+  // to date arithmetic and cannot know a Mixed side was decided to become Boys.
+  const decidedLabelByTeam = new Map((labelRows ?? []).map((l) => [l.team_id, l.label]))
 
   const readiness = (readinessRows ?? [])[0] ?? null
   const blockers: HandoverBlocker[] = (blockerRows ?? []).map((b) => ({
@@ -121,14 +129,19 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
   const { data: plannedTeamRows } = currentRollover
     ? await supabase
         .from("age_grade_rollover_planned_teams")
-        .select("id, squad_designation, origin, applied_at, canonical_team_types(label)")
+        .select("id, squad_designation, origin, applied_at, created_team_id, canonical_team_types(label)")
         .eq("rollover_id", currentRollover.id)
     : { data: null }
 
-  const plannedLabelById = new Map(
+  // A planned team stops being planned the moment Apply creates it, and the
+  // board has to stop saying "will be created" at exactly that point.
+  const plannedById = new Map(
     (plannedTeamRows ?? []).map((p) => [
       p.id,
-      `${p.canonical_team_types?.label ?? "Team"}${p.squad_designation ? ` ${p.squad_designation}` : ""}`,
+      {
+        label: `${p.canonical_team_types?.label ?? "Team"}${p.squad_designation ? ` ${p.squad_designation}` : ""}`,
+        pending: p.applied_at === null,
+      },
     ])
   )
 
@@ -234,7 +247,11 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
 
   const nextSeasonLabel = (teamId: string | null, fallback: string | null): string | null => {
     if (!teamId || !currentRollover?.to_season_id) return fallback
-    return playerTeamIdentities.get(teamIdentityKey(teamId, currentRollover.to_season_id))?.displayName ?? fallback
+    return (
+      decidedLabelByTeam.get(teamId) ??
+      playerTeamIdentities.get(teamIdentityKey(teamId, currentRollover.to_season_id))?.displayName ??
+      fallback
+    )
   }
 
   const playerProposals: PlayerProposalRow[] = (playerProposalRows ?? [])
@@ -255,7 +272,8 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
       // The club runs no team at the age grade this player belongs in, so the
       // board can offer to run one rather than dead-ending.
       normalTeamMissing: p.proposed_team === null && p.normal_canonical_team_type_id !== null,
-      plannedTeamName: p.planned_team_id ? (plannedLabelById.get(p.planned_team_id) ?? null) : null,
+      plannedTeamName: p.planned_team_id ? (plannedById.get(p.planned_team_id)?.label ?? null) : null,
+      plannedTeamPending: p.planned_team_id ? (plannedById.get(p.planned_team_id)?.pending ?? false) : false,
       placementChosen: p.selected_at !== null,
     }))
     .sort((a, b) => {
@@ -334,9 +352,19 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
         )}
       </div>
       <p className="mt-2 max-w-2xl text-sm text-ink-muted">
-        Review what {club.club_directory?.name}&apos;s teams and players become next season. Nothing about your club changes
-        until you apply the handover — every decision here can be changed until then. Season dates come from Site Admin →
-        Seasons.
+        {handoverState === "COMPLETED" ? (
+          <>
+            This handover has run. {club.club_directory?.name} now runs its {nextSeasonOption?.name ?? "new season"}{" "}
+            structure, and what happened is recorded below. Correcting anything from here is an ordinary team or player
+            change. Season dates come from Site Admin → Seasons.
+          </>
+        ) : (
+          <>
+            Review what {club.club_directory?.name}&apos;s teams and players become next season. Nothing about your club
+            changes until you apply the handover — every decision here can be changed until then. Season dates come from
+            Site Admin → Seasons.
+          </>
+        )}
       </p>
       {readiness && (
         <p className="mt-1.5 text-sm text-ink/55">

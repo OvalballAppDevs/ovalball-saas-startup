@@ -44,6 +44,14 @@ const EVENT_WORDS: Record<string, string> = {
   HANDOVER_TEAM_CREATED: "Team created",
   HANDOVER_TEAM_REACTIVATED: "Team reactivated",
   SEASON_HANDOVER_APPLIED: "Season handover applied",
+  // Recorded by the pre-staged model, which created the team during review.
+  SUCCESSOR_TEAM_CREATED_AT_HANDOVER: "Team created (before the staged model)",
+  U6_INTAKE_TEAM_CREATED: "U6 intake team created",
+  U6_INTAKE_TEAM_REACTIVATED: "U6 intake team reactivated",
+  GRADUATED_AT_HANDOVER: "Cohort graduated",
+  mixed_boundary_boys_continuation: "Mixed cohort continued as Boys",
+  mixed_boundary_girls_team_created: "Girls team created",
+  folded: "Team folded",
 }
 
 export function HandoverApply({
@@ -78,7 +86,10 @@ export function HandoverApply({
   const progressing = consequences.filter((c) => c.kind === "progress").length
   const folding = consequences.filter((c) => c.kind === "fold").length
   const graduating = consequences.filter((c) => c.kind === "graduate").length
-  const creating = consequences.filter((c) => c.kind === "plan").length
+  // After Apply the same rows come back as "created"/"reactivated" rather than
+  // "plan", so counting only planned ones would report a completed handover as
+  // having created nothing.
+  const creating = consequences.filter((c) => c.kind === "plan" || c.kind === "created" || c.kind === "reactivated").length
 
   async function handleApply() {
     if (!rolloverId) return
@@ -138,7 +149,7 @@ export function HandoverApply({
                 {isApplied
                   ? `Your club now runs the ${toSeasonName ?? "new"} season structure. Correcting anything from here is an ordinary team or player change, not a handover decision.`
                   : blockerCount > 0
-                    ? `${blockerCount} item${blockerCount === 1 ? "" : "s"} still need a decision. Nothing about your club has changed, and nothing will until every one of them is settled.`
+                    ? `${blockerCount} item${blockerCount === 1 ? " still needs" : "s still need"} a decision. Nothing about your club has changed, and nothing will until every one of them is settled.`
                     : "Every decision is recorded and still valid. Applying carries all of them out at once."}
               </p>
             </div>
@@ -147,7 +158,7 @@ export function HandoverApply({
 
         <ul className="divide-y divide-ink/8 text-sm">
           <li className="flex items-baseline justify-between gap-4 px-5 py-3">
-            <span className="text-ink/70">Teams progressing</span>
+            <span className="text-ink/70">{isApplied ? "Teams progressed" : "Teams progressing"}</span>
             <span className="font-medium text-ink tabular-nums">{progressing}</span>
           </li>
           <li className="flex items-baseline justify-between gap-4 px-5 py-3">
@@ -155,11 +166,11 @@ export function HandoverApply({
             <span className="font-medium text-ink tabular-nums">{creating}</span>
           </li>
           <li className="flex items-baseline justify-between gap-4 px-5 py-3">
-            <span className="text-ink/70">Cohorts completing the youth pathway</span>
+            <span className="text-ink/70">{isApplied ? "Cohorts that completed the youth pathway" : "Cohorts completing the youth pathway"}</span>
             <span className="font-medium text-ink tabular-nums">{graduating}</span>
           </li>
           <li className="flex items-baseline justify-between gap-4 px-5 py-3">
-            <span className="text-ink/70">Teams not continuing</span>
+            <span className="text-ink/70">{isApplied ? "Teams that did not continue" : "Teams not continuing"}</span>
             <span className="font-medium text-ink tabular-nums">{folding}</span>
           </li>
         </ul>

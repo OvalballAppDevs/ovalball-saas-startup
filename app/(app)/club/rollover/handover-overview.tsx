@@ -12,7 +12,7 @@ import Link from "next/link"
  */
 
 export interface HandoverConsequence {
-  kind: "progress" | "graduate" | "fold" | "plan" | "created" | "reactivated"
+  kind: "progress" | "graduate" | "fold" | "plan" | "created" | "reactivated" | "undecided"
   fromLabel: string | null
   toLabel: string | null
   note: string | null
@@ -32,6 +32,15 @@ function ConsequenceLine({ c }: { c: HandoverConsequence }) {
   const applied = c.isApplied
   let sentence: React.ReactNode
   switch (c.kind) {
+    case "undecided":
+      sentence = (
+        <>
+          <span className="font-medium text-ink">{c.fromLabel}</span>
+          <span className="text-ink/40"> {c.toLabel ? `would normally become ${c.toLabel}` : "has no proposed destination"} </span>
+          <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-900">Needs a decision</span>
+        </>
+      )
+      break
     case "progress":
       sentence = (
         <>
@@ -110,6 +119,7 @@ export function HandoverOverview({
   }
 
   const teamLines = consequences.filter((c) => c.kind !== "plan" && c.kind !== "created" && c.kind !== "reactivated")
+  const undecided = teamLines.filter((c) => c.kind === "undecided").length
   const newLines = consequences.filter((c) => c.kind === "plan" || c.kind === "created" || c.kind === "reactivated")
 
   return (
@@ -118,7 +128,11 @@ export function HandoverOverview({
         <div className="border-b border-ink/8 px-5 py-3.5">
           <p className="text-sm font-medium text-ink">Teams already at the club</p>
           <p className="mt-0.5 text-sm text-ink/55">
-            {isApplied ? "What this handover did to each cohort." : "What this handover will do to each cohort when you apply it."}
+            {isApplied
+              ? "What this handover did to each cohort."
+              : undecided > 0
+                ? `What this handover will do to each cohort when you apply it. ${undecided} still ${undecided === 1 ? "needs" : "need"} a decision.`
+                : "What this handover will do to each cohort when you apply it."}
           </p>
         </div>
         <ul className="divide-y divide-ink/8">
@@ -132,7 +146,7 @@ export function HandoverOverview({
       {newLines.length > 0 && (
         <div className="rounded-lg border border-ink/10 bg-white">
           <div className="border-b border-ink/8 px-5 py-3.5">
-            <p className="text-sm font-medium text-ink">Teams the club will run</p>
+            <p className="text-sm font-medium text-ink">{isApplied ? "Teams the club now runs" : "Teams the club will run"}</p>
             <p className="mt-0.5 text-sm text-ink/55">
               {isApplied
                 ? "Sides this handover created."

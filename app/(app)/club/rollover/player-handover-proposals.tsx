@@ -59,8 +59,10 @@ export interface PlayerProposalRow {
   placementApplied: boolean
   /** True when the club runs no team at the player's normal age grade. */
   normalTeamMissing: boolean
-  /** The club has decided to run the team this player needs; it does not exist yet. */
+  /** The club has decided to run the team this player needs. */
   plannedTeamName: string | null
+  /** False once Apply has created it -- the board must stop saying "will be created". */
+  plannedTeamPending: boolean
   /** A human chose this placement, so it can be put back to the normal one. */
   placementChosen: boolean
 }
@@ -81,7 +83,7 @@ const FILTERS: { key: Filter; label: string }[] = [
  */
 function statusLabel(row: PlayerProposalRow): string {
   if (row.placementApplied) return "Placed"
-  if (row.plannedTeamName) return "Team planned"
+  if (row.plannedTeamName && row.plannedTeamPending) return "Team planned"
   if (row.allocationStatus === "DOB_REQUIRED") return "Date of birth needed"
   if (row.allocationStatus === "CLUB_HOLDING") return "Club holding"
   if (row.reviewState === "BLOCKED") return "Not permitted"
@@ -268,7 +270,7 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
                           row.plannedTeamName ? (
                             <span>
                               {row.plannedTeamName}
-                              <span className="ml-1.5 text-xs text-ink/55">planned</span>
+                              {row.plannedTeamPending && <span className="ml-1.5 text-xs text-ink/55">planned</span>}
                             </span>
                           ) : (
                             "—"
@@ -315,7 +317,7 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
                   </p>
                   <p>
                     {row.selectedPlacementName ?? row.normalPlacementName ?? row.plannedTeamName ?? "No team yet"}
-                    {!row.selectedPlacementName && !row.normalPlacementName && row.plannedTeamName && (
+                    {!row.selectedPlacementName && !row.normalPlacementName && row.plannedTeamName && row.plannedTeamPending && (
                       <span className="ml-1.5 text-xs text-ink/55">planned</span>
                     )}
                   </p>
@@ -363,7 +365,17 @@ function PlayerDetail({
 
   return (
     <div className="space-y-3">
-      {row.reason && <p className="max-w-2xl text-sm text-ink/80">{row.reason}</p>}
+      {/* The stored reason is what was decided. Once the handover has run it is
+          in the wrong tense -- "will be created" about a team that now exists --
+          so the applied row states what happened instead. */}
+      {row.placementApplied ? (
+        <p className="max-w-2xl text-sm text-ink/80">
+          {row.playerName.split(" ")[0]} was placed in{" "}
+          {row.selectedPlacementName ?? row.plannedTeamName ?? row.normalPlacementName ?? "their new team"} by this handover.
+        </p>
+      ) : (
+        row.reason && <p className="max-w-2xl text-sm text-ink/80">{row.reason}</p>
+      )}
 
       {row.regulatoryAgeLabel && (
         <p className="text-sm text-ink/55">
@@ -371,11 +383,6 @@ function PlayerDetail({
         </p>
       )}
 
-      {row.plannedTeamName && !row.placementApplied && (
-        <p className="text-sm text-ink/80">
-          {row.plannedTeamName} will be created when this handover is applied, and {row.playerName.split(" ")[0]} joins it then.
-        </p>
-      )}
 
       {error && <p className="text-sm text-destructive-text">{error}</p>}
 

@@ -142,6 +142,29 @@ begin
   ) fi on true
   where p.rollover_id = p_rollover_id and p.decision = 'confirmed';
 
+  -- Teams nobody has decided yet. They belong in the ledger: a Club Admin
+  -- reading "what happens next season" needs to see the gaps as plainly as the
+  -- answers, and an empty list would read as though there were nothing to do.
+  return query
+  select 'undecided', p.team_id, null::uuid, p.id,
+         coalesce(fi.display_name, t.display_name),
+         p.proposed_age_group,
+         case
+           when p.decision = 'deferred' then 'Deferred. This still needs a decision before the handover can run.'
+           when p.is_mixed_boundary then 'The boys and girls in this cohort go different ways from this age grade. The club has to say whether it will run a girls'' side.'
+           when p.proposed_age_group is null then 'There is no established next age grade for this cohort, so Ovalball will not choose one.'
+           else 'Not decided yet.'
+         end,
+         false,
+         coalesce(p.current_age_group, '') || coalesce(t.squad_designation, '')
+  from public.age_grade_rollover_team_proposals p
+  join public.teams t on t.id = p.team_id
+  left join lateral (
+    select tsi.display_name from public.team_season_identity tsi
+    where tsi.team_id = p.team_id and tsi.season_id = r.from_season_id
+  ) fi on true
+  where p.rollover_id = p_rollover_id and p.decision in ('pending', 'deferred');
+
   return query
   select 'graduate', p.team_id, null::uuid, p.id,
          coalesce(fi.display_name, t.display_name), null::text,

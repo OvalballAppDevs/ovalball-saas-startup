@@ -123,11 +123,21 @@ begin
       end if;
     end if;
 
-    if v_proposed_team is not null and v_proposed_team is distinct from m.team_id then
-      select * into v_move from internal.resolve_player_movement_eligibility(
-        r.rugby_code, current_date, m.date_of_birth, m.team_id, v_proposed_team);
-      v_move_req := v_move.requirement;
-    end if;
+    -- The movement resolver is deliberately NOT asked here.
+    --
+    -- It exists to police a placement OTHER than the player's normal age
+    -- grade, which is exactly what set_rollover_player_placement invokes it
+    -- for. But resolve_normal_placement_team selects a team BY the player's
+    -- normal canonical identity for the target season, so by construction
+    -- there is no age-grade movement in a normal placement -- there is only
+    -- the ordinary progression.
+    --
+    -- Asking anyway produced a real false block: a girl in a mixed U12 side,
+    -- U14 next season, whose normal placement is the club's Girls U12 as it
+    -- becomes Girls U14. The resolver was handed today's labels, compared
+    -- "U12 to U12", found no ordinary progression, and demanded a
+    -- governing-body dispensation for a child simply moving up with her age
+    -- grade. Nothing was wrong with the placement; the question was wrong.
 
     if v_norm.allocation_status = 'DOB_REQUIRED' then
       v_review := 'NEEDS_ATTENTION';
@@ -1056,7 +1066,12 @@ begin
     end if;
   end loop;
 
-  perform internal.generate_rollover_player_proposals_core(v_rollover_id);
+  -- REFRESH, not merely generate. A club that corrects a child's date of birth
+  -- or playing information mid-review needs a way to have the board look
+  -- again; without one, Apply's staleness check would block the handover with
+  -- no in-app remedy. Preparing again is the natural place for it, and the
+  -- refresh preserves every placement a person actually decided.
+  perform internal.refresh_rollover_player_proposals(v_rollover_id);
 
   return v_rollover_id;
 end;

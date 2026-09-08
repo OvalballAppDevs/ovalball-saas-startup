@@ -40,14 +40,23 @@ declare
   pMinor uuid; pTeen uuid; pAdult uuid; pUnrelated uuid; pMiniOverlap uuid;
   v_r record; v_n int; v_dupcheck int; v_expect uuid[]; v_got uuid[];
 begin
-  select c.id into v_club from public.clubs c
-  join public.club_directory d on d.id = c.directory_id where d.normalized_key = 'ovalball-uat-rufc';
-  if v_club is null then raise exception 'FAIL setup: local UAT club missing'; end if;
-  -- A team created FOR this suite, not the shared seeded U12. Reusing the
-  -- seeded team made every audience assertion depend on how many players the
-  -- seed happens to contain, so a later seed change would break tests that
-  -- have nothing to do with it. Here the population is exactly what this
-  -- suite puts in it.
+  -- A club created FOR this suite, not the shared local UAT club.
+  --
+  -- Borrowing a real club made this suite depend on what that club happens to
+  -- run: it creates its own U7, U9 and U12 sides, and the moment a season
+  -- handover progressed the UAT club's U8 cohort into U9 the identity was
+  -- taken and the whole suite aborted on a unique violation that had nothing
+  -- to do with fixture communications. Every team, player and membership below
+  -- is now exactly what this suite puts in, and nothing else.
+  declare v_own_dir uuid;
+  begin
+    insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+    values ('Fixture Comms RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual',
+            'fixture-comms-'||substr(gen_random_uuid()::text,1,8))
+    returning id into v_own_dir;
+    insert into public.clubs (directory_id, slug, status)
+    values (v_own_dir,'fixture-comms-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club;
+  end;
   select id into v_dir from public.club_directory where normalized_key <> 'ovalball-uat-rufc' limit 1;
   select id into v_season from public.seasons where starts_on <= current_date and ends_on >= current_date limit 1;
   select c.id into v_other_club from public.clubs c where c.id <> v_club and c.status = 'active' limit 1;
@@ -65,6 +74,11 @@ begin
   -- Staff: club admin at the home club, and one at an unrelated club.
   insert into public.club_memberships (user_id, club_id, role, status) values (v_coach, v_club, 'CLUB_ADMIN', 'active');
   insert into public.club_memberships (user_id, club_id, role, status) values (v_other_coach, v_other_club, 'CLUB_ADMIN', 'active');
+
+  -- A B or C squad cannot sit at a level with no primary, so this suite stands
+  -- one up rather than relying on a borrowed club having one.
+  insert into public.teams (club_id, category, age_group, gender, rugby_code, created_by)
+  values (v_club, 'youth', 'U12', null, 'union', v_coach);
 
   insert into public.teams (club_id, category, age_group, gender, squad_designation, rugby_code, created_by)
   values (v_club, 'youth', 'U12', null, 'C', 'union', v_coach)

@@ -16738,6 +16738,14 @@ export type Database = {
         }[]
       }
       handover_state: { Args: { p_rollover_id: string }; Returns: string }
+      handover_team_labels: {
+        Args: { p_rollover_id: string }
+        Returns: {
+          continues: boolean
+          label: string
+          team_id: string
+        }[]
+      }
       has_capability: {
         Args: {
           p_capability_key: string
