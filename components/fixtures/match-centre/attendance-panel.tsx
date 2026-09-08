@@ -6,8 +6,8 @@ import { setAttendanceResponse } from "@/app/(app)/fixtures/[fixtureId]/actions"
 import type { AttendanceStatus, MyAttendanceEntry } from "@/lib/app-context/match-centre-data"
 
 const OPTIONS: { status: AttendanceStatus; label: string; symbol: string }[] = [
-  { status: "ATTENDING", label: "I'm attending", symbol: "✓" },
-  { status: "CANNOT_ATTEND", label: "Can't attend", symbol: "✕" },
+  { status: "ATTENDING", label: "I'm available", symbol: "✓" },
+  { status: "CANNOT_ATTEND", label: "Not available", symbol: "✕" },
   { status: "UNSURE", label: "Unsure", symbol: "?" },
 ]
 
@@ -39,7 +39,14 @@ function AttendanceCard({ fixtureId, entry, fixtureCancelled }: { fixtureId: str
 
   return (
     <div className="rounded-xl border border-ink/10 bg-white px-4 py-3.5">
-      <p className="text-sm font-medium text-ink">{entry.displayName}&rsquo;s response</p>
+      {/*
+        Availability is not selection. Answering "I'm attending" tells the
+        club you are free; it does not put you in the team, and the wording
+        stays on the right side of that.
+      */}
+      <p className="text-sm font-medium text-ink">
+        {entry.isSelf ? "Your availability" : `${entry.displayName}’s response`}
+      </p>
       {!canRespond ? (
         <p className="mt-1 text-sm text-ink/60">{fixtureCancelled ? "This fixture has been cancelled." : (entry.cannotRespondReason ?? "You cannot respond for this player.")}</p>
       ) : (

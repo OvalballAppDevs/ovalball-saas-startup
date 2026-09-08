@@ -186,6 +186,11 @@ export function buildNavItems(
       { href: "/calendar", label: "Calendar" },
       { href: "/rugby-hub", label: "Rugby Hub" },
       { href: "/account", label: "Settings" },
+      // A player pays for their own membership, and a guardian pays for a
+      // child's. Both reach the same real subscription surface -- there is no
+      // second place where somebody could be told a different thing about
+      // their own money.
+      { href: "/player/payments", label: "Payments & Subscriptions" },
     ]
     return { primary: parentItems, roleLabel: activeContext.roleLabel, clubName: activeContext.label, clubLogoUrl: activeContext.logoUrl }
   }

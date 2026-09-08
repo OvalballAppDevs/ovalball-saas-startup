@@ -112,6 +112,13 @@ export interface MyAttendanceEntry {
   response: AttendanceStatus | null
   canRespond: boolean
   cannotRespondReason: string | null
+  /**
+   * True when this is the viewer's OWN player. An adult answering for
+   * themselves should not read "Owen's response" about themselves -- the same
+   * panel serves a guardian answering for a child, and the two are different
+   * sentences.
+   */
+  isSelf: boolean
 }
 
 export interface MatchCentreAttendance {
@@ -278,6 +285,7 @@ export async function getMatchCentreContext(supabase: SupabaseClient<Database>, 
         response: myAttendanceByPlayer.get(playerId) ?? null,
         canRespond: (authority?.can_respond ?? false) && !f.cancelled_at,
         cannotRespondReason: f.cancelled_at ? "This fixture has been cancelled." : (authority?.denial_reason ?? null),
+        isSelf: myOwnPlayer?.id === playerId,
       })
     }
   }

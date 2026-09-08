@@ -10008,6 +10008,167 @@ export type Database = {
           },
         ]
       }
+      player_club_join_requests: {
+        Row: {
+          club_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decline_reason: string | null
+          id: string
+          placed_team_id: string | null
+          player_id: string
+          requested_by: string
+          resolved_canonical_team_type_id: string | null
+          resolved_category: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          club_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          id?: string
+          placed_team_id?: string | null
+          player_id: string
+          requested_by: string
+          resolved_canonical_team_type_id?: string | null
+          resolved_category?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          club_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          id?: string
+          placed_team_id?: string | null
+          player_id?: string
+          requested_by?: string
+          resolved_canonical_team_type_id?: string | null
+          resolved_category?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_club_join_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_placed_team_id_fkey"
+            columns: ["placed_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_placed_team_id_fkey"
+            columns: ["placed_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_placed_team_id_fkey"
+            columns: ["placed_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_placed_team_id_fkey"
+            columns: ["placed_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_placed_team_id_fkey"
+            columns: ["placed_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_resolved_canonical_team_type_id_fkey"
+            columns: ["resolved_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_club_join_requests_resolved_canonical_team_type_id_fkey"
+            columns: ["resolved_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_duplicate_reviews: {
         Row: {
           created_at: string
@@ -15690,6 +15851,10 @@ export type Database = {
         Args: { p_membership_id: string }
         Returns: undefined
       }
+      approve_player_club_join_request: {
+        Args: { p_request_id: string; p_team_id: string }
+        Returns: undefined
+      }
       archive_fixture: {
         Args: { p_fixture_id: string; p_reason: string }
         Returns: undefined
@@ -16010,6 +16175,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_own_player_profile: {
+        Args: {
+          p_date_of_birth: string
+          p_first_name: string
+          p_playing_pathway: string
+          p_surname: string
+        }
+        Returns: string
+      }
       create_partner_invitation: {
         Args: {
           p_club_directory_id: string
@@ -16225,6 +16399,10 @@ export type Database = {
           p_reason?: string
           p_stage: string
         }
+        Returns: undefined
+      }
+      decline_player_club_join_request: {
+        Args: { p_reason?: string; p_request_id: string }
         Returns: undefined
       }
       delete_canonical_club: {
@@ -17170,6 +17348,24 @@ export type Database = {
           status: string
         }[]
       }
+      my_player_context: {
+        Args: never
+        Returns: {
+          club_id: string
+          club_name: string
+          decline_reason: string
+          first_name: string
+          has_date_of_birth: boolean
+          has_playing_pathway: boolean
+          player_id: string
+          request_id: string
+          resolved_category: string
+          state: string
+          surname: string
+          team_id: string
+          team_name: string
+        }[]
+      }
       nominate_safeguarding_officer: {
         Args: {
           p_club_id: string
@@ -17708,11 +17904,25 @@ export type Database = {
         Args: { p_player_id: string }
         Returns: number
       }
+      request_to_join_club: {
+        Args: { p_club_id: string; p_player_id: string }
+        Returns: string
+      }
       resend_safeguarding_officer_invitation: {
         Args: { p_officer_id: string }
         Returns: {
           invitation_id: string
           token: string
+        }[]
+      }
+      resolve_adult_category: {
+        Args: { p_playing_pathway: string; p_rugby_code: string }
+        Returns: {
+          canonical_team_type_id: string
+          display_label: string
+          identity_count: number
+          reason: string
+          resolution: string
         }[]
       }
       resolve_canonical_team_type_id: {
@@ -18498,6 +18708,10 @@ export type Database = {
       }
       verify_regulatory_reporting_route: {
         Args: { p_route_id: string }
+        Returns: undefined
+      }
+      withdraw_player_club_join_request: {
+        Args: { p_request_id: string }
         Returns: undefined
       }
     }

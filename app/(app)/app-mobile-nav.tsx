@@ -105,7 +105,10 @@ export function AppMobileNav({
         <SupportButton unreadCount={supportUnreadCount} variant="dark" />
         <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger
-          render={<Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" />}
+          // size-11 rather than the icon default: this is the ONLY way into
+          // navigation on a phone, and a 32px target on the one control that
+          // opens the whole app is the wrong place to save eight pixels.
+          render={<Button variant="ghost" size="icon" className="size-11 text-white hover:bg-white/10 hover:text-white" />}
         >
           <Menu className="size-5" />
           <span className="sr-only">Open menu</span>

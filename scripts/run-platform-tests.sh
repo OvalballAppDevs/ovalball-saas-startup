@@ -81,6 +81,7 @@ SUITES=(
   rugby_code_isolation
   team_people_roster
   registration_allocation
+  adult_player_self_registration
   handover_prepare_idempotency
   handover_squads_and_aliases
   graduation_placement_safety
