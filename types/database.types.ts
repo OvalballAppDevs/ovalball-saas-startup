@@ -4295,6 +4295,95 @@ export type Database = {
           },
         ]
       }
+      email_template_settings: {
+        Row: {
+          active_version_id: string | null
+          enabled: boolean
+          event_key: string
+          lock_version: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active_version_id?: string | null
+          enabled?: boolean
+          event_key: string
+          lock_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active_version_id?: string | null
+          enabled?: boolean
+          event_key?: string
+          lock_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_template_settings_active_version_id_fkey"
+            columns: ["active_version_id"]
+            isOneToOne: false
+            referencedRelation: "email_template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_template_versions: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          cta_label: string | null
+          event_key: string
+          from_registered_default: boolean
+          heading: string
+          id: string
+          preheader: string
+          published_at: string | null
+          published_by: string | null
+          restored_from_revision: number | null
+          revision: number
+          status: string
+          subject: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          event_key: string
+          from_registered_default?: boolean
+          heading: string
+          id?: string
+          preheader: string
+          published_at?: string | null
+          published_by?: string | null
+          restored_from_revision?: number | null
+          revision: number
+          status?: string
+          subject: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          event_key?: string
+          from_registered_default?: boolean
+          heading?: string
+          id?: string
+          preheader?: string
+          published_at?: string | null
+          published_by?: string | null
+          restored_from_revision?: number | null
+          revision?: number
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       finance_audit_log: {
         Row: {
           action: string
@@ -15960,6 +16049,10 @@ export type Database = {
           classification: string
         }[]
       }
+      clear_email_template_override: {
+        Args: { p_event_key: string; p_expected_lock: number }
+        Returns: undefined
+      }
       clear_rollover_player_placement: {
         Args: { p_proposal_id: string }
         Returns: undefined
@@ -17568,6 +17661,10 @@ export type Database = {
         }
         Returns: string
       }
+      publish_email_template_draft: {
+        Args: { p_event_key: string; p_expected_lock: number }
+        Returns: string
+      }
       publish_import_row: { Args: { p_row_id: string }; Returns: string }
       publish_regulatory_content_set: {
         Args: { p_content_set_id: string }
@@ -18121,6 +18218,18 @@ export type Database = {
       run_fixture_completion_check: { Args: never; Returns: number }
       run_season_transition_check: { Args: never; Returns: undefined }
       run_trial_expiry_check: { Args: never; Returns: number }
+      save_email_template_draft: {
+        Args: {
+          p_body: string
+          p_cta_label: string
+          p_event_key: string
+          p_expected_lock: number
+          p_heading: string
+          p_preheader: string
+          p_subject: string
+        }
+        Returns: string
+      }
       save_training_plan: {
         Args: {
           p_club_id: string

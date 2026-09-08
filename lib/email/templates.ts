@@ -3,6 +3,9 @@ import "server-only"
 import { CONTACT_EMAIL, OPERATOR_STATEMENT, PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/legal/metadata"
 import { getSiteUrl } from "@/lib/site-url"
 
+import { templateContract, type EmailTemplateContent } from "./contracts"
+import { applyVariables } from "./resolve-content"
+
 import type { EmailEventKey } from "./catalogue"
 import {
   clubIdentity,
@@ -50,11 +53,72 @@ export type EmailEventData = {
   site_admin_invitation: { profileLabel: string; inviteToken: string }
   partner_club_invitation: { invitingClubName: string; invitedClubName: string; directoryId: string }
   club_claim_submitted: { clubName: string; claimantName: string; declaredRole: string; reviewPath: string }
+  club_welcome: { firstName: string; clubName: string; clubLogoUrl: string | null }
   support_ticket_reply: { reference: string; subject: string; body: string }
   referral_reward_earned: { referringClubName: string; referredClubName: string; planLabel: string; rewardValue: string }
 }
 
-type Renderer<K extends EmailEventKey> = (data: EmailEventData[K], siteUrl: string) => RenderedEmail
+/**
+ * A renderer owns an email's STRUCTURE -- which info card, whether a club
+ * crest appears, where a quoted message sits. It does not own its COPY: the
+ * subject, preheader, heading, body and button label all arrive as `content`,
+ * resolved once by lib/email/resolve-content.ts from the active Site Admin
+ * version or the registered default.
+ *
+ * That split is the whole registry: an administrator can rewrite what an email
+ * says without being able to change what it is, who gets it, or what data it
+ * can reach.
+ */
+type Renderer<K extends EmailEventKey> = (
+  data: EmailEventData[K],
+  siteUrl: string,
+  content: EmailTemplateContent
+) => RenderedEmail
+
+/**
+ * The variable map for one event, built explicitly per event from its own
+ * typed data. Nothing generic is ever handed to the interpolator -- there is
+ * no object here to walk, so there is no `{{player.date_of_birth}}` to find.
+ */
+const VARIABLE_MAPS: { [K in EmailEventKey]: (data: EmailEventData[K]) => Record<string, string> } = {
+  club_invitation: (d) => ({ club_name: d.clubName, role_label: d.roleLabel ?? "" }),
+  guardian_invitation: (d) => ({ club_name: d.clubName }),
+  player_account_invitation: (d) => ({ player_first_name: d.playerFirstName }),
+  safeguarding_officer_invitation: (d) => ({ club_name: d.clubName }),
+  safeguarding_officer_message: (d) => ({ club_name: d.clubName }),
+  site_admin_invitation: () => ({}),
+  partner_club_invitation: (d) => ({ club_name: d.invitingClubName, invited_club_name: d.invitedClubName }),
+  club_claim_submitted: (d) => ({ club_name: d.clubName }),
+  club_welcome: (d) => ({ first_name: d.firstName, club_name: d.clubName }),
+  support_ticket_reply: (d) => ({ reference: d.reference }),
+  referral_reward_earned: (d) => ({ referred_club_name: d.referredClubName }),
+}
+
+/** The event's copy with its own variables substituted. Nothing else is reachable. */
+function copyFor<K extends EmailEventKey>(
+  key: K,
+  data: EmailEventData[K],
+  content: EmailTemplateContent
+): EmailTemplateContent {
+  const values = VARIABLE_MAPS[key](data)
+  return {
+    subject: applyVariables(content.subject, values),
+    preheader: applyVariables(content.preheader, values),
+    heading: applyVariables(content.heading, values),
+    body: applyVariables(content.body, values),
+    ctaLabel: content.ctaLabel ? applyVariables(content.ctaLabel, values) : null,
+  }
+}
+
+/** Body copy is authored as paragraphs separated by blank lines. */
+function bodyParagraphs(body: string): string {
+  return body
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => paragraph(p))
+    .join("\n")
+}
 
 function link(path: string, siteUrl: string): string {
   // Built from the canonical origin, then re-checked. A template never
@@ -82,25 +146,22 @@ const TEXT_FOOTER = [
 /* Identity and invitations                                            */
 /* ------------------------------------------------------------------ */
 
-const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl) => {
+const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl, content) => {
   const url = link(`/invite/${d.inviteToken}`, siteUrl)
-  const subject = `You've been invited to join ${d.clubName} on Ovalball`
-  const preheader = `${d.clubName} has invited you to their club on Ovalball.`
+  const c = copyFor("club_invitation", d, content)
   return {
-    subject,
-    preheader,
+    subject: c.subject,
+    preheader: c.preheader,
     html: renderEmailDocument({
-      title: subject,
-      preheader,
+      title: c.subject,
+      preheader: c.preheader,
       siteUrl,
       body: [
         clubIdentity(d.clubName, d.clubLogoUrl),
-        heading(`Join ${d.clubName} on Ovalball`),
-        paragraph(
-          `${d.clubName} uses Ovalball to run fixtures, teams and matchdays. They've invited you to join them.`
-        ),
+        heading(c.heading),
+        bodyParagraphs(c.body),
         d.roleLabel ? infoCard([{ label: "Your role", value: d.roleLabel }]) : "",
-        primaryCta("Accept your invitation", url),
+        primaryCta(c.ctaLabel ?? "Accept your invitation", url),
         ctaFallback(url),
         mutedParagraph(
           "If you weren't expecting this, you can ignore this email — nothing happens until you accept."
@@ -108,11 +169,11 @@ const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl) => {
       ].join("\n"),
     }),
     text: [
-      `${d.clubName} has invited you to join them on Ovalball.`,
+      c.body,
       "",
       d.roleLabel ? `Your role: ${d.roleLabel}` : "",
       "",
-      "Accept your invitation:",
+      `${c.ctaLabel ?? "Accept your invitation"}:`,
       url,
       "",
       "If you weren't expecting this, you can ignore this email - nothing happens until you accept.",
@@ -124,24 +185,21 @@ const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl) => {
   }
 }
 
-const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl) => {
+const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl, content) => {
   const url = link(`/guardian-invite/${d.inviteToken}`, siteUrl)
-  const subject = `${d.clubName} has invited you as a parent or guardian`
-  const preheader = `Link your Ovalball account to your child's team at ${d.clubName}.`
+  const c = copyFor("guardian_invitation", d, content)
   return {
-    subject,
-    preheader,
+    subject: c.subject,
+    preheader: c.preheader,
     html: renderEmailDocument({
-      title: subject,
-      preheader,
+      title: c.subject,
+      preheader: c.preheader,
       siteUrl,
       body: [
         clubIdentity(d.clubName, d.clubLogoUrl),
-        heading("You've been invited as a parent or guardian"),
-        paragraph(
-          `${d.clubName} has invited you to be linked as a parent or guardian for ${d.teamName}. You'll be able to see fixtures and training, and respond to availability.`
-        ),
-        primaryCta("Accept and link your account", url),
+        heading(c.heading),
+        bodyParagraphs(c.body),
+        primaryCta(c.ctaLabel ?? "Accept and link your account", url),
         ctaFallback(url),
         // Deliberately no child name, no date of birth, no medical or
         // attendance detail. Those live behind a login, not in an inbox.
@@ -151,9 +209,9 @@ const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl) => {
       ].join("\n"),
     }),
     text: [
-      `${d.clubName} has invited you to be linked as a parent or guardian for ${d.teamName} on Ovalball.`,
+      c.body,
       "",
-      "Accept and link your account:",
+      `${c.ctaLabel ?? "Accept and link your account"}:`,
       url,
       "",
       "For your child's privacy, their details are only shown once you've signed in and the link is confirmed.",
@@ -163,31 +221,28 @@ const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl) => {
   }
 }
 
-const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteUrl) => {
+const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteUrl, content) => {
   const url = link(`/player-invite/${d.inviteToken}`, siteUrl)
-  const subject = "Your own Ovalball login is ready to set up"
-  const preheader = "Create your login to see your fixtures, training and availability."
+  const c = copyFor("player_account_invitation", d, content)
   return {
-    subject,
-    preheader,
+    subject: c.subject,
+    preheader: c.preheader,
     html: renderEmailDocument({
-      title: subject,
-      preheader,
+      title: c.subject,
+      preheader: c.preheader,
       siteUrl,
       body: [
-        heading(`Set up your Ovalball login, ${d.playerFirstName}`),
-        paragraph(
-          "You've been invited to create your own Ovalball login, linked to your player record. You'll see your own fixtures and training, and can respond to availability yourself."
-        ),
-        primaryCta("Create your login", url),
+        heading(c.heading),
+        bodyParagraphs(c.body),
+        primaryCta(c.ctaLabel ?? "Create your login", url),
         ctaFallback(url),
         mutedParagraph("Ovalball has no passwords — you'll sign in with a one-time link by email."),
       ].join("\n"),
     }),
     text: [
-      `${d.playerFirstName}, you've been invited to create your own Ovalball login, linked to your player record.`,
+      c.body,
       "",
-      "Create your login:",
+      `${c.ctaLabel ?? "Create your login"}:`,
       url,
       "",
       "Ovalball has no passwords - you'll sign in with a one-time link by email.",
@@ -197,10 +252,11 @@ const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteU
   }
 }
 
-const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation"> = (d, siteUrl) => {
+const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation"> = (d, siteUrl, content) => {
+  const c = copyFor("safeguarding_officer_invitation", d, content)
   const url = link(`/invite/safeguarding-officer/${d.inviteToken}`, siteUrl)
-  const subject = `${d.clubName} has named you as their Safeguarding Officer`
-  const preheader = `Accept to confirm your Safeguarding Officer role at ${d.clubName}.`
+  const subject = c.subject
+  const preheader = c.preheader
   return {
     subject,
     preheader,
@@ -210,7 +266,7 @@ const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation">
       siteUrl,
       body: [
         clubIdentity(d.clubName, d.clubLogoUrl),
-        heading("You've been named as Safeguarding Officer"),
+        heading(c.heading),
         paragraph(
           `${d.clubName} has named you as their Safeguarding Officer on Ovalball. Accepting confirms the role and lets club staff contact you through Ovalball rather than by email.`
         ),
@@ -236,9 +292,10 @@ const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation">
   }
 }
 
-const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d, siteUrl) => {
-  const subject = `Message from ${d.senderName} at ${d.clubName} (via Ovalball)`
-  const preheader = `${d.senderName} has sent you a message through Ovalball.`
+const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d, siteUrl, content) => {
+  const c = copyFor("safeguarding_officer_message", d, content)
+  const subject = c.subject
+  const preheader = c.preheader
   return {
     subject,
     preheader,
@@ -249,7 +306,7 @@ const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d,
       footerNote:
         "You received this by email because you do not yet have an active Ovalball account. Once you accept your Safeguarding Officer invitation, messages arrive in Ovalball instead.",
       body: [
-        heading(`Message from ${d.senderName}`),
+        heading(c.heading),
         mutedParagraph(`Sent on behalf of ${d.clubName} through Ovalball.`),
         quotedBody(d.body),
         divider(),
@@ -271,10 +328,11 @@ const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d,
   }
 }
 
-const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl) => {
+const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl, content) => {
+  const c = copyFor("site_admin_invitation", d, content)
   const url = link(`/invite/site-admin/${d.inviteToken}`, siteUrl)
-  const subject = "You've been invited as an Ovalball Site Administrator"
-  const preheader = `Accept to take up the ${d.profileLabel} role.`
+  const subject = c.subject
+  const preheader = c.preheader
   return {
     subject,
     preheader,
@@ -283,7 +341,7 @@ const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl) => {
       preheader,
       siteUrl,
       body: [
-        heading("You've been invited as a Site Administrator"),
+        heading(c.heading),
         paragraph(`You've been invited to become a ${d.profileLabel} on Ovalball.`),
         infoCard([{ label: "Administrator profile", value: d.profileLabel }]),
         primaryCta("Accept the invitation", url),
@@ -310,12 +368,13 @@ const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl) => {
 /* Referral -- the free-month programme, stated exactly                */
 /* ------------------------------------------------------------------ */
 
-const partnerClubInvitation: Renderer<"partner_club_invitation"> = (d, siteUrl) => {
+const partnerClubInvitation: Renderer<"partner_club_invitation"> = (d, siteUrl, content) => {
+  const c = copyFor("partner_club_invitation", d, content)
   // The canonical destination the product already uses: the signup wizard
   // pre-pointed at this directory club. Not a bespoke invite route.
   const url = link(`/signup?directory=${encodeURIComponent(d.directoryId)}`, siteUrl)
-  const subject = `${d.invitingClubName} has invited ${d.invitedClubName} to Ovalball`
-  const preheader = `${d.invitingClubName} uses Ovalball to run their rugby club.`
+  const subject = c.subject
+  const preheader = c.preheader
   return {
     subject,
     preheader,
@@ -324,7 +383,7 @@ const partnerClubInvitation: Renderer<"partner_club_invitation"> = (d, siteUrl) 
       preheader,
       siteUrl,
       body: [
-        heading(`${d.invitingClubName} has invited you to Ovalball`),
+        heading(c.heading),
         paragraph(
           `${d.invitingClubName} uses Ovalball to arrange fixtures, run teams and manage matchdays — and they've invited ${d.invitedClubName} to join them.`
         ),
@@ -349,10 +408,11 @@ const partnerClubInvitation: Renderer<"partner_club_invitation"> = (d, siteUrl) 
   }
 }
 
-const referralRewardEarned: Renderer<"referral_reward_earned"> = (d, siteUrl) => {
+const referralRewardEarned: Renderer<"referral_reward_earned"> = (d, siteUrl, content) => {
+  const c = copyFor("referral_reward_earned", d, content)
   const url = link("/club/settings/ovalball-billing", siteUrl)
-  const subject = "You've earned a free month of Ovalball"
-  const preheader = `${d.referredClubName} has paid their first subscription, so your next month is on us.`
+  const subject = c.subject
+  const preheader = c.preheader
   return {
     subject,
     preheader,
@@ -361,7 +421,7 @@ const referralRewardEarned: Renderer<"referral_reward_earned"> = (d, siteUrl) =>
       preheader,
       siteUrl,
       body: [
-        heading("You've earned a free month"),
+        heading(c.heading),
         paragraph(
           `${d.referredClubName} joined Ovalball through ${d.referringClubName} and has now paid their first subscription. That earns your club one month of your current plan, free.`
         ),
@@ -403,10 +463,11 @@ const referralRewardEarned: Renderer<"referral_reward_earned"> = (d, siteUrl) =>
 /* Operational                                                         */
 /* ------------------------------------------------------------------ */
 
-const clubClaimSubmitted: Renderer<"club_claim_submitted"> = (d, siteUrl) => {
+const clubClaimSubmitted: Renderer<"club_claim_submitted"> = (d, siteUrl, content) => {
+  const c = copyFor("club_claim_submitted", d, content)
   const url = link(d.reviewPath, siteUrl)
-  const subject = `Club claim to review: ${d.clubName}`
-  const preheader = `${d.claimantName} has claimed ${d.clubName}.`
+  const subject = c.subject
+  const preheader = c.preheader
   return {
     subject,
     preheader,
@@ -415,7 +476,7 @@ const clubClaimSubmitted: Renderer<"club_claim_submitted"> = (d, siteUrl) => {
       preheader,
       siteUrl,
       body: [
-        heading("A club claim needs review"),
+        heading(c.heading),
         infoCard([
           { label: "Club", value: d.clubName },
           { label: "Claimed by", value: d.claimantName },
@@ -441,9 +502,35 @@ const clubClaimSubmitted: Renderer<"club_claim_submitted"> = (d, siteUrl) => {
   }
 }
 
-const supportTicketReply: Renderer<"support_ticket_reply"> = (d, siteUrl) => {
-  const subject = `Re: ${d.subject} (${d.reference})`
-  const preheader = "Ovalball support has replied to your request."
+const clubWelcome: Renderer<"club_welcome"> = (d, siteUrl, content) => {
+  // The destination is generated here, from canonical routing -- an editable
+  // CTA URL would turn every welcome email into a correctly-branded,
+  // correctly-authenticated phishing vector.
+  const url = link("/dashboard", siteUrl)
+  const c = copyFor("club_welcome", d, content)
+  return {
+    subject: c.subject,
+    preheader: c.preheader,
+    html: renderEmailDocument({
+      title: c.subject,
+      preheader: c.preheader,
+      siteUrl,
+      body: [
+        clubIdentity(d.clubName, d.clubLogoUrl),
+        heading(c.heading),
+        bodyParagraphs(c.body),
+        primaryCta(c.ctaLabel ?? "Open Ovalball", url),
+        ctaFallback(url),
+      ].join("\n"),
+    }),
+    text: [c.body, "", `${c.ctaLabel ?? "Open Ovalball"}:`, url, "", SUPPORT_LINE(siteUrl)].join("\n"),
+  }
+}
+
+const supportTicketReply: Renderer<"support_ticket_reply"> = (d, siteUrl, content) => {
+  const c = copyFor("support_ticket_reply", d, content)
+  const subject = c.subject
+  const preheader = c.preheader
   return {
     subject,
     preheader,
@@ -453,12 +540,12 @@ const supportTicketReply: Renderer<"support_ticket_reply"> = (d, siteUrl) => {
       siteUrl,
       footerNote: `Quote ${d.reference} if you reply.`,
       body: [
-        heading("Ovalball support has replied"),
+        heading(c.heading),
         infoCard([
           { label: "Reference", value: d.reference },
           { label: "Subject", value: d.subject },
         ]),
-        subheading("Reply"),
+        subheading(c.heading),
         quotedBody(d.body),
       ].join("\n"),
     }),
@@ -486,6 +573,7 @@ const RENDERERS = {
   site_admin_invitation: siteAdminInvitation,
   partner_club_invitation: partnerClubInvitation,
   club_claim_submitted: clubClaimSubmitted,
+  club_welcome: clubWelcome,
   support_ticket_reply: supportTicketReply,
   referral_reward_earned: referralRewardEarned,
 } as const
@@ -493,10 +581,14 @@ const RENDERERS = {
 export function renderEmail<K extends EmailEventKey>(
   eventKey: K,
   data: EmailEventData[K],
-  siteUrl: string = getSiteUrl()
+  siteUrl: string = getSiteUrl(),
+  content?: EmailTemplateContent
 ): RenderedEmail {
   const renderer = RENDERERS[eventKey] as Renderer<K>
-  const rendered = renderer(data, siteUrl)
+  // Defaulting to the registered content keeps this callable synchronously --
+  // by tests, by the preview fixtures, and by anything that has not resolved a
+  // Site Admin override. Production passes the resolved content explicitly.
+  const rendered = renderer(data, siteUrl, content ?? templateContract(eventKey).default)
 
   // The plain-text brand footer is appended HERE, not in each template.
   //

@@ -95,6 +95,16 @@ export const PREVIEW_FIXTURES: { [K in EmailEventKey]: Array<{ label: string; da
       },
     },
   ],
+  club_welcome: [
+    {
+      label: "Typical",
+      data: { firstName: "Callum", clubName: "Solihull Rugby Club", clubLogoUrl: null },
+    },
+    {
+      label: "Long club name",
+      data: { firstName: "Callum", clubName: LONG_CLUB, clubLogoUrl: null },
+    },
+  ],
   club_claim_submitted: [
     {
       label: "Typical",

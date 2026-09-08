@@ -43,6 +43,8 @@ export type RecipientKind =
   | "support_ticket"
   | "partner_invitation"
   | "club_billing_contact"
+  /** The person whose club claim was approved, read from the claim row. */
+  | "club_claimant"
 
 export interface EmailEventDefinition {
   classification: EmailClassification
@@ -102,6 +104,16 @@ export const EMAIL_EVENTS = {
     topicKey: "access_invitations",
     recipientKind: "site_admin_inbox",
     description: "A club claim needs Site Admin review.",
+  },
+  club_welcome: {
+    // The claimant asked for this club and a Site Admin has just approved it,
+    // so this is the operational confirmation that the thing they applied for
+    // now exists. Suppressing it would leave somebody who has been granted a
+    // club with no notification that they have one.
+    classification: "MANDATORY_OPERATIONAL",
+    topicKey: "access_invitations",
+    recipientKind: "club_claimant",
+    description: "A club claim was approved, so the club is now live and its claimant is told.",
   },
   support_ticket_reply: {
     classification: "MANDATORY_OPERATIONAL",
