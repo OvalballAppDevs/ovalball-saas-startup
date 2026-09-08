@@ -17,7 +17,7 @@ export function TeamSwitcher({ options, activeTeamId }: { options: RugbyHubTeamO
           name="teamId"
           defaultValue={activeTeamId ?? undefined}
           onChange={() => formRef.current?.requestSubmit()}
-          className="w-full rounded-md border border-ink/15 bg-white px-2.5 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 sm:max-w-xs"
+          className="h-11 w-full rounded-md border border-ink/15 bg-white px-2.5 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 sm:h-auto sm:max-w-xs"
         >
           {options.map((t) => (
             <option key={t.teamId} value={t.teamId}>

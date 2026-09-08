@@ -69,9 +69,9 @@ export function StaffPanel({ fixtureId, meetTime, kickoffTime }: { fixtureId: st
               setValue(e.target.value)
               setSaved(false)
             }}
-            className="w-36"
+            className="h-11 w-36"
           />
-          <Button type="button" className="h-9" disabled={busy || !kickoffTime} onClick={() => void save(value || null)}>
+          <Button type="button" className="h-11" disabled={busy || !kickoffTime} onClick={() => void save(value || null)}>
             {busy ? "Saving…" : "Save"}
           </Button>
           {meetTime && (

@@ -41,9 +41,9 @@ export function PhoneNumberForm({ initialPhone }: { initialPhone: string | null 
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="e.g. 07700 900123"
-          className="h-10 w-56 border-ink/15 bg-white"
+          className="h-11 w-56 border-ink/15 bg-white sm:h-10"
         />
-        <Button type="button" className="h-10" disabled={status === "saving"} onClick={handleSave}>
+        <Button type="button" className="h-11 sm:h-10" disabled={status === "saving"} onClick={handleSave}>
           {status === "saving" ? "Saving…" : "Save"}
         </Button>
         {status === "saved" && <span className="text-sm text-forest-800">Saved.</span>}

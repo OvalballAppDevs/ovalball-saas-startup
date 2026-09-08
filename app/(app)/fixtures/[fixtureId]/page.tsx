@@ -92,7 +92,7 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
           compose row's Send button sits directly underneath the widget at
           narrow viewports (confirmed overlapping via getBoundingClientRect
           during UAT), an inaccessible, unclickable control. */}
-      <Link href="/fixtures" className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
+      <Link href="/fixtures" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
         <ArrowLeft className="size-3.5" /> Fixtures
       </Link>
 

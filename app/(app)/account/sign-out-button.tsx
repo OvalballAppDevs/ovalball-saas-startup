@@ -12,7 +12,7 @@ export function SignOutButton() {
     <Button
       type="button"
       variant="outline"
-      className="h-10"
+      className="h-11 sm:h-10"
       disabled={signingOut}
       onClick={() => {
         setSigningOut(true)

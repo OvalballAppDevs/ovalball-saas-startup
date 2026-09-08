@@ -68,7 +68,7 @@ export function AgendaFilterSheet({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setOpen(true)}>
+      <Button type="button" variant="outline" size="sm" className="h-11 gap-1.5 sm:h-8" onClick={() => setOpen(true)}>
         <SlidersHorizontal className="size-3.5" />
         Filter
         {activeCount > 0 && (

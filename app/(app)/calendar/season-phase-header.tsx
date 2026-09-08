@@ -41,7 +41,7 @@ export function SeasonPhaseHeader({
           href={prevSeason ? `${basePath}${qs({ ...baseParams, season: prevSeason.id, phase: null, week: null, month: null })}` : "#"}
           aria-disabled={!prevSeason}
           className={cn(
-            "flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-pitch-400",
+            "flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 sm:size-7",
             selectedPhase === "pre" ? "text-white/60 hover:bg-white/10" : "text-ink-muted hover:bg-ink/5",
             !prevSeason && "pointer-events-none opacity-30"
           )}
@@ -54,7 +54,7 @@ export function SeasonPhaseHeader({
           href={nextSeason ? `${basePath}${qs({ ...baseParams, season: nextSeason.id, phase: null, week: null, month: null })}` : "#"}
           aria-disabled={!nextSeason}
           className={cn(
-            "flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-pitch-400",
+            "flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 sm:size-7",
             selectedPhase === "pre" ? "text-white/60 hover:bg-white/10" : "text-ink-muted hover:bg-ink/5",
             !nextSeason && "pointer-events-none opacity-30"
           )}
@@ -69,7 +69,7 @@ export function SeasonPhaseHeader({
           <Link
             href={`${basePath}${qs({ ...baseParams, season: selectedSeason.id, phase: "pre", week: null, month: null })}`}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "inline-flex min-h-11 items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
               selectedPhase === "pre" ? "bg-white text-forest-950" : "text-ink/60 hover:bg-ink/5"
             )}
           >
@@ -79,7 +79,7 @@ export function SeasonPhaseHeader({
         <Link
           href={`${basePath}${qs({ ...baseParams, season: selectedSeason.id, phase: "main", week: null, month: null })}`}
           className={cn(
-            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            "inline-flex min-h-11 items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
             selectedPhase === "main" ? "bg-forest-950 text-white" : selectedPhase === "pre" ? "text-white/70 hover:bg-white/10" : "text-ink/60 hover:bg-ink/5"
           )}
         >

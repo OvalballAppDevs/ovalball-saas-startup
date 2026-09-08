@@ -56,7 +56,9 @@ export function FilterSheet({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setOpen(true)}>
+      {/* h-11 on a phone: this is the only way to reach every calendar filter,
+          and 32px is below the target size the rest of the product holds to. */}
+      <Button type="button" variant="outline" size="sm" className="h-11 gap-1.5 sm:h-8" onClick={() => setOpen(true)}>
         <SlidersHorizontal className="size-3.5" />
         Filter
         {activeCount > 0 && (

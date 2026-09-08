@@ -27,10 +27,10 @@ export default async function RugbyHubLayout({ children }: { children: React.Rea
     <main className="min-h-screen bg-chalk">
       <div className="border-b border-ink/8 px-4 py-5 md:px-8">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <Link href="/dashboard" className="w-fit font-display text-lg text-ink">
+          <Link href="/dashboard" className="inline-flex min-h-11 w-fit items-center font-display text-lg text-ink">
             Ovalball
           </Link>
-          <Link href="/rugby-hub" className="text-sm font-medium text-forest-800 outline-none focus-visible:ring-2 focus-visible:ring-pitch-400">
+          <Link href="/rugby-hub" className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 outline-none focus-visible:ring-2 focus-visible:ring-pitch-400">
             Rugby Hub
           </Link>
         </div>

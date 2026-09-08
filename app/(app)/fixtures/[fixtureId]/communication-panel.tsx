@@ -113,15 +113,15 @@ function ReminderRow({ fixtureId, outstandingCount }: { fixtureId: string; outst
         {outstandingCount > 0 &&
           (confirming ? (
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" className="h-9" disabled={busy} onClick={() => void send()}>
+              <Button type="button" className="h-11" disabled={busy} onClick={() => void send()}>
                 {busy ? "Sending…" : `Send to ${outstandingCount}`}
               </Button>
-              <Button type="button" variant="ghost" className="h-9" disabled={busy} onClick={() => setConfirming(false)}>
+              <Button type="button" variant="ghost" className="h-11" disabled={busy} onClick={() => setConfirming(false)}>
                 Cancel
               </Button>
             </div>
           ) : (
-            <Button type="button" variant="outline" className="h-9" onClick={() => setConfirming(true)}>
+            <Button type="button" variant="outline" className="h-11" onClick={() => setConfirming(true)}>
               Send reminder
             </Button>
           ))}
@@ -193,7 +193,7 @@ function ComposerRow({
           <Button
             type="button"
             variant="outline"
-            className="h-9"
+            className="h-11"
             onClick={() => {
               setOpen(true)
               setStatus({ kind: "idle" })
@@ -234,7 +234,7 @@ function ComposerRow({
               <Send className="size-3.5" aria-hidden="true" />
               {busy ? "Sending…" : "Send message"}
             </Button>
-            <Button type="button" variant="ghost" className="h-9" disabled={busy} onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" className="h-11" disabled={busy} onClick={() => setOpen(false)}>
               Cancel
             </Button>
           </div>

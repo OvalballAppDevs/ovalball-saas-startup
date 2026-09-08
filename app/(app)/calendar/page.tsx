@@ -749,13 +749,13 @@ export default async function CalendarPage({
         <div className="flex items-center gap-1 rounded-lg border border-ink/10 bg-white p-1">
           <Link
             href={`/calendar${qs({ ...baseParams, view: null })}`}
-            className={cn("rounded-md px-3 py-1.5 text-sm font-medium transition-colors", view === "week" ? "bg-forest-950 text-white" : "text-ink/60 hover:bg-ink/5")}
+            className={cn("inline-flex min-h-11 items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:min-h-0", view === "week" ? "bg-forest-950 text-white" : "text-ink/60 hover:bg-ink/5")}
           >
             Week
           </Link>
           <Link
             href={`/calendar${qs({ ...baseParams, view: "month" })}`}
-            className={cn("rounded-md px-3 py-1.5 text-sm font-medium transition-colors", view === "month" ? "bg-forest-950 text-white" : "text-ink/60 hover:bg-ink/5")}
+            className={cn("inline-flex min-h-11 items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:min-h-0", view === "month" ? "bg-forest-950 text-white" : "text-ink/60 hover:bg-ink/5")}
           >
             Month
           </Link>
@@ -775,11 +775,11 @@ export default async function CalendarPage({
             venueOptions={venueOptionsForFilter}
             showFamilyFilters={familyFacing}
           />
-          <Link href="/calendar/agenda" className="text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink">
+          <Link href="/calendar/agenda" className="inline-flex min-h-11 items-center text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink">
             Agenda
           </Link>
           {canManagePitchAllocation && (
-            <Link href="/calendar/pitch-allocation" className="text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink">
+            <Link href="/calendar/pitch-allocation" className="inline-flex min-h-11 items-center text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink">
               Pitch Allocation
             </Link>
           )}
@@ -794,7 +794,7 @@ export default async function CalendarPage({
             aria-disabled={!canGoPrev}
             tabIndex={canGoPrev ? undefined : -1}
             className={cn(
-              "flex size-8 items-center justify-center rounded-md border border-ink/15 text-ink/60 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400",
+              "flex size-11 items-center justify-center rounded-md border border-ink/15 text-ink/60 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400 sm:size-8",
               !canGoPrev && "pointer-events-none opacity-30"
             )}
             aria-label={view === "week" ? "Previous week" : "Previous month"}
@@ -807,7 +807,7 @@ export default async function CalendarPage({
             aria-disabled={!canGoNext}
             tabIndex={canGoNext ? undefined : -1}
             className={cn(
-              "flex size-8 items-center justify-center rounded-md border border-ink/15 text-ink/60 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400",
+              "flex size-11 items-center justify-center rounded-md border border-ink/15 text-ink/60 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400 sm:size-8",
               !canGoNext && "pointer-events-none opacity-30"
             )}
             aria-label={view === "week" ? "Next week" : "Next month"}
@@ -816,7 +816,7 @@ export default async function CalendarPage({
           </Link>
         </div>
         {(weekParam || (monthParam && monthParam !== currentMonthYm)) && (
-          <Link href={`/calendar${qs({ ...baseParams })}`} className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+          <Link href={`/calendar${qs({ ...baseParams })}`} className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
             Back to today
           </Link>
         )}

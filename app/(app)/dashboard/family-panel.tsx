@@ -75,7 +75,7 @@ export async function FamilyPanel({
         <h2 id="family-panel-heading" className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
           {isAllChildren ? "Your children" : "Coming up"}
         </h2>
-        <Link href="/agenda" className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+        <Link href="/agenda" className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
           All fixtures
         </Link>
       </div>
@@ -160,18 +160,21 @@ export async function FamilyPanel({
                     </dl>
                   )}
 
-                  <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                    <Link href="/agenda" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                  {/* min-h-11 on each: these are the card's primary way into Fixtures,
+                      Calendar, Rugby Hub and Match Centre on a phone, and 20px of
+                      underlined text is not a target. */}
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 text-sm">
+                    <Link href="/agenda" className="inline-flex min-h-11 items-center font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
                       Fixtures
                     </Link>
-                    <Link href="/calendar" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                    <Link href="/calendar" className="inline-flex min-h-11 items-center font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
                       Calendar
                     </Link>
-                    <Link href="/rugby-hub" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                    <Link href="/rugby-hub" className="inline-flex min-h-11 items-center font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
                       Rugby Hub
                     </Link>
                     {nextFixture?.href && (
-                      <Link href={nextFixture.href} className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                      <Link href={nextFixture.href} className="inline-flex min-h-11 items-center font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
                         Match Centre
                       </Link>
                     )}

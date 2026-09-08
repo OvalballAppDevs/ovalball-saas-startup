@@ -37,7 +37,7 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
           Check <span className="font-medium">{newEmail}</span> for a confirmation link. Your sign-in email won&rsquo;t change until you confirm it.
         </p>
       ) : !editing ? (
-        <Button type="button" variant="outline" className="mt-3 h-9" onClick={() => setEditing(true)}>
+        <Button type="button" variant="outline" className="mt-3 h-11 sm:h-9" onClick={() => setEditing(true)}>
           Change email
         </Button>
       ) : (
@@ -52,12 +52,12 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
               placeholder="you@example.com"
-              className="h-10 w-64 border-ink/15 bg-white"
+              className="h-11 w-64 border-ink/15 bg-white sm:h-10"
             />
-            <Button type="button" className="h-10" disabled={status === "sending" || !newEmail.trim()} onClick={handleSubmit}>
+            <Button type="button" className="h-11 sm:h-10" disabled={status === "sending" || !newEmail.trim()} onClick={handleSubmit}>
               {status === "sending" ? "Sending…" : "Send confirmation"}
             </Button>
-            <Button type="button" variant="ghost" className="h-10" onClick={() => setEditing(false)}>
+            <Button type="button" variant="ghost" className="h-11 sm:h-10" onClick={() => setEditing(false)}>
               Cancel
             </Button>
           </div>

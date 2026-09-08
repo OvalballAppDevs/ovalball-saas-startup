@@ -58,11 +58,11 @@ export function AvatarForm({ initialUrl, name }: { initialUrl: string | null; na
       </button>
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" className="h-9" disabled={working} onClick={() => fileInputRef.current?.click()}>
+          <Button type="button" variant="outline" className="h-11 sm:h-9" disabled={working} onClick={() => fileInputRef.current?.click()}>
             {avatarUrl ? "Replace photo" : "Upload photo"}
           </Button>
           {avatarUrl && (
-            <Button type="button" variant="ghost" className="h-9" disabled={working} onClick={handleRemove}>
+            <Button type="button" variant="ghost" className="h-11 sm:h-9" disabled={working} onClick={handleRemove}>
               Remove
             </Button>
           )}
