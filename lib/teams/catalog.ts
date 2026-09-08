@@ -142,10 +142,10 @@ function signupLabelForRow(
   })
 }
 
-function rowToOption(row: CanonicalTeamTypeRow, offeredForCodes: RugbyCode[]): TeamCategoryOption {
+function rowToOption(row: CanonicalTeamTypeRow, offeredForCodes: RugbyCode[], rugbyCode?: RugbyCode): TeamCategoryOption {
   return {
     key: row.key,
-    label: signupLabelForRow(row),
+    label: signupLabelForRow(row, rugbyCode),
     compactLabel: row.label,
     category: row.category as TeamCategoryOption["category"],
     ageGroup: row.age_group,
@@ -183,7 +183,14 @@ export function filterGroupsForCode(groups: TeamCategoryGroup[], rugbyCode: Rugb
  * category/gender, never a hardcoded per-row list, so a new row lands in
  * the right bucket automatically.
  */
-export function buildTeamCategoryGroups(rows: CanonicalTeamTypeRow[], offeredByKey?: Map<string, RugbyCode[]>): TeamCategoryGroup[] {
+export function buildTeamCategoryGroups(
+  rows: CanonicalTeamTypeRow[],
+  offeredByKey?: Map<string, RugbyCode[]>,
+  // Senior naming differs by code -- union numbers its sides, league runs Open
+  // Age -- so a catalogue built without a code names a league club's senior
+  // side "Men's 1st Team". The code is threaded through rather than guessed.
+  rugbyCode?: RugbyCode
+): TeamCategoryGroup[] {
   const byGroup = new Map<string, TeamCategoryOption[]>()
   for (const row of [...rows].sort((a, b) => a.sort_order - b.sort_order)) {
     const groupLabel = groupLabelForRow(row)
@@ -191,7 +198,7 @@ export function buildTeamCategoryGroups(rows: CanonicalTeamTypeRow[], offeredByK
     // Positive default when availability is unknown: offered for both codes.
     // A missing entry must never be read as "withheld" -- silence narrowing
     // availability is the exact failure this whole design exists to prevent.
-    existing.push(rowToOption(row, offeredByKey?.get(row.key) ?? [...RUGBY_CODES]))
+    existing.push(rowToOption(row, offeredByKey?.get(row.key) ?? [...RUGBY_CODES], rugbyCode))
     byGroup.set(groupLabel, existing)
   }
   const orderedLabels = [...GROUP_ORDER, ...Array.from(byGroup.keys()).filter((l) => !GROUP_ORDER.includes(l))]
@@ -257,7 +264,7 @@ export async function loadTeamCategoryGroups(
     offeredByKey.set(row.key, existing)
   }
 
-  const groups = buildTeamCategoryGroups(data, availability && availability.length > 0 ? offeredByKey : undefined)
+  const groups = buildTeamCategoryGroups(data, availability && availability.length > 0 ? offeredByKey : undefined, options?.rugbyCode)
   return options?.rugbyCode && !options.includeInactive ? filterGroupsForCode(groups, options.rugbyCode) : groups
 }
 
