@@ -63,7 +63,7 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_stranger::text,'role','authenticated')::text, true);
   begin
-    perform public.add_child_for_guardian('Nobody','Child','2015-01-01', v_club, 'union');
+    perform public.add_child_for_guardian('Nobody','Child','2015-01-01', v_club, 'union', 'MALE');
     raise exception 'FAIL 1 (A): an unrelated account added a child to a club it has nothing to do with';
   exception when insufficient_privilege then
     get stacked diagnostics v_msg = message_text;
@@ -86,21 +86,21 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_parent::text,'role','authenticated')::text, true);
 
-  select * into v_r from public.add_child_for_guardian('Firstborn','Acfamily','2015-02-02', v_club, 'union');
+  select * into v_r from public.add_child_for_guardian('Firstborn','Acfamily','2015-02-02', v_club, 'union', 'MALE');
   if v_r.player_id is not null then
     raise notice 'PASS 2 (B): the FIRST child is created (result=%)', v_r.result;
   else
     raise exception 'FAIL 2 (B): the first child produced no player';
   end if;
 
-  select * into v_r from public.add_child_for_guardian('Secondborn','Acfamily','2016-03-03', v_club, 'union');
+  select * into v_r from public.add_child_for_guardian('Secondborn','Acfamily','2016-03-03', v_club, 'union', 'MALE');
   if v_r.player_id is not null then
     raise notice 'PASS 3 (B): the SECOND child is created (result=%)', v_r.result;
   else
     raise exception 'FAIL 3 (B): the second child produced no player';
   end if;
 
-  select * into v_r from public.add_child_for_guardian('Thirdborn','Acfamily','2017-04-04', v_club, 'union');
+  select * into v_r from public.add_child_for_guardian('Thirdborn','Acfamily','2017-04-04', v_club, 'union', 'MALE');
   if v_r.player_id is not null then
     raise notice 'PASS 4 (B): the THIRD child is created (result=%) -- no index-0 special case', v_r.result;
   else
@@ -135,7 +135,7 @@ begin
   -- =================================================================
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_parent::text,'role','authenticated')::text, true);
-  select * into v_r from public.add_child_for_guardian('Firstborn','Acfamily','2015-02-02', v_club, 'union');
+  select * into v_r from public.add_child_for_guardian('Firstborn','Acfamily','2015-02-02', v_club, 'union', 'MALE');
   reset role;
 
   select count(*) into v_count from public.players

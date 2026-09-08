@@ -65,8 +65,8 @@ insert into public.teams (club_id, rugby_code, category, age_group, gender, disp
 values (v_other_club,'union','youth','U16','boys','x','ppf16') returning id into v_foreign;
 
 -- A player whose regulatory age next season is U16, currently in the U15 B squad.
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Thomas','Thompson', date '2012-01-15', true) returning id into v_player;
+insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
+values ('Thomas','Thompson', date '2012-01-15', 'MALE', true) returning id into v_player;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_u15b,'active');
 
 perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);

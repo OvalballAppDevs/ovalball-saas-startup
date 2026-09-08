@@ -47,7 +47,7 @@ begin
   -- ---------- 1. a stranger cannot add a child at a club ----------
   perform set_config('request.jwt.claims', json_build_object('sub', v_stranger, 'role','authenticated')::text, true);
   begin
-    perform public.add_child_for_guardian('Strange', 'Child', (current_date - interval '11 years')::date, v_club_a, 'union');
+    perform public.add_child_for_guardian('Strange', 'Child', (current_date - interval '11 years')::date, v_club_a, 'union', 'MALE');
     raise notice 'FAIL 1: a stranger added a child at a club they have no relationship with';
   exception when others then
     get stacked diagnostics v_err = MESSAGE_TEXT;
@@ -64,7 +64,7 @@ begin
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_invited, 'role','authenticated')::text, true);
   begin
-    perform public.add_child_for_guardian('Invited', 'Child', (current_date - interval '11 years')::date, v_club_a, 'union');
+    perform public.add_child_for_guardian('Invited', 'Child', (current_date - interval '11 years')::date, v_club_a, 'union', 'MALE');
     raise notice 'PASS 2: an invited guardian can add a child at the inviting club';
   exception when others then
     get stacked diagnostics v_err = MESSAGE_TEXT;
@@ -73,7 +73,7 @@ begin
 
   -- ---------- 3. that invitation does NOT unlock a different club ----------
   begin
-    perform public.add_child_for_guardian('Wrong', 'Club', (current_date - interval '11 years')::date, v_club_b, 'union');
+    perform public.add_child_for_guardian('Wrong', 'Club', (current_date - interval '11 years')::date, v_club_b, 'union', 'MALE');
     raise notice 'FAIL 3: an invitation to club A let a guardian add a child at club B';
   exception when others then
     get stacked diagnostics v_err = MESSAGE_TEXT;
@@ -94,7 +94,7 @@ begin
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_existing, 'role','authenticated')::text, true);
   begin
-    perform public.add_child_for_guardian('Second', 'Child', (current_date - interval '9 years')::date, v_club_a, 'union');
+    perform public.add_child_for_guardian('Second', 'Child', (current_date - interval '9 years')::date, v_club_a, 'union', 'MALE');
     raise notice 'PASS 4: an existing guardian at the club can still add another child';
   exception when others then
     get stacked diagnostics v_err = MESSAGE_TEXT;

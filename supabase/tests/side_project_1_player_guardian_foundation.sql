@@ -39,7 +39,7 @@ set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000091","r
 do $$
 declare v_result record;
 begin
-  select * into v_result from public.add_child_for_guardian('Regress', 'Childone', '2018-01-01', '9f200000-0000-0000-0000-000000000001', 'union');
+  select * into v_result from public.add_child_for_guardian('Regress', 'Childone', '2018-01-01', '9f200000-0000-0000-0000-000000000001', 'union', 'MALE');
   if v_result.result = 'created_pending_team' and v_result.age_grade = 'U9' and v_result.team_id = '9f200000-0000-0000-0000-000000000002' then
     raise notice 'PASS A: add_child_for_guardian resolved U9 and created a pending membership on the single matching team';
   else
@@ -72,7 +72,7 @@ do $$
 declare v_result record;
 declare v_review_count int;
 begin
-  select * into v_result from public.add_child_for_guardian('Regress', 'Childone', '2018-01-01', '9f200000-0000-0000-0000-000000000001', 'union');
+  select * into v_result from public.add_child_for_guardian('Regress', 'Childone', '2018-01-01', '9f200000-0000-0000-0000-000000000001', 'union', 'MALE');
   select count(*) into v_review_count from public.player_duplicate_reviews where submitted_first_name = 'Regress' and submitted_surname = 'Childone' and requesting_guardian_user_id = '00000000-0000-0000-0000-000000000092';
   if v_result.result = 'under_review' and v_review_count = 1 then
     raise notice 'PASS C: a genuine name+DOB match from a different guardian is routed to duplicate review, never auto-linked or auto-duplicated';

@@ -10510,6 +10510,7 @@ export type Database = {
           date_of_birth: string | null
           first_name: string
           id: string
+          playing_pathway: string | null
           surname: string
           updated_at: string
           updated_by: string | null
@@ -10523,6 +10524,7 @@ export type Database = {
           date_of_birth?: string | null
           first_name: string
           id?: string
+          playing_pathway?: string | null
           surname: string
           updated_at?: string
           updated_by?: string | null
@@ -10536,6 +10538,7 @@ export type Database = {
           date_of_birth?: string | null
           first_name?: string
           id?: string
+          playing_pathway?: string | null
           surname?: string
           updated_at?: string
           updated_by?: string | null
@@ -15197,22 +15200,40 @@ export type Database = {
         Args: { p_token: string }
         Returns: undefined
       }
-      add_child_for_guardian: {
-        Args: {
-          p_club_id: string
-          p_date_of_birth: string
-          p_first_name: string
-          p_rugby_code: string
-          p_surname: string
-        }
-        Returns: {
-          age_grade: string
-          player_id: string
-          result: string
-          school_year: number
-          team_id: string
-        }[]
-      }
+      add_child_for_guardian:
+        | {
+            Args: {
+              p_club_id: string
+              p_date_of_birth: string
+              p_first_name: string
+              p_rugby_code: string
+              p_surname: string
+            }
+            Returns: {
+              age_grade: string
+              player_id: string
+              result: string
+              school_year: number
+              team_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_club_id: string
+              p_date_of_birth: string
+              p_first_name: string
+              p_playing_pathway?: string
+              p_rugby_code: string
+              p_surname: string
+            }
+            Returns: {
+              age_grade: string
+              player_id: string
+              result: string
+              school_year: number
+              team_id: string
+            }[]
+          }
       add_content_section: {
         Args: {
           p_content_set_id: string
@@ -17307,7 +17328,7 @@ export type Database = {
       resolve_normal_operational_identity: {
         Args: {
           p_date_of_birth: string
-          p_gender: string
+          p_playing_pathway: string
           p_rugby_code: string
           p_season_id: string
         }

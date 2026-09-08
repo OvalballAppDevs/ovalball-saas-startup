@@ -15,13 +15,26 @@ export type AddChildResult =
  * The Parent-initiated self-service entry point. Every value that matters
  * (age grade, duplicate detection, team routing) is resolved server-side
  * inside add_child_for_guardian -- this action only ever forwards the raw
- * name/DOB/club/rugby_code the Parent typed and returns whatever the RPC
+ * name/DOB/club/rugby_code/pathway the Parent gave and returns whatever the RPC
  * decided, never calculating anything itself.
+ *
+ * The playing pathway is required by the server, not by the form: it is what
+ * lets Ovalball work out a child's age grade once the boys' and girls'
+ * pathways separate at U12, without ever inferring it from the team they
+ * happen to have joined.
  */
-export async function addChild(firstName: string, surname: string, dateOfBirth: string, clubId: string, rugbyCode: string): Promise<AddChildResult> {
+export async function addChild(
+  firstName: string,
+  surname: string,
+  dateOfBirth: string,
+  clubId: string,
+  rugbyCode: string,
+  /** MALE or FEMALE -- the governing-body pathway, validated server-side. */
+  playingPathway: string
+): Promise<AddChildResult> {
   const supabase = await createClient()
   const { data, error } = await supabase
-    .rpc("add_child_for_guardian", { p_first_name: firstName, p_surname: surname, p_date_of_birth: dateOfBirth, p_club_id: clubId, p_rugby_code: rugbyCode })
+    .rpc("add_child_for_guardian", { p_first_name: firstName, p_surname: surname, p_date_of_birth: dateOfBirth, p_club_id: clubId, p_rugby_code: rugbyCode, p_playing_pathway: playingPathway })
     .single()
   if (error || !data) {
     if (error) console.error("add_child_for_guardian failed:", error)

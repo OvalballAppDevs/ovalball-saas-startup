@@ -59,13 +59,13 @@ insert into public.team_permissions (membership_id, team_id, permission) values 
 
 -- An over-age player in U15: next season his age grade is U17, and this club
 -- runs no U17 at all.
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Over','Age', date '2011-01-15', true) returning id into v_old_player;
+insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
+values ('Over','Age', date '2011-01-15', 'MALE', true) returning id into v_old_player;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_old_player, v_u15,'active');
 
 -- An ordinary player in the B squad.
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Bee','Squad', date '2012-01-15', true) returning id into v_b_player;
+insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
+values ('Bee','Squad', date '2012-01-15', 'MALE', true) returning id into v_b_player;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_b_player, v_u15b,'active');
 
 perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);

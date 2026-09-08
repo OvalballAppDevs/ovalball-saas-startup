@@ -81,6 +81,7 @@ SUITES=(
   season_source_of_truth
   rollover_player_placement
   handover_successor_teams
+  player_playing_pathway
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

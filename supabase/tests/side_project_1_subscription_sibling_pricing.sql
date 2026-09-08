@@ -46,8 +46,8 @@ set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000094","r
 do $$
 declare v_r1 record; v_r2 record;
 begin
-  select * into v_r1 from public.add_child_for_guardian('SubTest', 'ChildOne', '2018-01-01', '9f300000-0000-0000-0000-000000000001', 'union');
-  select * into v_r2 from public.add_child_for_guardian('SubTest', 'ChildTwo', '2020-01-01', '9f300000-0000-0000-0000-000000000001', 'union');
+  select * into v_r1 from public.add_child_for_guardian('SubTest', 'ChildOne', '2018-01-01', '9f300000-0000-0000-0000-000000000001', 'union', 'MALE');
+  select * into v_r2 from public.add_child_for_guardian('SubTest', 'ChildTwo', '2020-01-01', '9f300000-0000-0000-0000-000000000001', 'union', 'MALE');
   if v_r1.result = 'created_pending_team' and v_r2.result = 'created_pending_team' then
     raise notice 'PASS A: both children created with a pending team membership on their single matching team';
   else

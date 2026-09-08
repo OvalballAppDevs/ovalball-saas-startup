@@ -95,21 +95,21 @@ end if;
 -- ============ D. Union girls dual age bands ============
 
 select canonical_key, allocation_status into v_key, v_status
-from public.resolve_normal_operational_identity('union', v_union, date '2013-09-01', 'girls');
+from public.resolve_normal_operational_identity('union', v_union, date '2013-09-01', 'FEMALE');
 if v_key = 'girls_u14' and v_status = 'NORMAL_PLACEMENT' then
   raise notice 'PASS 7 (D): a regulatory U13 union girl maps to the Girls U14 band, as a NORMAL placement';
 else
   raise notice 'FAIL 7 (D): union U13 girl mapped to % (%)', coalesce(v_key,'nothing'), v_status;
 end if;
 
-select canonical_key into v_key from public.resolve_normal_operational_identity('union', v_union, date '2011-09-01', 'girls');
+select canonical_key into v_key from public.resolve_normal_operational_identity('union', v_union, date '2011-09-01', 'FEMALE');
 if v_key = 'girls_u16' then
   raise notice 'PASS 8 (D): a regulatory U15 union girl maps to the Girls U16 band';
 else
   raise notice 'FAIL 8 (D): union U15 girl mapped to %', coalesce(v_key,'nothing');
 end if;
 
-select canonical_key into v_key from public.resolve_normal_operational_identity('union', v_union, date '2009-09-01', 'girls');
+select canonical_key into v_key from public.resolve_normal_operational_identity('union', v_union, date '2009-09-01', 'FEMALE');
 if v_key = 'girls_u18' then
   raise notice 'PASS 9 (D): a regulatory U17 union girl maps to the Girls U18 band';
 else
@@ -129,7 +129,7 @@ end if;
 -- ============ E. League girls: age exists, team does not ============
 
 select canonical_key, allocation_status into v_key, v_status
-from public.resolve_normal_operational_identity('league', v_league, date '2009-09-01', 'girls');
+from public.resolve_normal_operational_identity('league', v_league, date '2009-09-01', 'FEMALE');
 if v_key = 'girls_u16' and v_status = 'NORMAL_PLACEMENT' then
   raise notice 'PASS 11 (E): League Girls U16 EXISTS and resolves as a normal placement';
 else
@@ -137,7 +137,7 @@ else
 end if;
 
 select regulatory_age_label, canonical_key, allocation_status into v_text, v_key, v_status
-from public.resolve_normal_operational_identity('league', v_league, date '2008-09-01', 'girls');
+from public.resolve_normal_operational_identity('league', v_league, date '2008-09-01', 'FEMALE');
 if v_text = 'U17' and v_key is null and v_status = 'NEEDS_ATTENTION' then
   raise notice 'PASS 12 (E): a regulatory U17 league girl has NO operational team -- NEEDS_ATTENTION, nothing invented';
 else
@@ -145,7 +145,7 @@ else
 end if;
 
 -- Specifically: not silently converted to U18, and no U17 identity created.
-if (select canonical_key from public.resolve_normal_operational_identity('league', v_league, date '2008-09-01', 'girls')) is distinct from 'girls_u18' then
+if (select canonical_key from public.resolve_normal_operational_identity('league', v_league, date '2008-09-01', 'FEMALE')) is distinct from 'girls_u18' then
   raise notice 'PASS 13 (E): the U17 league girl was NOT silently placed into Girls U18';
 else
   raise notice 'FAIL 13 (E): a U17 league girl was silently converted to Girls U18';
@@ -158,7 +158,7 @@ else
 end if;
 
 -- A league BOY of the same age does have a team, which is the whole contrast.
-select canonical_key into v_key from public.resolve_normal_operational_identity('league', v_league, date '2008-09-01', 'boys');
+select canonical_key into v_key from public.resolve_normal_operational_identity('league', v_league, date '2008-09-01', 'MALE');
 if v_key = 'u17' then
   raise notice 'PASS 15 (E): a league BOY of the same age maps to U17 -- the gap is girls-specific';
 else
@@ -168,7 +168,7 @@ end if;
 -- ============ F. Missing DOB is never guessed ============
 
 select allocation_status into v_status
-from public.resolve_normal_operational_identity('union', v_union, null::date, 'boys');
+from public.resolve_normal_operational_identity('union', v_union, null::date, 'MALE');
 if v_status = 'DOB_REQUIRED' then
   raise notice 'PASS 16 (F): a missing date of birth returns DOB_REQUIRED -- never inferred from the current team';
 else
@@ -176,21 +176,37 @@ else
 end if;
 
 -- ============ G. Mixed rugby ends at U12 ============
+--
+-- "Mixed" describes the TEAM, never the person: a child plays in a Mixed side,
+-- they are not "mixed". So the player's own attribute is a playing pathway --
+-- MALE or FEMALE -- and below U12 it is not consulted at all, because the
+-- canonical identity at those ages is Mixed whatever pathway a child is
+-- registered in. These two assertions previously passed 'mixed' as if it were
+-- a property of a player; they now test the boundary itself.
 
 select allocation_status into v_status
-from public.resolve_normal_operational_identity('union', v_union, date '2014-09-01', 'mixed');
-if v_status = 'NEEDS_ATTENTION' then
-  raise notice 'PASS 17 (G): a mixed player reaching U12 needs a decision, not an automatic pick';
+from public.resolve_normal_operational_identity('union', v_union, date '2014-09-01', null);
+if v_status = 'CLASSIFICATION_REQUIRED' then
+  raise notice 'PASS 17 (G): at U12 the Mixed identity ends, so a player with no recorded pathway cannot be placed -- and is not defaulted to boys';
 else
-  raise notice 'FAIL 17 (G): mixed at U12 returned %', v_status;
+  raise notice 'FAIL 17 (G): U12 with no pathway returned %', v_status;
 end if;
 
 select canonical_key into v_key
-from public.resolve_normal_operational_identity('union', v_union, date '2016-09-01', 'mixed');
+from public.resolve_normal_operational_identity('union', v_union, date '2016-09-01', null);
 if v_key = 'u10' then
-  raise notice 'PASS 18 (G): a mixed player below U12 still resolves normally';
+  raise notice 'PASS 18 (G): below U12 a player resolves to the Mixed identity WITHOUT a pathway -- nobody is asked for information the decision does not use';
 else
-  raise notice 'FAIL 18 (G): mixed below U12 mapped to %', coalesce(v_key,'nothing');
+  raise notice 'FAIL 18 (G): U10 with no pathway mapped to %', coalesce(v_key,'nothing');
+end if;
+
+-- And a recorded pathway must not change the answer below U12.
+select canonical_key into v_key
+from public.resolve_normal_operational_identity('union', v_union, date '2016-09-01', 'FEMALE');
+if v_key = 'u10' then
+  raise notice 'PASS 18b (G): a girl below U12 resolves to the same Mixed identity -- the pathway does not split mini-rugby';
+else
+  raise notice 'FAIL 18b (G): a FEMALE U10 mapped to %', coalesce(v_key,'nothing');
 end if;
 
 -- ============ H. The mapping uses canonical IDs, not built strings ============

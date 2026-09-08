@@ -55,10 +55,10 @@ values (v_club,'union','youth','U18','girls','x','fa2') returning id into v_u18g
 insert into public.teams (club_id, rugby_code, category, gender, team_number, display_name, slug)
 values (v_club,'union','senior','mens',1,'x','fa3') returning id into v_snr;
 
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Leaver','Boy',(current_date - interval '18 years 3 months')::date,true) returning id into v_boy;
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Leaver','Girl',(current_date - interval '18 years 3 months')::date,true) returning id into v_girl;
+insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
+values ('Leaver','Boy',(current_date - interval '18 years 3 months')::date,'MALE',true) returning id into v_boy;
+insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
+values ('Leaver','Girl',(current_date - interval '18 years 3 months')::date,'FEMALE',true) returning id into v_girl;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_boy, v_u18b,'active');
 insert into public.player_team_memberships (player_id, team_id, status) values (v_girl, v_u18g,'active');
 
@@ -113,7 +113,7 @@ select allocation_status into v_alloc
 from public.resolve_normal_operational_identity(
   'league',
   (select id from public.seasons where rugby_code='league' and not is_regression_fixture order by starts_on desc limit 1),
-  (current_date - interval '17 years 3 months')::date, 'girls');
+  (current_date - interval '17 years 3 months')::date, 'FEMALE');
 if v_alloc = 'NEEDS_ATTENTION' then
   raise notice 'PASS 6: the League Girls U17 gap is still NEEDS_ATTENTION -- a missing grade, not an aged-out player';
 else

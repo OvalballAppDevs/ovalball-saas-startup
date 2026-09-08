@@ -14,6 +14,8 @@ interface ChildDraft {
   firstName: string
   surname: string
   dateOfBirth: string
+  /** MALE or FEMALE. Structured, never free text -- the server validates it. */
+  playingPathway: "" | "MALE" | "FEMALE"
   clubQuery: string
   club: ClubSearchResult | null
   clubOptions: ClubSearchResult[]
@@ -24,7 +26,7 @@ interface ChildDraft {
 }
 
 function emptyDraft(key: string): ChildDraft {
-  return { key, firstName: "", surname: "", dateOfBirth: "", clubQuery: "", club: null, clubOptions: [], outcome: null, requested: false, submitting: false }
+  return { key, firstName: "", surname: "", dateOfBirth: "", playingPathway: "", clubQuery: "", club: null, clubOptions: [], outcome: null, requested: false, submitting: false }
 }
 
 const OUTCOME_COPY: Record<string, { title: string; body: (ageGrade: string) => string }> = {
@@ -93,7 +95,7 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
   async function handleSubmit(key: string) {
     const child = children.find((c) => c.key === key)
     if (!child) return
-    if (!child.firstName.trim() || !child.surname.trim() || !child.dateOfBirth || !(presetClubId ?? child.club?.id)) {
+    if (!child.firstName.trim() || !child.surname.trim() || !child.dateOfBirth || !child.playingPathway || !(presetClubId ?? child.club?.id)) {
       updateChild(key, { outcome: { ok: false, error: "First name, surname, date of birth, and club are all required." } })
       return
     }
@@ -105,7 +107,7 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
     // with this club -- an accepted invitation, another child there, or club
     // membership -- gets the immediate, fully-resolved outcome they always
     // did, including age-grade placement.
-    const result = await addChild(child.firstName, child.surname, child.dateOfBirth, clubId, rugbyCode)
+    const result = await addChild(child.firstName, child.surname, child.dateOfBirth, clubId, rugbyCode, child.playingPathway)
 
     // A brand-new parent has none of those, so the guard refuses their FIRST
     // child and would have accepted every one after it. That refusal is
@@ -161,6 +163,24 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
               <div>
                 <Label htmlFor={`dob-${child.key}`}>Date of birth</Label>
                 <Input id={`dob-${child.key}`} type="date" max={new Date().toISOString().slice(0, 10)} value={child.dateOfBirth} onChange={(e) => updateChild(child.key, { dateOfBirth: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`pathway-${child.key}`}>Playing pathway</Label>
+                <select
+                  id={`pathway-${child.key}`}
+                  className="h-11 rounded-lg border border-ink/15 bg-white px-3.5 text-sm text-ink outline-none focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                  value={child.playingPathway}
+                  onChange={(e) => updateChild(child.key, { playingPathway: e.target.value as ChildDraft["playingPathway"] })}
+                  aria-describedby={`pathway-hint-${child.key}`}
+                >
+                  <option value="">Select…</option>
+                  <option value="MALE">Boys</option>
+                  <option value="FEMALE">Girls</option>
+                </select>
+                <p id={`pathway-hint-${child.key}`} className="text-xs text-ink/55">
+                  Rugby runs separate boys&apos; and girls&apos; age grades from Under-12. Below that, children play
+                  mixed rugby together — we ask now so their age group is right when they get there.
+                </p>
               </div>
               {!presetClubId && (
                 <div className="relative">

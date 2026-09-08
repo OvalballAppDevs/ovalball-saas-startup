@@ -62,13 +62,13 @@ values (v_club,'union','youth','U14','girls','E2E Girls U14','e2e-gu14-'||gen_ra
 
 -- ---------- players with deliberately chosen DOBs ----------
 -- Union 27/28 -> school year 2027-28. U17 is born 1.09.2010-31.08.2011.
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Normal','U17', date '2010-09-01', true) returning id into v_p_normal;
+insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
+values ('Normal','U17', date '2010-09-01', 'MALE', true) returning id into v_p_normal;
 insert into public.players (first_name, surname, date_of_birth, active)
 values ('NoDob','Player', null, true) returning id into v_p_nodob;
 -- A girl who will be regulatory U13 in 27/28 -> normal identity is Girls U14.
-insert into public.players (first_name, surname, date_of_birth, active)
-values ('Band','Girl', date '2014-09-01', true) returning id into v_p_girl;
+insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
+values ('Band','Girl', date '2014-09-01', 'FEMALE', true) returning id into v_p_girl;
 
 insert into public.player_team_memberships (player_id, team_id, status) values
   (v_p_normal, v_t_u16, 'active'),
@@ -212,8 +212,8 @@ else
   returning id into v_t_lg16;
 
   -- League 2027 -> school year 2026-27. U17 is born 1.09.2009-31.08.2010.
-  insert into public.players (first_name, surname, date_of_birth, active)
-  values ('League','GirlU17', date '2009-09-01', true) returning id into v_p_lg;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
+  values ('League','GirlU17', date '2009-09-01', 'FEMALE', true) returning id into v_p_lg;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_p_lg, v_t_lg16, 'active');
 
   select public.generate_rollover_proposal(v_club, 'league', v_to_l) into v_rollover;

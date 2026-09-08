@@ -180,7 +180,7 @@ do $$
 declare
   v_result record;
 begin
-  select * into v_result from public.add_child_for_guardian('Alex', 'Regress', '2015-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union');
+  select * into v_result from public.add_child_for_guardian('Alex', 'Regress', '2015-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union', 'MALE');
   if v_result.result = 'created_pending_team' and v_result.age_grade = 'U12' and v_result.team_id = (select v::uuid from t_pac_state where k = 'team_u12_a') then
     raise notice 'PASS 8: brand-new child with exactly one matching U12 team -> created_pending_team, correct age grade, correct team -- server-resolved, never browser-supplied';
   else
@@ -201,7 +201,7 @@ do $$
 declare
   v_result record;
 begin
-  select * into v_result from public.add_child_for_guardian('Jamie', 'Regress', '2009-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union');
+  select * into v_result from public.add_child_for_guardian('Jamie', 'Regress', '2009-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union', 'MALE');
   if v_result.result = 'created_needs_club_review' and v_result.age_grade = 'SeniorColts' and v_result.team_id is null then
     raise notice 'PASS 9: this DOB resolves Senior Colts (not youth "U18" -- no such team exists in the real canonical model); no Senior Colts team exists at this club -> created_needs_club_review, Player/Guardian still created, no team membership row invented';
   else
@@ -214,7 +214,7 @@ do $$
 declare
   v_result record;
 begin
-  select * into v_result from public.add_child_for_guardian('Casey', 'Regress', '2014-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union');
+  select * into v_result from public.add_child_for_guardian('Casey', 'Regress', '2014-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union', 'MALE');
   if v_result.result = 'created_needs_club_review' and v_result.age_grade = 'U13' and v_result.team_id is null then
     raise notice 'PASS 10: two U13 squads exist -- DOB resolves the AGE GRADE only, never guesses A vs B, defers team placement entirely to the club';
   else
@@ -228,7 +228,7 @@ declare
   v_result record;
   v_player_count integer;
 begin
-  select * into v_result from public.add_child_for_guardian('Alex', 'Regress', '2015-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union');
+  select * into v_result from public.add_child_for_guardian('Alex', 'Regress', '2015-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union', 'MALE');
   select count(*) into v_player_count from public.players where first_name = 'Alex' and surname = 'Regress';
   if v_result.result = 'already_linked' and v_player_count = 1 then
     raise notice 'PASS 11: the SAME guardian resubmitting the SAME child (still pending) returns already_linked -- no duplicate Player row created';
@@ -245,7 +245,7 @@ declare
   v_result record;
   v_review_count integer;
 begin
-  select * into v_result from public.add_child_for_guardian('Alex', 'Regress', '2015-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union');
+  select * into v_result from public.add_child_for_guardian('Alex', 'Regress', '2015-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union', 'MALE');
   select count(*) into v_review_count from public.player_duplicate_reviews where requesting_guardian_user_id = (select v::uuid from t_pac_state where k = 'guardian_2') and status = 'pending';
   if v_result.result = 'under_review' and v_review_count = 1 then
     raise notice 'PASS 12: a second, unrelated Guardian submitting the identical name+DOB+club is routed to under_review (Guardian Link Request), never auto-granted access to the existing child';
@@ -266,7 +266,7 @@ declare
   v_result record;
   v_review_count integer;
 begin
-  select * into v_result from public.add_child_for_guardian('Alex', 'Regress', '2015-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union');
+  select * into v_result from public.add_child_for_guardian('Alex', 'Regress', '2015-06-15'::date, (select v::uuid from t_pac_state where k = 'club_a'), 'union', 'MALE');
   select count(*) into v_review_count from public.player_duplicate_reviews where requesting_guardian_user_id = (select v::uuid from t_pac_state where k = 'guardian_2');
   if v_result.result = 'under_review' and v_review_count = 1 then
     raise notice 'PASS 13: repeating the identical submission while already under review is idempotent -- still exactly one review row';
