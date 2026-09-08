@@ -2213,6 +2213,96 @@ export type Database = {
           },
         ]
       }
+      club_message_blocks: {
+        Row: {
+          blocked_by: string
+          blocked_user_id: string
+          club_id: string
+          created_at: string
+          id: string
+          lifted_at: string | null
+          lifted_by: string | null
+          reason: string | null
+        }
+        Insert: {
+          blocked_by: string
+          blocked_user_id: string
+          club_id: string
+          created_at?: string
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          reason?: string | null
+        }
+        Update: {
+          blocked_by?: string
+          blocked_user_id?: string
+          club_id?: string
+          created_at?: string
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_message_blocks_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "club_message_blocks_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_message_blocks_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_message_blocks_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_message_blocks_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_message_blocks_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_message_blocks_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "club_message_blocks_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_opponent_notes: {
         Row: {
           created_at: string
@@ -4130,6 +4220,30 @@ export type Database = {
           },
         ]
       }
+      email_brand_settings: {
+        Row: {
+          active_logo_path: string | null
+          id: string
+          lock_version: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active_logo_path?: string | null
+          id?: string
+          lock_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active_logo_path?: string | null
+          id?: string
+          lock_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       email_deliveries: {
         Row: {
           attempts: number
@@ -4476,6 +4590,46 @@ export type Database = {
             columns: ["club_id"]
             isOneToOne: false
             referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixture_attendance_invitations: {
+        Row: {
+          fixture_id: string
+          invited_at: string
+          user_id: string
+        }
+        Insert: {
+          fixture_id: string
+          invited_at?: string
+          user_id: string
+        }
+        Update: {
+          fixture_id?: string
+          invited_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_attendance_invitations_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_attendance_invitations_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "fixture_attendance_invitations_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
         ]
@@ -14420,6 +14574,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           directions: string | null
+          geocode_source: string | null
+          geocode_status: string
+          geocoded_at: string | null
           id: string
           is_default_home: boolean
           latitude: number | null
@@ -14443,6 +14600,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           directions?: string | null
+          geocode_source?: string | null
+          geocode_status?: string
+          geocoded_at?: string | null
           id?: string
           is_default_home?: boolean
           latitude?: number | null
@@ -14466,6 +14626,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           directions?: string | null
+          geocode_source?: string | null
+          geocode_status?: string
+          geocoded_at?: string | null
           id?: string
           is_default_home?: boolean
           latitude?: number | null
@@ -14627,6 +14790,7 @@ export type Database = {
           is_primary_mirror: boolean | null
           kickoff_date: string | null
           kickoff_time: string | null
+          meet_time: string | null
           message_count: number | null
           mirror_fixture_id: string | null
           notes: string | null
@@ -15968,6 +16132,10 @@ export type Database = {
         }
         Returns: string
       }
+      block_user_from_club_messages: {
+        Args: { p_club_id: string; p_reason?: string; p_user_id: string }
+        Returns: string
+      }
       can_send_team_conversation: {
         Args: { p_team_id: string }
         Returns: boolean
@@ -16048,6 +16216,10 @@ export type Database = {
           blocking_references: Json
           classification: string
         }[]
+      }
+      clear_email_brand_logo: {
+        Args: { p_expected_lock: number }
+        Returns: undefined
       }
       clear_email_template_override: {
         Args: { p_event_key: string; p_expected_lock: number }
@@ -17191,6 +17363,10 @@ export type Database = {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
         Returns: undefined
       }
+      lift_club_message_block: {
+        Args: { p_club_id: string; p_user_id: string }
+        Returns: undefined
+      }
       link_conflict_fact: {
         Args: { p_conflict_id: string; p_fact_id: string }
         Returns: undefined
@@ -18022,6 +18198,10 @@ export type Database = {
           resolution: string
         }[]
       }
+      resolve_blocking_club_for_fixture: {
+        Args: { p_fixture_id: string }
+        Returns: string
+      }
       resolve_canonical_team_type_id: {
         Args: {
           p_age_group: string
@@ -18215,6 +18395,7 @@ export type Database = {
           teams_total: number
         }[]
       }
+      run_fixture_attendance_invitation_check: { Args: never; Returns: number }
       run_fixture_completion_check: { Args: never; Returns: number }
       run_season_transition_check: { Args: never; Returns: undefined }
       run_trial_expiry_check: { Args: never; Returns: number }
@@ -18319,6 +18500,10 @@ export type Database = {
         Returns: string
       }
       set_default_venue: { Args: { p_id: string }; Returns: undefined }
+      set_email_brand_logo: {
+        Args: { p_expected_lock: number; p_path: string }
+        Returns: undefined
+      }
       set_fixture_conversation_mute: {
         Args: {
           p_fixture_id: string
@@ -18632,6 +18817,10 @@ export type Database = {
       }
       swap_fixture_home_away: {
         Args: { p_fixture_id: string }
+        Returns: undefined
+      }
+      team_delete_fixture_message: {
+        Args: { p_message_id: string }
         Returns: undefined
       }
       team_people: {

@@ -73,6 +73,7 @@ SUITES=(
   referral_reward_semantics
   email_delivery_foundation
   email_template_registry
+  email_brand_assets
   calendar_match_centre_link
   add_child_flow
   guardian_link_requests

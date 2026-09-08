@@ -5,7 +5,11 @@ import { Mail } from "lucide-react"
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { EMAIL_TEMPLATE_CONTRACTS, CONTRACTED_EVENT_KEYS } from "@/lib/email/contracts"
 import { WIRED_EVENT_KEYS } from "@/lib/email/wiring"
+import { listBrandImages, readBrandLogoState } from "@/lib/email/brand"
+import { EMAIL_LOGO_PATH } from "@/lib/email/design/components"
 import { createClient } from "@/lib/supabase/server"
+
+import { BrandPanel } from "./brand-panel"
 
 import type { EmailEventKey } from "@/lib/email/catalogue"
 
@@ -37,6 +41,11 @@ export default async function EmailConfigurationPage() {
   // Full Site Admin only -- the same authority the registry's own write
   // functions enforce. A narrow Site Admin sees the page and can read it.
   const canEdit = activeSiteAdmin.ctx.siteAdminRole === "full"
+
+  const [brand, brandImages] = await Promise.all([
+    readBrandLogoState(supabase),
+    listBrandImages(supabase),
+  ])
 
   const { data: settings } = await supabase
     .from("email_template_settings")
@@ -85,6 +94,14 @@ export default async function EmailConfigurationPage() {
           You can read this configuration. Changing an email&apos;s wording is restricted to a Full Site Admin.
         </p>
       )}
+
+      <BrandPanel
+        canEdit={canEdit}
+        images={brandImages}
+        activePath={brand.activePath}
+        lockVersion={brand.lockVersion}
+        logoUrl={EMAIL_LOGO_PATH}
+      />
 
       {categories.map((category) => (
         <section key={category} className="mt-8">

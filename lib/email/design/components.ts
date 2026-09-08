@@ -71,10 +71,13 @@ const CONTENT_WIDTH = 600
  * different logo entirely at worst. There is one path, it is served by
  * Ovalball, and Site Admin cannot reach it.
  *
- * The file at that path is the brand asset; replacing it updates every
- * email without a deployment, which is the right seam for a logo.
+ * The path is also PERMANENT. It names no particular file: a route on
+ * Ovalball's own origin decides which bytes to serve, so a Full Site Admin
+ * can change the logo from Email Configuration without invalidating the image
+ * in every message already sitting in somebody's inbox -- and without this
+ * renderer needing a database, which is what keeps it synchronous.
  */
-export const EMAIL_LOGO_PATH = "/email/ovalball-logo.png"
+export const EMAIL_LOGO_PATH = "/email-assets/logo.png"
 
 /** Displayed at 88px. The asset is larger so it stays sharp on retina screens. */
 const LOGO_DISPLAY_PX = 88

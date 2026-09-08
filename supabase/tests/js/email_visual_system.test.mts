@@ -2,7 +2,8 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { test } from "node:test"
 
-import { EMAIL_COLORS, EMAIL_LOGO_PATH, emailLogoUrl } from "@/lib/email/design/components"
+import { EMAIL_COLORS, emailLogoUrl } from "@/lib/email/design/components"
+import { BUNDLED_LOGO_FILE } from "@/lib/email/brand"
 import { CONTRACTED_EVENT_KEYS, templateContract } from "@/lib/email/contracts"
 import { PREVIEW_FIXTURES } from "@/lib/email/preview-fixtures"
 import { renderEmail } from "@/lib/email/templates"
@@ -69,16 +70,27 @@ test("the logo is served from Ovalball's own origin, never a remote host", () =>
 test("a hostile site URL cannot smuggle the logo onto another host", () => {
   // safeUrl is the backstop. Even if the origin resolver were wrong, the
   // logo cannot end up pointing somewhere Ovalball does not control.
-  assert.equal(emailLogoUrl("https://ovalball.co.uk"), "https://ovalball.co.uk/email/ovalball-logo.png")
+  assert.equal(emailLogoUrl("https://ovalball.co.uk"), "https://ovalball.co.uk/email-assets/logo.png")
 })
 
-test("the logo asset exists at the one code-owned path", () => {
-  // A broken image in a transactional email reads as a broken product, and
-  // this is the single path every email points at.
-  assert.doesNotThrow(
-    () => readFileSync(`public${EMAIL_LOGO_PATH}`),
-    `no brand asset at public${EMAIL_LOGO_PATH}`
+test("the route's fallback path is the same file the rest of the system calls bundled", () => {
+  // The route spells the path out in literals so the bundler does not trace
+  // the whole project. That is a real constraint, but it duplicates a value --
+  // so this reads the route and holds the two together.
+  const route = readFileSync("app/email-assets/[asset]/route.ts", "utf8")
+  const segments = BUNDLED_LOGO_FILE.split("/")
+  const literal = segments.map((s) => `"${s}"`).join(", ")
+  assert.ok(
+    route.includes(literal),
+    `the route falls back to a different file than ${BUNDLED_LOGO_FILE}`
   )
+})
+
+test("the bundled logo exists, so a fresh database still sends a branded email", () => {
+  // The email URL names no particular file -- a route decides what to serve.
+  // This is the file that route falls back to: on a new database, in a test,
+  // in local development, and whenever a chosen upload cannot be read.
+  assert.doesNotThrow(() => readFileSync(BUNDLED_LOGO_FILE), `no bundled logo at ${BUNDLED_LOGO_FILE}`)
 })
 
 test("the logo carries real alt text, so a blocked image still says Ovalball", () => {
