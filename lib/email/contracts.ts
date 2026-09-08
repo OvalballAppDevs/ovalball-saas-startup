@@ -48,6 +48,16 @@ export interface EmailTemplateContract {
   category: EmailCategory
   /** Plain-English answer to "when does this actually go out?". */
   trigger: string
+  /**
+   * The category label shown in the email's brand band.
+   *
+   * CODE-OWNED, and deliberately not part of the editable content. It names
+   * the KIND of message -- Welcome, Safeguarding, Support -- which is a fact
+   * about the event rather than a matter of wording. A Site Admin may rewrite
+   * a safeguarding email's heading; being able to file it under "Welcome to
+   * Ovalball" is a different power, and not one this screen grants.
+   */
+  eyebrow: string
   /** Whether this event has a call-to-action button at all. */
   hasCta: boolean
   variables: EmailVariable[]
@@ -79,6 +89,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Club Invitation",
     category: "Account & Access",
     trigger: "Sent when a club invites somebody to join it on Ovalball.",
+    eyebrow: "Club Invitation",
     hasCta: true,
     variables: [
       { name: "club_name", description: "The inviting club's name.", sample: "Solihull Rugby Club" },
@@ -97,6 +108,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Parent or Guardian Invitation",
     category: "Guardian & Player",
     trigger: "Sent when a club invites a parent or guardian to link to their child's team.",
+    eyebrow: "Guardian Invitation",
     hasCta: true,
     // Deliberately no child name, date of birth or team detail beyond the club.
     // A guardian invitation reaches an address nobody has verified yet, so it
@@ -117,6 +129,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Player Account Invitation",
     category: "Guardian & Player",
     trigger: "Sent when a guardian invites a player to create their own Ovalball login.",
+    eyebrow: "Player Account",
     hasCta: true,
     variables: [
       // No club variable: this invitation is sent by a guardian and the send
@@ -137,6 +150,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Safeguarding Officer Invitation",
     category: "Safeguarding",
     trigger: "Sent when a club invites somebody to be its Safeguarding Officer.",
+    eyebrow: "Safeguarding",
     hasCta: true,
     variables: [
       { name: "club_name", description: "The inviting club's name.", sample: "Solihull Rugby Club" },
@@ -155,6 +169,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     category: "Safeguarding",
     trigger:
       "Sent when somebody messages a Safeguarding Officer who has no active Ovalball account, to the club's own recorded contact address.",
+    eyebrow: "Safeguarding",
     hasCta: false,
     variables: [
       { name: "club_name", description: "The club the officer acts for.", sample: "Solihull Rugby Club" },
@@ -172,6 +187,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Site Admin Invitation",
     category: "Account & Access",
     trigger: "Sent when an existing Site Admin invites somebody to administer Ovalball.",
+    eyebrow: "Site Administration",
     hasCta: true,
     variables: [],
     default: {
@@ -187,6 +203,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Partner Club Invitation",
     category: "Referral",
     trigger: "Sent when a club invites another club to join Ovalball.",
+    eyebrow: "Partner Clubs",
     hasCta: true,
     variables: [
       { name: "club_name", description: "The club sending the invitation.", sample: "Solihull Rugby Club" },
@@ -205,6 +222,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Club Claim Submitted",
     category: "Club",
     trigger: "Sent to the Ovalball operations inbox when a club claim needs review.",
+    eyebrow: "Club Claim",
     hasCta: true,
     variables: [
       { name: "club_name", description: "The club being claimed.", sample: "Solihull Rugby Club" },
@@ -222,6 +240,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Club Welcome",
     category: "Club",
     trigger: "Sent to the person who claimed a club, once a Site Admin approves that claim.",
+    eyebrow: "Welcome to Ovalball",
     hasCta: true,
     variables: [
       { name: "first_name", description: "The claimant's first name.", sample: "Callum" },
@@ -230,9 +249,9 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     default: {
       subject: "Welcome to Ovalball, {{club_name}}",
       preheader: "{{club_name}} is now set up on Ovalball.",
-      heading: "Welcome to Ovalball",
+      heading: "Welcome to Ovalball, {{club_name}}",
       body:
-        "Hi {{first_name}},\n\nWelcome to Ovalball.\n\n{{club_name}} is now set up on Ovalball, bringing your club, teams, fixtures and rugby administration together in one place.\n\nWe're delighted to have you with us.",
+        "Hi {{first_name}},\n\nYour club is now part of Ovalball.\n\nOvalball brings your club, teams, fixtures and rugby administration together in one connected place, helping everyone stay closer to the game.",
       ctaLabel: "Open Ovalball",
     },
   },
@@ -241,6 +260,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Support Reply",
     category: "Support",
     trigger: "Sent when Ovalball replies to a support request raised from the public site.",
+    eyebrow: "Support",
     hasCta: false,
     variables: [
       { name: "reference", description: "The support ticket reference.", sample: "SUP-1042" },
@@ -258,6 +278,7 @@ export const EMAIL_TEMPLATE_CONTRACTS: Record<EmailEventKey, EmailTemplateContra
     name: "Referral Reward Earned",
     category: "Referral",
     trigger: "Sent when a club a member referred pays its first subscription.",
+    eyebrow: "Referral Reward",
     hasCta: true,
     variables: [
       { name: "referred_club_name", description: "The club that joined.", sample: "Sample RUFC" },

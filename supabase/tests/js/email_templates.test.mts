@@ -158,9 +158,16 @@ test("a missing club crest renders no image at all", () => {
     { clubName: "Sample RUFC", clubLogoUrl: null, inviteToken: "t", roleLabel: null },
     SITE
   )
-  assert.ok(withLogo.html.includes("<img"), "a supplied crest was not rendered")
-  // A broken image icon in an invitation reads as a broken product.
-  assert.ok(!without.html.includes("<img"), "an absent crest produced an image tag anyway")
+  // Counted rather than merely detected: the shared shell renders the
+  // Ovalball mark in every email, so "does an <img> exist" no longer answers
+  // the question this test asks. What must hold is that a club WITHOUT a
+  // stored crest contributes no image of its own -- a broken image icon in an
+  // invitation reads as a broken product.
+  const images = (html: string) => (html.match(/<img/g) ?? []).length
+
+  assert.equal(images(withLogo.html), images(without.html) + 1, "a supplied crest was not rendered")
+  assert.ok(withLogo.html.includes(`${SITE}/crest.png`), "the supplied crest is not the image rendered")
+  assert.ok(!without.html.includes("crest"), "an absent crest produced a placeholder anyway")
 })
 
 test("the guardian invitation carries no child identifying detail", () => {

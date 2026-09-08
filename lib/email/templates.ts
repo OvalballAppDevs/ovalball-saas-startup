@@ -94,12 +94,21 @@ const VARIABLE_MAPS: { [K in EmailEventKey]: (data: EmailEventData[K]) => Record
   referral_reward_earned: (d) => ({ referred_club_name: d.referredClubName }),
 }
 
-/** The event's copy with its own variables substituted. Nothing else is reachable. */
+/**
+ * The event's copy with its own variables substituted. Nothing else is
+ * reachable.
+ *
+ * The eyebrow rides along but does NOT come from `content`: it is read
+ * straight from the event's code-owned contract, so no amount of editing can
+ * change which kind of message an email announces itself as.
+ */
+type ResolvedCopy = EmailTemplateContent & { eyebrow: string }
+
 function copyFor<K extends EmailEventKey>(
   key: K,
   data: EmailEventData[K],
   content: EmailTemplateContent
-): EmailTemplateContent {
+): ResolvedCopy {
   const values = VARIABLE_MAPS[key](data)
   return {
     subject: applyVariables(content.subject, values),
@@ -107,6 +116,7 @@ function copyFor<K extends EmailEventKey>(
     heading: applyVariables(content.heading, values),
     body: applyVariables(content.body, values),
     ctaLabel: content.ctaLabel ? applyVariables(content.ctaLabel, values) : null,
+    eyebrow: templateContract(key).eyebrow,
   }
 }
 
@@ -155,6 +165,7 @@ const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl, content) => {
     html: renderEmailDocument({
       title: c.subject,
       preheader: c.preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       body: [
         clubIdentity(d.clubName, d.clubLogoUrl),
@@ -194,6 +205,7 @@ const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl, content
     html: renderEmailDocument({
       title: c.subject,
       preheader: c.preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       body: [
         clubIdentity(d.clubName, d.clubLogoUrl),
@@ -230,6 +242,7 @@ const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteU
     html: renderEmailDocument({
       title: c.subject,
       preheader: c.preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       body: [
         heading(c.heading),
@@ -263,6 +276,7 @@ const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation">
     html: renderEmailDocument({
       title: subject,
       preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       body: [
         clubIdentity(d.clubName, d.clubLogoUrl),
@@ -302,6 +316,7 @@ const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d,
     html: renderEmailDocument({
       title: subject,
       preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       footerNote:
         "You received this by email because you do not yet have an active Ovalball account. Once you accept your Safeguarding Officer invitation, messages arrive in Ovalball instead.",
@@ -339,6 +354,7 @@ const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl, cont
     html: renderEmailDocument({
       title: subject,
       preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       body: [
         heading(c.heading),
@@ -381,6 +397,7 @@ const partnerClubInvitation: Renderer<"partner_club_invitation"> = (d, siteUrl, 
     html: renderEmailDocument({
       title: subject,
       preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       body: [
         heading(c.heading),
@@ -419,6 +436,7 @@ const referralRewardEarned: Renderer<"referral_reward_earned"> = (d, siteUrl, co
     html: renderEmailDocument({
       title: subject,
       preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       body: [
         heading(c.heading),
@@ -474,6 +492,7 @@ const clubClaimSubmitted: Renderer<"club_claim_submitted"> = (d, siteUrl, conten
     html: renderEmailDocument({
       title: subject,
       preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       body: [
         heading(c.heading),
@@ -514,6 +533,7 @@ const clubWelcome: Renderer<"club_welcome"> = (d, siteUrl, content) => {
     html: renderEmailDocument({
       title: c.subject,
       preheader: c.preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       body: [
         clubIdentity(d.clubName, d.clubLogoUrl),
@@ -523,7 +543,7 @@ const clubWelcome: Renderer<"club_welcome"> = (d, siteUrl, content) => {
         ctaFallback(url),
       ].join("\n"),
     }),
-    text: [c.body, "", `${c.ctaLabel ?? "Open Ovalball"}:`, url, "", SUPPORT_LINE(siteUrl)].join("\n"),
+    text: [c.heading, "", c.body, "", `${c.ctaLabel ?? "Open Ovalball"}:`, url, "", SUPPORT_LINE(siteUrl)].join("\n"),
   }
 }
 
@@ -537,6 +557,7 @@ const supportTicketReply: Renderer<"support_ticket_reply"> = (d, siteUrl, conten
     html: renderEmailDocument({
       title: subject,
       preheader,
+      eyebrow: c.eyebrow,
       siteUrl,
       footerNote: `Quote ${d.reference} if you reply.`,
       body: [
@@ -545,7 +566,7 @@ const supportTicketReply: Renderer<"support_ticket_reply"> = (d, siteUrl, conten
           { label: "Reference", value: d.reference },
           { label: "Subject", value: d.subject },
         ]),
-        subheading(c.heading),
+        subheading("Our reply"),
         quotedBody(d.body),
       ].join("\n"),
     }),
