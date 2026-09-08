@@ -51,6 +51,82 @@ export async function addChild(
   }
 }
 
+/**
+ * THE ALLOCATION A PARENT IS SHOWN BEFORE ANYTHING IS CREATED.
+ *
+ * Every value here comes from public.preview_player_allocation, which runs the
+ * one canonical chain -- canonical season, regulatory age, canonical identity,
+ * club operational availability. Nothing in this file or the component that
+ * renders it does age arithmetic, girls banding, code mapping or season maths;
+ * a second answer to any of those is a second answer that will one day
+ * disagree with the first.
+ *
+ * It is a preview, not a decision: add_child_for_guardian re-runs the same
+ * chain server-side at the moment it writes.
+ */
+export interface PlayerAllocation {
+  /**
+   * The player's first name as the database will store it -- "Callum" from a
+   * typed "callum" -- returned by internal.normalise_person_name, the one
+   * normaliser. Never title-cased here: the value a parent is shown and the
+   * value that ends up on an export, an email and a screen reader must be the
+   * same value.
+   */
+  normalisedFirstName: string | null
+  rugbyCode: string | null
+  seasonName: string | null
+  /** The player's regulatory age grade, e.g. "U13". Not shown raw to a parent. */
+  regulatoryAgeLabel: string | null
+  /** NORMAL_PLACEMENT | CLUB_HOLDING | NEEDS_ATTENTION | CLASSIFICATION_REQUIRED | DOB_REQUIRED | SEASON_UNAVAILABLE */
+  status: string
+  reason: string | null
+  /** "U13" -- the rugby identifier, used only where density genuinely helps. */
+  compactLabel: string | null
+  /** "Under 13 Boys" -- what the team is called, and what a parent reads. */
+  displayLabel: string | null
+  /** Whether THIS club runs that team. A fact about the club, never about the player. */
+  clubRunsTeam: boolean
+  operationalTeamCount: number
+}
+
+export type PreviewAllocationResult = { ok: true; allocation: PlayerAllocation } | { ok: false; error: string }
+
+export async function previewAllocation(
+  clubId: string,
+  dateOfBirth: string,
+  playingPathway: string,
+  firstName: string
+): Promise<PreviewAllocationResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .rpc("preview_player_allocation", {
+      p_club_id: clubId,
+      p_date_of_birth: dateOfBirth,
+      p_playing_pathway: playingPathway,
+      p_first_name: firstName,
+    })
+    .single()
+  if (error || !data) {
+    if (error) console.error("preview_player_allocation failed:", error)
+    return { ok: false, error: "We couldn't work out this player's age group just now. Please try again." }
+  }
+  return {
+    ok: true,
+    allocation: {
+      normalisedFirstName: data.normalised_first_name,
+      rugbyCode: data.rugby_code,
+      seasonName: data.season_name,
+      regulatoryAgeLabel: data.regulatory_age_label,
+      status: data.allocation_status ?? "NEEDS_ATTENTION",
+      reason: data.reason,
+      compactLabel: data.compact_label,
+      displayLabel: data.display_label,
+      clubRunsTeam: data.club_runs_team ?? false,
+      operationalTeamCount: data.operational_team_count ?? 0,
+    },
+  }
+}
+
 export type ClubSearchResult = { id: string; name: string; rugbyCode: string }
 
 export async function searchClubs(query: string): Promise<ClubSearchResult[]> {

@@ -11,7 +11,6 @@ import {
   CLUB_ROLES,
   COUNTRY_OPTIONS,
   EMPTY_DIRECTORY_REQUEST,
-  filterGroupsForCode,
   toSignupTeamCategoryGroups,
   type ClubDirectoryResult,
   type ClubSelection,
@@ -55,7 +54,6 @@ interface ClubStepProps {
    */
   onAdvance: () => void
   /** The live catalogue (from `loadTeamCategoryGroups`), fetched once by the server page and threaded down -- never a static import, so a Site-Admin-added global type appears in the "Which teams does your club run?" checklist with zero further code changes. */
-  teamCategoryGroups: TeamCategoryGroup[]
   ref?: Ref<ClubStepHandle>
 }
 
@@ -68,7 +66,6 @@ export function ClubStep({
   club,
   onClubChange,
   onAdvance,
-  teamCategoryGroups,
   ref,
 }: ClubStepProps) {
   const [query, setQuery] = useState("")
@@ -102,8 +99,11 @@ export function ClubStep({
   }, [rugbyCode])
 
   const offeredGroups = useMemo(
-    () => codeScopedGroups ?? (rugbyCode ? filterGroupsForCode(teamCategoryGroups, rugbyCode) : []),
-    [codeScopedGroups, teamCategoryGroups, rugbyCode]
+    // No fallback to a browser-side filter of a full catalogue, because there
+    // is no full catalogue in the browser any more. Until the code-scoped read
+    // returns, the honest answer is "nothing yet".
+    () => codeScopedGroups ?? [],
+    [codeScopedGroups]
   )
 
   useImperativeHandle(
@@ -446,6 +446,18 @@ function TeamsPicker({
   onChange: (teams: SelectedTeam[]) => void
 }) {
   const signupGroups = toSignupTeamCategoryGroups(groups)
+
+  // The catalogue is fetched AFTER a rugby code is chosen, so that it is only
+  // ever one code's identities that reach the browser. That means there is a
+  // real moment where it has not arrived, and an empty checklist with no
+  // explanation reads as "this club runs no teams" rather than "not loaded".
+  if (signupGroups.length === 0) {
+    return (
+      <p className="text-sm text-ink-muted" aria-live="polite">
+        Loading the teams for this rugby code…
+      </p>
+    )
+  }
 
   function getTeam(category: string) {
     return value.find((t) => t.category === category)

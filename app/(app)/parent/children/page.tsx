@@ -20,6 +20,13 @@ interface ChildRow {
   hasLogin: boolean
   avatarUrl: string | null
   hasAvatar: boolean
+  /**
+   * Entity-level completeness, never an account-wide lockout. One child
+   * missing their gender must not make the rest of a parent's account
+   * unusable, and it must not be guessed to make this list tidy -- their age
+   * group genuinely cannot be worked out without it.
+   */
+  needsProfileAttention: boolean
 }
 
 /**
@@ -43,7 +50,7 @@ export default async function ParentChildrenPage() {
 
   const { data: guardianLinks } = await supabase
     .from("guardians")
-    .select("player_id, players(id, first_name, surname, date_of_birth, user_id, avatar_storage_path)")
+    .select("player_id, players(id, first_name, surname, date_of_birth, playing_pathway, user_id, avatar_storage_path)")
     .eq("guardian_user_id", user.id)
     .eq("status", "active")
 
@@ -89,13 +96,14 @@ export default async function ParentChildrenPage() {
         hasLogin: g.players!.user_id !== null,
         avatarUrl: avatarUrlByPlayerId.get(g.player_id) ?? null,
         hasAvatar: Boolean(g.players!.avatar_storage_path),
+        needsProfileAttention: g.players!.playing_pathway === null || g.players!.date_of_birth === null,
       }
     })
     .sort((a, b) => a.firstName.localeCompare(b.firstName))
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
+      <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
         Dashboard
       </Link>
@@ -122,24 +130,37 @@ export default async function ParentChildrenPage() {
                     </p>
                     <p className="text-xs text-ink-muted">
                       {child.teamStatus === "active" && child.teamLabel && `${child.teamLabel} · Active`}
-                      {child.teamStatus === "pending" && `${child.teamLabel} · Pending club approval`}
-                      {child.teamStatus === "none" && "Pending club team assignment"}
+                      {child.teamStatus === "pending" && `${child.teamLabel} · Awaiting club approval`}
+                      {child.teamStatus === "none" && "Awaiting a team from the club"}
                       {child.hasLogin ? " · Has their own Ovalball login" : ""}
                     </p>
+                    {/*
+                      Said in the list, not hidden behind a click: a parent who
+                      does not know something is missing cannot supply it. The
+                      dot is a glance and the words are the answer.
+                    */}
+                    {child.needsProfileAttention && (
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                        <span aria-hidden="true" className="size-2 rounded-full bg-amber-500" />
+                        Profile needs attention &mdash;{" "}
+                        {child.dateOfBirth === null ? "date of birth" : "gender"} is missing, so we cannot work out
+                        their age group.
+                      </p>
+                    )}
                     <div className="mt-2">
                       <ChildAvatarControl playerId={child.playerId} hasAvatar={child.hasAvatar} />
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  <Link href={`/parent/players/${child.playerId}/details`} className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                <div className="flex flex-wrap items-center gap-x-3">
+                  <Link href={`/parent/players/${child.playerId}/details`} className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
                     Playing details
                   </Link>
-                  <Link href={`/parent/players/${child.playerId}/access`} className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                  <Link href={`/parent/players/${child.playerId}/access`} className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
                     Manage access
                   </Link>
                   {child.teamStatus === "active" && (
-                    <Link href={`/parent/players/${child.playerId}/subscription`} className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                    <Link href={`/parent/players/${child.playerId}/subscription`} className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
                       Manage subscription
                     </Link>
                   )}

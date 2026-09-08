@@ -59,7 +59,7 @@ export function ChildAvatarControl({ playerId, hasAvatar }: { playerId: string; 
           type="button"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950 disabled:opacity-60"
+          className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950 disabled:opacity-60"
         >
           <ImageUp className="size-3.5" aria-hidden="true" />
           {busy ? "Saving…" : hasAvatar ? "Change picture" : "Add a picture"}
@@ -106,7 +106,7 @@ export function AddGuardianControl({ playerId, childFirstName }: { playerId: str
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
       >
         <UserPlus className="size-3.5" aria-hidden="true" />
         Add another guardian
@@ -164,7 +164,7 @@ export function WithdrawRequestButton({ requestId }: { requestId: string }) {
           router.refresh()
         })
       }
-      className="text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink disabled:opacity-60"
+      className="inline-flex min-h-11 items-center text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink disabled:opacity-60"
     >
       {pending ? "Withdrawing…" : "Withdraw"}
     </button>

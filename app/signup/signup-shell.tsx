@@ -12,7 +12,6 @@ import {
   SIGNUP_STEPS,
   type SignupFormState,
   type SignupStep,
-  type TeamCategoryGroup,
 } from "@/lib/signup/types"
 
 import { ProgressIndicator } from "./progress-indicator"
@@ -61,11 +60,9 @@ function isSignupStep(value: unknown): value is SignupStep {
  * sequence and why it has to be split across those two points.
  */
 export function SignupShell({
-  teamCategoryGroups,
   authenticatedEmail = null,
   turnstileSiteKey = null,
 }: {
-  teamCategoryGroups: TeamCategoryGroup[]
   /** Set when a provider already authenticated this visitor (OAuth path). */
   authenticatedEmail?: string | null
   turnstileSiteKey?: string | null
@@ -331,7 +328,6 @@ export function SignupShell({
               {step === "club" && (
                 <ClubStep
                   ref={clubStepRef}
-                  teamCategoryGroups={teamCategoryGroups}
                   rugbyCode={formState.rugbyCode}
                   onRugbyCodeChange={(rugbyCode) =>
                     setFormState((prev) => ({ ...prev, rugbyCode, club: { kind: "unselected" } }))

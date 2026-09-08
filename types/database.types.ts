@@ -17243,6 +17243,25 @@ export type Database = {
           release_version: string
         }[]
       }
+      player_team_allocation: {
+        Args: { p_club_id: string; p_player_id: string }
+        Returns: {
+          allocation_status: string
+          canonical_team_type_id: string
+          club_runs_team: boolean
+          compact_label: string
+          display_label: string
+          membership_status: string
+          operational_team_count: number
+          operational_team_id: string
+          operational_team_name: string
+          reason: string
+          regulatory_age_label: string
+          rugby_code: string
+          season_id: string
+          season_name: string
+        }[]
+      }
       preview_directory_verification_scope: {
         Args: { p_directory_id?: string; p_filters?: Json; p_scope: string }
         Returns: number
@@ -17288,6 +17307,30 @@ export type Database = {
           role_label: string
           team_name: string
           telephone: string
+        }[]
+      }
+      preview_player_allocation: {
+        Args: {
+          p_club_id: string
+          p_date_of_birth: string
+          p_first_name?: string
+          p_playing_pathway: string
+        }
+        Returns: {
+          allocation_status: string
+          canonical_team_type_id: string
+          club_runs_team: boolean
+          compact_label: string
+          display_label: string
+          normalised_first_name: string
+          operational_team_count: number
+          operational_team_id: string
+          operational_team_name: string
+          reason: string
+          regulatory_age_label: string
+          rugby_code: string
+          season_id: string
+          season_name: string
         }[]
       }
       preview_player_movement_eligibility: {

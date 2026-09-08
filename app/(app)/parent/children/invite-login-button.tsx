@@ -27,7 +27,7 @@ export function InviteLoginButton({ playerId, playerFirstName }: { playerId: str
 
   if (!open) {
     return (
-      <button type="button" className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950" onClick={() => setOpen(true)}>
+      <button type="button" className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950" onClick={() => setOpen(true)}>
         Give {playerFirstName} their own login
       </button>
     )

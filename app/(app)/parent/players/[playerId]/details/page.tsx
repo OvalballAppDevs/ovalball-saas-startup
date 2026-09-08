@@ -22,6 +22,13 @@ export const metadata = { title: "Playing Details" }
  *
  * The server is the authority either way: set_player_playing_pathway refuses a
  * caller it does not recognise regardless of what this page renders.
+ *
+ * ONCE RECORDED, IT STAYS. The form appears only while the value is missing.
+ * A player's gender decides their age grade and their pathway and is checked
+ * by the membership compatibility guard -- it is not a preference a guardian
+ * toggles, and offering an editable control over one already recorded invited
+ * exactly that. A genuine mistake is corrected under Site Admin authority,
+ * which set_player_playing_pathway enforces whatever this page renders.
  */
 export default async function PlayerDetailsPage({ params }: { params: Promise<{ playerId: string }> }) {
   const { playerId } = await params
@@ -43,7 +50,9 @@ export default async function PlayerDetailsPage({ params }: { params: Promise<{ 
 
   const isGuardian = ctx.guardianRelationships.some((g) => g.playerId === playerId)
   const isSelf = player.user_id === user.id
-  const canEdit = isGuardian || isSelf || ctx.siteAdminRole === "full"
+  // Completing a missing value, never changing a recorded one.
+  const mayComplete = isGuardian || isSelf || ctx.siteAdminRole === "full"
+  const canEdit = mayComplete && player.playing_pathway === null
 
   const firstName = player.first_name
   const pathway = (player.playing_pathway ?? null) as "MALE" | "FEMALE" | null
@@ -74,6 +83,13 @@ export default async function PlayerDetailsPage({ params }: { params: Promise<{ 
               ? `Recorded as ${pathway === "MALE" ? "Boys" : "Girls"}.`
               : `Not recorded yet. Only ${firstName}'s guardian, or ${firstName} if they manage their own account, can add this. Running a team or club does not carry the authority to record it.`}
           </p>
+          {pathway && (
+            <p className="mt-3 max-w-lg text-sm text-ink-muted">
+              This is set once and stays. It decides which age grade {firstName} plays in, so it is not something to
+              change from here &mdash; if it is wrong, your club can raise it with Ovalball and it will be corrected
+              properly.
+            </p>
+          )}
         </div>
       )}
     </div>
