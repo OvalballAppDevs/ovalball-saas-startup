@@ -48,7 +48,14 @@ export function BrandPanel({
   // Changing the logo changes what the endpoint serves, but the URL stays the
   // same by design -- so the browser would keep showing the old image. This
   // cache-buster is for THIS screen only; it never reaches an email.
-  const [stamp, setStamp] = useState(() => Date.now())
+  //
+  // It starts as null rather than Date.now(). Seeding it with a clock reads
+  // naturally and is wrong: the initialiser runs once on the server and again
+  // in the browser, producing two different query strings for the same tag,
+  // which is a hydration mismatch React cannot patch up. There is nothing to
+  // bust on first paint anyway -- the cache only needs breaking once this
+  // screen has actually changed the image.
+  const [stamp, setStamp] = useState<number | null>(null)
 
   function run(action: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string) {
     setError(null)
@@ -95,7 +102,7 @@ export function BrandPanel({
       <div className="mt-4 rounded-lg border border-ink/10 bg-white p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <img
-            src={`${logoUrl}?v=${stamp}`}
+            src={stamp === null ? logoUrl : `${logoUrl}?v=${stamp}`}
             alt="The logo currently used on Ovalball emails"
             width={72}
             height={72}
