@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 
+import { fullTeamLabel } from "@/lib/teams/compact-label"
+
 import { createTeamType, type CreateTeamTypeInput } from "./actions"
 
 // Mirrors canonical_team_types_structure_check. U19 is a real League age grade.
@@ -35,7 +37,7 @@ type Category = "youth" | "senior"
  * confirmation dialog is required before submit, explaining exactly that
  * scope -- this is not a per-club action.
  */
-export function AddTeamTypeDialog() {
+export function AddTeamTypeDialog({ rugbyCode }: { rugbyCode: "union" | "league" }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -49,15 +51,32 @@ export function AddTeamTypeDialog() {
   const [error, setError] = useState<string | null>(null)
 
   function buildInput(): CreateTeamTypeInput {
+    // The identity is added to the catalogue the administrator is looking at,
+    // never to both. Union senior sides are numbered; league runs Open Age,
+    // which has no ordinal.
     if (category === "senior") {
-      return { category: "senior", ageGroup: null, gender: seniorGender, fixedSquadDesignation: ordinal.trim(), allowsSquads: false }
+      return {
+        category: "senior",
+        ageGroup: null,
+        gender: seniorGender,
+        fixedSquadDesignation: rugbyCode === "league" ? null : ordinal.trim(),
+        allowsSquads: rugbyCode === "league",
+        rugbyCode,
+      }
     }
-    return { category: "youth", ageGroup, gender, fixedSquadDesignation: null, allowsSquads }
+    return { category: "youth", ageGroup, gender, fixedSquadDesignation: null, allowsSquads, rugbyCode }
   }
 
+  /** The same presentation the directory itself renders -- never a second guess at the name. */
   function previewLabel(): string {
-    if (category === "senior") return `${seniorGender === "womens" ? "Women's" : "Men's"} ${ordinal.trim() || "?"} Team`
-    return gender === "girls" ? `Girls ${ageGroup}` : ageGroup
+    const input = buildInput()
+    return fullTeamLabel({
+      category: input.category,
+      ageGroup: input.ageGroup,
+      gender: input.gender,
+      squadDesignation: input.fixedSquadDesignation,
+      rugbyCode,
+    })
   }
 
   async function handleConfirm() {

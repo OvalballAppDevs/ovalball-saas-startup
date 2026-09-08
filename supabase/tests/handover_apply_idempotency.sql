@@ -266,7 +266,7 @@ begin
 
   select string_agg(display_name, ', ' order by display_name) into c_after
   from public.teams where club_id = v_club2 and active;
-  if c_after = 'U14, U16' then
+  if c_after = 'Under 14 Boys, Under 16 Boys' then
     raise notice 'PASS 16 (C): once the blocker was repaired the same handover applied cleanly -- %', c_after;
   else
     raise notice 'FAIL 16 (C): after repair the club runs [%]', c_after;

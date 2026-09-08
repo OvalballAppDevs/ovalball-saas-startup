@@ -77,6 +77,63 @@ writing and get switched off.
 Name normalisation has permanent SQL coverage in
 `supabase/tests/person_name_normalisation.sql`.
 
+## The canonical Team Directory
+
+One directory of team identities, and one way of naming them.
+
+**Structured identity, never editable free text.** A canonical identity is
+`(rugby code, category, age grade, pathway, squad)`. Its name is *derived* from
+that — `internal.canonical_team_presentation` in the database,
+`compactTeamLabel` / `fullTeamLabel` in TypeScript. There is deliberately **no
+rename control**: if wording needs to change, change that one rule and let it
+propagate. Adding a free-text rename is an explicit product decision against,
+and a test fails if one appears.
+
+**Two forms, one source.**
+
+| | | |
+|---|---|---|
+| compact | `U12`, `Girls U14`, `Men's 1st` | dense surfaces — Calendar lanes, filter chips |
+| display | `Under 12 Boys`, `Under 14 Girls B`, `Men's Open Age` | **what a team is called everywhere else** |
+
+The display form is the site-wide display name: team management, fixtures,
+signup, handover, Match Centre. `Under 12` alone said nothing about whether a
+side was boys, girls or mixed, so a club running both saw one described by what
+it is and the other by what it is not. A team whose pathway was never recorded
+gets **no** pathway word — Ovalball does not assume one.
+
+**Union and League are strictly isolated.** A Rugby Union club is never shown
+Rugby League catalogue data, and never the reverse — not as an option, a
+disabled option, a filter, a fallback or a "not offered" warning. Telling a
+union club that Men's Open Age is unavailable is telling it about a sport it
+does not play.
+
+Scope it in the **query**, not the browser: read
+`canonical_team_types_by_code` filtered by `rugby_code` and `is_offered`.
+Loading both catalogues and hiding one works right up until somebody renders
+the unfiltered array. `supabase/tests/rugby_code_isolation.sql` guards this.
+
+Site Admin is the one deliberate exception, and manages both codes by
+*choosing between* them (`/admin/team-directory?code=union|league`), never by
+mixing them into one list. Rugby Hub may carry cross-code educational content;
+a player's own guidance stays in their code.
+
+**Isolation is scoping, not deletion.** Never remove the other sport's
+identities to keep a view clean.
+
+**Internal keys never appear in normal UI.** `u12`, `girls_u14`, `mens_1st`
+are stable identifiers. **B/C squads are operational**, an arrangement inside a
+club, not part of the canonical identity — the directory shows identity first.
+**Historical snapshots stay historical**: `team_season_identity` records what a
+team was called in a season that has happened, and is not re-spelled because
+presentation improved.
+
+**Directory grouping** (`lib/teams/directory-taxonomy.ts`): Minis, Juniors,
+Youth, Girls, Adult Men, Adult Women, Retired. Minis (mixed), Girls and the
+adult groups are structural. The **Juniors/Youth split is PRESENTATION_ONLY** —
+no governing body draws that line, and it must never decide eligibility or
+progression.
+
 ## Protected identity information
 
 A player's gender is recorded as `players.playing_pathway` (`MALE` / `FEMALE`)

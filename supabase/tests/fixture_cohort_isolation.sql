@@ -92,7 +92,7 @@ end if;
 
 select owning_team_display_name, owning_team_identity_source into v_label, v_src
 from public.fixture_season_identity where fixture_id = v_old;
-if v_label = 'U12' then
+if v_label = 'Under 12 Boys' then
   raise notice 'PASS 3: the OLD fixture still reads U12 -- the identity that actually played it';
 else
   raise notice 'FAIL 3: the old fixture now reads [%]', v_label;
@@ -109,7 +109,7 @@ end if;
 
 select owning_team_display_name into v_label
 from public.fixture_season_identity where fixture_id = v_next;
-if v_label = 'U13' then
+if v_label = 'Under 13 Boys' then
   raise notice 'PASS 5: the NEXT fixture reads U13 -- the identity that will play it';
 else
   raise notice 'FAIL 5: the future fixture reads [%]', v_label;
@@ -124,8 +124,8 @@ end if;
 
 -- ============ 3. One resolver, three answers ============
 
-if (select owning_team_display_name from public.fixture_season_identity where fixture_id=v_old) = 'U12'
-   and (select owning_team_display_name from public.fixture_season_identity where fixture_id=v_next) = 'U13' then
+if (select owning_team_display_name from public.fixture_season_identity where fixture_id=v_old) = 'Under 12 Boys'
+   and (select owning_team_display_name from public.fixture_season_identity where fixture_id=v_next) = 'Under 13 Boys' then
   raise notice 'PASS 7: one resolver returns the past identity for the past fixture and the future identity for the future one';
 else
   raise notice 'FAIL 7: the resolver does not distinguish the two seasons';

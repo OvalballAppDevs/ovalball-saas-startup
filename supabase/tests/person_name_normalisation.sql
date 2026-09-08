@@ -167,8 +167,8 @@ end if;
 
 -- ============ D. Club and team names are NOT person names ============
 
-if (select display_name from public.teams where id = v_team) = 'U12' then
-  raise notice 'PASS 16 (D): a team display name is untouched -- Girls U12 and Men''s 1st have their own authority';
+if (select display_name from public.teams where id = v_team) = 'Under 12 Boys' then
+  raise notice 'PASS 16 (D): a team display name follows the canonical presentation rules, never the person-name normaliser';
 else
   raise notice 'FAIL 16 (D): the team display name became [%]', (select display_name from public.teams where id = v_team);
 end if;

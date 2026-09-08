@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { loadTeamCategoryGroups } from "@/lib/teams/catalog"
 import type { ClubDirectoryResult, RugbyCode } from "@/lib/signup/types"
 
 /**
@@ -60,4 +61,17 @@ export async function searchClubDirectory(
     clubId: clubIdByDirectoryId.get(row.id) ?? null,
     verified: row.verification_status.includes("verified"),
   }))
+}
+
+/**
+ * The team catalogue for ONE rugby code.
+ *
+ * The wizard used to receive both catalogues and hide the wrong one in the
+ * browser. That works until somebody renders the unfiltered list, so the
+ * scoping now happens where it belongs -- in the query. A visitor cannot pick
+ * their code before the wizard starts, so this is fetched the moment they do.
+ */
+export async function loadSignupTeamCatalogue(rugbyCode: "union" | "league") {
+  const supabase = await createClient()
+  return loadTeamCategoryGroups(supabase, { rugbyCode })
 }

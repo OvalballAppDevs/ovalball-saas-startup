@@ -385,7 +385,7 @@ begin
 
   if (select display_name from public.team_season_identity
       where team_id = v_mixed and season_id = (select from_season_id from public.age_grade_rollovers where id = v_rollc))
-     = 'U11' then
+     = 'Under 11 Mixed' then
     raise notice 'PASS 26: the Register records that this team WAS U11 in the season it played as U11';
   else
     raise notice 'FAIL 26: the previous season identity reads [%]',

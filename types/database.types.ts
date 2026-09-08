@@ -15822,6 +15822,7 @@ export type Database = {
           p_category: string
           p_fixed_squad_designation?: string
           p_gender: string
+          p_rugby_code?: string
         }
         Returns: string
       }

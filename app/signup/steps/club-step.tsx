@@ -21,7 +21,7 @@ import {
   type TeamCategoryGroup,
 } from "@/lib/signup/types"
 
-import { searchClubDirectory } from "../actions"
+import { loadSignupTeamCatalogue, searchClubDirectory } from "../actions"
 import { FormField } from "../form-field"
 import { FormSelect } from "../form-select"
 
@@ -77,15 +77,33 @@ export function ClubStep({
   const [mode, setMode] = useState<Mode>("search")
   const [selected, setSelected] = useState<ClubDirectoryResult | null>(null)
 
-  // The catalogue is fetched on the server BEFORE a code is chosen -- this
-  // page runs anonymously, ahead of any club existing -- so every identity
-  // arrives and the per-code narrowing happens here, once the visitor has
-  // picked Union or League. Filtering with the same pure rule the server
-  // pages use, rather than a second copy of it: union does not offer Girls
-  // U13/U15 (RFU Regulation 15.6 dual age bands), league still does.
+  // ONE code's catalogue, fetched from the server the moment the visitor
+  // picks Union or League.
+  //
+  // This page starts anonymously, before a code exists, so the initial props
+  // carry the unnarrowed list. It used to stay that way and filter in the
+  // browser, which is how the other code leaks back in the first time someone
+  // renders the unfiltered array. Now the choice triggers a code-scoped read
+  // and the wizard never holds the other sport's identities at all.
+  const [codeScopedGroups, setCodeScopedGroups] = useState<TeamCategoryGroup[] | null>(null)
+
+  useEffect(() => {
+    if (!rugbyCode) {
+      setCodeScopedGroups(null)
+      return
+    }
+    let cancelled = false
+    loadSignupTeamCatalogue(rugbyCode).then((groups) => {
+      if (!cancelled) setCodeScopedGroups(groups)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [rugbyCode])
+
   const offeredGroups = useMemo(
-    () => (rugbyCode ? filterGroupsForCode(teamCategoryGroups, rugbyCode) : teamCategoryGroups),
-    [teamCategoryGroups, rugbyCode]
+    () => codeScopedGroups ?? (rugbyCode ? filterGroupsForCode(teamCategoryGroups, rugbyCode) : []),
+    [codeScopedGroups, teamCategoryGroups, rugbyCode]
   )
 
   useImperativeHandle(

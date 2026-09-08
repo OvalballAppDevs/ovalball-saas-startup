@@ -135,17 +135,19 @@ end if;
 -- by construction. That means a directory label is NOT the source of a team's
 -- name, and this records that plainly rather than leaving it to be discovered.
 
-if (select display_name from public.teams where id = v_team) = 'Girls U12' then
-  raise notice 'PASS 7 (C): a team''s operational name is derived from its own structure, not read from the directory label';
+if (select display_name from public.teams where id = v_team) = 'Under 12 Girls' then
+  raise notice 'PASS 7 (C): a team''s name is the canonical DISPLAY form, derived from its own structure rather than read from the stored directory label';
 else
   raise notice 'FAIL 7 (C): the team display name became [%]', (select display_name from public.teams where id = v_team);
 end if;
 
--- ============ D. The two producers must agree where they overlap ============
+-- ============ D. One source, two forms ============
 --
--- The pin. Senior and colts legitimately differ ("Men's 1st Team" vs
--- "Men's 1st"), but every youth age grade must read identically in both, or a
--- club's teams and the directory governing them disagree about one identity.
+-- The pin. A team is named in two forms -- the compact rugby identifier (U12)
+-- and the display name a person reads (Under 12 Boys) -- and both must come
+-- from internal.canonical_team_presentation over the same structured identity.
+-- Before this, the directory and a club's teams each wrote their own rules and
+-- agreed only because somebody kept them in step by hand.
 
 update public.canonical_team_types set label = v_before where id = v_id;
 
@@ -154,16 +156,24 @@ for r in
   from public.canonical_team_types ctt
   where ctt.category = 'youth' and ctt.is_active
 loop
-  if internal.compute_team_display_name(r.category, r.age_group, r.gender, null) is distinct from r.label then
-    v_mismatch := v_mismatch || format(' %s(directory=%s, teams=%s)',
-      r.key, r.label, internal.compute_team_display_name(r.category, r.age_group, r.gender, null));
+  -- The directory label IS the compact form.
+  if internal.compute_team_compact_label(r.category, r.age_group, r.gender, null) is distinct from r.label then
+    v_mismatch := v_mismatch || format(' %s(directory=%s, compact=%s)',
+      r.key, r.label, internal.compute_team_compact_label(r.category, r.age_group, r.gender, null));
+  end if;
+  -- And the display form names the pathway, so U12 and Girls U12 can never
+  -- read as the same team.
+  if internal.compute_team_display_name(r.category, r.age_group, r.gender, null)
+     is distinct from 'Under ' || replace(r.age_group, 'U', '') || ' ' || initcap(r.gender) then
+    v_mismatch := v_mismatch || format(' %s(display=%s)',
+      r.key, internal.compute_team_display_name(r.category, r.age_group, r.gender, null));
   end if;
 end loop;
 
 if v_mismatch = '' then
-  raise notice 'PASS 8 (D): every active youth identity reads the same in the Team Directory and on a club''s teams';
+  raise notice 'PASS 8 (D): every active youth identity produces both forms from the one source -- compact matches the directory, display names the pathway';
 else
-  raise notice 'FAIL 8 (D): the two name producers disagree:%', v_mismatch;
+  raise notice 'FAIL 8 (D): a name producer disagreed with the canonical source:%', v_mismatch;
 end if;
 
 -- ============ E. Restore ============
@@ -174,12 +184,16 @@ else
   raise notice 'FAIL 9 (E): the label is now [%]', (select label from public.canonical_team_types where id = v_id);
 end if;
 
--- ============ F. There is no rename in the product ============
+-- ============ F. There is no arbitrary rename, and that is the decision ============
 --
--- Recorded as an assertion so it cannot change silently. If a rename RPC is
--- ever added, this fails and whoever added it has to decide -- deliberately --
--- what a renamed directory label means for the teams already carrying that
--- identity.
+-- Explicit product decision: a canonical identity is never given a free-text
+-- name. Its presentation is derived from the structured identity, so changing
+-- what a team is CALLED means changing the rule in
+-- internal.canonical_team_presentation deliberately and letting it propagate --
+-- which is exactly what assertion 8 above tests.
+--
+-- This is not a gap waiting to be filled. It fails if somebody adds a rename
+-- route, so that decision cannot be made by accident.
 
 if not exists (
   select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -187,7 +201,7 @@ if not exists (
     and p.proname ~ 'canonical_team_type'
     and pg_get_functiondef(p.oid) ~ 'update public\.canonical_team_types[^;]*set[^;]*label'
 ) then
-  raise notice 'PASS 10 (F): no route renames a canonical identity -- the label is computed from the identity, not typed';
+  raise notice 'PASS 10 (F): no route renames a canonical identity, as intended -- presentation is derived, and changing it is a deliberate change to one rule';
 else
   raise notice 'FAIL 10 (F): something can now rename a canonical identity; decide what that means for existing teams';
 end if;

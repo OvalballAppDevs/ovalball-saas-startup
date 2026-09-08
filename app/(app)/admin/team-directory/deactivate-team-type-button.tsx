@@ -4,21 +4,21 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 import { deactivateTeamType, getTeamTypeImpact, type TeamTypeImpact } from "./actions"
 
 /**
- * "Deactivate", never "Delete" -- this button never removes the row. See
+ * "Retire", never "Delete" -- this never removes the row. See
  * deactivate_canonical_team_type's own comment for the full lifecycle
  * guarantee (existing club-team history stays intact; new activation is
  * blocked at the database level, not just here). Shows a real impact
  * preview (Overnight Master Pass Section 49) fetched fresh when the
  * dialog opens -- never a generic reassurance sentence.
  */
-export function DeactivateTeamTypeButton({ id, label }: { id: string; label: string }) {
+export function DeactivateTeamTypeDialog({ id, label, onClose }: { id: string; label: string; onClose: () => void }) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [impact, setImpact] = useState<TeamTypeImpact | null>(null)
@@ -44,6 +44,7 @@ export function DeactivateTeamTypeButton({ id, label }: { id: string; label: str
     setWorking(false)
     if (result.ok) {
       setOpen(false)
+      onClose()
       router.refresh()
     } else {
       setError(result.error)
@@ -55,17 +56,18 @@ export function DeactivateTeamTypeButton({ id, label }: { id: string; label: str
     if (!next) {
       setImpact(null)
       setError(null)
+      // Focus returns to the row's own menu trigger, which is where the
+      // administrator was: the dialog is opened from an overflow menu now,
+      // not from a button that stays on screen behind it.
+      onClose()
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" />}>
-        Deactivate
-      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Deactivate &ldquo;{label}&rdquo;?</DialogTitle>
+          <DialogTitle>Retire {label}?</DialogTitle>
           <DialogDescription>
             Any club already running a {label} team keeps it, completely unaffected &mdash; its history, fixtures,
             and roster are untouched. No club will be able to newly add {label} from Add Team or signup after this.
@@ -96,7 +98,7 @@ export function DeactivateTeamTypeButton({ id, label }: { id: string; label: str
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>Cancel</DialogClose>
           <Button type="button" variant="destructive" className="h-9" disabled={working || loadingImpact} onClick={handleConfirm}>
-            {working ? "Deactivating…" : "Deactivate"}
+            {working ? "Retiring…" : `Retire ${label}`}
           </Button>
         </DialogFooter>
       </DialogContent>

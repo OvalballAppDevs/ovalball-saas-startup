@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
 
 import type { CompactLabelInput } from "./compact-label"
-import { normalizedSquad } from "./compact-label"
+import { fullTeamLabel, normalizedSquad } from "./compact-label"
 
 /**
  * The ONE canonical, CLOSED list of teams a club can run -- the same list
@@ -122,17 +122,24 @@ function groupLabelForRow(row: CanonicalTeamTypeRow): string {
 }
 
 /**
- * The signup wizard's own display phrasing ("Under 12", "Under 12 Girls")
- * -- distinct from `canonical_team_types.label`'s compact form ("U12",
- * "Girls U12") -- derived generically from age_group/gender so a newly
- * added youth age_group needs no further code here. Senior/Colts already
- * use their own `label` verbatim for both purposes (e.g. "Men's 1st Team",
- * "Junior Colts").
+ * The signup wizard shows a team by its display name, like everywhere else.
+ *
+ * It used to write its own phrasing here ("Under 12", "Under 12 Girls"), which
+ * made signup a fourth place the naming rules lived. It now derives from the
+ * same structured identity as every other surface, so a change to the standard
+ * reaches signup without anyone remembering this function exists.
  */
-function signupLabelForRow(row: Pick<CanonicalTeamTypeRow, "category" | "age_group" | "gender" | "label">): string {
-  if (row.category !== "youth") return row.label
-  const readableAge = `Under ${row.age_group?.replace(/^U/, "") ?? ""}`
-  return row.gender === "girls" ? `${readableAge} Girls` : readableAge
+function signupLabelForRow(
+  row: Pick<CanonicalTeamTypeRow, "category" | "age_group" | "gender" | "label" | "fixed_squad_designation">,
+  rugbyCode?: RugbyCode
+): string {
+  return fullTeamLabel({
+    category: row.category,
+    ageGroup: row.age_group,
+    gender: row.gender,
+    squadDesignation: row.fixed_squad_designation,
+    rugbyCode: rugbyCode ?? null,
+  })
 }
 
 function rowToOption(row: CanonicalTeamTypeRow, offeredForCodes: RugbyCode[]): TeamCategoryOption {

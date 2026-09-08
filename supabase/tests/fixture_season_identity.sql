@@ -76,7 +76,7 @@ begin
   perform public.apply_season_handover(v_roll);
 end;
 
-if (select display_name from public.teams where id=v_team) = 'U17' then
+if (select display_name from public.teams where id=v_team) = 'Under 17 Boys' then
   raise notice 'PASS 2: the team is now U17';
 else
   raise notice 'FAIL 2: the handover did not progress the team';
@@ -88,7 +88,7 @@ select owning_team_display_name, owning_team_identity_source
 into v_label, v_src
 from public.fixture_season_identity where fixture_id = v_past;
 
-if v_label = 'U16' then
+if v_label = 'Under 16 Boys' then
   raise notice 'PASS 3: last season''s completed result is still attributed to U16, not relabelled U17';
 else
   raise notice 'FAIL 3: the past result is now attributed to [%]', v_label;
@@ -108,14 +108,14 @@ select owning_team_display_name, owning_team_identity_source
 into v_label, v_src
 from public.fixture_season_identity where fixture_id = v_future;
 
-if v_label = 'U17' then
+if v_label = 'Under 17 Boys' then
   raise notice 'PASS 5: next season''s booked fixture belongs to U17 -- the side that will actually play it';
 else
   raise notice 'FAIL 5: the future fixture is labelled [%]', v_label;
 end if;
 
 -- The stale per-row snapshot would have got this one wrong.
-if (select owning_team_display_name_snapshot from public.fixtures where id=v_future) = 'U16' then
+if (select owning_team_display_name_snapshot from public.fixtures where id=v_future) = 'Under 16 Boys' then
   raise notice 'PASS 6: the per-row snapshot still reads U16 here -- which is exactly why the resolver does not use it';
 else
   raise notice 'FAIL 6: the snapshot column no longer demonstrates the staleness this resolver exists to avoid';
@@ -146,7 +146,7 @@ begin
   select owning_team_display_name, owning_team_identity_source
   into v_label, v_src from public.fixture_season_identity where fixture_id = v_fx2;
 
-  if v_label = 'U12' then
+  if v_label = 'Under 12 Boys' then
     raise notice 'PASS 8: a club that has never run a handover still resolves, falling back to its only identity';
   else
     raise notice 'FAIL 8: no-handover club resolved to [%]', v_label;

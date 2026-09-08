@@ -137,7 +137,7 @@ perform public.confirm_rollover_team_proposal(v_pc,'confirm',null,null,null,null
 
 select string_agg(display_name, ', ' order by coalesce(squad_designation,'')) into v_txt
 from public.teams where club_id = v_club and active;
-if v_txt = 'U16, U16 B, U16 C' then
+if v_txt = 'Under 16 Boys, Under 16 Boys B, Under 16 Boys C' then
   raise notice 'PASS 6: with every decision recorded, the club still runs exactly what it ran before -- %', v_txt;
 else
   raise notice 'FAIL 6: deciding changed the live squad set to [%]', v_txt;
@@ -147,7 +147,7 @@ perform public.apply_season_handover(v_roll);
 
 select string_agg(display_name, ', ' order by coalesce(squad_designation,'')) into v_txt
 from public.teams where club_id = v_club and active;
-if v_txt = 'U17, U17 B, U17 C' then
+if v_txt = 'Under 17 Boys, Under 17 Boys B, Under 17 Boys C' then
   raise notice 'PASS 7: applying the handover rolled the full squad set together -- %', v_txt;
 else
   raise notice 'FAIL 7: squad set is now [%]', v_txt;
@@ -175,7 +175,7 @@ else
   raise notice 'FAIL 10: alias is now [%]', v_txt;
 end if;
 
-if (select display_name from public.teams where id=v_b) = 'U17 B' then
+if (select display_name from public.teams where id=v_b) = 'Under 17 Boys B' then
   raise notice 'PASS 11: the alias did NOT overwrite the canonical name -- the team is still U17 B';
 else
   raise notice 'FAIL 11: canonical display name was replaced by the alias';
@@ -248,7 +248,7 @@ begin
   exception when others then v_ok := true; v_err := sqlerrm;
   end;
 
-  if v_ok and v_err like '%already going to be U15 next season%' then
+  if v_ok and v_err like '%already going to be Under 15 Boys next season%' then
     raise notice 'PASS 16: a settled occupant IS a collision, named concretely rather than as a gender error';
   elsif v_ok then
     raise notice 'FAIL 16: refused with unhelpful advice: %', v_err;
@@ -265,7 +265,7 @@ begin
   -- The documented remedy works: a free squad slot at that level.
   perform public.confirm_rollover_team_proposal(v_p14,'adjust','U15','B',null,null);
   perform public.apply_season_handover(v_rollx);
-  if (select display_name from public.teams where id=v_u14) = 'U15 B' then
+  if (select display_name from public.teams where id=v_u14) = 'Under 15 Boys B' then
     raise notice 'PASS 18: the remedy that message suggests works -- the team rolled into the free B slot';
   else
     raise notice 'FAIL 18: the suggested remedy did not work, team is %', (select display_name from public.teams where id=v_u14);
@@ -312,7 +312,7 @@ begin
 
   -- Still nothing has happened.
   if (select active from public.teams where id = v_csq)
-     and (select display_name from public.teams where id = v_a3) = 'U13' then
+     and (select display_name from public.teams where id = v_a3) = 'Under 13 Boys' then
     raise notice 'PASS 20: a recorded FOLD leaves the team live and untouched until the handover is applied';
   else
     raise notice 'FAIL 20: folding took effect before Apply';
@@ -320,8 +320,8 @@ begin
 
   perform public.apply_season_handover(v_roll3);
 
-  if (select display_name from public.teams where id = v_a3) = 'U14'
-     and (select display_name from public.teams where id = v_bsq) = 'U14 B' then
+  if (select display_name from public.teams where id = v_a3) = 'Under 14 Boys'
+     and (select display_name from public.teams where id = v_bsq) = 'Under 14 Boys B' then
     raise notice 'PASS 21: primary and B progressed together to U14 and U14 B';
   else
     raise notice 'FAIL 21: [%] / [%]',

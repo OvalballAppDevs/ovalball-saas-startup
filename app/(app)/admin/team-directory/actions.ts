@@ -13,6 +13,8 @@ export interface CreateTeamTypeInput {
   gender: "boys" | "girls" | "mixed" | "mens" | "womens" | null
   fixedSquadDesignation: string | null
   allowsSquads: boolean
+  /** The catalogue this identity is being added to. The other code is recorded as not offered. */
+  rugbyCode: "union" | "league"
 }
 
 /**
@@ -41,6 +43,7 @@ export async function createTeamType(input: CreateTeamTypeInput): Promise<TeamDi
     p_gender: input.gender as unknown as string,
     p_fixed_squad_designation: input.fixedSquadDesignation as unknown as string,
     p_allows_squads: input.allowsSquads,
+    p_rugby_code: input.rugbyCode,
   })
   if (error) {
     return { ok: false, error: error.message }
