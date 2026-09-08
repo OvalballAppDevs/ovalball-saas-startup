@@ -227,14 +227,52 @@ begin
     raise notice 'FAIL 19 (E): the club could not ask the guardian';
   end if;
 
-  -- Guardian: may answer.
-  perform set_config('request.jwt.claims', json_build_object('sub', v_guardian,'role','authenticated')::text, true);
-  perform public.set_player_playing_pathway(v_kid, 'FEMALE');
-  if (select playing_pathway from public.players where id = v_kid) = 'FEMALE' then
-    raise notice 'PASS 20 (E): the guardian recorded it, in the product, with no database edit';
-  else
-    raise notice 'FAIL 20 (E): the guardian''s answer was not stored';
-  end if;
+  -- A real handover, holding on exactly this player, so the recalculation can
+  -- be observed rather than asserted.
+  declare v_season uuid; v_roll uuid; v_before text; v_after text; v_out record;
+  begin
+    select id into v_season from public.seasons
+    where rugby_code = 'union' and season_year_start = 2027 and not is_regression_fixture limit 1;
+    if v_season is null then
+      insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
+      values ('Names 27/28','2027-09-01','2028-06-30',true,'union',2027,'27/28',true,'2027-08-01') returning id into v_season;
+    end if;
+
+    perform set_config('request.jwt.claims', json_build_object('sub', v_admin,'role','authenticated')::text, true);
+    v_roll := public.generate_rollover_proposal(v_club, 'union', v_season);
+
+    select review_state into v_before from public.age_grade_rollover_player_proposals
+    where rollover_id = v_roll and player_id = v_kid;
+    if v_before = 'NEEDS_ATTENTION' then
+      raise notice 'PASS 20 (E): the handover holds this player because nobody has said which pathway they are registered in';
+    else
+      raise notice 'FAIL 20 (E): the player reads [%] with no pathway recorded', v_before;
+    end if;
+
+    -- Guardian: may answer, and is told what it settled.
+    perform set_config('request.jwt.claims', json_build_object('sub', v_guardian,'role','authenticated')::text, true);
+    select * into v_out from public.set_player_playing_pathway(v_kid, 'FEMALE');
+
+    if (select playing_pathway from public.players where id = v_kid) = 'FEMALE' then
+      raise notice 'PASS 21 (E): the guardian recorded it, in the product, with no database edit';
+    else
+      raise notice 'FAIL 21 (E): the guardian''s answer was not stored';
+    end if;
+
+    select review_state into v_after from public.age_grade_rollover_player_proposals
+    where rollover_id = v_roll and player_id = v_kid;
+    if v_after <> 'NEEDS_ATTENTION' or v_out.review_state is not null then
+      raise notice 'PASS 22 (E): answering recalculated the handover proposal immediately -- [%] became [%]', v_before, v_after;
+    else
+      raise notice 'FAIL 22 (E): the handover still reads [%] after the answer', v_after;
+    end if;
+
+    if v_out.reason is not null then
+      raise notice 'PASS 23 (E): the person who answered is told what it settled, rather than sent elsewhere to find out';
+    else
+      raise notice 'FAIL 23 (E): the answer returned no outcome';
+    end if;
+  end;
 
   v_ok := false;
   begin
@@ -242,9 +280,9 @@ begin
   exception when others then v_ok := true; v_err := sqlerrm;
   end;
   if v_ok then
-    raise notice 'PASS 21 (E): Mixed is refused -- a team can be Mixed, a person cannot';
+    raise notice 'PASS 24 (E): Mixed is refused -- a team can be Mixed, a person cannot';
   else
-    raise notice 'FAIL 21 (E): MIXED was accepted as a person''s pathway';
+    raise notice 'FAIL 24 (E): MIXED was accepted as a person''s pathway';
   end if;
 end;
 
