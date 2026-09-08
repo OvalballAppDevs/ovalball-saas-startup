@@ -69,14 +69,27 @@ insert into public.player_team_memberships (player_id, team_id, status) values
   (v_p_nodob,  v_t_u16, 'active'),
   (v_p_girl,   v_t_gu12, 'active');
 
--- ---------- run the REAL rollover, then the REAL player generator ----------
+-- ---------- run the REAL rollover ----------
+-- Preparing a handover now runs the per-player check itself. It previously
+-- did not -- the generator had no caller anywhere -- so this suite called it
+-- by hand and asserted on its return value, which counts rows NEWLY created.
+-- That count is now zero on a second call, because prepare already made them.
+-- The assertion is re-pointed at what it was always standing in for: the
+-- proposals exist, and calling the generator again is safe.
 select public.generate_rollover_proposal(v_club, 'union', v_to_u) into v_rollover;
-select public.generate_rollover_player_proposals(v_rollover) into v_n;
 
+select count(*) into v_n from public.age_grade_rollover_player_proposals where rollover_id = v_rollover;
 if v_n >= 3 then
-  raise notice 'PASS 1: the real generator produced % player proposal(s) from real memberships', v_n;
+  raise notice 'PASS 1: preparing the handover produced % player proposal(s) from real memberships', v_n;
 else
-  raise notice 'FAIL 1: only % player proposal(s) generated', v_n;
+  raise notice 'FAIL 1: only % player proposal(s) exist after prepare', v_n;
+end if;
+
+if public.generate_rollover_player_proposals(v_rollover) = 0
+   and (select count(*) from public.age_grade_rollover_player_proposals where rollover_id = v_rollover) = v_n then
+  raise notice 'PASS 1b: running the generator again created nothing and changed nothing';
+else
+  raise notice 'FAIL 1b: re-running the player generator duplicated proposals';
 end if;
 
 -- ============ A. Team progression ============
