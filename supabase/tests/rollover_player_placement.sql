@@ -191,16 +191,20 @@ else
 end if;
 
 -- ============ 5. The gate ============
+--
+-- There is no per-player apply any more: a season transition is applied as one
+-- operation, so an unresolved placement holds up the whole handover rather
+-- than being quietly skipped or normalised away.
 
 v_ok := false;
 begin
-  perform public.apply_rollover_player_placement(v_prop);
+  perform public.apply_season_handover(v_roll);
 exception when others then v_ok := true; v_err := sqlerrm;
 end;
-if v_ok and v_err like '%needs attention%' then
-  raise notice 'PASS 13: an unresolved placement CANNOT be applied -- not moved, not dropped, not silently normalised';
+if v_ok and v_err like '%cannot be applied yet%' then
+  raise notice 'PASS 13: an unresolved placement HOLDS the handover -- not moved, not dropped, not silently normalised';
 else
-  raise notice 'FAIL 13: an unresolved placement was applied (%)', coalesce(v_err,'no error');
+  raise notice 'FAIL 13: an unresolved placement did not block the handover (%)', coalesce(v_err,'no error');
 end if;
 
 if (select count(*) from public.player_team_memberships where player_id=v_player and status='active') = 1
@@ -226,7 +230,20 @@ end if;
 
 -- ============ 7. Applying moves the membership ============
 
-perform public.apply_rollover_player_placement(v_prop);
+declare v_rest record;
+begin
+  for v_rest in
+    select p.id, p.proposed_age_group from public.age_grade_rollover_team_proposals p
+    where p.rollover_id = v_roll and p.decision = 'pending'
+  loop
+    if v_rest.proposed_age_group is null then
+      perform public.confirm_rollover_team_proposal(v_rest.id,'graduate',null,null,null,null);
+    else
+      perform public.confirm_rollover_team_proposal(v_rest.id,'confirm',null,null,null,null);
+    end if;
+  end loop;
+  perform public.apply_season_handover(v_roll);
+end;
 
 if (select count(*) from public.player_team_memberships where player_id=v_player and status='active') = 1
    and (select team_id from public.player_team_memberships where player_id=v_player and status='active') = v_u14 then
@@ -241,15 +258,11 @@ else
   raise notice 'FAIL 17: the old membership was not closed properly';
 end if;
 
-v_ok := false;
-begin
-  perform public.apply_rollover_player_placement(v_prop);
-exception when others then v_ok := true; v_err := sqlerrm;
-end;
-if v_ok then
-  raise notice 'PASS 18: applying the same placement twice is refused';
+if (select already_applied from public.apply_season_handover(v_roll))
+   and (select count(*) from public.player_team_memberships where player_id=v_player and status='active') = 1 then
+  raise notice 'PASS 18: applying the same handover twice is a no-op -- the player was not moved again';
 else
-  raise notice 'FAIL 18: a placement was applied twice';
+  raise notice 'FAIL 18: a second apply did work';
 end if;
 
 -- ============ 8. Audit is by stable id, with the real decision ============
@@ -284,12 +297,18 @@ end if;
 
 -- ============ 9. Readiness reflects real proposal state ============
 
-select is_ready into v_ok from public.rollover_readiness(v_roll);
-if not v_ok then
-  raise notice 'PASS 22: the handover is NOT ready while team decisions are still pending';
-else
-  raise notice 'FAIL 22: readiness ignored outstanding team decisions';
-end if;
+-- The gate at assertion 13 already proved an unresolved placement holds the
+-- whole handover. Here the handover has run, and readiness must say so rather
+-- than continuing to describe work still to do.
+declare v_applied boolean; v_blockers int;
+begin
+  select is_applied, blocker_count into v_applied, v_blockers from public.rollover_readiness(v_roll);
+  if v_applied and v_blockers = 0 then
+    raise notice 'PASS 22: readiness reports the handover as applied, with nothing outstanding';
+  else
+    raise notice 'FAIL 22: applied=% blockers=%', v_applied, v_blockers;
+  end if;
+end;
 
 select players_total, players_ready into v_n, v_review from public.rollover_readiness(v_roll);
 if v_n >= 1 then

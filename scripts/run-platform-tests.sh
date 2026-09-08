@@ -68,6 +68,7 @@ SUITES=(
   player_age_resolver
   handover_player_placement
   handover_apply_idempotency
+  handover_staged_commit_model
   handover_prepare_idempotency
   handover_squads_and_aliases
   graduation_placement_safety

@@ -10,6 +10,12 @@
 -- its stable team_id, so its team_permissions rows follow it without anything
 -- being done.
 --
+-- SINCE THE STAGED COMMIT MODEL, adding the team is a DECISION. It has to be:
+-- next season's U12 cannot be stood up while this season's U12 is still called
+-- U12, and it only stops being called that when the handover runs. So the club
+-- records that it will run the team, the board says so in those words, and the
+-- real team is created inside Apply once the identity has been vacated.
+--
 -- Wrapped in begin/rollback: leaves the database exactly as it found it.
 
 begin;
@@ -19,7 +25,7 @@ declare
   v_admin uuid := gen_random_uuid();
   v_coach uuid := gen_random_uuid();
   v_dir uuid; v_club uuid; v_to uuid;
-  v_u15 uuid; v_u15b uuid; v_new uuid;
+  v_u15 uuid; v_u15b uuid; v_new uuid; v_planned uuid; v_roll uuid;
   v_coach_ms uuid;
   v_old_player uuid; v_b_player uuid;
   v_prop uuid; v_bprop uuid; v_teamprop uuid;
@@ -69,7 +75,7 @@ values ('Bee','Squad', date '2012-01-15', 'MALE', true) returning id into v_b_pl
 insert into public.player_team_memberships (player_id, team_id, status) values (v_b_player, v_u15b,'active');
 
 perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
-perform public.generate_rollover_proposal(v_club,'union',v_to);
+v_roll := public.generate_rollover_proposal(v_club,'union',v_to);
 select id into v_prop from public.age_grade_rollover_player_proposals where player_id = v_old_player;
 select id into v_bprop from public.age_grade_rollover_player_proposals where player_id = v_b_player;
 
@@ -88,48 +94,51 @@ else
   raise notice 'FAIL 2: reason reads [%]', left(coalesce(v_txt,'(none)'),80);
 end if;
 
--- ============ 2. Adding it, with the staff ============
+-- ============ 2. Planning it ============
 
-v_new := public.provision_missing_placement_team(v_prop);
+v_planned := public.plan_missing_placement_team(v_prop);
 
-if (select age_group from public.teams where id=v_new) = 'U17'
-   and (select active from public.teams where id=v_new)
-   and (select club_id from public.teams where id=v_new) = v_club then
-  raise notice 'PASS 3: the club now runs an active U17 at this club';
+if v_planned is not null
+   and (select canonical_team_type_id from public.age_grade_rollover_planned_teams where id = v_planned)
+       = internal.resolve_canonical_team_type('youth','U17','boys',null) then
+  raise notice 'PASS 3: the club recorded that it will run a U17 next season';
 else
-  raise notice 'FAIL 3: the created team is wrong';
+  raise notice 'FAIL 3: no U17 was planned';
 end if;
 
-if (select squad_designation from public.teams where id=v_new) is null then
-  raise notice 'PASS 4: it was created as the primary, since the source player was in a primary squad';
+if not exists (select 1 from public.teams where club_id = v_club and age_group = 'U17') then
+  raise notice 'PASS 3b: NOTHING was created -- planning a team creates no live team, which is the whole point';
 else
-  raise notice 'FAIL 4: an unexpected squad letter was assigned';
+  raise notice 'FAIL 3b: a live U17 was created during review';
 end if;
 
-if exists (select 1 from public.team_permissions where team_id = v_new and membership_id = v_coach_ms and permission = 'coach') then
-  raise notice 'PASS 5: the source squad''s coach came across to the new team -- staff travel with the cohort';
+if (select squad_designation from public.age_grade_rollover_planned_teams where id = v_planned) is null then
+  raise notice 'PASS 4: it is planned as the primary, since the source player was in a primary squad';
 else
-  raise notice 'FAIL 5: the new team was created with no staff';
+  raise notice 'FAIL 4: an unexpected squad letter was planned';
 end if;
 
-if exists (select 1 from public.team_permissions where team_id = v_u15 and membership_id = v_coach_ms) then
-  raise notice 'PASS 6: the coach is still attached to the original side too -- carrying staff over copies, it does not strip';
+if (select source_team_id from public.age_grade_rollover_planned_teams where id = v_planned) = v_u15 then
+  raise notice 'PASS 5: the plan records where the staff will come from when the team is created';
 else
-  raise notice 'FAIL 6: the coach was removed from the original team';
+  raise notice 'FAIL 5: the plan carries no staff source';
 end if;
 
-if exists (select 1 from public.team_season_identity where team_id = v_new and season_id = v_to) then
-  raise notice 'PASS 7: the new team is registered in the Handover Register for the season it was created for';
+-- ============ 3. Planning it resolves the player it was planned for ======
+
+select id into v_prop from public.age_grade_rollover_player_proposals where player_id = v_old_player;
+select review_state, reason into v_txt, v_err from public.age_grade_rollover_player_proposals where id = v_prop;
+
+if (select planned_team_id from public.age_grade_rollover_player_proposals where id = v_prop) = v_planned then
+  raise notice 'PASS 6: the player who had nowhere to go is now going to the team the club has planned';
 else
-  raise notice 'FAIL 7: the new team has no season identity';
+  raise notice 'FAIL 6: the player''s proposal was not refreshed after the team was planned';
 end if;
 
--- ============ 3. Creating it resolves the player it was created for ======
-
-if (select proposed_team_id from public.age_grade_rollover_player_proposals where player_id = v_old_player) = v_new then
-  raise notice 'PASS 8: the player who had nowhere to go now normally lands in the team just created';
+if v_txt = 'READY' and v_err like '%will be created when this handover is applied%' then
+  raise notice 'PASS 7: the board says the team WILL be created -- never that it was added';
 else
-  raise notice 'FAIL 8: the player''s proposal was not refreshed after the team appeared';
+  raise notice 'FAIL 7: review=% reason=[%]', v_txt, left(coalesce(v_err,'(none)'),80);
 end if;
 
 -- ============ 4. Adding a team is Club Admin authority ============
@@ -142,7 +151,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub',v_outsider,'role','authenticated')::text, true);
   v_ok := false;
   begin
-    perform public.provision_missing_placement_team(v_bprop);
+    perform public.plan_missing_placement_team(v_bprop);
   exception when others then v_ok := true; v_err := sqlerrm;
   end;
   if v_ok then
@@ -178,14 +187,17 @@ perform public.confirm_rollover_team_proposal(v_teamprop,'fold','Not enough play
 
 select review_state, reason into v_txt, v_err
 from public.age_grade_rollover_player_proposals where player_id = v_b_player;
-if v_txt = 'NEEDS_ATTENTION' then
-  raise notice 'PASS 11: folding the squad immediately turned its players into placement work';
+-- The primary at this level is progressing, so there IS somewhere for him to
+-- go. The fold is not a failure -- but it must not leave a stale row reading
+-- as though nothing had happened either.
+if v_txt = 'READY' then
+  raise notice 'PASS 11: folding the squad left its player with a real destination rather than an unresolved error';
 else
-  raise notice 'FAIL 11: the folded squad''s player still reads [%]', v_txt;
+  raise notice 'FAIL 11: the folded squad''s player reads [%]', v_txt;
 end if;
 
 if v_err like '%not continuing next season%' then
-  raise notice 'PASS 12: the player''s reason names the fold, rather than leaving a stale destination';
+  raise notice 'PASS 12: the player''s reason names the fold and where he goes, rather than leaving a stale destination';
 else
   raise notice 'FAIL 12: reason reads [%]', left(coalesce(v_err,'(none)'),80);
 end if;
@@ -201,32 +213,89 @@ end if;
 declare v_decided uuid; v_before uuid;
 begin
   select id into v_decided from public.age_grade_rollover_player_proposals where player_id = v_old_player;
-  perform public.set_rollover_player_placement(v_decided, v_new);
-  select selected_team_id into v_before from public.age_grade_rollover_player_proposals where id = v_decided;
+  perform public.set_rollover_player_planned_placement(v_decided, v_planned);
+  select planned_team_id into v_before from public.age_grade_rollover_player_proposals where id = v_decided;
 
   -- Any further team decision fires the refresh.
   select id into v_teamprop from public.age_grade_rollover_team_proposals where team_id = v_u15;
   perform public.confirm_rollover_team_proposal(v_teamprop,'defer',null,null,null,null);
 
-  if (select selected_team_id from public.age_grade_rollover_player_proposals where id = v_decided) = v_before then
+  if (select planned_team_id from public.age_grade_rollover_player_proposals where id = v_decided) = v_before then
     raise notice 'PASS 14: a reviewer''s chosen placement survived a later team decision untouched';
   else
     raise notice 'FAIL 14: the refresh discarded a human decision';
   end if;
 end;
 
--- ============ 7. One directory, still ============
+-- ============ 7. Apply is where the team actually appears ============
 
-if (select count(*) from public.teams where club_id = v_club and active and age_group = 'U17') = 1 then
-  raise notice 'PASS 15: exactly one U17 exists -- adding a successor team did not create a duplicate identity';
+declare v_rest record;
+begin
+  for v_rest in
+    select p.id, p.proposed_age_group from public.age_grade_rollover_team_proposals p
+    where p.rollover_id = v_roll and p.decision in ('pending','deferred')
+  loop
+    perform public.undo_rollover_team_decision(v_rest.id);
+    if v_rest.proposed_age_group is null then
+      perform public.confirm_rollover_team_proposal(v_rest.id,'graduate',null,null,null,null);
+    else
+      perform public.confirm_rollover_team_proposal(v_rest.id,'confirm',null,null,null,null);
+    end if;
+  end loop;
+
+  -- The B-squad player lost his team to the fold; send him to the planned U17
+  -- alongside the over-age player so nothing is outstanding.
+  perform public.apply_season_handover(v_roll);
+end;
+
+select created_team_id into v_new from public.age_grade_rollover_planned_teams where id = v_planned;
+
+if v_new is not null
+   and (select age_group from public.teams where id = v_new) = 'U17'
+   and (select active from public.teams where id = v_new)
+   and (select club_id from public.teams where id = v_new) = v_club then
+  raise notice 'PASS 15: applying the handover created the U17 the club had planned';
 else
-  raise notice 'FAIL 15: % U17 teams exist', (select count(*) from public.teams where club_id=v_club and active and age_group='U17');
+  raise notice 'FAIL 15: the planned team was not created properly';
 end if;
 
-if exists (select 1 from public.audit_log where record_id = v_new and after->>'event' = 'SUCCESSOR_TEAM_CREATED_AT_HANDOVER') then
-  raise notice 'PASS 16: creating the team is audited against the handover that caused it';
+if exists (select 1 from public.team_permissions where team_id = v_new and membership_id = v_coach_ms and permission = 'coach') then
+  raise notice 'PASS 16: the source squad''s coach came across to the new team -- staff travel with the cohort';
 else
-  raise notice 'FAIL 16: the team creation was not audited';
+  raise notice 'FAIL 16: the new team was created with no staff';
+end if;
+
+if exists (select 1 from public.team_permissions where team_id = v_u15 and membership_id = v_coach_ms) then
+  raise notice 'PASS 17: the coach is still attached to the original side too -- carrying staff over copies, it does not strip';
+else
+  raise notice 'FAIL 17: the coach was removed from the original team';
+end if;
+
+if exists (select 1 from public.team_season_identity where team_id = v_new and season_id = v_to) then
+  raise notice 'PASS 18: the new team is registered in the Handover Register for the season it was created for';
+else
+  raise notice 'FAIL 18: the new team has no season identity';
+end if;
+
+if (select team_id from public.player_team_memberships where player_id = v_old_player and status = 'active') = v_new then
+  raise notice 'PASS 19: the player the team was planned for is a member of it once it exists';
+else
+  raise notice 'FAIL 19: the player did not land in the team created for him';
+end if;
+
+-- ============ 8. One directory, still ============
+
+if (select count(*) from public.teams where club_id = v_club and active and age_group = 'U17') = 1 then
+  raise notice 'PASS 20: exactly one U17 exists -- adding a successor team did not create a duplicate identity';
+else
+  raise notice 'FAIL 20: % U17 teams exist', (select count(*) from public.teams where club_id=v_club and active and age_group='U17');
+end if;
+
+if exists (select 1 from public.audit_log where record_id = v_planned and after->>'event' = 'HANDOVER_TEAM_PLANNED')
+   and exists (select 1 from public.audit_log where record_id = v_new and after->>'event' = 'HANDOVER_TEAM_CREATED') then
+  raise notice 'PASS 21: planning the team and creating it are audited separately, both against the handover';
+else
+  raise notice 'FAIL 21: the team decision and its consequence were not both audited';
 end if;
 
 end $$;

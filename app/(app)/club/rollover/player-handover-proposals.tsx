@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 import {
-  addMissingPlacementTeam,
-  applyPlayerPlacement,
+  clearPlayerPlacement,
   loadPlacementOptions,
+  planMissingPlacementTeam,
   setPlayerPlacement,
+  setPlayerPlannedPlacement,
   type PlacementOption,
   type PlacementVerdict,
 } from "./actions"
@@ -30,6 +31,10 @@ import {
  * Rows are keyed by playerId, not proposal id. Deciding a team refreshes the
  * undecided player proposals, which deletes and regenerates them, so proposal
  * ids churn. The player is the stable handle.
+ *
+ * Nothing here moves a child. Every control records a placement DECISION, and
+ * the memberships change when the handover is applied -- which is why a
+ * placement can be changed back right up to that point.
  */
 
 export type PlayerReviewState = "READY" | "NEEDS_ATTENTION" | "BLOCKED"
@@ -54,6 +59,10 @@ export interface PlayerProposalRow {
   placementApplied: boolean
   /** True when the club runs no team at the player's normal age grade. */
   normalTeamMissing: boolean
+  /** The club has decided to run the team this player needs; it does not exist yet. */
+  plannedTeamName: string | null
+  /** A human chose this placement, so it can be put back to the normal one. */
+  placementChosen: boolean
 }
 
 type Filter = "all" | "attention" | "approval" | "holding" | "ready"
@@ -72,6 +81,7 @@ const FILTERS: { key: Filter; label: string }[] = [
  */
 function statusLabel(row: PlayerProposalRow): string {
   if (row.placementApplied) return "Placed"
+  if (row.plannedTeamName) return "Team planned"
   if (row.allocationStatus === "DOB_REQUIRED") return "Date of birth needed"
   if (row.allocationStatus === "CLUB_HOLDING") return "Club holding"
   if (row.reviewState === "BLOCKED") return "Not permitted"
@@ -86,7 +96,7 @@ function statusLabel(row: PlayerProposalRow): string {
  */
 function statusTone(row: PlayerProposalRow): string {
   const label = statusLabel(row)
-  if (label === "Ready" || label === "Placed") return "bg-mint-100 text-forest-950"
+  if (label === "Ready" || label === "Placed" || label === "Team planned") return "bg-mint-100 text-forest-950"
   if (label === "Club holding") return "bg-ink/5 text-ink/80"
   if (label === "Not permitted") return "bg-destructive/10 text-destructive-text"
   return "bg-amber-50 text-amber-900"
@@ -254,7 +264,16 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
                         {row.normalPlacementName ?? <span className="text-ink/55">Not available</span>}
                       </td>
                       <td className="px-5 py-3 text-sm text-ink/80">
-                        {row.selectedPlacementName ?? row.normalPlacementName ?? "—"}
+                        {row.selectedPlacementName ?? row.normalPlacementName ?? (
+                          row.plannedTeamName ? (
+                            <span>
+                              {row.plannedTeamName}
+                              <span className="ml-1.5 text-xs text-ink/55">planned</span>
+                            </span>
+                          ) : (
+                            "—"
+                          )
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${statusTone(row)}`}>
@@ -294,7 +313,12 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
                   <p className="my-1 ml-1.5 border-l border-ink/20 pl-3 text-xs text-ink/50" aria-hidden="true">
                     &nbsp;
                   </p>
-                  <p>{row.selectedPlacementName ?? row.normalPlacementName ?? "No team yet"}</p>
+                  <p>
+                    {row.selectedPlacementName ?? row.normalPlacementName ?? row.plannedTeamName ?? "No team yet"}
+                    {!row.selectedPlacementName && !row.normalPlacementName && row.plannedTeamName && (
+                      <span className="ml-1.5 text-xs text-ink/55">planned</span>
+                    )}
+                  </p>
                 </div>
                 <div className="mt-3">
                   <PlayerDetail
@@ -347,6 +371,12 @@ function PlayerDetail({
         </p>
       )}
 
+      {row.plannedTeamName && !row.placementApplied && (
+        <p className="text-sm text-ink/80">
+          {row.plannedTeamName} will be created when this handover is applied, and {row.playerName.split(" ")[0]} joins it then.
+        </p>
+      )}
+
       {error && <p className="text-sm text-destructive-text">{error}</p>}
 
       <div className="flex flex-wrap gap-2">
@@ -356,7 +386,7 @@ function PlayerDetail({
           </Button>
         )}
 
-        {row.normalTeamMissing && !row.placementApplied && (
+        {row.normalTeamMissing && !row.plannedTeamName && !row.placementApplied && (
           <Button
             type="button"
             variant="outline"
@@ -365,31 +395,32 @@ function PlayerDetail({
             onClick={() =>
               startTransition(async () => {
                 setError(null)
-                const res = await addMissingPlacementTeam(row.proposalId)
+                const res = await planMissingPlacementTeam(row.proposalId)
                 if (!res.ok) setError(res.error)
-                else onAnnounce("The team was added and this player now has a normal placement.")
+                else onAnnounce("The club will run that team next season. It is created when the handover is applied.")
               })
             }
           >
-            Add the missing team
+            Run this team next season
           </Button>
         )}
 
-        {row.reviewState === "READY" && !row.placementApplied && (
+        {row.placementChosen && !row.placementApplied && (
           <Button
             type="button"
+            variant="ghost"
             className="h-11"
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
                 setError(null)
-                const res = await applyPlayerPlacement(row.proposalId)
+                const res = await clearPlayerPlacement(row.proposalId)
                 if (!res.ok) setError(res.error)
-                else onAnnounce(`${row.playerName} was placed.`)
+                else onAnnounce(`${row.playerName} is back to their normal placement.`)
               })
             }
           >
-            Confirm placement
+            Undo this choice
           </Button>
         )}
       </div>
@@ -426,7 +457,8 @@ function ChangePlacementDialog({
           <DialogTitle>Change placement for {row.playerName}</DialogTitle>
           <DialogDescription>
             Teams are shown as they will be next season. Moving between squads at the same age grade is your
-            decision; moving age grade is checked against the governing rules.
+            decision; moving age grade is checked against the governing rules. Nothing moves until the handover is
+            applied.
           </DialogDescription>
         </DialogHeader>
 
@@ -434,12 +466,30 @@ function ChangePlacementDialog({
           {options === null && <p className="text-sm text-ink-muted">Loading teams…</p>}
           {options?.map((o) => (
             <button
-              key={o.teamId}
+              key={o.teamId ?? `planned-${o.plannedId}`}
               type="button"
               disabled={pending}
               onClick={() =>
                 startTransition(async () => {
                   setError(null)
+                  if (o.plannedId) {
+                    const res = await setPlayerPlannedPlacement(row.proposalId, o.plannedId)
+                    if (!res.ok) {
+                      setError(res.error)
+                      setVerdict(null)
+                    } else {
+                      setVerdict({
+                        overrideKind: null,
+                        movementRequirement: null,
+                        reviewState: "READY",
+                        reason: `${o.displayName} will be created when this handover is applied, and ${row.playerName.split(" ")[0]} joins it then.`,
+                        dispensationRequired: false,
+                      })
+                      onAnnounce(`${o.displayName} will be created when this handover is applied.`)
+                    }
+                    return
+                  }
+                  if (!o.teamId) return
                   const res = await setPlayerPlacement(row.proposalId, o.teamId)
                   if (!res.ok) {
                     setError(res.error)
@@ -450,10 +500,13 @@ function ChangePlacementDialog({
                   }
                 })
               }
-              className="flex w-full items-center justify-between rounded-lg border border-ink/10 px-3.5 py-3 text-left text-sm hover:bg-chalk focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-ink/10 px-3.5 py-3 text-left text-sm hover:bg-chalk focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
             >
               <span className="text-ink">{o.displayName}</span>
-              {o.isNormal && <span className="text-xs text-ink/55">Normal placement</span>}
+              <span className="flex shrink-0 items-center gap-2 text-xs text-ink/55">
+                {o.isPlanned && <span>Created on apply</span>}
+                {o.isNormal && <span>Normal placement</span>}
+              </span>
             </button>
           ))}
         </div>

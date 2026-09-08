@@ -1,10 +1,22 @@
 -- Season handover for B/C squads, club aliases, and identity collisions.
 --
--- The ordering assertions here exist because confirming a B squad before its
--- primary team used to fail with "That destination age group/gender
--- combination is not valid (Mixed is only allowed U6-U11...)" -- a message
--- about a field that was not the problem, produced because the apply path
--- mapped every check violation to the gender case.
+-- WHAT CHANGED, AND WHY THESE ASSERTIONS DID
+--
+-- These tests used to prove an ORDERING rule: confirming a B squad before its
+-- primary was refused, because Confirm mutated the team immediately and the
+-- primary really was still sitting in the destination. The refusal had to name
+-- which team to confirm first, because the club could not proceed otherwise.
+--
+-- Under the staged commit model that constraint does not exist. Nothing has
+-- moved when a decision is recorded, so there is nothing to be in the way. A
+-- club may decide its squads in any order, and Apply works out the sequence.
+--
+-- Two rules survive, and are what this suite now proves:
+--
+--   * a B or C squad cannot sit at a level with no primary -- judged against
+--     what the club has DECIDED, so a primary that is itself still at U16 but
+--     heading for U17 counts, and a folded primary does not;
+--   * two teams cannot be decided into one identity.
 --
 -- Wrapped in begin/rollback: leaves the database exactly as it found it.
 
@@ -13,8 +25,8 @@ begin;
 do $$
 declare
   v_admin uuid := gen_random_uuid();
-  v_dir uuid; v_club uuid; v_to uuid;
-  v_a uuid; v_b uuid; v_c uuid; v_clash uuid;
+  v_dir uuid; v_club uuid; v_to uuid; v_roll uuid;
+  v_a uuid; v_b uuid; v_c uuid;
   v_pa uuid; v_pb uuid; v_pc uuid;
   v_err text; v_ok boolean; v_n int; v_txt text;
 begin
@@ -30,9 +42,7 @@ values ('Squads RUFC','T','T','union','United Kingdom','England',true,'unverifie
 returning id into v_dir;
 insert into public.clubs (directory_id, slug, status)
 values (v_dir,'squads-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club;
--- Use the club-facing next season if the platform already has one, and
--- only create a synthetic one when it does not. Hardcoding an insert here
--- made the suite abort the moment a real 27/28 season existed.
+
 select id into v_to from public.seasons
 where rugby_code = 'union' and season_year_start = 2027 limit 1;
 if v_to is null then
@@ -41,179 +51,235 @@ if v_to is null then
 end if;
 
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
-values (v_club,'union','youth','U16','boys','x','x1') returning id into v_a;
+values (v_club,'union','youth','U16','boys','U16','x1') returning id into v_a;
 insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug)
-values (v_club,'union','youth','U16','boys','B','x','x2') returning id into v_b;
+values (v_club,'union','youth','U16','boys','B','U16 B','x2') returning id into v_b;
 insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug)
-values (v_club,'union','youth','U16','boys','C','x','x3') returning id into v_c;
+values (v_club,'union','youth','U16','boys','C','U16 C','x3') returning id into v_c;
 
 -- A club-chosen alias sits OVER the canonical identity, in its own table.
 insert into public.team_aliases (team_id, alias, set_by) values (v_b,'Wanderers',v_admin);
 
-perform public.generate_rollover_proposal(v_club,'union',v_to);
+v_roll := public.generate_rollover_proposal(v_club,'union',v_to);
 select id into v_pa from public.age_grade_rollover_team_proposals where team_id=v_a;
 select id into v_pb from public.age_grade_rollover_team_proposals where team_id=v_b;
 select id into v_pc from public.age_grade_rollover_team_proposals where team_id=v_c;
 
--- ============ 1. Ordering is stated, not discovered ============
+-- ============ 1. Squads may be decided in any order ============
 
-v_ok := false;
+v_ok := true;
 begin
   perform public.confirm_rollover_team_proposal(v_pb,'confirm',null,null,null,null);
-exception when others then v_ok := true; v_err := sqlerrm;
+exception when others then v_ok := false; v_err := sqlerrm;
 end;
 
-if v_ok and v_err like '%moves up with its primary team%' then
-  raise notice 'PASS 1: confirming the B squad first is refused with an instruction that names the team to confirm first';
-elsif v_ok then
-  raise notice 'FAIL 1: refused, but with an unhelpful message: %', v_err;
+if v_ok then
+  raise notice 'PASS 1: the B squad could be decided BEFORE its primary -- staged decisions have no ordering constraint';
 else
-  raise notice 'FAIL 1: the B squad moved up with no primary team at that level';
+  raise notice 'FAIL 1: deciding the B squad first was refused: %', v_err;
 end if;
 
-if v_err not like '%Mixed is only allowed%' then
-  raise notice 'PASS 2: the squad-ordering problem is NO LONGER reported as a gender/age-band error';
+if (select age_group from public.teams where id=v_b) = 'U16' then
+  raise notice 'PASS 2: recording that decision changed no live team -- the B squad is still U16';
 else
-  raise notice 'FAIL 2: still blaming the gender combination for a squad-structure problem';
+  raise notice 'FAIL 2: deciding the B squad moved it to %', (select age_group from public.teams where id=v_b);
 end if;
 
-if (select age_group from public.teams where id=v_b) = 'U16'
-   and (select decision from public.age_grade_rollover_team_proposals where id=v_pb) = 'pending' then
-  raise notice 'PASS 3: the refused confirm left nothing behind -- squad still U16, proposal still pending';
-else
-  raise notice 'FAIL 3: the refused confirm left partial state';
-end if;
+-- The rule that DOES survive: a squad letter needs a primary at that level.
+declare v_lonely uuid; v_lp uuid; v_dir2 uuid; v_club2 uuid; v_prim uuid; v_pp uuid;
+begin
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('Lonely RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','lonely-'||substr(gen_random_uuid()::text,1,8)) returning id into v_dir2;
+  insert into public.clubs (directory_id, slug, status) values (v_dir2,'lonely-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club2;
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
+  values (v_club2,'union','youth','U16','boys','U16','l1') returning id into v_prim;
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug)
+  values (v_club2,'union','youth','U16','boys','B','U16 B','l2') returning id into v_lonely;
 
--- ============ 2. The whole squad set rolls forward ============
+  perform public.generate_rollover_proposal(v_club2,'union',v_to);
+  select id into v_pp from public.age_grade_rollover_team_proposals where team_id=v_prim;
+  select id into v_lp from public.age_grade_rollover_team_proposals where team_id=v_lonely;
+
+  -- Fold the primary. Now nothing will be U17 for the B squad to sit under.
+  perform public.confirm_rollover_team_proposal(v_pp,'fold',null,null,'Not enough players.',null);
+
+  v_ok := false;
+  begin
+    perform public.confirm_rollover_team_proposal(v_lp,'confirm',null,null,null,null);
+  exception when others then v_ok := true; v_err := sqlerrm;
+  end;
+
+  if v_ok and v_err like '%no primary team heading for U17%' then
+    raise notice 'PASS 3: a B squad with no primary at the destination is refused, and told exactly that';
+  elsif v_ok then
+    raise notice 'FAIL 3: refused, but with an unhelpful message: %', v_err;
+  else
+    raise notice 'FAIL 3: the B squad was allowed to sit at a level with no primary';
+  end if;
+
+  if v_err not like '%Mixed is only allowed%' then
+    raise notice 'PASS 4: the squad-structure problem is NOT reported as a gender/age-band error';
+  else
+    raise notice 'FAIL 4: still blaming the gender combination for a squad-structure problem';
+  end if;
+
+  if (select decision from public.age_grade_rollover_team_proposals where id=v_lp) = 'pending' then
+    raise notice 'PASS 5: the refused decision left nothing behind -- the proposal is still undecided';
+  else
+    raise notice 'FAIL 5: the refused decision was recorded anyway';
+  end if;
+end;
+
+-- ============ 2. The whole squad set rolls forward, at Apply ============
 
 perform public.confirm_rollover_team_proposal(v_pa,'confirm',null,null,null,null);
-perform public.confirm_rollover_team_proposal(v_pb,'confirm',null,null,null,null);
 perform public.confirm_rollover_team_proposal(v_pc,'confirm',null,null,null,null);
 
 select string_agg(display_name, ', ' order by coalesce(squad_designation,'')) into v_txt
 from public.teams where club_id = v_club and active;
-if v_txt = 'U17, U17 B, U17 C' then
-  raise notice 'PASS 4: the full squad set rolled together -- %', v_txt;
+if v_txt = 'U16, U16 B, U16 C' then
+  raise notice 'PASS 6: with every decision recorded, the club still runs exactly what it ran before -- %', v_txt;
 else
-  raise notice 'FAIL 4: squad set is now [%]', v_txt;
+  raise notice 'FAIL 6: deciding changed the live squad set to [%]', v_txt;
+end if;
+
+perform public.apply_season_handover(v_roll);
+
+select string_agg(display_name, ', ' order by coalesce(squad_designation,'')) into v_txt
+from public.teams where club_id = v_club and active;
+if v_txt = 'U17, U17 B, U17 C' then
+  raise notice 'PASS 7: applying the handover rolled the full squad set together -- %', v_txt;
+else
+  raise notice 'FAIL 7: squad set is now [%]', v_txt;
 end if;
 
 if (select count(*) from public.teams where club_id=v_club and squad_designation='B' and age_group='U17') = 1
    and (select count(*) from public.teams where club_id=v_club and squad_designation='C' and age_group='U17') = 1 then
-  raise notice 'PASS 5: squad letters were preserved through the handover, not dropped or merged';
+  raise notice 'PASS 8: squad letters were preserved through the handover, not dropped or merged';
 else
-  raise notice 'FAIL 5: squad letters did not survive the handover';
+  raise notice 'FAIL 8: squad letters did not survive the handover';
 end if;
 
--- Squads share the canonical identity; the letter is a slot within it.
 if (select count(distinct canonical_team_type_id) from public.teams where club_id=v_club and active) = 1 then
-  raise notice 'PASS 6: A, B and C share ONE canonical identity -- a squad letter is not a separate team type';
+  raise notice 'PASS 9: A, B and C share ONE canonical identity -- a squad letter is not a separate team type';
 else
-  raise notice 'FAIL 6: squads resolved to different canonical identities';
+  raise notice 'FAIL 9: squads resolved to different canonical identities';
 end if;
 
 -- ============ 3. The alias follows the team, and stays an alias ============
 
 select alias into v_txt from public.team_aliases where team_id = v_b;
 if v_txt = 'Wanderers' then
-  raise notice 'PASS 7: the club alias survived the handover unchanged, still attached to the same team';
+  raise notice 'PASS 10: the club alias survived the handover unchanged, still attached to the same team';
 else
-  raise notice 'FAIL 7: alias is now [%]', v_txt;
+  raise notice 'FAIL 10: alias is now [%]', v_txt;
 end if;
 
 if (select display_name from public.teams where id=v_b) = 'U17 B' then
-  raise notice 'PASS 8: the alias did NOT overwrite the canonical name -- the team is still U17 B';
+  raise notice 'PASS 11: the alias did NOT overwrite the canonical name -- the team is still U17 B';
 else
-  raise notice 'FAIL 8: canonical display name was replaced by the alias';
+  raise notice 'FAIL 11: canonical display name was replaced by the alias';
 end if;
 
 if not exists (select 1 from public.canonical_team_types where label = 'Wanderers' or key = 'wanderers') then
-  raise notice 'PASS 9: a club alias never became a canonical team type';
+  raise notice 'PASS 12: a club alias never became a canonical team type';
 else
-  raise notice 'FAIL 9: a club alias leaked into the canonical directory';
+  raise notice 'FAIL 12: a club alias leaked into the canonical directory';
 end if;
 
 if not exists (select 1 from public.team_season_identity where team_id=v_b and display_name = 'Wanderers') then
-  raise notice 'PASS 10: the Handover Register recorded the canonical identity, not the club alias';
+  raise notice 'PASS 13: the Handover Register recorded the canonical identity, not the club alias';
 else
-  raise notice 'FAIL 10: the register recorded the alias as the season identity';
+  raise notice 'FAIL 13: the register recorded the alias as the season identity';
 end if;
 
--- ============ 4. Collision with an identity the club already holds ============
-
-insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
-values (v_club,'union','youth','U14','boys','x','x4') returning id into v_clash;
--- Give the club a U15 already, so U14 -> U15 collides.
-insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
-values (v_club,'union','youth','U15','boys','x','x5');
-
-perform public.generate_rollover_proposal(v_club,'union',v_to);
-select id into v_pa from public.age_grade_rollover_team_proposals where team_id=v_clash;
-
-v_ok := false;
-begin
-  perform public.confirm_rollover_team_proposal(v_pa,'confirm',null,null,null,null);
-exception when others then v_ok := true; v_err := sqlerrm;
-end;
-
--- The occupant is itself waiting its turn in this handover, so the useful
--- advice is to confirm it first -- not to invent a B squad for a place that
--- is about to be vacated.
-if v_ok and v_err like '%Confirm U15 first%' then
-  raise notice 'PASS 11: a collision with a team still waiting its turn names that team, rather than advising a squad letter';
-elsif v_ok then
-  raise notice 'FAIL 11: refused with unhelpful advice: %', v_err;
-else
-  raise notice 'FAIL 11: two teams were allowed to occupy one identity';
-end if;
-
-if (select age_group from public.teams where id=v_clash) = 'U14'
-   and (select decision from public.age_grade_rollover_team_proposals where id=v_pa) = 'pending' then
-  raise notice 'PASS 12: the collision left nothing behind and the proposal can still be retried';
-else
-  raise notice 'FAIL 12: the collision left partial state';
-end if;
-
--- The documented escape hatch actually works: move it into a free squad slot.
--- Now settle the occupant so it is no longer pending. It is staying at U15,
--- so the other branch applies: the place is genuinely taken and a different
--- squad letter IS the right advice.
-declare v_sitter uuid;
-begin
-  select p.id into v_sitter
-  from public.age_grade_rollover_team_proposals p
-  join public.teams t on t.id = p.team_id
-  where t.club_id = v_club and t.age_group = 'U15' and t.squad_designation is null and p.decision = 'pending';
-  perform public.confirm_rollover_team_proposal(v_sitter,'defer',null,null,null,null);
-end;
-
-v_ok := false;
-begin
-  perform public.confirm_rollover_team_proposal(v_pa,'confirm',null,null,null,null);
-exception when others then v_ok := true; v_err := sqlerrm;
-end;
-if v_ok and v_err like '%already has a team at U15%' then
-  raise notice 'PASS 12b: when the occupant is staying put, the message says the place is taken and suggests a squad letter';
-else
-  raise notice 'FAIL 12b: wrong branch for a settled occupant: %', coalesce(v_err,'accepted');
-end if;
-
-perform public.confirm_rollover_team_proposal(v_pa,'adjust','U15','B',null,null);
-if (select display_name from public.teams where id=v_clash) = 'U15 B' then
-  raise notice 'PASS 13: the remedy that message suggests works -- the team rolled into the free B slot';
-else
-  raise notice 'FAIL 13: the suggested remedy did not work, team is %', (select display_name from public.teams where id=v_clash);
-end if;
-
--- ============ 4b. Squads are decided independently ============
+-- ============ 4. Two teams cannot be decided into one identity ============
 --
--- PRODUCT RULE: the club may progress the primary and FOLD the B squad, or
--- progress primary + B and fold C. Confirming the primary must therefore NOT
--- cascade a decision onto its squads -- each proposal stays independently
--- decidable.
+-- The occupant matters only once ITS OWN destination is settled. A team that
+-- is still undecided is not in anybody's way -- it simply has to be decided
+-- before the handover can run.
 
 declare
-  v_dir3 uuid; v_club3 uuid; v_a uuid; v_bsq uuid; v_csq uuid;
+  v_dirx uuid; v_clubx uuid; v_rollx uuid;
+  v_u14 uuid; v_u15 uuid; v_p14 uuid; v_p15 uuid; v_blockers int;
+begin
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('Clash RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','clash-'||substr(gen_random_uuid()::text,1,8)) returning id into v_dirx;
+  insert into public.clubs (directory_id, slug, status) values (v_dirx,'clash-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_clubx;
+
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
+  values (v_clubx,'union','youth','U14','boys','U14','c1') returning id into v_u14;
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
+  values (v_clubx,'union','youth','U15','boys','U15','c2') returning id into v_u15;
+
+  v_rollx := public.generate_rollover_proposal(v_clubx,'union',v_to);
+  select id into v_p14 from public.age_grade_rollover_team_proposals where team_id=v_u14;
+  select id into v_p15 from public.age_grade_rollover_team_proposals where team_id=v_u15;
+
+  -- The U15 is still undecided. It occupies U15 TODAY, but nothing says it
+  -- will next season, so it is not a collision.
+  v_ok := true;
+  begin
+    perform public.confirm_rollover_team_proposal(v_p14,'confirm',null,null,null,null);
+  exception when others then v_ok := false; v_err := sqlerrm;
+  end;
+
+  if v_ok then
+    raise notice 'PASS 14: an undecided occupant is not treated as a collision -- the U14 could be decided into U15';
+  else
+    raise notice 'FAIL 14: an undecided occupant blocked the decision: %', v_err;
+  end if;
+
+  -- But the handover cannot RUN while it is undecided.
+  select count(*) into v_blockers from public.handover_apply_blockers(v_rollx);
+  if v_blockers > 0 then
+    raise notice 'PASS 15: the undecided team is reported as a blocker, so the handover cannot run half-decided';
+  else
+    raise notice 'FAIL 15: an undecided team did not block Apply';
+  end if;
+
+  -- Now settle the occupant so it STAYS at U15. That is a genuine clash.
+  perform public.undo_rollover_team_decision(v_p14);
+  perform public.confirm_rollover_team_proposal(v_p15,'adjust','U15',null,null,null);
+
+  v_ok := false;
+  begin
+    perform public.confirm_rollover_team_proposal(v_p14,'confirm',null,null,null,null);
+  exception when others then v_ok := true; v_err := sqlerrm;
+  end;
+
+  if v_ok and v_err like '%already going to be U15 next season%' then
+    raise notice 'PASS 16: a settled occupant IS a collision, named concretely rather than as a gender error';
+  elsif v_ok then
+    raise notice 'FAIL 16: refused with unhelpful advice: %', v_err;
+  else
+    raise notice 'FAIL 16: two teams were allowed to be decided into one identity';
+  end if;
+
+  if (select decision from public.age_grade_rollover_team_proposals where id = v_p14) = 'pending' then
+    raise notice 'PASS 17: the collision left nothing behind and the decision can still be retried';
+  else
+    raise notice 'FAIL 17: the collision left partial state';
+  end if;
+
+  -- The documented remedy works: a free squad slot at that level.
+  perform public.confirm_rollover_team_proposal(v_p14,'adjust','U15','B',null,null);
+  perform public.apply_season_handover(v_rollx);
+  if (select display_name from public.teams where id=v_u14) = 'U15 B' then
+    raise notice 'PASS 18: the remedy that message suggests works -- the team rolled into the free B slot';
+  else
+    raise notice 'FAIL 18: the suggested remedy did not work, team is %', (select display_name from public.teams where id=v_u14);
+  end if;
+end;
+
+-- ============ 5. Squads are decided independently ============
+--
+-- PRODUCT RULE: the club may progress the primary and FOLD the B squad, or
+-- progress primary + B and fold C. Deciding the primary must therefore NOT
+-- cascade a decision onto its squads.
+
+declare
+  v_dir3 uuid; v_club3 uuid; v_roll3 uuid; v_a3 uuid; v_bsq uuid; v_csq uuid;
   v_ap uuid; v_bp uuid; v_cp uuid;
 begin
   insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
@@ -221,14 +287,14 @@ begin
   insert into public.clubs (directory_id, slug, status) values (v_dir3,'fold-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club3;
 
   insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
-  values (v_club3,'union','youth','U13','boys','x','f1') returning id into v_a;
+  values (v_club3,'union','youth','U13','boys','U13','f1') returning id into v_a3;
   insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug)
-  values (v_club3,'union','youth','U13','boys','B','x','f2') returning id into v_bsq;
+  values (v_club3,'union','youth','U13','boys','B','U13 B','f2') returning id into v_bsq;
   insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, display_name, slug)
-  values (v_club3,'union','youth','U13','boys','C','x','f3') returning id into v_csq;
+  values (v_club3,'union','youth','U13','boys','C','U13 C','f3') returning id into v_csq;
 
-  perform public.generate_rollover_proposal(v_club3,'union',v_to);
-  select id into v_ap from public.age_grade_rollover_team_proposals where team_id = v_a;
+  v_roll3 := public.generate_rollover_proposal(v_club3,'union',v_to);
+  select id into v_ap from public.age_grade_rollover_team_proposals where team_id = v_a3;
   select id into v_bp from public.age_grade_rollover_team_proposals where team_id = v_bsq;
   select id into v_cp from public.age_grade_rollover_team_proposals where team_id = v_csq;
 
@@ -236,57 +302,65 @@ begin
 
   if (select decision from public.age_grade_rollover_team_proposals where id = v_bp) = 'pending'
      and (select decision from public.age_grade_rollover_team_proposals where id = v_cp) = 'pending' then
-    raise notice 'PASS 14a: confirming the primary did NOT cascade a decision onto its B and C squads';
+    raise notice 'PASS 19: deciding the primary did NOT cascade a decision onto its B and C squads';
   else
-    raise notice 'FAIL 14a: the squads were auto-decided by the primary';
+    raise notice 'FAIL 19: the squads were auto-decided by the primary';
   end if;
 
-  -- Progress B, fold C.
   perform public.confirm_rollover_team_proposal(v_bp,'confirm',null,null,null,null);
-  perform public.confirm_rollover_team_proposal(v_cp,'fold','Not enough players.',null,'Not enough players.',null);
+  perform public.confirm_rollover_team_proposal(v_cp,'fold',null,null,'Not enough players.',null);
 
-  if (select display_name from public.teams where id = v_a) = 'U14'
-     and (select display_name from public.teams where id = v_bsq) = 'U14 B' then
-    raise notice 'PASS 14b: primary and B progressed together to U14 and U14 B';
+  -- Still nothing has happened.
+  if (select active from public.teams where id = v_csq)
+     and (select display_name from public.teams where id = v_a3) = 'U13' then
+    raise notice 'PASS 20: a recorded FOLD leaves the team live and untouched until the handover is applied';
   else
-    raise notice 'FAIL 14b: [%] / [%]',
-      (select display_name from public.teams where id=v_a), (select display_name from public.teams where id=v_bsq);
+    raise notice 'FAIL 20: folding took effect before Apply';
+  end if;
+
+  perform public.apply_season_handover(v_roll3);
+
+  if (select display_name from public.teams where id = v_a3) = 'U14'
+     and (select display_name from public.teams where id = v_bsq) = 'U14 B' then
+    raise notice 'PASS 21: primary and B progressed together to U14 and U14 B';
+  else
+    raise notice 'FAIL 21: [%] / [%]',
+      (select display_name from public.teams where id=v_a3), (select display_name from public.teams where id=v_bsq);
   end if;
 
   if not (select active from public.teams where id = v_csq)
      and (select age_group from public.teams where id = v_csq) = 'U13' then
-    raise notice 'PASS 14c: the C squad was folded -- inactive, and left at the age it actually was';
+    raise notice 'PASS 22: the C squad was folded -- inactive, and left at the age it actually was';
   else
-    raise notice 'FAIL 14c: the folded C squad was progressed or left active';
+    raise notice 'FAIL 22: the folded C squad was progressed or left active';
   end if;
 
   if exists (select 1 from public.teams where id = v_csq) then
-    raise notice 'PASS 14d: the folded squad keeps its stable team_id and history -- it is not deleted or merged';
+    raise notice 'PASS 23: the folded squad keeps its stable team_id and history -- it is not deleted or merged';
   else
-    raise notice 'FAIL 14d: the folded squad was destroyed';
+    raise notice 'FAIL 23: the folded squad was destroyed';
   end if;
 
   if (select decision from public.age_grade_rollover_team_proposals where id = v_cp) = 'folded'
      and (select decision from public.age_grade_rollover_team_proposals where id = v_bp) = 'confirmed' then
-    raise notice 'PASS 14e: the board records different decisions for squads at the same level';
+    raise notice 'PASS 24: the board records different decisions for squads at the same level';
   else
-    raise notice 'FAIL 14e: squad decisions were not recorded independently';
+    raise notice 'FAIL 24: squad decisions were not recorded independently';
   end if;
 end;
 
--- ============ 5. Check violations name the real field ============
+-- ============ 6. A real check violation still names the real field ============
 
-select count(*) into v_n from public.teams where club_id = v_club and active;
 v_ok := false;
 begin
   -- Union girls have no U15 band, so this trips teams_gender_category_check.
-  update public.teams set age_group='U15', gender='girls' where id=v_clash;
+  update public.teams set age_group='U15', gender='girls' where id=v_c;
 exception when others then v_ok := true; v_err := sqlerrm;
 end;
 if v_ok then
-  raise notice 'PASS 15: an actual gender/age-band violation is still caught';
+  raise notice 'PASS 25: an actual gender/age-band violation is still caught';
 else
-  raise notice 'FAIL 15: union girls U15 was accepted';
+  raise notice 'FAIL 25: union girls U15 was accepted';
 end if;
 
 end $$;

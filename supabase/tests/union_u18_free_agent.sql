@@ -147,6 +147,31 @@ else
   raise notice 'FAIL 8: decision is [%]', (select decision from public.age_grade_rollover_team_proposals where id=v_pb);
 end if;
 
+-- Staged: recording the graduation must archive nothing and move nobody yet.
+if (select active from public.teams where id = v_u18b)
+   and exists (select 1 from public.player_team_memberships where player_id=v_boy and status='active') then
+  raise notice 'PASS 8b: the cohort is still live and the player still on its roster -- graduation is a decision until Apply';
+else
+  raise notice 'FAIL 8b: recording graduation archived the cohort before Apply';
+end if;
+
+-- Settle everything else, then run the handover for real.
+declare v_rest record; v_roll uuid;
+begin
+  select rollover_id into v_roll from public.age_grade_rollover_team_proposals where id = v_pb;
+  for v_rest in
+    select p.id, p.proposed_age_group from public.age_grade_rollover_team_proposals p
+    where p.rollover_id = v_roll and p.decision = 'pending'
+  loop
+    if v_rest.proposed_age_group is null then
+      perform public.confirm_rollover_team_proposal(v_rest.id,'graduate',null,null,null,null);
+    else
+      perform public.confirm_rollover_team_proposal(v_rest.id,'confirm',null,null,null,null);
+    end if;
+  end loop;
+  perform public.apply_season_handover(v_roll);
+end;
+
 if (select status from public.player_graduation_queue where player_id = v_boy) = 'pending_placement' then
   raise notice 'PASS 9: the player is in the club''s existing holding list, awaiting authorised assignment';
 else

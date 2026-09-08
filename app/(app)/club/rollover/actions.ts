@@ -21,7 +21,12 @@ export async function generateRolloverProposal(clubId: string, rugbyCode: "union
 
 export type RolloverProposalAction = "confirm" | "adjust" | "fold" | "defer" | "graduate"
 
-/** confirm_rollover_team_proposal is the ONLY path that mutates a real team's age_group -- nothing becomes canonical until this is called. */
+/**
+ * Records what should happen to a team next season. Since the staged commit
+ * model this changes NO live team: the club's teams are untouched until
+ * applySeasonHandover runs, which is what makes "nothing changes until you
+ * apply the handover" literally true and undo possible.
+ */
 export async function confirmRolloverTeamProposal(
   proposalId: string,
   action: RolloverProposalAction,
@@ -48,10 +53,10 @@ export async function confirmRolloverTeamProposal(
 export type ConfirmMixedBoundaryResult = { ok: true; boysTeamId: string; girlsTeamId: string | null } | { ok: false; error: string }
 
 /**
- * confirm_mixed_boundary_rollover is the ONLY path that resolves a U11
- * Mixed -> U12 structural transition. p_createGirlsTeam has no default on
- * either side of this call -- the UI must not be able to submit without an
- * explicit choice.
+ * The only path that resolves a U11 Mixed -> U12 structural transition.
+ * createGirlsTeam has no default on either side of this call -- the UI must not
+ * be able to submit without an explicit choice. The Girls team is PLANNED here
+ * and created at Apply, so girlsTeamId is null until the handover has run.
  */
 export async function confirmMixedBoundaryRollover(
   proposalId: string,
@@ -68,9 +73,8 @@ export async function confirmMixedBoundaryRollover(
       p_girls_squad_designation: girlsSquadDesignation ?? undefined,
     })
     .single()
-  if (error || !data) return { ok: false, error: error?.message ?? "Could not confirm this rollover." }
+  if (error || !data) return { ok: false, error: error?.message ?? "Could not record this decision." }
   revalidatePath("/club/rollover")
-  revalidatePath("/teams")
   return { ok: true, boysTeamId: data.boys_team_id, girlsTeamId: data.girls_team_id }
 }
 
@@ -145,13 +149,16 @@ export async function createNextSeasonSchedulingGroup(
  * ------------------------------------------------------------------------ */
 
 export interface PlacementOption {
-  teamId: string
+  /** Null for a team the club has decided to run but which does not exist yet. */
+  teamId: string | null
+  plannedId: string | null
   /** The team as it will be in the season being decided, not as it is called today. */
   displayName: string
   ageGroup: string | null
   squadDesignation: string | null
   isNormal: boolean
   isSelected: boolean
+  isPlanned: boolean
 }
 
 /** Real canonical teams for this club, code and target season. Never free text. */
@@ -160,11 +167,13 @@ export async function loadPlacementOptions(proposalId: string): Promise<Placemen
   const { data } = await supabase.rpc("rollover_placement_options", { p_proposal_id: proposalId })
   return (data ?? []).map((o) => ({
     teamId: o.team_id,
+    plannedId: o.planned_id,
     displayName: o.display_name,
     ageGroup: o.age_group,
     squadDesignation: o.squad_designation,
     isNormal: o.is_normal,
     isSelected: o.is_selected,
+    isPlanned: o.is_planned,
   }))
 }
 
@@ -204,23 +213,94 @@ export async function setPlayerPlacement(proposalId: string, targetTeamId: strin
   }
 }
 
-/** Moves the membership. Refused server-side while the review is unresolved. */
-export async function applyPlayerPlacement(proposalId: string): Promise<RolloverActionResult> {
+/** Puts a player's placement back to whatever the club's decisions say it should be. */
+export async function clearPlayerPlacement(proposalId: string): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("apply_rollover_player_placement", { p_proposal_id: proposalId })
+  const { error } = await supabase.rpc("clear_rollover_player_placement", { p_proposal_id: proposalId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/club/rollover")
+  return { ok: true }
+}
+
+/** Chooses a team the club has decided to run but which does not exist yet. */
+export async function setPlayerPlannedPlacement(proposalId: string, plannedId: string): Promise<RolloverActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("set_rollover_player_planned_placement", {
+    p_proposal_id: proposalId,
+    p_planned_id: plannedId,
+  })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/club/rollover")
   return { ok: true }
 }
 
 /**
- * Adds the team a player normally belongs in when the club does not run it,
- * carrying the source squad's staff across. Offered, never automatic.
+ * Records that the club will run the team a player normally belongs in. It is
+ * NOT created here: next season's U12 cannot be stood up while this season's
+ * U12 still holds that identity, and it only lets go of it when the handover
+ * runs. The real team, and its staff, arrive inside Apply.
  */
-export async function addMissingPlacementTeam(proposalId: string): Promise<RolloverActionResult> {
+export async function planMissingPlacementTeam(proposalId: string): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("provision_missing_placement_team", { p_proposal_id: proposalId })
+  const { error } = await supabase.rpc("plan_missing_placement_team", { p_proposal_id: proposalId })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/club/rollover")
   return { ok: true }
+}
+
+/** Withdraws a team the club had decided to run. Only possible before Apply. */
+export async function unplanHandoverTeam(plannedId: string): Promise<RolloverActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("unplan_handover_team", { p_planned_id: plannedId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/club/rollover")
+  return { ok: true }
+}
+
+/** Returns a team decision to undecided. Possible because deciding mutates nothing. */
+export async function undoRolloverTeamDecision(proposalId: string): Promise<RolloverActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("undo_rollover_team_decision", { p_proposal_id: proposalId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/club/rollover")
+  revalidatePath("/teams")
+  return { ok: true }
+}
+
+export type ApplyHandoverResult =
+  | { ok: true; alreadyApplied: boolean; teamsProgressed: number; teamsFolded: number; teamsGraduated: number; teamsCreated: number; teamsReactivated: number; playersMoved: number; playersHeld: number }
+  | { ok: false; error: string }
+
+/**
+ * The single mutation boundary. One server-side transaction revalidates every
+ * decision against live state and then carries the whole handover out -- the
+ * browser never sequences a season transition one request at a time.
+ *
+ * expectedRevision is what the reviewer had in front of them. If someone else
+ * changed a decision in the meantime the server refuses rather than applying
+ * something nobody reviewed.
+ */
+export async function applySeasonHandover(rolloverId: string, expectedRevision: number | null): Promise<ApplyHandoverResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("apply_season_handover", {
+    p_rollover_id: rolloverId,
+    p_expected_revision: expectedRevision ?? undefined,
+  })
+  if (error) return { ok: false, error: error.message }
+  const row = (data ?? [])[0]
+  if (!row) return { ok: false, error: "The handover did not report a result." }
+  revalidatePath("/club/rollover")
+  revalidatePath("/teams")
+  revalidatePath("/dashboard")
+  return {
+    ok: true,
+    alreadyApplied: row.already_applied,
+    teamsProgressed: row.teams_progressed,
+    teamsFolded: row.teams_folded,
+    teamsGraduated: row.teams_graduated,
+    teamsCreated: row.teams_created,
+    teamsReactivated: row.teams_reactivated,
+    playersMoved: row.players_moved,
+    playersHeld: row.players_held,
+  }
 }

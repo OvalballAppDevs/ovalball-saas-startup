@@ -68,16 +68,36 @@ else
   raise notice 'FAIL 1: the automatic handover sent nothing';
 end if;
 
-if (select age_group from public.teams where id = v_team) = 'U17' then
-  raise notice 'PASS 2: the team with an automatic successor was progressed';
+-- A season handover is all-or-nothing. One cohort still needing a human means
+-- the automatic run DECIDES what it can, applies NOTHING, and asks the club.
+-- The alternative -- moving most of a club's teams and leaving the rest --
+-- is precisely the half-transitioned state the staged model exists to prevent.
+if (select decision from public.age_grade_rollover_team_proposals p
+    join public.age_grade_rollovers r on r.id = p.rollover_id
+    where p.team_id = v_team and r.club_id = v_club) = 'confirmed'
+   and (select age_group from public.teams where id = v_team) = 'U16' then
+  raise notice 'PASS 2: the automatic run DECIDED the unambiguous cohort but changed no live team';
 else
-  raise notice 'FAIL 2: the automatic team was not progressed';
+  raise notice 'FAIL 2: decision=% age=%',
+    (select decision from public.age_grade_rollover_team_proposals p
+     join public.age_grade_rollovers r on r.id = p.rollover_id
+     where p.team_id = v_team and r.club_id = v_club),
+    (select age_group from public.teams where id = v_team);
 end if;
 
-if (select age_group from public.teams where id = v_manual) = 'U18' then
-  raise notice 'PASS 3: the team needing a decision was left untouched, as designed';
+if v_status = 'needs_attention' then
+  raise notice 'PASS 2b: the transition is held at needs_attention -- nothing runs until the club has decided everything';
 else
-  raise notice 'FAIL 3: a team needing a manual decision was auto-progressed';
+  raise notice 'FAIL 2b: transition status is [%]', v_status;
+end if;
+
+if (select age_group from public.teams where id = v_manual) = 'U18'
+   and (select decision from public.age_grade_rollover_team_proposals p
+        join public.age_grade_rollovers r on r.id = p.rollover_id
+        where p.team_id = v_manual and r.club_id = v_club) = 'pending' then
+  raise notice 'PASS 3: the team needing a decision was left undecided, as designed';
+else
+  raise notice 'FAIL 3: a team needing a manual decision was auto-decided';
 end if;
 
 -- ============ 2. Run it again, and again ============
@@ -93,11 +113,34 @@ else
   raise notice 'FAIL 4: notifications went from % to % on repeat runs', n1, n2;
 end if;
 
-if (select age_group from public.teams where id = v_team) = 'U17' then
-  raise notice 'PASS 5: repeat runs did not progress the team a second time -- still U17, not U18';
+if (select age_group from public.teams where id = v_team) = 'U16' then
+  raise notice 'PASS 5: repeat runs still changed nothing -- an undecided cohort holds the whole handover, every time';
 else
-  raise notice 'FAIL 5: a repeat run advanced the team again, to %', (select age_group from public.teams where id=v_team);
+  raise notice 'FAIL 5: a repeat run advanced the team, to %', (select age_group from public.teams where id=v_team);
 end if;
+
+-- ============ 2b. Once the club decides, the automatic run completes it ====
+
+declare v_mprop uuid; v_roll uuid; v_status2 text;
+begin
+  select p.id, p.rollover_id into v_mprop, v_roll
+  from public.age_grade_rollover_team_proposals p
+  join public.age_grade_rollovers r on r.id = p.rollover_id
+  where p.team_id = v_manual and r.club_id = v_club;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin,'role','authenticated')::text, true);
+  perform public.confirm_rollover_team_proposal(v_mprop,'graduate',null,null,null,null);
+
+  update public.season_transitions set status = 'ready' where rollover_id = v_roll;
+  perform internal.process_due_season_transitions();
+
+  select status into v_status2 from public.season_transitions where rollover_id = v_roll;
+  if v_status2 = 'completed' and (select age_group from public.teams where id = v_team) = 'U17' then
+    raise notice 'PASS 5b: with the last decision made, the scheduled run applied the handover in one go';
+  else
+    raise notice 'FAIL 5b: status=% team=%', v_status2, (select age_group from public.teams where id=v_team);
+  end if;
+end;
 
 if (select count(*) from public.season_transitions where club_id = v_club and to_season_id = v_to) = 1 then
   raise notice 'PASS 6: repeat runs kept ONE transition record for this club and season';

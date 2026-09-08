@@ -67,9 +67,15 @@ end if;
 
 -- ============ Run the handover ============
 
-perform public.generate_rollover_proposal(v_club,'union',v_to);
-select id into v_pa from public.age_grade_rollover_team_proposals where team_id = v_a;
-perform public.confirm_rollover_team_proposal(v_pa,'confirm',null,null,null,null);
+declare v_roll uuid;
+begin
+  v_roll := public.generate_rollover_proposal(v_club,'union',v_to);
+  select id into v_pa from public.age_grade_rollover_team_proposals where team_id = v_a;
+  perform public.confirm_rollover_team_proposal(v_pa,'confirm',null,null,null,null);
+  -- The cohort only vacates U12 when the handover is applied, which is exactly
+  -- why the club's new U12 cannot be stood up before that point.
+  perform public.apply_season_handover(v_roll);
+end;
 
 -- TEAM B: the club's NEW U12 for the coming season.
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)

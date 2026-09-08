@@ -66,9 +66,15 @@ end if;
 
 -- ============ Run the handover ============
 
-perform public.generate_rollover_proposal(v_club,'union',v_to);
-select id into v_prop from public.age_grade_rollover_team_proposals where team_id=v_team;
-perform public.confirm_rollover_team_proposal(v_prop,'confirm',null,null,null,null);
+declare v_roll uuid;
+begin
+  v_roll := public.generate_rollover_proposal(v_club,'union',v_to);
+  select id into v_prop from public.age_grade_rollover_team_proposals where team_id=v_team;
+  perform public.confirm_rollover_team_proposal(v_prop,'confirm',null,null,null,null);
+  -- Deciding stages; applying is what actually moves the cohort and writes the
+  -- Handover Register rows the fixture labels are read from.
+  perform public.apply_season_handover(v_roll);
+end;
 
 if (select display_name from public.teams where id=v_team) = 'U17' then
   raise notice 'PASS 2: the team is now U17';

@@ -9,20 +9,28 @@ import { createClient } from "@/lib/supabase/server"
 
 import { ClubSettingsNav } from "../settings/club-settings-nav"
 import { resolveClubSettingsNavCapabilities } from "../settings/resolve-nav-capabilities"
-import { AutomaticHandoverStatus, type HandoverGroupFlag, type HandoverReviewTeam } from "./automatic-handover-status"
+import { HandoverApply, type AuditEntry } from "./handover-apply"
+import { HandoverNeedsAttention, type HandoverBlocker } from "./handover-attention"
+import { HandoverNav, resolveHandoverSection } from "./handover-nav"
+import { HandoverOverview, type HandoverConsequence } from "./handover-overview"
 import { GraduationQueue, type GraduationQueueRow, type GraduationTargetTeamOption } from "./graduation-queue"
 import { MiniRugbyNextSeasonReview, type MiniRugbyGroupRow } from "./mini-rugby-next-season"
 import { PlayerHandoverProposals, type PlayerProposalRow } from "./player-handover-proposals"
 import { RolloverReview, type RolloverBatch, type SeasonOption } from "./rollover-review"
 
 /**
- * Club Admin age-grade rollover review (20260902150000). Nothing here
- * mutates a real team -- generate_rollover_proposal only ever writes to
- * age_grade_rollover_team_proposals/age_grade_rollover_group_flags, and
- * confirm_rollover_team_proposal (called per row from RolloverReview) is
- * the only path that applies a change, one team at a time.
+ * The Season Handover board.
+ *
+ * PREPARE -> DECIDE -> REVIEW -> APPLY. Everything on this page up to the Apply
+ * section records decisions; none of it changes a team, a membership or a
+ * season identity. apply_season_handover is the single mutation boundary, and
+ * it runs server-side in one transaction rather than being sequenced from here.
+ *
+ * The five sections are routes (?section=...), not tab widgets, so Back,
+ * Refresh and a copied link all behave the way a reviewer expects when a
+ * handover is worked through over several days by more than one person.
  */
-export default async function ClubRolloverPage() {
+export default async function ClubRolloverPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -33,34 +41,25 @@ export default async function ClubRolloverPage() {
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const activeClub = activeManageableClubId(ctx, activeContext)
-  // Scoped to the ACTIVE context, not "any CLUB_ADMIN membership this
-  // session holds" -- see app/(app)/people/page.tsx for the identical,
-  // live-confirmed leak this mirrors (Parent View could see and confirm a
-  // completely different club's rollover proposals). Season Rollover
-  // Permission addendum: authorization now derives from the canonical
-  // capability engine (club.season_rollover.manage) rather than a raw
-  // role comparison, so a Site Admin grant/deny override for this
-  // specific club-scoped capability correctly changes what this page
-  // allows.
+  // Scoped to the ACTIVE context, not "any CLUB_ADMIN membership this session
+  // holds" -- see app/(app)/people/page.tsx for the identical, live-confirmed
+  // leak this mirrors. Authorization derives from the canonical capability
+  // engine (club.season_rollover.manage) rather than a raw role comparison.
   const navCaps = await resolveClubSettingsNavCapabilities(supabase, activeClub)
   const { canRollover: canRunRollover } = navCaps
   if (!canRunRollover || !activeClub) redirect("/dashboard")
 
-  const { data: club } = await supabase
-    .from("clubs")
-    .select("id, club_directory(rugby_code, name)")
-    .eq("id", activeClub)
-    .maybeSingle()
+  const section = resolveHandoverSection((await searchParams).section)
+
+  const { data: club } = await supabase.from("clubs").select("id, club_directory(rugby_code, name)").eq("id", activeClub).maybeSingle()
   if (!club) redirect("/dashboard")
 
   const rugbyCode = (club.club_directory?.rugby_code ?? "union") as "union" | "league"
   const todayIso = new Date().toISOString().slice(0, 10)
 
   const [{ data: seasons }, { data: currentSeasonRows }, { data: rollovers }] = await Promise.all([
-    // is_regression_fixture rows (SQL-regression-test scaffolding) are
-    // excluded so a Club Admin can never accidentally roll a real club
-    // forward onto a synthetic test season -- same convention as
-    // app/(app)/admin/competitions/page.tsx's own season dropdown.
+    // is_regression_fixture rows (SQL-regression-test scaffolding) are excluded
+    // so a Club Admin can never roll a real club onto a synthetic test season.
     supabase
       .from("seasons")
       .select("id, name, starts_on, pre_season_starts_on, season_ref")
@@ -68,22 +67,18 @@ export default async function ClubRolloverPage() {
       .eq("is_regression_fixture", false)
       .gte("starts_on", todayIso)
       .order("starts_on"),
-    // Same canonical `seasons` table the "next season" query above reads --
-    // just the row containing today, so the empty state can name it
-    // explicitly ("the season after X") instead of a bare "no season yet"
-    // that reads as broken when a current season plainly exists elsewhere
-    // in the app (Calendar). Never a second season concept.
+    // The same canonical `seasons` table -- just the row containing today, so
+    // the empty state can name it explicitly. Never a second season concept.
     supabase.from("seasons").select("id, name").eq("rugby_code", rugbyCode).eq("is_regression_fixture", false).lte("starts_on", todayIso).gte("ends_on", todayIso).limit(1).maybeSingle(),
     supabase
       .from("age_grade_rollovers")
       .select(
-        "id, created_at, from_season_id, to_season_id, from_season:from_season_id(name), to_season:to_season_id(name), age_grade_rollover_team_proposals(id, team_id, current_age_group, proposed_age_group, requires_manual_choice, is_mixed_boundary, decision, decided_age_group, girls_team_created, girls_team_id, teams!age_grade_rollover_team_proposals_team_id_fkey(display_name, gender, squad_designation)), age_grade_rollover_group_flags(id, scheduling_group_id, reason, resolved, scheduling_groups(display_tag))"
+        "id, created_at, applied_at, decisions_revision, from_season_id, to_season_id, from_season:from_season_id(name), to_season:to_season_id(name), age_grade_rollover_team_proposals(id, team_id, current_age_group, proposed_age_group, requires_manual_choice, is_mixed_boundary, decision, decided_age_group, girls_team_created, create_girls_team, fold_reason, applied_at, teams!age_grade_rollover_team_proposals_team_id_fkey(display_name, gender, squad_designation)), age_grade_rollover_group_flags(id, scheduling_group_id, reason, resolved, scheduling_groups(display_tag))"
       )
       .eq("club_id", club.id)
-      // Defence in depth: generate_rollover_proposal now rejects a
-      // mismatched rugby_code server-side (20260925070000), but this
-      // page must never display a wrong-code batch even if one somehow
-      // exists (as a real, since-cleaned-up Burnley row once did).
+      // Defence in depth: generate_rollover_proposal rejects a mismatched
+      // rugby_code server-side, but this page must never display a wrong-code
+      // batch even if one somehow exists.
       .eq("rugby_code", rugbyCode)
       .order("created_at", { ascending: false }),
   ])
@@ -92,66 +87,51 @@ export default async function ClubRolloverPage() {
   const nextSeasonOption = toSeasonOptions[0] ?? null
   const nextSeasonRaw = seasons?.[0] ?? null
 
-  // The engine only creates a season_transitions row once it's within
-  // its 24h lookahead window -- most of the season, there is genuinely
-  // no row yet, and that is the correct "not_due" state, not an error.
-  // Fetched as two flat queries rather than one deep nested select --
-  // the nested-join select shape here made the Supabase client's
-  // inferred type too deep for TypeScript to resolve.
-  const { data: transitionRow } = nextSeasonOption
+  const currentRollover = (rollovers ?? []).find((r) => r.to_season_id === nextSeasonOption?.id) ?? null
+
+  // The handover's lifecycle, its readiness and everything standing in its way
+  // all come from the server, computed from live state. A board that decided
+  // any of this for itself could tell a club it was ready while Apply refused.
+  const [{ data: stateValue }, { data: readinessRows }, { data: blockerRows }, { data: consequenceRows }, { data: auditRows }] = currentRollover
+    ? await Promise.all([
+        supabase.rpc("handover_state", { p_rollover_id: currentRollover.id }),
+        supabase.rpc("rollover_readiness", { p_rollover_id: currentRollover.id }),
+        supabase.rpc("handover_apply_blockers", { p_rollover_id: currentRollover.id }),
+        supabase.rpc("handover_consequences", { p_rollover_id: currentRollover.id }),
+        supabase.rpc("handover_audit", { p_rollover_id: currentRollover.id }),
+      ])
+    : [{ data: null }, { data: null }, { data: null }, { data: null }, { data: null }]
+
+  const readiness = (readinessRows ?? [])[0] ?? null
+  const blockers: HandoverBlocker[] = (blockerRows ?? []).map((b) => ({
+    kind: b.kind as HandoverBlocker["kind"],
+    subject: b.subject,
+    detail: b.detail,
+  }))
+  const consequences: HandoverConsequence[] = (consequenceRows ?? []).map((c) => ({
+    kind: c.kind as HandoverConsequence["kind"],
+    fromLabel: c.from_label,
+    toLabel: c.to_label,
+    note: c.note,
+    isApplied: c.is_applied,
+  }))
+  const audit: AuditEntry[] = (auditRows ?? []).map((a) => ({ at: a.at, event: a.event, actorName: a.actor_name }))
+  const handoverState = (stateValue as string | null) ?? "PREPARING"
+
+  const { data: plannedTeamRows } = currentRollover
     ? await supabase
-        .from("season_transitions")
-        .select("status, needs_attention_reason, rollover_id")
-        .eq("club_id", club.id)
-        .eq("rugby_code", rugbyCode)
-        .eq("to_season_id", nextSeasonOption.id)
-        .maybeSingle()
+        .from("age_grade_rollover_planned_teams")
+        .select("id, squad_designation, origin, applied_at, canonical_team_types(label)")
+        .eq("rollover_id", currentRollover.id)
     : { data: null }
 
-  const [{ data: proposalRows }, { data: groupFlagRows }, { count: graduatingPendingCount }] = await Promise.all([
-    transitionRow?.rollover_id
-      ? supabase
-          .from("age_grade_rollover_team_proposals")
-          .select("decision, requires_manual_choice, current_age_group, proposed_age_group, decided_age_group, teams!age_grade_rollover_team_proposals_team_id_fkey(display_name)")
-          .eq("rollover_id", transitionRow.rollover_id)
-      : Promise.resolve({ data: null }),
-    transitionRow?.rollover_id
-      ? supabase
-          .from("age_grade_rollover_group_flags")
-          .select("reason, resolved, scheduling_groups(display_tag)")
-          .eq("rollover_id", transitionRow.rollover_id)
-      : Promise.resolve({ data: null }),
-    supabase.from("player_graduation_queue").select("id", { count: "exact", head: true }).eq("club_id", club.id).eq("status", "pending_placement"),
-  ])
+  const plannedLabelById = new Map(
+    (plannedTeamRows ?? []).map((p) => [
+      p.id,
+      `${p.canonical_team_types?.label ?? "Team"}${p.squad_designation ? ` ${p.squad_designation}` : ""}`,
+    ])
+  )
 
-  const handoverStatus: "not_due" | "prepared" | "ready" | "applying" | "needs_attention" | "completed" =
-    (transitionRow?.status as "prepared" | "ready" | "applying" | "needs_attention" | "completed" | undefined) ?? "not_due"
-  const handoverProgressingTeams: HandoverReviewTeam[] = (proposalRows ?? [])
-    .filter((p) => p.decision === "confirmed" && !p.requires_manual_choice)
-    .map((p) => ({
-      displayName: p.teams?.display_name ?? "Unknown team",
-      fromAgeGroup: p.current_age_group,
-      toAgeGroup: p.decided_age_group ?? p.proposed_age_group,
-      needsDecision: false,
-    }))
-  const handoverDecisionTeams: HandoverReviewTeam[] = (proposalRows ?? [])
-    .filter((p) => p.decision === "pending" || p.requires_manual_choice)
-    .map((p) => ({
-      displayName: p.teams?.display_name ?? "Unknown team",
-      fromAgeGroup: p.current_age_group,
-      toAgeGroup: p.proposed_age_group,
-      needsDecision: true,
-    }))
-  const handoverGroupFlags: HandoverGroupFlag[] = (groupFlagRows ?? [])
-    .filter((f) => !f.resolved)
-    .map((f) => ({ displayTag: f.scheduling_groups?.display_tag ?? "Mini-Rugby Group", reason: f.reason }))
-
-  // Section 21-22: the graduation queue itself, and every ACTIVE team
-  // at this club as a placement destination -- place_graduating_player
-  // itself is the real gate (club match, capability, DOB/dispensation
-  // for a senior team), this list is deliberately unfiltered by
-  // category so a Club Admin can place a graduate onto colts or senior
-  // as appropriate, never guessing at eligibility client-side.
   const [{ data: graduationRows }, { data: activeTeams }] = await Promise.all([
     supabase
       .from("player_graduation_queue")
@@ -169,12 +149,9 @@ export default async function ClubRolloverPage() {
   }))
   const graduationTargetTeams: GraduationTargetTeamOption[] = (activeTeams ?? []).map((t) => ({ id: t.id, displayName: t.display_name }))
 
-  // Active Mini-Rugby Groups for THIS club's CURRENT season only -- a
-  // group already scoped to a future season (from an earlier run of
-  // this same wizard) is deliberately excluded here, it appears via
-  // alreadyCreatedTag below instead.
+  // Active Mini-Rugby Groups for THIS club's CURRENT season only.
   let miniRugbyGroups: MiniRugbyGroupRow[] = []
-  if (currentSeasonRows) {
+  if (currentSeasonRows && section === "teams") {
     const { data: groupRows } = await supabase
       .from("scheduling_groups")
       .select("id, display_tag, alias, scheduling_group_members(team_id, teams(display_name))")
@@ -188,10 +165,6 @@ export default async function ClubRolloverPage() {
       : []
     const nextSeasonIdentities = await loadTeamIdentitiesForSeason(supabase, identityPairs)
 
-    // A team already sitting in ANY group scoped to the next season
-    // means this historical group has already been progressed (by this
-    // wizard, possibly with an edited team set) -- render that outcome
-    // instead of offering to create a duplicate.
     const { data: nextSeasonGroupRows } = nextSeasonOption
       ? await supabase
           .from("scheduling_groups")
@@ -221,11 +194,9 @@ export default async function ClubRolloverPage() {
     }))
   }
 
-  // A past batch's own proposals recorded what each team's identity WAS
-  // at that batch's from_season -- a team renamed/re-aged in a LATER
-  // rollover must not retroactively relabel an older batch's history,
-  // so resolve each proposal's team label for that batch's own
-  // from_season_id rather than reading the team's current live row.
+  // A past batch's own proposals recorded what each team's identity WAS at that
+  // batch's from_season -- a team re-aged in a LATER handover must not
+  // retroactively relabel an older batch's history.
   const rolloverIdentityPairs = (rollovers ?? []).flatMap((r) =>
     r.from_season_id ? r.age_grade_rollover_team_proposals.map((p) => ({ teamId: p.team_id, seasonId: r.from_season_id as string })) : []
   )
@@ -234,30 +205,22 @@ export default async function ClubRolloverPage() {
   /* ------------------------------------------------------------------
    * Player handover proposals for the handover currently in progress.
    *
-   * These rows are generated by prepare and had no UI consumer at all until
-   * now. Note what is NOT selected: no date of birth. The server reads one to
+   * Note what is NOT selected: no date of birth. The server reads one to
    * resolve an age grade and this receives the resolved decision, which is
    * everything the board needs to show.
-   *
-   * Team names come from the joined team rows rather than being reconstructed
-   * from age labels, so a squad designation survives ("U16 B", not "U16").
    * ---------------------------------------------------------------- */
-  const currentRollover = (rollovers ?? []).find((r) => r.to_season_id === nextSeasonOption?.id) ?? null
-
   const { data: playerProposalRows } = currentRollover
     ? await supabase
         .from("age_grade_rollover_player_proposals")
         .select(
-          "id, player_id, proposed_team_id, selected_team_id, review_state, allocation_status, movement_requirement, regulatory_age_label, reason, placement_applied_at, normal_canonical_team_type_id, players(first_name, surname), current_team:teams!age_grade_rollover_player_proposals_current_team_id_fkey(display_name), proposed_team:teams!age_grade_rollover_player_proposals_proposed_team_id_fkey(display_name), selected_team:teams!age_grade_rollover_player_proposals_selected_team_id_fkey(display_name)"
+          "id, player_id, proposed_team_id, selected_team_id, planned_team_id, selected_at, review_state, allocation_status, movement_requirement, regulatory_age_label, reason, placement_applied_at, normal_canonical_team_type_id, players(first_name, surname), current_team:teams!age_grade_rollover_player_proposals_current_team_id_fkey(display_name), proposed_team:teams!age_grade_rollover_player_proposals_proposed_team_id_fkey(display_name), selected_team:teams!age_grade_rollover_player_proposals_selected_team_id_fkey(display_name)"
         )
         .eq("rollover_id", currentRollover.id)
     : { data: null }
 
   // "Current" is today's identity, but "Normal next" and "Selected" describe
   // the season being decided, so they are resolved through the canonical
-  // season-aware projection. Showing a team's present label in those columns
-  // says U12 for a side that will be U13 -- naming a destination that will not
-  // exist by the time the player gets there.
+  // season-aware projection rather than showing a team's present label.
   const playerTeamIdentities = currentRollover
     ? await loadTeamIdentitiesForSeason(
         supabase,
@@ -290,8 +253,10 @@ export default async function ClubRolloverPage() {
       reason: p.reason,
       placementApplied: p.placement_applied_at !== null,
       // The club runs no team at the age grade this player belongs in, so the
-      // board can offer to add it rather than dead-ending.
+      // board can offer to run one rather than dead-ending.
       normalTeamMissing: p.proposed_team === null && p.normal_canonical_team_type_id !== null,
+      plannedTeamName: p.planned_team_id ? (plannedLabelById.get(p.planned_team_id) ?? null) : null,
+      placementChosen: p.selected_at !== null,
     }))
     .sort((a, b) => {
       const rank = (r: PlayerProposalRow) => (r.reviewState === "READY" ? 1 : 0)
@@ -303,6 +268,7 @@ export default async function ClubRolloverPage() {
     fromSeasonName: r.from_season?.name ?? null,
     toSeasonName: r.to_season?.name ?? "—",
     createdAt: r.created_at,
+    isApplied: r.applied_at !== null,
     proposals: r.age_grade_rollover_team_proposals.map((p) => ({
       id: p.id,
       teamId: p.team_id,
@@ -317,6 +283,9 @@ export default async function ClubRolloverPage() {
       decision: p.decision as RolloverBatch["proposals"][number]["decision"],
       decidedAgeGroup: p.decided_age_group,
       girlsTeamCreated: p.girls_team_created,
+      createGirlsTeam: p.create_girls_team,
+      foldReason: p.fold_reason,
+      applied: p.applied_at !== null,
     })),
     groupFlags: r.age_grade_rollover_group_flags.map((f) => ({
       id: f.id,
@@ -326,45 +295,117 @@ export default async function ClubRolloverPage() {
     })),
   }))
 
+  const STATE_WORDS: Record<string, string> = {
+    PREPARING: "Preparing",
+    REVIEW_REQUIRED: "Review required",
+    READY: "Ready to apply",
+    APPLYING: "Applying",
+    COMPLETED: "Completed",
+  }
+
+  const plannedResolved = (plannedTeamRows ?? [])
+    .filter((p) => p.origin === "PLAYER_PLACEMENT")
+    .map((p) => ({
+      label: `${p.canonical_team_types?.label ?? "Team"}${p.squad_designation ? ` ${p.squad_designation}` : ""}`,
+      note: p.applied_at
+        ? "Created by this handover."
+        : "Will be created when this handover is applied, and the players waiting on it join then.",
+    }))
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8 md:py-12">
       <div className="flex items-center gap-2.5">
         <CalendarSync className="size-5 text-forest-800" />
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club</p>
       </div>
-      <h1 className="mt-2 font-display text-display-l text-ink">Season rollover</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink-muted">
-        Review how {club.club_directory?.name}&apos;s age-grade teams should move up for next season. Nothing
-        changes until you confirm each team individually below.
+      <h1 className="mt-2 font-display text-display-l text-ink">Season handover</h1>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+        <span className="text-ink">
+          {currentSeasonRows?.name ?? "This season"} <span className="text-ink/40">&rarr;</span>{" "}
+          {nextSeasonOption?.name ?? "next season"}
+        </span>
+        <span className="rounded-md bg-ink/5 px-2 py-0.5 text-xs font-medium text-ink/70">{STATE_WORDS[handoverState] ?? handoverState}</span>
+        {nextSeasonRaw?.pre_season_starts_on && (
+          <span className="text-ink/55">
+            Runs from{" "}
+            {new Date(nextSeasonRaw.pre_season_starts_on).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+          </span>
+        )}
+      </div>
+      <p className="mt-2 max-w-2xl text-sm text-ink-muted">
+        Review what {club.club_directory?.name}&apos;s teams and players become next season. Nothing about your club changes
+        until you apply the handover — every decision here can be changed until then. Season dates come from Site Admin →
+        Seasons.
       </p>
+      {readiness && (
+        <p className="mt-1.5 text-sm text-ink/55">
+          {readiness.teams_total} team{readiness.teams_total === 1 ? "" : "s"} · {readiness.players_total} player
+          {readiness.players_total === 1 ? "" : "s"} · {readiness.blocker_count} decision
+          {readiness.blocker_count === 1 ? "" : "s"} needed
+          {readiness.dispensations_pending > 0 && ` · ${readiness.dispensations_pending} awaiting governing approval`}
+        </p>
+      )}
 
       <ClubSettingsNav active="rollover" {...navCaps} />
+      <HandoverNav active={section} attentionCount={blockers.length} />
 
       <div className="mt-8 space-y-6">
-        {nextSeasonOption && (
-          <AutomaticHandoverStatus
-            fromSeasonName={currentSeasonRows?.name ?? null}
-            toSeasonName={nextSeasonOption.name}
-            toSeasonRef={nextSeasonRaw?.season_ref ?? nextSeasonOption.name}
-            status={handoverStatus}
-            boundaryDate={nextSeasonRaw?.pre_season_starts_on ?? null}
-            needsAttentionReason={transitionRow?.needs_attention_reason ?? null}
-            progressingTeams={handoverProgressingTeams}
-            decisionTeams={handoverDecisionTeams}
-            groupFlags={handoverGroupFlags}
-            graduatingPendingCount={graduatingPendingCount ?? 0}
+        {section === "overview" && (
+          <HandoverOverview
+            consequences={consequences}
+            counts={{
+              teamsTotal: readiness?.teams_total ?? 0,
+              teamsPending: readiness?.teams_pending ?? 0,
+              playersTotal: readiness?.players_total ?? 0,
+              playersNeedingAttention: (readiness?.players_needs_attention ?? 0) + (readiness?.players_blocked ?? 0),
+              dispensationsPending: readiness?.dispensations_pending ?? 0,
+              playersClubHolding: readiness?.players_club_holding ?? 0,
+            }}
+            toSeasonName={nextSeasonOption?.name ?? null}
+            isApplied={readiness?.is_applied ?? false}
           />
         )}
-        <RolloverReview
-          clubId={club.id}
-          rugbyCode={rugbyCode}
-          toSeasonOptions={toSeasonOptions}
-          batches={batches}
-          currentSeasonName={currentSeasonRows?.name ?? null}
-        />
-        <PlayerHandoverProposals rows={playerProposals} toSeasonName={nextSeasonOption?.name ?? null} />
-        <MiniRugbyNextSeasonReview toSeasonId={nextSeasonOption?.id ?? null} toSeasonName={nextSeasonOption?.name ?? null} groups={miniRugbyGroups} />
-        <GraduationQueue rows={graduationQueueRows} targetTeams={graduationTargetTeams} />
+
+        {section === "teams" && (
+          <>
+            <RolloverReview
+              clubId={club.id}
+              rugbyCode={rugbyCode}
+              toSeasonOptions={toSeasonOptions}
+              batches={batches}
+              currentSeasonName={currentSeasonRows?.name ?? null}
+            />
+            <MiniRugbyNextSeasonReview
+              toSeasonId={nextSeasonOption?.id ?? null}
+              toSeasonName={nextSeasonOption?.name ?? null}
+              groups={miniRugbyGroups}
+            />
+          </>
+        )}
+
+        {section === "players" && (
+          <>
+            <PlayerHandoverProposals rows={playerProposals} toSeasonName={nextSeasonOption?.name ?? null} />
+            <GraduationQueue rows={graduationQueueRows} targetTeams={graduationTargetTeams} />
+          </>
+        )}
+
+        {section === "attention" && <HandoverNeedsAttention blockers={blockers} planned={plannedResolved} />}
+
+        {section === "apply" && (
+          <HandoverApply
+            rolloverId={currentRollover?.id ?? null}
+            toSeasonName={nextSeasonOption?.name ?? null}
+            decisionsRevision={currentRollover?.decisions_revision ?? 0}
+            isApplied={currentRollover?.applied_at !== null && currentRollover?.applied_at !== undefined}
+            appliedAt={currentRollover?.applied_at ?? null}
+            blockerCount={blockers.length}
+            consequences={consequences}
+            audit={audit}
+            canApply={navCaps.canRollover}
+          />
+        )}
       </div>
     </div>
   )

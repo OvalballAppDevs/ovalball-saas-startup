@@ -80,14 +80,24 @@ else
   raise notice 'FAIL 3: the team has % competing proposals', v_n;
 end if;
 
--- ---------- 2. Apply, then prepare again ----------
+-- ---------- 2. Decide, apply, then prepare again ----------
+-- Deciding is not applying. The team must still be U16 after Confirm, and only
+-- move when the handover itself is run.
 select id into v_prop from public.age_grade_rollover_team_proposals where team_id = v_team;
 perform public.confirm_rollover_team_proposal(v_prop,'confirm',null,null,null,null);
+select age_group into v_age from public.teams where id = v_team;
+if v_age <> 'U16' then
+  raise notice 'FAIL 4a: deciding the handover moved the team to % before Apply', v_age;
+else
+  raise notice 'PASS 4a: recording the decision left the live team untouched (still U16)';
+end if;
+
+perform public.apply_season_handover(v_r1);
 select age_group into v_age from public.teams where id = v_team;
 if v_age = 'U16' then
   raise notice 'FAIL 4: the apply did not progress the team';
 else
-  raise notice 'PASS 4: the team progressed U16 -> %', v_age;
+  raise notice 'PASS 4: the team progressed U16 -> % when the handover was applied', v_age;
 end if;
 
 v_r3 := public.generate_rollover_proposal(v_club,'union',v_to);

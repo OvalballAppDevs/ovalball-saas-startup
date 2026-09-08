@@ -15,7 +15,7 @@ begin;
 do $$
 declare
   v_admin uuid := gen_random_uuid();
-  v_dir uuid; v_club uuid; v_to uuid;
+  v_dir uuid; v_club uuid; v_to uuid; v_roll uuid;
   v_u6 uuid; v_u7 uuid; v_u8 uuid;
   v_p6 uuid; v_p7 uuid; v_p8 uuid;
   v_intake uuid; v_intake2 uuid;
@@ -48,7 +48,7 @@ values (v_club,'union','youth','U7','mixed','x','m7') returning id into v_u7;
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U8','mixed','x','m8') returning id into v_u8;
 
-perform public.generate_rollover_proposal(v_club,'union',v_to);
+v_roll := public.generate_rollover_proposal(v_club,'union',v_to);
 
 -- ============ 1. U6 is ordinary automatic progression ============
 
@@ -67,13 +67,33 @@ else
   raise notice 'FAIL 2: U6 still requires a manual choice';
 end if;
 
--- ============ 2. Apply: cohort moves up, intake team appears ============
+-- ============ 2. Decide, then apply: cohort moves up, intake team appears ============
+--
+-- U6 uses the same staged model as everything else. Deciding to move the U6
+-- cohort up STAGES the new intake team rather than creating it; both happen at
+-- Apply, in the order that makes them possible.
 
 select id into v_p8 from public.age_grade_rollover_team_proposals where team_id = v_u8;
 select id into v_p7 from public.age_grade_rollover_team_proposals where team_id = v_u7;
 perform public.confirm_rollover_team_proposal(v_p8,'confirm',null,null,null,null);
 perform public.confirm_rollover_team_proposal(v_p7,'confirm',null,null,null,null);
 perform public.confirm_rollover_team_proposal(v_p6,'confirm',null,null,null,null);
+
+if (select age_group from public.teams where id = v_u6) = 'U6'
+   and (select count(*) from public.teams where club_id = v_club and active) = 3 then
+  raise notice 'PASS 2b: recording the decisions changed nothing -- still three teams, U6 still U6';
+else
+  raise notice 'FAIL 2b: deciding the mini band changed live teams before Apply';
+end if;
+
+if exists (select 1 from public.age_grade_rollover_planned_teams
+           where rollover_id = v_roll and origin = 'U6_INTAKE') then
+  raise notice 'PASS 2c: the new U6 intake is PLANNED as a consequence of moving the cohort up';
+else
+  raise notice 'FAIL 2c: no U6 intake was planned';
+end if;
+
+perform public.apply_season_handover(v_roll);
 
 if (select age_group from public.teams where id = v_u6) = 'U7' then
   raise notice 'PASS 3: the existing U6 cohort progressed to U7 and was NOT mutated back to U6';
@@ -153,20 +173,16 @@ else
   raise notice 'FAIL 11: a duplicate U6 was inserted directly';
 end if;
 
--- ============ 4. The ordering dependency is explained ============
+-- ============ 4. The ordering dependency is now Apply's problem, not the club's ============
 --
--- The U6 intake rule makes a collision unavoidable every season: the U6 cohort
--- cannot become U7 until last season's U6 (now the U7s) has moved to U8. The
--- old message told the club to put its U6 cohort into a "U7 B squad", which is
--- wrong advice -- the U7s are about to vacate that place.
---
--- Note also that teams_club_id_identity_key_key is NOT partial on active, so a
--- club can never hold a folded U6 alongside an active one. The reactivation
--- branch in provision_intake_team is reachable only for a club whose U6 was
--- folded in an earlier season, which is why it is not exercised here.
+-- Every mini season contains the same knot: the U6 cohort cannot become U7
+-- until last season's U6 -- now the U7s -- has moved to U8. The old model made
+-- that the club's problem, refusing the decision and telling them which team
+-- to confirm first. Staged, the club decides in any order and Apply untangles
+-- it, because nothing has moved until then.
 
 declare
-  v_dir2 uuid; v_club2 uuid; v_a6 uuid; v_a7 uuid; v_pa6 uuid;
+  v_dir2 uuid; v_club2 uuid; v_a6 uuid; v_a7 uuid; v_pa6 uuid; v_pa7 uuid; v_roll2 uuid;
 begin
   insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
   values ('Mini2 RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','mini2-'||substr(gen_random_uuid()::text,1,8)) returning id into v_dir2;
@@ -177,28 +193,40 @@ begin
   insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
   values (v_club2,'union','youth','U7','mixed','x','m2b') returning id into v_a7;
 
-  perform public.generate_rollover_proposal(v_club2,'union',v_to);
+  v_roll2 := public.generate_rollover_proposal(v_club2,'union',v_to);
   select id into v_pa6 from public.age_grade_rollover_team_proposals where team_id = v_a6;
+  select id into v_pa7 from public.age_grade_rollover_team_proposals where team_id = v_a7;
 
-  v_ok := false;
+  -- Decide the U6 FIRST -- the order that used to be refused.
+  v_ok := true;
   begin
     perform public.confirm_rollover_team_proposal(v_pa6,'confirm',null,null,null,null);
-  exception when others then v_ok := true; v_err := sqlerrm;
+  exception when others then v_ok := false; v_err := sqlerrm;
   end;
 
-  if v_ok and v_err like '%still holds the U7 place%' then
-    raise notice 'PASS 12: confirming U6 before U7 explains that the U7s have not moved yet, and names them';
-  elsif v_ok and v_err like '%B%squad%' then
-    raise notice 'FAIL 12: still advising a B squad for a place that is about to be vacated';
+  if v_ok then
+    raise notice 'PASS 12: the U6 cohort can be decided before the U7s -- there is no ordering constraint on a decision';
   else
-    raise notice 'FAIL 12: unexpected outcome (%)', coalesce(v_err,'accepted');
+    raise notice 'FAIL 12: deciding U6 first was refused (%)', v_err;
   end if;
 
   if (select age_group from public.teams where id = v_a6) = 'U6'
-     and (select decision from public.age_grade_rollover_team_proposals where id = v_pa6) = 'pending' then
-    raise notice 'PASS 13: the refused confirm left the cohort and its proposal untouched';
+     and (select age_group from public.teams where id = v_a7) = 'U7' then
+    raise notice 'PASS 13: neither cohort moved -- the decision is staged, so the U7 place is not contested yet';
   else
-    raise notice 'FAIL 13: the refused confirm left partial state';
+    raise notice 'FAIL 13: deciding moved a cohort before Apply';
+  end if;
+
+  perform public.confirm_rollover_team_proposal(v_pa7,'confirm',null,null,null,null);
+  perform public.apply_season_handover(v_roll2);
+
+  if (select age_group from public.teams where id = v_a7) = 'U8'
+     and (select age_group from public.teams where id = v_a6) = 'U7'
+     and (select count(*) from public.teams where club_id = v_club2 and active and age_group = 'U6') = 1 then
+    raise notice 'PASS 13b: Apply sequenced it -- U7 vacated first, then U6 took its place, then a new U6 intake was created';
+  else
+    raise notice 'FAIL 13b: the club now runs [%]',
+      (select string_agg(age_group, ', ' order by age_group) from public.teams where club_id = v_club2 and active);
   end if;
 end;
 
