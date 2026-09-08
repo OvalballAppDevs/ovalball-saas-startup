@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { resolvePersonalAvatarUrl } from "@/lib/app-context/personal-avatar"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { parseRememberCookie, REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember"
+import { teamPermissionLabel } from "@/lib/permissions/role-labels"
 import { createClient } from "@/lib/supabase/server"
 
 import { AvatarForm } from "./avatar-form"
@@ -81,7 +82,10 @@ export default async function AccountPage() {
               ))}
             {ctx.teamPermissions.map((tp) => (
               <li key={tp.teamId}>
-                {tp.teamDisplayName} — {tp.permission}
+                {/* The canonical label, never the raw enum: lib/permissions/role-labels.ts
+                    is the one place a team permission is given a name, and printing
+                    tp.permission put "coach" on screen beside "Club Admin". */}
+                {tp.teamDisplayName} — {teamPermissionLabel(tp.permission)}
               </li>
             ))}
             {ctx.isSiteAdmin && <li>Site Admin</li>}

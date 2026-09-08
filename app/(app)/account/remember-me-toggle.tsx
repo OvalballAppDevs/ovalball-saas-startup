@@ -18,22 +18,34 @@ export function RememberMeToggle({ initialRemember }: { initialRemember: boolean
   }
 
   return (
-    <div className="mt-3 flex items-center justify-between gap-4 rounded-lg border border-ink/10 bg-chalk px-3.5 py-3">
-      <div>
-        <p className="text-sm font-medium text-ink">Keep me signed in on this device</p>
-        <p className="mt-0.5 text-xs text-ink-muted">
+    /*
+      The whole row is the switch, exactly as on the notification
+      preferences above -- one interactive element, the track rendered inside
+      it as presentation, and a tap target the size of the thing a person is
+      aiming at rather than the 24px track alone.
+    */
+    <button
+      type="button"
+      role="switch"
+      aria-checked={remember}
+      aria-labelledby="remember-me-label"
+      aria-describedby="remember-me-description"
+      disabled={saving}
+      onClick={handleToggle}
+      className="mt-3 flex min-h-11 w-full items-center justify-between gap-4 rounded-lg border border-ink/10 bg-chalk px-3.5 py-3 text-left outline-none transition-colors hover:border-ink/20 focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:opacity-60"
+    >
+      <span className="min-w-0">
+        <span id="remember-me-label" className="block text-sm font-medium text-ink">
+          Keep me signed in on this device
+        </span>
+        <span id="remember-me-description" className="mt-0.5 block text-xs text-ink-muted">
           Stay signed in on this device until you sign out or Ovalball requires you to sign in
           again for security.
-        </p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={remember}
-        aria-label="Keep me signed in on this device"
-        disabled={saving}
-        onClick={handleToggle}
-        className={`relative h-6 w-11 shrink-0 rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:opacity-60 ${
+        </span>
+      </span>
+      <span
+        aria-hidden="true"
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
           remember ? "bg-pitch-600" : "bg-ink/20"
         }`}
       >
@@ -42,7 +54,7 @@ export function RememberMeToggle({ initialRemember }: { initialRemember: boolean
             remember ? "translate-x-[22px]" : "translate-x-0.5"
           }`}
         />
-      </button>
-    </div>
+      </span>
+    </button>
   )
 }
