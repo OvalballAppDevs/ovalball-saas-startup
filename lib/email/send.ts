@@ -8,6 +8,7 @@ import type { Database } from "@/types/database.types"
 import { emailEventDefinition, type EmailEventKey } from "./catalogue"
 import { getSenderIdentity, selectEmailProvider } from "./provider"
 import { resolveRecipients, type RecipientRef } from "./recipients"
+import { resolveTemplateContent } from "./resolve-content"
 import { renderEmail, type EmailEventData } from "./templates"
 
 /**
@@ -94,7 +95,15 @@ export async function sendEmailEvent<K extends EmailEventKey>(
   }
 
   const siteUrl = getSiteUrl()
-  const rendered = renderEmail(eventKey, data, siteUrl)
+
+  // ---- 5. Copy, resolved through the ONE path ----
+  // The published Site Admin version if there is a valid one, the registered
+  // default otherwise. A send is never blocked by an editing mistake: content
+  // that no longer satisfies its contract falls back to the default and says
+  // so in the log, because an unsent invitation is a worse outcome than an
+  // email that reads the way it shipped.
+  const resolved = await resolveTemplateContent(supabase, eventKey)
+  const rendered = renderEmail(eventKey, data, siteUrl, resolved.content)
   const { provider, configurationError } = selectEmailProvider()
   const sender = getSenderIdentity()
 

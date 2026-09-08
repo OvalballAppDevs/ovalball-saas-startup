@@ -32,6 +32,12 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-match-centre-shared.mjs"; then
   exit 1
 fi
 
+# The email catalogue, its editable contracts and its wiring must agree. See
+# the script's own header for the quiet failure this exists to catch.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-email-wiring.mjs"; then
+  exit 1
+fi
+
 CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 
@@ -66,6 +72,7 @@ SUITES=(
   regulatory_content_administration
   referral_reward_semantics
   email_delivery_foundation
+  email_template_registry
   calendar_match_centre_link
   add_child_flow
   guardian_link_requests

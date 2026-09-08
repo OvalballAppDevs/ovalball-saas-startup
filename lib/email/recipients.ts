@@ -48,6 +48,7 @@ export type RecipientRef =
   | { kind: "support_ticket"; ticketId: string }
   | { kind: "partner_invitation"; invitationId: string }
   | { kind: "club_billing_contact"; clubId: string }
+  | { kind: "club_claimant"; claimId: string }
 
 export interface ResolvedRecipient {
   email: string
@@ -218,6 +219,34 @@ export async function resolveRecipients(
         return { ok: false, reason: "This club has no active Club Admin with a contact address." }
       }
       return { ok: true, recipients }
+    }
+
+    case "club_claimant": {
+      // The person who applied for this club, read from the claim itself.
+      // The approving Site Admin never types an address: an approval that
+      // could be redirected to an arbitrary recipient is an approval that
+      // hands somebody else's club to whoever asked last.
+      const { data: claim, error } = await supabase
+        .from("club_claims")
+        .select("id, claimant_user_id")
+        .eq("id", ref.claimId)
+        .maybeSingle()
+      if (error) return { ok: false, reason: `That club claim could not be read: ${error.message}` }
+      if (!claim) return { ok: false, reason: "That club claim could not be found." }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("id", claim.claimant_user_id)
+        .maybeSingle()
+      if (profileError) {
+        return { ok: false, reason: `The claimant's contact could not be read: ${profileError.message}` }
+      }
+      const email = profile?.email?.trim() ?? ""
+      if (!profile || !email) {
+        return { ok: false, reason: "The claimant has no contact address recorded." }
+      }
+      return { ok: true, recipients: [{ email, ref: claim.id, clubId: null, userId: profile.id }] }
     }
 
     case "site_admin_inbox": {
