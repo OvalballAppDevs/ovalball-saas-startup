@@ -157,7 +157,7 @@ export function KitSection({
       <div className="flex items-center gap-2.5">
         <Shirt aria-hidden="true" className="size-5 text-forest-800" />
         <h2 id="club-kit" className="font-display text-xl text-ink">
-          Club kit
+          Club Kit
         </h2>
       </div>
       <p className="mt-1 max-w-xl text-sm text-ink-muted">

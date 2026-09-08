@@ -16712,6 +16712,7 @@ export type Database = {
           detail: string
           kind: string
           subject: string
+          subject_id: string
         }[]
       }
       handover_audit: {
@@ -17527,6 +17528,10 @@ export type Database = {
         }
         Returns: string
       }
+      request_player_playing_pathway: {
+        Args: { p_player_id: string }
+        Returns: number
+      }
       resend_safeguarding_officer_invitation: {
         Args: { p_officer_id: string }
         Returns: {
@@ -17855,6 +17860,14 @@ export type Database = {
       set_player_avatar: {
         Args: { p_player_id: string; p_storage_path: string }
         Returns: string
+      }
+      set_player_playing_pathway: {
+        Args: { p_player_id: string; p_playing_pathway: string }
+        Returns: {
+          reason: string
+          resolved: boolean
+          review_state: string
+        }[]
       }
       set_responsible_payer: {
         Args: {

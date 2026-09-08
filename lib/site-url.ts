@@ -45,7 +45,7 @@ export function getSiteUrl(): string {
     if (isProductionRuntime()) {
       throw new Error(
         "NEXT_PUBLIC_SITE_URL is not set. Production refuses to fall back to http://localhost:3000, " +
-          "because doing so would send real users authorization and invitation links pointing at their own machine. " +
+          "because doing so would send real users authorisation and invitation links pointing at their own machine. " +
           "Set NEXT_PUBLIC_SITE_URL to the deployment's real HTTPS origin."
       )
     }
@@ -67,7 +67,7 @@ export function getSiteUrl(): string {
   if (isLocal || parsed.protocol !== "https:") {
     throw new Error(
       `NEXT_PUBLIC_SITE_URL is "${parsed.origin}", which is not a production origin. ` +
-        "Production requires an HTTPS, non-localhost origin so that authorization emails resolve for real users."
+        "Production requires an HTTPS, non-localhost origin so that authorisation emails resolve for real users."
     )
   }
 

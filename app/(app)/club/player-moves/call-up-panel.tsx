@@ -78,7 +78,7 @@ export function CallUpPanel({
     <div className="rounded-lg border border-ink/10 bg-white p-6">
       <div className="flex items-center gap-2">
         <ArrowRightLeft className="size-4 text-forest-800" />
-        <h2 className="font-display text-lg text-ink">Fixture call-ups</h2>
+        <h2 className="font-display text-lg text-ink">Fixture Call-Ups</h2>
       </div>
       <p className="mt-1.5 text-sm text-ink-muted">
         Borrow a player from another team at this club for one fixture. The source team must approve before the player is eligible to play.

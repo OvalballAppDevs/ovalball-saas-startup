@@ -375,7 +375,7 @@ export function SiteAdminDashboard({
             >
               {(d) => ({
                 value: formatMoney(d.collectedLast30dPence),
-                // Clubs connected comes from the same authorized adoption read
+                // Clubs connected comes from the same authorised adoption read
                 // the Adoption section uses, so the two can never disagree. If
                 // that read failed, the clause is dropped rather than guessed.
                 detail:
@@ -416,7 +416,7 @@ export function SiteAdminDashboard({
           ) : referralIntelligence.state === "ok" ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-ink/10 bg-white p-5">
-              <h3 className="text-sm font-semibold text-ink">Referral funnel</h3>
+              <h3 className="text-sm font-semibold text-ink">Referral Funnel</h3>
               <ul className="mt-3 flex flex-col gap-2">
                 {referralIntelligence.data.funnel.map((stage) => (
                   <li key={stage.key} className="flex flex-col gap-0.5 text-sm">
@@ -431,7 +431,7 @@ export function SiteAdminDashboard({
             </div>
 
             <div className="rounded-lg border border-ink/10 bg-white p-5">
-              <h3 className="text-sm font-semibold text-ink">Top referring clubs</h3>
+              <h3 className="text-sm font-semibold text-ink">Top Referring Clubs</h3>
               {referralIntelligence.data.topClubs.length === 0 ? (
                 <p className="mt-3 text-sm text-ink-muted">No referrals yet.</p>
               ) : (
@@ -451,7 +451,7 @@ export function SiteAdminDashboard({
             </div>
 
             <div className="rounded-lg border border-ink/10 bg-white p-5 lg:col-span-2">
-              <h3 className="text-sm font-semibold text-ink">Live referral activity</h3>
+              <h3 className="text-sm font-semibold text-ink">Live Referral Activity</h3>
               {referralIntelligence.data.activity.length === 0 ? (
                 <p className="mt-3 text-sm text-ink-muted">No referral activity yet.</p>
               ) : (
@@ -467,7 +467,7 @@ export function SiteAdminDashboard({
             </div>
 
             <div className="rounded-lg border border-ink/10 bg-white p-5 lg:col-span-2">
-              <h3 className="text-sm font-semibold text-ink">Referral rewards</h3>
+              <h3 className="text-sm font-semibold text-ink">Referral Rewards</h3>
               <p className="mt-1 text-xs text-ink-muted">
                 The offer is one month of the referring club&rsquo;s own plan, free, once a referred club&rsquo;s
                 first subscription payment is collected. Months are counted from qualifying referrals, never

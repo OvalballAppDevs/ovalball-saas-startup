@@ -20,7 +20,7 @@ export function ReferralSection({
 }) {
   return (
     <section className="mt-10">
-      <h2 className="font-display text-xl text-ink">Refer a club</h2>
+      <h2 className="font-display text-xl text-ink">Refer a Club</h2>
 
       <div className="mt-4 rounded-lg bg-mint-100 px-5 py-5">
         <p className="max-w-xl text-sm leading-relaxed text-forest-950">{REFERRAL_OFFER_SUMMARY}</p>

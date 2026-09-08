@@ -15,7 +15,7 @@ async function requireSubscriptionConfigAccess(clubId: string) {
   if (!user) return { ok: false as const, error: "You must be signed in." }
 
   const authorized = await hasCapability(supabase, "club.subscription.configure", "club", { clubId })
-  if (!authorized) return { ok: false as const, error: "You are not authorized to configure subscriptions for this club." }
+  if (!authorized) return { ok: false as const, error: "You are not authorised to configure subscriptions for this club." }
 
   return { ok: true as const, supabase, user }
 }
@@ -95,7 +95,7 @@ export async function disconnectGoCardless(clubId: string, reason: string): Prom
   if (!user) return { ok: false, error: "You must be signed in." }
 
   const authorized = await hasCapability(supabase, "club.gocardless.connect", "club", { clubId })
-  if (!authorized) return { ok: false, error: "You are not authorized to disconnect GoCardless for this club." }
+  if (!authorized) return { ok: false, error: "You are not authorised to disconnect GoCardless for this club." }
 
   const { error } = await supabase.rpc("disconnect_gocardless", { p_club_id: clubId, p_reason: reason })
   if (error) return { ok: false, error: error.message }

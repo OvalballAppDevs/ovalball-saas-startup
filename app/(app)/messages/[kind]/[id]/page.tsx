@@ -433,7 +433,7 @@ export default async function ConversationThreadPage({
       // deleted_at is set -- Section 85/86: normal participants (and this
       // query, which every consumer of ThreadMessage reads from) never see
       // the original content again once deleted; it survives only in the
-      // raw fixture_messages row for an authorized moderator querying
+      // raw fixture_messages row for an authorised moderator querying
       // directly (never exposed through this page).
       const body = isDeleted ? (m.deleted_by_role === "moderator" ? "Message has been deleted by admin." : "Message has been deleted by user.") : m.body
       return {
@@ -457,7 +457,7 @@ export default async function ConversationThreadPage({
     })
   )
 
-  // Real participants -- everyone with actual authorized access to this
+  // Real participants -- everyone with actual authorised access to this
   // conversation (can_access_fixture_conversation's own boundary: club
   // admins/fixture secretaries at either club, team officials on either
   // team), never every club member. Deduped by user, grouped by club.

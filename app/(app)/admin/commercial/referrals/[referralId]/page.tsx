@@ -99,7 +99,7 @@ export default async function ReferralDetailPage({ params }: { params: Promise<{
       )}
 
       <section className="mt-8">
-        <h2 className="font-display text-lg text-ink">Audit history</h2>
+        <h2 className="font-display text-lg text-ink">Audit History</h2>
         {auditError ? (
           /* "No changes recorded yet." on a failed audit read would assert an
              absence of history that was never actually established. */

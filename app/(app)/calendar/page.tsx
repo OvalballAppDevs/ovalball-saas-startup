@@ -919,7 +919,7 @@ function SeasonConfigBrokenState({ phaseLabel, canSeeDetail }: { phaseLabel: str
       <p className="max-w-md text-sm text-amber-800/80">
         {canSeeDetail
           ? `This season's ${phaseLabel} dates are misconfigured (they don't satisfy Pre-Season Start before Main Season Start on/before Main Season End) -- fix them under Season Rollover before this period can be browsed.`
-          : "This part of the calendar is temporarily unavailable. Please check back later or contact your club admin."}
+          : "This part of the calendar is temporarily unavailable. Please check back later or contact your Club Admin."}
       </p>
     </div>
   )

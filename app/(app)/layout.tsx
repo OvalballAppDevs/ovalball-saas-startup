@@ -89,7 +89,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   // First-run activation gate.
   //
   // A club that has not finished setup is not usable: no logo, no home
-  // venue, no pitch, no confirmed teams. An authorized Club Admin is sent to
+  // venue, no pitch, no confirmed teams. An authorised Club Admin is sent to
   // finish it; anyone else is shown a bounded explanation rather than a
   // half-working application or an unexplained blank page.
   //

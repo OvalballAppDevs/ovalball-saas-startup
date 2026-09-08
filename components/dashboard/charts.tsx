@@ -303,7 +303,7 @@ export function AdoptionBars({
       </ul>
       <p className="mt-3 text-xs text-ink-muted">
         Measured against {denominator.toLocaleString("en-GB")} {denominatorLabel} — never the
-        canonical club directory, which is addressable market rather than customers.
+        canonical Club Directory, which is addressable market rather than customers.
       </p>
     </div>
   )

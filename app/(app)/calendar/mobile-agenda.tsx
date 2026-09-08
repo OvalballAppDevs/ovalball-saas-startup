@@ -338,7 +338,7 @@ export function MobileAgenda({
       <Dialog open={addPickerOpen} onOpenChange={setAddPickerOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add a fixture</DialogTitle>
+            <DialogTitle>Add a Fixture</DialogTitle>
             <DialogDescription>Pick the team and date, then choose the opponent and details.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 px-1">

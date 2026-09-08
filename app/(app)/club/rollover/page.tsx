@@ -115,6 +115,11 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
     kind: b.kind as HandoverBlocker["kind"],
     subject: b.subject,
     detail: b.detail,
+    subjectId: b.subject_id,
+    // A missing playing pathway is the one blocker the club is not permitted
+    // to clear itself, so the board offers it the action it does have.
+    needsPlayerInformation:
+      b.kind === "player" && b.subject_id !== null && (b.detail ?? "").includes("which pathway this player is registered in"),
   }))
   const consequences: HandoverConsequence[] = (consequenceRows ?? []).map((c) => ({
     kind: c.kind as HandoverConsequence["kind"],
@@ -336,7 +341,7 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
         <CalendarSync className="size-5 text-forest-800" />
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club</p>
       </div>
-      <h1 className="mt-2 font-display text-display-l text-ink">Season handover</h1>
+      <h1 className="mt-2 font-display text-display-l text-ink">Season Handover</h1>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
         <span className="text-ink">

@@ -34,13 +34,13 @@ export interface NavSection {
 const SITE_ADMIN_SECTIONS: { key: string; label: string; icon: string; hrefs: string[] }[] = [
   {
     key: "rugby",
-    label: "Rugby operations",
+    label: "Rugby Operations",
     icon: "CalendarDays",
     hrefs: ["/admin/fixtures", "/calendar", "/admin/competitions", "/admin/seasons", "/admin/lookups"],
   },
   {
     key: "clubs",
-    label: "Clubs & people",
+    label: "Clubs & People",
     icon: "Users",
     hrefs: [
       "/admin/clubs",
@@ -59,7 +59,7 @@ const SITE_ADMIN_SECTIONS: { key: string; label: string; icon: string; hrefs: st
   },
   {
     key: "system",
-    label: "Support & system",
+    label: "Support & System",
     icon: "LifeBuoy",
     hrefs: [
       "/admin/support",

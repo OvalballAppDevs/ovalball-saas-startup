@@ -146,7 +146,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           {isAllChildren ? "All Children" : activeContext.subjectName ? activeContext.subjectName : "Fixtures"}
         </p>
       </div>
-      <h1 className="mt-2 font-display text-display-l text-ink">Fixtures &amp; training</h1>
+      <h1 className="mt-2 font-display text-display-l text-ink">Fixtures &amp; Training</h1>
       <p className="mt-2 max-w-lg text-sm text-ink-muted">
         {isAllChildren
           ? "Everything coming up across your children, soonest first."

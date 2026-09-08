@@ -78,7 +78,7 @@ export default async function ClubDirectoryDataQualityPage() {
       </div>
       <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-display-l text-ink">Club Directory data quality</h1>
+          <h1 className="font-display text-display-l text-ink">Club Directory Data Quality</h1>
           <p className="mt-2 max-w-2xl text-sm text-ink-muted">
             Exact counts against the canonical directory of {counts.total} clubs. Nothing here is estimated or rounded.
           </p>

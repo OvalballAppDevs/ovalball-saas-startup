@@ -4,7 +4,7 @@ import { resolveContextSettingsLink } from "./identity-display"
  * Run with `npx tsx lib/app-context/identity-display.verify.ts`. Permanent
  * regression coverage for the settings-gear destination resolver (Master
  * Architecture Pass -- Security/Safeguarding Gate §9): cheap, deterministic,
- * and the exact boundary a "context is not authorization" leak would show
+ * and the exact boundary a "context is not authorisation" leak would show
  * up in first if this function regressed.
  */
 

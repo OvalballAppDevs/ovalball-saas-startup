@@ -219,7 +219,7 @@ function ContactCardPicker({
               {preview.telephone}
             </p>
           </div>
-          <p className="mt-2 text-xs text-ink-muted">This shares these contact details with the authorized participants in this fixture conversation.</p>
+          <p className="mt-2 text-xs text-ink-muted">This shares these contact details with the authorised participants in this fixture conversation.</p>
           <div className="mt-2.5 flex items-center gap-2">
             <button
               type="button"

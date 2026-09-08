@@ -80,7 +80,7 @@ export function ScheduleTrainingDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Schedule training</DialogTitle>
+          <DialogTitle>Schedule Training</DialogTitle>
           <DialogDescription>A calendar event, not a fixture — no opponent, no result.</DialogDescription>
         </DialogHeader>
 

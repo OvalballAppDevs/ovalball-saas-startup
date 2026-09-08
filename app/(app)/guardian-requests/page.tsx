@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { DecisionControls } from "./decision-controls"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Guardian requests" }
+export const metadata = { title: "Guardian Requests" }
 
 /**
  * Where a guardian relationship is actually granted.
@@ -38,7 +38,7 @@ export default async function GuardianRequestsPage() {
         <ShieldCheck className="size-5 text-forest-800" aria-hidden="true" />
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Safeguarding</p>
       </div>
-      <h1 className="mt-2 font-display text-display-l text-ink">Guardian requests</h1>
+      <h1 className="mt-2 font-display text-display-l text-ink">Guardian Requests</h1>
       <p className="mt-2 max-w-lg text-sm text-ink-muted">
         Someone has asked to be recognised as a parent or guardian. Approving one gives that adult access to the child&rsquo;s fixtures, training and
         attendance. Nothing is granted until you decide.

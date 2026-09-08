@@ -101,7 +101,7 @@ export default async function ParentChildrenPage() {
       </Link>
 
       <p className="mt-4 text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Your family</p>
-      <h1 className="mt-2 font-display text-display-l text-ink">Your children</h1>
+      <h1 className="mt-2 font-display text-display-l text-ink">Your Children</h1>
       <p className="mt-2 max-w-md text-sm text-ink-muted">
         Add your child&rsquo;s details to create or connect their Ovalball player profile. We&rsquo;ll use their date of birth to place them in the correct rugby age group for the season.
       </p>
@@ -132,6 +132,9 @@ export default async function ParentChildrenPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3">
+                  <Link href={`/parent/players/${child.playerId}/details`} className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                    Playing details
+                  </Link>
                   <Link href={`/parent/players/${child.playerId}/access`} className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
                     Manage access
                   </Link>
@@ -157,7 +160,7 @@ export default async function ParentChildrenPage() {
           back in" message. */}
       {pending.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Awaiting verification</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Awaiting Verification</h2>
           <ul className="mt-3 flex flex-col gap-2">
             {pending.map((r) => (
               <li key={r.request_id} className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3.5">
@@ -179,7 +182,7 @@ export default async function ParentChildrenPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Add a child</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Add a Child</h2>
         <AddChildForm />
       </section>
     </div>

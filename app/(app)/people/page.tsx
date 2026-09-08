@@ -133,7 +133,7 @@ export default async function PeoplePage() {
 
       {invitations && invitations.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Pending invitations</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Pending Invitations</h2>
           <ul className="mt-3 flex flex-col gap-2">
             {invitations.map((inv) => (
               <PendingInvitationRow

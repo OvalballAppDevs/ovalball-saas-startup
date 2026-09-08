@@ -31,10 +31,10 @@ async function requireTrainingManageAccess(clubId: string) {
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const realClubId = activeClubId(ctx, activeContext)
   if (!realClubId || realClubId !== clubId) {
-    return { ok: false as const, error: "You are not authorized to manage Training for this club." }
+    return { ok: false as const, error: "You are not authorised to manage Training for this club." }
   }
   const can = await hasCapability(supabase, "club.training.manage", "club", { clubId })
-  if (!can) return { ok: false as const, error: "You are not authorized to manage Training Plans for this club." }
+  if (!can) return { ok: false as const, error: "You are not authorised to manage Training Plans for this club." }
   return { ok: true as const, supabase, user }
 }
 
@@ -52,7 +52,7 @@ function toPublicTrainingError(message: string): string {
     "Each schedule rule",
     "Each custom schedule row",
     "This schedule row",
-    "You are not authorized",
+    "You are not authorised",
     "Training plan not found",
     "Training session not found",
     "The selected pitch does not belong",

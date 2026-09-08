@@ -167,7 +167,7 @@ export function toPublicAddChildError(error: RawErrorLike): string {
 const SAFE_GUARDIAN_REQUEST_ERROR_PREFIXES = [
   "You must be signed in.",
   "A valid email address is required.",
-  "You are not authorized to add a guardian for this player.",
+  "You are not authorised to add a guardian for this player.",
   "This player is not attached to a club yet.",
   "This request has already been decided.",
   "You have submitted several requests recently.",
@@ -184,7 +184,7 @@ export function toPublicGuardianRequestError(error: RawErrorLike): string {
 
 /** Same allowlist reasoning, for invite_player_account()'s own deliberately human-readable exception text. */
 const SAFE_PLAYER_ACCOUNT_INVITE_ERROR_PREFIXES = [
-  "You are not authorized to invite a login for this player.",
+  "You are not authorised to invite a login for this player.",
   "A valid email address is required.",
   "This player already has their own Ovalball login.",
   "A login invitation is already pending for this player.",
@@ -204,7 +204,7 @@ const SAFE_ATTENDANCE_ERROR_PREFIXES = [
   "Age could not be verified for self-service attendance.",
   "Guardian consent for self-attendance is not currently granted.",
   "Players under 16 cannot respond to their own attendance.",
-  "You are not authorized to respond to attendance for this player.",
+  "You are not authorised to respond to attendance for this player.",
   "This player is not associated with a team involved in this fixture.",
 ]
 

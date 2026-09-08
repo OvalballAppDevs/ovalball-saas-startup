@@ -12,7 +12,7 @@ const OPTIONS: { status: AttendanceStatus; label: string; symbol: string }[] = [
 ]
 
 /**
- * One card per player the viewer is authorized to respond for (real Main
+ * One card per player the viewer is authorised to respond for (real Main
  * data can have more than one -- e.g. a guardian of twins on the same
  * fixture). Each card's displayed response never changes until the server
  * action actually confirms it -- a failed write reverts to the last

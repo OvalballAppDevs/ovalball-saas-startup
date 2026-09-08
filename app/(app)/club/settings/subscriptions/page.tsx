@@ -74,7 +74,7 @@ export default async function ClubSubscriptionsSettingsPage({ searchParams }: { 
 
       {canConfigure && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Programme settings</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Programme Settings</h2>
           <div className="mt-3">
             <SubscriptionSettingsForm
               clubId={clubId}

@@ -8,7 +8,7 @@ export type FixtureLifecycleResult = { ok: true } | { ok: false; error: string }
 
 const SAFE_FIXTURE_LIFECYCLE_ERROR_PREFIXES = [
   "A reason is required",
-  "You are not authorized",
+  "You are not authorised",
   "Only this fixture's own Club Admin or Fixtures Secretary",
   "Fixture not found",
   "This fixture is already cancelled",

@@ -78,7 +78,7 @@ export default async function AdminReleasesPage() {
         <Radio className="size-5 text-forest-800" />
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
-      <h1 className="mt-2 font-display text-display-l text-ink">Release &amp; platform mode</h1>
+      <h1 className="mt-2 font-display text-display-l text-ink">Release &amp; Platform Mode</h1>
       <p className="mt-2 max-w-xl text-sm text-ink-muted">
         What Ovalball is running, and whether it is charging clubs. Beta and Live decide only what
         Ovalball collects from clubs &mdash; they have no effect on payments a club collects from its
@@ -100,7 +100,7 @@ export default async function AdminReleasesPage() {
       />
 
       <section className="mt-10">
-        <h2 className="font-display text-xl text-ink">Mode history</h2>
+        <h2 className="font-display text-xl text-ink">Mode History</h2>
         <p className="mt-1 text-sm text-ink-muted">
           Append-only. Nothing here can be edited or removed, which is what makes it usable as the
           answer to &ldquo;was Ovalball charging on this date&rdquo;.

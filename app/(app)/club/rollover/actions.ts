@@ -304,3 +304,19 @@ export async function applySeasonHandover(rolloverId: string, expectedRevision: 
     playersHeld: row.players_held,
   }
 }
+
+export type AskGuardianResult = { ok: true; sent: number } | { ok: false; error: string }
+
+/**
+ * A club asking a player's guardians for missing playing information.
+ *
+ * The whole of the club's authority here is to ask. Recording the answer
+ * belongs to the guardian or the adult player, and the server enforces that
+ * separately -- this action cannot write anything about the child.
+ */
+export async function askGuardianForPlayingInformation(playerId: string): Promise<AskGuardianResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("request_player_playing_pathway", { p_player_id: playerId })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, sent: data ?? 0 }
+}

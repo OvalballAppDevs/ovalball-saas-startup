@@ -84,7 +84,7 @@ export async function FixtureManagementView({
       </div>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-display-l text-ink">Fixture management</h1>
+          <h1 className="font-display text-display-l text-ink">Fixture Management</h1>
           <p className="mt-2 max-w-lg text-sm text-ink-muted">
             {scope.clubId
               ? `Search, review, and maintain ${scope.clubName ?? "your club"}'s fixtures directly, including tournaments and a staged CSV import workflow.`

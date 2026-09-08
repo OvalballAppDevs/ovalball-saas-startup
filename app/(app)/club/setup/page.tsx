@@ -155,7 +155,7 @@ async function Step1({
 
   return (
     <>
-      <h2 className="font-display text-2xl text-ink">Your crest and kit</h2>
+      <h2 className="font-display text-2xl text-ink">Your Crest and Kit</h2>
       <p className="mt-1.5 max-w-lg text-sm text-ink-muted">
         This is what players and parents see on every fixture card, every message and your public club
         page. The home kit is required; the away kit can wait.
@@ -301,7 +301,7 @@ async function Step3({ clubId, supabase, req }: { clubId: string; supabase: Supa
 
   return (
     <>
-      <h2 className="font-display text-2xl text-ink">Your teams</h2>
+      <h2 className="font-display text-2xl text-ink">Your Teams</h2>
       <p className="mt-1.5 max-w-lg text-sm text-ink-muted">
         These came from what your club told us when it joined. Check them over &mdash; fixtures,
         training, squads and messaging all hang off this list.

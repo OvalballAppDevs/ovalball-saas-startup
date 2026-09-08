@@ -29,7 +29,7 @@ export function SiblingDiscountPanel({ programmeId, clubId, rules }: { programme
     <div className="rounded-lg border border-ink/10 bg-white p-4">
       <p className="text-sm font-medium text-ink">Sibling discounts</p>
       <p className="mt-1 text-xs text-ink-muted">
-        A discount for the 2nd, 3rd... child from the same paying family, based on how many of their children are already actively enrolled in this membership. Applies automatically at enrolment -- the Parent sees exactly why before they authorize anything. Changing a rule only
+        A discount for the 2nd, 3rd... child from the same paying family, based on how many of their children are already actively enrolled in this membership. Applies automatically at enrolment -- the Parent sees exactly why before they authorise anything. Changing a rule only
         affects NEW enrolments from today; it never re-prices an existing member.
       </p>
       <div className="mt-4 flex flex-col gap-3">

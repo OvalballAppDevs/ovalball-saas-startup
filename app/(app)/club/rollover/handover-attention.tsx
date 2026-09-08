@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { CheckCircle2 } from "lucide-react"
 
+import { AskGuardianButton } from "./ask-guardian-button"
+
 /**
  * Everything standing between this handover and Apply, in one queue.
  *
@@ -16,6 +18,10 @@ export interface HandoverBlocker {
   kind: "season" | "team" | "collision" | "player" | "dispensation" | "stale"
   subject: string
   detail: string
+  /** The stable id of whoever or whatever needs the decision. Never a display string. */
+  subjectId: string | null
+  /** True when the item is waiting on protected player information only a guardian can supply. */
+  needsPlayerInformation: boolean
 }
 
 const DESTINATION: Record<HandoverBlocker["kind"], { href: string; label: string }> = {
@@ -62,12 +68,20 @@ export function HandoverNeedsAttention({ blockers, planned }: { blockers: Handov
                   <p className="text-sm font-medium text-ink">{b.subject}</p>
                   <p className="mt-0.5 text-sm text-ink/60">{b.detail}</p>
                 </div>
-                <Link
-                  href={DESTINATION[b.kind].href}
-                  className="shrink-0 rounded-lg border border-ink/15 px-3 py-1.5 text-sm text-ink outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
-                >
-                  {DESTINATION[b.kind].label}
-                </Link>
+                {b.needsPlayerInformation && b.subjectId ? (
+                  // The club cannot answer this one. Gender is protected
+                  // identity information, and running a team is not the
+                  // authority to record it -- so the action offered here is to
+                  // ask the people who hold that relationship.
+                  <AskGuardianButton playerId={b.subjectId} playerName={b.subject} />
+                ) : (
+                  <Link
+                    href={DESTINATION[b.kind].href}
+                    className="shrink-0 rounded-lg border border-ink/15 px-3 py-1.5 text-sm text-ink outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                  >
+                    {DESTINATION[b.kind].label}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

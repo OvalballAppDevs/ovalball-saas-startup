@@ -71,7 +71,7 @@ export default async function AdminClubsPage({
       </div>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-display-l text-ink">Club management</h1>
+          <h1 className="font-display text-display-l text-ink">Club Management</h1>
           <p className="mt-2 max-w-lg text-sm text-ink-muted">
             Search, review and maintain every recognised club directly &mdash; no more round-tripping through SQL for
             routine changes.

@@ -19,6 +19,13 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-one-team-catalogue.mjs"; then
   exit 1
 fi
 
+# The content standard: one spelling per destination, protected acronyms, and
+# Title Case on navigation labels and page metadata. Deliberately not a lint
+# rule over English prose -- see CLAUDE.md.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-content-standard.mjs"; then
+  exit 1
+fi
+
 CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 
@@ -69,6 +76,7 @@ SUITES=(
   handover_player_placement
   handover_apply_idempotency
   handover_staged_commit_model
+  person_name_normalisation
   handover_prepare_idempotency
   handover_squads_and_aliases
   graduation_placement_safety

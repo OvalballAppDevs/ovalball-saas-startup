@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client"
  * (gone the instant their tab closes or their socket drops) -- everyone
  * else falls back to the honest last_active_at heartbeat: Recently active
  * (<15 min), Last active HH:MM (same day), or Offline. Club-scoped by
- * construction: the channel itself is a private topic, authorized only for
+ * construction: the channel itself is a private topic, authorised only for
  * real fixture-conversation participants by realtime.messages RLS
  * (internal.can_access_fixture_presence_topic) -- nobody outside that
  * boundary can even join to see who else is present.

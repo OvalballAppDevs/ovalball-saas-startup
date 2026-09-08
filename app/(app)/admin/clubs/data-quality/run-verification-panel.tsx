@@ -105,7 +105,7 @@ export function RunVerificationPanel({ activeFilterFlag, recentRuns }: { activeF
         </DialogTrigger>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Run online verification</DialogTitle>
+            <DialogTitle>Run Online Verification</DialogTitle>
             <DialogDescription>
               Ovalball will research available authoritative public sources and stage proposed changes for review. No
               canonical club records will be changed automatically.

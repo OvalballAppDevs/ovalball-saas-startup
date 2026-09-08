@@ -88,7 +88,7 @@ export function SupportCentre({ tickets }: { tickets: SupportTicketSummary[] }) 
       </div>
 
       <div className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Your requests</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Your Requests</h2>
         {tickets.length === 0 ? (
           <div className="mt-4 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
             <p className="text-sm font-medium text-ink">No requests yet</p>

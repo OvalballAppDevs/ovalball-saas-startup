@@ -91,7 +91,7 @@ export default async function ReferralDataHealthPage() {
           its own snapshot is money the dashboard cannot stand behind. The
           ledger is append-only, so such a row is reported here rather than
           quietly corrected. */}
-      <h2 className="mt-10 font-display text-lg text-ink">Reward value</h2>
+      <h2 className="mt-10 font-display text-lg text-ink">Reward Value</h2>
       <p className="mt-1 max-w-xl text-sm text-ink-muted">
         A referral reward is one month of the referring club&rsquo;s own plan, at the price that plan cost when
         the reward was earned. Anything below is a reward whose recorded value cannot be verified against that

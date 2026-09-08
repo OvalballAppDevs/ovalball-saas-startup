@@ -19,7 +19,7 @@ function csvField(value: string): string {
 export async function exportPlayerMovementsCsv(clubId: string): Promise<ExportPlayerMovementsResult> {
   const supabase = await createClient()
   const canExport = await hasCapability(supabase, "manage_fixture_callups", "club", { clubId })
-  if (!canExport) return { ok: false, error: "Not authorized to export this club's player movement history." }
+  if (!canExport) return { ok: false, error: "Not authorised to export this club's player movement history." }
 
   const { data: teamRows } = await supabase.from("teams").select("id").eq("club_id", clubId)
   const teamIds = (teamRows ?? []).map((t) => t.id)

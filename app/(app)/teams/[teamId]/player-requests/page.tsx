@@ -102,7 +102,7 @@ export default async function TeamPlayerRequestsPage({ params }: { params: Promi
         <ArrowRightLeft className="size-5 text-forest-800" />
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Team</p>
       </div>
-      <h1 className="mt-2 font-display text-display-l text-ink">Player requests</h1>
+      <h1 className="mt-2 font-display text-display-l text-ink">Player Requests</h1>
       <p className="mt-2 max-w-xl text-sm text-ink-muted">
         Request a player from another team at this club for a fixture, or decide a request another team has made for one of your own players.
       </p>

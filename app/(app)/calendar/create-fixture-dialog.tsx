@@ -230,7 +230,7 @@ export function CreateFixtureDialog({
     >
       <DialogContent className="max-h-[90vh] w-full max-w-lg overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create fixture</DialogTitle>
+          <DialogTitle>Create Fixture</DialogTitle>
           <DialogDescription>
             {rugbyCode === "league" ? "Rugby League" : "Rugby Union"}
             {season && <> &middot; {season.label}</>}

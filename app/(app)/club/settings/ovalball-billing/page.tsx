@@ -159,7 +159,7 @@ export default async function OvalballBillingPage() {
       />
 
       <section className="mt-10">
-        <h2 className="font-display text-xl text-ink">Billing history</h2>
+        <h2 className="font-display text-xl text-ink">Billing History</h2>
         {(payments ?? []).length === 0 ? (
           <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">
             Ovalball has not collected anything from {clubName} yet.

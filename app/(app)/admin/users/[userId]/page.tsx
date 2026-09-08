@@ -97,7 +97,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         </section>
 
         <section>
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Club memberships</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Club Memberships</h2>
           <p className="mt-1 text-sm text-ink-muted">
             Ovalball access, real-world club role, and team scope are three separate things &mdash; each shown and
             edited on its own.
@@ -115,7 +115,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
 
         {person.pendingRequests.length > 0 && (
           <section>
-            <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Pending requests</h2>
+            <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Pending Requests</h2>
             <p className="mt-1 text-sm text-ink-muted">No authority is granted until these are approved &mdash; reviewed in Claims, not here.</p>
             <div className="mt-3 flex flex-col gap-2">
               {person.pendingRequests.map((r, i) => (

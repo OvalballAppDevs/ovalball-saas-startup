@@ -158,7 +158,7 @@ export default async function ClubGuardiansPage() {
 
       {pendingRequests.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Parent / Guardian requests</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Parent &amp; Guardian Requests</h2>
           <p className="mt-1 text-sm text-ink-muted">A parent added a child directly and needs the club to confirm their team.</p>
           <ul className="mt-3 flex flex-col gap-2">
             {pendingRequests.map((r) => (
@@ -170,7 +170,7 @@ export default async function ClubGuardiansPage() {
 
       {duplicates.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Possible duplicate players</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Possible Duplicate Players</h2>
           <p className="mt-1 text-sm text-ink-muted">A parent tried to add a child whose name and date of birth match an existing player at this club. Confirm whether this is the same child.</p>
           <ul className="mt-3 flex flex-col gap-2">
             {duplicates.map((d) => (
@@ -181,7 +181,7 @@ export default async function ClubGuardiansPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Players &amp; guardians</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Players &amp; Guardians</h2>
         {players.length === 0 ? (
           <div className="mt-3 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
             <p className="text-sm font-medium text-ink">No players yet</p>

@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic"
 
 // Reachable from the Calendar as of Phase 2A, so it needs its own tab name.
 // Static rather than generateMetadata: the fixture's own identity would be a
-// better title, but building it means a second authorized read purely for a
+// better title, but building it means a second authorised read purely for a
 // tab label, and this page is already one resolver call.
 export const metadata = { title: "Match Centre" }
 

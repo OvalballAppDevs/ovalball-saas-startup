@@ -355,7 +355,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
           permissions/workflow" without exposing Site-Admin correction
           tooling. ============ */}
       <div className="mt-8 rounded-xl border border-ink/10 bg-white p-5">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Match details</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Match Details</h2>
         <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
           <InfoCard label="Competition" value={overview.competition_name ?? "None"} />
           <InfoCard label="Game type" value={overview.game_type ?? "Not set"} />
@@ -371,7 +371,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
           </summary>
           <div className="flex flex-col gap-8 border-t border-ink/10 px-5 py-6">
             <section>
-              <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Edit details</h2>
+              <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Edit Details</h2>
               <div className="mt-3">
                 <EditFixtureForm
                   initial={{
@@ -410,7 +410,7 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
             </section>
 
             <section>
-              <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Danger zone</h2>
+              <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Danger Zone</h2>
               <div className="mt-3">
                 <FixtureDangerZone fixtureId={fixtureId} status={overview.status ?? "Planned"} hasHistory={hasHistory} />
               </div>

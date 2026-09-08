@@ -149,7 +149,7 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
       <section className="rounded-lg border border-ink/10 bg-white p-5">
         <div className="flex items-center gap-2.5">
           <UserRound className="size-5 text-forest-800" aria-hidden="true" />
-          <h2 className="font-display text-lg text-ink">Player handover</h2>
+          <h2 className="font-display text-lg text-ink">Player Handover</h2>
         </div>
         <p className="mt-2 text-sm text-ink-muted">
           No players are affected by this handover yet. Players appear here once their teams have proposals.
@@ -164,7 +164,7 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
         <div className="flex items-center gap-2.5">
           <UserRound className="size-5 text-forest-800" aria-hidden="true" />
           <h2 id="player-handover-heading" className="font-display text-lg text-ink">
-            Player handover
+            Player Handover
           </h2>
         </div>
         <p className="mt-1.5 text-sm text-ink-muted">
@@ -219,7 +219,7 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
           {/* Desktop: a real table, because this really is tabular. */}
           <table className="hidden w-full border-collapse text-left md:table">
             <caption className="sr-only">
-              Player handover proposals for {toSeasonName ?? "next season"}
+              Player Handover proposals for {toSeasonName ?? "next season"}
             </caption>
             <thead>
               <tr className="border-b border-ink/10 text-xs tracking-[0.04em] text-ink/55 uppercase">

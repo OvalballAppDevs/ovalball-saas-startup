@@ -168,7 +168,7 @@ function ConversationSettingsButton({ kind, id, myMuted, myLeft }: { kind: Conve
             <div className="rounded-md bg-chalk p-2.5">
               <p className="text-xs text-ink/60">
                 You&rsquo;ll stop receiving message notifications for this fixture. You can rejoin later if your club role still gives
-                you access, or an authorized manager can add you again.
+                you access, or an authorised manager can add you again.
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <button

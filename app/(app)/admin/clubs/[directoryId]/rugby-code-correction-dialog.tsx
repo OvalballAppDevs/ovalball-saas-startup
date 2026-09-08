@@ -64,7 +64,7 @@ export function RugbyCodeCorrectionDialog({
       <DialogTrigger render={<Button type="button" variant="outline" size="sm" className="h-8 shrink-0" />}>Correct</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Correct rugby code</DialogTitle>
+          <DialogTitle>Correct Rugby Code</DialogTitle>
           <DialogDescription>
             This changes the club&apos;s canonical sporting identity for every fixture, team, and search result. Never do
             this to merge two similarly-named clubs.

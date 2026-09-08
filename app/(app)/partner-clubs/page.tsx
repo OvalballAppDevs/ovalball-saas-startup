@@ -92,7 +92,7 @@ export default async function PartnerClubsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Partner Clubs</p>
-      <h1 className="mt-2 font-display text-display-l text-ink">Calendar sharing</h1>
+      <h1 className="mt-2 font-display text-display-l text-ink">Calendar Sharing</h1>
       <p className="mt-2 max-w-lg text-sm text-ink-muted">
         Agree calendar sharing with another club to see their team availability and request fixtures directly
         against an open date.
@@ -101,7 +101,7 @@ export default async function PartnerClubsPage() {
       <div className="max-w-3xl">
         {pendingRequests.length > 0 && (
           <section className="mt-10">
-            <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Pending requests</h2>
+            <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Pending Requests</h2>
             <ul className="mt-4 flex flex-col gap-2">
               {pendingRequests.map((r) => (
                 <PartnershipRequestRow key={r.id} request={r} />
@@ -111,7 +111,7 @@ export default async function PartnerClubsPage() {
         )}
 
         <section className="mt-10">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">My partner clubs</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">My Partner Clubs</h2>
           {activePartners.length === 0 ? (
             <div className="mt-4 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
               <p className="text-sm font-medium text-ink">No partner clubs yet</p>
@@ -128,7 +128,7 @@ export default async function PartnerClubsPage() {
       </div>
 
       <section className="mt-10">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Find a club</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Find a Club</h2>
         <p className="mt-1 max-w-lg text-sm text-ink-muted">
           Every recognised club, whether they&apos;ve joined Ovalball yet or not &mdash; search or filter to find one on the map.
         </p>

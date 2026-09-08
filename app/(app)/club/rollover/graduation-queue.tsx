@@ -33,7 +33,7 @@ export function GraduationQueue({ rows, targetTeams }: { rows: GraduationQueueRo
     <div className="mt-6 rounded-lg border border-ink/10 bg-white p-6">
       <div className="flex items-center gap-2">
         <GraduationCap className="size-4 text-forest-800" />
-        <h2 className="font-display text-lg text-ink">Graduating players</h2>
+        <h2 className="font-display text-lg text-ink">Graduating Players</h2>
       </div>
       <p className="mt-1.5 text-sm text-ink-muted">
         Players from a graduated cohort wait here until you place them on a team or record that they&apos;ve left the club.

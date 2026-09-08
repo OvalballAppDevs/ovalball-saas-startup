@@ -45,7 +45,7 @@ export function MiniRugbyNextSeasonReview({
     <div className="mt-6 rounded-lg border border-ink/10 bg-white p-6">
       <div className="flex items-center gap-2">
         <Users className="size-4 text-forest-800" />
-        <h2 className="font-display text-lg text-ink">Mini-Rugby Groups -- next season</h2>
+        <h2 className="font-display text-lg text-ink">Mini-Rugby Groups — Next Season</h2>
       </div>
       <p className="mt-1.5 text-sm text-ink-muted">
         {toSeasonName

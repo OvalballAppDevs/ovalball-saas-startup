@@ -10,7 +10,7 @@ import { exportPlayerMovementsCsv } from "./actions"
 /**
  * PLAYER REQUESTS Section 11: Club Admin's own glance at recent player
  * movement, never dispensation evidence -- just who moved, from where,
- * to where, and when. The full authorized export is a separate action
+ * to where, and when. The full authorised export is a separate action
  * with a wider, still-not-raw-evidence field set.
  */
 export function PlayerMovementsLog({ clubId, rows }: { clubId: string; rows: PlayerMovementRow[] }) {
@@ -42,7 +42,7 @@ export function PlayerMovementsLog({ clubId, rows }: { clubId: string; rows: Pla
   return (
     <section className="mt-10">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Recent player movements</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Recent Player Movements</h2>
         <button
           type="button"
           onClick={() => void exportLog()}

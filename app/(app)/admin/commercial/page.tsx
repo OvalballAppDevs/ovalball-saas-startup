@@ -124,7 +124,7 @@ export default async function AdminCommercialPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="font-display text-xl text-ink">Needs attention</h2>
+        <h2 className="font-display text-xl text-ink">Needs Attention</h2>
         {overviewError ? (
           <p className="mt-3 rounded-lg border border-ink/10 bg-white px-5 py-4 text-sm text-ink/70">
             Unknown &mdash; the club commercial read failed above, so nothing can be checked for
@@ -178,7 +178,7 @@ export default async function AdminCommercialPage() {
       </p>
 
       <section className="mt-8">
-        <h2 className="font-display text-xl text-ink">Every club</h2>
+        <h2 className="font-display text-xl text-ink">Every Club</h2>
 
         {clubs.length === 0 ? (
           <p className="mt-3 rounded-lg border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink-muted">

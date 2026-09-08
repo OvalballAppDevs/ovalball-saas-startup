@@ -72,7 +72,7 @@ export function AutomaticHandoverStatus({
     <div className="rounded-lg border border-ink/10 bg-white p-6">
       <div className="flex items-center gap-2">
         <ShieldCheck className="size-4 text-forest-800" />
-        <h2 className="font-display text-lg text-ink">Automatic season handover</h2>
+        <h2 className="font-display text-lg text-ink">Automatic Season Handover</h2>
       </div>
       <p className="mt-1.5 text-sm text-ink-muted">
         {fromSeasonName ? `${fromSeasonName} → ` : ""}

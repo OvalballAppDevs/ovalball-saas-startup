@@ -151,7 +151,7 @@ export default async function DashboardPage() {
 
       <section className="mt-10">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">This week</h2>
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">This Week</h2>
           <Link href="/calendar" className="text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
             View calendar
           </Link>

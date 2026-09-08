@@ -74,7 +74,7 @@ export default async function SystemHealthPage() {
       </dl>
 
       <section className="mt-8">
-        <h2 className="font-display text-xl text-ink">Platform state</h2>
+        <h2 className="font-display text-xl text-ink">Platform State</h2>
         <p className="mt-1 text-sm text-ink-muted">
           Whether Ovalball is charging clubs. Managed on Release &amp; Platform Mode &mdash; this
           card only reports it.
@@ -126,7 +126,7 @@ export default async function SystemHealthPage() {
       <section className="mt-10">
         <div className="flex items-center gap-2.5">
           <Mail aria-hidden="true" className="size-4 text-forest-800" />
-          <h2 className="font-display text-xl text-ink">Email delivery</h2>
+          <h2 className="font-display text-xl text-ink">Email Delivery</h2>
         </div>
         <p className="mt-1 text-sm text-ink/70">
           Whether Ovalball can send email, and what has actually happened to recent messages. A

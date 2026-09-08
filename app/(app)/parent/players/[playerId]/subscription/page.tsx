@@ -241,7 +241,7 @@ export default async function PlayerSubscriptionPage({ params }: { params: Promi
                 <span className="text-lg font-medium tabular-nums text-ink">{formatMinorUnits(preview.first_charge_amount_minor)}</span>
               </div>
             )}
-            <p className="mt-2 text-xs text-ink-muted">Shown in full before you authorize anything. The actual first collection date is confirmed by GoCardless once your Direct Debit is set up -- this is not a promise of same-day collection.</p>
+            <p className="mt-2 text-xs text-ink-muted">Shown in full before you authorise anything. The actual first collection date is confirmed by GoCardless once your Direct Debit is set up -- this is not a promise of same-day collection.</p>
           </div>
         )}
       </div>

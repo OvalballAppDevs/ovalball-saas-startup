@@ -56,7 +56,7 @@ export async function sendFixtureCommunication(
     if (message.startsWith("Write a message") || message.startsWith("That message is too long")) {
       return { ok: false, outcome: "ERROR", error: message }
     }
-    if (message.startsWith("You are not authorized") || message.startsWith("This fixture is not available")) {
+    if (message.startsWith("You are not authorised") || message.startsWith("This fixture is not available")) {
       return { ok: false, outcome: "ERROR", error: "You don't have permission to send this." }
     }
     console.error("send_fixture_communication failed:", message)

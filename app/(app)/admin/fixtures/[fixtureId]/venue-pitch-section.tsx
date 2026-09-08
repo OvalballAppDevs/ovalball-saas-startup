@@ -125,7 +125,7 @@ export function VenuePitchSection({
         />
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change venue / pitch</DialogTitle>
+            <DialogTitle>Change Venue / Pitch</DialogTitle>
             <DialogDescription>Only this club&apos;s own active venues and pitches are offered.</DialogDescription>
           </DialogHeader>
 

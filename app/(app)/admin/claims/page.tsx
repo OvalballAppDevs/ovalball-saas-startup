@@ -53,7 +53,7 @@ export default async function SiteAdminClaimsPage() {
         <ShieldCheck className="size-5 text-forest-800" />
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
-      <h1 className="mt-2 font-display text-display-l text-ink">Club claims</h1>
+      <h1 className="mt-2 font-display text-display-l text-ink">Club Claims</h1>
       <p className="mt-2 max-w-md text-sm text-ink-muted">
         Review who&apos;s asking to represent a club on Ovalball before they get administrative access.
       </p>

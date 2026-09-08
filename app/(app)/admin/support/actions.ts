@@ -78,9 +78,9 @@ export async function exportSupportTicketsCsv(query: AdminSupportQuery): Promise
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not authorized." }
+  if (!user) return { ok: false, error: "Not authorised." }
   const ctx = await getSessionContext(supabase, user)
-  if (supportAccessLevel(ctx) === "none") return { ok: false, error: "Not authorized." }
+  if (supportAccessLevel(ctx) === "none") return { ok: false, error: "Not authorised." }
 
   let q = supabase
     .from("support_tickets")

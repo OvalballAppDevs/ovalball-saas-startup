@@ -234,7 +234,7 @@ export async function messageSafeguardingOfficer(officerId: string, body: string
   // refusal, and the fallback destination is the assignment's own recorded
   // contact, resolved server-side.
   if (error && error.code !== "22023") {
-    return { ok: false, error: "You are not authorized to message this club's Safeguarding Officer." }
+    return { ok: false, error: "You are not authorised to message this club's Safeguarding Officer." }
   }
 
   // Every distinct message is its own occurrence. The key is the officer

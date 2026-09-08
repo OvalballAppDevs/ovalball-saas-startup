@@ -44,7 +44,7 @@ export default async function AdminPermissionsPage() {
       </div>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-display-l text-ink">Permission management</h1>
+          <h1 className="font-display text-display-l text-ink">Permission Management</h1>
           <p className="mt-2 max-w-xl text-sm text-ink-muted">
             Named, documented bundles of what a person can do. Each group still resolves to one of the product&apos;s
             real, already-implemented access levels &mdash; combining existing capabilities into a new group never

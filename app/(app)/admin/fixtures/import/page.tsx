@@ -35,7 +35,7 @@ export default async function ImportFixturesPage() {
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       </div>
 
-      <h1 className="mt-3 font-display text-display-l text-ink">Import fixtures</h1>
+      <h1 className="mt-3 font-display text-display-l text-ink">Import Fixtures</h1>
       <p className="mt-2 text-sm text-ink-muted">
         Nothing is published to live fixtures until you review and approve it. Every row is validated and matched
         against canonical club/team records first.

@@ -16,7 +16,7 @@ async function requireFinanceCapability(clubId: string, capability: string) {
   } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: "You must be signed in." }
   const authorized = await hasCapability(supabase, capability, "club", { clubId })
-  if (!authorized) return { ok: false as const, error: "You are not authorized to do this for this club." }
+  if (!authorized) return { ok: false as const, error: "You are not authorised to do this for this club." }
   return { ok: true as const, supabase, userId: user.id }
 }
 
@@ -116,7 +116,7 @@ export async function cancelMembershipAction(payerSubscriptionId: string, reason
   if (!programmeRow) return { ok: false, error: "Programme not found." }
 
   const authorized = await hasCapability(supabase, "club.subscription.manage_payment_actions", "club", { clubId: programmeRow.club_id })
-  if (!authorized) return { ok: false, error: "You are not authorized to cancel memberships for this club." }
+  if (!authorized) return { ok: false, error: "You are not authorised to cancel memberships for this club." }
 
   if (payerRow.status !== "active") {
     // Idempotent -- a repeated request (double-click, retry) for an

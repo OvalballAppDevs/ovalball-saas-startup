@@ -43,7 +43,7 @@ const EVENT_WORDS: Record<string, string> = {
   HANDOVER_TEAM_PROGRESSED: "Team progressed",
   HANDOVER_TEAM_CREATED: "Team created",
   HANDOVER_TEAM_REACTIVATED: "Team reactivated",
-  SEASON_HANDOVER_APPLIED: "Season handover applied",
+  SEASON_HANDOVER_APPLIED: "Season Handover applied",
   // Recorded by the pre-staged model, which created the team during review.
   SUCCESSOR_TEAM_CREATED_AT_HANDOVER: "Team created (before the staged model)",
   U6_INTAKE_TEAM_CREATED: "U6 intake team created",

@@ -21,13 +21,13 @@ const LABELS: Record<HandoverSection, string> = {
   overview: "Overview",
   teams: "Teams",
   players: "Players",
-  attention: "Needs attention",
-  apply: "Apply & audit",
+  attention: "Needs Attention",
+  apply: "Apply & Audit",
 }
 
 export function HandoverNav({ active, attentionCount }: { active: HandoverSection; attentionCount: number }) {
   return (
-    <nav aria-label="Season handover sections" className="mt-6 flex flex-wrap gap-1 border-b border-ink/10">
+    <nav aria-label="Season Handover sections" className="mt-6 flex flex-wrap gap-1 border-b border-ink/10">
       {HANDOVER_SECTIONS.map((section) => {
         const isActive = section === active
         return (

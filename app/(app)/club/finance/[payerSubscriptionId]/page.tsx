@@ -182,7 +182,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
       )}
 
       <div className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Payment history</h2>
+        <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Payment History</h2>
         <div className="mt-3 overflow-x-auto rounded-lg border border-ink/10 bg-white">
           <table className="w-full text-sm">
             <thead>

@@ -117,7 +117,7 @@ export function ClubProfileForm({
                 {logoUploading ? "Working…" : logoUrl ? "Replace crest" : inherited ? "Upload your own" : "Upload crest"}
               </Button>
               {inherited && (
-                <span className="text-xs text-ink-muted">From the Ovalball club directory</span>
+                <span className="text-xs text-ink-muted">From the Ovalball Club Directory</span>
               )}
               {logoUrl && (
                 <Button type="button" variant="ghost" className="h-9" disabled={logoUploading} onClick={handleRemoveLogo}>

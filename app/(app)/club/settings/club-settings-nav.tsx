@@ -7,7 +7,7 @@ const TABS: { key: ClubSettingsSection; href: string; label: string; requires: "
   { key: "profile", href: "/club", label: "Club Profile", requires: "profile" },
   { key: "teams", href: "/teams", label: "Teams", requires: "teams" },
   { key: "venues", href: "/club/venues", label: "Lookup Administration", requires: "venues" },
-  { key: "rollover", href: "/club/rollover", label: "Season Rollover", requires: "rollover" },
+  { key: "rollover", href: "/club/rollover", label: "Season Handover", requires: "rollover" },
   { key: "pitchAllocation", href: "/club/settings/pitch-allocation", label: "Pitch Allocation", requires: "pitchAllocation" },
   { key: "playerMoves", href: "/club/player-moves", label: "Player Moves", requires: "playerMoves" },
   { key: "guardians", href: "/club/settings/guardians", label: "Guardians & Players", requires: "guardians" },

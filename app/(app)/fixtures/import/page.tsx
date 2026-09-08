@@ -23,7 +23,7 @@ export default async function ClubImportFixturesPage() {
         Fixtures
       </Link>
 
-      <h1 className="mt-4 font-display text-display-l text-ink">Import fixtures</h1>
+      <h1 className="mt-4 font-display text-display-l text-ink">Import Fixtures</h1>
       <p className="mt-2 text-sm text-ink-muted">
         Nothing is published to your club&apos;s calendar until you review and approve it. Every row is validated and
         matched against canonical club/team records first.

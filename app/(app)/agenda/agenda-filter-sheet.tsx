@@ -77,7 +77,7 @@ export function AgendaFilterSheet({
       </Button>
       <SheetContent side="right">
         <SheetHeader>
-          <SheetTitle>Filter fixtures</SheetTitle>
+          <SheetTitle>Filter Fixtures</SheetTitle>
         </SheetHeader>
         <form method="get" action="/agenda" className="flex max-h-[calc(100vh-8rem)] flex-col gap-5 overflow-y-auto px-4 pb-4">
           {/* Child only appears in All Children mode -- with one child

@@ -68,7 +68,7 @@ export function TeamFilterBar<T extends FilterableLane>({
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Filter by team</SheetTitle>
+            <SheetTitle>Filter by Team</SheetTitle>
           </SheetHeader>
           <div className="flex flex-col gap-5 px-4 pb-6">
             <Link
