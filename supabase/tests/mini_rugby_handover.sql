@@ -1,10 +1,12 @@
--- Mini-rugby through the season handover.
+-- Mini-rugby through the season handover, under the U6 product rule.
 --
--- The handover used to exclude U6 outright, which silently chose "the cohort
--- stays U6" for every club -- including the ones that progress it. The
--- canonical graph disagreed: next_age_grade_for('U6','mixed','union') is U7,
--- and U7 and U8 rolled automatically. U6 was the only age grade where the
--- handover and the canonical graph said different things.
+-- PRODUCT RULE: the existing U6 cohort progresses to U7 AND a new U6
+-- operational team is created for the incoming intake. Deterministic -- not a
+-- decision put to the club, and not a cohort left sitting at U6.
+--
+-- Two earlier behaviours were wrong: excluding U6 (silently "it stays U6"),
+-- and offering U6 as a manual choice (shipping an undecided product question
+-- as if it were a feature). Both are asserted against below.
 --
 -- Wrapped in begin/rollback: leaves the database exactly as it found it.
 
@@ -15,8 +17,9 @@ declare
   v_admin uuid := gen_random_uuid();
   v_dir uuid; v_club uuid; v_to uuid;
   v_u6 uuid; v_u7 uuid; v_u8 uuid;
-  v_p6 uuid; v_p7 uuid;
-  v_manual boolean; v_proposed text; v_txt text;
+  v_p6 uuid; v_p7 uuid; v_p8 uuid;
+  v_intake uuid; v_intake2 uuid;
+  v_manual boolean; v_proposed text; v_txt text; v_n int; v_err text; v_ok boolean;
 begin
 
 insert into auth.users (id, email, instance_id, aud, role)
@@ -40,70 +43,183 @@ values (v_club,'union','youth','U8','mixed','x','m8') returning id into v_u8;
 
 perform public.generate_rollover_proposal(v_club,'union',v_to);
 
--- ============ 1. U6 is no longer invisible ============
+-- ============ 1. U6 is ordinary automatic progression ============
 
-select id, requires_manual_choice, proposed_age_group
-into v_p6, v_manual, v_proposed
+select id, requires_manual_choice, proposed_age_group into v_p6, v_manual, v_proposed
 from public.age_grade_rollover_team_proposals where team_id = v_u6;
 
-if v_p6 is not null then
-  raise notice 'PASS 1: the U6 cohort now appears in the handover instead of being skipped in silence';
+if v_p6 is not null and v_proposed = 'U7' then
+  raise notice 'PASS 1: the U6 cohort is proposed for U7, matching the canonical progression graph';
 else
-  raise notice 'FAIL 1: the U6 cohort still gets no proposal';
+  raise notice 'FAIL 1: U6 was offered [%]', coalesce(v_proposed,'(nothing)');
 end if;
 
-if v_proposed = 'U7' then
-  raise notice 'PASS 2: the handover suggests U7, matching the canonical progression graph';
+if not v_manual then
+  raise notice 'PASS 2: U6 -> U7 is AUTOMATIC -- the product rule is not put to the club as a decision';
 else
-  raise notice 'FAIL 2: U6 was offered [%]', coalesce(v_proposed,'(nothing)');
+  raise notice 'FAIL 2: U6 still requires a manual choice';
 end if;
 
-if v_manual then
-  raise notice 'PASS 3: it is offered as a decision, never applied automatically -- a standing U6 intake group is legitimate';
-else
-  raise notice 'FAIL 3: U6 would progress automatically, deciding for the club';
-end if;
+-- ============ 2. Apply: cohort moves up, intake team appears ============
 
--- ============ 2. Deferring keeps a standing intake group exactly as it was ==
-
-perform public.confirm_rollover_team_proposal(v_p6,'defer',null,null,null,null);
-if (select age_group from public.teams where id=v_u6) = 'U6'
-   and (select decision from public.age_grade_rollover_team_proposals where id=v_p6) = 'deferred' then
-  raise notice 'PASS 4: Defer leaves the cohort at U6 -- a club running a permanent intake group ends up where it does today';
-else
-  raise notice 'FAIL 4: Defer changed the U6 team';
-end if;
-
--- ============ 3. Confirming progresses it like any other age grade ============
-
-delete from public.age_grade_rollover_team_proposals where id = v_p6;
-insert into public.age_grade_rollover_team_proposals
-  (rollover_id, team_id, current_age_group, proposed_age_group, requires_manual_choice)
-select rollover_id, v_u6, 'U6', 'U7', true
-from public.age_grade_rollover_team_proposals where team_id = v_u7
-returning id into v_p6;
-
--- U7 has to move out of the way first, exactly as any other club would do it.
-select id into v_p7 from public.age_grade_rollover_team_proposals where team_id = v_u8;
-perform public.confirm_rollover_team_proposal(v_p7,'confirm',null,null,null,null);
+select id into v_p8 from public.age_grade_rollover_team_proposals where team_id = v_u8;
 select id into v_p7 from public.age_grade_rollover_team_proposals where team_id = v_u7;
+perform public.confirm_rollover_team_proposal(v_p8,'confirm',null,null,null,null);
 perform public.confirm_rollover_team_proposal(v_p7,'confirm',null,null,null,null);
 perform public.confirm_rollover_team_proposal(v_p6,'confirm',null,null,null,null);
 
-select string_agg(age_group, ', ' order by age_group) into v_txt
-from public.teams where club_id = v_club and active;
-if v_txt = 'U7, U8, U9' then
-  raise notice 'PASS 5: the whole mini-rugby band moved up together -- %', v_txt;
+if (select age_group from public.teams where id = v_u6) = 'U7' then
+  raise notice 'PASS 3: the existing U6 cohort progressed to U7 and was NOT mutated back to U6';
 else
-  raise notice 'FAIL 5: mini band is now [%]', v_txt;
+  raise notice 'FAIL 3: the U6 cohort is now %', (select age_group from public.teams where id=v_u6);
 end if;
 
--- ============ 4. Mini-rugby stays mixed, and stays in band ============
-
-if (select count(*) from public.teams where club_id=v_club and active and gender='mixed') = 3 then
-  raise notice 'PASS 6: all three cohorts are still Mixed -- the U6-U11 band does not split by gender';
+select intake_team_id into v_intake from public.age_grade_rollover_team_proposals where id = v_p6;
+if v_intake is not null and v_intake <> v_u6 then
+  raise notice 'PASS 4: a NEW stable team id was created for the incoming U6 intake';
 else
-  raise notice 'FAIL 6: a mini-rugby cohort lost its Mixed identity';
+  raise notice 'FAIL 4: no separate intake team was created';
+end if;
+
+if (select age_group from public.teams where id = v_intake) = 'U6'
+   and (select active from public.teams where id = v_intake) then
+  raise notice 'PASS 5: the intake team is an active U6';
+else
+  raise notice 'FAIL 5: the intake team is not an active U6';
+end if;
+
+if (select gender from public.teams where id = v_intake) = 'mixed' then
+  raise notice 'PASS 6: the intake team is Mixed, as mini-rugby requires';
+else
+  raise notice 'FAIL 6: the intake team gender is %', (select gender from public.teams where id=v_intake);
+end if;
+
+select string_agg(age_group, ', ' order by age_group) into v_txt
+from public.teams where club_id = v_club and active;
+if v_txt = 'U6, U7, U8, U9' then
+  raise notice 'PASS 7: the club now runs % -- the band moved up and the intake slot was refilled', v_txt;
+else
+  raise notice 'FAIL 7: the club now runs [%]', v_txt;
+end if;
+
+-- ============ 3. Idempotence ============
+
+v_ok := false;
+begin
+  perform public.confirm_rollover_team_proposal(v_p6,'confirm',null,null,null,null);
+exception when others then v_ok := true; v_err := sqlerrm;
+end;
+if v_ok then
+  raise notice 'PASS 8: applying the U6 proposal again is rejected as already decided';
+else
+  raise notice 'FAIL 8: the U6 proposal applied twice';
+end if;
+
+select count(*) into v_n from public.teams
+where club_id = v_club and active and age_group = 'U6' and squad_designation is null;
+if v_n = 1 then
+  raise notice 'PASS 9: exactly ONE active primary U6 exists -- no indistinguishable duplicate';
+else
+  raise notice 'FAIL 9: % active primary U6 teams exist', v_n;
+end if;
+
+-- Re-preparing must not produce a second intake either.
+perform public.generate_rollover_proposal(v_club,'union',v_to);
+select count(*) into v_n from public.teams
+where club_id = v_club and active and age_group = 'U6' and squad_designation is null;
+if v_n = 1 then
+  raise notice 'PASS 10: re-preparing the handover created no second U6';
+else
+  raise notice 'FAIL 10: re-preparing produced % U6 teams', v_n;
+end if;
+
+-- The database refuses a duplicate regardless of code path.
+v_ok := false;
+begin
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
+  values (v_club,'union','youth','U6','mixed','x','m6dup');
+exception when unique_violation then v_ok := true;
+end;
+if v_ok then
+  raise notice 'PASS 11: the database itself refuses a second active primary U6';
+else
+  raise notice 'FAIL 11: a duplicate U6 was inserted directly';
+end if;
+
+-- ============ 4. The ordering dependency is explained ============
+--
+-- The U6 intake rule makes a collision unavoidable every season: the U6 cohort
+-- cannot become U7 until last season's U6 (now the U7s) has moved to U8. The
+-- old message told the club to put its U6 cohort into a "U7 B squad", which is
+-- wrong advice -- the U7s are about to vacate that place.
+--
+-- Note also that teams_club_id_identity_key_key is NOT partial on active, so a
+-- club can never hold a folded U6 alongside an active one. The reactivation
+-- branch in provision_intake_team is reachable only for a club whose U6 was
+-- folded in an earlier season, which is why it is not exercised here.
+
+declare
+  v_dir2 uuid; v_club2 uuid; v_a6 uuid; v_a7 uuid; v_pa6 uuid;
+begin
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('Mini2 RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','mini2-'||substr(gen_random_uuid()::text,1,8)) returning id into v_dir2;
+  insert into public.clubs (directory_id, slug, status) values (v_dir2,'mini2-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club2;
+
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
+  values (v_club2,'union','youth','U6','mixed','x','m2a') returning id into v_a6;
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
+  values (v_club2,'union','youth','U7','mixed','x','m2b') returning id into v_a7;
+
+  perform public.generate_rollover_proposal(v_club2,'union',v_to);
+  select id into v_pa6 from public.age_grade_rollover_team_proposals where team_id = v_a6;
+
+  v_ok := false;
+  begin
+    perform public.confirm_rollover_team_proposal(v_pa6,'confirm',null,null,null,null);
+  exception when others then v_ok := true; v_err := sqlerrm;
+  end;
+
+  if v_ok and v_err like '%still holds the U7 place%' then
+    raise notice 'PASS 12: confirming U6 before U7 explains that the U7s have not moved yet, and names them';
+  elsif v_ok and v_err like '%B%squad%' then
+    raise notice 'FAIL 12: still advising a B squad for a place that is about to be vacated';
+  else
+    raise notice 'FAIL 12: unexpected outcome (%)', coalesce(v_err,'accepted');
+  end if;
+
+  if (select age_group from public.teams where id = v_a6) = 'U6'
+     and (select decision from public.age_grade_rollover_team_proposals where id = v_pa6) = 'pending' then
+    raise notice 'PASS 13: the refused confirm left the cohort and its proposal untouched';
+  else
+    raise notice 'FAIL 13: the refused confirm left partial state';
+  end if;
+end;
+
+-- ============ 5. No squads are invented for the intake ============
+
+if not exists (
+  select 1 from public.teams
+  where club_id = v_club and age_group = 'U6' and squad_designation is not null
+) then
+  raise notice 'PASS 14: no B or C squad was created for the intake team';
+else
+  raise notice 'FAIL 14: a squad was invented for the new U6';
+end if;
+
+-- ============ 6. The two U6 cohorts are different stable teams ============
+
+if v_intake <> v_u6 and (select age_group from public.teams where id = v_u6) = 'U7' then
+  raise notice 'PASS 15: last season''s U6 and this season''s U6 are DIFFERENT stable team ids -- history must follow the id, not the label';
+else
+  raise notice 'FAIL 15: the intake team and the progressed cohort are not properly distinct';
+end if;
+
+-- ============ 7. Mini band stays mixed and in band ============
+
+if (select count(*) from public.teams where club_id=v_club and active and gender='mixed') = 4 then
+  raise notice 'PASS 16: every mini cohort is still Mixed -- the U6-U11 band does not split by gender';
+else
+  raise notice 'FAIL 16: a mini-rugby cohort lost its Mixed identity';
 end if;
 
 if not exists (
@@ -111,32 +227,10 @@ if not exists (
   join public.teams t on t.id = p.team_id
   where t.club_id = v_club and p.is_mixed_boundary
 ) then
-  raise notice 'PASS 7: no mini-rugby cohort was treated as the Mixed U11 -> U12 structural split';
+  raise notice 'PASS 17: no mini-rugby cohort was treated as the Mixed U11 -> U12 structural split';
 else
-  raise notice 'FAIL 7: a mini-rugby cohort was flagged as the U11 -> U12 boundary';
+  raise notice 'FAIL 17: a mini-rugby cohort was flagged as the U11 -> U12 boundary';
 end if;
-
--- ============ 5. A group leaving the mini band is still flagged ============
-
-declare
-  v_u11 uuid; v_grp uuid; v_r uuid;
-begin
-  insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
-  values (v_club,'union','youth','U11','mixed','x','m11') returning id into v_u11;
-  insert into public.scheduling_groups (club_id, season_id, display_tag, active)
-  values (v_club, v_to, 'Minis', true) returning id into v_grp;
-  insert into public.scheduling_group_members (group_id, team_id) values (v_grp, v_u11);
-
-  select rollover_id into v_r from public.age_grade_rollover_team_proposals where team_id = v_u7;
-  delete from public.age_grade_rollover_group_flags where rollover_id = v_r;
-  perform public.generate_rollover_proposal(v_club,'union',v_to);
-
-  if exists (select 1 from public.age_grade_rollover_group_flags where rollover_id = v_r) then
-    raise notice 'PASS 8: a scheduling group that would leave the U6-U8 band is still flagged for the club to resolve';
-  else
-    raise notice 'FAIL 8: a group leaving the mini-rugby band was not flagged';
-  end if;
-end;
 
 end $$;
 

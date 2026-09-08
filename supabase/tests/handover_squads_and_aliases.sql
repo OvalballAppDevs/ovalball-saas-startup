@@ -149,10 +149,13 @@ begin
 exception when others then v_ok := true; v_err := sqlerrm;
 end;
 
-if v_ok and v_err like '%already has a team at U15%' then
-  raise notice 'PASS 11: rolling into an identity the club already holds is refused, and the message says which one';
+-- The occupant is itself waiting its turn in this handover, so the useful
+-- advice is to confirm it first -- not to invent a B squad for a place that
+-- is about to be vacated.
+if v_ok and v_err like '%Confirm U15 first%' then
+  raise notice 'PASS 11: a collision with a team still waiting its turn names that team, rather than advising a squad letter';
 elsif v_ok then
-  raise notice 'FAIL 11: refused with an unclear message: %', v_err;
+  raise notice 'FAIL 11: refused with unhelpful advice: %', v_err;
 else
   raise notice 'FAIL 11: two teams were allowed to occupy one identity';
 end if;
@@ -165,9 +168,32 @@ else
 end if;
 
 -- The documented escape hatch actually works: move it into a free squad slot.
+-- Now settle the occupant so it is no longer pending. It is staying at U15,
+-- so the other branch applies: the place is genuinely taken and a different
+-- squad letter IS the right advice.
+declare v_sitter uuid;
+begin
+  select p.id into v_sitter
+  from public.age_grade_rollover_team_proposals p
+  join public.teams t on t.id = p.team_id
+  where t.club_id = v_club and t.age_group = 'U15' and t.squad_designation is null and p.decision = 'pending';
+  perform public.confirm_rollover_team_proposal(v_sitter,'defer',null,null,null,null);
+end;
+
+v_ok := false;
+begin
+  perform public.confirm_rollover_team_proposal(v_pa,'confirm',null,null,null,null);
+exception when others then v_ok := true; v_err := sqlerrm;
+end;
+if v_ok and v_err like '%already has a team at U15%' then
+  raise notice 'PASS 12b: when the occupant is staying put, the message says the place is taken and suggests a squad letter';
+else
+  raise notice 'FAIL 12b: wrong branch for a settled occupant: %', coalesce(v_err,'accepted');
+end if;
+
 perform public.confirm_rollover_team_proposal(v_pa,'adjust','U15','B',null,null);
 if (select display_name from public.teams where id=v_clash) = 'U15 B' then
-  raise notice 'PASS 13: the remedy the error suggests works -- the team rolled into the free B slot';
+  raise notice 'PASS 13: the remedy that message suggests works -- the team rolled into the free B slot';
 else
   raise notice 'FAIL 13: the suggested remedy did not work, team is %', (select display_name from public.teams where id=v_clash);
 end if;
