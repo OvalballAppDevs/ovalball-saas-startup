@@ -15694,6 +15694,10 @@ export type Database = {
         Args: { p_fixture_id: string; p_reason: string }
         Returns: undefined
       }
+      archive_player_team_membership: {
+        Args: { p_membership_id: string }
+        Returns: undefined
+      }
       archive_season: {
         Args: { p_active: boolean; p_season_id: string }
         Returns: undefined
@@ -17799,6 +17803,10 @@ export type Database = {
         Returns: undefined
       }
       restore_fixture: { Args: { p_fixture_id: string }; Returns: undefined }
+      restore_player_team_membership: {
+        Args: { p_membership_id: string }
+        Returns: undefined
+      }
       resume_club_trial: { Args: { p_club_id: string }; Returns: boolean }
       revoke_capability_override: {
         Args: { p_override_id: string }
@@ -18263,6 +18271,18 @@ export type Database = {
       swap_fixture_home_away: {
         Args: { p_fixture_id: string }
         Returns: undefined
+      }
+      team_people: {
+        Args: { p_team_id: string }
+        Returns: {
+          detail: string
+          kind: string
+          name: string
+          person_id: string
+          requested_at: string
+          row_id: string
+          status: string
+        }[]
       }
       touch_last_active: { Args: never; Returns: undefined }
       undo_rollover_team_decision: {

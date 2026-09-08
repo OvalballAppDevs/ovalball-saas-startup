@@ -127,3 +127,59 @@ export async function removeTeamMember(teamId: string, teamPermissionId: string)
   revalidatePath("/people")
   return { ok: true }
 }
+
+/**
+ * TEAM ROSTER
+ *
+ * A player who has stopped playing is archived, never removed: fixtures,
+ * attendance and selection history all reference the membership row, and a
+ * player who stopped in March still played in February.
+ * archive_player_team_membership/restore_player_team_membership check
+ * team.manage on THIS team (or club.teams.manage on its club), so a coach
+ * assigned to the team can keep their own roster straight without holding a
+ * club-wide role.
+ */
+export async function archivePlayerMembership(teamId: string, membershipId: string): Promise<TeamActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("archive_player_team_membership", { p_membership_id: membershipId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/teams/${teamId}`)
+  revalidatePath("/people")
+  return { ok: true }
+}
+
+export async function restorePlayerMembership(teamId: string, membershipId: string): Promise<TeamActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("restore_player_team_membership", { p_membership_id: membershipId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/teams/${teamId}`)
+  revalidatePath("/people")
+  return { ok: true }
+}
+
+/**
+ * Requests to join this team. approve_pending_team_membership and
+ * reject_pending_team_membership already existed as the real decision
+ * boundary -- they simply had no team-facing entry point, so a coach had
+ * nowhere to see that somebody was waiting.
+ */
+export async function approveTeamJoinRequest(teamId: string, membershipId: string): Promise<TeamActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("approve_pending_team_membership", { p_membership_id: membershipId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/teams/${teamId}`)
+  revalidatePath("/people")
+  return { ok: true }
+}
+
+export async function declineTeamJoinRequest(teamId: string, membershipId: string): Promise<TeamActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("reject_pending_team_membership", {
+    p_membership_id: membershipId,
+    p_reason: "Declined from Team People.",
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/teams/${teamId}`)
+  revalidatePath("/people")
+  return { ok: true }
+}

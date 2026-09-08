@@ -79,6 +79,7 @@ SUITES=(
   person_name_normalisation
   canonical_team_directory_propagation
   rugby_code_isolation
+  team_people_roster
   handover_prepare_idempotency
   handover_squads_and_aliases
   graduation_placement_safety

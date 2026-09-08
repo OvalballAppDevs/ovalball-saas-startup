@@ -4,14 +4,15 @@ import { cookies } from "next/headers"
 import { ChevronLeft } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { canManageClubFixturesAnywhere, getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
+import { getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
+import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 import { compactTeamLabel, fullTeamLabel } from "@/lib/teams/compact-label"
 import { formatGenderLabel } from "@/lib/teams/labels"
 
 import { TeamIdentitySection } from "./team-identity-section"
 import { TeamLifecycleSection, type RestorableFixtureRow } from "./team-lifecycle-section"
-import { TeamPeople, type ClubMemberOption, type TeamMemberRow } from "./team-people"
+import { TeamPeople, type ClubMemberOption, type TeamPersonRow } from "./team-people"
 
 export default async function TeamDetailPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params
@@ -22,7 +23,6 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  if (!ctx.isSiteAdmin && !canManageClubFixturesAnywhere(ctx)) redirect("/dashboard")
 
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
@@ -46,12 +46,35 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   // somewhere. See app/(app)/people/page.tsx for the identical leak class
   // found and fixed earlier in this pass.
   const activeClub = activeClubId(ctx, activeContext)
-  if (!ctx.isSiteAdmin && activeClub !== team.club_id) redirect("/teams")
+
+  // Entry is now a capability on THIS team, not a club-wide role held
+  // somewhere. A coach assigned to this side sees its people; that is the
+  // whole point of the roster. The active-context check stays, so a
+  // multi-role account switched into an unrelated club still cannot browse
+  // this team -- see app/(app)/people/page.tsx for that leak class.
+  const canView =
+    ctx.isSiteAdmin ||
+    (activeClub === team.club_id &&
+      (await hasCapability(supabase, "team.view", "team", { clubId: team.club_id, teamId: team.id })))
+  if (!canView) redirect("/teams")
 
   const canManage = ctx.isSiteAdmin || activeManageableClubId(ctx, activeContext) === team.club_id
 
-  const [{ data: teamPerms }, { data: memberships }] = await Promise.all([
-    supabase.from("team_permissions").select("id, membership_id, permission").eq("team_id", teamId),
+  // Deliberately NOT the same flag as canManage. Team settings and folding are
+  // club-wide decisions; keeping a team's own roster straight is the team's,
+  // and this asks the exact question internal.team_people_authority asks, so
+  // the buttons on screen and the writes behind them can never disagree.
+  const canManagePeople =
+    ctx.isSiteAdmin ||
+    (await hasCapability(supabase, "team.manage", "team", { clubId: team.club_id, teamId: team.id })) ||
+    (await hasCapability(supabase, "club.teams.manage", "club", { clubId: team.club_id }))
+
+  // The roster comes from public.team_people, which resolves coaches,
+  // parents/guardians and players in one place with one definition of what
+  // "active" means for each. Assembling it here would make this page a second
+  // answer to a question a coach's own view has to answer identically.
+  const [{ data: peopleRows }, { data: memberships }] = await Promise.all([
+    supabase.rpc("team_people", { p_team_id: teamId }),
     supabase.from("club_memberships").select("id, user_id").eq("club_id", team.club_id).eq("status", "active"),
   ])
 
@@ -63,12 +86,18 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       return [m.id, [p?.first_name, p?.surname].filter(Boolean).join(" ") || "Unknown"]
     })
   )
+  const membershipIdByUserId = new Map((memberships ?? []).map((m) => [m.user_id, m.id]))
 
-  const members: TeamMemberRow[] = (teamPerms ?? []).map((tp) => ({
-    teamPermissionId: tp.id,
-    membershipId: tp.membership_id,
-    name: nameByMembershipId.get(tp.membership_id) ?? "Unknown",
-    permission: tp.permission as TeamMemberRow["permission"],
+  const people: TeamPersonRow[] = (peopleRows ?? []).map((r) => ({
+    kind: r.kind as TeamPersonRow["kind"],
+    rowId: r.row_id!,
+    // A coach row is addressed by their club membership when assigning, which
+    // is what the picker below deals in.
+    personId: r.kind === "coach" ? (membershipIdByUserId.get(r.person_id!) ?? null) : r.person_id,
+    name: r.name ?? "Unknown",
+    detail: r.detail,
+    status: r.status as TeamPersonRow["status"],
+    requestedAt: r.requested_at,
   }))
 
   const clubMembers: ClubMemberOption[] = (memberships ?? [])
@@ -130,7 +159,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         )}
       </div>
 
-      <TeamPeople teamId={team.id} members={members} clubMembers={clubMembers} canManage={canManage} />
+      <TeamPeople teamId={team.id} people={people} clubMembers={clubMembers} canManage={canManagePeople} />
 
       {canManage && (
         <TeamLifecycleSection

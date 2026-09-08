@@ -1,33 +1,49 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { TEAM_PERMISSION_OPTIONS } from "@/lib/permissions/role-labels"
 
-import { assignTeamMember, removeTeamMember } from "./actions"
+import {
+  approveTeamJoinRequest,
+  archivePlayerMembership,
+  assignTeamMember,
+  declineTeamJoinRequest,
+  removeTeamMember,
+  restorePlayerMembership,
+} from "./actions"
 
 /**
- * Deliberately PLURAL, for this file's own group-header display only
- * (e.g. "Coaches" as a section title reads better than "Coach") -- values
- * stay in the same order as the canonical TEAM_PERMISSION_OPTIONS, used
- * directly (singular) for the per-person role-assignment select below,
- * which was previously and incorrectly showing these same plural labels
- * for a single person's role ("Coaches" as the option when assigning ONE
- * person to be a coach).
+ * TEAM PEOPLE
+ *
+ * Who is in this team. Three groups a club actually thinks in -- Coaches,
+ * Parents/Guardians, Players -- plus the people waiting to be let in, which
+ * used to have no team-facing home at all.
+ *
+ * The same component serves a Club Admin and a coach. A coach assigned to this
+ * team sees exactly this roster; what changes is whether the actions are there,
+ * not whether the people are. The old version showed a coach an empty box above
+ * an "Assign an existing club member" dropdown, which is an administrator's
+ * tool answering a question a coach was not asking.
+ *
+ * STATUS IS NEVER COLOUR ALONE. The dot is the quick read; the word next to it
+ * is the actual answer, because a green circle and a red circle are the same
+ * circle to a colourblind reader and to a screen reader they are nothing.
  */
-const PERMISSION_GROUPS = [
-  { value: "team_admin", label: "Team Admin" },
-  { value: "coach", label: "Coaches" },
-  { value: "manager", label: "Managers" },
-  { value: "view_only", label: "Parents / Players" },
-] as const
 
-export interface TeamMemberRow {
-  teamPermissionId: string
-  membershipId: string
+export type TeamPersonKind = "coach" | "guardian" | "player"
+export type TeamPersonStatus = "active" | "archived" | "requested"
+
+export interface TeamPersonRow {
+  kind: TeamPersonKind
+  /** The row an action addresses: a team_permissions id, a guardians id, or a player_team_memberships id. */
+  rowId: string
+  personId: string | null
   name: string
-  permission: (typeof PERMISSION_GROUPS)[number]["value"]
+  /** A coach's role, or the player a guardian is here for. */
+  detail: string | null
+  status: TeamPersonStatus
+  requestedAt: string | null
 }
 
 export interface ClubMemberOption {
@@ -35,26 +51,72 @@ export interface ClubMemberOption {
   name: string
 }
 
+/** Kept for the assignment control, which still speaks in single permissions. */
+const PERMISSION_OPTIONS = [
+  { value: "team_admin", label: "Team Admin" },
+  { value: "coach", label: "Coach" },
+  { value: "manager", label: "Manager" },
+  { value: "view_only", label: "Parent or player access" },
+] as const
+
+type TabKey = "coach" | "guardian" | "player" | "requests"
+
+const TABS: { key: TabKey; label: string; empty: string }[] = [
+  { key: "coach", label: "Coaches", empty: "No coaches or managers assigned to this team yet." },
+  { key: "guardian", label: "Parents & Guardians", empty: "No parents or guardians are linked to this team's players yet." },
+  { key: "player", label: "Players", empty: "No players in this team yet." },
+  { key: "requests", label: "Requests", empty: "Nothing waiting. Requests to join this team appear here." },
+]
+
+function StatusDot({ status }: { status: TeamPersonStatus }) {
+  const tone =
+    status === "active" ? "bg-pitch-600" : status === "requested" ? "bg-amber-500" : "bg-destructive-text"
+  const word = status === "active" ? "Active" : status === "requested" ? "Awaiting review" : "Archived"
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      <span aria-hidden="true" className={`size-2.5 rounded-full ${tone}`} />
+      <span className="text-xs font-medium text-ink-muted">{word}</span>
+    </span>
+  )
+}
+
 export function TeamPeople({
   teamId,
-  members,
+  people,
   clubMembers,
   canManage,
 }: {
   teamId: string
-  members: TeamMemberRow[]
+  people: TeamPersonRow[]
   clubMembers: ClubMemberOption[]
   canManage: boolean
 }) {
-  const [rows, setRows] = useState(members)
+  const [rows, setRows] = useState(people)
+  const [tab, setTab] = useState<TabKey>("coach")
+  const [pendingRowId, setPendingRowId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
   const [assigning, setAssigning] = useState(false)
   const [selectedMembership, setSelectedMembership] = useState("")
-  const [selectedPermission, setSelectedPermission] = useState<TeamMemberRow["permission"]>("coach")
-  const [error, setError] = useState<string | null>(null)
-  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [selectedPermission, setSelectedPermission] = useState<(typeof PERMISSION_OPTIONS)[number]["value"]>("coach")
 
-  const assignedMembershipIds = new Set(rows.map((r) => r.membershipId))
-  const available = clubMembers.filter((m) => !assignedMembershipIds.has(m.membershipId))
+  const requests = useMemo(() => rows.filter((r) => r.status === "requested"), [rows])
+  const byTab = useMemo(() => {
+    if (tab === "requests") return requests
+    return rows.filter((r) => r.kind === tab && r.status !== "requested")
+  }, [rows, tab, requests])
+
+  const assignedPersonIds = new Set(rows.filter((r) => r.kind === "coach").map((r) => r.personId))
+  const available = clubMembers.filter((m) => !assignedPersonIds.has(m.membershipId))
+
+  async function run(rowId: string, fn: () => Promise<{ ok: true } | { ok: false; error: string }>, onOk: () => void) {
+    setPendingRowId(rowId)
+    setError(null)
+    const result = await fn()
+    setPendingRowId(null)
+    if (result.ok) onOk()
+    else setError(result.error)
+  }
 
   async function handleAssign() {
     if (!selectedMembership) return
@@ -62,111 +124,201 @@ export function TeamPeople({
     setError(null)
     const result = await assignTeamMember(teamId, selectedMembership, selectedPermission)
     setAssigning(false)
-    if (result.ok) {
-      const member = clubMembers.find((m) => m.membershipId === selectedMembership)
-      setRows((prev) => [
-        ...prev.filter((r) => r.membershipId !== selectedMembership),
-        { teamPermissionId: result.teamPermissionId, membershipId: selectedMembership, name: member?.name ?? "Member", permission: selectedPermission },
-      ])
-      setSelectedMembership("")
-    } else {
+    if (!result.ok) {
       setError(result.error)
+      return
     }
-  }
-
-  async function handleRemove(row: TeamMemberRow) {
-    setRemovingId(row.teamPermissionId)
-    setError(null)
-    const result = await removeTeamMember(teamId, row.teamPermissionId)
-    setRemovingId(null)
-    if (result.ok) {
-      setRows((prev) => prev.filter((r) => r.teamPermissionId !== row.teamPermissionId))
-    } else {
-      setError(result.error)
-    }
+    const member = clubMembers.find((m) => m.membershipId === selectedMembership)
+    const label = PERMISSION_OPTIONS.find((p) => p.value === selectedPermission)?.label ?? "Coach"
+    setRows((prev) => [
+      ...prev.filter((r) => !(r.kind === "coach" && r.personId === selectedMembership)),
+      {
+        kind: "coach",
+        rowId: result.teamPermissionId,
+        personId: selectedMembership,
+        name: member?.name ?? "Member",
+        detail: label,
+        status: "active",
+        requestedAt: null,
+      },
+    ])
+    setSelectedMembership("")
+    setTab("coach")
   }
 
   return (
     <div className="mt-8">
-      <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Team people</p>
+      <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Team people</p>
 
-      {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-ink-muted">No one assigned to this team yet.</p>
-      ) : (
-        <div className="mt-3 flex flex-col gap-5">
-          {PERMISSION_GROUPS.map((group) => {
-            const groupRows = rows.filter((r) => r.permission === group.value)
-            if (groupRows.length === 0) return null
-            return (
-              <div key={group.value}>
-                <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">{group.label}</p>
-                <ul className="mt-2 flex flex-col gap-1.5">
-                  {groupRows.map((row) => (
-                    <li key={row.teamPermissionId} className="flex items-center justify-between rounded-lg border border-ink/10 bg-white px-3.5 py-2.5">
-                      <span className="text-sm text-ink">{row.name}</span>
-                      {canManage && (
-                        <button
-                          type="button"
-                          disabled={removingId === row.teamPermissionId}
-                          onClick={() => handleRemove(row)}
-                          className="text-xs font-medium text-destructive-text outline-none hover:text-destructive-text focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:opacity-50"
-                        >
-                          {removingId === row.teamPermissionId ? "Removing…" : "Remove"}
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {canManage && (
-        <div className="mt-5 rounded-lg border border-dashed border-ink/15 bg-white/60 p-4">
-          <p className="text-sm font-medium text-ink/70">Assign an existing club member</p>
-          {available.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-muted">
-              Every active club member is already assigned here, or there&apos;s no one to assign yet &mdash; invite
-              someone from People first.
-            </p>
-          ) : (
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <select
-                aria-label="Club member"
-                value={selectedMembership}
-                onChange={(e) => setSelectedMembership(e.target.value)}
-                className="h-10 min-w-40 flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
-              >
-                <option value="">Select a person…</option>
-                {available.map((m) => (
-                  <option key={m.membershipId} value={m.membershipId}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Role on this team"
-                value={selectedPermission}
-                onChange={(e) => setSelectedPermission(e.target.value as TeamMemberRow["permission"])}
-                className="h-10 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
-              >
-                {TEAM_PERMISSION_OPTIONS.map((g) => (
-                  <option key={g.value} value={g.value}>
-                    {g.label}
-                  </option>
-                ))}
-              </select>
-              <Button type="button" size="sm" className="h-10" disabled={!selectedMembership || assigning} onClick={handleAssign}>
-                {assigning ? "Assigning…" : "Assign"}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap gap-1 border-b border-ink/10" role="tablist" aria-label="Team people">
+        {TABS.map((t) => {
+          const count = t.key === "requests" ? requests.length : rows.filter((r) => r.kind === t.key && r.status !== "requested").length
+          const active = tab === t.key
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.key)}
+              className={`min-h-11 border-b-2 px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400 ${
+                active ? "-mb-px border-forest-800 text-forest-950" : "border-transparent text-ink/50 hover:text-ink/80"
+              }`}
+            >
+              {t.label}
+              <span className={`ml-1.5 text-xs ${active ? "text-forest-800" : "text-ink-muted"}`}>{count}</span>
+            </button>
+          )
+        })}
+      </div>
 
       {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
+
+      {byTab.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-6 text-center text-sm text-ink-muted">
+          {TABS.find((t) => t.key === tab)?.empty}
+        </p>
+      ) : (
+        <ul className="mt-4 divide-y divide-ink/8 overflow-hidden rounded-lg border border-ink/10 bg-white">
+          {byTab.map((person) => (
+            <li key={person.rowId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ink">{person.name}</p>
+                {person.detail && <p className="truncate text-xs text-ink-muted">{person.detail}</p>}
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                <StatusDot status={person.status} />
+                {canManage && person.status === "requested" && (
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8"
+                      disabled={pendingRowId === person.rowId}
+                      onClick={() =>
+                        run(person.rowId, () => approveTeamJoinRequest(teamId, person.rowId), () =>
+                          setRows((prev) => prev.map((r) => (r.rowId === person.rowId ? { ...r, status: "active", requestedAt: null } : r)))
+                        )
+                      }
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8"
+                      disabled={pendingRowId === person.rowId}
+                      onClick={() =>
+                        run(person.rowId, () => declineTeamJoinRequest(teamId, person.rowId), () =>
+                          setRows((prev) => prev.filter((r) => r.rowId !== person.rowId))
+                        )
+                      }
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                )}
+                {canManage && person.kind === "player" && person.status === "active" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-ink-muted"
+                    disabled={pendingRowId === person.rowId}
+                    onClick={() =>
+                      run(person.rowId, () => archivePlayerMembership(teamId, person.rowId), () =>
+                        setRows((prev) => prev.map((r) => (r.rowId === person.rowId ? { ...r, status: "archived" } : r)))
+                      )
+                    }
+                  >
+                    Archive
+                  </Button>
+                )}
+                {canManage && person.kind === "player" && person.status === "archived" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8"
+                    disabled={pendingRowId === person.rowId}
+                    onClick={() =>
+                      run(person.rowId, () => restorePlayerMembership(teamId, person.rowId), () =>
+                        setRows((prev) => prev.map((r) => (r.rowId === person.rowId ? { ...r, status: "active" } : r)))
+                      )
+                    }
+                  >
+                    Restore
+                  </Button>
+                )}
+                {canManage && person.kind === "coach" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-ink-muted"
+                    disabled={pendingRowId === person.rowId}
+                    onClick={() =>
+                      run(person.rowId, () => removeTeamMember(teamId, person.rowId), () =>
+                        setRows((prev) => prev.filter((r) => r.rowId !== person.rowId))
+                      )
+                    }
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/*
+        Archiving a player takes them out of this team, not out of the club --
+        said plainly here rather than inside a confirmation nobody reads twice.
+      */}
+      {canManage && tab === "player" && (
+        <p className="mt-2 text-xs text-ink-muted">
+          Archiving a player ends their place in this team. Their fixtures, attendance and history stay exactly as
+          they are, and they can be restored here.
+        </p>
+      )}
+
+      {canManage && tab === "coach" && (
+        <div className="mt-4 rounded-lg border border-dashed border-ink/15 p-4">
+          <p className="text-sm font-medium text-ink/80">Assign an existing club member</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <select
+              value={selectedMembership}
+              onChange={(e) => setSelectedMembership(e.target.value)}
+              aria-label="Club member"
+              className="h-10 min-w-[12rem] rounded-lg border border-ink/15 bg-white px-3 text-sm outline-none focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            >
+              <option value="">Select a person…</option>
+              {available.map((m) => (
+                <option key={m.membershipId} value={m.membershipId}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedPermission}
+              onChange={(e) => setSelectedPermission(e.target.value as (typeof PERMISSION_OPTIONS)[number]["value"])}
+              aria-label="Role in this team"
+              className="h-10 rounded-lg border border-ink/15 bg-white px-3 text-sm outline-none focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            >
+              {PERMISSION_OPTIONS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <Button type="button" className="h-10" disabled={!selectedMembership || assigning} onClick={handleAssign}>
+              {assigning ? "Assigning…" : "Assign"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
