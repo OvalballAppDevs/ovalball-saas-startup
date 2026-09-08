@@ -142,7 +142,7 @@ export function BrandPanel({
               </button>
             )}
             <p className="w-full text-xs text-ink/55">
-              PNG, JPEG or WebP, up to 1 MB. A square image works best. Other formats do not render reliably in email.
+              PNG, JPEG or WebP, up to 1.5 MB. A square image works best. Other formats do not render reliably in email.
             </p>
           </div>
         )}

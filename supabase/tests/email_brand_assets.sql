@@ -148,12 +148,12 @@ else
 end if;
 
 select count(*) into v_count
-from storage.buckets where id = 'email-brand' and file_size_limit <= 1048576;
+from storage.buckets where id = 'email-brand' and file_size_limit = 1572864;
 
 if v_count = 1 then
-  raise notice 'PASS 11 (E): uploads are size-limited at the bucket, not merely in the browser';
+  raise notice 'PASS 11 (E): uploads are capped at 1.5 MiB by the bucket, not merely in the browser';
 else
-  raise notice 'FAIL 11 (E): the email-brand bucket has no usable size limit';
+  raise notice 'FAIL 11 (E): the email-brand bucket limit is not the expected 1572864 bytes';
 end if;
 
 -- ============ F. Only a Full Site Admin may upload ============

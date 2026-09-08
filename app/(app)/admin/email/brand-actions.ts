@@ -53,7 +53,8 @@ const ACCEPTED = new Map([
   ["image/webp", "webp"],
 ])
 
-const MAX_BYTES = 1_048_576
+/** 1.5 MiB, matching the bucket's own limit -- see the email-brand bucket. */
+const MAX_BYTES = 1_572_864
 
 export async function uploadBrandImage(form: FormData): Promise<BrandActionResult> {
   const auth = await authorise()
@@ -69,7 +70,7 @@ export async function uploadBrandImage(form: FormData): Promise<BrandActionResul
     return { ok: false, error: "Email supports PNG, JPEG and WebP images. Other formats do not render reliably in email." }
   }
   if (file.size > MAX_BYTES) {
-    return { ok: false, error: "That image is larger than 1 MB. A large logo is slow to load in an inbox and often gets stripped." }
+    return { ok: false, error: "That image is larger than 1.5 MB. A large logo is slow to load in an inbox and often gets stripped." }
   }
 
   // The stored name is generated, never taken from the upload. A filename is
