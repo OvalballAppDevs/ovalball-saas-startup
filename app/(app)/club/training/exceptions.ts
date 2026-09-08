@@ -46,7 +46,7 @@ export async function getTrainingExceptions(supabase: SupabaseClient<Database>, 
 
   const { data: trainingRows } = await supabase
     .from("training_sessions")
-    .select("id, team_id, occurrence_date, start_time, duration_minutes, pitch_id, status, source, teams(display_name, category, age_group, gender, squad_designation)")
+    .select("id, team_id, occurrence_date, start_time, duration_minutes, pitch_id, status, source, teams(display_name, rugby_code, category, age_group, gender, squad_designation)")
     .in("team_id", teamIds)
     .neq("status", "CANCELLED")
     .gte("occurrence_date", startIso)
@@ -71,7 +71,7 @@ export async function getTrainingExceptions(supabase: SupabaseClient<Database>, 
       .filter((t) => t.occurrence_date === date)
       .map((t) => ({
         trainingSessionId: t.id,
-        teamLabel: t.teams ? fullTeamLabel({ category: t.teams.category as "senior" | "youth" | "colts", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation }) : "Team",
+        teamLabel: t.teams ? fullTeamLabel({ category: t.teams.category as "senior" | "youth" | "colts", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation, rugbyCode: t.teams.rugby_code }) : "Team",
         venueId: null,
         pitchId: t.pitch_id,
         sessionDate: date,

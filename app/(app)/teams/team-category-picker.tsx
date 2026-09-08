@@ -28,6 +28,7 @@ export function TeamCategoryPicker({
   squadLetter,
   onChange,
   availability,
+  rugbyCode,
 }: {
   /** The live catalogue (from `loadTeamCategoryGroups`), fetched once by the nearest server page and threaded down -- never imported as a static constant, so a Site-Admin-added global type appears here with zero further code changes. */
   groups: TeamCategoryGroup[]
@@ -36,9 +37,11 @@ export function TeamCategoryPicker({
   onChange: (categoryLabel: string | null, squadLetter: string | null) => void
   /** Omit entirely to render every catalogue option as freely pickable (used by Edit Team, which is re-categorizing one already-owned row, not adding a new one). */
   availability?: TeamOptionAvailability[]
+  /** The club's own code, so the live preview names a senior side the way the club's Teams page will. */
+  rugbyCode?: string | null
 }) {
   const selectedOption = categoryLabel ? groups.flatMap((g) => g.options).find((o) => o.label === categoryLabel) : null
-  const preview = selectedOption ? compactTeamLabel(resolveStructuredFields(selectedOption, squadLetter)) : null
+  const preview = selectedOption ? compactTeamLabel({ ...resolveStructuredFields(selectedOption, squadLetter), rugbyCode }) : null
   const availabilityByKey = new Map((availability ?? []).map((a) => [a.option.key, a]))
 
   return (
@@ -139,9 +142,19 @@ export function TeamCategoryPicker({
                       />
                       <span className={checked ? "font-medium text-ink" : "text-ink/70"}>{option.label}</span>
                     </label>
-                    {checked && option.allowAdditionalSquads && (
+                    {option.allowAdditionalSquads && (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[26px]">
-                        <span className="text-xs text-ink-muted">Second or third team at this level?</span>
+                        {/*
+                          Shown whether or not the option is ticked. It used to
+                          appear only once ticked, which made an age grade the
+                          club has not added yet look as though it could never
+                          have a B or C side -- every age grade can.
+                        */}
+                        <span className="text-xs text-ink-muted">
+                          {primaryState === "addable"
+                            ? `Add ${option.label} first — a B or C squad sits under it.`
+                            : "Second or third team at this level?"}
+                        </span>
                         {ADDITIONAL_SQUAD_LETTERS.map((letter) => {
                           const squadState = avail?.additionalSquads[letter]?.state ?? "addable"
                           if (squadState === "active") {
@@ -170,7 +183,13 @@ export function TeamCategoryPicker({
                               key={letter}
                               type="button"
                               disabled={blocked}
-                              title={blocked ? `Reactivate ${option.label} before adding a ${letter} squad.` : undefined}
+                              title={
+                                blocked
+                                  ? primaryState === "addable"
+                                    ? `Add ${option.label} before adding a ${letter} squad.`
+                                    : `Reactivate ${option.label} before adding a ${letter} squad.`
+                                  : undefined
+                              }
                               onClick={() => onChange(option.label, active ? null : letter)}
                               className={cn(
                                 "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",

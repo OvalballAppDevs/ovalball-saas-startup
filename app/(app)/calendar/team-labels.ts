@@ -18,6 +18,6 @@ import { fullTeamLabel } from "@/lib/teams/compact-label"
  * to select the real `squad_designation` column and routing through the
  * shared formatter instead of re-deriving the label here.
  */
-export function teamCategoryLabel(t: { category: string; gender: string | null; ageGroup: string | null; squadDesignation: string | null }): string {
-  return fullTeamLabel({ category: t.category, ageGroup: t.ageGroup, gender: t.gender, squadDesignation: t.squadDesignation })
+export function teamCategoryLabel(t: { category: string; gender: string | null; ageGroup: string | null; squadDesignation: string | null; rugbyCode?: string | null }): string {
+  return fullTeamLabel({ category: t.category, ageGroup: t.ageGroup, gender: t.gender, squadDesignation: t.squadDesignation, rugbyCode: t.rugbyCode })
 }

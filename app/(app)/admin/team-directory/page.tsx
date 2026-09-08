@@ -72,8 +72,7 @@ export default async function TeamDirectoryPage({
     category: r.category!,
     ageGroup: r.age_group,
     gender: r.gender,
-    fixedSquadDesignation: r.fixed_squad_designation,
-    allowsSquads: r.allows_squads ?? false,
+    squadDesignation: r.fixed_squad_designation,
     isActive: r.is_active ?? true,
     sortOrder: r.sort_order ?? 0,
   }))

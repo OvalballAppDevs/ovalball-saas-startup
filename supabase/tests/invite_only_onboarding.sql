@@ -40,8 +40,8 @@ begin
   values (v_dir_b, 'invite-test-club-b', 'active') returning id into v_club_b;
 
   -- gender left null: 'mixed' is only valid for U6-U11 (teams_gender_category_check).
-  insert into public.teams (club_id, display_name, slug, category, age_group, rugby_code, active)
-  values (v_club_a, 'Invite Test U12', 'invite-test-u12', 'youth', 'U12', 'union', true)
+  insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
+  values (v_club_a, 'Invite Test U12', 'invite-test-u12', 'youth', 'U12', 'boys', 'union', true)
   returning id into v_team_a;
 
   -- ---------- 1. a stranger cannot add a child at a club ----------

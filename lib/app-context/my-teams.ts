@@ -14,15 +14,18 @@ export interface MyTeam {
   ageGroup: string | null
   gender: string | null
   squadDesignation: string | null
+  /** The team's own rugby code -- part of what a senior side is CALLED (league runs Open Age, union numbers its sides), so it travels with the team rather than being looked up per surface. */
+  rugbyCode: string | null
   /** Club-specific display alias (e.g. "Blacks") -- Overnight Master Pass Section 51, null when this team has none set. */
   alias: string | null
 }
 
-const TEAM_FIELDS = "id, display_name, category, age_group, gender, squad_designation"
+const TEAM_FIELDS = "id, display_name, rugby_code, category, age_group, gender, squad_designation"
 
 interface RawTeamRow {
   id: string
   display_name: string
+  rugby_code: string | null
   category: string
   age_group: string | null
   gender: string | null
@@ -48,6 +51,7 @@ async function withAliases(supabase: SupabaseClient<Database>, rows: RawTeamRow[
     ageGroup: t.age_group,
     gender: t.gender,
     squadDesignation: t.squad_designation,
+    rugbyCode: t.rugby_code,
     alias: aliasByTeamId.get(t.id) ?? null,
   }))
 }

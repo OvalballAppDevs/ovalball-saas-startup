@@ -7,10 +7,11 @@ import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { computeTeamAvailability, loadTeamCategoryGroups, type ExistingClubTeam } from "@/lib/teams/catalog"
 import { compactTeamLabel, fullTeamLabel } from "@/lib/teams/compact-label"
+import { buildDirectory, type DirectoryIdentityRow } from "@/lib/teams/directory-taxonomy"
 import { resolveDefaultSeason, type SeasonRow } from "@/lib/calendar/season-window"
 import { createClient } from "@/lib/supabase/server"
 
-import type { SchedulingGroup } from "../club/actions"
+import type { SchedulingGroup, SchedulingGroupMember } from "../club/actions"
 import { ClubSettingsNav } from "../club/settings/club-settings-nav"
 import { resolveClubSettingsNavCapabilities } from "../club/settings/resolve-nav-capabilities"
 import { CreateTeamForm } from "./create-team-form"
@@ -58,8 +59,14 @@ export default async function TeamsPage() {
     : { data: [] }
 
   const canonicalTypeIds = Array.from(new Set((teams ?? []).map((t) => t.canonical_team_type_id).filter((id): id is string => Boolean(id))))
-  const { data: canonicalTypeRows } = canonicalTypeIds.length > 0 ? await supabase.from("canonical_team_types").select("id, key").in("id", canonicalTypeIds) : { data: [] }
+  const { data: canonicalTypeRows } =
+    canonicalTypeIds.length > 0
+      ? await supabase.from("canonical_team_types").select("id, key, sort_order").in("id", canonicalTypeIds)
+      : { data: [] }
   const canonicalKeyById = new Map((canonicalTypeRows ?? []).map((r) => [r.id, r.key]))
+  // The Team Directory's own ordering, borrowed rather than re-invented, so a
+  // club's list runs in the same sequence Site Admin sees.
+  const canonicalSortById = new Map((canonicalTypeRows ?? []).map((r) => [r.id, r.sort_order ?? 0]))
 
   const teamIds = (teams ?? []).map((t) => t.id)
   const { data: aliasRows } = teamIds.length > 0 ? await supabase.from("team_aliases").select("team_id, alias").in("team_id", teamIds) : { data: [] }
@@ -74,7 +81,8 @@ export default async function TeamsPage() {
   // research is not evidence of absence).
   const { data: clubRow } = clubId ? await supabase.from("clubs").select("directory_id").eq("id", clubId).maybeSingle() : { data: null }
   const { data: clubDirectory } = clubRow ? await supabase.from("club_directory").select("rugby_code").eq("id", clubRow.directory_id).maybeSingle() : { data: null }
-  const clubRugbyCode = clubDirectory?.rugby_code === "union" || clubDirectory?.rugby_code === "league" ? clubDirectory.rugby_code : undefined
+  const clubRugbyCode: "union" | "league" | undefined =
+    clubDirectory?.rugby_code === "union" || clubDirectory?.rugby_code === "league" ? clubDirectory.rugby_code : undefined
 
   const groups = await loadTeamCategoryGroups(supabase, { rugbyCode: clubRugbyCode })
 
@@ -124,18 +132,49 @@ export default async function TeamsPage() {
   const { data: schedulingGroupRows } = clubId && currentSeason
     ? await supabase
         .from("scheduling_groups")
-        .select("id, display_tag, alias, active, season_id, scheduling_group_members(teams(id, display_name, age_group))")
+        .select("id, display_tag, alias, active, season_id")
         .eq("club_id", clubId)
         .eq("season_id", currentSeason.id)
         .order("created_at")
     : { data: [] }
+
+  // Membership comes from scheduling_group_membership, which resolves each
+  // team's identity IN THE GROUP'S OWN SEASON. Reading teams.display_name here
+  // instead described a 26/27 arrangement with 27/28 names, so a valid
+  // "U7/U8 Minis" started listing "Under 9 Mixed" the moment the club was
+  // progressed and looked like a broken group.
+  const groupIds = (schedulingGroupRows ?? []).map((g) => g.id)
+  const { data: membershipRows } =
+    groupIds.length > 0
+      ? await supabase
+          .from("scheduling_group_membership")
+          .select("group_id, team_id, category, age_group, gender, squad_designation, rugby_code")
+          .in("group_id", groupIds)
+      : { data: [] }
+
+  const membersByGroupId = new Map<string, SchedulingGroupMember[]>()
+  for (const m of membershipRows ?? []) {
+    if (!m.group_id || !m.team_id) continue
+    const member: SchedulingGroupMember = {
+      id: m.team_id,
+      displayName: fullTeamLabel({
+        category: m.category ?? "youth",
+        ageGroup: m.age_group,
+        gender: m.gender,
+        squadDesignation: m.squad_designation,
+        rugbyCode: m.rugby_code,
+      }),
+      ageGroup: m.age_group,
+    }
+    membersByGroupId.set(m.group_id, [...(membersByGroupId.get(m.group_id) ?? []), member])
+  }
 
   const schedulingGroups: SchedulingGroup[] = (schedulingGroupRows ?? []).map((g) => ({
     id: g.id,
     displayTag: g.display_tag,
     alias: g.alias,
     active: g.active,
-    members: g.scheduling_group_members.flatMap((m) => (m.teams ? [{ id: m.teams.id, displayName: m.teams.display_name, ageGroup: m.teams.age_group }] : [])),
+    members: membersByGroupId.get(g.id) ?? [],
   }))
 
   // Section 26-30: ONE canonical display resolver used everywhere, not a
@@ -150,15 +189,69 @@ export default async function TeamsPage() {
   // failure mode. A legacy row with no canonical_team_type_id at all
   // falls back to its own display_name, since there's no structured
   // identity to derive from.
-  function teamFullLabel(t: { id: string; canonical_team_type_id: string | null; category: string; age_group: string | null; gender: string | null; squad_designation: string | null; display_name: string }): string {
-    if (!t.canonical_team_type_id) return t.display_name
-    return fullTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, alias: aliasByTeamId.get(t.id) ?? null })
+  //
+  // The rugby code is part of the name, not decoration around it: a league
+  // club's senior side is Men's Open Age, a union club's is Men's 1st Team.
+  // Omitting it here is how this page would quietly disagree with signup and
+  // the Team Directory about what the same side is called.
+  type TeamRow = {
+    id: string
+    canonical_team_type_id: string | null
+    category: string
+    age_group: string | null
+    gender: string | null
+    squad_designation: string | null
+    display_name: string
   }
 
-  function teamCompactLabel(t: { id: string; canonical_team_type_id: string | null; category: string; age_group: string | null; gender: string | null; squad_designation: string | null; display_name: string }): string {
-    if (!t.canonical_team_type_id) return t.display_name
-    return compactTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, alias: aliasByTeamId.get(t.id) ?? null })
+  function labelInput(t: TeamRow) {
+    return {
+      category: t.category,
+      ageGroup: t.age_group,
+      gender: t.gender,
+      squadDesignation: t.squad_designation,
+      rugbyCode: clubRugbyCode ?? null,
+      alias: aliasByTeamId.get(t.id) ?? null,
+    }
   }
+
+  function teamFullLabel(t: TeamRow): string {
+    if (!t.canonical_team_type_id) return t.display_name
+    return fullTeamLabel(labelInput(t))
+  }
+
+  function teamCompactLabel(t: TeamRow): string {
+    if (!t.canonical_team_type_id) return t.display_name
+    return compactTeamLabel(labelInput(t))
+  }
+
+  // Grouped by the SAME taxonomy Site Admin's Team Directory uses -- Minis,
+  // Juniors, Youth, Men's, Women's, Girls -- because a club and the platform
+  // are looking at one set of team identities, and two different arrangements
+  // of it is two products. A legacy row with no canonical identity has nothing
+  // structured to group by, so it is listed on its own below rather than
+  // guessed into a section.
+  // A primary side leads its own squads: U9, then U9 B, then U9 C. They share
+  // one canonical identity, so the directory's sort order cannot separate them
+  // and the squad letter has to.
+  const groupableTeams = activeTeams
+    .filter((t) => t.canonical_team_type_id)
+    .sort((a, b) => (a.squad_designation ?? "").localeCompare(b.squad_designation ?? ""))
+  const ungroupedTeams = activeTeams.filter((t) => !t.canonical_team_type_id)
+  const teamById = new Map(activeTeams.map((t) => [t.id, t]))
+  const teamSections = buildDirectory(
+    groupableTeams.map<DirectoryIdentityRow>((t) => ({
+      id: t.id,
+      category: t.category,
+      ageGroup: t.age_group,
+      gender: t.gender,
+      squadDesignation: t.squad_designation,
+      isActive: true,
+      sortOrder: t.canonical_team_type_id ? (canonicalSortById.get(t.canonical_team_type_id) ?? 0) : 0,
+    })),
+    clubRugbyCode ?? null,
+    new Map(activeTeams.map((t) => [t.id, aliasByTeamId.get(t.id) ?? null]))
+  )
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
@@ -171,22 +264,60 @@ export default async function TeamsPage() {
       <ClubSettingsNav active="teams" {...navCaps} />
 
       {activeTeams.length > 0 ? (
-        <ul className="mt-8 flex flex-col gap-2">
-          {activeTeams.map((t) => (
-            <li key={t.id}>
-              <Link
-                href={`/teams/${t.id}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5 outline-none transition-colors hover:border-ink/20 focus-visible:ring-2 focus-visible:ring-pitch-400"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink">{teamFullLabel(t)}</p>
-                  <p className="text-xs text-ink-muted">{teamCompactLabel(t)}</p>
-                </div>
-                <ChevronRight className="size-4 shrink-0 text-ink-muted" />
-              </Link>
-            </li>
+        <div className="mt-8 flex flex-col gap-6">
+          {teamSections.map(({ group, identities }) => (
+            <section key={group.key} aria-labelledby={`teams-${group.key}`}>
+              <h2 id={`teams-${group.key}`} className="font-display text-lg text-ink">
+                {group.title}
+              </h2>
+              <ul className="mt-2.5 flex flex-col gap-2">
+                {identities.map((identity) => {
+                  const t = teamById.get(identity.id)
+                  if (!t) return null
+                  return (
+                    <li key={identity.id}>
+                      <Link
+                        href={`/teams/${identity.id}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5 outline-none transition-colors hover:border-ink/20 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-ink">{identity.display}</p>
+                          <p className="text-xs text-ink-muted">{identity.compact}</p>
+                        </div>
+                        <ChevronRight className="size-4 shrink-0 text-ink-muted" />
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
           ))}
-        </ul>
+
+          {ungroupedTeams.length > 0 && (
+            <section aria-labelledby="teams-unrecognised">
+              <h2 id="teams-unrecognised" className="font-display text-lg text-ink">
+                Not yet recognised
+              </h2>
+              <p className="mt-0.5 text-sm text-ink/55">
+                These teams predate the Team Directory, so Ovalball does not know which age grade or pathway they
+                belong to. Open one to set it.
+              </p>
+              <ul className="mt-2.5 flex flex-col gap-2">
+                {ungroupedTeams.map((t) => (
+                  <li key={t.id}>
+                    <Link
+                      href={`/teams/${t.id}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5 outline-none transition-colors hover:border-ink/20 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                    >
+                      <p className="min-w-0 truncate text-sm font-medium text-ink">{teamFullLabel(t)}</p>
+                      <ChevronRight className="size-4 shrink-0 text-ink-muted" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
       ) : (
         <div className="mt-8 rounded-lg border border-dashed border-ink/15 bg-white/60 px-5 py-8 text-center">
           <p className="text-sm font-medium text-ink">No teams yet</p>
@@ -196,7 +327,7 @@ export default async function TeamsPage() {
 
       {isClubAdmin && clubId && (
         <div className="mt-6">
-          <CreateTeamForm clubId={clubId} groups={groups} availability={availability} />
+          <CreateTeamForm clubId={clubId} groups={groups} availability={availability} rugbyCode={clubRugbyCode ?? null} />
         </div>
       )}
 

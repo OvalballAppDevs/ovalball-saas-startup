@@ -70,10 +70,10 @@ begin
   insert into clubs (id, directory_id, slug, status) values (gen_random_uuid(), v_directory_away, 'mc-test-club-away-' || gen_random_uuid()::text, 'active') returning id into v_club_away;
   insert into club_memberships (user_id, club_id, role, status) values (v_coach, v_club, 'CLUB_ADMIN', 'active');
 
-  insert into teams (id, club_id, rugby_code, category, age_group, display_name, slug) values
-    (gen_random_uuid(), v_club, 'union', 'youth', 'U12', 'MC Test Home U12', 'mc-test-home-' || gen_random_uuid()::text) returning id into v_team_home;
-  insert into teams (id, club_id, rugby_code, category, age_group, display_name, slug) values
-    (gen_random_uuid(), v_club_away, 'union', 'youth', 'U12', 'MC Test Away U12', 'mc-test-away-' || gen_random_uuid()::text) returning id into v_team_away;
+  insert into teams (id, club_id, rugby_code, category, age_group, gender, display_name, slug) values
+    (gen_random_uuid(), v_club, 'union', 'youth', 'U12', 'boys', 'MC Test Home U12', 'mc-test-home-' || gen_random_uuid()::text) returning id into v_team_home;
+  insert into teams (id, club_id, rugby_code, category, age_group, gender, display_name, slug) values
+    (gen_random_uuid(), v_club_away, 'union', 'youth', 'U12', 'boys', 'MC Test Away U12', 'mc-test-away-' || gen_random_uuid()::text) returning id into v_team_away;
 
   insert into fixtures (id, owning_team_id, opponent_team_id, kickoff_date, home_away, status, raw_opposition_text)
   values (gen_random_uuid(), v_team_home, v_team_away, current_date + 7, 'Home', 'Booked', 'MC Test Away U12')

@@ -57,10 +57,10 @@ const STATUS_BADGE_STYLE: Record<string, string> = {
  * alias applied when one exists. Falls back to raw display_name only for
  * a genuinely unmapped/legacy row (no category at all).
  */
-function teamLabel(t: { display_name: string; category: string; age_group: string | null; gender: string | null; squad_designation: string | null } | null | undefined, alias: string | null): string | undefined {
+function teamLabel(t: { display_name: string; rugby_code?: string | null; category: string; age_group: string | null; gender: string | null; squad_designation: string | null } | null | undefined, alias: string | null): string | undefined {
   if (!t) return undefined
   if (!t.category) return t.display_name
-  return fullTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, alias })
+  return fullTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, rugbyCode: t.rugby_code, alias })
 }
 
 interface ThreadHeader {
@@ -123,7 +123,7 @@ export default async function ConversationThreadPage({
     const { data: r } = await supabase
       .from("fixture_requests")
       .select(
-        "status, resulting_fixture_id, requesting_team:teams!fixture_requests_requesting_team_id_fkey(id, display_name, club_id, category, age_group, gender, squad_designation, clubs(logo_storage_path, club_directory(name, logo_storage_path))), target_team:teams!fixture_requests_target_team_id_fkey(id, display_name, club_id, category, age_group, gender, squad_designation, clubs(logo_storage_path, club_directory(name, logo_storage_path))), fixture_request_groups(proposed_date, raw_opponent_text, requesting_club_id, opponent_club_id)"
+        "status, resulting_fixture_id, requesting_team:teams!fixture_requests_requesting_team_id_fkey(id, display_name, club_id, rugby_code, category, age_group, gender, squad_designation, clubs(logo_storage_path, club_directory(name, logo_storage_path))), target_team:teams!fixture_requests_target_team_id_fkey(id, display_name, club_id, rugby_code, category, age_group, gender, squad_designation, clubs(logo_storage_path, club_directory(name, logo_storage_path))), fixture_request_groups(proposed_date, raw_opponent_text, requesting_club_id, opponent_club_id)"
       )
       .eq("id", id)
       .maybeSingle()
@@ -284,7 +284,7 @@ export default async function ConversationThreadPage({
       untypedSupabase
         .from("fixtures")
         .select(
-          "competition_editions(competitions(name), seasons(name)), owning_team:teams!fixtures_owning_team_id_fkey(id, display_name, club_id, rugby_code, category, age_group, gender, squad_designation, clubs(logo_storage_path, club_directory(name, logo_storage_path))), opponent_team:teams!fixtures_opponent_team_id_fkey(id, display_name, club_id, category, age_group, gender, squad_designation, clubs(logo_storage_path, club_directory(name, logo_storage_path)))"
+          "competition_editions(competitions(name), seasons(name)), owning_team:teams!fixtures_owning_team_id_fkey(id, display_name, club_id, rugby_code, category, age_group, gender, squad_designation, clubs(logo_storage_path, club_directory(name, logo_storage_path))), opponent_team:teams!fixtures_opponent_team_id_fkey(id, display_name, club_id, rugby_code, category, age_group, gender, squad_designation, clubs(logo_storage_path, club_directory(name, logo_storage_path)))"
         )
         .eq("id", id),
     ])) as [{ data: FixtureFlatRow[] | null }, { data: FixtureRelationsRow[] | null }]

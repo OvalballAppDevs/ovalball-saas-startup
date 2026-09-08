@@ -43,7 +43,7 @@ function eligibleAgeGroupsFor(requesting: RequestingTeamIdentity, candidateGende
  * through the shared formatter with the real `squad_designation` field.
  */
 function teamCategoryLabel(t: TeamSearchResult): string {
-  return fullTeamLabel({ category: t.category, ageGroup: t.ageGroup, gender: t.gender, squadDesignation: t.squadDesignation })
+  return fullTeamLabel({ category: t.category, ageGroup: t.ageGroup, gender: t.gender, squadDesignation: t.squadDesignation, rugbyCode: t.rugbyCode })
 }
 
 /**

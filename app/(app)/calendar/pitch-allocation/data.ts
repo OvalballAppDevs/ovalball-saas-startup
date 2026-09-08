@@ -88,13 +88,13 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
   // this table has (status is always 'confirmed' in practice).
   const { data: tournamentRows } = await supabase
     .from("tournaments")
-    .select("id, status, pitch_id, host_team_id, teams(display_name, category, age_group, gender, squad_designation), club_pitches(display_name), venues(name)")
+    .select("id, status, pitch_id, host_team_id, teams(display_name, rugby_code, category, age_group, gender, squad_designation), club_pitches(display_name), venues(name)")
     .eq("host_club_id", clubId)
     .eq("event_date", dateIso)
     .is("cancelled_at", null)
   const tournaments: TournamentSummary[] = (tournamentRows ?? []).map((t) => ({
     id: t.id,
-    hostTeamLabel: t.teams ? fullTeamLabel({ category: t.teams.category ?? "youth", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation }) : "Unknown team",
+    hostTeamLabel: t.teams ? fullTeamLabel({ category: t.teams.category ?? "youth", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation, rugbyCode: t.teams.rugby_code }) : "Unknown team",
     pitchId: t.pitch_id,
     pitchDisplayName: t.club_pitches?.display_name ?? null,
     venueName: t.venues?.name ?? null,
@@ -108,7 +108,7 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
   const { data: trainingRows } = teamIds.length > 0
     ? await supabase
         .from("training_sessions")
-        .select("id, team_id, occurrence_date, start_time, duration_minutes, venue_id, pitch_id, status, source, teams(display_name, category, age_group, gender, squad_designation)")
+        .select("id, team_id, occurrence_date, start_time, duration_minutes, venue_id, pitch_id, status, source, teams(display_name, rugby_code, category, age_group, gender, squad_designation)")
         .in("team_id", teamIds)
         .eq("occurrence_date", dateIso)
     : { data: [] }
@@ -117,7 +117,7 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
   const trainingAliasByTeamId = new Map((trainingAliasRows ?? []).map((a) => [a.team_id, a.alias]))
   const trainingSessions: TrainingOccupancy[] = (trainingRows ?? []).map((t) => {
     const alias = t.team_id ? trainingAliasByTeamId.get(t.team_id) : null
-    const label = t.teams ? fullTeamLabel({ category: t.teams.category ?? "youth", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation, alias }) : "Team"
+    const label = t.teams ? fullTeamLabel({ category: t.teams.category ?? "youth", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation, rugbyCode: t.teams.rugby_code, alias }) : "Team"
     return {
       trainingSessionId: t.id,
       teamLabel: label,
@@ -138,7 +138,7 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
   const { data: rawFixtureRows } = await supabase
     .from("fixtures")
     .select(
-      "id, owning_team_id, opponent_team_id, home_team_id, away_team_id, status, kickoff_date, kickoff_time, venue_id, pitch_id, raw_opposition_text, owning_scheduling_group_id, opponent_scheduling_group_id, home_away, mirror_fixture_id, season_id, teams!fixtures_owning_team_id_fkey(display_name, category, age_group, gender, squad_designation, club_id), opponent:teams!fixtures_opponent_team_id_fkey(display_name, club_id)"
+      "id, owning_team_id, opponent_team_id, home_team_id, away_team_id, status, kickoff_date, kickoff_time, venue_id, pitch_id, raw_opposition_text, owning_scheduling_group_id, opponent_scheduling_group_id, home_away, mirror_fixture_id, season_id, teams!fixtures_owning_team_id_fkey(display_name, rugby_code, category, age_group, gender, squad_designation, club_id), opponent:teams!fixtures_opponent_team_id_fkey(display_name, club_id)"
     )
     .in("home_team_id", teamIds)
     .eq("kickoff_date", dateIso)

@@ -45,7 +45,7 @@ export default async function ClubGuardiansPage() {
 
   const { data: teams } = await supabase
     .from("teams")
-    .select("id, display_name, category, age_group, gender, squad_designation")
+    .select("id, display_name, rugby_code, category, age_group, gender, squad_designation")
     .eq("club_id", clubId)
     .eq("active", true)
 
@@ -78,7 +78,7 @@ export default async function ClubGuardiansPage() {
   const teamLabel = (teamId: string) => {
     const t = teamById.get(teamId)
     if (!t) return "Team"
-    return compactTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, alias: aliasByTeamId.get(teamId) ?? null })
+    return compactTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, rugbyCode: t.rugby_code, alias: aliasByTeamId.get(teamId) ?? null })
   }
 
   // Flatten the per-team directory RPC results into one guardian list per

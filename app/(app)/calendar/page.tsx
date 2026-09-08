@@ -299,7 +299,7 @@ export default async function CalendarPage({
       ? { data: [] }
       : await supabase
           .from("training_sessions")
-          .select("id, team_id, scheduling_group_id, session_date, start_time, notes, club_pitches(display_name), teams(display_name, category, age_group, gender, squad_designation)")
+          .select("id, team_id, scheduling_group_id, session_date, start_time, notes, club_pitches(display_name), teams(display_name, rugby_code, category, age_group, gender, squad_designation)")
           .is("cancelled_at", null)
           .or(trainingOrClauses.length > 0 ? trainingOrClauses.join(",") : "team_id.eq.00000000-0000-0000-0000-000000000000")
           .gte("session_date", startIso)
@@ -486,7 +486,7 @@ export default async function CalendarPage({
       // single team here (t.teams is null for a scheduling_group_id-owned
       // session), so it falls back to the lane's own label at render time.
       title: "Planned Training",
-      teamDisplayName: t.teams ? compactTeamLabel({ category: t.teams.category as "senior" | "youth" | "colts", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation }) : "",
+      teamDisplayName: t.teams ? compactTeamLabel({ category: t.teams.category as "senior" | "youth" | "colts", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation, rugbyCode: t.teams.rugby_code }) : "",
       opposition: "",
       homeAway: "",
       venueAddress: null,
@@ -676,14 +676,14 @@ export default async function CalendarPage({
       activeManageableClubEarly ?? (boardContext.kind === "team" ? (ctx.teamPermissions.find((tp) => tp.teamId === boardContext.id)?.clubId ?? null) : null)
     if (trainingClubId) {
       const [{ data: clubTeams }, { data: clubGroups }, { data: clubPitches }] = await Promise.all([
-        supabase.from("teams").select("id, display_name, category, age_group, gender, squad_designation").eq("club_id", trainingClubId).eq("active", true).order("display_name"),
+        supabase.from("teams").select("id, display_name, rugby_code, category, age_group, gender, squad_designation").eq("club_id", trainingClubId).eq("active", true).order("display_name"),
         supabase.from("scheduling_groups").select("id, display_tag, alias").eq("club_id", trainingClubId).eq("active", true),
         supabase.from("club_pitches").select("id, display_name").eq("club_id", trainingClubId).eq("active", true).order("sort_order"),
       ])
       trainingTargets = [
         ...(clubTeams ?? []).map((t) => ({
           value: t.id,
-          label: compactTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation }),
+          label: compactTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, rugbyCode: t.rugby_code }),
           kind: "team" as const,
         })),
         ...(clubGroups ?? []).map((g) => ({ value: g.id, label: miniRugbyGroupLabel({ displayTag: g.display_tag, alias: g.alias }), kind: "group" as const })),

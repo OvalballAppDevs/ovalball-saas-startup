@@ -29,7 +29,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
 
   const { data: team } = await supabase
     .from("teams")
-    .select("id, club_id, display_name, category, age_group, squad_designation, gender, active, folded_at, fold_reason")
+    .select("id, club_id, display_name, rugby_code, category, age_group, squad_designation, gender, active, folded_at, fold_reason")
     .eq("id", teamId)
     .maybeSingle()
 
@@ -108,8 +108,8 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
             <TeamIdentitySection
               team={{
                 id: team.id,
-                fullLabel: fullTeamLabel({ category: team.category, ageGroup: team.age_group, gender: team.gender, squadDesignation: team.squad_designation, alias: aliasRow?.alias ?? null }),
-                compactLabel: compactTeamLabel({ category: team.category, ageGroup: team.age_group, gender: team.gender, squadDesignation: team.squad_designation, alias: aliasRow?.alias ?? null }),
+                fullLabel: fullTeamLabel({ category: team.category, ageGroup: team.age_group, gender: team.gender, squadDesignation: team.squad_designation, rugbyCode: team.rugby_code, alias: aliasRow?.alias ?? null }),
+                compactLabel: compactTeamLabel({ category: team.category, ageGroup: team.age_group, gender: team.gender, squadDesignation: team.squad_designation, rugbyCode: team.rugby_code, alias: aliasRow?.alias ?? null }),
                 squadDesignation: team.squad_designation,
                 active: team.active,
                 alias: aliasRow?.alias ?? null,
@@ -120,7 +120,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           <div className="rounded-lg border border-ink/10 bg-white p-6">
             <p className="text-sm text-ink/60">
               {[
-                fullTeamLabel({ category: team.category, ageGroup: team.age_group, gender: team.gender, squadDesignation: team.squad_designation, alias: aliasRow?.alias ?? null }),
+                fullTeamLabel({ category: team.category, ageGroup: team.age_group, gender: team.gender, squadDesignation: team.squad_designation, rugbyCode: team.rugby_code, alias: aliasRow?.alias ?? null }),
                 formatGenderLabel(team.gender),
               ]
                 .filter(Boolean)

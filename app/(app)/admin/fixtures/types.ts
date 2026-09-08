@@ -50,6 +50,7 @@ export interface AdminFixtureRow {
   homeTeamAgeGroup: string | null
   homeTeamGender: string | null
   homeTeamSquadDesignation: string | null
+  homeTeamRugbyCode: string | null
   awayClubName: string
   awayTeamId: string | null
   awayTeamName: string
@@ -57,6 +58,7 @@ export interface AdminFixtureRow {
   awayTeamAgeGroup: string | null
   awayTeamGender: string | null
   awayTeamSquadDesignation: string | null
+  awayTeamRugbyCode: string | null
   /** Central Fixture Participant Resolution: false when home/awayClubName is a fallback to raw_opposition_text, not a real resolved club -- the UI must render this distinctly, never as if it were a canonical identity. */
   homeClubResolved: boolean
   awayClubResolved: boolean

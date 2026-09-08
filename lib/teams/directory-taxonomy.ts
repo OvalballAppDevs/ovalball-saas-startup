@@ -1,7 +1,13 @@
 import { fullTeamLabel, compactTeamLabel } from "./compact-label"
 
 /**
- * How the canonical Team Directory is grouped for a Site Admin to read.
+ * How team identities are grouped, wherever they are listed.
+ *
+ * Site Admin's Team Directory and a club's own Teams page use this same
+ * taxonomy, because they are looking at the same thing and a club reading
+ * "Minis, Juniors, Youth" in one place and an ungrouped list in the other is
+ * two products. One source for what a team is called, one for how teams are
+ * arranged.
  *
  * WHAT IS REGULATORY AND WHAT IS NOT
  *
@@ -27,7 +33,7 @@ import { fullTeamLabel, compactTeamLabel } from "./compact-label"
  * change, and the PRESENTATION_ONLY marker is how you will know it mattered.
  */
 
-export type DirectoryGroupKey = "minis" | "juniors" | "youth" | "girls" | "adultMen" | "adultWomen" | "retired"
+export type DirectoryGroupKey = "minis" | "juniors" | "youth" | "colts" | "mens" | "womens" | "girls" | "retired"
 
 export interface DirectoryGroup {
   key: DirectoryGroupKey
@@ -42,22 +48,27 @@ export const DIRECTORY_GROUPS: DirectoryGroup[] = [
   { key: "minis", title: "Minis", note: "Mixed rugby, played by boys and girls together.", presentationOnly: false },
   { key: "juniors", title: "Juniors", note: "The first age grades after mixed rugby separates.", presentationOnly: true },
   { key: "youth", title: "Youth", note: "The later age grades, up to the end of the youth pathway.", presentationOnly: true },
+  { key: "colts", title: "Colts", note: "The bridge between the youth pathway and senior rugby.", presentationOnly: false },
+  { key: "mens", title: "Men's", note: "Senior men's rugby.", presentationOnly: false },
+  { key: "womens", title: "Women's", note: "Senior women's rugby.", presentationOnly: false },
   { key: "girls", title: "Girls", note: "The girls pathway runs in its own age bands.", presentationOnly: false },
-  { key: "adultMen", title: "Adult Men", note: "Senior men's rugby.", presentationOnly: false },
-  { key: "adultWomen", title: "Adult Women", note: "Senior women's rugby.", presentationOnly: false },
   { key: "retired", title: "Retired", note: "No longer offered. Kept so existing history still resolves.", presentationOnly: false },
 ]
 
 /** PRESENTATION_ONLY. See the module comment: no governing body draws this line. */
 const JUNIOR_AGE_GRADES = new Set(["U12", "U13", "U14"])
 
+/**
+ * The shape both a canonical identity and a club's own team satisfy: the
+ * structured fields, and nothing else. A club team's squad letter goes in
+ * `squadDesignation` exactly as a canonical type's fixed designation does.
+ */
 export interface DirectoryIdentityRow {
   id: string
   category: string
   ageGroup: string | null
   gender: string | null
-  fixedSquadDesignation: string | null
-  allowsSquads: boolean
+  squadDesignation: string | null
   isActive: boolean
   sortOrder: number
 }
@@ -71,32 +82,41 @@ export interface DirectoryIdentity extends DirectoryIdentityRow {
 
 export function groupKeyFor(row: DirectoryIdentityRow): DirectoryGroupKey {
   if (!row.isActive) return "retired"
-  if (row.category === "senior") return row.gender === "womens" ? "adultWomen" : "adultMen"
+  if (row.category === "colts") return "colts"
+  if (row.category === "senior") return row.gender === "womens" ? "womens" : "mens"
   if (row.gender === "girls") return "girls"
   if (row.gender === "mixed") return "minis"
   return row.ageGroup && JUNIOR_AGE_GRADES.has(row.ageGroup) ? "juniors" : "youth"
 }
 
-export function presentIdentity(row: DirectoryIdentityRow, rugbyCode: "union" | "league"): DirectoryIdentity {
+export function presentIdentity(
+  row: DirectoryIdentityRow,
+  /** Null only where a club has no recorded code; the labels then fall back to their code-neutral form. */
+  rugbyCode: "union" | "league" | null | undefined,
+  /** A club may give a B or C squad its own name; the canonical identity is untouched. */
+  alias?: string | null
+): DirectoryIdentity {
   const input = {
     category: row.category,
     ageGroup: row.ageGroup,
     gender: row.gender,
-    squadDesignation: row.fixedSquadDesignation,
+    squadDesignation: row.squadDesignation,
     rugbyCode,
+    alias: alias ?? null,
   }
   return { ...row, compact: compactTeamLabel(input), display: fullTeamLabel(input) }
 }
 
-/** The directory, grouped and ordered for reading. Empty groups are dropped. */
+/** Grouped and ordered for reading. Empty groups are dropped. */
 export function buildDirectory(
   rows: DirectoryIdentityRow[],
-  rugbyCode: "union" | "league"
+  rugbyCode: "union" | "league" | null | undefined,
+  aliasById?: Map<string, string | null>
 ): { group: DirectoryGroup; identities: DirectoryIdentity[] }[] {
   const byKey = new Map<DirectoryGroupKey, DirectoryIdentity[]>()
   for (const row of [...rows].sort((a, b) => a.sortOrder - b.sortOrder)) {
     const key = groupKeyFor(row)
-    byKey.set(key, [...(byKey.get(key) ?? []), presentIdentity(row, rugbyCode)])
+    byKey.set(key, [...(byKey.get(key) ?? []), presentIdentity(row, rugbyCode, aliasById?.get(row.id))])
   }
   return DIRECTORY_GROUPS.filter((g) => (byKey.get(g.key) ?? []).length > 0).map((group) => ({
     group,

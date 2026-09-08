@@ -134,11 +134,11 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
   // never the raw, sometimes-stale teams.display_name overview.owning_
   // team_name/opponent_team_name carry.
   const owningTeamFullName = isHome
-    ? resolvedTeamName(overview.home_team_category, overview.home_team_age_group, overview.home_team_gender, overview.home_team_squad_designation, overview.owning_team_name, owningAlias)
-    : resolvedTeamName(overview.away_team_category, overview.away_team_age_group, overview.away_team_gender, overview.away_team_squad_designation, overview.owning_team_name, owningAlias)
+    ? resolvedTeamName({ category: overview.home_team_category, ageGroup: overview.home_team_age_group, gender: overview.home_team_gender, squadDesignation: overview.home_team_squad_designation, rugbyCode: overview.home_team_rugby_code, fallback: overview.owning_team_name, alias: owningAlias })
+    : resolvedTeamName({ category: overview.away_team_category, ageGroup: overview.away_team_age_group, gender: overview.away_team_gender, squadDesignation: overview.away_team_squad_designation, rugbyCode: overview.away_team_rugby_code, fallback: overview.owning_team_name, alias: owningAlias })
   const opponentTeamFullName = isHome
-    ? resolvedTeamName(overview.away_team_category, overview.away_team_age_group, overview.away_team_gender, overview.away_team_squad_designation, overview.opponent_team_name, opponentAlias)
-    : resolvedTeamName(overview.home_team_category, overview.home_team_age_group, overview.home_team_gender, overview.home_team_squad_designation, overview.opponent_team_name, opponentAlias)
+    ? resolvedTeamName({ category: overview.away_team_category, ageGroup: overview.away_team_age_group, gender: overview.away_team_gender, squadDesignation: overview.away_team_squad_designation, rugbyCode: overview.away_team_rugby_code, fallback: overview.opponent_team_name, alias: opponentAlias })
+    : resolvedTeamName({ category: overview.home_team_category, ageGroup: overview.home_team_age_group, gender: overview.home_team_gender, squadDesignation: overview.home_team_squad_designation, rugbyCode: overview.home_team_rugby_code, fallback: overview.opponent_team_name, alias: opponentAlias })
   const owningLogoUrl = overview.owning_club_logo_path
     ? supabase.storage.from("club-logos").getPublicUrl(overview.owning_club_logo_path).data.publicUrl
     : null

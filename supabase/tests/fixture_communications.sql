@@ -33,7 +33,7 @@ declare
   v_uMinor uuid := gen_random_uuid();         -- 12yo with a login
   v_uTeen uuid := gen_random_uuid();          -- 16yo with a login
   v_uAdult uuid := gen_random_uuid();         -- 19yo with a login
-  v_club uuid; v_other_club uuid; v_team uuid; v_mini_a uuid; v_mini_b uuid;
+  v_club uuid; v_other_club uuid; v_team uuid; v_mini_a uuid; v_mini_b uuid; v_unrelated_team uuid;
   v_group uuid; v_season uuid; v_dir uuid;
   v_fixture uuid; v_mini_fixture uuid; v_other_fixture uuid; v_empty_team uuid; v_source_team uuid;
   pA uuid; pB uuid; pC uuid; pD uuid; pE uuid; pF uuid;
@@ -59,7 +59,19 @@ begin
   end;
   select id into v_dir from public.club_directory where normalized_key <> 'ovalball-uat-rufc' limit 1;
   select id into v_season from public.seasons where starts_on <= current_date and ends_on >= current_date limit 1;
-  select c.id into v_other_club from public.clubs c where c.id <> v_club and c.status = 'active' limit 1;
+  -- The "other club" is created here too. It used to be whichever active club
+  -- came back first, which meant this suite's behaviour depended on what else
+  -- happened to exist in the database -- and it broke the moment that club's
+  -- first team turned out to be a girls side.
+  declare v_other_dir uuid;
+  begin
+    insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+    values ('Fixture Comms Other RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual',
+            'fixture-comms-other-'||substr(gen_random_uuid()::text,1,8))
+    returning id into v_other_dir;
+    insert into public.clubs (directory_id, slug, status)
+    values (v_other_dir,'fixture-comms-other-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_other_club;
+  end;
 
   for v_r in select unnest(array[v_coach, v_other_coach, v_stranger, v_gA, v_gD, v_gE1, v_gE2,
                                  v_gPending, v_gRejected, v_gUnrelated, v_uMinor, v_uTeen, v_uAdult]) as id loop
@@ -78,10 +90,10 @@ begin
   -- A B or C squad cannot sit at a level with no primary, so this suite stands
   -- one up rather than relying on a borrowed club having one.
   insert into public.teams (club_id, category, age_group, gender, rugby_code, created_by)
-  values (v_club, 'youth', 'U12', null, 'union', v_coach);
+  values (v_club, 'youth', 'U12', 'boys', 'union', v_coach);
 
   insert into public.teams (club_id, category, age_group, gender, squad_designation, rugby_code, created_by)
-  values (v_club, 'youth', 'U12', null, 'C', 'union', v_coach)
+  values (v_club, 'youth', 'U12', 'boys', 'C', 'union', v_coach)
   returning id into v_team;
 
   -- Players. DOBs chosen so the age bands are unambiguous.
@@ -100,9 +112,15 @@ begin
     insert into public.player_team_memberships (player_id, team_id, status) values (v_r.id, v_team, 'active');
   end loop;
   -- pF is NOT a member of this team; they arrive by call-up only.
-  -- pUnrelated belongs to another club entirely.
+  -- pUnrelated belongs to another club entirely. That club's team is created
+  -- here rather than borrowed with `limit 1`, which picked whichever row
+  -- happened to be first and broke the moment it landed on a girls side --
+  -- the point of this fixture is "a member of somewhere else", not "any team".
+  insert into public.teams (club_id, category, age_group, gender, rugby_code, created_by)
+  values (v_other_club, 'youth', 'U12', 'boys', 'union', v_coach)
+  returning id into v_unrelated_team;
   insert into public.player_team_memberships (player_id, team_id, status)
-  select pUnrelated, t.id, 'active' from public.teams t where t.club_id = v_other_club limit 1;
+  values (pUnrelated, v_unrelated_team, 'active');
 
   -- Guardians.
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values
@@ -130,7 +148,7 @@ begin
   -- the same club. The call-up domain refuses a forged source team, which is
   -- correct -- a called-up player is a real member of somewhere else.
   insert into public.teams (club_id, category, age_group, gender, squad_designation, rugby_code, created_by)
-  values (v_club, 'youth', 'U12', null, 'B', 'union', v_coach)
+  values (v_club, 'youth', 'U12', 'boys', 'B', 'union', v_coach)
   returning id into v_source_team;
   insert into public.player_team_memberships (player_id, team_id, status) values (pF, v_source_team, 'active');
   insert into public.fixture_player_call_up (fixture_id, player_id, source_team_id, target_team_id, status, eligibility_rule_reference)
@@ -393,7 +411,7 @@ begin
   -- An empty audience is reported honestly, never as "Sent". A brand-new
   -- team with no players is the realistic way this happens.
   insert into public.teams (club_id, category, age_group, gender, rugby_code, created_by)
-  values (v_club, 'youth', 'U14', null, 'union', v_coach)
+  values (v_club, 'youth', 'U14', 'boys', 'union', v_coach)
   returning id into v_empty_team;
   insert into public.fixtures (owning_team_id, opponent_directory_id, raw_opposition_text, kickoff_date, kickoff_time, home_away, status, season_id, created_by)
   values (v_empty_team, v_dir, 'Directory Opposition RFC', current_date + 8, '11:00', 'Home', 'Booked', v_season, v_coach)
@@ -452,10 +470,10 @@ begin
   -- U6/U7/U8 overlap.
   insert into public.teams (club_id, category, age_group, gender, rugby_code, created_by)
   values (v_club, 'youth', 'U7', 'mixed', 'union', v_coach) returning id into v_mini_a;
-  -- U8 already exists at this club, so the second component is U9 -- the
-  -- point is two DIFFERENT component teams in one group, not the labels.
+  -- The second component is U6: two DIFFERENT ages, both inside the tag band
+  -- (U6-U8) a Mini-Rugby Group is for. U9 is contact rugby and is refused.
   insert into public.teams (club_id, category, age_group, gender, rugby_code, created_by)
-  values (v_club, 'youth', 'U9', 'mixed', 'union', v_coach) returning id into v_mini_b;
+  values (v_club, 'youth', 'U6', 'mixed', 'union', v_coach) returning id into v_mini_b;
 
   insert into public.scheduling_groups (club_id, display_tag, season_id, created_by)
   values (v_club, 'Minis', v_season, v_coach) returning id into v_group;

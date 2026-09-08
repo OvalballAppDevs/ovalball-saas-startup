@@ -411,6 +411,23 @@ export async function setSchedulingGroupMembers(groupId: string, teamIds: string
   return { ok: true }
 }
 
+/**
+ * Removes a Mini-Rugby Group outright.
+ *
+ * Deactivating a group a club created by mistake leaves it on screen forever
+ * with nothing but a Reactivate button, which is not the same as being able to
+ * undo the mistake. The database refuses this once a fixture references the
+ * group, so history is never removed by it.
+ */
+export async function deleteSchedulingGroup(groupId: string): Promise<SaveClubProfileResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("delete_scheduling_group", { p_group_id: groupId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/club")
+  revalidatePath("/teams")
+  return { ok: true }
+}
+
 export async function setSchedulingGroupActive(groupId: string, active: boolean): Promise<SaveClubProfileResult> {
   const supabase = await createClient()
   const { error } = await supabase.rpc("set_scheduling_group_active", { p_group_id: groupId, p_active: active })

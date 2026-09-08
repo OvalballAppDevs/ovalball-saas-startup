@@ -1,13 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarRange, Pencil } from "lucide-react"
+import { CalendarRange, Pencil, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
 import { miniRugbyGroupLabel } from "@/lib/mini-rugby/group-label"
 
-import { createSchedulingGroup, setSchedulingGroupActive, setSchedulingGroupAlias, type SchedulingGroup, type SchedulingGroupMember } from "../club/actions"
+import {
+  createSchedulingGroup,
+  deleteSchedulingGroup,
+  setSchedulingGroupActive,
+  setSchedulingGroupAlias,
+  type SchedulingGroup,
+  type SchedulingGroupMember,
+} from "../club/actions"
 
 /**
  * U6/U7/U8 only, real team ids selected -- create_scheduling_group itself
@@ -39,6 +46,7 @@ export function MiniRugbyCalendarsSection({
   const [error, setError] = useState<string | null>(null)
   const [editingAliasId, setEditingAliasId] = useState<string | null>(null)
   const [aliasDraft, setAliasDraft] = useState("")
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null)
 
   const suggestedTag = eligibleAgesTag(selectedTeamIds, eligibleTeams)
 
@@ -70,6 +78,19 @@ export function MiniRugbyCalendarsSection({
       return
     }
     setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, active: !g.active } : g)))
+  }
+
+  async function handleRemove(group: SchedulingGroup) {
+    setPending(true)
+    setError(null)
+    const result = await deleteSchedulingGroup(group.id)
+    setPending(false)
+    setConfirmingRemoveId(null)
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
+    setGroups((prev) => prev.filter((g) => g.id !== group.id))
   }
 
   async function handleSaveAlias(group: SchedulingGroup) {
@@ -149,9 +170,40 @@ export function MiniRugbyCalendarsSection({
                 )}
               </div>
             </div>
-            <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0" disabled={pending} onClick={() => handleToggleActive(g)}>
-              {g.active ? "Deactivate" : "Reactivate"}
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button type="button" variant="ghost" size="sm" className="h-8" disabled={pending} onClick={() => handleToggleActive(g)}>
+                {g.active ? "Deactivate" : "Reactivate"}
+              </Button>
+              {confirmingRemoveId === g.id ? (
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    className="h-8"
+                    disabled={pending}
+                    onClick={() => handleRemove(g)}
+                  >
+                    Remove {miniRugbyGroupLabel(g)}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => setConfirmingRemoveId(null)}>
+                    Keep
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-ink-muted"
+                  aria-label={`Remove ${miniRugbyGroupLabel(g)}`}
+                  disabled={pending}
+                  onClick={() => setConfirmingRemoveId(g.id)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              )}
+            </div>
           </li>
         ))}
       </ul>

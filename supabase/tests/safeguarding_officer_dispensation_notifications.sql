@@ -29,11 +29,11 @@ begin
     (gen_random_uuid(), 'SG Officer Dispensation Test Club', 'Testville', 'Testshire', 'union', 'United Kingdom', 'England', true, 'unverified', 'site_admin_manual', 'sg-officer-disp-test-' || substr(gen_random_uuid()::text,1,8))
   returning id into v_directory;
   insert into public.clubs (id, directory_id, slug, status) values (gen_random_uuid(), v_directory, 'sg-officer-disp-test-' || substr(gen_random_uuid()::text,1,8), 'active') returning id into v_club;
-  insert into public.teams (id, club_id, rugby_code, category, age_group, display_name, slug, active) values
-    (gen_random_uuid(), v_club, 'union', 'youth', 'U14', 'SG Disp U14', 'sg-disp-u14-' || substr(gen_random_uuid()::text,1,8), true)
+  insert into public.teams (id, club_id, rugby_code, category, age_group, gender, display_name, slug, active) values
+    (gen_random_uuid(), v_club, 'union', 'youth', 'U14', 'boys', 'SG Disp U14', 'sg-disp-u14-' || substr(gen_random_uuid()::text,1,8), true)
   returning id into v_team_source;
-  insert into public.teams (id, club_id, rugby_code, category, age_group, display_name, slug, active) values
-    (gen_random_uuid(), v_club, 'union', 'youth', 'U16', 'SG Disp U16', 'sg-disp-u16-' || substr(gen_random_uuid()::text,1,8), true)
+  insert into public.teams (id, club_id, rugby_code, category, age_group, gender, display_name, slug, active) values
+    (gen_random_uuid(), v_club, 'union', 'youth', 'U16', 'boys', 'SG Disp U16', 'sg-disp-u16-' || substr(gen_random_uuid()::text,1,8), true)
   returning id into v_team_target;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data) values

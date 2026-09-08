@@ -16,6 +16,8 @@ export interface TeamSearchResult {
   gender: string | null
   teamNumber: number | null
   squadDesignation: string | null
+  /** The opponent's own code, so their senior side is named the way THEY name it. */
+  rugbyCode: string | null
 }
 
 export interface OpponentMatchResult {
@@ -77,6 +79,7 @@ export async function findMatchingOpponentTeamsForClub(owningTeamId: string, opp
     gender: t.gender,
     teamNumber: null,
     squadDesignation: t.squad_designation,
+    rugbyCode: t.rugby_code,
   })
 
   const allClubTeams = (clubTeams ?? []).map(toResult)

@@ -3,8 +3,16 @@ export interface CompactLabelInput {
   ageGroup: string | null
   gender: string | null
   squadDesignation: string | null
-  /** Union senior sides are numbered ("Men's 1st Team"); league runs Open Age. Defaults to union when a caller genuinely has no code to hand. */
-  rugbyCode?: "union" | "league" | null
+  /**
+   * Union senior sides are numbered ("Men's 1st Team"); league runs Open Age.
+   *
+   * Typed loosely on purpose: the value nearly always comes straight from
+   * `teams.rugby_code`, which the database already constrains to the two
+   * codes, and a caller forced to cast it is a caller tempted to omit it
+   * instead -- which is how a league club ended up being told it runs a
+   * "Men's 1st Team". Anything that is not league is named the union way.
+   */
+  rugbyCode?: string | null
   /** Club-specific display alias for a B/C squad (e.g. "Blacks") -- Overnight Master Pass Section 52. When present, replaces the squad LETTER in the label ("U12 Blacks", never "U12 B Blacks"); canonical identity (category/ageGroup/squadDesignation) is untouched, this only changes what's printed. */
   alias?: string | null
 }

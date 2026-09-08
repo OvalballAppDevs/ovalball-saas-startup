@@ -99,6 +99,7 @@ select c.id, 'union', 'youth', v.age_group, v.squad, true
 from public.clubs c
 cross join (values
   ('U12', null),
+  ('U7',  null),
   ('U8',  null),
   ('U8',  'B'),
   ('U16', null)
@@ -110,21 +111,28 @@ where c.slug = 'ovalball-uat-rufc'
       and t.squad_designation is not distinct from v.squad
   );
 
--- Mini-Rugby: U8A and U8B play as one scheduling group, so the fixture is
+-- Mini-Rugby: U7 and U8 play as one scheduling group, so the fixture is
 -- ONE physical row that both component teams legitimately reach.
+--
+-- Two DIFFERENT ages on purpose. A Mini-Rugby Group combines age grades --
+-- that is the whole point of the arrangement -- so a U8 + U8 B group was never
+-- a thing the product would create, and seeding one produced a group on screen
+-- that no club could have made. It also has to stay inside the tag band (U6-U8)
+-- in the group's own season, which is now a constraint trigger rather than a
+-- convention this file could sidestep by inserting members directly.
 insert into public.scheduling_groups (club_id, display_tag, active, season_id)
-select c.id, 'U8 Minis', true, s.id
+select c.id, 'U7/U8 Minis', true, s.id
 from public.clubs c
 cross join lateral (select id from public.seasons where rugby_code='union' and active order by starts_on desc limit 1) s
 where c.slug = 'ovalball-uat-rufc'
-  and not exists (select 1 from public.scheduling_groups g where g.club_id = c.id and g.display_tag = 'U8 Minis');
+  and not exists (select 1 from public.scheduling_groups g where g.club_id = c.id and g.display_tag = 'U7/U8 Minis');
 
 insert into public.scheduling_group_members (group_id, team_id)
 select g.id, t.id
 from public.scheduling_groups g
 join public.clubs c on c.id = g.club_id and c.slug = 'ovalball-uat-rufc'
-join public.teams t on t.club_id = c.id and t.age_group = 'U8'
-where g.display_tag = 'U8 Minis'
+join public.teams t on t.club_id = c.id and t.age_group in ('U7', 'U8') and t.squad_designation is null
+where g.display_tag = 'U7/U8 Minis'
 on conflict do nothing;
 
 -- ---------------------------------------------------------------------

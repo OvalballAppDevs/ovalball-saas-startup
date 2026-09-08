@@ -51,8 +51,8 @@ export async function buildFixtureCsv(supabase: SupabaseClient<Database>, rows: 
       owning_scheduling_group_id: row.owning_scheduling_group_id,
       opponent_scheduling_group_id: row.opponent_scheduling_group_id,
     })
-    const homeTeamName = (homeGroupId && groupLabelById.get(homeGroupId)) || resolvedTeamName(row.home_team_category, row.home_team_age_group, row.home_team_gender, row.home_team_squad_designation, row.home_team_name)
-    const awayTeamName = (awayGroupId && groupLabelById.get(awayGroupId)) || resolvedTeamName(row.away_team_category, row.away_team_age_group, row.away_team_gender, row.away_team_squad_designation, row.away_team_name)
+    const homeTeamName = (homeGroupId && groupLabelById.get(homeGroupId)) || resolvedTeamName({ category: row.home_team_category, ageGroup: row.home_team_age_group, gender: row.home_team_gender, squadDesignation: row.home_team_squad_designation, rugbyCode: row.home_team_rugby_code, fallback: row.home_team_name })
+    const awayTeamName = (awayGroupId && groupLabelById.get(awayGroupId)) || resolvedTeamName({ category: row.away_team_category, ageGroup: row.away_team_age_group, gender: row.away_team_gender, squadDesignation: row.away_team_squad_designation, rugbyCode: row.away_team_rugby_code, fallback: row.away_team_name })
     const competitionLabel = row.competition_name ? (row.season_canonical_name ? `${row.competition_name} · ${row.season_canonical_name}` : row.competition_name) : ""
     lines.push(
       [

@@ -14353,6 +14353,7 @@ export type Database = {
           away_team_gender: string | null
           away_team_id: string | null
           away_team_name: string | null
+          away_team_rugby_code: string | null
           away_team_squad_designation: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
@@ -14370,6 +14371,7 @@ export type Database = {
           home_team_gender: string | null
           home_team_id: string | null
           home_team_name: string | null
+          home_team_rugby_code: string | null
           home_team_squad_designation: string | null
           id: string | null
           is_primary_mirror: boolean | null
@@ -15350,6 +15352,128 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduling_group_membership: {
+        Row: {
+          age_group: string | null
+          category: string | null
+          club_id: string | null
+          display_name: string | null
+          gender: string | null
+          group_id: string | null
+          rugby_code: string | null
+          season_id: string | null
+          squad_designation: string | null
+          team_active: boolean | null
+          team_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduling_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "scheduling_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduling_group_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "scheduling_group_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "scheduling_group_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "scheduling_group_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "scheduling_group_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduling_groups_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "scheduling_groups_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "scheduling_groups_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "scheduling_groups_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "scheduling_groups_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "scheduling_groups_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "scheduling_groups_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "scheduling_groups_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduling_groups_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_result_stats: {
         Row: {
           drawn: number | null
@@ -16113,6 +16237,10 @@ export type Database = {
         Returns: string
       }
       delete_permission_group: {
+        Args: { p_group_id: string }
+        Returns: undefined
+      }
+      delete_scheduling_group: {
         Args: { p_group_id: string }
         Returns: undefined
       }

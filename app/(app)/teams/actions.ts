@@ -13,6 +13,15 @@ export interface CreateTeamInput {
   categoryLabel: string
   /** "B" or "C" for a genuine second/third team at that level; null for the base team. Ignored for senior options (fixed ordinal). */
   squadLetter: string | null
+  /**
+   * What the club calls this squad -- "Blacks" rather than "B". Optional, and
+   * only meaningful alongside a squad letter, since an alias replaces the
+   * letter in the label and never the age grade. Offered at creation because a
+   * club that names its squads knows the name when it adds the squad, and
+   * having to create "Under 12 Boys B" and then go and rename it is the club
+   * doing the product's filing for it.
+   */
+  alias?: string | null
 }
 
 /**
@@ -59,16 +68,20 @@ export async function createTeam(input: CreateTeamInput): Promise<CreateTeamResu
   }
   const fields = resolveStructuredFields(option, option.allowAdditionalSquads ? input.squadLetter : null)
 
-  const { error } = await supabase.from("teams").insert({
-    club_id: input.clubId,
-    rugby_code: rugbyCode,
-    category: fields.category,
-    age_group: fields.ageGroup,
-    squad_designation: fields.squadDesignation,
-    gender: fields.gender,
-    display_name: "pending",
-    slug: "pending",
-  })
+  const { data: created, error } = await supabase
+    .from("teams")
+    .insert({
+      club_id: input.clubId,
+      rugby_code: rugbyCode,
+      category: fields.category,
+      age_group: fields.ageGroup,
+      squad_designation: fields.squadDesignation,
+      gender: fields.gender,
+      display_name: "pending",
+      slug: "pending",
+    })
+    .select("id")
+    .maybeSingle()
 
   if (error) {
     if (error.code === "23505") {
@@ -78,6 +91,20 @@ export async function createTeam(input: CreateTeamInput): Promise<CreateTeamResu
       }
     }
     return { ok: false, error: error.message }
+  }
+
+  // The alias is a separate, authorised write (set_team_alias), never a column
+  // on this insert -- the canonical identity stays exactly what the catalogue
+  // said, and the alias only changes what is printed. A team created without
+  // one is complete; a failure here is reported rather than rolled back into
+  // "the team was not created", which would be untrue.
+  const alias = input.alias?.trim()
+  if (alias && created?.id) {
+    const { error: aliasError } = await supabase.rpc("set_team_alias", { p_team_id: created.id, p_alias: alias })
+    if (aliasError) {
+      revalidatePath("/teams")
+      return { ok: false, error: `${input.categoryLabel} was added, but its name could not be saved: ${aliasError.message}` }
+    }
   }
 
   revalidatePath("/teams")

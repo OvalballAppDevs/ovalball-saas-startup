@@ -83,7 +83,7 @@ async function resolveOwnTeam(
   const clubNameById = new Map(actor.clubs.map((c) => [c.clubId, c.clubName]))
   const scored = teams
     .map((t) => {
-      const label = fullTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation })
+      const label = fullTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, rugbyCode: t.rugby_code })
       const clubName = clubNameById.get(t.club_id) ?? ""
       // Include the club's own name in the haystack -- without it, a user
       // who administers more than one club (a real, tested scenario here)

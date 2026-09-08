@@ -43,13 +43,13 @@ export default async function TrainingManagementPage({ searchParams }: { searchP
 
   const [{ data: overviewRows }, { data: teamRows }, { data: venueRows }, { data: pitchRows }, { data: seasonRows }, { data: planRows }] = await Promise.all([
     supabase.rpc("get_training_management_overview", { p_club_id: clubId }),
-    supabase.from("teams").select("id, display_name, category, age_group, gender, squad_designation").eq("club_id", clubId).eq("active", true).order("display_name"),
+    supabase.from("teams").select("id, display_name, rugby_code, category, age_group, gender, squad_designation").eq("club_id", clubId).eq("active", true).order("display_name"),
     supabase.from("venues").select("id, name, active").or(`club_id.eq.${clubId},club_id.is.null`).eq("active", true).order("name"),
     supabase.from("club_pitches").select("id, display_name, venue_id, active").eq("club_id", clubId).eq("active", true).order("sort_order"),
     rugbyCode ? supabase.from("seasons").select("id, name, rugby_code, active").eq("rugby_code", rugbyCode).order("starts_on", { ascending: false }) : Promise.resolve({ data: [] }),
     supabase
       .from("training_plans")
-      .select("id, team_id, season_id, schedule_mode, preferred_venue_id, preferred_pitch_id, status, needs_attention_reason, teams(display_name, category, age_group, gender, squad_designation), venues(name), club_pitches(display_name), training_plan_schedule_rules(id, weekday, start_time, duration_minutes, starts_on, ends_on)")
+      .select("id, team_id, season_id, schedule_mode, preferred_venue_id, preferred_pitch_id, status, needs_attention_reason, teams(display_name, rugby_code, category, age_group, gender, squad_designation), venues(name), club_pitches(display_name), training_plan_schedule_rules(id, weekday, start_time, duration_minutes, starts_on, ends_on)")
       .eq("club_id", clubId)
       .order("created_at", { ascending: false }),
   ])
@@ -65,7 +65,7 @@ export default async function TrainingManagementPage({ searchParams }: { searchP
 
   const teams: TeamOption[] = (teamRows ?? []).map((t) => ({
     id: t.id,
-    label: fullTeamLabel({ category: t.category as "senior" | "youth" | "colts", ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation }),
+    label: fullTeamLabel({ category: t.category as "senior" | "youth" | "colts", ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, rugbyCode: t.rugby_code }),
   }))
   const venues: VenueOption[] = (venueRows ?? []).map((v) => ({ id: v.id, name: v.name }))
   const pitches: PitchOption[] = (pitchRows ?? []).map((p) => ({ id: p.id, displayName: p.display_name, venueId: p.venue_id }))
@@ -73,7 +73,7 @@ export default async function TrainingManagementPage({ searchParams }: { searchP
   const plans: PlanRow[] = (planRows ?? []).map((p) => ({
     id: p.id,
     teamId: p.team_id,
-    teamLabel: p.teams ? fullTeamLabel({ category: p.teams.category as "senior" | "youth" | "colts", ageGroup: p.teams.age_group, gender: p.teams.gender, squadDesignation: p.teams.squad_designation }) : "Unknown team",
+    teamLabel: p.teams ? fullTeamLabel({ category: p.teams.category as "senior" | "youth" | "colts", ageGroup: p.teams.age_group, gender: p.teams.gender, squadDesignation: p.teams.squad_designation, rugbyCode: p.teams.rugby_code }) : "Unknown team",
     seasonId: p.season_id,
     scheduleMode: p.schedule_mode as "SEASON" | "SEASON_PRE_SEASON" | "CUSTOM",
     venueId: p.preferred_venue_id,
@@ -111,7 +111,7 @@ export default async function TrainingManagementPage({ searchParams }: { searchP
   const upcomingWindowEndIso = upcomingWindowEnd.toISOString().slice(0, 10)
   let upcomingQuery = supabase
     .from("training_sessions")
-    .select("id, team_id, occurrence_date, start_time, duration_minutes, status, source, teams(display_name, category, age_group, gender, squad_designation), club_pitches(display_name), venues(name)")
+    .select("id, team_id, occurrence_date, start_time, duration_minutes, status, source, teams(display_name, rugby_code, category, age_group, gender, squad_designation), club_pitches(display_name), venues(name)")
     .eq("club_id", clubId)
     .neq("status", "CANCELLED")
     .gte("occurrence_date", todayIso)
@@ -124,7 +124,7 @@ export default async function TrainingManagementPage({ searchParams }: { searchP
 
   const upcomingSessions: UpcomingSession[] = (upcomingRows ?? []).map((s) => ({
     id: s.id,
-    teamLabel: s.teams ? fullTeamLabel({ category: s.teams.category as "senior" | "youth" | "colts", ageGroup: s.teams.age_group, gender: s.teams.gender, squadDesignation: s.teams.squad_designation }) : "Team",
+    teamLabel: s.teams ? fullTeamLabel({ category: s.teams.category as "senior" | "youth" | "colts", ageGroup: s.teams.age_group, gender: s.teams.gender, squadDesignation: s.teams.squad_designation, rugbyCode: s.teams.rugby_code }) : "Team",
     date: s.occurrence_date ?? "",
     startTime: s.start_time,
     durationMinutes: s.duration_minutes,

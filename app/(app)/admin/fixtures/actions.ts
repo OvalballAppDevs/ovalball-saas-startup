@@ -540,7 +540,7 @@ export async function getClubActiveTeams(clubId: string): Promise<OwningTeamOpti
 
   const { data } = await supabase
     .from("teams")
-    .select("id, category, age_group, gender, squad_designation")
+    .select("id, rugby_code, category, age_group, gender, squad_designation")
     .eq("club_id", clubId)
     .eq("active", true)
     .order("category")
@@ -548,7 +548,7 @@ export async function getClubActiveTeams(clubId: string): Promise<OwningTeamOpti
 
   return (data ?? []).map((t) => ({
     id: t.id,
-    label: fullTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation }),
+    label: fullTeamLabel({ category: t.category, ageGroup: t.age_group, gender: t.gender, squadDesignation: t.squad_designation, rugbyCode: t.rugby_code }),
   }))
 }
 

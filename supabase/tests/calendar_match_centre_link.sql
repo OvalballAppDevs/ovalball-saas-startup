@@ -58,8 +58,8 @@ begin
   returning id into v_opp_dir;
 
   insert into public.clubs (directory_id, slug, status) values (v_dir,'cmc-'||substr(gen_random_uuid()::text,1,8),'active') returning id into v_club;
-  insert into public.teams (club_id, rugby_code, category, age_group, active) values (v_club,'union','youth','U12',true) returning id into v_team;
-  insert into public.teams (club_id, rugby_code, category, age_group, squad_designation, active) values (v_club,'union','youth','U12','B',true) returning id into v_team_b;
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, active) values (v_club,'union','youth','U12','boys',true) returning id into v_team;
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, active) values (v_club,'union','youth','U12','boys','B',true) returning id into v_team_b;
 
   insert into public.players (first_name, surname, date_of_birth, active, playing_pathway) values ('CMC','Child','2014-05-01',true, 'MALE') returning id into v_player;
   insert into public.players (first_name, surname, date_of_birth, active, playing_pathway) values ('CMC','Unrelated','2014-05-01',true, 'MALE') returning id into v_other_player;

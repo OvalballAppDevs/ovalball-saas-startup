@@ -19,16 +19,25 @@ import type { AdminFixtureQuery, AdminFixtureRow } from "./types"
  * (an unresolved/external opponent) -- there's nothing structured to
  * derive from in that case.
  */
-export function resolvedTeamName(
-  category: string | null,
-  ageGroup: string | null,
-  gender: string | null,
-  squadDesignation: string | null,
-  fallback: string | null,
+export function resolvedTeamName(t: {
+  category: string | null
+  ageGroup: string | null
+  gender: string | null
+  squadDesignation: string | null
+  /** The side's OWN code. A league side is Men's Open Age; a union side is Men's 1st Team. */
+  rugbyCode: string | null
+  fallback: string | null
   alias?: string | null
-): string {
-  if (!category) return fallback ?? ""
-  return fullTeamLabel({ category, ageGroup, gender, squadDesignation, alias })
+}): string {
+  if (!t.category) return t.fallback ?? ""
+  return fullTeamLabel({
+    category: t.category,
+    ageGroup: t.ageGroup,
+    gender: t.gender,
+    squadDesignation: t.squadDesignation,
+    rugbyCode: t.rugbyCode,
+    alias: t.alias,
+  })
 }
 
 /**
@@ -122,18 +131,20 @@ export function mapAdminFixtureRow(row: Database["public"]["Views"]["admin_fixtu
     opponentTeamRugbyCode: row.opponent_team_rugby_code,
     homeClubName: row.home_club_name ?? "",
     homeTeamId: row.home_team_id,
-    homeTeamName: resolvedTeamName(row.home_team_category, row.home_team_age_group, row.home_team_gender, row.home_team_squad_designation, row.home_team_name),
+    homeTeamName: resolvedTeamName({ category: row.home_team_category, ageGroup: row.home_team_age_group, gender: row.home_team_gender, squadDesignation: row.home_team_squad_designation, rugbyCode: row.home_team_rugby_code, fallback: row.home_team_name }),
     homeTeamCategory: row.home_team_category,
     homeTeamAgeGroup: row.home_team_age_group,
     homeTeamGender: row.home_team_gender,
     homeTeamSquadDesignation: row.home_team_squad_designation,
+    homeTeamRugbyCode: row.home_team_rugby_code,
     awayClubName: row.away_club_name ?? "",
     awayTeamId: row.away_team_id,
-    awayTeamName: resolvedTeamName(row.away_team_category, row.away_team_age_group, row.away_team_gender, row.away_team_squad_designation, row.away_team_name),
+    awayTeamName: resolvedTeamName({ category: row.away_team_category, ageGroup: row.away_team_age_group, gender: row.away_team_gender, squadDesignation: row.away_team_squad_designation, rugbyCode: row.away_team_rugby_code, fallback: row.away_team_name }),
     awayTeamCategory: row.away_team_category,
     awayTeamAgeGroup: row.away_team_age_group,
     awayTeamGender: row.away_team_gender,
     awayTeamSquadDesignation: row.away_team_squad_designation,
+    awayTeamRugbyCode: row.away_team_rugby_code,
     homeClubLogoUrl: null,
     awayClubLogoUrl: null,
     homeClubResolved: row.home_club_resolved ?? true,
@@ -221,10 +232,10 @@ export async function attachTeamAliases(supabase: SupabaseClient<Database>, rows
   return rows.map((r) => ({
     ...r,
     homeTeamName: r.homeTeamId && aliasByTeamId.has(r.homeTeamId)
-      ? resolvedTeamName(r.homeTeamCategory, r.homeTeamAgeGroup, r.homeTeamGender, r.homeTeamSquadDesignation, r.homeTeamName, aliasByTeamId.get(r.homeTeamId))
+      ? resolvedTeamName({ category: r.homeTeamCategory, ageGroup: r.homeTeamAgeGroup, gender: r.homeTeamGender, squadDesignation: r.homeTeamSquadDesignation, rugbyCode: r.homeTeamRugbyCode, fallback: r.homeTeamName, alias: aliasByTeamId.get(r.homeTeamId) })
       : r.homeTeamName,
     awayTeamName: r.awayTeamId && aliasByTeamId.has(r.awayTeamId)
-      ? resolvedTeamName(r.awayTeamCategory, r.awayTeamAgeGroup, r.awayTeamGender, r.awayTeamSquadDesignation, r.awayTeamName, aliasByTeamId.get(r.awayTeamId))
+      ? resolvedTeamName({ category: r.awayTeamCategory, ageGroup: r.awayTeamAgeGroup, gender: r.awayTeamGender, squadDesignation: r.awayTeamSquadDesignation, rugbyCode: r.awayTeamRugbyCode, fallback: r.awayTeamName, alias: aliasByTeamId.get(r.awayTeamId) })
       : r.awayTeamName,
   }))
 }

@@ -4,6 +4,7 @@ import type { Database } from "@/types/database.types"
 
 import type { CompactLabelInput } from "./compact-label"
 import { fullTeamLabel, normalizedSquad } from "./compact-label"
+import { DIRECTORY_GROUPS, groupKeyFor } from "./directory-taxonomy"
 
 /**
  * The ONE canonical, CLOSED list of teams a club can run -- the same list
@@ -111,14 +112,23 @@ type CanonicalTeamTypeRow = Pick<
   "key" | "label" | "category" | "age_group" | "gender" | "fixed_squad_designation" | "allows_squads" | "sort_order"
 >
 
-const GROUP_ORDER = ["Mini & youth", "Youth", "Colts", "Senior men's", "Senior women's", "Girls"]
+// The SAME grouping Site Admin's Team Directory and a club's own Teams page
+// use. Add Team previously had its own third set of headings ("Mini & youth",
+// "Senior men's"), so a club saw its side filed under one word here and a
+// different word two screens away.
+const GROUP_ORDER = DIRECTORY_GROUPS.filter((g) => g.key !== "retired").map((g) => g.title)
 
 function groupLabelForRow(row: CanonicalTeamTypeRow): string {
-  if (row.category === "colts") return "Colts"
-  if (row.category === "senior") return row.gender === "womens" ? "Senior women's" : "Senior men's"
-  if (row.gender === "girls") return "Girls"
-  if (row.gender === "mixed") return "Mini & youth"
-  return "Youth"
+  const key = groupKeyFor({
+    id: row.key,
+    category: row.category,
+    ageGroup: row.age_group,
+    gender: row.gender,
+    squadDesignation: row.fixed_squad_designation,
+    isActive: true,
+    sortOrder: row.sort_order ?? 0,
+  })
+  return DIRECTORY_GROUPS.find((g) => g.key === key)?.title ?? "Youth"
 }
 
 /**

@@ -9,11 +9,22 @@ import type { TeamCategoryGroup, TeamOptionAvailability } from "@/lib/teams/cata
 import { createTeam } from "./actions"
 import { TeamCategoryPicker } from "./team-category-picker"
 
-export function CreateTeamForm({ clubId, groups, availability }: { clubId: string; groups: TeamCategoryGroup[]; availability: TeamOptionAvailability[] }) {
+export function CreateTeamForm({
+  clubId,
+  groups,
+  availability,
+  rugbyCode,
+}: {
+  clubId: string
+  groups: TeamCategoryGroup[]
+  availability: TeamOptionAvailability[]
+  rugbyCode?: string | null
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [categoryLabel, setCategoryLabel] = useState<string | null>(null)
   const [squadLetter, setSquadLetter] = useState<string | null>(null)
+  const [alias, setAlias] = useState("")
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
 
@@ -33,10 +44,11 @@ export function CreateTeamForm({ clubId, groups, availability }: { clubId: strin
     }
     setStatus("saving")
     setError(null)
-    const result = await createTeam({ clubId, categoryLabel, squadLetter })
+    const result = await createTeam({ clubId, categoryLabel, squadLetter, alias })
     if (result.ok) {
       setCategoryLabel(null)
       setSquadLetter(null)
+      setAlias("")
       setOpen(false)
       setStatus("idle")
       router.refresh()
@@ -60,12 +72,34 @@ export function CreateTeamForm({ clubId, groups, availability }: { clubId: strin
           categoryLabel={categoryLabel}
           squadLetter={squadLetter}
           availability={availability}
+          rugbyCode={rugbyCode}
           onChange={(label, letter) => {
             setCategoryLabel(label)
             setSquadLetter(letter)
+            if (!letter) setAlias("")
           }}
         />
       </div>
+
+      {squadLetter && (
+        <div className="mt-4">
+          <label htmlFor="team-alias" className="text-sm font-medium text-ink/80">
+            What does your club call this squad? <span className="font-normal text-ink-muted">(optional)</span>
+          </label>
+          <p className="mt-1 text-sm text-ink-muted">
+            Clubs often name their second and third squads rather than lettering them. A name replaces the letter
+            wherever the team is shown — &ldquo;{categoryLabel} Blacks&rdquo; instead of &ldquo;{categoryLabel}{" "}
+            {squadLetter}&rdquo;. You can change it later from the team&apos;s own page.
+          </p>
+          <input
+            id="team-alias"
+            value={alias}
+            onChange={(e) => setAlias(e.target.value)}
+            placeholder="e.g. Blacks"
+            className="mt-2 h-10 w-full max-w-xs rounded-lg border border-ink/15 px-3 text-sm outline-none focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"
+          />
+        </div>
+      )}
 
       {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
