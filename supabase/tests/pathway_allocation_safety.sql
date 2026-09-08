@@ -170,13 +170,42 @@ else
   raise notice 'FAIL 10: female resolved to [%]', coalesce(v_key,'nothing');
 end if;
 
-if (select proposed_team_id from public.age_grade_rollover_player_proposals where player_id=v_boy) = v_boys12
-   and (select proposed_team_id from public.age_grade_rollover_player_proposals where player_id=v_girl) = v_girls12 then
-  raise notice 'PASS 11: each child is proposed for the real operational team of their own pathway';
+-- Neither child is pointed at a team that will be the WRONG age next season.
+-- This club's U12 sides are themselves moving up -- boys to U13, girls to
+-- Girls U14 -- so nothing here will BE U12 when these children arrive, and the
+-- honest answer is that both need a team adding.
+if (select proposed_team_id from public.age_grade_rollover_player_proposals where player_id=v_boy) is null
+   and (select proposed_team_id from public.age_grade_rollover_player_proposals where player_id=v_girl) is null then
+  raise notice 'PASS 11: neither child is pointed at a side that will be the wrong age grade by the time they get there';
 else
   raise notice 'FAIL 11: boy proposed [%], girl proposed [%]',
     (select coalesce((select display_name from public.teams where id=pp.proposed_team_id),'null') from public.age_grade_rollover_player_proposals pp where pp.player_id=v_boy),
     (select coalesce((select display_name from public.teams where id=pp.proposed_team_id),'null') from public.age_grade_rollover_player_proposals pp where pp.player_id=v_girl);
+end if;
+
+-- Both are held for review with an actionable reason, and neither is
+-- cross-assigned to the other pathway's side.
+--
+-- NOTE a real limitation this exposes: provision_missing_placement_team cannot
+-- create next season's U12 here, because the club already runs a U12 TODAY --
+-- the cohort that is moving up to U13 -- and teams are identified by what they
+-- are now. Adding the missing side has to wait until that identity is vacated
+-- at Apply. The children are correctly held rather than misrouted, which is
+-- the property that matters; the provisioning timing is recorded as an open
+-- issue rather than worked around here.
+if (select review_state from public.age_grade_rollover_player_proposals where player_id=v_boy) = 'NEEDS_ATTENTION'
+   and (select review_state from public.age_grade_rollover_player_proposals where player_id=v_girl) = 'NEEDS_ATTENTION' then
+  raise notice 'PASS 11b: both children are held for a decision rather than placed somewhere approximate';
+else
+  raise notice 'FAIL 11b: a child was not held for review';
+end if;
+
+if (select normal_canonical_team_type_id from public.age_grade_rollover_player_proposals where player_id=v_boy)
+   is distinct from
+   (select normal_canonical_team_type_id from public.age_grade_rollover_player_proposals where player_id=v_girl) then
+  raise notice 'PASS 11c: their allocations remain DIFFERENT -- the split survives being held for review';
+else
+  raise notice 'FAIL 11c: both children resolved to the same identity';
 end if;
 
 select allocation_status into v_status from public.age_grade_rollover_player_proposals where player_id=v_unknown;
