@@ -66,7 +66,7 @@ export function FixtureDangerZone({ fixtureId, status, hasHistory }: { fixtureId
               />
               <div className="flex items-center gap-2">
                 <Button type="button" variant="destructive" className="h-9" disabled={cancelling} onClick={handleCancel}>
-                  {cancelling ? "Cancelling…" : "Confirm cancel"}
+                  {cancelling ? "Cancelling…" : "Confirm Cancel"}
                 </Button>
                 <Button type="button" variant="ghost" className="h-9" disabled={cancelling} onClick={() => setShowCancelForm(false)}>
                   Back
@@ -91,7 +91,7 @@ export function FixtureDangerZone({ fixtureId, status, hasHistory }: { fixtureId
         ) : (
           <div className="mt-3 flex items-center gap-2">
             <Button type="button" variant="destructive" className="h-9" disabled={deleting} onClick={handleDelete}>
-              {deleting ? "Deleting…" : "Confirm permanent delete"}
+              {deleting ? "Deleting…" : "Confirm Permanent Delete"}
             </Button>
             <Button type="button" variant="ghost" className="h-9" disabled={deleting} onClick={() => setDeleteOpen(false)}>
               Cancel

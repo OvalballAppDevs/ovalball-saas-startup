@@ -611,7 +611,7 @@ function ClaimForm({
 
           <div className="flex gap-3">
             <Button type="button" variant="outline" className="h-11 rounded-lg" onClick={onBack}>
-              Back to search
+              Back to Search
             </Button>
             <Button
               type="button"
@@ -663,13 +663,13 @@ function ClaimAuthorityNotice({
       </p>
       <div className="mt-4 flex flex-wrap gap-2.5">
         <Button type="button" variant="outline" className="h-10 rounded-lg" onClick={onChangeRole}>
-          Change my role
+          Change My Role
         </Button>
         <Button type="button" variant="outline" className="h-10 rounded-lg" onClick={onBack}>
-          Back to club search
+          Back to Club Search
         </Button>
         <Button type="button" variant="ghost" className="h-10 rounded-lg text-ink/60" onClick={onBack}>
-          I&apos;ll ask my club administrator
+          I&apos;ll Ask My Club Administrator
         </Button>
       </div>
     </div>
@@ -699,7 +699,7 @@ function JoinForm({
 
       <div className="flex gap-3">
         <Button type="button" variant="outline" className="h-11 rounded-lg" onClick={onBack}>
-          Back to search
+          Back to Search
         </Button>
         <Button
           type="button"
@@ -750,7 +750,7 @@ function NotFoundForm({
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="bio" className="text-sm leading-none font-medium text-ink/80">
-          Short description
+          Short Description
         </label>
         <textarea
           id="bio"
@@ -800,7 +800,7 @@ function NotFoundForm({
 
       <div className="flex gap-3">
         <Button type="button" variant="outline" className="h-11 rounded-lg" onClick={onBack}>
-          Back to search
+          Back to Search
         </Button>
         <Button
           type="button"

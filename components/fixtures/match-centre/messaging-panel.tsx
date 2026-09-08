@@ -55,7 +55,7 @@ export function MessagingPanel({ fixtureId, conversation, initialMessages }: { f
       {conversation.canPost && (
         <div className="mt-3 flex items-end gap-2">
           <label className="sr-only" htmlFor="mc-message-draft">
-            Write a message
+            Write a Message
           </label>
           <textarea
             id="mc-message-draft"

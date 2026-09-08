@@ -85,7 +85,7 @@ function SiblingRuleRow({ programmeId, clubId, ordinal, current }: { programmeId
         )}
       </div>
       <div>
-        <Label className="text-ink/80">Discount type</Label>
+        <Label className="text-ink/80">Discount Type</Label>
         <select
           value={discountType}
           onChange={(e) => setDiscountType(e.target.value as "NONE" | "PERCENTAGE" | "FIXED")}

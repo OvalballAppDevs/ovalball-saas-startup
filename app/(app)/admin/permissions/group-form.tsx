@@ -153,7 +153,7 @@ export function GroupForm({
 
           {!editing && scopeType === "club" && (
             <div>
-              <Label className="text-ink/80">Grants the real access level of</Label>
+              <Label className="text-ink/80">Grants the Real Access Level Of</Label>
               <div className="mt-1.5 flex flex-col gap-1.5">
                 {ROLE_OPTIONS.map((opt) => (
                   <label key={opt.value} className="flex items-start gap-2.5 rounded-lg border border-ink/10 bg-white p-3 text-sm">
@@ -170,7 +170,7 @@ export function GroupForm({
 
           {!editing && scopeType === "team" && (
             <div>
-              <Label className="text-ink/80">Grants the real team permission of</Label>
+              <Label className="text-ink/80">Grants the Real Team Permission Of</Label>
               <select
                 value={mapsToTeamPermission}
                 onChange={(e) => setMapsToTeamPermission(e.target.value as typeof mapsToTeamPermission)}
@@ -186,7 +186,7 @@ export function GroupForm({
           )}
 
           <div>
-            <Label className="text-ink/80">Documented capabilities</Label>
+            <Label className="text-ink/80">Documented Capabilities</Label>
             <p className="mt-0.5 text-xs text-ink-muted">
               What this group is documented to include -- for clarity, not the enforcement itself.
             </p>

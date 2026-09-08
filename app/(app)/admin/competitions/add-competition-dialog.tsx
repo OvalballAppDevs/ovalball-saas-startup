@@ -100,7 +100,7 @@ export function AddCompetitionDialog({ areas }: { areas: GeographicArea[] }) {
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="competition-description" className="text-ink/80">
-            Description (optional)
+            Description (Optional)
           </Label>
           <Input
             id="competition-description"
@@ -111,7 +111,7 @@ export function AddCompetitionDialog({ areas }: { areas: GeographicArea[] }) {
           />
         </div>
         <div>
-          <Label className="text-ink/80">Rugby code</Label>
+          <Label className="text-ink/80">Rugby Code</Label>
           <select
             value={rugbyCode}
             onChange={(e) => setRugbyCode(e.target.value as "union" | "league")}
@@ -137,7 +137,7 @@ export function AddCompetitionDialog({ areas }: { areas: GeographicArea[] }) {
         </div>
 
         <div className={`sm:col-span-2 ${isNational ? "pointer-events-none opacity-40" : ""}`}>
-          <Label className="text-ink/80">Counties / areas</Label>
+          <Label className="text-ink/80">Counties / Areas</Label>
           <div className="mt-1.5 max-h-64 overflow-y-auto rounded-lg border border-ink/15 bg-white p-3">
             {Array.from(areasByNation.entries()).map(([nation, list]) => (
               <div key={nation} className="mb-3 last:mb-0">

@@ -118,7 +118,7 @@ export function ScheduleTrainingDialog({
           </div>
           <div>
             <label htmlFor="training-pitch" className="text-sm font-medium text-ink/80">
-              Pitch (optional)
+              Pitch (Optional)
             </label>
             <select
               id="training-pitch"
@@ -136,7 +136,7 @@ export function ScheduleTrainingDialog({
           </div>
           <div>
             <label htmlFor="training-start-time" className="text-sm font-medium text-ink/80">
-              Start time
+              Start Time
             </label>
             <input
               id="training-start-time"
@@ -148,7 +148,7 @@ export function ScheduleTrainingDialog({
           </div>
           <div>
             <label htmlFor="training-end-time" className="text-sm font-medium text-ink/80">
-              End time
+              End Time
             </label>
             <input
               id="training-end-time"
@@ -160,7 +160,7 @@ export function ScheduleTrainingDialog({
           </div>
           <div className="sm:col-span-2">
             <label htmlFor="training-notes" className="text-sm font-medium text-ink/80">
-              Notes (optional)
+              Notes (Optional)
             </label>
             <input
               id="training-notes"

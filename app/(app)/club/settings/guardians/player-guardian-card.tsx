@@ -124,7 +124,7 @@ function GuardianRow({ guardian, onRemove }: { guardian: { id: string; name: str
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" className="h-10" />}>Cancel</DialogClose>
             <Button type="button" variant="destructive" className="h-10" disabled={removing || !reason.trim()} onClick={handleConfirm}>
-              {removing ? "Removing…" : "Remove guardian"}
+              {removing ? "Removing…" : "Remove Guardian"}
             </Button>
           </DialogFooter>
         </DialogContent>

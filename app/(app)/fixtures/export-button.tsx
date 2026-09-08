@@ -136,7 +136,7 @@ export function ExportClubFixturesButton() {
           </div>
           <div>
             <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor="export-filter-code">
-              Rugby code
+              Rugby Code
             </label>
             <select
               id="export-filter-code"

@@ -98,7 +98,7 @@ export function PlatformModePanel({
               </DialogHeader>
 
               <div className="space-y-2">
-                <Label htmlFor="mode-reason">Why this is happening</Label>
+                <Label htmlFor="mode-reason">Why This Is Happening</Label>
                 <textarea
                   id="mode-reason"
                   value={reason}

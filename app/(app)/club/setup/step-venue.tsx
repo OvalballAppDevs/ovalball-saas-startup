@@ -160,7 +160,7 @@ export function StepVenue({
       <div className="rounded-lg border border-ink/10 bg-white p-5 md:p-6">
         <div className="space-y-4">
           <div>
-            <Label htmlFor="venue-name">Ground name</Label>
+            <Label htmlFor="venue-name">Ground Name</Label>
             <Input
               id="venue-name"
               value={name}
@@ -194,7 +194,7 @@ export function StepVenue({
             <legend className="text-sm font-medium text-ink">Address</legend>
 
             <div>
-              <Label htmlFor="venue-line1">Street address</Label>
+              <Label htmlFor="venue-line1">Street Address</Label>
               <Input
                 id="venue-line1"
                 value={line1}
@@ -219,7 +219,7 @@ export function StepVenue({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <Label htmlFor="venue-town">Town or city</Label>
+                <Label htmlFor="venue-town">Town or City</Label>
                 <Input
                   id="venue-town"
                   value={town}

@@ -158,7 +158,7 @@ export function AgendaFilterSheet({
 
           <div className="mt-2 flex items-center gap-3">
             <Button type="submit" className="h-9">
-              Apply filters
+              Apply Filters
             </Button>
             <Button type="button" variant="ghost" className="h-9" nativeButton={false} render={<a href="/agenda" />}>
               Clear all

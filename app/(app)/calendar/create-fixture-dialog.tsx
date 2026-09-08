@@ -243,7 +243,7 @@ export function CreateFixtureDialog({
             <div className="mt-2 grid grid-cols-1 gap-4 rounded-lg border border-ink/10 bg-white p-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="cal-your-team" className="text-ink/80">
-                  Your team
+                  Your Team
                 </Label>
                 {teamOptions.length > 1 ? (
                   <select
@@ -278,7 +278,7 @@ export function CreateFixtureDialog({
             <div className="mt-2 flex flex-col gap-4 rounded-lg border border-ink/10 bg-white p-4">
               <div>
                 <Label htmlFor="cal-game-type" className="text-ink/80">
-                  Fixture type
+                  Fixture Type
                 </Label>
                 <select
                   id="cal-game-type"
@@ -342,7 +342,7 @@ export function CreateFixtureDialog({
             <div className="mt-2 flex flex-col gap-4 rounded-lg border border-ink/10 bg-white p-4">
               <div>
                 <Label htmlFor="cal-kickoff-time" className="text-ink/80">
-                  Kickoff time
+                  Kickoff Time
                 </Label>
                 <Input id="cal-kickoff-time" type="time" value={kickoffTime} onChange={(e) => setKickoffTime(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
               </div>
@@ -350,7 +350,7 @@ export function CreateFixtureDialog({
               {competitions.length > 0 && (
                 <div>
                   <Label htmlFor="cal-competition" className="text-ink/80">
-                    Competition (optional)
+                    Competition (Optional)
                   </Label>
                   <select
                     id="cal-competition"
@@ -371,7 +371,7 @@ export function CreateFixtureDialog({
               {homeAway === "home" && pitches.length > 0 && (
                 <div>
                   <Label htmlFor="cal-pitch" className="text-ink/80">
-                    Pitch / venue (optional)
+                    Pitch / Venue (Optional)
                   </Label>
                   <select
                     id="cal-pitch"
@@ -412,7 +412,7 @@ export function CreateFixtureDialog({
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="outline" className="h-10" />}>Cancel</DialogClose>
           <Button type="button" className="h-10" disabled={saving} onClick={handleCreate}>
-            {saving ? "Sending…" : "Propose fixture"}
+            {saving ? "Sending…" : "Propose Fixture"}
           </Button>
         </DialogFooter>
       </DialogContent>

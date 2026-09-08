@@ -211,7 +211,7 @@ export function ChangeAccessForm({
 
       <div className="flex items-center gap-3">
         <Button type="button" className="h-9" disabled={applying || !clubGroupId} onClick={handleApply}>
-          {applying ? "Applying…" : "Apply changes"}
+          {applying ? "Applying…" : "Apply Changes"}
         </Button>
         <Button type="button" variant="ghost" className="h-9" disabled={applying} onClick={onDone}>
           Cancel

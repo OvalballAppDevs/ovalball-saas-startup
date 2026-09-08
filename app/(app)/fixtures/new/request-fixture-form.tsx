@@ -190,7 +190,7 @@ export function RequestFixtureForm({
     <div className="rounded-lg border border-ink/10 bg-white p-6">
       <div>
         <Label htmlFor="opponent-search" className="text-ink/80">
-          Partner club
+          Partner Club
         </Label>
         {opponent && !editingOpponent ? (
           <div className="mt-1.5 flex items-center justify-between rounded-lg border border-ink/15 bg-mint-100/40 px-3.5 py-2.5">

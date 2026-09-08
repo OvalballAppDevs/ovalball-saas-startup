@@ -75,13 +75,13 @@ export function PricePanel({ programmeId, clubId, currentAmountMinor, priceHisto
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="new-amount" className="text-ink/80">
-                New monthly amount (£)
+                New Monthly Amount (£)
               </Label>
               <input id="new-amount" type="number" min="0.01" step="0.01" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600" />
             </div>
             <div>
               <Label htmlFor="effective-from" className="text-ink/80">
-                Effective from
+                Effective From
               </Label>
               <input id="effective-from" type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600" />
             </div>

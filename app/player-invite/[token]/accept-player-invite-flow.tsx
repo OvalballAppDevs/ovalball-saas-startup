@@ -42,7 +42,7 @@ export function AcceptPlayerInviteFlow({ token, playerFirstName }: { token: stri
   return (
     <div className="mt-8">
       <Button type="button" className="h-11 px-6" disabled={pending} onClick={handleAccept}>
-        {pending ? "Connecting…" : "Accept and connect"}
+        {pending ? "Connecting…" : "Accept and Connect"}
       </Button>
       {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
     </div>

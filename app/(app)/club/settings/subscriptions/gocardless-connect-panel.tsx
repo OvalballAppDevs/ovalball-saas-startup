@@ -164,7 +164,7 @@ export function GoCardlessConnectPanel({
           {error && <p className="mt-2 text-xs text-destructive-text">{error}</p>}
           <div className="mt-3 flex gap-2">
             <Button type="button" variant="destructive" className="h-9" onClick={handleDisconnect}>
-              Confirm disconnect
+              Confirm Disconnect
             </Button>
             <Button type="button" variant="ghost" className="h-9" onClick={() => setDisconnecting(false)}>
               Cancel

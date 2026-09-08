@@ -97,7 +97,7 @@ function CancelSessionDialog({ card, onClose, onCancelled }: { card: TrainingSes
         <p className="mt-2 text-sm text-ink/70">Any existing attendance responses will remain attached to the cancelled record for historical/audit purposes.</p>
 
         <label htmlFor="cancel-reason" className="mt-4 block text-sm font-medium text-ink/70">
-          Reason for cancellation
+          Reason for Cancellation
         </label>
         <textarea
           id="cancel-reason"
@@ -197,7 +197,7 @@ function DeleteTrainingPlanDialog({ card, onClose, onDeleted }: { card: Training
         )}
 
         <label htmlFor="delete-plan-reason" className="mt-4 block text-sm font-medium text-ink/70">
-          Reason for deleting training plan
+          Reason for Deleting Training Plan
         </label>
         <textarea
           id="delete-plan-reason"
@@ -265,7 +265,7 @@ function EditSessionDialog({ card, onClose, onSaved }: { card: TrainingSessionCa
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="edit-start-time" className="text-xs font-medium text-ink/60">
-              Start time
+              Start Time
             </label>
             <input
               id="edit-start-time"
@@ -277,7 +277,7 @@ function EditSessionDialog({ card, onClose, onSaved }: { card: TrainingSessionCa
           </div>
           <div>
             <label htmlFor="edit-duration" className="text-xs font-medium text-ink/60">
-              Duration (minutes)
+              Duration (Minutes)
             </label>
             <input
               id="edit-duration"
@@ -304,7 +304,7 @@ function EditSessionDialog({ card, onClose, onSaved }: { card: TrainingSessionCa
         />
 
         <label htmlFor="edit-notes" className="mt-4 block text-sm font-medium text-ink/70">
-          Notes for players and families
+          Notes for Players and Families
         </label>
         <textarea
           id="edit-notes"
@@ -327,7 +327,7 @@ function EditSessionDialog({ card, onClose, onSaved }: { card: TrainingSessionCa
             Cancel
           </Button>
           <Button type="button" className="h-9" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? "Saving…" : "Save Changes"}
           </Button>
         </div>
       </div>

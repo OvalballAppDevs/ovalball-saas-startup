@@ -158,7 +158,7 @@ export function AuthSecurityCheck({
               onClick={retry}
               className="font-medium underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
             >
-              Try again
+              Try Again
             </button>
           </>
         ) : (

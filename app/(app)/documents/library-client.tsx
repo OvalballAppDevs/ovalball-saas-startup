@@ -300,7 +300,7 @@ export function DocumentLibraryClient({
                 {movingDocId === d.id && (
                   <div className="mt-2.5 flex items-center gap-2 border-t border-ink/10 pt-2.5">
                     <label className="text-xs text-ink-muted" htmlFor={`move-${d.id}`}>
-                      Move to
+                      Move To
                     </label>
                     <select
                       id={`move-${d.id}`}

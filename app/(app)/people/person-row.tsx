@@ -104,7 +104,7 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
                 </DialogHeader>
                 <DialogFooter showCloseButton>
                   <Button variant="destructive" className="h-9" disabled={saving} onClick={handleRemove}>
-                    {saving ? "Removing…" : "Remove access"}
+                    {saving ? "Removing…" : "Remove Access"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

@@ -260,7 +260,7 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
               <>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <Label htmlFor={`first-${child.key}`}>First name</Label>
+                    <Label htmlFor={`first-${child.key}`}>First Name</Label>
                     <Input id={`first-${child.key}`} className="h-11" value={child.firstName} onChange={(e) => updateChild(child.key, { firstName: e.target.value })} />
                   </div>
                   <div>
@@ -268,7 +268,7 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
                     <Input id={`surname-${child.key}`} className="h-11" value={child.surname} onChange={(e) => updateChild(child.key, { surname: e.target.value })} />
                   </div>
                   <div>
-                    <Label htmlFor={`dob-${child.key}`}>Date of birth</Label>
+                    <Label htmlFor={`dob-${child.key}`}>Date of Birth</Label>
                     <Input id={`dob-${child.key}`} className="h-11" type="date" max={new Date().toISOString().slice(0, 10)} value={child.dateOfBirth} onChange={(e) => updateChild(child.key, { dateOfBirth: e.target.value })} />
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -372,14 +372,14 @@ function DoesNotLookRight({
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Button type="button" className="h-11" onClick={onCorrectDetails}>
-          Correct the details
+          Correct the Details
         </Button>
         <button
           type="button"
           onClick={onBack}
           className="min-h-11 text-sm text-ink-muted underline underline-offset-2 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
         >
-          The details are right, go back
+          The Details Are Right, Go Back
         </button>
       </div>
     </div>

@@ -90,7 +90,7 @@ export function ContactForm() {
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
-          <Label htmlFor={nameId}>Your name</Label>
+          <Label htmlFor={nameId}>Your Name</Label>
           <Input
             id={nameId}
             value={name}
@@ -101,7 +101,7 @@ export function ContactForm() {
           />
         </div>
         <div>
-          <Label htmlFor={emailId}>Email address</Label>
+          <Label htmlFor={emailId}>Email Address</Label>
           <Input
             id={emailId}
             type="email"
@@ -117,7 +117,7 @@ export function ContactForm() {
       </div>
 
       <div>
-        <Label htmlFor={reasonId}>Reason for contacting us</Label>
+        <Label htmlFor={reasonId}>Reason for Contacting Us</Label>
         <select
           id={reasonId}
           value={reason}

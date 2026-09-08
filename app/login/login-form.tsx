@@ -198,7 +198,7 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
         >
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={emailId} className="text-ink/80">
-              Email address
+              Email Address
             </Label>
             <Input
               id={emailId}

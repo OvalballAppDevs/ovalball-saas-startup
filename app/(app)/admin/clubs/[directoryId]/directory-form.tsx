@@ -60,12 +60,12 @@ export function DirectoryForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Label htmlFor="dir-name" className="text-ink/80">
-            Club name
+            Club Name
           </Label>
           <Input id="dir-name" {...field("name")} className="mt-1.5 h-11 border-ink/15 bg-white" />
         </div>
         <div>
-          <Label className="text-ink/80">Rugby code</Label>
+          <Label className="text-ink/80">Rugby Code</Label>
           <div className="mt-1.5 flex h-11 items-center justify-between rounded-lg border border-ink/15 bg-ink/[0.02] px-3.5">
             <span className="text-base text-ink">{form.rugbyCode === "union" ? "Rugby Union" : "Rugby League"}</span>
             <RugbyCodeCorrectionDialog
@@ -127,7 +127,7 @@ export function DirectoryForm({
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="dir-home-ground" className="text-ink/80">
-            Home ground
+            Home Ground
           </Label>
           <Input id="dir-home-ground" {...field("homeGround")} className="mt-1.5 h-11 border-ink/15 bg-white" />
         </div>
@@ -153,13 +153,13 @@ export function DirectoryForm({
         </div>
         <div>
           <Label htmlFor="dir-email" className="text-ink/80">
-            Official email
+            Official Email
           </Label>
           <Input id="dir-email" type="email" {...field("officialEmail")} className="mt-1.5 h-11 border-ink/15 bg-white" />
         </div>
         <div>
           <Label htmlFor="dir-facebook" className="text-ink/80">
-            Facebook page
+            Facebook Page
           </Label>
           <Input
             id="dir-facebook"
@@ -175,7 +175,7 @@ export function DirectoryForm({
             underneath. Nothing here creates a clubs row. */}
         <div className="sm:col-span-2">
           <Label htmlFor="dir-bio" className="text-ink/80">
-            About the club
+            About the Club
           </Label>
           <textarea
             id="dir-bio"
@@ -191,7 +191,7 @@ export function DirectoryForm({
         </div>
         <div>
           <Label htmlFor="dir-verification" className="text-ink/80">
-            Directory data source status
+            Directory Data Source Status
           </Label>
           <Input id="dir-verification" {...field("verificationStatus")} className="mt-1.5 h-11 border-ink/15 bg-white" />
           <p className="mt-1.5 text-xs text-ink-muted">
@@ -206,7 +206,7 @@ export function DirectoryForm({
             governing body into existence. */}
         <div>
           <Label htmlFor="dir-constituent" className="text-ink/80">
-            Constituent body
+            Constituent Body
           </Label>
           {form.rugbyCode === "union" ? (
             <>
@@ -246,7 +246,7 @@ export function DirectoryForm({
             never merely that an import ran or a Constituent Body matched. */}
         <div>
           <Label htmlFor="dir-admin-verification" className="text-ink/80">
-            Site Admin verification
+            Site Admin Verification
           </Label>
           <select
             id="dir-admin-verification"

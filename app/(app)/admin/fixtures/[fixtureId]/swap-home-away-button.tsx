@@ -55,7 +55,7 @@ export function SwapHomeAwayButton({ fixtureId, homeTeamName, awayTeamName, canS
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>Cancel</DialogClose>
           <Button type="button" className="h-9" disabled={working} onClick={handleConfirm}>
-            {working ? "Swapping…" : "Swap home/away"}
+            {working ? "Swapping…" : "Swap Home/Away"}
           </Button>
         </DialogFooter>
       </DialogContent>

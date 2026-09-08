@@ -295,7 +295,7 @@ function MoveFixtureDialog({
         </div>
         <div className="mt-3">
           <label htmlFor="move-time" className="text-xs font-medium text-ink/60">
-            Kick-off time
+            Kick-Off Time
           </label>
           <input
             id="move-time"
@@ -789,7 +789,7 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
           </Button>
           <div className="mx-1 h-6 w-px bg-ink/10" aria-hidden="true" />
           <Button type="button" variant="ghost" className="h-9" onClick={handleDiscardChanges} disabled={!isDirty || saving}>
-            Discard changes
+            Discard Changes
           </Button>
           <Button
             type="button"

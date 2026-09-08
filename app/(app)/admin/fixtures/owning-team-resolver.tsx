@@ -164,7 +164,7 @@ export function OwningTeamResolver({
       <div className="flex items-center justify-between">
         <Label className="text-ink/80">Team</Label>
         <button type="button" onClick={reset} className="text-xs font-medium text-ink-muted underline hover:text-ink">
-          Change club
+          Change Club
         </button>
       </div>
       {loadingTeams ? (

@@ -54,7 +54,7 @@ export function CompleteProfileForm() {
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={firstId} className="text-ink/80">
-            First name
+            First Name
           </Label>
           <Input
             id={firstId}

@@ -53,7 +53,7 @@ export function AccountStatusControl({ userId, userName, status, isSelf }: { use
 
       {current === "suspended" ? (
         <Button type="button" variant="outline" className="mt-3 h-9" disabled={working} onClick={handleReactivate}>
-          {working ? "Working…" : "Reactivate account"}
+          {working ? "Working…" : "Reactivate Account"}
         </Button>
       ) : isSelf ? (
         <p className="mt-3 text-xs text-ink-muted">You cannot suspend your own account.</p>
@@ -65,7 +65,7 @@ export function AccountStatusControl({ userId, userName, status, isSelf }: { use
         <div className="mt-3 flex items-center gap-2">
           <span className="text-sm text-ink/60">Suspend {userName}&apos;s account?</span>
           <Button type="button" variant="destructive" className="h-9" disabled={working} onClick={handleSuspend}>
-            {working ? "Suspending…" : "Confirm suspend"}
+            {working ? "Suspending…" : "Confirm Suspend"}
           </Button>
           <Button type="button" variant="ghost" className="h-9" disabled={working} onClick={() => setConfirming(false)}>
             Cancel

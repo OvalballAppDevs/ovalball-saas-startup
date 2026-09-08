@@ -109,7 +109,7 @@ export function PolicyPanel({
       {editing && (
         <div className="mt-4 flex items-center gap-2">
           <Button type="button" size="sm" className="h-9" disabled={pending} onClick={handleSave}>
-            {pending ? "Saving…" : "Save global policy"}
+            {pending ? "Saving…" : "Save Global Policy"}
           </Button>
           <Button
             type="button"

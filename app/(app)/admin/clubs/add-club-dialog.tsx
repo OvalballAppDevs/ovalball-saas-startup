@@ -114,7 +114,7 @@ export function AddClubDialog() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label htmlFor="add-name" className="text-ink/80">
-                  Club name
+                  Club Name
                 </Label>
                 <Input
                   id="add-name"
@@ -126,7 +126,7 @@ export function AddClubDialog() {
               </div>
               <div>
                 <Label htmlFor="add-code" className="text-ink/80">
-                  Rugby code
+                  Rugby Code
                 </Label>
                 <select
                   id="add-code"
@@ -202,7 +202,7 @@ export function AddClubDialog() {
               </div>
               <div>
                 <Label htmlFor="add-email" className="text-ink/80">
-                  Official email
+                  Official Email
                 </Label>
                 <Input
                   id="add-email"
@@ -269,7 +269,7 @@ export function AddClubDialog() {
                 Back
               </Button>
               <Button type="button" variant="destructive" className="h-10 flex-1" disabled={creating} onClick={handleCreate}>
-                {creating ? "Creating…" : "Create anyway"}
+                {creating ? "Creating…" : "Create Anyway"}
               </Button>
             </div>
             <p className="text-xs text-ink-muted">

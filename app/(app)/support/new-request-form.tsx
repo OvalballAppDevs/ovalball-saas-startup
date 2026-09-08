@@ -51,7 +51,7 @@ export function NewSupportRequestForm({ onCreated }: { onCreated: (id: string, r
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div>
-        <Label htmlFor="support-category">Nature of query</Label>
+        <Label htmlFor="support-category">Nature of Query</Label>
         <select
           id="support-category"
           value={category}
@@ -103,7 +103,7 @@ export function NewSupportRequestForm({ onCreated }: { onCreated: (id: string, r
       {error && <p className="text-sm text-destructive-text">{error}</p>}
 
       <Button type="submit" disabled={submitting} className="h-11">
-        {submitting ? "Submitting…" : "Submit request"}
+        {submitting ? "Submitting…" : "Submit Request"}
       </Button>
     </form>
   )

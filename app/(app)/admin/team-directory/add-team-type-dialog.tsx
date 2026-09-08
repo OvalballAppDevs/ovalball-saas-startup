@@ -128,7 +128,7 @@ export function AddTeamTypeDialog({ rugbyCode }: { rugbyCode: "union" | "league"
         {category === "youth" && (
           <>
             <div>
-              <Label className="text-ink/80">Age group</Label>
+              <Label className="text-ink/80">Age Group</Label>
               <select
                 value={ageGroup}
                 onChange={(e) => {

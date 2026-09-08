@@ -120,7 +120,7 @@ export function TeamLifecycleSection({ team }: { team: TeamLifecycleData }) {
                 <DialogFooter>
                   <DialogClose render={<Button type="button" variant="outline" className="h-10" />}>Cancel</DialogClose>
                   <Button type="button" variant="destructive" className="h-10" disabled={folding || !reason.trim()} onClick={handleFold}>
-                    {folding ? "Folding…" : "Fold team"}
+                    {folding ? "Folding…" : "Fold Team"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

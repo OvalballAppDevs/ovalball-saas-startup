@@ -100,7 +100,7 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="edit-date" className="text-ink/80">
-            Kickoff date
+            Kickoff Date
           </Label>
           <Input
             id="edit-date"
@@ -112,7 +112,7 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
         </div>
         <div>
           <Label htmlFor="edit-time" className="text-ink/80">
-            Kickoff time
+            Kickoff Time
           </Label>
           <Input
             id="edit-time"
@@ -127,7 +127,7 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="edit-home-away" className="text-ink/80">
-            Venue side
+            Venue Side
           </Label>
           {/* Home <-> Away is deliberately NOT offered here -- that specific
               transition needs to atomically flip owning/opponent team_id and
@@ -169,7 +169,7 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="edit-game-type" className="text-ink/80">
-            Game type
+            Game Type
           </Label>
           <select
             id="edit-game-type"

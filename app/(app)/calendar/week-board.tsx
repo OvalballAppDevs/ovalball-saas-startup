@@ -716,7 +716,7 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
                 {inviteError && <p className="text-sm text-destructive-text">{inviteError}</p>}
                 <div className="flex items-center gap-2">
                   <Button type="button" className="h-9" disabled={inviting || !hostIdentity} onClick={handleSendInvites}>
-                    {inviting ? "Sending…" : "Send invite(s)"}
+                    {inviting ? "Sending…" : "Send Invite(s)"}
                   </Button>
                   <button
                     type="button"

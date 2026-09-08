@@ -253,7 +253,7 @@ export function OpponentResolver({
         </div>
         <div className="mt-2">
           <Label htmlFor="opposition-text-unactivated" className="text-ink/80">
-            Team description
+            Team Description
           </Label>
           <Input
             id="opposition-text-unactivated"
@@ -270,7 +270,7 @@ export function OpponentResolver({
   if (!selectedClub) {
     return (
       <div>
-        <Label className="text-ink/80">Opponent club</Label>
+        <Label className="text-ink/80">Opponent Club</Label>
         <input
           type="text"
           value={clubQuery}
@@ -300,7 +300,7 @@ export function OpponentResolver({
         )}
         <div className="mt-2">
           <Label htmlFor="opposition-text" className="text-ink/80">
-            Or describe an external/unresolved opposition
+            Or Describe an External/Unresolved Opposition
           </Label>
           <Input
             id="opposition-text"
@@ -319,7 +319,7 @@ export function OpponentResolver({
       <div className="flex items-center justify-between">
         <Label className="text-ink/80">Opponent</Label>
         <button type="button" onClick={reset} className="text-xs font-medium text-ink-muted underline hover:text-ink">
-          Change club
+          Change Club
         </button>
       </div>
 
@@ -379,7 +379,7 @@ export function OpponentResolver({
                   {selectedClub.clubName} does not currently have {requestingIdentity.ageGroup} active on Ovalball.
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Label className="text-ink/80">Requesting team plays</Label>
+                  <Label className="text-ink/80">Requesting Team Plays</Label>
                   {eligibleAges.length > 1 ? (
                     <select
                       value={currentAge}
@@ -438,7 +438,7 @@ export function OpponentResolver({
           })()}
           <div className="mt-3">
             <Label htmlFor="opposition-text-noteam" className="text-ink/80">
-              Or leave the team unresolved
+              Or Leave the Team Unresolved
             </Label>
             <Input
               id="opposition-text-noteam"

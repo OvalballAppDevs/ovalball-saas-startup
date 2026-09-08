@@ -25,7 +25,7 @@ export function DiagnosticBanner({ diagnosticClub }: { diagnosticClub: Diagnosti
           type="submit"
           className="rounded-md border border-amber-950/25 bg-amber-950/10 px-3 py-1 text-sm font-medium text-amber-950 outline-none transition-colors hover:bg-amber-950/20 focus-visible:ring-2 focus-visible:ring-amber-950/50"
         >
-          Exit diagnostic view
+          Exit Diagnostic View
         </button>
       </form>
     </div>

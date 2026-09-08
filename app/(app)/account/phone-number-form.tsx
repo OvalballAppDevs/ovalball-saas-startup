@@ -34,7 +34,7 @@ export function PhoneNumberForm({ initialPhone }: { initialPhone: string | null 
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Label htmlFor="phone-number" className="sr-only">
-          Telephone number
+          Telephone Number
         </Label>
         <Input
           id="phone-number"

@@ -87,7 +87,7 @@ export function PitchAllocationSettingsForm({ clubId, initial }: { clubId: strin
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="warm-up" className="text-ink/80">
-              Warm-up time
+              Warm-Up Time
             </Label>
             <select
               id="warm-up"
@@ -104,7 +104,7 @@ export function PitchAllocationSettingsForm({ clubId, initial }: { clubId: strin
           </div>
           <div>
             <Label htmlFor="pack-up" className="text-ink/80">
-              Pack-up time
+              Pack-Up Time
             </Label>
             <select
               id="pack-up"

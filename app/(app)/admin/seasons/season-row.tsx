@@ -113,15 +113,15 @@ export function SeasonRow({ season }: { season: SeasonRowData }) {
         <td colSpan={2} className="px-4 py-3 align-top">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="text-xs font-medium text-ink/60">Pre-season starts</label>
+              <label className="text-xs font-medium text-ink/60">Pre-Season Starts</label>
               <Input type="date" value={preSeasonStartsOn} onChange={(e) => setPreSeasonStartsOn(e.target.value)} className="mt-1 h-9 border-ink/15 bg-white text-sm" />
             </div>
             <div>
-              <label className="text-xs font-medium text-ink/60">Main starts</label>
+              <label className="text-xs font-medium text-ink/60">Main Starts</label>
               <Input type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} className="mt-1 h-9 border-ink/15 bg-white text-sm" />
             </div>
             <div>
-              <label className="text-xs font-medium text-ink/60">Main ends</label>
+              <label className="text-xs font-medium text-ink/60">Main Ends</label>
               <Input type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} className="mt-1 h-9 border-ink/15 bg-white text-sm" />
             </div>
           </div>

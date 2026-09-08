@@ -74,12 +74,12 @@ export function ClubMapCard({ club, dense = false }: { club: MapClub; dense?: bo
         <div className="flex flex-wrap items-center gap-2">
           {localStatus === "none" && (
             <Button type="button" size="sm" className="h-9" disabled={requesting} onClick={handleRequest}>
-              {requesting ? "Sending…" : "Request partnership"}
+              {requesting ? "Sending…" : "Request Partnership"}
             </Button>
           )}
           {localStatus === "pending_outgoing" && (
             <Button type="button" size="sm" variant="outline" className="h-9" disabled>
-              Request sent
+              Request Sent
             </Button>
           )}
           {localStatus === "pending_incoming" && (

@@ -140,7 +140,7 @@ export function TeamConfirmation({
 
       <div className="mt-6 flex flex-col gap-3">
         <Button type="button" className="h-11 w-full sm:w-auto sm:self-start sm:px-8" disabled={confirming} onClick={onConfirm}>
-          {confirming ? "Sending request…" : "Confirm team"}
+          {confirming ? "Sending Request…" : "Confirm Team"}
         </Button>
         {/*
           Deliberately quiet, and deliberately NOT a team dropdown. Picking a
@@ -152,7 +152,7 @@ export function TeamConfirmation({
           onClick={onDoesNotLookRight}
           className="min-h-11 self-start text-sm text-ink-muted underline underline-offset-2 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
         >
-          This doesn&apos;t look right
+          This Doesn&apos;t Look Right
         </button>
       </div>
 
@@ -232,7 +232,7 @@ function UnresolvedAllocation({
         onClick={onFix}
         className="mt-5 min-h-11 text-sm text-forest-800 underline underline-offset-2 outline-none hover:text-forest-950 focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
-        Check the player&apos;s details
+        Check the Player&apos;s Details
       </button>
     </div>
   )

@@ -46,7 +46,7 @@ export function GuardianInviteFlow({ token, invitationId, teamLabel, alreadyAcce
     return (
       <div>
         <Button type="button" className="h-11 px-6" disabled={accepting} onClick={handleAccept}>
-          {accepting ? "Accepting…" : "Accept invitation"}
+          {accepting ? "Accepting…" : "Accept Invitation"}
         </Button>
         {acceptError && <p className="mt-3 text-sm text-destructive-text">{acceptError}</p>}
       </div>
@@ -89,7 +89,7 @@ function ConfirmReplacementStep({ invitationId, playerId, playerFirstName }: { i
         </div>
         <Link href="/dashboard" className="mt-4 inline-block">
           <Button type="button" className="h-10">
-            Go to my dashboard
+            Go to My Dashboard
           </Button>
         </Link>
       </div>
@@ -160,11 +160,11 @@ function AddPlayerForm({ invitationId, teamLabel }: { invitationId: string; team
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button type="button" variant="outline" className="h-10" onClick={addAnother}>
-            Add another child
+            Add Another Child
           </Button>
           <Link href="/dashboard">
             <Button type="button" className="h-10">
-              Go to my dashboard
+              Go to My Dashboard
             </Button>
           </Link>
         </div>
@@ -179,11 +179,11 @@ function AddPlayerForm({ invitationId, teamLabel }: { invitationId: string; team
         <p className="mt-1 text-sm text-ink/60">The club needs to confirm a detail before this player is linked to your account. They&apos;ll be in touch, or you can check back on your dashboard shortly.</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button type="button" variant="outline" className="h-10" onClick={addAnother}>
-            Add another child
+            Add Another Child
           </Button>
           <Link href="/dashboard">
             <Button type="button" className="h-10">
-              Go to my dashboard
+              Go to My Dashboard
             </Button>
           </Link>
         </div>
@@ -199,7 +199,7 @@ function AddPlayerForm({ invitationId, teamLabel }: { invitationId: string; team
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="player-first-name" className="text-ink/80">
-            First name
+            First Name
           </Label>
           <Input id="player-first-name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} className="mt-1.5 h-11 border-ink/15 bg-white" />
         </div>
@@ -213,7 +213,7 @@ function AddPlayerForm({ invitationId, teamLabel }: { invitationId: string; team
 
       <div className="mt-4">
         <Label htmlFor="player-dob" className="text-ink/80">
-          Date of birth
+          Date of Birth
         </Label>
         <Input id="player-dob" type="date" required value={dob} onChange={(e) => setDob(e.target.value)} max={new Date().toISOString().slice(0, 10)} className="mt-1.5 h-11 w-full border-ink/15 bg-white sm:w-56" />
         <p className="mt-1.5 text-xs text-ink-muted">Used only to determine age-appropriate access and eligibility rules.</p>

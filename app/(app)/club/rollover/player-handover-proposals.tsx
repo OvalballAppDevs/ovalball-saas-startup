@@ -176,7 +176,7 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
 
         <div className="mt-3.5 flex flex-wrap items-center gap-2">
           <label className="sr-only" htmlFor="player-search">
-            Search players by name
+            Search Players by Name
           </label>
           <input
             id="player-search"
@@ -389,7 +389,7 @@ function PlayerDetail({
       <div className="flex flex-wrap gap-2">
         {!row.placementApplied && (
           <Button type="button" variant="outline" className="h-11" onClick={onChoose} disabled={pending}>
-            Change placement
+            Change Placement
           </Button>
         )}
 

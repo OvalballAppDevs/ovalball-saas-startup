@@ -161,7 +161,7 @@ export function OfficerRow({
           )}
           {canManageContact && officer.status === "invite_sent" && (
             <Button type="button" variant="outline" size="sm" className="h-8" disabled={working} onClick={handleResend}>
-              Resend invite
+              Resend Invite
             </Button>
           )}
           {canManageContact && officer.status === "invite_sent" && officer.pendingInvitationId && (
@@ -181,7 +181,7 @@ export function OfficerRow({
           )}
           {canManageContact && officer.status !== "inactive" && (
             <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" disabled={working} onClick={handleDeactivate}>
-              Remove assignment
+              Remove Assignment
             </Button>
           )}
         </div>
@@ -230,7 +230,7 @@ function RevokeInviteButton({ invitationId, disabled }: { invitationId: string; 
   return (
     <>
       <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" disabled={disabled || working} onClick={handleRevoke}>
-        Revoke invite
+        Revoke Invite
       </Button>
       {error && <span className="text-xs text-destructive-text">{error}</span>}
     </>

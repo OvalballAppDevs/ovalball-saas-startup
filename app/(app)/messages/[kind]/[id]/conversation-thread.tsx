@@ -382,7 +382,7 @@ function MessageActions({ message, onDeleted }: { message: ThreadMessage; onDele
         {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
         <div className="mt-1.5 flex items-center gap-3">
           <button type="button" disabled={working || !reason.trim()} onClick={handleReport} className="text-xs font-medium text-destructive-text disabled:opacity-50">
-            {working ? "Sending…" : "Send report"}
+            {working ? "Sending…" : "Send Report"}
           </button>
           <button type="button" onClick={() => setMode("idle")} className="text-xs text-ink-muted hover:text-ink/70">
             Cancel

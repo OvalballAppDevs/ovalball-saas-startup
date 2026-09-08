@@ -256,7 +256,7 @@ function VenuesTab({
                       <Input value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1.5 h-9 border-ink/15 bg-white" />
                     </div>
                     <div className="sm:col-span-2">
-                      <Label className="text-ink/80">Directions / notes (optional)</Label>
+                      <Label className="text-ink/80">Directions / Notes (Optional)</Label>
                       <Input value={directions} onChange={(e) => setDirections(e.target.value)} className="mt-1.5 h-9 border-ink/15 bg-white" />
                     </div>
                   </div>
@@ -360,7 +360,7 @@ function VenuesTab({
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="venue-name" className="text-ink/80">
-                Venue name
+                Venue Name
               </Label>
               <Input id="venue-name" autoFocus placeholder="e.g. Burnley RUFC Ground" value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
             </div>
@@ -378,7 +378,7 @@ function VenuesTab({
             </div>
             <div className="sm:col-span-2">
               <Label htmlFor="venue-directions" className="text-ink/80">
-                Directions / notes (optional)
+                Directions / Notes (Optional)
               </Label>
               <Input id="venue-directions" placeholder="e.g. Park behind the clubhouse" value={directions} onChange={(e) => setDirections(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
             </div>
@@ -393,7 +393,7 @@ function VenuesTab({
 
           <div className="mt-3 flex items-center gap-2">
             <Button type="button" size="sm" className="h-9" disabled={pending || !name.trim()} onClick={handleAdd}>
-              {pending ? "Adding…" : "Add venue"}
+              {pending ? "Adding…" : "Add Venue"}
             </Button>
             <Button
               type="button"
@@ -670,7 +670,7 @@ function PitchesTab({
             </div>
             <div>
               <Label htmlFor="pitch-description" className="text-ink/80">
-                Description (optional)
+                Description (Optional)
               </Label>
               <Input
                 id="pitch-description"
@@ -687,7 +687,7 @@ function PitchesTab({
 
           <div className="mt-3 flex items-center gap-2">
             <Button type="button" size="sm" className="h-9" disabled={pending || !newName.trim()} onClick={handleAdd}>
-              {pending ? "Adding…" : "Add pitch"}
+              {pending ? "Adding…" : "Add Pitch"}
             </Button>
             <Button
               type="button"

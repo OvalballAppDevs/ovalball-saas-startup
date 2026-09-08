@@ -425,13 +425,13 @@ export function AddFixtureDialog({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="kickoff-date" className="text-ink/80">
-                    Kickoff date
+                    Kickoff Date
                   </Label>
                   <DatePicker id="kickoff-date" value={kickoffDate} onChange={setKickoffDate} placeholder="Select kickoff date" className="mt-1.5" />
                 </div>
                 <div>
                   <Label htmlFor="kickoff-time" className="text-ink/80">
-                    Kickoff time
+                    Kickoff Time
                   </Label>
                   <Input id="kickoff-time" type="time" value={kickoffTime} onChange={(e) => setKickoffTime(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
                 </div>
@@ -446,7 +446,7 @@ export function AddFixtureDialog({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="game-type" className="text-ink/80">
-                    Game type
+                    Game Type
                   </Label>
                   <select
                     id="game-type"

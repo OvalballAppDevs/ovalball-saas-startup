@@ -173,6 +173,37 @@ for (const file of files) {
   }
 }
 
+/**
+ * Buttons and form labels are Title Case (CLAUDE.md rule 2).
+ *
+ * Only a PURE TEXT child is checked. Anything containing an expression is
+ * skipped, because a label built from data is not something this file can
+ * judge, and a guard that guesses gets switched off. Marketing surfaces are
+ * exempt for the same reason they are exempt everywhere else: their headlines
+ * are editorial sentence case on purpose.
+ */
+const COPY_EXEMPT = ["app/clubs", "app/game-management", "app/payment-services", "app/public-fixtures", "components/site/", "components/ui/"]
+for (const file of files) {
+  if (COPY_EXEMPT.some((x) => file.startsWith(x))) continue
+  const src = readFileSync(path.join(ROOT, file), "utf8")
+  for (const tag of ["Label", "Button", "button", "label"]) {
+    const re = new RegExp(`<${tag}(?:\\s[^>]*?)?>([^<>{}]+?)</${tag}>`, "g")
+    for (const m of src.matchAll(re)) {
+      const text = m[1].trim()
+      if (!text || !/[A-Za-z]/.test(text)) continue
+      // A full sentence inside a control is body copy that happens to sit
+      // there -- a confirmation line, a hint -- and stays sentence case.
+      if (/[.!?]$/.test(text)) continue
+      // Entities are left to a human: "&apos;" makes the word boundaries
+      // ambiguous for a mechanical rule.
+      if (/&[a-z]+;/.test(text)) continue
+      if (toTitleCase(text) !== text) {
+        failures.push(`${file}  <${tag}> "${text}" should be "${toTitleCase(text)}"`)
+      }
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error("  FAIL  content_standard")
   for (const f of failures) console.error(`          ${f}`)

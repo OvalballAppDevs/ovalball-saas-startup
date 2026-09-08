@@ -90,7 +90,7 @@ function CancelFixtureDialog({ fixture, onClose, onCancelled }: { fixture: Fixtu
         <p className="mt-2 text-sm text-ink/70">The pitch is freed up immediately, and any messages or history stay attached for audit.</p>
 
         <label htmlFor="cancel-fixture-reason" className="mt-4 block text-sm font-medium text-ink/70">
-          Reason for cancellation
+          Reason for Cancellation
         </label>
         <textarea
           id="cancel-fixture-reason"
@@ -161,7 +161,7 @@ function DeleteFixtureDialog({ fixture, onClose, onDeleted }: { fixture: Fixture
         </p>
 
         <label htmlFor="delete-fixture-reason" className="mt-4 block text-sm font-medium text-ink/70">
-          Reason for deleting this fixture
+          Reason for Deleting This Fixture
         </label>
         <textarea
           id="delete-fixture-reason"

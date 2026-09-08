@@ -3,9 +3,9 @@
  *
  * WHAT THIS IS FOR
  *
- * Product navigation and page/section titles are Title Case. Everything else a
- * person reads -- paragraphs, helper text, errors, statuses, buttons and form
- * labels -- is UK English sentence case.
+ * Product navigation, page/section titles, BUTTONS and FORM LABELS are Title
+ * Case. Body copy -- paragraphs, helper text, descriptions, errors, statuses
+ * and empty states -- is UK English sentence case.
  *
  * This module is NOT a runtime filter over the interface. Copy is written
  * correctly in the source string, because that is the only version an export,
@@ -65,7 +65,9 @@ const MINOR_WORDS = new Set([
   "per",
   "the",
   "to",
-  "up",
+  // "up" is deliberately NOT here. In product copy it is nearly always a
+  // phrasal-verb particle -- "Set Up Direct Debit", "Back Up" -- and
+  // lower-casing it turns a correct label into a wrong one.
   "via",
   "with",
 ])

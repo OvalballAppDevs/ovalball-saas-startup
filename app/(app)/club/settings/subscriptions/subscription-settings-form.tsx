@@ -96,7 +96,7 @@ export function SubscriptionSettingsForm({ clubId, monthlyAmountMinor, initial }
 
       <div>
         <Label htmlFor="collection-day" className="text-ink/80">
-          Collection day
+          Collection Day
         </Label>
         <p className="mt-1 text-xs text-ink-muted">Members are shown &ldquo;Scheduled for collection on the {form.collectionDay === 1 ? "1st" : `${form.collectionDay}th`}&rdquo; -- Direct Debit is asynchronous, so this is when collection is submitted, not a guaranteed same-day payout.</p>
         <select id="collection-day" value={form.collectionDay} onChange={(e) => setForm((f) => ({ ...f, collectionDay: Number(e.target.value) }))} className="mt-2 h-11 w-full max-w-[10rem] rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600">
@@ -152,7 +152,7 @@ export function SubscriptionSettingsForm({ clubId, monthlyAmountMinor, initial }
 
       <div>
         <Label htmlFor="platform-fee-mode" className="text-ink/80">
-          Platform fee model
+          Platform Fee Model
         </Label>
         <p className="mt-1 text-xs text-ink-muted">How Ovalball&rsquo;s own platform fee (if any) is applied. Only models confirmed compliant and commercially approved are offered -- see the Finance Dashboard for what this means for your club&rsquo;s payouts.</p>
         <select id="platform-fee-mode" value={form.platformFeeMode} onChange={(e) => setForm((f) => ({ ...f, platformFeeMode: e.target.value as SubscriptionProgrammeSettings["platformFeeMode"] }))} className="mt-2 h-11 w-full max-w-xs rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600">

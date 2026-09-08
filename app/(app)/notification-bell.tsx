@@ -90,7 +90,7 @@ export function NotificationBell({
               onClick={handleMarkAllRead}
               className="rounded px-1.5 py-1 text-xs font-medium text-forest-800 outline-none hover:text-forest-950 focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
-              Mark all read
+              Mark All Read
             </button>
           )}
         </div>

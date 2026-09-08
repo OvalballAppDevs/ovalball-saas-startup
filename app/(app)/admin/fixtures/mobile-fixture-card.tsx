@@ -245,10 +245,10 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
             </div>
             <div className="flex items-center gap-2">
               <Button type="button" size="sm" className="h-9" disabled={dateSaving || (!dateDirty && competitionEditionId === null)} onClick={handleSaveDate}>
-                {dateSaving ? "Saving…" : "Save date/kickoff"}
+                {dateSaving ? "Saving…" : "Save Date/Kickoff"}
               </Button>
               <Button type="button" size="sm" variant="outline" className="h-9" disabled={dateSaving} onClick={handleSaveCompetition}>
-                Save competition
+                Save Competition
               </Button>
             </div>
             {dateError && <p className="text-xs text-destructive-text">{dateError}</p>}
@@ -281,7 +281,7 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
                 className="mt-2 h-10 w-full rounded-md border border-ink/15 bg-white px-2.5 text-sm outline-none focus-visible:border-pitch-600"
               />
               <Button type="button" size="sm" className="mt-2 h-9" disabled={resultSaving} onClick={handleSaveResult}>
-                {resultSaving ? "Saving…" : "Save result"}
+                {resultSaving ? "Saving…" : "Save Result"}
               </Button>
               {resultError && <p className="mt-1 text-xs text-destructive-text">{resultError}</p>}
             </div>

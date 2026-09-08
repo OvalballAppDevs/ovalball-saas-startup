@@ -99,7 +99,7 @@ export function InviteForm({ clubId, clubName, teams }: InviteFormProps) {
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="invite-email" className="text-ink/80">
-            Email address
+            Email Address
           </Label>
           <Input
             id="invite-email"
@@ -113,7 +113,7 @@ export function InviteForm({ clubId, clubName, teams }: InviteFormProps) {
         </div>
         <div>
           <Label htmlFor="invite-declared-role" className="text-ink/80">
-            Their real-world role (optional)
+            Their Real-World Role (Optional)
           </Label>
           <Input
             id="invite-declared-role"
@@ -127,7 +127,7 @@ export function InviteForm({ clubId, clubName, teams }: InviteFormProps) {
 
       <div className="mt-4">
         <Label htmlFor="invite-club-role" className="text-ink/80">
-          Club-wide role (optional)
+          Club-Wide Role (Optional)
         </Label>
         <select
           id="invite-club-role"

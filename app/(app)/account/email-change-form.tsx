@@ -43,7 +43,7 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
       ) : (
         <div className="mt-3">
           <Label htmlFor="new-email" className="text-ink/80">
-            New email address
+            New Email Address
           </Label>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <Input

@@ -39,7 +39,7 @@ export function ProfileForm({ initial }: { initial: ClubProfileInput }) {
     <div className="flex flex-col gap-6">
       <div>
         <Label htmlFor="profile-bio" className="text-ink/80">
-          About the club
+          About the Club
         </Label>
         <textarea
           id="profile-bio"
@@ -80,7 +80,7 @@ export function ProfileForm({ initial }: { initial: ClubProfileInput }) {
 
       <div>
         <Label htmlFor="profile-address" className="text-ink/80">
-          Home ground address (public display)
+          Home Ground Address (Public Display)
         </Label>
         <Input
           id="profile-address"
@@ -126,7 +126,7 @@ export function ProfileForm({ initial }: { initial: ClubProfileInput }) {
 
       <div>
         <Label htmlFor="profile-status" className="text-ink/80">
-          Club status
+          Club Status
         </Label>
         <select
           id="profile-status"

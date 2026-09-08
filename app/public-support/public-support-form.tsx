@@ -66,11 +66,11 @@ export function PublicSupportForm() {
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
-          <Label htmlFor="ps-name">Your name</Label>
+          <Label htmlFor="ps-name">Your Name</Label>
           <Input id="ps-name" value={name} onChange={(e) => setName(e.target.value)} required className="mt-1.5 h-11 border-ink/15 bg-white" />
         </div>
         <div>
-          <Label htmlFor="ps-email">Email address</Label>
+          <Label htmlFor="ps-email">Email Address</Label>
           <Input
             id="ps-email"
             type="email"
@@ -84,7 +84,7 @@ export function PublicSupportForm() {
       </div>
 
       <div>
-        <Label htmlFor="ps-category">Nature of query</Label>
+        <Label htmlFor="ps-category">Nature of Query</Label>
         <select
           id="ps-category"
           value={category}
@@ -133,7 +133,7 @@ export function PublicSupportForm() {
       </div>
 
       <div>
-        <Label htmlFor="ps-club">Club (optional)</Label>
+        <Label htmlFor="ps-club">Club (Optional)</Label>
         <Input
           id="ps-club"
           value={clubContext}

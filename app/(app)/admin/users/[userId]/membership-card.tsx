@@ -85,7 +85,7 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
               ) : (
                 <>
                   <Button type="button" variant="destructive" className="h-8" disabled={working} onClick={handleRevoke}>
-                    {working ? "Revoking…" : "Confirm revoke"}
+                    {working ? "Revoking…" : "Confirm Revoke"}
                   </Button>
                   <Button type="button" variant="ghost" className="h-8" disabled={working} onClick={() => setConfirmingRevoke(false)}>
                     Cancel

@@ -102,7 +102,7 @@ export function InviteClubDialog({
               under Ovalball Plan.
             </p>
             <div>
-              <Label className="text-ink/80">Invite link</Label>
+              <Label className="text-ink/80">Invite Link</Label>
               <p className="mt-1.5 break-all rounded-lg border border-ink/15 bg-ink/[0.02] px-3.5 py-2.5 text-xs text-ink/70">{sentLink}</p>
               <p className="mt-1.5 text-xs text-ink-muted">
                 No email provider is connected in local development &mdash; use this link directly to test the flow.
@@ -113,13 +113,13 @@ export function InviteClubDialog({
           <div className="flex flex-col gap-4">
             <div>
               <Label htmlFor="invite-contact-name" className="text-ink/80">
-                Contact name
+                Contact Name
               </Label>
               <Input id="invite-contact-name" value={contactName} onChange={(e) => setContactName(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
             </div>
             <div>
               <Label htmlFor="invite-contact-email" className="text-ink/80">
-                Email address
+                Email Address
               </Label>
               <Input
                 id="invite-contact-email"
@@ -137,7 +137,7 @@ export function InviteClubDialog({
           <DialogClose render={<Button type="button" variant="outline" className="h-10" />}>{sentLink ? "Close" : "Cancel"}</DialogClose>
           {!sentLink && (
             <Button type="button" className="h-10" disabled={sending} onClick={handleInvite}>
-              {sending ? "Sending…" : "Send invitation"}
+              {sending ? "Sending…" : "Send Invitation"}
             </Button>
           )}
         </DialogFooter>

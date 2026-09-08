@@ -190,7 +190,7 @@ export function TournamentOppositionEntry({
           {!overriding ? (
             <div className="flex items-center justify-between gap-3">
               <div>
-                <Label className="text-ink/80">Team / age group</Label>
+                <Label className="text-ink/80">Team / Age Group</Label>
                 <p className="mt-1 text-sm text-ink">
                   {selectedType ? selectedType.label : "Resolving…"}
                   {value.clubActivated && value.canonicalTeamTypeId && (
@@ -206,7 +206,7 @@ export function TournamentOppositionEntry({
             <div>
               <div className="flex items-center justify-between">
                 <Label htmlFor={`opp-team-${index}`} className="text-ink/80">
-                  Team / age group
+                  Team / Age Group
                 </Label>
                 <button
                   type="button"

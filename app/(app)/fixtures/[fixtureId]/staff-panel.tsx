@@ -52,7 +52,7 @@ export function StaffPanel({ fixtureId, meetTime, kickoffTime }: { fixtureId: st
       </h2>
 
       <div className="mt-3">
-        <Label htmlFor="meet-time">Meet time</Label>
+        <Label htmlFor="meet-time">Meet Time</Label>
         <p className="mt-1 text-sm text-ink-muted">
           {kickoffTime
             ? "When players should arrive. Everyone sees this alongside kick-off."

@@ -190,7 +190,7 @@ export function DangerZone({
                         disabled={deactivating || !deactivateReason.trim()}
                         onClick={handleDeactivate}
                       >
-                        {deactivating ? "Deactivating…" : "Deactivate club"}
+                        {deactivating ? "Deactivating…" : "Deactivate Club"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -214,7 +214,7 @@ export function DangerZone({
               </div>
               {reactivateError && <p className="mt-2 text-sm text-destructive-text">{reactivateError}</p>}
               <Button type="button" variant="outline" className="mt-3 h-9" disabled={reactivating} onClick={handleReactivate}>
-                {reactivating ? "Reactivating…" : "Reactivate club"}
+                {reactivating ? "Reactivating…" : "Reactivate Club"}
               </Button>
             </>
           )}
@@ -303,7 +303,7 @@ export function DangerZone({
                     disabled={deleting || confirmText !== clubName}
                     onClick={handleDelete}
                   >
-                    {deleting ? "Deleting…" : "Permanently delete"}
+                    {deleting ? "Deleting…" : "Permanently Delete"}
                   </Button>
                   <Button type="button" variant="ghost" className="h-9" disabled={deleting} onClick={() => setDeleteOpen(false)}>
                     Cancel

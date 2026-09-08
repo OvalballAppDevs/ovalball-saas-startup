@@ -31,7 +31,7 @@ export function FollowupForm({ ticketId }: { ticketId: string }) {
   return (
     <form onSubmit={handleSubmit} className="mt-4 border-t border-ink/8 pt-4">
       <label htmlFor="followup-body" className="text-sm font-medium text-ink">
-        Add information
+        Add Information
       </label>
       <textarea
         id="followup-body"
@@ -43,7 +43,7 @@ export function FollowupForm({ ticketId }: { ticketId: string }) {
       />
       {error && <p className="mt-1.5 text-xs text-destructive-text">{error}</p>}
       <Button type="submit" size="sm" className="mt-2 h-9" disabled={submitting || body.trim().length === 0}>
-        {submitting ? "Sending…" : "Add information"}
+        {submitting ? "Sending…" : "Add Information"}
       </Button>
     </form>
   )

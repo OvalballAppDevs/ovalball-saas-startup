@@ -123,7 +123,7 @@ export function ClubMessagingSection({ clubId, initial }: { clubId: string; init
 
       <div className="mt-3">
         <Button type="button" size="sm" className="h-9" disabled={pending} onClick={handleSave}>
-          {pending ? "Saving…" : "Save messaging settings"}
+          {pending ? "Saving…" : "Save Messaging Settings"}
         </Button>
       </div>
     </div>

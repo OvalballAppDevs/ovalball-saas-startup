@@ -139,7 +139,7 @@ export function ClubProfileForm({
 
       <div>
         <Label htmlFor="bio" className="text-ink/80">
-          About the club
+          About the Club
         </Label>
         <textarea
           id="bio"
@@ -181,7 +181,7 @@ export function ClubProfileForm({
       {!hideHomeGroundAddress && (
         <div>
           <Label htmlFor="address" className="text-ink/80">
-            Home ground address
+            Home Ground Address
           </Label>
           <Input
             id="address"

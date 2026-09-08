@@ -63,7 +63,7 @@ export function ExtendTrialDialog({ clubId, clubName }: { clubId: string; clubNa
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="extend-days">Extra days</Label>
+            <Label htmlFor="extend-days">Extra Days</Label>
             <Input
               id="extend-days"
               inputMode="numeric"

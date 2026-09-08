@@ -134,7 +134,7 @@ export function JoinAsPlayer({
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="player-first">First name</Label>
+              <Label htmlFor="player-first">First Name</Label>
               <Input id="player-first" className="h-11" value={first} onChange={(e) => setFirst(e.target.value)} />
             </div>
             <div>
@@ -142,7 +142,7 @@ export function JoinAsPlayer({
               <Input id="player-surname" className="h-11" value={surname} onChange={(e) => setSurname(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="player-dob">Date of birth</Label>
+              <Label htmlFor="player-dob">Date of Birth</Label>
               <Input
                 id="player-dob"
                 className="h-11"
@@ -211,7 +211,7 @@ export function JoinAsPlayer({
             )}
           </div>
           <Button type="button" className="mt-4 h-11" disabled={busy || !club} onClick={handleContinue}>
-            {busy ? "Working out your category…" : "Continue"}
+            {busy ? "Working Out Your Category…" : "Continue"}
           </Button>
         </div>
       )}
@@ -289,7 +289,7 @@ function CategoryConfirmation({
           onClick={onBack}
           className="mt-5 min-h-11 text-sm text-forest-800 underline underline-offset-2 hover:text-forest-950"
         >
-          Choose a different club
+          Choose a Different Club
         </button>
       </div>
     )
@@ -342,14 +342,14 @@ function CategoryConfirmation({
 
       <div className="mt-6 flex flex-col gap-3">
         <Button type="button" className="h-11 w-full sm:w-auto sm:self-start sm:px-8" disabled={busy} onClick={onRequest}>
-          {busy ? "Sending request…" : "Request to join"}
+          {busy ? "Sending Request…" : "Request to Join"}
         </Button>
         <button
           type="button"
           onClick={onBack}
           className="min-h-11 self-start text-sm text-ink-muted underline underline-offset-2 hover:text-ink"
         >
-          Choose a different club
+          Choose a Different Club
         </button>
       </div>
 

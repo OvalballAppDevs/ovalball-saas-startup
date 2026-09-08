@@ -349,7 +349,7 @@ function PlanForm({
                   </div>
                   <div>
                     <label htmlFor={`start-${r.key}`} className="text-[11px] font-medium text-ink-muted">
-                      Start time
+                      Start Time
                     </label>
                     <input
                       id={`start-${r.key}`}
@@ -394,7 +394,7 @@ function PlanForm({
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <div>
                       <label htmlFor={`from-${r.key}`} className="text-[11px] font-medium text-ink-muted">
-                        From date
+                        From Date
                       </label>
                       <input
                         id={`from-${r.key}`}
@@ -406,7 +406,7 @@ function PlanForm({
                     </div>
                     <div>
                       <label htmlFor={`to-${r.key}`} className="text-[11px] font-medium text-ink-muted">
-                        To date
+                        To Date
                       </label>
                       <input
                         id={`to-${r.key}`}
@@ -677,7 +677,7 @@ export function TrainingManagementClient({
           <h2 className="font-display text-lg text-ink">Upcoming Training Sessions</h2>
           <div>
             <label htmlFor="upcoming-team-filter" className="sr-only">
-              Filter by team
+              Filter by Team
             </label>
             <select
               id="upcoming-team-filter"

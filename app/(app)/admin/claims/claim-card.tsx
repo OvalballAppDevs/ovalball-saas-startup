@@ -108,7 +108,7 @@ export function ClaimCard({ claim }: { claim: ClaimCardData }) {
             />
             <DialogFooter showCloseButton>
               <Button className="h-9" disabled={submitting} onClick={handleConfirm}>
-                {submitting ? "Approving…" : "Confirm approval"}
+                {submitting ? "Approving…" : "Confirm Approval"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -129,7 +129,7 @@ export function ClaimCard({ claim }: { claim: ClaimCardData }) {
             />
             <DialogFooter showCloseButton>
               <Button variant="destructive" className="h-9" disabled={submitting} onClick={handleConfirm}>
-                {submitting ? "Rejecting…" : "Confirm rejection"}
+                {submitting ? "Rejecting…" : "Confirm Rejection"}
               </Button>
             </DialogFooter>
           </DialogContent>

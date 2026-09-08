@@ -62,7 +62,7 @@ export function CreateSeasonForm() {
     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div>
         <Label htmlFor="season-code" className="text-ink/80">
-          Rugby code
+          Rugby Code
         </Label>
         <select
           id="season-code"
@@ -94,7 +94,7 @@ export function CreateSeasonForm() {
       </div>
       <div>
         <Label htmlFor="season-pre-start" className="text-ink/80">
-          Pre-season starts (optional)
+          Pre-Season Starts (Optional)
         </Label>
         <Input
           id="season-pre-start"
@@ -106,7 +106,7 @@ export function CreateSeasonForm() {
       </div>
       <div>
         <Label htmlFor="season-starts" className="text-ink/80">
-          Main season starts
+          Main Season Starts
         </Label>
         <Input
           id="season-starts"
@@ -118,7 +118,7 @@ export function CreateSeasonForm() {
       </div>
       <div>
         <Label htmlFor="season-ends" className="text-ink/80">
-          Main season ends
+          Main Season Ends
         </Label>
         <Input
           id="season-ends"

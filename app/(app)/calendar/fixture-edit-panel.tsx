@@ -166,7 +166,7 @@ export function FixtureEditPanel({
               <DialogFooter>
                 <DialogClose render={<Button type="button" variant="ghost" className="h-9" />}>Cancel</DialogClose>
                 <Button type="button" className="h-9" disabled={swapping} onClick={handleSwap}>
-                  {swapping ? "Swapping…" : "Swap home/away"}
+                  {swapping ? "Swapping…" : "Swap Home/Away"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -265,7 +265,7 @@ export function FixtureEditPanel({
           Cancel
         </Button>
         <Button type="button" className="h-9 flex-1" disabled={saving} onClick={handleSave}>
-          {saving ? "Saving…" : "Save changes"}
+          {saving ? "Saving…" : "Save Changes"}
         </Button>
       </div>
     </div>

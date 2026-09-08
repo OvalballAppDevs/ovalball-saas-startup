@@ -80,7 +80,7 @@ export function CsvUploadForm({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" variant="outline" className="h-10" onClick={downloadTemplate}>
-          Download CSV template
+          Download CSV Template
         </Button>
       </div>
 

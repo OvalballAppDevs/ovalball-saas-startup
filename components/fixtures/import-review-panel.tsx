@@ -338,7 +338,7 @@ function RowCard({
             </Button>
           )}
           <Button type="button" variant="ghost" className="h-8 text-ink-muted" disabled={working} onClick={handleExclude}>
-            Exclude this row
+            Exclude This Row
           </Button>
         </div>
       )}
@@ -443,7 +443,7 @@ function RowCorrectionForm({
       {clubTeams && clubTeams.length > 0 && (
         <div>
           <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-home-${row.id}`}>
-            Home team
+            Home Team
           </label>
           <select
             id={`correct-home-${row.id}`}
@@ -515,7 +515,7 @@ function RowCorrectionForm({
       {clubPitches && clubPitches.length > 0 && (
         <div>
           <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-pitch-${row.id}`}>
-            Pitch / venue
+            Pitch / Venue
           </label>
           <select
             id={`correct-pitch-${row.id}`}
@@ -554,7 +554,7 @@ function RowCorrectionForm({
         </div>
         <div>
           <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-home-score-${row.id}`}>
-            Home score
+            Home Score
           </label>
           <Input
             id={`correct-home-score-${row.id}`}
@@ -567,7 +567,7 @@ function RowCorrectionForm({
         </div>
         <div>
           <label className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase" htmlFor={`correct-away-score-${row.id}`}>
-            Away score
+            Away Score
           </label>
           <Input
             id={`correct-away-score-${row.id}`}
@@ -582,7 +582,7 @@ function RowCorrectionForm({
       <p className="text-xs text-ink-muted">Set both scores for a historical/backfilled result, or leave both blank.</p>
 
       <Button type="button" size="sm" className="h-9 w-fit" disabled={saving} onClick={handleSave}>
-        {saving ? "Saving…" : "Save correction"}
+        {saving ? "Saving…" : "Save Correction"}
       </Button>
     </div>
   )

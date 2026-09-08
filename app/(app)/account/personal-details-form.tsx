@@ -32,7 +32,7 @@ export function PersonalDetailsForm({ initial, dateOfBirth }: { initial: Persona
       <div className="mt-3 grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="pd-first-name" className="text-ink/80">
-            First name
+            First Name
           </Label>
           <Input
             id="pd-first-name"
@@ -70,7 +70,7 @@ export function PersonalDetailsForm({ initial, dateOfBirth }: { initial: Persona
         <div className="mt-3 flex flex-col gap-4">
           <div>
             <Label htmlFor="pd-address1" className="text-ink/80">
-              Address line 1
+              Address Line 1
             </Label>
             <Input
               id="pd-address1"
@@ -81,7 +81,7 @@ export function PersonalDetailsForm({ initial, dateOfBirth }: { initial: Persona
           </div>
           <div>
             <Label htmlFor="pd-address2" className="text-ink/80">
-              Address line 2
+              Address Line 2
             </Label>
             <Input
               id="pd-address2"

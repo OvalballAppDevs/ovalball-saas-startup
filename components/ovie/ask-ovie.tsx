@@ -54,7 +54,7 @@ function CandidateCard({ candidate, isBestMatch, onSelect, disabled }: { candida
       </dl>
       {candidate.requestActionAvailable && (
         <Button type="button" size="sm" className="mt-2 h-7 w-full text-xs" disabled={disabled} onClick={onSelect}>
-          Request fixture
+          Request Fixture
         </Button>
       )}
     </div>
@@ -79,7 +79,7 @@ function ConfirmationCard({ card, onSend, onCancel, disabled }: { card: NonNulla
       </dl>
       <div className="mt-2 flex gap-2">
         <Button type="button" size="sm" className="h-7 flex-1 text-xs" disabled={disabled} onClick={onSend}>
-          Send fixture request
+          Send Fixture Request
         </Button>
         <Button type="button" variant="outline" size="sm" className="h-7 flex-1 text-xs" disabled={disabled} onClick={onCancel}>
           Cancel

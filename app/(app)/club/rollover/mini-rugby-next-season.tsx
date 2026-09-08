@@ -140,7 +140,7 @@ function MiniRugbyGroupCard({ group, toSeasonId, toSeasonName }: { group: MiniRu
             </label>
           ))}
           <div>
-            <label className="text-xs font-medium tracking-wide text-ink-muted uppercase">Alias (optional)</label>
+            <label className="text-xs font-medium tracking-wide text-ink-muted uppercase">Alias (Optional)</label>
             <input
               value={alias}
               onChange={(e) => setAlias(e.target.value)}

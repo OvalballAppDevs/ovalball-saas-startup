@@ -19,17 +19,29 @@ Never `Clubs & teams`, `Season handover`, `Match centre`.
 **2. Body copy uses UK English sentence case.**
 
 Paragraphs, helper text, descriptions, form guidance, notifications, errors,
-statuses and empty states.
+statuses and empty states. Not buttons or form labels — see below.
 
 > Nothing changes until you apply the handover.
 > This club does not currently run Girls U12.
 
 Not `Nothing Changes Until You Apply The Handover.` A sentence is not a title.
 
-Buttons are actions, not destinations, so they are sentence case too — `Save
-changes`, `Add player`, `Apply handover` — unless the button IS a named
-destination, in which case it is that destination's name: `Match Centre`. Form
-labels follow the same rule: `First name`, `Date of birth`, `Rugby code`.
+**Buttons and form labels are Title Case**, alongside navigation and titles.
+
+> Save Changes · Add Player · Apply Handover · Upload Photo · Request to Join
+> First Name · Date of Birth · Address Line 1 · Rugby Code
+
+Minor words stay lowercase in the middle — `Request to Join`, `Date of Birth`
+— and protected terms keep their form, so it is `Rugby Code` but `DOB` and
+`U12`. A button that IS a named destination is simply that destination's name:
+`Match Centre`.
+
+This reverses an earlier rule that made buttons and labels sentence case. The
+reason for the change is that a control is a thing you act on, closer to a
+destination than to a sentence, and the mixed treatment read as inconsistency
+rather than as a distinction. `lib/content/title-case.ts` is the one
+transformation authority — it already knows the protected terms, the age-grade
+shapes and the minor words.
 
 UK spelling throughout: organisation, authorised, customise, centre, licence
 (noun) / license (verb). Do **not** rewrite technical identifiers, import

@@ -330,7 +330,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                     <span className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Result correction</span>
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="sr-only" htmlFor={`home-score-${row.id}`}>
-                        Home score
+                        Home Score
                       </label>
                       <input
                         id={`home-score-${row.id}`}
@@ -343,7 +343,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                       />
                       <span className="text-ink-muted">&ndash;</span>
                       <label className="sr-only" htmlFor={`away-score-${row.id}`}>
-                        Away score
+                        Away Score
                       </label>
                       <input
                         id={`away-score-${row.id}`}
@@ -355,7 +355,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                         className="h-8 w-12 rounded-md border border-ink/15 bg-white px-2 text-center text-sm outline-none focus-visible:border-pitch-600"
                       />
                       <label className="sr-only" htmlFor={`result-reason-${row.id}`}>
-                        Reason for this correction
+                        Reason for This Correction
                       </label>
                       <input
                         id={`result-reason-${row.id}`}
@@ -420,7 +420,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink/10 pt-4">
                   <div className="flex items-center gap-2">
                     <Button type="button" size="sm" className="h-9" disabled={!isDirty || saving} onClick={handleSaveAll}>
-                      {saving ? "Saving…" : "Save changes"}
+                      {saving ? "Saving…" : "Save Changes"}
                     </Button>
                     {isDirty && (
                       <Button type="button" size="sm" variant="ghost" className="h-9 text-ink-muted" disabled={saving} onClick={handleDiscard}>

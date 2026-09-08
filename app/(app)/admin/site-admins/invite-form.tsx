@@ -77,7 +77,7 @@ export function InviteSiteAdminForm() {
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="site-admin-invite-email" className="text-ink/80">
-            Email address
+            Email Address
           </Label>
           <Input
             id="site-admin-invite-email"
@@ -91,7 +91,7 @@ export function InviteSiteAdminForm() {
         </div>
         <div>
           <Label htmlFor="site-admin-invite-role" className="text-ink/80">
-            Admin access profile
+            Admin Access Profile
           </Label>
           <select
             id="site-admin-invite-role"

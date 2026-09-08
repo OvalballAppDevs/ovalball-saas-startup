@@ -139,7 +139,7 @@ export function OpponentPicker({
   if (!selectedClub) {
     return (
       <div>
-        <Label className="text-ink/80">Opponent club</Label>
+        <Label className="text-ink/80">Opponent Club</Label>
         <input
           type="text"
           value={clubQuery}
@@ -168,7 +168,7 @@ export function OpponentPicker({
         )}
         <div className="mt-2">
           <Label htmlFor="cal-opposition-text" className="text-ink/80">
-            Or describe an external/unresolved opposition
+            Or Describe an External/Unresolved Opposition
           </Label>
           <Input
             id="cal-opposition-text"
@@ -187,7 +187,7 @@ export function OpponentPicker({
       <div className="flex items-center justify-between">
         <Label className="text-ink/80">Opponent</Label>
         <button type="button" onClick={reset} className="text-xs font-medium text-ink-muted underline hover:text-ink">
-          Change club
+          Change Club
         </button>
       </div>
       {resolving && <p className="mt-1.5 text-sm text-ink-muted">Resolving {selectedClub.name}&apos;s matching team&hellip;</p>}
@@ -247,7 +247,7 @@ export function OpponentPicker({
           )}
           <div className="mt-3">
             <Label htmlFor="cal-opposition-text-noteam" className="text-ink/80">
-              Or leave the team unresolved
+              Or Leave the Team Unresolved
             </Label>
             <Input
               id="cal-opposition-text-noteam"
@@ -265,7 +265,7 @@ export function OpponentPicker({
           <p className="text-sm text-ink/70">No age-eligible team found for {selectedClub.name}.</p>
           <div className="mt-3">
             <Label htmlFor="cal-opposition-text-noteam-fallback" className="text-ink/80">
-              Leave the team unresolved
+              Leave the Team Unresolved
             </Label>
             <Input
               id="cal-opposition-text-noteam-fallback"

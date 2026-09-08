@@ -81,7 +81,7 @@ export function RugbyCodeCorrectionDialog({
           </div>
 
           <div>
-            <label className="text-sm font-medium text-ink">Correct code</label>
+            <label className="text-sm font-medium text-ink">Correct Code</label>
             <select
               value={newCode}
               onChange={(e) => setNewCode(e.target.value as "union" | "league")}
@@ -93,7 +93,7 @@ export function RugbyCodeCorrectionDialog({
           </div>
 
           <div>
-            <label className="text-sm font-medium text-ink">Reason (required)</label>
+            <label className="text-sm font-medium text-ink">Reason (Required)</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -109,7 +109,7 @@ export function RugbyCodeCorrectionDialog({
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
           <Button onClick={handleConfirm} disabled={submitting || reason.trim().length === 0}>
-            {submitting ? "Correcting…" : "Confirm correction"}
+            {submitting ? "Correcting…" : "Confirm Correction"}
           </Button>
         </DialogFooter>
       </DialogContent>

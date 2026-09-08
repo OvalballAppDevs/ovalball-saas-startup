@@ -124,7 +124,7 @@ export function AddGuardianControl({ playerId, childFirstName }: { playerId: str
         <p className="text-sm text-ink">That person is already a guardian for {childFirstName}.</p>
       ) : (
         <>
-          <Label htmlFor={`guardian-email-${playerId}`}>Their email address</Label>
+          <Label htmlFor={`guardian-email-${playerId}`}>Their Email Address</Label>
           <p className="mt-1 text-xs text-ink-muted">
             They&rsquo;ll be asked to confirm, and a guardian or your club will approve the relationship before they can see anything.
           </p>

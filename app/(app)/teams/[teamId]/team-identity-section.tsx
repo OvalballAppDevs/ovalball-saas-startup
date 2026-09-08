@@ -80,7 +80,7 @@ function AliasEditor({ teamId, alias }: { teamId: string; alias: string | null }
   return (
     <div className="mt-5 border-t border-ink/10 pt-5">
       <Label htmlFor="team-alias" className="text-ink/80">
-        Display alias
+        Display Alias
       </Label>
       <p className="mt-1 text-xs text-ink-muted">
         Shown instead of the squad letter everywhere this team appears (e.g. &quot;U12 Blacks&quot; instead of

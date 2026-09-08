@@ -135,7 +135,7 @@ export function MessagePanel({
               Posts visibly as Ovalball support, audited to your account.
             </p>
             <Button type="button" className="h-9 shrink-0" disabled={sending || !body.trim()} onClick={handleSend}>
-              {sending ? "Sending…" : "Send message"}
+              {sending ? "Sending…" : "Send Message"}
             </Button>
           </div>
         </div>

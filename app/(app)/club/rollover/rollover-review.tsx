@@ -121,7 +121,7 @@ export function RolloverReview({
             ))}
           </select>
           <Button type="button" className="h-10" disabled={generating || !toSeasonId} onClick={handleGenerate}>
-            {generating ? "Preparing…" : "Prepare handover"}
+            {generating ? "Preparing…" : "Prepare Handover"}
           </Button>
         </div>
         {toSeasonOptions.length === 0 && (
@@ -277,7 +277,7 @@ function GroupFlagRow({ flag }: { flag: RolloverGroupFlagRow }) {
       </div>
       {!resolved && (
         <Button type="button" variant="outline" className="h-8 shrink-0" disabled={working} onClick={handleResolve}>
-          {working ? "Marking…" : "Mark resolved"}
+          {working ? "Marking…" : "Mark Resolved"}
         </Button>
       )}
       {resolved && <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-forest-700" />}

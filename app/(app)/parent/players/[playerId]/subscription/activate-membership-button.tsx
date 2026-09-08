@@ -28,7 +28,7 @@ export function ActivateMembershipButton({ playerId }: { playerId: string }) {
   return (
     <div>
       <Button type="button" className="h-11 w-full" disabled={loading} onClick={handleClick}>
-        {loading ? "Starting…" : "Confirm & start membership"}
+        {loading ? "Starting…" : "Confirm & Start Membership"}
       </Button>
       {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
