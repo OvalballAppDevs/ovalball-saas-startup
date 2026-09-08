@@ -74,11 +74,212 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "age_grade_rollover_group_flags_rollover_id_fkey"
+            columns: ["rollover_id"]
+            isOneToOne: false
+            referencedRelation: "handover_register"
+            referencedColumns: ["rollover_id"]
+          },
+          {
             foreignKeyName: "age_grade_rollover_group_flags_scheduling_group_id_fkey"
             columns: ["scheduling_group_id"]
             isOneToOne: false
             referencedRelation: "scheduling_groups"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      age_grade_rollover_player_proposals: {
+        Row: {
+          allocation_status: string
+          created_at: string
+          current_membership_id: string | null
+          current_team_id: string
+          dispensation_id: string | null
+          dispensation_outcome: string | null
+          id: string
+          movement_requirement: string | null
+          normal_canonical_team_type_id: string | null
+          player_id: string
+          proposed_canonical_team_type_id: string | null
+          proposed_team_id: string | null
+          reason: string | null
+          regulatory_age_label: string | null
+          regulatory_status: string
+          review_state: string
+          rollover_id: string
+        }
+        Insert: {
+          allocation_status: string
+          created_at?: string
+          current_membership_id?: string | null
+          current_team_id: string
+          dispensation_id?: string | null
+          dispensation_outcome?: string | null
+          id?: string
+          movement_requirement?: string | null
+          normal_canonical_team_type_id?: string | null
+          player_id: string
+          proposed_canonical_team_type_id?: string | null
+          proposed_team_id?: string | null
+          reason?: string | null
+          regulatory_age_label?: string | null
+          regulatory_status: string
+          review_state: string
+          rollover_id: string
+        }
+        Update: {
+          allocation_status?: string
+          created_at?: string
+          current_membership_id?: string | null
+          current_team_id?: string
+          dispensation_id?: string | null
+          dispensation_outcome?: string | null
+          id?: string
+          movement_requirement?: string | null
+          normal_canonical_team_type_id?: string | null
+          player_id?: string
+          proposed_canonical_team_type_id?: string | null
+          proposed_team_id?: string | null
+          reason?: string | null
+          regulatory_age_label?: string | null
+          regulatory_status?: string
+          review_state?: string
+          rollover_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "age_grade_rollover_player_pro_normal_canonical_team_type_i_fkey"
+            columns: ["normal_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_pro_normal_canonical_team_type_i_fkey"
+            columns: ["normal_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_pro_proposed_canonical_team_type_fkey"
+            columns: ["proposed_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_pro_proposed_canonical_team_type_fkey"
+            columns: ["proposed_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_current_membership_id_fkey"
+            columns: ["current_membership_id"]
+            isOneToOne: false
+            referencedRelation: "player_team_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_current_team_id_fkey"
+            columns: ["current_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_current_team_id_fkey"
+            columns: ["current_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_current_team_id_fkey"
+            columns: ["current_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_current_team_id_fkey"
+            columns: ["current_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_current_team_id_fkey"
+            columns: ["current_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_dispensation_id_fkey"
+            columns: ["dispensation_id"]
+            isOneToOne: false
+            referencedRelation: "player_team_dispensation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_proposed_team_id_fkey"
+            columns: ["proposed_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_proposed_team_id_fkey"
+            columns: ["proposed_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_proposed_team_id_fkey"
+            columns: ["proposed_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_proposed_team_id_fkey"
+            columns: ["proposed_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_proposed_team_id_fkey"
+            columns: ["proposed_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_rollover_id_fkey"
+            columns: ["rollover_id"]
+            isOneToOne: false
+            referencedRelation: "age_grade_rollovers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_rollover_id_fkey"
+            columns: ["rollover_id"]
+            isOneToOne: false
+            referencedRelation: "handover_register"
+            referencedColumns: ["rollover_id"]
           },
         ]
       }
@@ -89,12 +290,15 @@ export type Database = {
           decided_age_group: string | null
           decided_at: string | null
           decided_by: string | null
+          decided_canonical_team_type_id: string | null
           decision: string
+          from_canonical_team_type_id: string | null
           girls_team_created: boolean | null
           girls_team_id: string | null
           id: string
           is_mixed_boundary: boolean
           proposed_age_group: string | null
+          proposed_to_canonical_team_type_id: string | null
           requires_manual_choice: boolean
           rollover_id: string
           team_id: string
@@ -105,12 +309,15 @@ export type Database = {
           decided_age_group?: string | null
           decided_at?: string | null
           decided_by?: string | null
+          decided_canonical_team_type_id?: string | null
           decision?: string
+          from_canonical_team_type_id?: string | null
           girls_team_created?: boolean | null
           girls_team_id?: string | null
           id?: string
           is_mixed_boundary?: boolean
           proposed_age_group?: string | null
+          proposed_to_canonical_team_type_id?: string | null
           requires_manual_choice?: boolean
           rollover_id: string
           team_id: string
@@ -121,17 +328,62 @@ export type Database = {
           decided_age_group?: string | null
           decided_at?: string | null
           decided_by?: string | null
+          decided_canonical_team_type_id?: string | null
           decision?: string
+          from_canonical_team_type_id?: string | null
           girls_team_created?: boolean | null
           girls_team_id?: string | null
           id?: string
           is_mixed_boundary?: boolean
           proposed_age_group?: string | null
+          proposed_to_canonical_team_type_id?: string | null
           requires_manual_choice?: boolean
           rollover_id?: string
           team_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "age_grade_rollover_team_propo_decided_canonical_team_type__fkey"
+            columns: ["decided_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propo_decided_canonical_team_type__fkey"
+            columns: ["decided_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propo_proposed_to_canonical_team_t_fkey"
+            columns: ["proposed_to_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propo_proposed_to_canonical_team_t_fkey"
+            columns: ["proposed_to_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propos_from_canonical_team_type_id_fkey"
+            columns: ["from_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propos_from_canonical_team_type_id_fkey"
+            columns: ["from_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "age_grade_rollover_team_proposals_girls_team_id_fkey"
             columns: ["girls_team_id"]
@@ -173,6 +425,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "age_grade_rollovers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_rollover_id_fkey"
+            columns: ["rollover_id"]
+            isOneToOne: false
+            referencedRelation: "handover_register"
+            referencedColumns: ["rollover_id"]
           },
           {
             foreignKeyName: "age_grade_rollover_team_proposals_team_id_fkey"
@@ -2080,6 +2339,13 @@ export type Database = {
             foreignKeyName: "club_partnerships_source_fixture_id_fkey"
             columns: ["source_fixture_id"]
             isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "club_partnerships_source_fixture_id_fkey"
+            columns: ["source_fixture_id"]
+            isOneToOne: false
             referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
@@ -3871,6 +4137,13 @@ export type Database = {
             foreignKeyName: "fixture_communications_fixture_id_fkey"
             columns: ["fixture_id"]
             isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "fixture_communications_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
             referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
@@ -3922,6 +4195,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_conversation_participants_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "fixture_conversation_participants_fixture_id_fkey"
@@ -3988,6 +4268,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_conversation_subscriptions_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "fixture_conversation_subscriptions_fixture_id_fkey"
@@ -4225,6 +4512,13 @@ export type Database = {
             foreignKeyName: "fixture_import_rows_conflicting_fixture_id_fkey"
             columns: ["conflicting_fixture_id"]
             isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "fixture_import_rows_conflicting_fixture_id_fkey"
+            columns: ["conflicting_fixture_id"]
+            isOneToOne: false
             referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
@@ -4234,6 +4528,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_import_rows_matched_fixture_id_fkey"
+            columns: ["matched_fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "fixture_import_rows_matched_fixture_id_fkey"
@@ -4248,6 +4549,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_import_rows_published_fixture_id_fkey"
+            columns: ["published_fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "fixture_import_rows_published_fixture_id_fkey"
@@ -4597,6 +4905,13 @@ export type Database = {
             foreignKeyName: "fixture_messages_fixture_id_fkey"
             columns: ["fixture_id"]
             isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "fixture_messages_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
             referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
@@ -4686,6 +5001,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_player_call_up_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "fixture_player_call_up_fixture_id_fkey"
@@ -5100,6 +5422,13 @@ export type Database = {
             foreignKeyName: "fixture_requests_resulting_fixture_id_fkey"
             columns: ["resulting_fixture_id"]
             isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "fixture_requests_resulting_fixture_id_fkey"
+            columns: ["resulting_fixture_id"]
+            isOneToOne: false
             referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
@@ -5195,6 +5524,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_result_submissions_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "fixture_result_submissions_fixture_id_fkey"
@@ -5329,6 +5665,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_source_refs_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "fixture_source_refs_fixture_id_fkey"
@@ -5645,6 +5988,13 @@ export type Database = {
             foreignKeyName: "fixtures_mirror_fixture_id_fkey"
             columns: ["mirror_fixture_id"]
             isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "fixtures_mirror_fixture_id_fkey"
+            columns: ["mirror_fixture_id"]
+            isOneToOne: false
             referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
@@ -5766,6 +6116,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixtures_replaces_fixture_id_fkey"
+            columns: ["replaces_fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "fixtures_replaces_fixture_id_fkey"
@@ -8121,6 +8478,13 @@ export type Database = {
             foreignKeyName: "pitch_allocation_proposal_items_fixture_id_fkey"
             columns: ["fixture_id"]
             isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "pitch_allocation_proposal_items_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
             referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
@@ -9477,6 +9841,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_fixture_attendance_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "player_fixture_attendance_fixture_id_fkey"
@@ -11487,6 +11858,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "season_transitions_rollover_id_fkey"
+            columns: ["rollover_id"]
+            isOneToOne: false
+            referencedRelation: "handover_register"
+            referencedColumns: ["rollover_id"]
+          },
+          {
             foreignKeyName: "season_transitions_to_season_id_fkey"
             columns: ["to_season_id"]
             isOneToOne: false
@@ -11959,6 +12337,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_related_fixture_id_fkey"
+            columns: ["related_fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "support_tickets_related_fixture_id_fkey"
@@ -13740,6 +14125,13 @@ export type Database = {
             foreignKeyName: "fixtures_mirror_fixture_id_fkey"
             columns: ["mirror_fixture_id"]
             isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "fixtures_mirror_fixture_id_fkey"
+            columns: ["mirror_fixture_id"]
+            isOneToOne: false
             referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
@@ -13866,6 +14258,13 @@ export type Database = {
             foreignKeyName: "fixtures_replaces_fixture_id_fkey"
             columns: ["replaces_fixture_id"]
             isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "fixtures_replaces_fixture_id_fkey"
+            columns: ["replaces_fixture_id"]
+            isOneToOne: false
             referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
@@ -13925,6 +14324,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fixture_overview"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_messages_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
           },
           {
             foreignKeyName: "fixture_messages_fixture_id_fkey"
@@ -14337,6 +14743,276 @@ export type Database = {
           venue_name: string | null
         }
         Relationships: []
+      }
+      fixture_season_identity: {
+        Row: {
+          fixture_id: string | null
+          opponent_team_age_group: string | null
+          opponent_team_display_name: string | null
+          opponent_team_id: string | null
+          opponent_team_identity_source: string | null
+          owning_team_age_group: string | null
+          owning_team_display_name: string | null
+          owning_team_id: string | null
+          owning_team_identity_source: string | null
+          season_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixtures_opponent_team_id_fkey"
+            columns: ["opponent_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "fixtures_opponent_team_id_fkey"
+            columns: ["opponent_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "fixtures_opponent_team_id_fkey"
+            columns: ["opponent_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "fixtures_opponent_team_id_fkey"
+            columns: ["opponent_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "fixtures_opponent_team_id_fkey"
+            columns: ["opponent_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixtures_owning_team_id_fkey"
+            columns: ["owning_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "fixtures_owning_team_id_fkey"
+            columns: ["owning_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "fixtures_owning_team_id_fkey"
+            columns: ["owning_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "fixtures_owning_team_id_fkey"
+            columns: ["owning_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "fixtures_owning_team_id_fkey"
+            columns: ["owning_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixtures_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handover_register: {
+        Row: {
+          club_id: string | null
+          created_at: string | null
+          current_age_group: string | null
+          decided_age_group: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decided_canonical_team_type_id: string | null
+          decided_label: string | null
+          decision: string | null
+          from_canonical_team_type_id: string | null
+          from_label: string | null
+          from_season_id: string | null
+          is_mixed_boundary: boolean | null
+          needs_attention_reason: string | null
+          proposal_id: string | null
+          proposed_age_group: string | null
+          proposed_to_canonical_team_type_id: string | null
+          proposed_to_label: string | null
+          requires_manual_choice: boolean | null
+          rollover_id: string | null
+          rugby_code: string | null
+          team_id: string | null
+          to_season_id: string | null
+          transition_state: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "age_grade_rollover_team_propo_decided_canonical_team_type__fkey"
+            columns: ["decided_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propo_decided_canonical_team_type__fkey"
+            columns: ["decided_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propo_proposed_to_canonical_team_t_fkey"
+            columns: ["proposed_to_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propo_proposed_to_canonical_team_t_fkey"
+            columns: ["proposed_to_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propos_from_canonical_team_type_id_fkey"
+            columns: ["from_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_propos_from_canonical_team_type_id_fkey"
+            columns: ["from_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_from_season_id_fkey"
+            columns: ["from_season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollovers_to_season_id_fkey"
+            columns: ["to_season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       heritage_timeline: {
         Row: {
@@ -15176,6 +15852,10 @@ export type Database = {
       }
       fold_team: {
         Args: { p_reason: string; p_team_id: string }
+        Returns: number
+      }
+      generate_rollover_player_proposals: {
+        Args: { p_rollover_id: string }
         Returns: number
       }
       generate_rollover_proposal: {
@@ -16508,6 +17188,23 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
+      resolve_normal_operational_identity: {
+        Args: {
+          p_date_of_birth: string
+          p_gender: string
+          p_rugby_code: string
+          p_season_id: string
+        }
+        Returns: {
+          allocation_status: string
+          canonical_key: string
+          canonical_label: string
+          canonical_team_type_id: string
+          reason: string
+          regulatory_age_label: string
+          regulatory_status: string
+        }[]
+      }
       resolve_player_duplicate_review_as_existing: {
         Args: { p_review_id: string }
         Returns: undefined
@@ -16516,6 +17213,26 @@ export type Database = {
         Args: { p_review_id: string }
         Returns: {
           player_id: string
+        }[]
+      }
+      resolve_player_regulatory_age: {
+        Args: {
+          p_date_of_birth: string
+          p_rugby_code: string
+          p_season_id: string
+        }
+        Returns: {
+          governing_reference: string
+          reason: string
+          regulatory_age_label: string
+          regulatory_age_number: number
+          rugby_code: string
+          school_year: number
+          school_year_start: number
+          season_id: string
+          status: string
+          window_ends_on: string
+          window_starts_on: string
         }[]
       }
       resolve_public_source_metadata: {
