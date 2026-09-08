@@ -100,6 +100,8 @@ export type Database = {
           id: string
           movement_requirement: string | null
           normal_canonical_team_type_id: string | null
+          override_kind: string | null
+          placement_applied_at: string | null
           player_id: string
           proposed_canonical_team_type_id: string | null
           proposed_team_id: string | null
@@ -108,6 +110,10 @@ export type Database = {
           regulatory_status: string
           review_state: string
           rollover_id: string
+          selected_at: string | null
+          selected_by: string | null
+          selected_canonical_team_type_id: string | null
+          selected_team_id: string | null
         }
         Insert: {
           allocation_status: string
@@ -119,6 +125,8 @@ export type Database = {
           id?: string
           movement_requirement?: string | null
           normal_canonical_team_type_id?: string | null
+          override_kind?: string | null
+          placement_applied_at?: string | null
           player_id: string
           proposed_canonical_team_type_id?: string | null
           proposed_team_id?: string | null
@@ -127,6 +135,10 @@ export type Database = {
           regulatory_status: string
           review_state: string
           rollover_id: string
+          selected_at?: string | null
+          selected_by?: string | null
+          selected_canonical_team_type_id?: string | null
+          selected_team_id?: string | null
         }
         Update: {
           allocation_status?: string
@@ -138,6 +150,8 @@ export type Database = {
           id?: string
           movement_requirement?: string | null
           normal_canonical_team_type_id?: string | null
+          override_kind?: string | null
+          placement_applied_at?: string | null
           player_id?: string
           proposed_canonical_team_type_id?: string | null
           proposed_team_id?: string | null
@@ -146,6 +160,10 @@ export type Database = {
           regulatory_status?: string
           review_state?: string
           rollover_id?: string
+          selected_at?: string | null
+          selected_by?: string | null
+          selected_canonical_team_type_id?: string | null
+          selected_team_id?: string | null
         }
         Relationships: [
           {
@@ -172,6 +190,20 @@ export type Database = {
           {
             foreignKeyName: "age_grade_rollover_player_pro_proposed_canonical_team_type_fkey"
             columns: ["proposed_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_pro_selected_canonical_team_type_fkey"
+            columns: ["selected_canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_pro_selected_canonical_team_type_fkey"
+            columns: ["selected_canonical_team_type_id"]
             isOneToOne: false
             referencedRelation: "canonical_team_types_by_code"
             referencedColumns: ["id"]
@@ -281,6 +313,41 @@ export type Database = {
             referencedRelation: "handover_register"
             referencedColumns: ["rollover_id"]
           },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_selected_team_id_fkey"
+            columns: ["selected_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_selected_team_id_fkey"
+            columns: ["selected_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_selected_team_id_fkey"
+            columns: ["selected_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_selected_team_id_fkey"
+            columns: ["selected_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_player_proposals_selected_team_id_fkey"
+            columns: ["selected_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
         ]
       }
       age_grade_rollover_team_proposals: {
@@ -296,6 +363,8 @@ export type Database = {
           girls_team_created: boolean | null
           girls_team_id: string | null
           id: string
+          intake_team_created: boolean
+          intake_team_id: string | null
           is_mixed_boundary: boolean
           proposed_age_group: string | null
           proposed_to_canonical_team_type_id: string | null
@@ -315,6 +384,8 @@ export type Database = {
           girls_team_created?: boolean | null
           girls_team_id?: string | null
           id?: string
+          intake_team_created?: boolean
+          intake_team_id?: string | null
           is_mixed_boundary?: boolean
           proposed_age_group?: string | null
           proposed_to_canonical_team_type_id?: string | null
@@ -334,6 +405,8 @@ export type Database = {
           girls_team_created?: boolean | null
           girls_team_id?: string | null
           id?: string
+          intake_team_created?: boolean
+          intake_team_id?: string | null
           is_mixed_boundary?: boolean
           proposed_age_group?: string | null
           proposed_to_canonical_team_type_id?: string | null
@@ -415,6 +488,41 @@ export type Database = {
           {
             foreignKeyName: "age_grade_rollover_team_proposals_girls_team_id_fkey"
             columns: ["girls_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_intake_team_id_fkey"
+            columns: ["intake_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_intake_team_id_fkey"
+            columns: ["intake_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_intake_team_id_fkey"
+            columns: ["intake_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_intake_team_id_fkey"
+            columns: ["intake_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "age_grade_rollover_team_proposals_intake_team_id_fkey"
+            columns: ["intake_team_id"]
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
@@ -15217,6 +15325,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      apply_rollover_player_placement: {
+        Args: { p_proposal_id: string }
+        Returns: undefined
+      }
       approve_club_claim: {
         Args: { p_claim_id: string; p_notes?: string }
         Returns: string
@@ -17310,6 +17422,37 @@ export type Database = {
         Args: { p_invitation_id: string }
         Returns: undefined
       }
+      rollover_placement_options: {
+        Args: { p_proposal_id: string }
+        Returns: {
+          age_group: string
+          display_name: string
+          is_normal: boolean
+          is_selected: boolean
+          squad_designation: string
+          team_id: string
+        }[]
+      }
+      rollover_readiness: {
+        Args: { p_rollover_id: string }
+        Returns: {
+          dispensations_pending: number
+          is_ready: boolean
+          new_intake_teams: number
+          players_blocked: number
+          players_club_holding: number
+          players_missing_dob: number
+          players_needs_attention: number
+          players_ready: number
+          players_total: number
+          teams_decided: number
+          teams_folding: number
+          teams_graduating: number
+          teams_pending: number
+          teams_progressing: number
+          teams_total: number
+        }[]
+      }
       run_fixture_completion_check: { Args: never; Returns: number }
       run_season_transition_check: { Args: never; Returns: undefined }
       run_trial_expiry_check: { Args: never; Returns: number }
@@ -17452,6 +17595,16 @@ export type Database = {
           p_relationship: string
         }
         Returns: string
+      }
+      set_rollover_player_placement: {
+        Args: { p_proposal_id: string; p_target_team_id: string }
+        Returns: {
+          dispensation_required: boolean
+          movement_requirement: string
+          override_kind: string
+          reason: string
+          review_state: string
+        }[]
       }
       set_scheduling_group_active: {
         Args: { p_active: boolean; p_group_id: string }

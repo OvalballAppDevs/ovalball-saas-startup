@@ -79,6 +79,7 @@ SUITES=(
   master_site_admin_authority
   fixture_cohort_isolation
   season_source_of_truth
+  rollover_player_placement
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
