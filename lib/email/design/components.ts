@@ -79,8 +79,15 @@ const CONTENT_WIDTH = 600
  */
 export const EMAIL_LOGO_PATH = "/email-assets/logo.png"
 
-/** Displayed at 88px. The asset is larger so it stays sharp on retina screens. */
-const LOGO_DISPLAY_PX = 88
+/**
+ * Displayed at 112px. The asset is larger so it stays sharp on retina screens.
+ *
+ * Sized for a square mark. A full lockup -- one whose artwork already contains
+ * the wordmark and tagline -- wants more again before its smallest line is
+ * legible, and at that point the Rugby Connected strip below starts repeating
+ * the image rather than supporting it.
+ */
+const LOGO_DISPLAY_PX = 112
 
 export function emailLogoUrl(siteUrl: string): string | null {
   return safeUrl(`${siteUrl}${EMAIL_LOGO_PATH}`, siteUrl)
