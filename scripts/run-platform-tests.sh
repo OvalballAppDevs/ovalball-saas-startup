@@ -77,6 +77,7 @@ SUITES=(
   handover_apply_idempotency
   handover_staged_commit_model
   person_name_normalisation
+  canonical_team_directory_propagation
   handover_prepare_idempotency
   handover_squads_and_aliases
   graduation_placement_safety
