@@ -19,7 +19,7 @@ export async function generateRolloverProposal(clubId: string, rugbyCode: "union
   return { ok: true }
 }
 
-export type RolloverProposalAction = "confirm" | "adjust" | "fold" | "defer"
+export type RolloverProposalAction = "confirm" | "adjust" | "fold" | "defer" | "graduate"
 
 /** confirm_rollover_team_proposal is the ONLY path that mutates a real team's age_group -- nothing becomes canonical until this is called. */
 export async function confirmRolloverTeamProposal(
@@ -132,4 +132,95 @@ export async function createNextSeasonSchedulingGroup(
   if (error || !data) return { ok: false, error: error?.message ?? "Could not create the next-season Mini-Rugby Group." }
   revalidatePath("/club/rollover")
   return { ok: true, newGroupId: data }
+}
+
+/* ---------------------------------------------------------------------------
+ * Player handover proposals.
+ *
+ * These consume age_grade_rollover_player_proposals, the rows prepare already
+ * generates. There is no second proposal source, no handover-specific
+ * dispensation domain, and no placement rule that lives in the UI: the server
+ * classifies a squad change against an age-grade change, runs the canonical
+ * movement resolver for the latter, and refuses anything it will not allow.
+ * ------------------------------------------------------------------------ */
+
+export interface PlacementOption {
+  teamId: string
+  /** The team as it will be in the season being decided, not as it is called today. */
+  displayName: string
+  ageGroup: string | null
+  squadDesignation: string | null
+  isNormal: boolean
+  isSelected: boolean
+}
+
+/** Real canonical teams for this club, code and target season. Never free text. */
+export async function loadPlacementOptions(proposalId: string): Promise<PlacementOption[]> {
+  const supabase = await createClient()
+  const { data } = await supabase.rpc("rollover_placement_options", { p_proposal_id: proposalId })
+  return (data ?? []).map((o) => ({
+    teamId: o.team_id,
+    displayName: o.display_name,
+    ageGroup: o.age_group,
+    squadDesignation: o.squad_designation,
+    isNormal: o.is_normal,
+    isSelected: o.is_selected,
+  }))
+}
+
+export interface PlacementVerdict {
+  overrideKind: "SAME_AGE_SQUAD" | "AGE_GRADE_CHANGE" | null
+  movementRequirement: "permitted" | "team_approval_only" | "external_approval_required" | "not_permitted" | null
+  reviewState: "READY" | "NEEDS_ATTENTION" | "BLOCKED"
+  reason: string | null
+  dispensationRequired: boolean
+}
+
+export type PlacementResult = { ok: true; verdict: PlacementVerdict } | { ok: false; error: string }
+
+/**
+ * Records the club's chosen placement and returns the server's verdict. The
+ * verdict is authoritative -- the board displays it, it does not decide it.
+ */
+export async function setPlayerPlacement(proposalId: string, targetTeamId: string): Promise<PlacementResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("set_rollover_player_placement", {
+    p_proposal_id: proposalId,
+    p_target_team_id: targetTeamId,
+  })
+  if (error) return { ok: false, error: error.message }
+  const row = (data ?? [])[0]
+  if (!row) return { ok: false, error: "The placement could not be recorded." }
+  revalidatePath("/club/rollover")
+  return {
+    ok: true,
+    verdict: {
+      overrideKind: row.override_kind as PlacementVerdict["overrideKind"],
+      movementRequirement: row.movement_requirement as PlacementVerdict["movementRequirement"],
+      reviewState: row.review_state as PlacementVerdict["reviewState"],
+      reason: row.reason,
+      dispensationRequired: row.dispensation_required,
+    },
+  }
+}
+
+/** Moves the membership. Refused server-side while the review is unresolved. */
+export async function applyPlayerPlacement(proposalId: string): Promise<RolloverActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("apply_rollover_player_placement", { p_proposal_id: proposalId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/club/rollover")
+  return { ok: true }
+}
+
+/**
+ * Adds the team a player normally belongs in when the club does not run it,
+ * carrying the source squad's staff across. Offered, never automatic.
+ */
+export async function addMissingPlacementTeam(proposalId: string): Promise<RolloverActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("provision_missing_placement_team", { p_proposal_id: proposalId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/club/rollover")
+  return { ok: true }
 }
