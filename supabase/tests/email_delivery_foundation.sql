@@ -102,7 +102,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_site::text, 'role', 'authenticated')::text, true);
 
   select public.claim_email_delivery(
-    'club_invitation', 'ecf-test-key-1', 'club_invitation', null,
+    'club_invitation', 'ecf-test-key-1', 'ecf-test-key-1', 'club_invitation', null,
     'ecf-recipient@ovalball.test', v_club, 'Test subject'
   ) into v_delivery;
   if v_delivery is not null then
@@ -112,7 +112,7 @@ begin
   end if;
 
   select public.claim_email_delivery(
-    'club_invitation', 'ecf-test-key-1', 'club_invitation', null,
+    'club_invitation', 'ecf-test-key-1', 'ecf-test-key-1', 'club_invitation', null,
     'ecf-recipient@ovalball.test', v_club, 'Test subject'
   ) into v_second;
   if v_second is null then
@@ -131,7 +131,7 @@ begin
   -- A genuinely different occurrence is NOT suppressed. Idempotency must
   -- stop retries, never legitimate later messages.
   select public.claim_email_delivery(
-    'club_invitation', 'ecf-test-key-2', 'club_invitation', null,
+    'club_invitation', 'ecf-test-key-2', 'ecf-test-key-2', 'club_invitation', null,
     'ecf-recipient@ovalball.test', v_club, 'Test subject'
   ) into v_second;
   if v_second is not null then
@@ -179,32 +179,32 @@ begin
   -- A suppressed delivery must say WHY. "Nothing was sent" with no reason is
   -- indistinguishable from a bug.
   begin
-    insert into public.email_deliveries (event_key, idempotency_key, recipient_kind, recipient_email, subject, status)
-    values ('club_invitation', 'ecf-suppressed-no-reason', 'club_invitation', 'x@ovalball.test', 's', 'suppressed');
+    insert into public.email_deliveries (event_key, idempotency_key, occurrence_key, recipient_kind, recipient_email, subject, status)
+    values ('club_invitation', 'ecf-suppressed-no-reason', 'ecf-suppressed-no-reason', 'club_invitation', 'x@ovalball.test', 's', 'suppressed');
     raise exception 'FAIL 16 (C): a suppressed delivery with no reason was accepted';
   exception when check_violation then
     raise notice 'PASS 16 (C): a suppressed delivery must record why it was suppressed';
   end;
 
   begin
-    insert into public.email_deliveries (event_key, idempotency_key, recipient_kind, recipient_email, subject, status)
-    values ('club_invitation', 'ecf-sent-no-time', 'club_invitation', 'x@ovalball.test', 's', 'sent');
+    insert into public.email_deliveries (event_key, idempotency_key, occurrence_key, recipient_kind, recipient_email, subject, status)
+    values ('club_invitation', 'ecf-sent-no-time', 'ecf-sent-no-time', 'club_invitation', 'x@ovalball.test', 's', 'sent');
     raise exception 'FAIL 17 (C): a delivery claimed sent with no timestamp was accepted';
   exception when check_violation then
     raise notice 'PASS 17 (C): a delivery cannot be "sent" without a send time';
   end;
 
   begin
-    insert into public.email_deliveries (event_key, idempotency_key, recipient_kind, recipient_email, subject, status)
-    values ('club_invitation', 'ecf-bad-status', 'club_invitation', 'x@ovalball.test', 's', 'delivered_probably');
+    insert into public.email_deliveries (event_key, idempotency_key, occurrence_key, recipient_kind, recipient_email, subject, status)
+    values ('club_invitation', 'ecf-bad-status', 'ecf-bad-status', 'club_invitation', 'x@ovalball.test', 's', 'delivered_probably');
     raise exception 'FAIL 18 (C): an invented status was accepted';
   exception when check_violation then
     raise notice 'PASS 18 (C): the delivery lifecycle is a closed set of states';
   end;
 
   begin
-    insert into public.email_deliveries (event_key, idempotency_key, recipient_kind, recipient_email, subject)
-    values ('an_event_that_does_not_exist', 'ecf-bad-event', 'club_invitation', 'x@ovalball.test', 's');
+    insert into public.email_deliveries (event_key, idempotency_key, occurrence_key, recipient_kind, recipient_email, subject)
+    values ('an_event_that_does_not_exist', 'ecf-bad-event', 'ecf-bad-event', 'club_invitation', 'x@ovalball.test', 's');
     raise exception 'FAIL 19 (C): a delivery for an uncatalogued event was accepted';
   exception when foreign_key_violation then
     raise notice 'PASS 19 (C): a delivery must name a catalogued event -- no ad-hoc email types';
@@ -232,8 +232,8 @@ begin
 
   -- A client must not be able to forge a delivery record.
   begin
-    insert into public.email_deliveries (event_key, idempotency_key, recipient_kind, recipient_email, subject)
-    values ('club_invitation', 'ecf-forged', 'club_invitation', 'attacker@example.test', 'forged');
+    insert into public.email_deliveries (event_key, idempotency_key, occurrence_key, recipient_kind, recipient_email, subject)
+    values ('club_invitation', 'ecf-forged', 'ecf-forged', 'club_invitation', 'attacker@example.test', 'forged');
     raise exception 'FAIL 22 (D): an authenticated client inserted a delivery row directly';
   exception when insufficient_privilege then
     raise notice 'PASS 22 (D): direct INSERT into the delivery ledger is refused -- writes go through the definer function';

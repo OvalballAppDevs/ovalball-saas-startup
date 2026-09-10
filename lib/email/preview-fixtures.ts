@@ -2,6 +2,7 @@ import "server-only"
 
 import type { EmailEventKey } from "./catalogue"
 import type { EmailEventData } from "./templates"
+import type { FixtureEmailContext } from "./context/resolve-fixture-email-context"
 
 /**
  * Controlled fixture data for the developer email preview.
@@ -16,6 +17,28 @@ import type { EmailEventData } from "./templates"
  */
 
 const LONG_CLUB = "Kingston-upon-Thames Rugby Football Club (Colts & Juniors)"
+
+const SAMPLE_HOME_SIDE = { displayName: "Sample RUFC", teamLabel: "U12 Boys", crestUrl: null }
+const SAMPLE_AWAY_SIDE = { displayName: "Another Sample RFC", teamLabel: "U12 Boys", crestUrl: null }
+
+/** A safe, obviously-fake fixture context, matching resolveFixtureEmailContext's own shape. Never a real fixture_id. */
+const FULL_FIXTURE_CONTEXT: FixtureEmailContext = {
+  fixtureId: "00000000-0000-0000-0000-000000000000",
+  status: "CANCELLED",
+  fixtureDateDisplay: "Sunday 20 September",
+  fixtureDateIso: "2026-09-20",
+  kickoffTimeDisplay: "14:15",
+  meetTimeDisplay: "13:30",
+  homeAway: "Home",
+  home: SAMPLE_HOME_SIDE,
+  away: SAMPLE_AWAY_SIDE,
+  ourTeam: SAMPLE_HOME_SIDE,
+  opposition: SAMPLE_AWAY_SIDE,
+  venue: { name: "Sample Park", addressLines: ["Sample Road"], postcode: "SA1 1PL" },
+  pitchName: "Pitch 1",
+  competitionName: null,
+  attendanceCounts: { attending: 0, cannotAttend: 0, unsure: 0, awaitingResponse: 0 },
+}
 
 export const PREVIEW_FIXTURES: { [K in EmailEventKey]: Array<{ label: string; data: EmailEventData[K] }> } = {
   club_invitation: [
@@ -95,6 +118,16 @@ export const PREVIEW_FIXTURES: { [K in EmailEventKey]: Array<{ label: string; da
       },
     },
   ],
+  club_welcome: [
+    {
+      label: "Typical",
+      data: { firstName: "Callum", clubName: "Solihull Rugby Club", clubLogoUrl: null },
+    },
+    {
+      label: "Long club name",
+      data: { firstName: "Callum", clubName: LONG_CLUB, clubLogoUrl: null },
+    },
+  ],
   club_claim_submitted: [
     {
       label: "Typical",
@@ -124,6 +157,28 @@ export const PREVIEW_FIXTURES: { [K in EmailEventKey]: Array<{ label: string; da
         referredClubName: "Another Sample RFC",
         planLabel: "Standard",
         rewardValue: "£15.00",
+      },
+    },
+  ],
+  match_cancelled: [
+    {
+      label: "Full data",
+      data: {
+        cancellationReason: "Waterlogged pitch",
+        fixtureContext: FULL_FIXTURE_CONTEXT,
+      },
+    },
+    {
+      label: "No pitch, no meet time, unclaimed opposition",
+      data: {
+        cancellationReason: "Opposition unable to field a side",
+        fixtureContext: {
+          ...FULL_FIXTURE_CONTEXT,
+          pitchName: null,
+          meetTimeDisplay: null,
+          away: { displayName: "Opposition to be confirmed", teamLabel: null, crestUrl: null },
+          opposition: { displayName: "Opposition to be confirmed", teamLabel: null, crestUrl: null },
+        },
       },
     },
   ],

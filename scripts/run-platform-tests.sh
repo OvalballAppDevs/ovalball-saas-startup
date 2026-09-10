@@ -59,6 +59,40 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-tournament-centre-shared.mjs"; 
   exit 1
 fi
 
+# The email catalogue, its editable contracts and its wiring must agree. See
+# the script's own header for the quiet failure this exists to catch.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-email-wiring.mjs"; then
+  exit 1
+fi
+
+# No direct player-email shortcut, and no second copy of the guardian/consent
+# eligibility predicate. See the script's own header.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-recipient-audience-boundary.mjs"; then
+  exit 1
+fi
+
+# One Dynamic Data catalogue, every contracted variable and structured block
+# resolves to a registered key. See the script's own header.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-dynamic-data-catalogue.mjs"; then
+  exit 1
+fi
+
+# The on/off switch stays wired: the dead template.enabled column is not
+# resurrected, the send boundary checks policy before recipient resolution,
+# and usage stays set-based from the ledger. See the script's own header.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-email-delivery-policy.mjs"; then
+  exit 1
+fi
+
+# One canonical message/notification store, server-issued ids, email/in-app
+# channel independence, stable notification destinations. Audit-as-code for
+# the existing Main Project Messenger/Notifications architecture -- SP4
+# does not modify these files, only pins what the audit found true. See the
+# script's own header.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-messenger-notifications-architecture.mjs"; then
+  exit 1
+fi
+
 CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 
@@ -93,6 +127,10 @@ SUITES=(
   regulatory_content_administration
   referral_reward_semantics
   email_delivery_foundation
+  email_template_registry
+  email_brand_assets
+  recipient_audience_engine
+  email_delivery_policy
   calendar_match_centre_link
   add_child_flow
   guardian_link_requests

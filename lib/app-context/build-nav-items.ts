@@ -64,6 +64,7 @@ const SITE_ADMIN_SECTIONS: { key: string; label: string; icon: string; hrefs: st
     hrefs: [
       "/admin/support",
       "/admin/messages",
+      "/admin/email",
       "/admin/system-health",
       "/admin/releases",
       "/admin/site-admins",
@@ -295,6 +296,7 @@ export function buildNavItems(
     items.push({ href: "/admin/support", label: "Support Tickets" })
     items.push({ href: "/admin/site-admins", label: "Site Admin Management" })
     items.push({ href: "/admin/system-health", label: "System Health" })
+    items.push({ href: "/admin/email", label: "Email Configuration" })
 
     // Release & platform mode is readable by every Site Admin: knowing
     // whether Ovalball is charging clubs is operational context, not a

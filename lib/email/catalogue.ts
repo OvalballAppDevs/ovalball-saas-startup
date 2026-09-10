@@ -43,6 +43,10 @@ export type RecipientKind =
   | "support_ticket"
   | "partner_invitation"
   | "club_billing_contact"
+  /** The person whose club claim was approved, read from the claim row. */
+  | "club_claimant"
+  /** A fixture's own effective participant population -- public.fixture_notification_recipients, wrapping the canonical internal.fixture_audience_recipients Match Centre already uses. */
+  | "fixture_participants"
 
 export interface EmailEventDefinition {
   classification: EmailClassification
@@ -103,6 +107,16 @@ export const EMAIL_EVENTS = {
     recipientKind: "site_admin_inbox",
     description: "A club claim needs Site Admin review.",
   },
+  club_welcome: {
+    // The claimant asked for this club and a Site Admin has just approved it,
+    // so this is the operational confirmation that the thing they applied for
+    // now exists. Suppressing it would leave somebody who has been granted a
+    // club with no notification that they have one.
+    classification: "MANDATORY_OPERATIONAL",
+    topicKey: "access_invitations",
+    recipientKind: "club_claimant",
+    description: "A club claim was approved, so the club is now live and its claimant is told.",
+  },
   support_ticket_reply: {
     classification: "MANDATORY_OPERATIONAL",
     topicKey: "support_moderation",
@@ -116,6 +130,17 @@ export const EMAIL_EVENTS = {
     recipientKind: "club_billing_contact",
     description:
       "A referred club paid its first subscription, so the referring club earned a free month.",
+  },
+  match_cancelled: {
+    // OPTIONAL, not mandatory: this is fixture-update logistics, the same
+    // category as the attendance reminder it shares a topic with -- a family
+    // who has switched fixture updates off is respected here too. Reuses
+    // fixture_updates rather than registering a second fixture-notification
+    // topic (20261103000000_fixture_communications.sql already owns it).
+    classification: "OPTIONAL_OPERATIONAL",
+    topicKey: "fixture_updates",
+    recipientKind: "fixture_participants",
+    description: "A fixture was cancelled, so its effective participant population is told.",
   },
 } as const satisfies Record<string, EmailEventDefinition>
 

@@ -4494,6 +4494,30 @@ export type Database = {
           },
         ]
       }
+      email_brand_settings: {
+        Row: {
+          active_logo_path: string | null
+          id: string
+          lock_version: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active_logo_path?: string | null
+          id?: string
+          lock_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active_logo_path?: string | null
+          id?: string
+          lock_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       email_deliveries: {
         Row: {
           attempts: number
@@ -4504,10 +4528,12 @@ export type Database = {
           failed_at: string | null
           id: string
           idempotency_key: string
+          initiated_by: string | null
+          occurrence_key: string
           provider: string | null
-          provider_message_id: string | null
+          provider_reference: string | null
           queued_at: string
-          recipient_email: string
+          recipient_email: string | null
           recipient_kind: string
           recipient_ref: string | null
           sent_at: string | null
@@ -4524,10 +4550,12 @@ export type Database = {
           failed_at?: string | null
           id?: string
           idempotency_key: string
+          initiated_by?: string | null
+          occurrence_key: string
           provider?: string | null
-          provider_message_id?: string | null
+          provider_reference?: string | null
           queued_at?: string
-          recipient_email: string
+          recipient_email?: string | null
           recipient_kind: string
           recipient_ref?: string | null
           sent_at?: string | null
@@ -4544,10 +4572,12 @@ export type Database = {
           failed_at?: string | null
           id?: string
           idempotency_key?: string
+          initiated_by?: string | null
+          occurrence_key?: string
           provider?: string | null
-          provider_message_id?: string | null
+          provider_reference?: string | null
           queued_at?: string
-          recipient_email?: string
+          recipient_email?: string | null
           recipient_kind?: string
           recipient_ref?: string | null
           sent_at?: string | null
@@ -4621,6 +4651,41 @@ export type Database = {
           },
         ]
       }
+      email_delivery_policy_audit: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          event_key: string
+          id: string
+          new_active: boolean
+          previous_active: boolean
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          event_key: string
+          id?: string
+          new_active: boolean
+          previous_active: boolean
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          event_key?: string
+          id?: string
+          new_active?: boolean
+          previous_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_delivery_policy_audit_event_key_fkey"
+            columns: ["event_key"]
+            isOneToOne: false
+            referencedRelation: "email_events"
+            referencedColumns: ["event_key"]
+          },
+        ]
+      }
       email_events: {
         Row: {
           active: boolean
@@ -4628,8 +4693,11 @@ export type Database = {
           created_at: string
           description: string
           event_key: string
+          lock_version: number
           recipient_kind: string
           topic_key: string | null
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           active?: boolean
@@ -4637,8 +4705,11 @@ export type Database = {
           created_at?: string
           description: string
           event_key: string
+          lock_version?: number
           recipient_kind: string
           topic_key?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           active?: boolean
@@ -4646,8 +4717,11 @@ export type Database = {
           created_at?: string
           description?: string
           event_key?: string
+          lock_version?: number
           recipient_kind?: string
           topic_key?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -4658,6 +4732,92 @@ export type Database = {
             referencedColumns: ["key"]
           },
         ]
+      }
+      email_template_settings: {
+        Row: {
+          active_version_id: string | null
+          event_key: string
+          lock_version: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active_version_id?: string | null
+          event_key: string
+          lock_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active_version_id?: string | null
+          event_key?: string
+          lock_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_template_settings_active_version_id_fkey"
+            columns: ["active_version_id"]
+            isOneToOne: false
+            referencedRelation: "email_template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_template_versions: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          cta_label: string | null
+          event_key: string
+          from_registered_default: boolean
+          heading: string
+          id: string
+          preheader: string
+          published_at: string | null
+          published_by: string | null
+          restored_from_revision: number | null
+          revision: number
+          status: string
+          subject: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          event_key: string
+          from_registered_default?: boolean
+          heading: string
+          id?: string
+          preheader: string
+          published_at?: string | null
+          published_by?: string | null
+          restored_from_revision?: number | null
+          revision: number
+          status?: string
+          subject: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          event_key?: string
+          from_registered_default?: boolean
+          heading?: string
+          id?: string
+          preheader?: string
+          published_at?: string | null
+          published_by?: string | null
+          restored_from_revision?: number | null
+          revision?: number
+          status?: string
+          subject?: string
+        }
+        Relationships: []
       }
       finance_audit_log: {
         Row: {
@@ -16771,6 +16931,7 @@ export type Database = {
         Args: { p_token: string }
         Returns: undefined
       }
+      active_email_logo_path: { Args: never; Returns: string }
       add_child_for_guardian: {
         Args: {
           p_club_id: string
@@ -17024,11 +17185,20 @@ export type Database = {
         Args: { p_invitation_id: string }
         Returns: string
       }
+      claim_disabled_email_suppression: {
+        Args: {
+          p_event_key: string
+          p_occurrence_key: string
+          p_recipient_kind: string
+        }
+        Returns: string
+      }
       claim_email_delivery: {
         Args: {
           p_club_id?: string
           p_event_key: string
           p_idempotency_key: string
+          p_occurrence_key: string
           p_recipient_email?: string
           p_recipient_kind: string
           p_recipient_ref?: string
@@ -17050,6 +17220,14 @@ export type Database = {
         Args: { p_player_id: string; p_programme_id: string }
         Returns: string
       }
+      claim_test_email_send: {
+        Args: {
+          p_event_key: string
+          p_recipient_email: string
+          p_subject: string
+        }
+        Returns: string
+      }
       claim_tournament_host: {
         Args: { p_host_team_id: string; p_tournament_id: string }
         Returns: undefined
@@ -17060,6 +17238,14 @@ export type Database = {
           blocking_references: Json
           classification: string
         }[]
+      }
+      clear_email_brand_logo: {
+        Args: { p_expected_lock: number }
+        Returns: undefined
+      }
+      clear_email_template_override: {
+        Args: { p_event_key: string; p_expected_lock: number }
+        Returns: undefined
       }
       clear_rollover_player_placement: {
         Args: { p_proposal_id: string }
@@ -17105,6 +17291,22 @@ export type Database = {
           gross_pence: number
           net_pence: number
           will_skip: boolean
+        }[]
+      }
+      club_playing_group_recipients: {
+        Args: { p_club_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      club_playing_group_summary: {
+        Args: { p_club_id: string }
+        Returns: {
+          eligible_recipient_count: number
+          excluded_count: number
+          guardian_destination_count: number
+          self_destination_count: number
+          source_player_count: number
         }[]
       }
       club_referral_summary: {
@@ -17547,6 +17749,34 @@ export type Database = {
           suppressed_24h: number
         }[]
       }
+      email_event_active: { Args: { p_event_key: string }; Returns: boolean }
+      email_recent_deliveries: {
+        Args: { p_event_key: string; p_limit?: number }
+        Returns: {
+          destination: string
+          error_code: string
+          id: string
+          is_test: boolean
+          provider: string
+          provider_reference: string
+          queued_at: string
+          recipient_kind: string
+          status: string
+        }[]
+      }
+      email_usage_summary: {
+        Args: { p_since?: string; p_until?: string }
+        Returns: {
+          event_key: string
+          failed: number
+          last_sent_at: string
+          provider_accepted: number
+          recipient_deliveries: number
+          send_occurrences: number
+          suppressed: number
+          test_sends: number
+        }[]
+      }
       end_membership_subscription: {
         Args: {
           p_actor_user_id?: string
@@ -17595,6 +17825,13 @@ export type Database = {
           attending_count: number
           outstanding_count: number
           team_count: number
+        }[]
+      }
+      fixture_notification_recipients: {
+        Args: { p_fixture_id: string }
+        Returns: {
+          email: string
+          user_id: string
         }[]
       }
       fold_team: {
@@ -18568,6 +18805,21 @@ export type Database = {
           trial_status: string
         }[]
       }
+      platform_eligible_audience_summary: {
+        Args: never
+        Returns: {
+          eligible_recipient_count: number
+          excluded_count: number
+          source_club_count: number
+          source_player_count: number
+        }[]
+      }
+      platform_eligible_recipients: {
+        Args: never
+        Returns: {
+          user_id: string
+        }[]
+      }
       platform_public_state: {
         Args: never
         Returns: {
@@ -18704,6 +18956,10 @@ export type Database = {
         }
         Returns: string
       }
+      publish_email_template_draft: {
+        Args: { p_event_key: string; p_expected_lock: number }
+        Returns: string
+      }
       publish_import_row: { Args: { p_row_id: string }; Returns: string }
       publish_regulatory_content_set: {
         Args: { p_content_set_id: string }
@@ -18794,7 +19050,7 @@ export type Database = {
           p_error_code?: string
           p_error_message?: string
           p_provider?: string
-          p_provider_message_id?: string
+          p_provider_reference?: string
           p_status: string
           p_suppression_reason?: string
         }
@@ -19332,6 +19588,18 @@ export type Database = {
         }
         Returns: string
       }
+      save_email_template_draft: {
+        Args: {
+          p_body: string
+          p_cta_label: string
+          p_event_key: string
+          p_expected_lock: number
+          p_heading: string
+          p_preheader: string
+          p_subject: string
+        }
+        Returns: string
+      }
       save_tournament: {
         Args: {
           p_club_id: string
@@ -19464,6 +19732,18 @@ export type Database = {
         Returns: string
       }
       set_default_venue: { Args: { p_id: string }; Returns: undefined }
+      set_email_brand_logo: {
+        Args: { p_expected_lock: number; p_path: string }
+        Returns: undefined
+      }
+      set_email_event_active: {
+        Args: {
+          p_active: boolean
+          p_event_key: string
+          p_expected_lock: number
+        }
+        Returns: undefined
+      }
       set_fixture_conversation_mute: {
         Args: {
           p_fixture_id: string
@@ -19797,6 +20077,30 @@ export type Database = {
           requested_at: string
           row_id: string
           status: string
+        }[]
+      }
+      team_playing_group_recipient_context: {
+        Args: { p_team_id: string }
+        Returns: {
+          player_id: string
+          relationship: string
+          user_id: string
+        }[]
+      }
+      team_playing_group_recipients: {
+        Args: { p_team_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      team_playing_group_summary: {
+        Args: { p_team_id: string }
+        Returns: {
+          eligible_recipient_count: number
+          excluded_count: number
+          guardian_destination_count: number
+          self_destination_count: number
+          source_player_count: number
         }[]
       }
       touch_last_active: { Args: never; Returns: undefined }

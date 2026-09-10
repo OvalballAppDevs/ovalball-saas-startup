@@ -105,3 +105,46 @@ export function getSiteUrlForMetadata(): string | null {
     return null
   }
 }
+
+/**
+ * Where a Site Admin's OWN preview fetches an embedded email image from --
+ * the brand logo, a club crest. Never used for a CTA destination, a link, or
+ * a real send: those always resolve from {@link getSiteUrl}, unconditionally.
+ *
+ * THE PROBLEM THIS SOLVES
+ * ------------------------
+ * `NEXT_PUBLIC_SITE_URL` names one canonical deployment origin. A worktree
+ * dev server that happens to be running on a different port than that value
+ * (because the "usual" port was already taken by another checkout) still
+ * serves `/email-assets/...` correctly -- just not at the URL the canonical
+ * resolver names. Building the preview's `<img>` from `getSiteUrl()` in that
+ * situation asks the BROWSER to fetch an image from a server that is not the
+ * one rendering the page, which is a broken image icon that has nothing to do
+ * with whether the asset route itself works.
+ *
+ * THE RULE THIS PRESERVES
+ * ------------------------
+ * Derived from the INCOMING REQUEST's own `Host` header, never from anything
+ * a caller passes in -- so a Site Admin cannot supply an arbitrary preview
+ * origin, and this function has no parameter for one to arrive through. The
+ * value only ever answers "what origin am I, the server handling this
+ * request, actually reachable at", which is the same trust level as the
+ * request already carries by having reached a `requireActiveSiteAdmin()`
+ * route at all. Falls back to {@link getSiteUrl} on any failure, so the worst
+ * case is exactly today's behaviour, never something looser.
+ */
+export async function previewAssetOrigin(): Promise<string> {
+  try {
+    const { headers } = await import("next/headers")
+    const requestHeaders = await headers()
+    const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host")
+    if (!host) return getSiteUrl()
+
+    const isLocalHost = host.startsWith("localhost") || host.startsWith("127.0.0.1")
+    const proto = requestHeaders.get("x-forwarded-proto") ?? (isLocalHost ? "http" : "https")
+    const origin = new URL(`${proto}://${host}`).origin
+    return origin
+  } catch {
+    return getSiteUrl()
+  }
+}

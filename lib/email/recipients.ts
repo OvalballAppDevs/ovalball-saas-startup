@@ -48,6 +48,8 @@ export type RecipientRef =
   | { kind: "support_ticket"; ticketId: string }
   | { kind: "partner_invitation"; invitationId: string }
   | { kind: "club_billing_contact"; clubId: string }
+  | { kind: "club_claimant"; claimId: string }
+  | { kind: "fixture_participants"; fixtureId: string }
 
 export interface ResolvedRecipient {
   email: string
@@ -216,6 +218,62 @@ export async function resolveRecipients(
 
       if (recipients.length === 0) {
         return { ok: false, reason: "This club has no active Club Admin with a contact address." }
+      }
+      return { ok: true, recipients }
+    }
+
+    case "club_claimant": {
+      // The person who applied for this club, read from the claim itself.
+      // The approving Site Admin never types an address: an approval that
+      // could be redirected to an arbitrary recipient is an approval that
+      // hands somebody else's club to whoever asked last.
+      const { data: claim, error } = await supabase
+        .from("club_claims")
+        .select("id, claimant_user_id")
+        .eq("id", ref.claimId)
+        .maybeSingle()
+      if (error) return { ok: false, reason: `That club claim could not be read: ${error.message}` }
+      if (!claim) return { ok: false, reason: "That club claim could not be found." }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("id", claim.claimant_user_id)
+        .maybeSingle()
+      if (profileError) {
+        return { ok: false, reason: `The claimant's contact could not be read: ${profileError.message}` }
+      }
+      const email = profile?.email?.trim() ?? ""
+      if (!profile || !email) {
+        return { ok: false, reason: "The claimant has no contact address recorded." }
+      }
+      return { ok: true, recipients: [{ email, ref: claim.id, clubId: null, userId: profile.id }] }
+    }
+
+    case "fixture_participants": {
+      // The SAME audience Match Centre's own "message the team" already
+      // reaches -- public.fixture_notification_recipients wraps internal.
+      // fixture_audience_recipients (MESSAGE_TEAM) verbatim, and resolves the
+      // email address itself: profiles' own RLS (profiles_select_self_or_admin)
+      // only lets a caller read THEIR OWN row, so a Club Admin or coach
+      // triggering this can never read another user's email back through an
+      // ordinary select the way club_billing_contact's read does -- that
+      // function carries the identical latent bug, undiscovered only because
+      // referral_reward_earned has never been triggered. fixture_notification_
+      // recipients re-checks the caller's own fixture-management authority
+      // before resolving anything, which is what makes doing the email lookup
+      // inside it (rather than out here) safe rather than a shortcut.
+      const { data: rows, error } = await supabase.rpc("fixture_notification_recipients", {
+        p_fixture_id: ref.fixtureId,
+      })
+      if (error) return { ok: false, reason: `This fixture's participants could not be resolved: ${error.message}` }
+
+      const recipients = (rows ?? [])
+        .map((r) => ({ email: r.email?.trim() ?? "", ref: ref.fixtureId, clubId: null, userId: r.user_id }))
+        .filter((r) => r.email.length > 0)
+
+      if (recipients.length === 0) {
+        return { ok: false, reason: "This fixture has no legitimate recipient to notify." }
       }
       return { ok: true, recipients }
     }

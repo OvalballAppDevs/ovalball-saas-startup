@@ -9,6 +9,26 @@
 /** The legal operator of Ovalball. */
 export const OPERATOR_NAME = "Pipaxon Technologies Ltd"
 
+/**
+ * The product line that appears beneath the wordmark.
+ *
+ * Lives here rather than in the email design system so the site and the mail
+ * cannot drift into two different straplines.
+ */
+export const PRODUCT_TAGLINE = "Rugby Connected."
+
+/**
+ * How Ovalball relates to the company that operates it, in the wording the
+ * product owner specified for transactional email.
+ *
+ * NOTE for whoever next touches this: components/site/footer.tsx currently
+ * says "{PRODUCT_NAME} is a product of {OPERATOR_NAME}", which is a different
+ * claim from "a trading name of". Both are here in the open rather than one
+ * quietly overwriting the other -- which is legally correct is a question for
+ * the operator, not something to settle in a template.
+ */
+export const OPERATOR_STATEMENT = "Ovalball is a trading name of Pipaxon Technologies Ltd."
+
 /** The product name. Never "Overball". */
 export const PRODUCT_NAME = "Ovalball"
 

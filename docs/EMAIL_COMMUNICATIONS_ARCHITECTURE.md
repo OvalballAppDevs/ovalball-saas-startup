@@ -152,10 +152,29 @@ asserts a different occurrence still sends.
 | `zeptomail` | Zoho ZeptoMail REST Send API. |
 
 ZeptoMail's REST API is used rather than SMTP because it returns a structured
-per-message id and a machine-readable error code — which is what the ledger
-needs. SMTP would give a `250` and a text blob. ZeptoMail's own error codes
-are preserved (`TM_3201 sender address not verified` is actionable; `http_400`
-is not).
+result and a machine-readable error code — which is what the ledger needs.
+SMTP would give a `250` and a text blob. ZeptoMail's own error codes are
+preserved (`TM_3201 sender address not verified` is actionable; `http_400` is
+not).
+
+### There is no per-message id, and the ledger no longer claims one
+
+Zoho documents the success body as:
+
+```
+{ data: [{ code, additional_info, message }], message, request_id, object }
+```
+
+There is **no message identifier anywhere in it**. The adapter previously read
+`data[0].message_id` — a field the API does not return — and fell through to
+`request_id` every time, so the ledger was in fact holding a request reference
+under a column called `provider_message_id`.
+
+The column is now `provider_reference` and holds `request_id`, which identifies
+**the API call Ovalball made**, not a delivered message. That is what an
+operator quotes to Zoho support when a club says nothing arrived, and it keeps
+the ledger's central honesty intact: `sent` has always meant "the provider
+accepted this", never "it arrived".
 
 ### Required server-side environment
 
@@ -169,10 +188,57 @@ browser bundle. Documented in `.env.example`; no credential is hardcoded.
 | `ZEPTOMAIL_API_URL` | Only for a non-global (EU/IN) data centre |
 | `EMAIL_FROM_ADDRESS` | Must be a ZeptoMail-verified domain. No default is invented |
 | `EMAIL_FROM_NAME` | Optional display name |
+| `EMAIL_REPLY_TO_ADDRESS` | Where replies land — `hello@ovalball.co.uk`. Unset is legitimate, not an error |
+| `EMAIL_REPLY_TO_NAME` | Optional display name for the reply address |
 | `SITE_ADMIN_NOTIFICATION_EMAIL` | Where club-claim due-diligence mail goes |
+
+### From and Reply-To are two different settings
+
+`From` must be a sender ZeptoMail has **verified for the domain** — a delivery
+constraint. `Reply-To` is a mailbox a **human reads** — a product one. Tying
+them together would mean either mailing from an address nobody monitors, or
+being unable to send at all.
+
+Both are resolved once, by `getSenderIdentity()`, and handed to the provider as
+a single object. **No feature, and certainly no browser request, can name its
+own Reply-To.** An arbitrary reply address redirects a real person's response,
+which is the same class of problem that removed `to` from this pipeline.
+
+Leaving `EMAIL_REPLY_TO_ADDRESS` unset is a legitimate state and is reported by
+System Health as `replyToConfigured: false` rather than as a configuration
+error: mail still sends, it simply carries no reply address. An unmonitored
+inbox is worse than none, so no address is defaulted in code.
 
 Zoho Mail is the right home for human mailboxes (support@, admin@); this
 pipeline sends application-generated mail only.
+
+### Domain authentication — what the operator configures, outside this repo
+
+Ovalball already uses **Zoho Mail** on `ovalball.co.uk`, so the dangerous move
+here is a second, conflicting SPF record. It is not needed:
+
+> **ZeptoMail no longer requires an SPF record for domain verification.**
+> Zoho removed that requirement — modern receivers check SPF alignment on the
+> *return-path*, and ZeptoMail's bounce domain is its own, which it configures
+> itself. Verification is by **DKIM (TXT)** plus a **CNAME** for the bounce /
+> return-path domain.
+
+So:
+
+- **Do not add a ZeptoMail `include:` to the existing SPF record.**
+- **Do not create a second SPF TXT record.** A domain with two SPF records
+  fails SPF outright, which would break the existing Zoho Mail delivery that
+  is working today.
+- **Leave the Zoho Mail SPF record exactly as it is.**
+- Add the **DKIM TXT** and **CNAME** records the ZeptoMail console generates,
+  copying the host and value **verbatim from that console**. No token, host or
+  selector is written down here, because inventing one produces a domain that
+  silently fails to authenticate.
+- Records take up to 24–48 hours to propagate; the domain will not verify and
+  sending will not work until they do.
+
+DMARC is a domain-wide policy already governed by the existing Zoho Mail setup
+and is deliberately not changed by adding a second sender.
 
 ## 8. Templates and plain text
 
@@ -192,6 +258,86 @@ in the text, and that no generated markup appears in the text.
 
 Author-supplied content (a safeguarding message, a support reply) is escaped
 and rendered as text, never as HTML.
+
+## 8a. The template registry: what a Site Admin may change
+
+Site Admin → **Email Configuration** lets a Full Site Admin rewrite what an
+email *says*. It cannot change what an email *is*.
+
+**The split.** A renderer owns STRUCTURE — which info card appears, whether a
+club crest sits at the top, where a quoted message goes, and above all where
+the button points. The registry owns COPY — subject, preview text, heading,
+body, button label. `lib/email/contracts.ts` is the code-owned half: the
+event's name, category, trigger description, whether it has a button, its
+allowed variables, and Ovalball's own default wording.
+
+**One resolution path.** `lib/email/resolve-content.ts` is the only way copy
+is chosen, for sending and for previewing alike:
+
+```
+registered event
+  → the active published version, if there is one AND it validates
+  → otherwise the registered code-owned default
+  → shared renderer
+```
+
+A preview produced by a second, friendlier code path is a picture of a system
+that does not exist, and the first anybody hears of the difference is a real
+recipient seeing something else. So the Site Admin preview calls `renderEmail`,
+exactly as `sendEmailEvent` does.
+
+**It fails safe, and not silently.** A stored version can go wrong in ways
+nobody intended — a variable removed from a contract long after somebody used
+it, an empty subject written by a broken client, a row edited directly. At
+render time the active version is re-validated; if it fails, the registered
+default is sent and the substitution is logged with the reason. An email in
+Ovalball's default wording is a far better outcome than a blank one, or one
+containing a literal `{{club_name}}`. It is logged because an override that is
+quietly not in use means a Site Admin is looking at a screen that disagrees
+with reality.
+
+**Variables are an allowlist, not a filter.** `VARIABLE_MAPS` in
+`lib/email/templates.ts` builds a flat `Record<string, string>` per event from
+that event's own typed data. No domain object is ever handed to the
+interpolator, so `{{player.date_of_birth}}` is not a leak to be filtered out —
+there is nothing to walk. Unknown tags are refused at save time and render as
+empty at send time, because a recipient seeing template syntax is worse than a
+recipient seeing a gap. Values are substituted as plain text and escaped by
+whichever primitive renders them, so a club named `<script>` is inert in HTML
+and intact in plain text.
+
+**What copy cannot do.** It cannot move a button: every destination is built
+from `getSiteUrl()` and re-checked by `safeUrl()`, and a regression test
+asserts that every rendered `href` still resolves to Ovalball's own origin even
+when the body text contains a plausible-looking URL. It cannot retarget a
+recipient, change a classification, or silence a safeguarding email. There is
+deliberately **no "send a test to me"**: a screen that can put an
+Ovalball-branded email into an arbitrary inbox is a phishing tool, and the
+operator's own address is not a special case — it is the first one somebody
+would try.
+
+**Storage.** `email_template_versions` is append-only history;
+`email_template_settings` records which version is active, per event, with a
+`lock_version` an editor is opened against. All three writes —
+`save_email_template_draft`, `publish_email_template_draft`,
+`clear_email_template_override` — are SECURITY DEFINER, re-check Full Site
+Admin themselves, and refuse a stale editor rather than letting one
+administrator silently overwrite another's newer work. There are no direct
+write policies and no client write grants, so the audit trail cannot be
+rewritten or truncated by the people it records. Restoring the default clears
+which version is active; it does **not** delete history.
+
+**No foreign key on `event_key`.** The code catalogue is the only authority on
+which emails exist. A reference table would let a database row describe an
+email the application has no renderer for, and the failure would first appear
+at send time. `scripts/verify-email-wiring.mjs` instead checks that the
+catalogue, the contracts and `lib/email/wiring.ts` agree, in both directions,
+and runs with the platform tests.
+
+**Unwired emails say so.** An event with a finished template and no trigger is
+listed as "Not yet sent by anything" rather than being hidden or silently
+presented as live — otherwise somebody spends an afternoon carefully rewording
+a message no one will ever receive.
 
 ## 9. Youth and privacy
 
@@ -237,3 +383,19 @@ Stated rather than quietly deferred:
   The column names are honest about this.
 - **Fixture and training email** is an open product decision (§4), not an
   implementation gap.
+- **The Email Configuration screens have not been exercised in a browser by a
+  Full Site Admin.** The routes build, and the route-family guard was confirmed
+  live — an unauthenticated request is redirected, and an authenticated Club
+  Admin / Coach / Player is sent to the dashboard. The catalogue, editor,
+  preview, draft/publish lifecycle and concurrency refusal have unit and SQL
+  coverage but have not been driven through the UI end to end, because doing so
+  needs a Full Site Admin sign-in. Until somebody does that, treat the screens
+  as built and tested rather than as verified.
+- **No 390px capture of the Site Admin screens.** The layouts are written
+  mobile-first (single column, stacked rows, 44px targets), but that is a
+  claim about the code, not an observation of a rendered page.
+- **`OPERATOR_STATEMENT` and the site footer still disagree.** The email
+  footer says Ovalball "is a trading name of" Pipaxon Technologies Ltd;
+  `components/site/footer.tsx` says "a product of". Both are in the open in
+  `lib/legal/metadata.ts`. Which is correct is a question about the company,
+  not about the code, so nothing has guessed on the operator's behalf.

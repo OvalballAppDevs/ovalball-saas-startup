@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
@@ -144,7 +145,7 @@ export async function inviteSafeguardingOfficer(officerId: string): Promise<{ ok
     eventKey: "safeguarding_officer_invitation",
     idempotencyKey: `safeguarding_officer_invitation:${data.invitation_id}`,
     recipient: { kind: "safeguarding_officer", officerId },
-    data: { clubName: ctx.clubName, clubLogoUrl: null, inviteToken: data.token },
+    data: { clubName: ctx.clubName, clubLogoUrl: await resolveClubCrestEmailUrl(ctx.supabase, ctx.clubId), inviteToken: data.token },
   })
 
   revalidatePath("/club/settings/safeguarding")
@@ -168,7 +169,7 @@ export async function resendSafeguardingOfficerInvitation(officerId: string): Pr
     eventKey: "safeguarding_officer_invitation",
     idempotencyKey: `safeguarding_officer_invitation:${data.invitation_id}`,
     recipient: { kind: "safeguarding_officer", officerId },
-    data: { clubName: ctx.clubName, clubLogoUrl: null, inviteToken: data.token },
+    data: { clubName: ctx.clubName, clubLogoUrl: await resolveClubCrestEmailUrl(ctx.supabase, ctx.clubId), inviteToken: data.token },
   })
 
   revalidatePath("/club/settings/safeguarding")
