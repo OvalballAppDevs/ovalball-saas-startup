@@ -196,7 +196,7 @@ function TeamsSection({ tournament, options }: { tournament: TournamentCentreCon
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <div className="flex-1">
             <Label htmlFor="t-add-team" className="sr-only">
-              Team to enter
+              Team to Enter
             </Label>
             <select id="t-add-team" value={teamId} onChange={(e) => setTeamId(e.target.value)} className={FIELD}>
               <option value="">Choose a team…</option>
