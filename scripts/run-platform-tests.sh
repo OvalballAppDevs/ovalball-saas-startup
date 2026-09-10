@@ -156,6 +156,7 @@ SUITES=(
   training_communication
   club_event_foundation
   tournament_centre
+  canonical_recipient_safeguarding
   scheduling_buffer_fallback
   team_people_roster
   registration_allocation
