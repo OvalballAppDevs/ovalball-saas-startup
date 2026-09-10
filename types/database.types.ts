@@ -9201,32 +9201,57 @@ export type Database = {
           },
         ]
       }
+      notification_topic_channels: {
+        Row: {
+          description: string | null
+          email_ready: boolean | null
+          key: string | null
+          label: string | null
+          mandatory: boolean | null
+          push_ready: boolean | null
+          sort_order: number | null
+        }
+        Insert: {
+          description?: string | null
+          email_ready?: never
+          key?: string | null
+          label?: string | null
+          mandatory?: boolean | null
+          push_ready?: never
+          sort_order?: number | null
+        }
+        Update: {
+          description?: string | null
+          email_ready?: never
+          key?: string | null
+          label?: string | null
+          mandatory?: boolean | null
+          push_ready?: never
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+
       notification_topics: {
         Row: {
           description: string
-          email_ready: boolean
           key: string
           label: string
           mandatory: boolean
-          push_ready: boolean
           sort_order: number
         }
         Insert: {
           description: string
-          email_ready?: boolean
           key: string
           label: string
           mandatory?: boolean
-          push_ready?: boolean
           sort_order: number
         }
         Update: {
           description?: string
-          email_ready?: boolean
           key?: string
           label?: string
           mandatory?: boolean
-          push_ready?: boolean
           sort_order?: number
         }
         Relationships: []
@@ -9245,6 +9270,13 @@ export type Database = {
           type_key?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notification_types_topic_key_fkey"
+            columns: ["topic_key"]
+            isOneToOne: false
+            referencedRelation: "notification_topic_channels"
+            referencedColumns: ["key"]
+          },
           {
             foreignKeyName: "notification_types_topic_key_fkey"
             columns: ["topic_key"]
@@ -9285,7 +9317,15 @@ export type Database = {
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_type_registered"
+            columns: ["type"]
+            isOneToOne: false
+            referencedRelation: "notification_types"
+            referencedColumns: ["type_key"]
+          },
+        ]
       }
       payment_refunds: {
         Row: {
@@ -18721,6 +18761,39 @@ export type Database = {
           status: string
         }[]
       }
+      my_unread_counts: {
+        Args: never
+        Returns: {
+          messages: number
+          notifications: number
+          support: number
+          total: number
+        }[]
+      }
+
+      my_bell_notifications: {
+        Args: { p_limit?: number }
+        Returns: {
+          body: string
+          created_at: string
+          data: Json
+          id: string
+          read_at: string | null
+          title: string
+          type: string
+        }[]
+      }
+
+      my_unread_message_counts: {
+        Args: never
+        Returns: {
+          club_conversation_id: string | null
+          fixture_id: string | null
+          fixture_request_id: string | null
+          unread: number
+        }[]
+      }
+
       my_player_context: {
         Args: never
         Returns: {

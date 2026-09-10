@@ -24,6 +24,31 @@
     --ink: #101512;
 
     /* ---------------------------------------------------------------
+     * Messenger blue. The ONE thing in Ovalball that is blue.
+     *
+     * A conversation has to answer "which of these did I write?" before it
+     * answers anything else, and it has to answer it at a glance, from
+     * across a touchline, on a phone. Ovalball's palette is entirely green,
+     * so a green-on-green conversation makes that the hardest question on
+     * the screen rather than the easiest. This is the permanent product
+     * rule: MY message is blue and on the right, a RECEIVED message is
+     * mint-100 and on the left, and "mine" means the authenticated sender
+     * is me -- never my club, my team, or the context I happen to have
+     * selected.
+     *
+     * Deliberately desaturated rather than a familiar bright chat blue.
+     * pitch-600 is Ovalball's accent and has to keep winning the eye; a
+     * saturated blue beside it produces two competing signals and makes the
+     * product look like it borrowed someone else's messenger. #2f5d8c
+     * reads unmistakably as blue against mint-100 while sitting quietly
+     * next to forest-950.
+     *
+     * White on #2f5d8c is 6.53:1 -- AA for normal text with room to spare.
+     * --------------------------------------------------------------- */
+    --messenger-blue: #2f5d8c;
+    --messenger-blue-soft: #eaf1f8;
+
+    /* ---------------------------------------------------------------
      * Accessible secondary text.
      *
      * The palette's secondary text was written as opacity on --ink, and
@@ -77,6 +102,8 @@
     --color-pitch-400: var(--pitch-400);
     --color-mint-300: var(--mint-300);
     --color-mint-100: var(--mint-100);
+    --color-messenger-blue: var(--messenger-blue);
+    --color-messenger-blue-soft: var(--messenger-blue-soft);
     --color-chalk: var(--chalk);
     --color-ink: var(--ink);
     --color-ink-muted: var(--ink-muted);

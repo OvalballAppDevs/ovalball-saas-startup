@@ -11,6 +11,7 @@ import { teamPermissionLabel } from "@/lib/permissions/role-labels"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
 
 import { markConversationRead, type ConversationKind } from "../../actions"
+import { MessageRequestDecision } from "../../message-request-decision"
 import { ConversationThread, type ThreadMessage } from "./conversation-thread"
 import { FixtureResultPanel, type FixtureResultData } from "./fixture-result-panel"
 import { CompetitionInlineEdit } from "./competition-inline-edit"
@@ -64,6 +65,12 @@ function teamLabel(t: { display_name: string; rugby_code?: string | null; catego
 }
 
 interface ThreadHeader {
+  /**
+   * Club conversations only: which side of a message request the viewer is on.
+   * Decides whether they are shown the decision or told it is with the other
+   * club -- the database enforces the same boundary regardless.
+   */
+  clubRequestSide?: "recipient" | "requester" | null
   /** The real, shared conversation identity -- both mirror rows of a two-sided fixture resolve to the SAME value. Null for a request-stage thread (fixture_request_id-keyed, not mirrored). */
   conversationId: string | null
   myTeamName: string
@@ -184,6 +191,7 @@ export default async function ConversationThreadPage({
     const opponentClub = iAmRequesting ? cc.recipient_club : cc.requesting_club
 
     header = {
+      clubRequestSide: iAmRequesting ? "requester" : "recipient",
       conversationId: cc.id,
       myTeamName: "",
       myClubName: myClub?.club_directory?.name ?? "Ovalball",
@@ -441,7 +449,6 @@ export default async function ConversationThreadPage({
         body,
         createdAt: m.created_at,
         isOwn,
-        isOwnClub: Boolean(identity?.clubId && identity.clubId === header.myClubId),
         isSystemEvent: m.kind === "system_event",
         isDeleted,
         canDelete: isOwn && !isDeleted,
@@ -600,13 +607,25 @@ export default async function ConversationThreadPage({
         : "Date TBC"
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-2xl flex-col px-4 py-6 md:h-screen md:px-8 md:py-10">
-      <Link href="/messages" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
-        <ChevronLeft className="size-4" />
+    // Fills the pane it was given rather than centring itself in the viewport:
+    // on a laptop that pane already sits beside the conversation list, and a
+    // second max-width inside it would leave the thread stranded in the middle
+    // of its own column. min-h-0 so the message area is what scrolls, never
+    // the page.
+    <div className="flex h-full min-h-0 flex-col px-4 py-4 md:px-6 md:py-6">
+      {/* Back exists only where it means something. On a phone the
+          conversation IS the screen, so leaving it is a real navigation; on a
+          laptop the list is already in view and a Back link would point at
+          something two inches to the left. */}
+      <Link
+        href="/messages"
+        className="inline-flex h-11 items-center gap-1.5 self-start text-sm font-medium text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400 lg:hidden"
+      >
+        <ChevronLeft className="size-4" aria-hidden="true" />
         Messages
       </Link>
 
-      <div className="mt-4 rounded-lg border border-ink/10 bg-white px-5 py-4">
+      <div className="rounded-lg border border-ink/10 bg-white px-4 py-4 sm:px-5 lg:mt-0">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <ClubAvatar logoUrl={header.myClubLogoUrl} name={header.myClubName} size="sm" />
@@ -688,6 +707,20 @@ export default async function ConversationThreadPage({
             awayClubName={header.result.myHomeAway === "Away" ? header.myClubName : header.opponentClubName}
             homeClubLogoUrl={header.result.myHomeAway === "Away" ? header.opponentClubLogoUrl : header.myClubLogoUrl}
             awayClubLogoUrl={header.result.myHomeAway === "Away" ? header.myClubLogoUrl : header.opponentClubLogoUrl}
+          />
+        </div>
+      )}
+
+      {/* THE DECISION, where the conversation is. A pending club message
+          request cannot be written in until somebody answers it, so the answer
+          belongs on this screen rather than in a list elsewhere -- and until
+          this was wired up, nothing in the product answered it at all. */}
+      {kind === "club" && header.status === "pending" && (
+        <div className="mt-3">
+          <MessageRequestDecision
+            conversationId={id}
+            side={header.clubRequestSide === "requester" ? "requester" : "recipient"}
+            otherClubName={header.opponentClubName}
           />
         </div>
       )}

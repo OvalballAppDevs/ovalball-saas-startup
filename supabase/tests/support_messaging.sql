@@ -242,9 +242,17 @@ begin
   -- Named explicitly rather than counted: the canonical set is one message
   -- store (notifications) plus its three config tables. A support-specific
   -- notification store would show up here as an extra name.
+  --
+  -- BASE TABLES ONLY, because a store is a place rows live. public.notifi-
+  -- cation_topic_channels is a view over notification_topics that derives
+  -- email/push readiness from real state instead of mirroring it into a
+  -- hand-kept boolean -- it stores nothing, and counting it here would have
+  -- meant the honest fix looked like the duplication this assertion exists
+  -- to catch. A second notification TABLE still fails, which is the claim.
   select count(*)::int into v_count
   from information_schema.tables
   where table_schema = 'public' and table_name ilike '%notification%'
+    and table_type = 'BASE TABLE'
     and table_name not in ('notifications','notification_preferences','notification_topics','notification_types');
   if v_count = 0 then
     raise notice 'PASS 18 (J): notifications live in the canonical tables only -- no second store';

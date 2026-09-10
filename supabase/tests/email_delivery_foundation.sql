@@ -260,11 +260,18 @@ begin
   -- =================================================================
   -- E. The policy layer is the EXISTING notification architecture
   -- =================================================================
-  select count(*) into v_count from public.notification_topics where email_ready;
+  -- Read from public.notification_topic_channels, not from a stored boolean
+  -- on notification_topics. That column used to be hand-kept and had already
+  -- drifted: fixture_updates carried an ACTIVE email event while its flag
+  -- said false, so the account page said "Email coming soon" for a topic
+  -- Ovalball was already mailing about. Readiness is now derived from the
+  -- same email_events.active row Site Admin switches, which is what makes
+  -- this assertion mean something.
+  select count(*) into v_count from public.notification_topic_channels where email_ready;
   if v_count > 0 then
-    raise notice 'PASS 25 (E): % topic(s) are marked email_ready, so the existing preference model gates email', v_count;
+    raise notice 'PASS 25 (E): % topic(s) read as email-ready from real email_events state, so the preference model gates email', v_count;
   else
-    raise exception 'FAIL 25 (E): no topic is email_ready, so no topic-scoped email can be governed';
+    raise exception 'FAIL 25 (E): no topic is email-ready, so no topic-scoped email can be governed';
   end if;
 
   select count(*) into v_count

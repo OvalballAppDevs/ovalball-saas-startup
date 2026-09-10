@@ -1,17 +1,18 @@
 import { redirect } from "next/navigation"
 import { cookies, headers } from "next/headers"
 
-import { ACTIVE_CONTEXT_COOKIE, listSwitchableContexts, resolveActiveContext } from "@/lib/app-context/active-context"
+import { ACTIVE_CONTEXT_COOKIE, isFamilyFacingContext, listSwitchableContexts, resolveActiveContext } from "@/lib/app-context/active-context"
 import { buildNavItems, buildSiteAdminSections } from "@/lib/app-context/build-nav-items"
-import { getConversationSummaries } from "@/lib/app-context/conversations"
+import { getMessengerRows } from "@/lib/app-context/messenger-rows"
 import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
 import { getRecentNotifications } from "@/lib/app-context/notifications"
+import { getUnreadCounts } from "@/lib/app-context/unread"
 import { resolvePersonalAvatarUrl } from "@/lib/app-context/personal-avatar"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { getClubSetupState, isSetupAllowedPath, resumeStep } from "@/lib/club-setup/state"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { getBetaBadgeState } from "@/lib/platform/mode"
-import { getNewSupportTicketCount, getSupportUnreadCount } from "@/lib/support/badges"
+import { getNewSupportTicketCount } from "@/lib/support/badges"
 import { createClient } from "@/lib/supabase/server"
 
 import { AskOvie } from "@/components/ovie/ask-ovie"
@@ -74,11 +75,17 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   const contexts = listSwitchableContexts(ctx)
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const { primary, roleLabel, clubName, clubLogoUrl } = buildNavItems(ctx, activeContext)
-  const [{ items: notifications, unreadCount }, conversations, supportUnreadCount, newSupportTicketCount, { data: profile }, diagnosticClub, betaState] =
+  // ONE UNREAD READ FOR THREE BADGES. getUnreadCounts is the single source:
+  // the bell, Messenger and Support each take their own slice of it, so no
+  // notification is counted in two places and clearing one badge moves the
+  // one that was double-counting it.
+  const [notifications, unread, conversations, newSupportTicketCount, { data: profile }, diagnosticClub, betaState] =
     await Promise.all([
-      getRecentNotifications(supabase, user.id),
-      getConversationSummaries(supabase, ctx, user.id),
-      getSupportUnreadCount(supabase, user.id),
+      getRecentNotifications(supabase),
+      getUnreadCounts(supabase),
+      // The SAME rows /messages lists. The compact Messenger and the
+      // workspace are one product, so they read one query.
+      getMessengerRows(supabase, ctx, user.id, { includeClubToClub: !isFamilyFacingContext(activeContext.kind) }),
       ctx.isSiteAdmin ? getNewSupportTicketCount(supabase) : Promise.resolve(0),
       supabase.from("profiles").select("first_name, surname, avatar_storage_path").eq("id", user.id).maybeSingle(),
       ctx.isSiteAdmin ? resolveDiagnosticClub(supabase, cookieStore.get(DIAGNOSTIC_SESSION_COOKIE)?.value ?? null) : Promise.resolve(null),
@@ -203,9 +210,10 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
               personName={personName}
               personAvatarUrl={personAvatarUrl}
               notifications={notifications}
-              unreadCount={unreadCount}
+              unreadCount={unread.notifications}
+            messagesUnreadCount={unread.messages}
               conversations={conversations}
-              supportUnreadCount={supportUnreadCount}
+              supportUnreadCount={unread.support}
             />
           </div>
           <AppMobileNav
@@ -221,9 +229,10 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
             personName={personName}
             personAvatarUrl={personAvatarUrl}
             notifications={notifications}
-            unreadCount={unreadCount}
+            unreadCount={unread.notifications}
+            messagesUnreadCount={unread.messages}
             conversations={conversations}
-            supportUnreadCount={supportUnreadCount}
+            supportUnreadCount={unread.support}
           />
           <main className="relative min-w-0 flex-1">
             {setupGate ? <ClubSetupRequired clubName={setupGate.clubName} /> : children}

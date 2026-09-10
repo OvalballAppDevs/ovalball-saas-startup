@@ -93,6 +93,17 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-messenger-notifications-archite
   exit 1
 fi
 
+# Every emitted notification type is registered, every registered type has a
+# destination, and every destination is exercised by the deep-link matrix.
+# The database's foreign key holds the first of those at runtime; this holds
+# all three at build time, and reads the emitters the hand audit could not --
+# the ones whose type is assembled in a variable or handed to a fan-out helper
+# as a parameter. It found two live paths the audit missed. See the script's
+# own header.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-notification-catalogue.mjs"; then
+  exit 1
+fi
+
 CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 
@@ -157,6 +168,8 @@ SUITES=(
   club_event_foundation
   tournament_centre
   canonical_recipient_safeguarding
+  notification_catalogue
+  unread_truth
   scheduling_buffer_fallback
   team_people_roster
   registration_allocation

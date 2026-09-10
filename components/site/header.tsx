@@ -135,11 +135,27 @@ export function Header({
           keeps the links from shifting when the Beta badge appears or
           disappears -- with justify-between they moved, because free space
           was redistributed around a fourth child. */}
-      <div className="mx-auto grid h-[64px] max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-4 md:h-[80px] md:px-8">
+      {/* TWO AREAS ON A PHONE, THREE COLUMNS ON A DESKTOP.
+
+          The centred `1fr auto 1fr` grid exists to keep the desktop nav in the
+          middle of the header. Below `md` that nav is display:none -- but the
+          grid still resolved three tracks, and with no content to size the
+          middle one the two `1fr` tracks collapsed (measured: 70px each at
+          320px, with a phantom 118px centre). The right-hand column was then
+          only 70px wide, so "Get Started" and the menu rendered hard against
+          the logo instead of against the right edge, and at 320px the row
+          overflowed the viewport by 16px.
+
+          So the three-column grid starts at `md`, where the thing it centres
+          actually exists. Below that the header is what it looks like:
+          brand at one end, controls at the other, with the space between them
+          doing the work. No margins, no absolute positioning, nothing tuned
+          to a particular width. */}
+      <div className="mx-auto flex h-[64px] max-w-[1440px] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 md:grid md:h-[80px] md:grid-cols-[1fr_auto_1fr] md:px-8">
         {/* Left column: logo and, while the platform is in Beta, the badge.
             The badge lives inside this column rather than as its own header
             child, so it can never push the nav off centre. */}
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 shrink-0 items-center gap-3">
           <Reveal as="span" index={0}>
             <Link
               href="/"
@@ -211,8 +227,10 @@ export function Header({
           ))}
         </nav>
 
-        {/* Right column, pinned to the end so the centre column stays centred. */}
-        <div className="flex items-center justify-end gap-2 sm:gap-3">
+        {/* The controls. Pinned to the end in both layouts -- `justify-end`
+            inside its own grid track on desktop, and the end of the flex row
+            on a phone. */}
+        <div className="flex min-w-0 shrink items-center justify-end gap-1.5 sm:gap-3">
           {identity ? (
             <Reveal as="div" index={NAV_LINKS.length + 1}>
               <AccountControl identity={identity} />
@@ -234,7 +252,7 @@ export function Header({
               </Reveal>
               <Reveal as="div" index={NAV_LINKS.length + 2}>
                 <Button
-                  className="cta-sweep h-11 rounded-lg px-4 text-sm"
+                  className="cta-sweep h-11 shrink-0 rounded-lg px-3 text-sm whitespace-nowrap sm:px-4"
                   nativeButton={false}
                   render={<Link href="/signup" />}
                 >

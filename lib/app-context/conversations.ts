@@ -213,18 +213,21 @@ export async function getConversationSummaries(
     summary.latestMessageSenderName = latest.senderId === userId ? "You" : (senderNameById.get(latest.senderId) ?? "Someone")
   }
 
-  const { data: unread } = await supabase
-    .from("notifications")
-    .select("data")
-    .eq("user_id", userId)
-    .eq("type", "new_fixture_message")
-    .is("read_at", null)
+  // THE SAME DEFINITION OF "MESSAGE" AS THE BADGE. Counting
+  // type = 'new_fixture_message' here missed the other three types in the
+  // `messages` topic, so the badge counted a staff message the list did not
+  // -- badge three, list two, and nothing in the list to click. The RPC
+  // groups by the registry's own topic, so the two can no longer disagree.
+  const { data: unread } = await supabase.rpc("my_unread_message_counts")
 
-  for (const n of unread ?? []) {
-    const data = n.data as { fixture_id?: string; fixture_request_id?: string } | null
-    const key = data?.fixture_id ? `fixture:${data.fixture_id}` : data?.fixture_request_id ? `request:${data.fixture_request_id}` : null
+  for (const row of unread ?? []) {
+    const key = row.fixture_id
+      ? `fixture:${row.fixture_id}`
+      : row.fixture_request_id
+        ? `request:${row.fixture_request_id}`
+        : null
     const summary = key ? summaries.get(key) : undefined
-    if (summary) summary.unreadCount += 1
+    if (summary) summary.unreadCount += row.unread
   }
 
   return Array.from(summaries.values()).sort((a, b) => {
@@ -331,18 +334,15 @@ export async function getClubConversationSummaries(
     summary.latestMessageSenderName = latest.isSystemEvent ? null : latest.senderId === userId ? "You" : (senderNameById.get(latest.senderId) ?? "Someone")
   }
 
-  const { data: unread } = await supabase
-    .from("notifications")
-    .select("data")
-    .eq("user_id", userId)
-    .eq("type", "new_fixture_message")
-    .is("read_at", null)
+  // Same canonical count as the fixture and request conversations above, and
+  // the same reason: club_message_request_received is a `messages` topic type
+  // the old `type = 'new_fixture_message'` query never saw.
+  const { data: unread } = await supabase.rpc("my_unread_message_counts")
 
-  for (const n of unread ?? []) {
-    const data = n.data as { club_conversation_id?: string } | null
-    const key = data?.club_conversation_id ? `club:${data.club_conversation_id}` : null
+  for (const row of unread ?? []) {
+    const key = row.club_conversation_id ? `club:${row.club_conversation_id}` : null
     const summary = key ? summaries.get(key) : undefined
-    if (summary) summary.unreadCount += 1
+    if (summary) summary.unreadCount += row.unread
   }
 
   return Array.from(summaries.values()).sort((a, b) => (b.latestMessageAt ?? b.requestedAt).localeCompare(a.latestMessageAt ?? a.requestedAt))

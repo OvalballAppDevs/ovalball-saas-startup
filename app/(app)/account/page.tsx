@@ -44,17 +44,28 @@ export default async function AccountPage() {
   const avatarUrl = resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path)
 
   const [{ data: topicRows }, { data: preferenceRows }] = await Promise.all([
-    supabase.from("notification_topics").select("key, label, description, mandatory, email_ready, push_ready").order("sort_order"),
+    // notification_topic_channels, not notification_topics: channel readiness
+    // is DERIVED from whether the topic has an active email event, rather than
+    // read off a hand-maintained boolean that had already drifted into telling
+    // people "email coming soon" for a topic Ovalball was already mailing.
+    supabase.from("notification_topic_channels").select("key, label, description, mandatory, email_ready, push_ready").order("sort_order"),
     supabase.from("notification_preferences").select("topic_key, in_app_enabled").eq("user_id", user.id),
   ])
   const preferenceByTopic = new Map((preferenceRows ?? []).map((p) => [p.topic_key, p.in_app_enabled]))
-  const notificationTopics = (topicRows ?? []).map((t) => ({
+  // A view's columns are typed nullable even where every underlying column is
+  // NOT NULL, so the narrowing is done once, here, rather than with a
+  // non-null assertion at each field.
+  const notificationTopics = (topicRows ?? [])
+    .filter((t): t is typeof t & { key: string; label: string; description: string; mandatory: boolean } =>
+      t.key !== null && t.label !== null && t.description !== null && t.mandatory !== null
+    )
+    .map((t) => ({
     key: t.key,
     label: t.label,
     description: t.description,
     mandatory: t.mandatory,
-    emailReady: t.email_ready,
-    pushReady: t.push_ready,
+    emailReady: t.email_ready ?? false,
+    pushReady: t.push_ready ?? false,
     // Absent row = on (Section 44's forward-compatible opt-out default),
     // matching internal.should_deliver_notification()'s own fallback.
     inAppEnabled: preferenceByTopic.get(t.key) ?? true,

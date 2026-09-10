@@ -252,31 +252,37 @@ insert into public.player_team_memberships (player_id, team_id, status) values
 insert into public.training_sessions (club_id, team_id, session_date, start_time)
 values (v_club, v_team, current_date + 7, '18:00') returning id into v_session;
 
-delete from public.notifications where type = 'crs_training_probe';
-perform internal.notify_training_participants(v_session, 'crs_training_probe', 'Training moved', 'The session has moved.');
+-- A REAL REGISTERED TYPE ON THE REAL PATH. This probe used to send a
+-- made-up type so it could be counted without colliding with anything
+-- else; notifications.type is now a foreign key into the registry, and a
+-- made-up type is refused -- correctly. The probe is scoped by the
+-- session's own id instead, which is both unique to this test and closer
+-- to what the product actually emits.
+delete from public.notifications where type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session;
+perform internal.notify_training_participants(v_session, 'training_session_updated', 'Training moved', 'The session has moved.');
 
-select count(*) into v_n from public.notifications where type = 'crs_training_probe' and user_id = v_u12_account;
+select count(*) into v_n from public.notifications where type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session and user_id = v_u12_account;
 if v_n = 0 then
   raise notice 'PASS 16 (F): TRAINING COMMUNICATION never reaches a 12-year-old directly -- the bypass is closed';
 else
   raise notice 'FAIL 16 (F): a 12-year-old received % direct training notifications', v_n;
 end if;
 
-select count(*) into v_n from public.notifications where type = 'crs_training_probe' and user_id = v_sixteen_no_consent_acct;
+select count(*) into v_n from public.notifications where type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session and user_id = v_sixteen_no_consent_acct;
 if v_n = 0 then
   raise notice 'PASS 17 (F): training communication never reaches a 16-year-old without direct consent';
 else
   raise notice 'FAIL 17 (F): an unconsented 16-year-old received a direct training notification';
 end if;
 
-select count(*) into v_n from public.notifications where type = 'crs_training_probe' and user_id = v_adult_acct;
+select count(*) into v_n from public.notifications where type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session and user_id = v_adult_acct;
 if v_n = 1 then
   raise notice 'PASS 18 (F): training communication DOES reach an adult player on the squad';
 else
   raise notice 'FAIL 18 (F): the adult player received % training notifications', v_n;
 end if;
 
-select count(*) into v_n from public.notifications where type = 'crs_training_probe' and user_id = v_guardian_a;
+select count(*) into v_n from public.notifications where type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session and user_id = v_guardian_a;
 if v_n = 1 then
   raise notice 'PASS 19 (F): a guardian representing THREE players on one squad receives ONE message, not three';
 else
@@ -284,7 +290,7 @@ else
 end if;
 
 select count(*) into v_n from public.notifications n
-where n.type = 'crs_training_probe'
+where n.type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session
   and n.user_id in (select cm.user_id from public.club_memberships cm where cm.club_id = v_club and cm.role = 'CLUB_ADMIN');
 if v_n = 0 then
   raise notice 'PASS 20 (F): training communication never falls back to a club admin';
@@ -334,7 +340,7 @@ begin
   from internal.player_contact_eligibility(array[v_u12, v_sixteen_no_consent, v_adult]) e
   where e.user_id is not null;
   select count(distinct n.user_id) into v_inapp
-  from public.notifications n where n.type = 'crs_training_probe';
+  from public.notifications n where n.type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session;
   if v_audience = v_inapp then
     raise notice 'PASS 22 (G): the resolved audience and the In-App notifications written are the SAME set of humans (%)', v_inapp;
   else
@@ -344,11 +350,11 @@ begin
   -- EMAIL OFF MUST NOT SUPPRESS IN-APP. Turning an email event off is an
   -- Email-channel decision applied above eligibility; the In-App channel does
   -- not consult it and must not be affected by it.
-  select count(*) into v_before from public.notifications where type = 'crs_training_probe';
+  select count(*) into v_before from public.notifications where type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session;
   update public.email_events set active = false where event_key = (select event_key from public.email_events limit 1);
-  delete from public.notifications where type = 'crs_training_probe';
-  perform internal.notify_training_participants(v_session, 'crs_training_probe', 'Training moved', 'The session has moved.');
-  select count(*) into v_after from public.notifications where type = 'crs_training_probe';
+  delete from public.notifications where type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session;
+  perform internal.notify_training_participants(v_session, 'training_session_updated', 'Training moved', 'The session has moved.');
+  select count(*) into v_after from public.notifications where type = 'training_session_updated' and (data->>'training_session_id')::uuid = v_session;
   if v_after = v_before and v_after > 0 then
     raise notice 'PASS 23 (G): an email event switched OFF does not suppress the In-App notification (% either side)', v_after;
   else

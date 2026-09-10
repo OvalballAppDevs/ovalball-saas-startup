@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { notificationHref } from "@/lib/notifications/destinations"
 import type { Database } from "@/types/database.types"
 
 export interface NotificationItem {
@@ -16,85 +17,30 @@ export interface NotificationItem {
 }
 
 /**
- * Where a notification's "view" action goes -- one place mapping every
- * type this session's triggers actually write (see the *_notifications.sql
- * migrations) to a route, so the bell never has to guess. Falls back to
- * /dashboard for a type this doesn't recognise rather than a dead link.
+ * WHAT THE BELL SHOWS.
+ *
+ * The panel and its badge used to be built from two different ideas of what
+ * belongs to the bell: the badge counted 3 and the panel it opened listed 6
+ * -- the three it counts plus the three messages belonging to the badge next
+ * door. The number and the list contradicted each other on screen, at the
+ * same moment, a few pixels apart.
+ *
+ * Both now read the same definition. public.my_bell_notifications returns
+ * what the bell holds and public.my_unread_counts counts it, and both split
+ * by the notification registry's own topic -- so this file holds no list of
+ * type names, and there is nothing here that can drift from the badge.
+ *
+ * THE COUNT IS NOT RETURNED FROM HERE. getUnreadCounts is the one unread
+ * read; returning a second count beside these items would be the same
+ * duplication in a new place.
  */
-function notificationHref(type: string, data: Record<string, unknown>): string {
-  const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined)
-
-  switch (type) {
-    case "new_fixture_message": {
-      const fixtureId = str(data.fixture_id)
-      const requestId = str(data.fixture_request_id)
-      if (fixtureId) return `/messages/fixture/${fixtureId}`
-      if (requestId) return `/messages/request/${requestId}`
-      return "/messages"
-    }
-    case "fixture_request_received":
-    case "fixture_request_accepted": {
-      const requestId = str(data.fixture_request_id)
-      return requestId ? `/messages/request/${requestId}` : "/fixtures"
-    }
-    // "Can you make the match?" -- lands on the one shared Match Centre for
-    // that canonical fixture, which is where the answer is given. Not a
-    // separate reply screen: the invitation and the response belong on the
-    // same surface as the venue, the meet time and the rest of the squad.
-    case "fixture_attendance_invitation": {
-      const fixtureId = str(data.fixture_id)
-      return fixtureId ? `/fixtures/${fixtureId}` : "/fixtures"
-    }
-    case "partner_request_received":
-    case "calendar_share_approved":
-    case "calendar_share_declined":
-      return "/partner-clubs"
-    case "club_claim_submitted":
-    case "directory_request_submitted":
-    case "club_join_request_submitted":
-      return "/admin/claims"
-    case "club_invitation_accepted":
-      return "/people"
-    case "support_ticket_update": {
-      const ticketId = str(data.support_ticket_id)
-      return ticketId ? `/support/${ticketId}` : "/support"
-    }
-    case "club_claim_approved":
-    case "club_claim_rejected":
-      return "/dashboard"
-    case "season_transition_warning":
-    case "season_transition_needs_attention":
-    case "season_transition_completed":
-      return "/club/rollover"
-    case "fixture_call_up_requested":
-    case "fixture_call_up_decided":
-    case "player_eligibility_approval_required":
-      return "/club/player-moves"
-    default:
-      return "/dashboard"
-  }
-}
-
 export async function getRecentNotifications(
   supabase: SupabaseClient<Database>,
-  userId: string,
   limit = 8
-): Promise<{ items: NotificationItem[]; unreadCount: number }> {
-  const [{ data: recent }, { count }] = await Promise.all([
-    supabase
-      .from("notifications")
-      .select("id, type, title, body, data, read_at, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .is("read_at", null),
-  ])
+): Promise<NotificationItem[]> {
+  const { data: recent } = await supabase.rpc("my_bell_notifications", { p_limit: limit })
 
-  const items: NotificationItem[] = (recent ?? []).map((n) => {
+  return (recent ?? []).map((n) => {
     const data = (n.data as Record<string, unknown>) ?? {}
     return {
       id: n.id,
@@ -107,6 +53,4 @@ export async function getRecentNotifications(
       href: notificationHref(n.type, data),
     }
   })
-
-  return { items, unreadCount: count ?? 0 }
 }

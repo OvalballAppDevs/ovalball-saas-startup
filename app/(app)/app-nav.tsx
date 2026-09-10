@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
-import type { ConversationSummary } from "@/lib/app-context/conversations"
+import type { MessengerRow } from "@/lib/messenger/view-model"
 import type { NotificationItem } from "@/lib/app-context/notifications"
 import type { ActiveContextKind, SwitchableContext } from "@/lib/app-context/active-context"
 import { cn } from "@/lib/utils"
@@ -40,7 +40,8 @@ interface AppNavProps {
   personAvatarUrl: string | null
   notifications: NotificationItem[]
   unreadCount: number
-  conversations: ConversationSummary[]
+  messagesUnreadCount: number
+  conversations: MessengerRow[]
   supportUnreadCount: number
 }
 
@@ -65,6 +66,7 @@ export function AppNav({
   personAvatarUrl,
   notifications,
   unreadCount,
+  messagesUnreadCount,
   conversations,
   supportUnreadCount,
 }: AppNavProps) {
@@ -75,7 +77,7 @@ export function AppNav({
       <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
         <OvalballLogo variant="dark" />
         <div className="flex items-center gap-0.5">
-          <MessagesPopover conversations={conversations} variant="dark" />
+          <MessagesPopover conversations={conversations} unreadCount={messagesUnreadCount} variant="dark" />
           <NotificationBell initialItems={notifications} initialUnreadCount={unreadCount} variant="dark" />
           <SupportButton unreadCount={supportUnreadCount} variant="dark" />
           <ProfileButton variant="dark" />

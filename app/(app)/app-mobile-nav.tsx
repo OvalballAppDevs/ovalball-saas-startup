@@ -20,7 +20,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import type { ActiveContextKind, SwitchableContext } from "@/lib/app-context/active-context"
-import type { ConversationSummary } from "@/lib/app-context/conversations"
+import type { MessengerRow } from "@/lib/messenger/view-model"
 import { resolveContextSettingsLink, resolveIdentityDisplay } from "@/lib/app-context/identity-display"
 import type { NotificationItem } from "@/lib/app-context/notifications"
 import { cn } from "@/lib/utils"
@@ -50,7 +50,8 @@ interface AppMobileNavProps {
   personAvatarUrl: string | null
   notifications: NotificationItem[]
   unreadCount: number
-  conversations: ConversationSummary[]
+  messagesUnreadCount: number
+  conversations: MessengerRow[]
   supportUnreadCount: number
 }
 
@@ -74,6 +75,7 @@ export function AppMobileNav({
   personAvatarUrl,
   notifications,
   unreadCount,
+  messagesUnreadCount,
   conversations,
   supportUnreadCount,
 }: AppMobileNavProps) {
@@ -100,7 +102,7 @@ export function AppMobileNav({
     <div className="sticky top-0 z-40 flex items-center justify-between border-b border-forest-950/10 bg-forest-950 px-4 py-3 md:hidden">
       <OvalballLogo variant="dark" />
       <div className="flex items-center gap-1">
-        <MessagesPopover conversations={conversations} variant="dark" />
+        <MessagesPopover conversations={conversations} unreadCount={messagesUnreadCount} variant="dark" />
         <NotificationBell initialItems={notifications} initialUnreadCount={unreadCount} variant="dark" />
         <SupportButton unreadCount={supportUnreadCount} variant="dark" />
         <Sheet open={open} onOpenChange={setOpen}>
