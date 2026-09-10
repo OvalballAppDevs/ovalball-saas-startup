@@ -2,6 +2,8 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext } from "@/lib/app-context/active-context"
+import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
+import { getTeamsForActiveContext } from "@/lib/app-context/my-teams"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
@@ -28,13 +30,61 @@ export default async function PitchAllocationPage({ searchParams }: { searchPara
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
 
-  // Pitch Allocation is a CLUB-scoped board (Section 22-25) -- never
-  // reachable from a team/parent/player/site_admin active context, even
-  // for an account that separately holds club-wide authority elsewhere.
-  if (activeContext.kind !== "club" || !activeContext.id) redirect("/calendar")
+  // ---- WHOSE PITCHES THESE ARE.
+  //
+  // PRESENTATION CONTEXT IS NOT AUTHORISATION. This used to require
+  // `activeContext.kind === "club"`, which meant a team admin -- or a club
+  // admin who happened to be looking at one of their teams -- was bounced to
+  // /calendar from a board they are entitled to read, and had to go and
+  // switch their context by hand to see it. The club is a fact about the
+  // pitches; the context is a fact about what the person is currently
+  // looking at, and only the first of those decides anything here.
+  //
+  // So the club is resolved from the viewer's own scope, and the CAPABILITY
+  // decides what happens next.
+  // A SITE ADMIN HAS NO CLUB OF THEIR OWN, and must never be shown an
+  // arbitrary one. The product already has the canonical answer for "which
+  // club is a platform admin currently looking at" -- the diagnostic session
+  // Calendar itself reads -- so this honours the same mechanism rather than
+  // inventing a second one or guessing. Without it a Site Admin is sent back
+  // to Calendar, which is the correct outcome: they have not said which club.
+  const diagnosticClub = ctx.isSiteAdmin
+    ? await resolveDiagnosticClub(supabase, cookieStore.get(DIAGNOSTIC_SESSION_COOKIE)?.value ?? null)
+    : null
 
-  const canManage = await hasCapability(supabase, "fixture.edit", "club", { clubId: activeContext.id })
-  if (!canManage) redirect("/calendar")
+  let clubId = diagnosticClub?.clubId ?? (activeContext.kind === "club" ? activeContext.id : null)
+  if (!clubId) {
+    const scoped = await getTeamsForActiveContext(supabase, ctx, activeContext)
+    const teamIds = scoped.map((t) => t.id)
+    if (teamIds.length > 0) {
+      const { data: teamClubs } = await supabase.from("teams").select("club_id").in("id", teamIds)
+      const clubIds = new Set((teamClubs ?? []).map((t) => t.club_id).filter((c): c is string => Boolean(c)))
+      // One club is every real viewer. A person spanning two clubs has no
+      // single pitch board, and picking one would assert something false
+      // about the other.
+      if (clubIds.size === 1) clubId = [...clubIds][0]
+    }
+  }
+  if (!clubId) redirect("/calendar")
+
+  // ---- VIEWING AND MANAGING ARE TWO DIFFERENT PERMISSIONS.
+  //
+  // `calendar.view` at club or team scope is enough to READ the board: who is
+  // on which pitch and when is ordinary club operational information, and a
+  // team admin planning their Saturday needs it.
+  //
+  // `fixture.edit` at CLUB scope is what allows MOVING anything. A team-scoped
+  // grant deliberately does not satisfy it -- reallocating a pitch reorders
+  // other teams' afternoons, which is not one team's decision. Nobody is
+  // granted a capability here merely to make the board open.
+  const [canViewClub, canViewTeam, canManage] = await Promise.all([
+    hasCapability(supabase, "calendar.view", "club", { clubId }),
+    activeContext.kind === "team" && activeContext.id
+      ? hasCapability(supabase, "calendar.view", "team", { clubId, teamId: activeContext.id })
+      : Promise.resolve(false),
+    hasCapability(supabase, "fixture.edit", "club", { clubId }),
+  ])
+  if (!ctx.isSiteAdmin && !canViewClub && !canViewTeam && !canManage) redirect("/calendar")
 
   const now = new Date()
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
@@ -47,7 +97,7 @@ export default async function PitchAllocationPage({ searchParams }: { searchPara
   // fixture at all, matching the previous default exactly.
   let dateIso = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayIso
   if (!date) {
-    const { data: teamRows } = await supabase.from("teams").select("id").eq("club_id", activeContext.id)
+    const { data: teamRows } = await supabase.from("teams").select("id").eq("club_id", clubId)
     const teamIds = (teamRows ?? []).map((t) => t.id)
     if (teamIds.length > 0) {
       const { data: nextFixture } = await supabase
@@ -63,17 +113,17 @@ export default async function PitchAllocationPage({ searchParams }: { searchPara
     }
   }
 
-  const board = await getPitchAllocationBoard(supabase, activeContext.id, dateIso)
+  const board = await getPitchAllocationBoard(supabase, clubId, dateIso)
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8 md:py-12">
       <div>
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">{activeContext.label}</p>
         <h1 className="mt-2 font-display text-display-l text-ink">Pitch Allocation</h1>
-        <p className="mt-1 text-sm text-ink-muted">Home fixtures only -- part of Calendar, not a separate system.</p>
+        <p className="mt-1 max-w-xl text-sm text-ink-muted">Every home fixture, training session and club event using a pitch on this day, including the warm-up and pack-up time each one reserves.</p>
       </div>
 
-      <PitchAllocationBoard clubId={activeContext.id} dateIso={dateIso} initialBoard={board} />
+      <PitchAllocationBoard clubId={clubId} dateIso={dateIso} initialBoard={board} canManage={canManage} />
     </div>
   )
 }

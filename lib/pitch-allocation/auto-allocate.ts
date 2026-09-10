@@ -1,3 +1,4 @@
+import { fixtureOccupiedWindow } from "./occupancy"
 import type { AllocationConflict, AllocationFixture, ClubSchedulingPolicy, PitchOption, ProposedPlacement } from "./types"
 
 /**
@@ -173,8 +174,13 @@ export function autoAllocate(
           // exactly as before), stacked on top of this fixture's own
           // pack-up rather than replacing it, so the two settings are never
           // double-counted into one one number.
-          const occupiedStart = slotStart - policy.warmUpMinutes
-          const occupiedEnd = slotStart + duration + policy.packUpMinutes + policy.turnaroundMinutes
+          // THE ONE OCCUPANCY ANSWER (lib/pitch-allocation/occupancy.ts).
+          // turnaroundMinutes is added on top because it is a different thing:
+          // the gap this club wants BETWEEN two fixtures, not part of either
+          // one's own reservation.
+          const win = fixtureOccupiedWindow({ kickoffTime: minutesToTime(slotStart), durationMinutes: duration }, policy)!
+          const occupiedStart = win.start
+          const occupiedEnd = win.end + policy.turnaroundMinutes
           // Section 41-47: a pitch with lane_count > 1 can genuinely host
           // more than one fixture in the same overlapping window (e.g. a
           // full pitch marked out for simultaneous mini games) -- so a slot
@@ -270,12 +276,13 @@ export function detectConflicts(
     // meetings are active right now" walk, generalizing the old adjacent-
     // pair check (which is exactly this sweep with laneCount fixed at 1).
     const laneCount = pitch?.laneCount ?? 1
-    const windows = list.map((f) => ({
-      fixture: f,
-      // Section 31-40: warm-up before, pack-up after -- the real occupied window, not just the play duration.
-      start: timeToMinutes(f.kickoffTime!) - buffers.warmUpMinutes,
-      end: timeToMinutes(f.kickoffTime!) + (f.durationMinutes ?? 60) + buffers.packUpMinutes,
-    }))
+    // Section 31-40: warm-up before, pack-up after -- the real occupied
+    // window, not just the play duration. Computed by the one shared
+    // primitive, so this test and the band drawn on screen cannot disagree.
+    const windows = list.map((f) => {
+      const w = fixtureOccupiedWindow(f, buffers)!
+      return { fixture: f, start: w.start, end: w.end }
+    })
     const sorted = [...windows].sort((a, b) => a.start - b.start)
     const active: (typeof sorted)[number][] = []
     for (const w of sorted) {

@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
 
-import { clampIsoToRange, effectivePhaseRange, resolveDefaultPhase, resolveDefaultSeason, type EffectiveRange, type SeasonPhase, type SeasonRow } from "./season-window"
+import { clampIsoToRange, effectivePhaseRange, resolveDefaultPhase, resolveDefaultSeason, selectSeasonForCode, type EffectiveRange, type SeasonPhase, type SeasonRow } from "./season-window"
 
 export interface CalendarSeasonContext {
   allSeasons: SeasonRow[]
@@ -64,7 +64,11 @@ export async function resolveCalendarSeasonContext(
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
 
   const defaultSeason = resolveDefaultSeason(allSeasons, clubRugbyCode, todayIso)
-  const selectedSeason = seasonParam ? (allSeasons.find((s) => s.id === seasonParam) ?? defaultSeason) : defaultSeason
+  // CODE-BOUND, not merely code-aware. Looking the parameter up in the full
+  // list honoured a League season id on a Union club's calendar -- Union
+  // fixtures inside League date boundaries, with a broken selector. The
+  // lookup is restricted to the viewer's own code; anything else falls back.
+  const selectedSeason = selectSeasonForCode(allSeasons, clubRugbyCode, seasonParam, todayIso)
   const defaultPhase = selectedSeason ? resolveDefaultPhase(selectedSeason, todayIso) : "main"
   // A client-crafted ?phase=pre for a season with no configured Pre-Season
   // falls back to the safe default rather than operating against a null

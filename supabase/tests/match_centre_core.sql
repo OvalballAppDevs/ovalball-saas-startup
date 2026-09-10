@@ -119,14 +119,18 @@ begin
   -- =================================================================
   -- D. THE PRIVACY BOUNDARY
   -- =================================================================
-  -- Fixture scheduling is public by existing design. That must NOT drag
-  -- participants, attendance or conversations out with it.
+  -- The canonical fixture is NOT anonymous. It used to be: fixtures_select_all
+  -- was USING (true) for anon, and the integrity audit measured meet times and
+  -- coaches' notes reachable without signing in. Anonymous fixture discovery
+  -- now goes through public.public_club_fixtures, which carries the public
+  -- columns only. This assertion is deliberately positive -- it fails if the
+  -- base table is ever handed back to anon.
   set local role anon;
   select count(*) into v_n from public.fixtures where id = v_fixture;
-  if v_n = 1 then
-    raise notice 'PASS 7 (D): fixture scheduling is readable anonymously (pre-existing product design)';
+  if v_n = 0 then
+    raise notice 'PASS 7 (D): the canonical fixture is invisible to an anonymous caller';
   else
-    raise notice 'NOTE 7 (D): fixture scheduling is NOT anonymously readable (% rows) -- stricter than assumed', v_n;
+    raise exception 'FAIL 7 (D): the canonical fixtures table is readable anonymously again (% rows)', v_n;
   end if;
 
   select count(*) into v_n from public.player_fixture_attendance where fixture_id = v_fixture;

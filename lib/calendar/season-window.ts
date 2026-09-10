@@ -30,6 +30,34 @@ export function resolveDefaultSeason(seasons: SeasonRow[], rugbyCode: string | n
   return [...matching].sort((a, b) => b.startsOn.localeCompare(a.startsOn))[0] ?? null
 }
 
+/**
+ * THE SELECTED SEASON, BOUND TO THE VIEWER'S OWN RUGBY CODE.
+ *
+ * A season id arriving from a URL is a request, not an authority. Union and
+ * League have genuinely different season shapes -- Union spans two calendar
+ * years and reads "26/27", League sits inside one and reads "2026" -- so a
+ * Union club's calendar operating on a League season's date boundaries would
+ * be showing Union fixtures inside the wrong window, with a season selector
+ * whose prev/next had nothing to navigate.
+ *
+ * This was reachable: the resolver looked the parameter up in the FULL season
+ * list and only afterwards filtered the selector's options by code, so
+ * ?season=<a league id> on a union club was honoured. The lookup is now
+ * restricted to the viewer's own code, and anything else falls back to that
+ * code's default rather than being obeyed.
+ */
+export function selectSeasonForCode(
+  seasons: SeasonRow[],
+  rugbyCode: string | null,
+  seasonParam: string | undefined,
+  todayIso: string
+): SeasonRow | null {
+  const inCode = rugbyCode ? seasons.filter((s) => s.rugbyCode === rugbyCode) : seasons
+  const fallback = resolveDefaultSeason(seasons, rugbyCode, todayIso)
+  if (!seasonParam) return fallback
+  return inCode.find((s) => s.id === seasonParam) ?? fallback
+}
+
 export function resolveDefaultPhase(season: SeasonRow, todayIso: string): SeasonPhase {
   if (season.preSeasonStartsOn && todayIso >= season.preSeasonStartsOn && todayIso < season.startsOn) return "pre"
   return "main"

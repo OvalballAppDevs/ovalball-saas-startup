@@ -1,4 +1,5 @@
 import "server-only"
+import { dedupeMirrorPairs } from "@/lib/fixtures/mirror-pair"
 import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -178,10 +179,9 @@ export async function loadFamilyAgenda(
   // Mini-Rugby mirror pairs represent ONE physical fixture as two rows. Keep
   // the primary of each pair so a child is never asked to respond twice, and
   // never counted twice by the 14-day card.
-  const fixtureIdSet = new Set(fixtureIds)
-  const primaryFixtures = (fixtures ?? []).filter(
-    (f) => !f.mirror_fixture_id || !fixtureIdSet.has(f.mirror_fixture_id) || f.id < f.mirror_fixture_id
-  )
+  // Same scope shape as the Agenda: a guardian's own children's teams, so one
+  // half of a pair may arrive without the other. See lib/fixtures/mirror-pair.ts.
+  const primaryFixtures = dedupeMirrorPairs(fixtures ?? [])
 
   const events: AgendaEvent[] = []
 

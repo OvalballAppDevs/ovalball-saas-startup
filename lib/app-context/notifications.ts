@@ -37,6 +37,14 @@ function notificationHref(type: string, data: Record<string, unknown>): string {
       const requestId = str(data.fixture_request_id)
       return requestId ? `/messages/request/${requestId}` : "/fixtures"
     }
+    // "Can you make the match?" -- lands on the one shared Match Centre for
+    // that canonical fixture, which is where the answer is given. Not a
+    // separate reply screen: the invitation and the response belong on the
+    // same surface as the venue, the meet time and the rest of the squad.
+    case "fixture_attendance_invitation": {
+      const fixtureId = str(data.fixture_id)
+      return fixtureId ? `/fixtures/${fixtureId}` : "/fixtures"
+    }
     case "partner_request_received":
     case "calendar_share_approved":
     case "calendar_share_declined":

@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import Link from "next/link"
-import { ChevronLeft, ShieldCheck } from "lucide-react"
+import { ChevronLeft, ShieldCheck, Trophy } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext } from "@/lib/app-context/active-context"
 import { ClubAvatar } from "@/components/club/club-avatar"
@@ -185,9 +185,22 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
         Fixture management
       </Link>
 
-      <div className="mt-4 flex items-center gap-2.5">
-        <ShieldCheck className="size-4 text-forest-800" />
-        <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">{activeIsSiteAdmin ? "Site Admin" : "Club Admin"}</p>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck className="size-4 text-forest-800" />
+          <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">{activeIsSiteAdmin ? "Site Admin" : "Club Admin"}</p>
+        </div>
+        {/* The SAME fixture id this page manages, opened on the one shared
+            Match Centre. Not a second view of the fixture and not an admin
+            variant of it: administration happens here, and everybody --
+            including this admin -- reads the match there. */}
+        <Link
+          href={`/fixtures/${fixtureId}`}
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-forest-800/20 bg-forest-800/5 px-4 text-sm font-medium text-forest-900 transition-colors hover:bg-forest-800/10 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+        >
+          <Trophy className="size-4" aria-hidden="true" />
+          Open Match Centre
+        </Link>
       </div>
 
       {/* ============ HERO: the fixture itself ============ */}
@@ -291,6 +304,8 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
           currentPitchName={
             overview.pitch_id ? (homeClubVenuePitches.find((p) => p.id === overview.pitch_id)?.displayName ?? overview.pitch_allocation) : overview.pitch_allocation
           }
+          currentMeetTime={overview.meet_time ? String(overview.meet_time).slice(0, 5) : null}
+          kickoffTime={overview.kickoff_time ? String(overview.kickoff_time).slice(0, 5) : null}
           venues={homeClubVenues}
           pitches={homeClubVenuePitches}
         />

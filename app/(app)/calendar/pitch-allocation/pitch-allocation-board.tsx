@@ -2,12 +2,15 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Save, Sparkles } from "lucide-react"
+import Link from "next/link"
+import { AlertTriangle, ArrowLeft, CalendarHeart, ChevronLeft, ChevronRight, Save, Sparkles, Trophy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { detectConflicts, unallocatedReason } from "@/lib/pitch-allocation/auto-allocate"
+import { fixtureOccupiedWindow } from "@/lib/pitch-allocation/occupancy"
 import { detectResourceConflicts, trainingCardTitle, type TrainingOccupancy } from "@/lib/pitch-allocation/training-conflicts"
+import { detectTournamentConflicts, occupantsFromFixtures } from "@/lib/pitch-allocation/tournament-conflicts"
 import type { AllocationFixture, PitchOption } from "@/lib/pitch-allocation/types"
 
 import { allocateFixture, createPitchAllocationProposal, discardPitchAllocationProposal, getProposal, type ProposalItemView } from "./actions"
@@ -172,6 +175,7 @@ function FixtureCard({
   onPointerMoveCard,
   onPointerUpCard,
   onOpenMove,
+  canManage,
   reason,
 }: {
   fixture: AllocationFixture
@@ -188,6 +192,8 @@ function FixtureCard({
   onPointerMoveCard?: (e: React.PointerEvent) => void
   onPointerUpCard?: (e: React.PointerEvent) => void
   onOpenMove: () => void
+  /** Move is a management action; a read-only viewer gets the card without it. */
+  canManage: boolean
   /** Section 3: set only for cards rendered in the Unallocated tray -- explains why this fixture isn't on the board yet. */
   reason?: string
 }) {
@@ -224,17 +230,19 @@ function FixtureCard({
       <p className="truncate text-[11px] text-forest-900/70">v {fixture.opponentLabel}</p>
       <div className="flex items-center justify-between gap-1">
         <span className="text-[10px] font-medium text-forest-900/60">{fixture.kickoffTime ?? "--:--"}</span>
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation()
-            onOpenMove()
-          }}
-          className="rounded px-1 py-0.5 text-[10px] font-medium text-forest-800/70 underline decoration-dotted underline-offset-2 outline-none hover:bg-white/60 focus-visible:ring-1 focus-visible:ring-pitch-400"
-        >
-          Move
-        </button>
+        {canManage && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenMove()
+            }}
+            className="rounded px-1 py-0.5 text-[10px] font-medium text-forest-800/70 underline decoration-dotted underline-offset-2 outline-none hover:bg-white/60 focus-visible:ring-1 focus-visible:ring-pitch-400"
+          >
+            Move
+          </button>
+        )}
       </div>
       {reason && <p className="text-[10px] leading-tight text-forest-900/55">{reason}</p>}
     </div>
@@ -422,7 +430,25 @@ function ProposalReview({ clubId, proposalId, onClose, onStage }: { clubId: stri
   )
 }
 
-export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId: string; dateIso: string; initialBoard: BoardData }) {
+export function PitchAllocationBoard({
+  clubId,
+  dateIso,
+  initialBoard,
+  canManage,
+}: {
+  clubId: string
+  dateIso: string
+  initialBoard: BoardData
+  /**
+   * Whether this viewer may MOVE anything, resolved server-side from
+   * club-scoped fixture.edit. Viewing and managing are separate permissions:
+   * a team admin reads the same board with the same occupancy and simply has
+   * no controls on it. This flag hides the controls; the server actions
+   * behind them enforce the same boundary independently, so a hidden button
+   * is a courtesy and never the protection.
+   */
+  canManage: boolean
+}) {
   const router = useRouter()
   const [board, setBoard] = useState(initialBoard)
   const [moving, setMoving] = useState<AllocationFixture | null>(null)
@@ -476,6 +502,20 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
     setBoard(initialBoard)
   }
 
+  // ONE LINE PER OCCASION. Reservations are grouped by the stable parent id,
+  // never by name, so two festivals that happen to share a name stay two
+  // things and one festival on three pitches stays one.
+  const tournamentsOnDay = Array.from(
+    board.tournaments
+      .reduce((acc, r) => {
+        const existing = acc.get(r.tournamentId)
+        if (existing) existing.reservations.push(r)
+        else acc.set(r.tournamentId, { tournamentId: r.tournamentId, tournamentName: r.tournamentName, teamLabels: r.teamLabels, reservations: [r] })
+        return acc
+      }, new Map<string, { tournamentId: string; tournamentName: string; teamLabels: string[]; reservations: typeof board.tournaments }>())
+      .values()
+  )
+
   const activePitches = board.pitches.filter((p) => p.active)
   const inactivePitches = board.pitches.filter((p) => !p.active)
 
@@ -498,8 +538,30 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
       warmUpMinutes: board.policy.warmUpMinutes,
       packUpMinutes: board.policy.packUpMinutes,
     })
-    return { fixture: [...fixtureOnly, ...fromTraining.map((c) => ({ ...c, severity: c.severity as "hard" | "warning" }))], training: trainingConflicts }
-  }, [board.fixtures, board.pitches, board.trainingSessions, board.policy.warmUpMinutes, board.policy.packUpMinutes])
+    // A TOURNAMENT'S HOLD ON A PITCH IS RECOMPUTED HERE TOO. Without this the
+    // client's own recompute silently dropped the server's tournament
+    // conflicts, and a fixture sitting inside a festival's reserved period
+    // rendered as though the pitch were free.
+    const { fixtureConflicts: fromTournament } = detectTournamentConflicts(
+      board.tournaments.map((t) => ({
+        id: t.id,
+        tournamentId: t.tournamentId,
+        tournamentName: t.tournamentName,
+        pitchId: t.pitchId,
+        startTime: t.startTime,
+        endTime: t.endTime,
+      })),
+      occupantsFromFixtures(board.fixtures, { warmUpMinutes: board.policy.warmUpMinutes, packUpMinutes: board.policy.packUpMinutes })
+    )
+    return {
+      fixture: [
+        ...fixtureOnly,
+        ...fromTraining.map((c) => ({ ...c, severity: c.severity as "hard" | "warning" })),
+        ...fromTournament.filter((c) => !fixtureOnly.some((e) => e.fixtureId === c.fixtureId)),
+      ],
+      training: trainingConflicts,
+    }
+  }, [board.fixtures, board.pitches, board.trainingSessions, board.tournaments, board.policy.warmUpMinutes, board.policy.packUpMinutes])
 
   function navigateNow(nextDate: string) {
     router.push(`/calendar/pitch-allocation?date=${nextDate}`)
@@ -765,7 +827,16 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
             <ChevronRight className="size-4" />
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        {/* Wraps at narrow widths. The outer bar already wrapped, but this
+            inner action group did not, so on a phone it pushed the page body
+            568px wide and the whole page scrolled sideways -- the timeline is
+            supposed to be the only thing that scrolls horizontally. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* EVERY EDITING CONTROL, BEHIND ONE CAPABILITY. A viewer without
+              club-scoped fixture.edit gets the identical board -- same pitches,
+              same occupancy, same conflicts -- and simply nothing to press. */}
+          {canManage && (
+          <>
           <Button
             type="button"
             className="h-9 gap-1.5"
@@ -802,6 +873,8 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
             <Save className="size-3.5" />
             {saving ? "Saving…" : isDirty ? `Save Changes (${pendingChanges.size})` : "Save Changes"}
           </Button>
+          </>
+          )}
         </div>
       </div>
 
@@ -827,25 +900,23 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
         </span>
       </div>
 
-      {/* Section 79: tournaments live outside `fixtures` entirely -- never
-          silently invisible here, even though they don't appear as a
-          timeline card. A pitch a tournament has claimed is also blocked
-          from Auto Allocate/Recalculate All (see actions.ts) and flagged
-          as a hard conflict if a fixture is already sitting on it. */}
-      {board.tournaments.length > 0 && (
+      {/* TOURNAMENTS LIVE OUTSIDE `fixtures` ENTIRELY, and are never silently
+          invisible here. One line per occasion -- not per reservation -- so a
+          festival on three pitches reads as one thing holding three pitches,
+          which is what it is. The periods are the real ones the organiser
+          recorded; nothing is assumed to run all day. */}
+      {tournamentsOnDay.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          {board.tournaments.map((t) => (
-            <p key={t.id} className="rounded-lg bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900">
-              <AlertTriangle className="mr-1.5 inline-block size-3.5 shrink-0 align-text-bottom" />
-              Hosting a tournament today: <span className="font-medium">{t.hostTeamLabel}</span>
-              {t.pitchDisplayName ? (
-                <>
-                  {" "}
-                  -- <span className="font-medium">{t.pitchDisplayName}</span> is unavailable all day.
-                </>
-              ) : (
-                <> -- no pitch recorded yet; confirm availability manually before allocating others.</>
-              )}
+          {tournamentsOnDay.map((t) => (
+            <p key={t.tournamentId} className="rounded-lg bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900">
+              <Trophy className="mr-1.5 inline-block size-3.5 shrink-0 align-text-bottom" aria-hidden="true" />
+              <span className="font-medium">{t.tournamentName}</span> is using{" "}
+              {t.reservations.map((r) => r.pitchDisplayName ?? "a pitch").join(", ")}
+              {t.teamLabels.length > 0 && <> &middot; {t.teamLabels.join(", ")}</>}
+              {". "}
+              <Link href={`/tournaments/${t.tournamentId}`} className="font-medium underline underline-offset-2">
+                Tournament Centre
+              </Link>
             </p>
           ))}
         </div>
@@ -879,6 +950,12 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
               // never merged into fixturesOnPitch (Section 59: never a
               // fake fixture).
               const trainingOnPitch = board.trainingSessions.filter((t) => t.pitchId === pitch.id && t.status !== "CANCELLED" && t.startTime)
+              const eventsOnPitch = board.clubEvents.filter((e) => e.pitchId === pitch.id)
+              // A TOURNAMENT'S HOLD ON THIS PITCH, drawn on the same timeline
+              // as everything else because it has a real start and end. It is
+              // a claim on the pitch, not a card to drag, so it sits behind
+              // the fixture layer and takes no pointer events.
+              const tournamentsOnPitch = board.tournaments.filter((t) => t.pitchId === pitch.id)
               const trainingLaneById = assignTrainingLanes(trainingOnPitch)
               const trainingLaneCount = new Set(trainingLaneById.values()).size || 1
               const isDropTarget = drag !== null && drag.pitchId === pitch.id
@@ -910,6 +987,27 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
                   >
                     <p className="line-clamp-2 text-sm leading-tight font-medium break-words text-ink">{pitch.displayName}</p>
                     {isMultiLane && <p className="text-[10px] text-ink-muted">{laneCount} lanes</p>}
+                    {/* CLUB EVENTS RESERVING THIS PITCH TODAY.
+                        Read from the event's own club_event_pitches rows, so
+                        this is the event's reservation itself rather than a
+                        second allocation record that could disagree with it.
+                        Shown as a claim on the pitch rather than placed on the
+                        timeline: an all-day event has no start time to place,
+                        and an occupied pitch is the fact that matters. */}
+                    {eventsOnPitch.length > 0 && (
+                      <ul className="mt-1 flex w-full flex-col gap-0.5">
+                        {eventsOnPitch.map((ev) => (
+                          <li
+                            key={ev.eventId}
+                            className="flex w-full items-center justify-center gap-1 rounded bg-[#6d3b5d]/10 px-1 py-0.5 text-[10px] leading-tight text-[#6d3b5d]"
+                            title={`${ev.name} — pitch reserved`}
+                          >
+                            <CalendarHeart className="size-2.5 shrink-0" aria-hidden="true" />
+                            <span className="truncate">{ev.name}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                   <div
                     ref={(el) => {
@@ -932,7 +1030,24 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
                       Array.from({ length: laneCount - 1 }, (_, i) => (
                         <div key={`lane-${i}`} className="absolute right-0 left-0 border-b border-dashed border-ink/10" style={{ top: (i + 1) * LANE_HEIGHT }} />
                       ))}
-                    {showNowLine && (
+                    {tournamentsOnPitch.map((t) => {
+                      const left = ((timeToMinutes(t.startTime) - START_MINUTES) / SLOT_MINUTES) * PX_PER_SLOT
+                      const width = ((timeToMinutes(t.endTime) - timeToMinutes(t.startTime)) / SLOT_MINUTES) * PX_PER_SLOT
+                      return (
+                        <div
+                          key={t.id}
+                          className="pointer-events-none absolute top-0 bottom-0 z-0 flex items-center overflow-hidden border-x border-amber-500/40 bg-amber-400/15 px-2"
+                          style={{ left, width }}
+                          title={`${t.tournamentName} — ${t.startTime.slice(0, 5)} to ${t.endTime.slice(0, 5)}`}
+                        >
+                          <span className="flex items-center gap-1 truncate text-[10px] font-semibold tracking-wide text-amber-900 uppercase">
+                            <Trophy className="size-3 shrink-0" aria-hidden="true" />
+                            <span className="truncate">{t.tournamentName}</span>
+                          </span>
+                        </div>
+                      )
+                    })}
+                                        {showNowLine && (
                       <div className="absolute top-0 bottom-0 z-10 w-0.5 bg-destructive/70" style={{ left: ((nowMinutes - START_MINUTES) / SLOT_MINUTES) * PX_PER_SLOT }} />
                     )}
                     {/* Section 13-17: live drop preview -- a ghost outline plus the proposed time, shown BEFORE release so the user can see exactly where the fixture will land. */}
@@ -957,8 +1072,15 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
                       // pre-clamp duration width, or it renders partway
                       // through the visible card instead of after it.
                       const cardWidth = Math.max(width, 90)
-                      const warmUpWidth = (board.policy.warmUpMinutes / SLOT_MINUTES) * PX_PER_SLOT
-                      const packUpWidth = (board.policy.packUpMinutes / SLOT_MINUTES) * PX_PER_SLOT
+                      // THE BANDS ARE DRAWN FROM THE SAME WINDOW THE CONFLICT
+                      // DETECTOR TESTS. The widths used to be recomputed here
+                      // in pixels from the policy directly, which made this a
+                      // fourth copy of the occupancy arithmetic -- so what a
+                      // person saw reserved and what the system treated as
+                      // reserved were free to drift apart.
+                      const occ = fixtureOccupiedWindow(f, board.policy)
+                      const warmUpWidth = occ ? (occ.warmUpMinutes / SLOT_MINUTES) * PX_PER_SLOT : 0
+                      const packUpWidth = occ ? (occ.packUpMinutes / SLOT_MINUTES) * PX_PER_SLOT : 0
                       const lane = laneByFixtureId?.get(f.fixtureId) ?? 0
                       const laneTop = isMultiLane ? lane * LANE_HEIGHT + 3 : undefined
                       const laneHeight = isMultiLane ? LANE_HEIGHT - 6 : undefined
@@ -985,7 +1107,8 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
                             width={width}
                             top={laneTop}
                             height={laneHeight}
-                            draggable
+                            draggable={canManage}
+                            canManage={canManage}
                             isDragSource={drag?.fixtureId === f.fixtureId}
                             onPointerDownCard={(e) => handlePointerDown(e, f)}
                             onPointerMoveCard={handlePointerMove}
@@ -1048,6 +1171,7 @@ export function PitchAllocationBoard({ clubId, dateIso, initialBoard }: { clubId
                   fixture={f}
                   conflict={conflictFor(f.fixtureId, liveConflicts.fixture)}
                   draggable={false}
+                  canManage={canManage}
                   onOpenMove={() => setMoving(f)}
                   reason={unallocatedReason(f, board.pitches)}
                 />

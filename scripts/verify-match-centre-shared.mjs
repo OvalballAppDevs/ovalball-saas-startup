@@ -90,7 +90,7 @@ if (componentDirs.size > 1) {
 }
 
 // A role-named copy of any Match Centre part, wherever it sits.
-const ROLE_PREFIXED = /\b(Parent|Player|Staff|Club|Guardian|Coach|Admin)(MatchCentre|FixtureHero|AttendancePanel|ParticipantList|VenueBlock|WeatherCard|MessagingPanel)\b/
+const ROLE_PREFIXED = /\b(Parent|Player|Staff|Club|Guardian|Coach|Admin)(MatchCentre|FixtureHero|AttendancePanel|ParticipantList|VenueBlock|WeatherCard|MatchConditions|CommunicationPanel|MessagingPanel)\b/
 for (const f of files) {
   const src = readFileSync(f, "utf8")
   const m = src.match(ROLE_PREFIXED)
@@ -129,7 +129,13 @@ if (!canonical) {
   failures.push("No fixture Match Centre route was found at all, which is not something this guard can be right about.")
 } else {
   const src = readFileSync(canonical, "utf8")
-  const required = ["attendance-panel", "hero", "participant-list", "venue-block"]
+  // venue-block and weather-card were merged into match-conditions: where the
+  // match is and what the weather will do are one question, so they are one
+  // section. The guard follows the components, exactly as the note above
+  // says it should -- and is WIDER than before, not narrower: communication-
+  // panel is now covered too, so the consolidated staff composer cannot be
+  // forked per role either.
+  const required = ["attendance-panel", "hero", "participant-list", "match-conditions", "communication-panel"]
   const missing = required.filter((c) => !src.includes(c))
   if (missing.length > 0) {
     failures.push(

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { geocodeVenueFromPostcode } from "@/lib/geocoding/backfill"
 import { createClient } from "@/lib/supabase/server"
 import { searchUkAddresses, type AddressLookupResult } from "@/lib/address-lookup/lookup"
 
@@ -308,7 +309,7 @@ export async function createVenue(input: {
 }): Promise<SaveClubProfileResult> {
   if (!input.name.trim()) return { ok: false, error: "A venue name is required." }
   const supabase = await createClient()
-  const { error } = await supabase.rpc("create_venue", {
+  const { data: venueId, error } = await supabase.rpc("create_venue", {
     p_club_id: input.clubId,
     p_name: input.name.trim(),
     p_address: input.address.trim(),
@@ -317,6 +318,12 @@ export async function createVenue(input: {
     p_set_default: input.setDefault,
   })
   if (error) return { ok: false, error: error.message }
+  // The pin is derived from the postcode the club just gave us, here, rather
+  // than waiting for a Site Admin to run a backfill. A venue with no
+  // coordinates shows no map -- and a missing map is silent, so nobody would
+  // ever know to go and press that button. Never throws and never blocks the
+  // save: see geocodeVenueFromPostcode.
+  if (venueId) await geocodeVenueFromPostcode(supabase, venueId as string)
   revalidatePath("/club/venues")
   return { ok: true }
 }
@@ -332,6 +339,10 @@ export async function updateVenue(input: { id: string; name: string; address: st
     p_directions: input.directions.trim(),
   })
   if (error) return { ok: false, error: error.message }
+  // A postcode edit resets the row to 'pending' via the trigger on venues, so
+  // this re-derives the pin for the NEW postcode. Without it, editing a
+  // postcode would leave a venue permanently unpinned.
+  await geocodeVenueFromPostcode(supabase, input.id)
   revalidatePath("/club/venues")
   return { ok: true }
 }

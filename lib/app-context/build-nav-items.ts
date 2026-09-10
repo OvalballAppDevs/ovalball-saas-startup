@@ -36,7 +36,7 @@ const SITE_ADMIN_SECTIONS: { key: string; label: string; icon: string; hrefs: st
     key: "rugby",
     label: "Rugby Operations",
     icon: "CalendarDays",
-    hrefs: ["/admin/fixtures", "/calendar", "/admin/competitions", "/admin/seasons", "/admin/lookups"],
+    hrefs: ["/admin/fixtures", "/calendar", "/admin/competitions", "/admin/seasons", "/admin/lookups", "/admin/scheduling-defaults"],
   },
   {
     key: "clubs",
@@ -287,6 +287,11 @@ export function buildNavItems(
     items.push({ href: "/admin/team-directory", label: "Team Directory" })
     items.push({ href: "/admin/competitions", label: "Competitions" })
     items.push({ href: "/admin/lookups", label: "Lookup Administration" })
+    // Readable by every Site Admin -- what the platform currently reserves
+    // around a fixture is operational context. The page itself renders the
+    // controls read-only for anyone but a Full Site Admin, and the setter
+    // re-checks that server-side.
+    items.push({ href: "/admin/scheduling-defaults", label: "Pitch Allocation Defaults" })
     items.push({ href: "/admin/support", label: "Support Tickets" })
     items.push({ href: "/admin/site-admins", label: "Site Admin Management" })
     items.push({ href: "/admin/system-health", label: "System Health" })

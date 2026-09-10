@@ -96,3 +96,26 @@ begin
   end if;
   raise notice 'Local UAT Site Admin ready: uat.siteadmin@ovalball.test (role %, Team Directory management on).', v_role;
 end $$;
+
+-- ---------------------------------------------------------------------
+-- DIAGNOSTIC CLUB ACCESS for the Full Site Admin UAT identity.
+--
+-- A Site Admin holds no club of their own, so a club-scoped surface --
+-- Pitch Allocation, the club Calendar, Event Centre's register -- has no club
+-- to resolve for them until they deliberately enter one. The product's
+-- canonical answer to that is the diagnostic club session, and
+-- site_admins.diagnostic_club_access is the capability that gates it.
+--
+-- Without this grant the Full Site Admin cannot reach ANY club-scoped surface
+-- in local UAT, which reads as those surfaces being broken for platform staff
+-- rather than as an ungranted capability. This is the existing capability
+-- being switched on for a test identity -- not a new one, not club
+-- membership, and not a bypass: enter_diagnostic_club still re-validates it
+-- server-side on every entry, and the diagnostic session is still recorded
+-- and still time-limited.
+-- ---------------------------------------------------------------------
+update public.site_admins sa
+set diagnostic_club_access = true
+from auth.users u
+where u.id = sa.user_id
+  and u.email = 'uat.fullsiteadmin@ovalball.test';

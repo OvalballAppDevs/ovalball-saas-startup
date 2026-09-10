@@ -1,8 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
+import { Info } from "lucide-react"
+
 import { Label } from "@/components/ui/label"
 
 import { saveSchedulingPolicy, type SchedulingPolicySettings } from "./actions"
@@ -20,7 +23,17 @@ function equal(a: SchedulingPolicySettings, b: SchedulingPolicySettings) {
  * actually differs from what's saved, and Discard resets the form back
  * to that saved state rather than leaving a half-edited form behind.
  */
-export function PitchAllocationSettingsForm({ clubId, initial }: { clubId: string; initial: SchedulingPolicySettings }) {
+export function PitchAllocationSettingsForm({
+  clubId,
+  initial,
+  bufferSource,
+}: {
+  clubId: string
+  initial: SchedulingPolicySettings
+  /** Whether the warm-up/pack-up shown are this club's own, or inherited from the platform default. */
+  bufferSource: "club" | "platform"
+}) {
+  const router = useRouter()
   const [saved, setSaved] = useState(initial)
   const [form, setForm] = useState(initial)
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -35,6 +48,13 @@ export function PitchAllocationSettingsForm({ clubId, initial }: { clubId: strin
     if (result.ok) {
       setSaved(form)
       setStatus("saved")
+      // WHERE THE VALUE CAME FROM IS SERVER TRUTH, and saving changes it: a
+      // club that was inheriting has just set its own times. Without this
+      // refresh the chip above went on saying "Using the Ovalball default"
+      // over numbers the club had just chosen, until the page was reloaded
+      // by hand. revalidatePath alone does not re-render a client component
+      // that is already mounted.
+      router.refresh()
       setTimeout(() => setStatus("idle"), 2000)
     } else {
       setStatus("error")
@@ -84,6 +104,16 @@ export function PitchAllocationSettingsForm({ clubId, initial }: { clubId: strin
           Time reserved on the pitch around each fixture&rsquo;s kick-off, separate from the turnaround gap between different fixtures on the same
           pitch. Shown on the board as orange bands either side of the fixture.
         </p>
+        {/* WHY THIS NUMBER IS IN EFFECT. An administrator seeing "15 minutes"
+            should never have to wonder whether their club chose it or whether
+            it is simply what everyone gets. Saving turns the inherited value
+            into this club's own. */}
+        <p className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 text-xs text-ink-muted">
+          <Info className="size-3.5 shrink-0" aria-hidden="true" />
+          {bufferSource === "club"
+            ? "These are your club's own times. Saving new values updates them."
+            : "Using the Ovalball default. Saving here sets your club's own times instead."}
+        </p>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="warm-up" className="text-ink/80">
@@ -126,7 +156,7 @@ export function PitchAllocationSettingsForm({ clubId, initial }: { clubId: strin
 
       <div className="flex items-center gap-3 border-t border-ink/10 pt-5">
         <Button type="button" className="h-10" disabled={!dirty || status === "saving"} onClick={handleSave}>
-          {status === "saving" ? "Saving…" : "Save changes"}
+          {status === "saving" ? "Saving…" : "Save Changes"}
         </Button>
         {dirty && status !== "saving" && (
           <Button type="button" variant="ghost" className="h-10" onClick={handleDiscard}>

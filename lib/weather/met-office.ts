@@ -94,15 +94,62 @@ export function msToMph(ms: number | null | undefined): number | null {
   return Math.round(ms * 2.236936)
 }
 
+/**
+ * A timestep, in EITHER resolution.
+ *
+ * The two DataHub series do not use the same field names, and that difference
+ * is not cosmetic -- it silently disabled the forecast for most fixtures:
+ *
+ *              hourly                      three-hourly
+ *   temp       screenTemperature           (absent -- max/minScreenAirTemp)
+ *   feels      feelsLikeTemperature        feelsLikeTemp
+ *
+ * The adapter read only the hourly names, so every fixture beyond 48 hours --
+ * which is nearly all of them, and every fixture at the moment a parent first
+ * looks -- resolved to "timestep carried no temperature" and rendered the
+ * unavailable card. It looked exactly like a missing credential, which is how
+ * it survived: nothing was broken, there was just never any weather.
+ */
 interface TimeStep {
   time?: string
+  /** Hourly series. */
   screenTemperature?: number
+  /** Three-hourly series publishes the interval's bounds rather than a point reading. */
+  maxScreenAirTemp?: number
+  minScreenAirTemp?: number
+  /** Hourly spells it out; three-hourly abbreviates it. */
   feelsLikeTemperature?: number
+  feelsLikeTemp?: number
   probOfPrecipitation?: number
   significantWeatherCode?: number
   windSpeed10m?: number
   windDirectionFrom10m?: number
   [k: string]: unknown
+}
+
+const num = (v: unknown): number | null => (typeof v === "number" && !Number.isNaN(v) ? v : null)
+
+/**
+ * The temperature this step describes.
+ *
+ * Hourly gives a point reading. Three-hourly gives the interval's own max and
+ * min, so the midpoint is used -- both bounds are the provider's, and the
+ * midpoint of a three-hour block is what that block is describing. It is a
+ * reading of published data, never a guess: with neither field present this
+ * returns null and the card says there is no forecast.
+ */
+export function stepTemperature(step: TimeStep): number | null {
+  const direct = num(step.screenTemperature)
+  if (direct !== null) return direct
+  const max = num(step.maxScreenAirTemp)
+  const min = num(step.minScreenAirTemp)
+  if (max !== null && min !== null) return (max + min) / 2
+  return max ?? min
+}
+
+/** "Feels like", under whichever name this series uses for it. */
+export function stepFeelsLike(step: TimeStep): number | null {
+  return num(step.feelsLikeTemperature) ?? num(step.feelsLikeTemp)
 }
 
 /**
@@ -133,8 +180,8 @@ export function pickClosestStep(steps: TimeStep[], targetIso: string): TimeStep 
 }
 
 export function normalizeStep(step: TimeStep, targetIso: string, fetchedAt: string): WeatherResult {
-  const temp = step.screenTemperature
-  if (typeof temp !== "number" || Number.isNaN(temp)) {
+  const temp = stepTemperature(step)
+  if (temp === null) {
     return { state: "FORECAST_NOT_AVAILABLE", forecast: null, diagnostic: "timestep carried no temperature" }
   }
   const code = typeof step.significantWeatherCode === "number" ? SIGNIFICANT_WEATHER[step.significantWeatherCode] : undefined
@@ -145,7 +192,7 @@ export function normalizeStep(step: TimeStep, targetIso: string, fetchedAt: stri
     forecast: {
       forecastFor: step.time ?? targetIso,
       temperatureC: Math.round(temp),
-      feelsLikeC: typeof step.feelsLikeTemperature === "number" ? Math.round(step.feelsLikeTemperature) : null,
+      feelsLikeC: stepFeelsLike(step) !== null ? Math.round(stepFeelsLike(step)!) : null,
       precipitationProbability: prob,
       condition: code?.condition ?? "UNKNOWN",
       conditionLabel: code?.label ?? "Forecast",

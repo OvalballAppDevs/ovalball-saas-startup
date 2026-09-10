@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { AlertTriangle, Dumbbell, MapPin, Plus, Trophy } from "lucide-react"
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { CalendarEventChip } from "@/components/calendar/calendar-event-chip"
 import { isIsoInRange } from "@/lib/calendar/season-window"
 import { cn } from "@/lib/utils"
 
@@ -16,7 +17,7 @@ import { type TournamentPitchOption } from "./week-board"
 import { FixtureEditPanel } from "./fixture-edit-panel"
 import { FIXTURE_ACTION_BUTTON_GRID, FIXTURE_ACTION_BUTTON_PRIMARY, FIXTURE_ACTION_BUTTON_SECONDARY } from "./fixture-action-button-styles"
 import { FixtureLifecycleActions } from "./fixture-lifecycle-panel"
-import { TournamentQuickView, type Lane, type WeekEntry } from "./week-board"
+import { tournamentCentreHref, type Lane, type WeekEntry } from "./week-board"
 import { TrainingSessionDetail } from "./training-session-detail"
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -129,17 +130,29 @@ export function MonthView({
                   )}
                 >
                   <span className={cn("text-xs font-medium", !inRange ? "text-ink-muted" : !inMonth ? "text-ink-muted" : isToday ? "text-forest-950" : "text-ink/60")}>{date.getDate()}</span>
+                  {/* Every kind draws through the one shared primitive.
+                      Training used to render here as loose italic text saying
+                      only "Training" -- no time, no team, no mark -- next to
+                      a properly designed fixture chip on the same square. */}
                   <div className="flex flex-1 flex-col gap-0.5">
                     {visible.map((e) => (
-                      <span
+                      <CalendarEventChip
                         key={e.id}
-                        className={cn(
-                          "truncate rounded px-1 py-0.5 text-[10px] leading-tight",
-                          e.kind === "training" ? "text-forest-800/70 italic" : e.kind === "tournament" ? "bg-amber-500/10 text-amber-900" : (e.statusClass ?? "bg-ink/5 text-ink/70")
-                        )}
-                      >
-                        {e.kind === "training" ? "Training" : e.kind === "tournament" ? `Tournament · ${e.tournamentHostName}` : `${e.homeAway === "Home" ? "H" : "A"} ${e.opposition}`}
-                      </span>
+                        density="month"
+                        kind={e.kind === "training" ? "training" : e.kind === "tournament" ? "tournament" : e.kind === "event" ? "event" : "fixture"}
+                        time={e.time ? String(e.time).slice(0, 5) : null}
+                        continuation={e.spanPosition ?? null}
+                        cancelled={Boolean(e.cancelledAt)}
+                        title={
+                          e.kind === "training"
+                            ? e.teamDisplayName || "Training"
+                            : e.kind === "tournament"
+                              ? e.title
+                              : e.kind === "event"
+                                ? e.title
+                                : `${e.homeAway === "Home" ? "H" : "A"} ${e.opposition}`
+                        }
+                      />
                     ))}
                     {overflow > 0 && <span className="text-[10px] font-medium text-ink-muted">+{overflow} more</span>}
                   </div>
@@ -164,6 +177,10 @@ export function MonthView({
                       <button
                         type="button"
                         onClick={() => {
+                          if (e.kind === "tournament") {
+                            router.push(tournamentCentreHref(e))
+                            return
+                          }
                           setSelectedEntry(e)
                           setEditing(false)
                         }}
@@ -178,7 +195,7 @@ export function MonthView({
                         )}
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium text-ink">
-                            {e.kind === "tournament" ? `Tournament · ${e.tournamentHostName}` : laneLabel(e.laneId)}
+                            {e.kind === "tournament" ? e.title : laneLabel(e.laneId)}
                             {e.kind === "fixture" ? ` vs ${e.opposition}` : e.kind === "training" ? " Scheduled Training Session" : ""}
                           </span>
                           <span className="block text-xs text-ink-muted">
@@ -207,7 +224,7 @@ export function MonthView({
                       <Button onClick={() => { setAddingLaneId(creatableLanes[0].id); setCreateOpen(true) }} label={`Add fixture for ${creatableLanes[0].label}`} />
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
-                        <span className="w-full text-xs text-ink-muted">Add fixture for&hellip;</span>
+                        <span className="w-full text-xs text-ink-muted">Add Fixture For&hellip;</span>
                         {creatableLanes.map((l) => (
                           <button
                             key={l.id}
@@ -241,7 +258,6 @@ export function MonthView({
         }}
       >
         <SheetContent>
-          {selectedEntry && selectedEntry.kind === "tournament" && <TournamentQuickView entry={selectedEntry} onChanged={() => setSelectedEntry(null)} />}
           {selectedEntry && selectedEntry.kind === "training" && (
             <>
               <SheetHeader>

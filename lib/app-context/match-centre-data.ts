@@ -81,6 +81,16 @@ export interface MatchCentreVenue {
   postcode: string | null
   latitude: number | null
   longitude: number | null
+  /**
+   * How those coordinates were arrived at. Only 'success' means they were
+   * derived from this venue's OWN canonical postcode -- anything else is a
+   * hand-entered number with nothing standing behind it, and the Match Centre
+   * withholds the map rather than pinning it. UAT found a venue pinned on
+   * Burnley FC's ground whose address was the rugby club three kilometres
+   * away; a plausible wrong pin is worse than no pin, because somebody drives
+   * to it.
+   */
+  geocodeStatus: string | null
 }
 
 export interface MatchCentrePitch {
@@ -131,6 +141,18 @@ export interface FixtureConversationRef {
   canView: boolean
   canPost: boolean
   unavailableReason: "NOT_PERMITTED" | null
+  /**
+   * True when this viewer holds fixture-management capability on either side,
+   * and may therefore remove somebody else's message or stop them posting.
+   * Resolved from the same capability as every other staff action here -- the
+   * client never decides this, and the RPCs re-check it regardless.
+   */
+  canModerate: boolean
+  /**
+   * The viewer's own account id, so the thread can tell their messages from
+   * everybody else's without the page passing the id separately.
+   */
+  viewerUserId: string
 }
 
 export interface MatchCentreActions {
@@ -244,7 +266,7 @@ export async function getMatchCentreContext(
     f.venue_id
       ? supabase
           .from("venues")
-          .select("id, name, address, address_line_1, address_line_2, town, county, postcode, latitude, longitude")
+          .select("id, name, address, address_line_1, address_line_2, town, county, postcode, latitude, longitude, geocode_status")
           .eq("id", f.venue_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -420,8 +442,9 @@ export async function getMatchCentreContext(
             postcode: venue.postcode,
             latitude: venue.latitude != null ? Number(venue.latitude) : null,
             longitude: venue.longitude != null ? Number(venue.longitude) : null,
+            geocodeStatus: venue.geocode_status,
           }
-        : { venueId: null, name: null, address: null, addressLines: [], postcode: null, latitude: null, longitude: null },
+        : { venueId: null, name: null, address: null, addressLines: [], postcode: null, latitude: null, longitude: null, geocodeStatus: null },
       pitch: pitch ? { pitchId: pitch.id, label: pitch.display_name } : { pitchId: null, label: null },
       attendance: { counts, mine },
       participants,
@@ -430,6 +453,8 @@ export async function getMatchCentreContext(
         canView: caps?.can_message ?? false,
         canPost: caps?.can_message ?? false,
         unavailableReason: caps?.can_message ? null : "NOT_PERMITTED",
+        canModerate: caps?.can_manage_fixture ?? false,
+        viewerUserId: userId,
       },
       actions: {
         canViewParticipants,

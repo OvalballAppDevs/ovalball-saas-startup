@@ -200,13 +200,23 @@ begin
   -- =================================================================
   -- F. One canonical column
   -- =================================================================
-  select count(*) into v_n from information_schema.columns
-  where table_schema = 'public' and column_name in ('meet_time','arrival_time','meet_at')
-    and table_name <> 'fixtures';
+  -- BASE TABLES only. The invariant is that meet time is STORED in exactly one
+  -- place; a VIEW that projects fixtures.meet_time is the opposite of a second
+  -- copy -- it is a read of the one column, and Fixture Management needs one to
+  -- show the value it edits. A second base table carrying a meet or arrival
+  -- time still fails here, which is the case this assertion exists for.
+  select count(*) into v_n
+  from information_schema.columns c
+  join information_schema.tables t
+    on t.table_schema = c.table_schema and t.table_name = c.table_name
+  where c.table_schema = 'public'
+    and c.column_name in ('meet_time','arrival_time','meet_at')
+    and t.table_type = 'BASE TABLE'
+    and c.table_name <> 'fixtures';
   if v_n = 0 then
-    raise notice 'PASS 13 (F): meet time exists ONLY on fixtures -- no Match-Centre-only copy';
+    raise notice 'PASS 13 (F): meet time is STORED only on fixtures -- no second copy, however many views read it';
   else
-    raise exception 'FAIL 13 (F): % other table(s) carry a meet/arrival time', v_n;
+    raise exception 'FAIL 13 (F): % other base table(s) carry a meet/arrival time', v_n;
   end if;
 
   raise notice 'Fixture meet time complete.';

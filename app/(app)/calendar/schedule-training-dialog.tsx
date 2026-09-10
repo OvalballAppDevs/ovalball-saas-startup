@@ -76,7 +76,7 @@ export function ScheduleTrainingDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button type="button" variant="outline" className="h-10 gap-1.5" />}>
         <Plus className="size-4" />
-        Schedule training
+        Schedule Training
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

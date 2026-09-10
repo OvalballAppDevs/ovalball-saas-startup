@@ -1,77 +1,65 @@
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import Link from "next/link"
-import { CalendarDays, ChevronRight, Dumbbell } from "lucide-react"
+import { CalendarDays } from "lucide-react"
 
-import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext } from "@/lib/app-context/active-context"
-import { getSessionContext } from "@/lib/app-context/session-context"
-import { resolveCalendarSeasonContext } from "@/lib/calendar/season-context"
+import { AgendaControls } from "@/components/fixtures/agenda/agenda-controls"
+import { AgendaTimeline, NextUp } from "@/components/fixtures/agenda/agenda-timeline"
+import { AttendanceActiveBanner, AttendancePrompt } from "@/components/fixtures/agenda/attendance-prompt"
 import {
   applyAgendaFilters,
-  countOutstandingResponses,
-  groupAgendaByMonth,
-  venueOptions,
-  type AgendaEvent,
-  type AgendaFilters,
-} from "@/lib/parent/agenda-model"
-import { loadFamilyAgenda, resolveFamilyScope } from "@/lib/parent/family-agenda"
+  clubOptions,
+  filterQuery,
+  groupByMonth,
+  hasActiveFilters,
+  needsResponse,
+  oppositionOptions,
+  parseFilterState,
+  teamOptions,
+} from "@/lib/agenda/filters"
+import { loadAgenda } from "@/lib/agenda/load"
+import { filterAffordances, isPersonalScope, resolveAgendaScope } from "@/lib/agenda/scope"
+import { parseAnchor, resolveWindow } from "@/lib/agenda/window"
+import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext } from "@/lib/app-context/active-context"
+import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
-import { cn } from "@/lib/utils"
-
-import { AgendaFilterSheet } from "./agenda-filter-sheet"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Fixtures" }
 
 /**
- * The Parent/Guardian Fixtures surface.
+ * FIXTURES / AGENDA -- the canonical Ovalball rugby agenda.
  *
- * Deliberately NOT /fixtures. That page is the inter-club negotiation
- * register -- requesting, accepting and rejecting fixtures between clubs --
- * which is an administrative act a guardian has no part in. Pointing a
- * parent at it produced a page whose every control either failed
- * authorization or did nothing.
+ * ONE SHARED ROLE-AWARE SURFACE. There is no per-role agenda -- no parent,
+ * player, club or site-admin variant of this page -- and no role branch
+ * choosing between layouts. Everybody gets the same timeline, the same cards
+ * and the same controls; what differs is the DATASET, which
+ * resolveAgendaScope decides from proved relationships before a single row is
+ * read, and which FILTERS are worth offering, which filterAffordances decides
+ * from the same scope.
  *
- * This is the thing a parent actually wants: what is my child doing, when,
- * where, and have I answered yet. It is a VIEW over canonical fixtures and
- * training_sessions -- never a second event store -- and every row carries
- * the real fixture_id/training_session_id it came from.
+ * This replaces a page that was Guardian/Player-only and redirected every
+ * other role to the Calendar. A coach, a club admin and a site admin had no
+ * agenda at all.
+ *
+ * THE AUTHORITY PIPELINE, in order, and the order is the point:
+ *
+ *   1. getSessionContext        -- what this account actually holds
+ *   2. resolveActiveContext     -- which of those they are looking through
+ *   3. resolveAgendaScope       -- whose rugby this is. Takes NO search params.
+ *   4. loadAgenda               -- a bounded query shaped by that scope
+ *   5. applyAgendaFilters       -- pure, array-in/array-out, cannot widen
+ *
+ * Steps 3 and 4 never see the query string. Step 5 can only remove rows from
+ * an array it was handed. So there is no expressible URL that returns a row
+ * the session did not authorise -- not because a check rejects it, but because
+ * there is nowhere for it to be expressed.
+ *
+ * WHAT THIS PAGE IS NOT: Fixture Management (which edits the record),
+ * the Calendar (which is a grid over the same rows), or a second Match Centre.
+ * Every fixture here opens the ONE canonical Match Centre by its own
+ * fixture_id.
  */
-
-const SEASON_LOOKAHEAD_DAYS = 400
-
-function addDays(iso: string, days: number): string {
-  const [y, m, d] = iso.split("-").map(Number)
-  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
-}
-
-function parseFilters(sp: Record<string, string | string[] | undefined>): AgendaFilters {
-  const one = (k: string): string | null => {
-    const v = sp[k]
-    return typeof v === "string" && v.length > 0 ? v : null
-  }
-  const many = (k: string): string[] => {
-    const v = sp[k]
-    if (typeof v === "string") return v.split(",").filter(Boolean)
-    if (Array.isArray(v)) return v.flatMap((x) => x.split(",")).filter(Boolean)
-    return []
-  }
-  const kind = one("kind")
-  const attendance = one("attendance")
-  const range = one("range")
-  return {
-    playerIds: many("child"),
-    teamIds: many("team"),
-    kind: kind === "fixture" || kind === "training" ? kind : "all",
-    attendance:
-      attendance === "needs_response" || attendance === "ATTENDING" || attendance === "CANNOT_ATTEND" || attendance === "UNSURE"
-        ? attendance
-        : "all",
-    venue: one("venue"),
-    dateRange: range === "this_month" || range === "next_14_days" || range === "next_30_days" || range === "season" ? range : "all",
-  }
-}
-
 export default async function AgendaPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams
   const supabase = await createClient()
@@ -83,218 +71,254 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const ctx = await getSessionContext(supabase, user)
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
-  const children = resolveFamilyScope(ctx, activeContext)
 
-  // Anyone whose active context is not a Guardian/Player one has no agenda
-  // to show. Sending them to the Calendar is honest -- it is the surface
-  // their context actually has -- rather than rendering a convincing empty
-  // page that looks like "your child has nothing on".
-  if (children.length === 0) {
-    const isParentish = activeContext.kind === "parent" || activeContext.kind === "player" || activeContext.kind === "family"
-    if (!isParentish) redirect("/calendar")
-  }
+  // WHOSE RUGBY. Resolved from the session, before anything is read, and with
+  // no access to the request's query string.
+  const scope = resolveAgendaScope(ctx, activeContext)
 
-  const season = await resolveCalendarSeasonContext(supabase, null, undefined, undefined)
-  const todayIso = season.todayIso
-  // "This season" means the WHOLE season, deliberately not the current
-  // phase's effective range: a parent filtering by season in October wants
-  // the campaign, not just the main-phase slice they happen to be inside.
-  // Pre-season is included by starting from preSeasonStartsOn where the
-  // canonical season row defines one.
-  const selected = season.selectedSeason ?? season.defaultSeason
-  const seasonWindow = selected ? { startIso: selected.preSeasonStartsOn ?? selected.startsOn, endIso: selected.endsOn } : null
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const state = parseFilterState(sp, todayIso, parseAnchor)
+  const window = resolveWindow(state.mode, state.anchor, todayIso, state.direction)
 
-  // Read a wide window once, then let the filters narrow it in memory. The
-  // alternative -- refetching per filter change -- would make the counts on
-  // this page disagree with the list beneath them the moment a filter is on.
-  const events =
-    children.length > 0
-      ? await loadFamilyAgenda(supabase, children, {
-          startIso: addDays(todayIso, -1),
-          endIso: addDays(todayIso, SEASON_LOOKAHEAD_DAYS),
-        })
+  // WHAT RUGBY. A bounded read: finite date window, hard row cap, team ids
+  // fixed by the scope above.
+  const { items: authorised, truncated } = await loadAgenda(supabase, scope, window, { includeTraining: state.includeTraining })
+
+  // NARROWING ONLY. Options are computed from the authorised rows, so a filter
+  // can only ever offer a value that is already reachable.
+  const oppositions = oppositionOptions(authorised)
+  const teams = teamOptions(authorised)
+  const clubs = clubOptions(authorised)
+  const children =
+    scope.kind === "family"
+      ? Array.from(new Map(scope.children.map((c) => [c.playerId, { id: c.playerId, name: c.firstName }])).values())
       : []
 
-  const filters = parseFilters(sp)
-  const visible = applyAgendaFilters(events, filters, todayIso, seasonWindow)
-  const months = groupAgendaByMonth(visible)
+  const visible = applyAgendaFilters(authorised, state, todayIso)
+  const months = groupByMonth(visible)
+  const affordances = filterAffordances(scope, children.length)
 
-  // Counted over EVERYTHING in scope, never over the filtered list: the card
-  // answers "what do I still owe?", and a filter that hid two of them must
-  // not make the answer look smaller than it is.
-  const outstanding = countOutstandingResponses(events, todayIso)
+  /*
+    WHO STILL OWES AN ANSWER.
+    Computed from `authorised` -- the rows this session already proved a right
+    to -- and never from a second, wider query. A coach is not being asked
+    whether they can attend, so the whole idea only exists in a personal scope;
+    outside one the set is empty and every branch below collapses to nothing.
 
-  const isAllChildren = activeContext.kind === "family"
-  const filtersActive =
-    filters.playerIds.length > 0 ||
-    filters.teamIds.length > 0 ||
-    filters.kind !== "all" ||
-    filters.attendance !== "all" ||
-    filters.venue !== null ||
-    filters.dateRange !== "all"
+    It respects the CHILD filter deliberately: a guardian looking at Ava should
+    be told what Ava owes, not a number that includes her brother and then
+    opens a list that does not match it.
+  */
+  const personal = isPersonalScope(scope)
+  const owed = personal
+    ? authorised.filter((i) => (state.playerId ? i.playerId === state.playerId : true) && needsResponse(i, todayIso))
+    : []
+  const owedCount = owed.length
+  // Drawn on the card, so a filtered list does not become an undifferentiated
+  // wall -- and so an UNfiltered agenda still shows which rows are waiting.
+  const attentionKeys = new Set(owed.map((i) => i.key))
+
+  // The single promoted card, and only in a forward-looking view: "next up"
+  // pointing at something that has already happened would be nonsense.
+  // Promoted only when it is something a person can actually open. A hero that
+  // invites a click and refuses one is worse than no hero.
+  const forward = state.direction === "upcoming"
+  const nextUp = forward ? (visible.find((i) => i.date >= todayIso) ?? null) : null
+  // The promoted item is REMOVED from the timeline, so it appears exactly once
+  // -- leaving it in rendered the same training session twice, once in the
+  // hero and again in its day. The counts are kept honest instead by saying
+  // what the total covers: "5 activities · next one shown above", rather than
+  // a bare 5 that the month headers then appear to contradict.
+  const restMonths = nextUp ? groupByMonth(visible.filter((i) => i.key !== nextUp.key)) : months
+
+  const showChild = scope.kind === "family" && children.length > 1 && state.playerId === null
+  const filtersOn = hasActiveFilters(state)
+
+  const eyebrow =
+    scope.kind === "platform"
+      ? "All Clubs"
+      : scope.kind === "club"
+        ? scope.clubName
+        : activeContext.kind === "family"
+          ? "All Children"
+          : (activeContext.subjectName ?? activeContext.label)
 
   return (
-    // pb-28 clears the global "Ask Ovie" floating widget, which sits fixed
-    // bottom-right on every page. Without it the last agenda card's venue
-    // line and its chevron sit underneath the widget at 390px -- confirmed
-    // in UAT -- which is the same collision the Match Centre already pads
-    // for.
-    <div className="mx-auto max-w-2xl px-4 pt-8 pb-28 md:px-8 md:pt-12 md:pb-28">
+    // pb-28 clears the global "Ask Ovie" widget, fixed bottom-right on every
+    // page -- without it the final card sits underneath it at 390px.
+    <div className="mx-auto max-w-3xl px-4 pt-8 pb-28 md:px-8 md:pt-12">
       <div className="flex items-center gap-2">
         <CalendarDays className="size-5 text-forest-800" aria-hidden="true" />
-        <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">
-          {isAllChildren ? "All Children" : activeContext.subjectName ? activeContext.subjectName : "Fixtures"}
-        </p>
+        <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">{eyebrow}</p>
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Fixtures &amp; Training</h1>
       <p className="mt-2 max-w-lg text-sm text-ink-muted">
-        {isAllChildren
-          ? "Everything coming up across your children, soonest first."
-          : `Everything coming up for ${activeContext.subjectName ?? "your team"}, soonest first.`}
+        {scope.kind === "none"
+          ? "There is no rugby linked to this view yet."
+          : state.direction === "past"
+            ? "Looking back through your rugby, most recent first."
+            : state.mode === "upcoming"
+              ? "Everything coming up, soonest first."
+              : // Naming the window rather than claiming everything is
+                // "coming up" -- which was shown while looking at November.
+                `${window.label}, in order.`}
       </p>
 
-      {/* The outstanding-response card. Actionable by design: it is a link
-          into this same agenda pre-filtered to exactly the events it
-          counted, so "3 responses needed" and the list you land on can
-          never disagree. */}
-      {outstanding > 0 && (
-        <Link
-          href="/agenda?attendance=needs_response"
-          className="mt-6 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-5 py-4 transition-colors hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
-        >
-          <div>
-            <p className="font-display text-base text-amber-900">
-              {outstanding} attendance {outstanding === 1 ? "response" : "responses"} needed
-            </p>
-            <p className="mt-0.5 text-sm text-amber-900/80">In the next 14 days. Tap to see just these.</p>
+      {scope.kind === "none" ? (
+        <EmptyState
+          title="No rugby here yet"
+          body="This view isn't linked to any teams or players. Switch context, or ask your club to add you to a team."
+        />
+      ) : (
+        <>
+          <div className="mt-6">
+            <AgendaControls
+              state={state}
+              todayIso={todayIso}
+              window={window}
+              affordances={affordances}
+              oppositions={oppositions}
+              teams={teams}
+              clubs={clubs}
+            >
+              {children}
+            </AgendaControls>
           </div>
-          <ChevronRight className="size-4 shrink-0 text-amber-900" aria-hidden="true" />
+
+          {/*
+            THE ONE PLACE THIS FILTER IS TURNED ON AND OFF.
+            Off, it invites. On, it explains what is missing and offers the way
+            back -- which is the whole defect being closed here: tapping the
+            prompt filtered the agenda with nothing on the page saying so and
+            nothing but the drawer to undo it.
+
+            Both states are scoped to the CURRENT window, so the number in the
+            callout and the number in the list below it are the same number.
+            Somebody looking at November is told about November.
+          */}
+          {personal && state.needsResponse ? (
+            <div className="mt-5">
+              <AttendanceActiveBanner clearHref={filterQuery({ ...state, needsResponse: false }, todayIso)} />
+            </div>
+          ) : personal && owedCount > 0 ? (
+            <div className="mt-5">
+              <AttendancePrompt count={owedCount} href={filterQuery({ ...state, needsResponse: true }, todayIso)} />
+            </div>
+          ) : null}
+
+          <div className="mt-5 flex items-center justify-between gap-3 border-b border-ink/10 pb-3">
+            <p className="text-sm text-ink-muted">
+              {/* Never "fixtures": training is in this list too, and a parent
+                  told "2 fixtures" who then finds a training session has been
+                  given the wrong word for the thing they must answer. */}
+              {state.needsResponse ? (
+                <>
+                  {visible.length} {visible.length === 1 ? "activity needs" : "activities need"} your response
+                </>
+              ) : (
+                <>
+                  {visible.length} {visible.length === 1 ? "activity" : "activities"}
+                  {filtersOn && " · filtered"}
+                  {nextUp && " · next one shown below"}
+                </>
+              )}
+            </p>
+            {/* Honest about the cap rather than silently truncating. */}
+            {truncated && <p className="text-xs text-amber-900">Showing the first {authorised.length}. Narrow the range to see more.</p>}
+          </div>
+
+          {visible.length === 0 ? (
+            <EmptyState
+              title={
+                // An empty ATTENDANCE filter is good news, not a failed search,
+                // and reachable by Back/Forward after answering the last one.
+                state.needsResponse
+                  ? "Nothing waiting on you"
+                  : filtersOn
+                    ? "Nothing matches these filters"
+                    : state.direction === "past"
+                    ? "No past rugby in this range"
+                    : // The upcoming window's label is a phrase, not a noun --
+                      // "No rugby in today onwards" is not a sentence.
+                      state.mode === "upcoming"
+                      ? "No rugby coming up"
+                      : `No rugby in ${window.label}`
+              }
+              body={
+                state.needsResponse
+                  ? "Every fixture and training session in this range has an answer. Show all to see them."
+                  : filtersOn
+                    ? "Try widening them, or clear them to see everything in this range."
+                    : state.direction === "past"
+                    ? "Once matches have been played they will appear here."
+                    : state.mode === "upcoming"
+                      ? "When your club schedules fixtures or training, they will appear here."
+                      : // An empty WINDOW is not an empty agenda. Saying "your
+                        // club has scheduled nothing" while four fixtures sit
+                        // two months out is a wrong diagnosis, and it was the
+                        // one being given.
+                        "Nothing is scheduled in this range. There may be rugby outside it."
+              }
+              action={
+                // Clearing ONE filter, not the agenda. Somebody on
+                // September / Ava / training-on who taps Attendance Needed and
+                // finds nothing gets September / Ava / training-on back.
+                state.needsResponse
+                  ? { href: filterQuery({ ...state, needsResponse: false }, todayIso), label: "Show All" }
+                  : filtersOn
+                    ? {
+                        href: filterQuery(
+                          { ...state, opposition: null, homeAway: "all", includeTraining: true, playerId: null, teamId: null, clubId: null },
+                          todayIso
+                        ),
+                        label: "Clear Filters",
+                      }
+                    : { href: "/agenda", label: "Show Upcoming" }
+              }
+            />
+          ) : (
+            <div className="mt-6 flex flex-col gap-6">
+              {nextUp && <NextUp item={nextUp} showChild={showChild} todayIso={todayIso} attention={attentionKeys.has(nextUp.key)} />}
+              <AgendaTimeline months={restMonths} todayIso={todayIso} showChild={showChild} attentionKeys={attentionKeys} />
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Attendance is a thing a person answers for somebody. A coach reading
+          their squad's agenda is not being asked whether they can attend, so
+          this is offered only in a personal scope -- and only when nothing is
+          outstanding, because the callout above already says it with a number
+          and a way to act on it. Two instructions about the same thing on one
+          page is one too many. */}
+      {personal && visible.length > 0 && state.direction === "upcoming" && owedCount === 0 && (
+        <p className="mt-8 text-center text-sm text-ink-muted">Open a fixture to change whether you can make it.</p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * An empty result is a normal answer, not a failure.
+ *
+ * So it reads as a sentence about rugby rather than a system message, and
+ * where there is an obvious next move it offers exactly one -- never a row of
+ * competing suggestions, which is how an empty state starts looking like an
+ * error page.
+ */
+function EmptyState({ title, body, action }: { title: string; body: string; action?: { href: string; label: string } }) {
+  return (
+    <div className="mt-8 rounded-2xl border border-ink/10 bg-white px-5 py-10 text-center">
+      <p className="font-display text-lg text-ink">{title}</p>
+      <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-muted">{body}</p>
+      {action && (
+        <Link
+          href={action.href}
+          className="mt-5 inline-flex min-h-11 items-center rounded-xl border border-ink/12 bg-white px-5 text-sm font-medium text-ink shadow-[0_3px_0_0_theme(colors.ink/12%)] transition-[transform,box-shadow] hover:bg-chalk focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none active:translate-y-[3px] active:shadow-none"
+        >
+          {action.label}
         </Link>
       )}
-
-      <div className="mt-6 flex items-center justify-between gap-3 border-b border-ink/10 pb-3">
-        <p className="text-sm text-ink-muted">
-          {visible.length} {visible.length === 1 ? "event" : "events"}
-          {filtersActive && " (filtered)"}
-        </p>
-        <AgendaFilterSheet
-          filters={filters}
-          familyChildren={children.map((c) => ({ playerId: c.playerId, name: c.fullName, teamId: c.teamId, teamName: c.teamName }))}
-          venues={venueOptions(events)}
-          showChildFilter={isAllChildren}
-        />
-      </div>
-
-      {months.length === 0 ? (
-        <div className="mt-8 rounded-lg border border-ink/10 bg-white px-5 py-8 text-center">
-          <p className="font-display text-base text-ink">{filtersActive ? "Nothing matches these filters" : "Nothing scheduled yet"}</p>
-          <p className="mt-1 text-sm text-ink-muted">
-            {filtersActive ? (
-              <>
-                Try clearing them to see everything.{" "}
-                <Link href="/agenda" className="underline underline-offset-2 hover:text-ink">
-                  Clear filters
-                </Link>
-              </>
-            ) : (
-              "When your club schedules fixtures or training, they will appear here."
-            )}
-          </p>
-        </div>
-      ) : (
-        <div className="mt-8 flex flex-col gap-8">
-          {months.map((month) => (
-            <section key={month.key} aria-labelledby={`month-${month.key}`}>
-              <h2 id={`month-${month.key}`} className="text-sm font-medium tracking-[0.08em] text-ink-muted uppercase">
-                {month.label}
-              </h2>
-              <ul className="mt-3 flex flex-col gap-2">
-                {month.events.map((e) => (
-                  <li key={e.key}>
-                    <AgendaRow event={e} showChild={isAllChildren} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      )}
     </div>
-  )
-}
-
-const ATTENDANCE_CHIP: Record<string, { label: string; className: string }> = {
-  ATTENDING: { label: "Attending", className: "border-mint-300 bg-mint-100 text-forest-900" },
-  CANNOT_ATTEND: { label: "Can't attend", className: "border-destructive/30 bg-destructive/10 text-destructive-text" },
-  UNSURE: { label: "Unsure", className: "border-amber-300 bg-amber-50 text-amber-900" },
-}
-
-function AgendaRow({ event, showChild }: { event: AgendaEvent; showChild: boolean }) {
-  const chip = event.attendance ? ATTENDANCE_CHIP[event.attendance] : null
-  const dayLabel = new Date(`${event.date}T00:00:00Z`).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  })
-
-  const body = (
-    <div className="flex items-start gap-3">
-      {/* Icon carries the fixture/training distinction alongside the words,
-          so the two never rely on colour alone to be told apart. */}
-      <span
-        className={cn(
-          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border",
-          event.kind === "training" ? "border-ink/10 bg-ink/5 text-ink/60" : "border-forest-800/15 bg-forest-800/8 text-forest-800"
-        )}
-        aria-hidden="true"
-      >
-        {event.kind === "training" ? <Dumbbell className="size-4" /> : <CalendarDays className="size-4" />}
-      </span>
-
-      <div className="min-w-0 flex-1">
-        {/* In single-child mode the child's name is on every row of the page
-            already -- repeating it here would be noise. */}
-        {showChild && (
-          <p className="text-xs font-medium text-forest-800">
-            {event.childName} · {event.teamName}
-          </p>
-        )}
-        <p className="truncate font-display text-base text-ink">{event.title}</p>
-        <p className="mt-0.5 text-sm text-ink-muted">
-          {dayLabel}
-          {event.time ? ` · ${event.time}` : ""}
-          {event.venue ? ` · ${event.venue}` : ""}
-        </p>
-        {/* The canonical fixtures.meet_time -- the same column the Match
-            Centre reads, surfaced here because "when do we arrive" is the
-            thing a parent is actually scanning this list for. */}
-        {event.meetTime && (
-          <p className="mt-0.5 text-sm font-medium text-forest-800">Meet {event.meetTime}</p>
-        )}
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          {chip ? (
-            <span className={cn("rounded-full border px-2 py-0.5 text-xs", chip.className)}>{chip.label}</span>
-          ) : (
-            <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">Needs response</span>
-          )}
-          {!showChild && <span className="text-xs text-ink-subtle">{event.teamName}</span>}
-        </div>
-      </div>
-
-      {event.href && <ChevronRight className="mt-2 size-4 shrink-0 text-ink/40" aria-hidden="true" />}
-    </div>
-  )
-
-  if (!event.href) {
-    return <div className="rounded-lg border border-ink/10 bg-white px-4 py-3">{body}</div>
-  }
-  return (
-    <Link
-      href={event.href}
-      className="block rounded-lg border border-ink/10 bg-white px-4 py-3 transition-colors hover:border-ink/20 hover:bg-chalk focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
-    >
-      {body}
-    </Link>
   )
 }

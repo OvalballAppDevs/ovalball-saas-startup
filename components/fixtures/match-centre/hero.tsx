@@ -60,16 +60,35 @@ export function formatFixtureDate(kickoffDate: string): string {
   return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)))
 }
 
+/**
+ * "Sat 12 Sep" -- for the three-across facts strip, where the long form wraps
+ * to three lines inside a 110px column on a phone and stops being scannable.
+ * The weekday survives, because "which Saturday" is the thing a parent is
+ * actually placing.
+ */
+export function formatFixtureDateCompact(kickoffDate: string): string {
+  const [y, m, d] = kickoffDate.split("-").map(Number)
+  return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)))
+}
+
 export function MatchCentreHero({
   fixture,
   homeSide,
   awaySide,
   venueName,
+  children,
 }: {
   fixture: MatchCentreFixture
   homeSide: MatchCentreSide
   awaySide: MatchCentreSide
   venueName?: string | null
+  /**
+   * The viewer's own availability, rendered INSIDE the matchday card.
+   * The invitation and the reply to it are one object; a reply detached into
+   * a separate white card below read as a form about the match rather than
+   * an answer to it.
+   */
+  children?: React.ReactNode
 }) {
   const status = STATUS_STYLE[fixture.status]
   const kickoff = formatClock(fixture.kickoffTime)
@@ -79,57 +98,78 @@ export function MatchCentreHero({
     <section
       aria-labelledby="mc-hero-heading"
       className={cn(
-        "overflow-hidden rounded-2xl border border-white/10 bg-forest-950 text-chalk",
+        "relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-forest-900 to-forest-950 text-chalk",
         // A cancelled fixture is visibly, immediately different -- desaturated
         // rather than merely carrying a small red badge.
         fixture.status === "CANCELLED" && "opacity-90 saturate-50"
       )}
     >
-      <h2 id="mc-hero-heading" className="sr-only">
-        {homeSide.clubDisplayName} versus {awaySide.clubDisplayName}
-      </h2>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4 sm:px-6">
-        <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset", status.className)}>
-          <status.Icon className="size-3.5" aria-hidden="true" />
-          {status.label}
-        </span>
-        {fixture.competitionIdentity && <span className="text-xs text-white/70">{fixture.competitionIdentity}</span>}
+      {/*
+        Mown stripes, the way a pitch lies after the mower has been up and down
+        it. The one piece of atmosphere on the page, kept at 4-5% so it reads
+        as texture at arm's length and never competes with a crest, a kit or a
+        word. Purely decorative: remove it and nothing is lost but the feeling
+        of a matchday.
+      */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <span key={i} className={cn("h-full flex-1", i % 2 === 0 ? "bg-white/[0.035]" : "bg-transparent")} />
+        ))}
       </div>
 
-      {/* The VS composition. Three columns at every width, because collapsing
-          two teams into a stack loses the one thing the hero exists to say. */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-1 px-3 pt-5 pb-1 sm:gap-4 sm:px-6">
-        <SideColumn side={homeSide} />
-        <div className="flex flex-col items-center gap-1 pt-6 sm:pt-8">
-          <span className="font-display text-sm tracking-[0.14em] text-white/70 sm:text-base">VS</span>
-          <span className="h-8 w-px bg-white/10 sm:h-12" aria-hidden="true" />
+      <div className="relative">
+        {/* THE PAGE'S h1. Same outline defect as Training Centre had, fixed
+            in both together so the two surfaces stay structurally identical. */}
+        <h1 id="mc-hero-heading" className="sr-only">
+          {homeSide.clubDisplayName} versus {awaySide.clubDisplayName}
+        </h1>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4 sm:px-6">
+          <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset", status.className)}>
+            <status.Icon className="size-3.5" aria-hidden="true" />
+            {status.label}
+          </span>
+          {fixture.competitionIdentity && <span className="text-xs text-white/70">{fixture.competitionIdentity}</span>}
         </div>
-        <SideColumn side={awaySide} />
+
+        {/* The VS composition. Three columns at every width, because collapsing
+            two teams into a stack loses the one thing the hero exists to say. */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-1 px-3 pt-5 pb-1 sm:gap-4 sm:px-6">
+          <SideColumn side={homeSide} />
+          <div className="flex flex-col items-center gap-1 pt-6 sm:pt-8">
+            <span className="font-display text-sm tracking-[0.14em] text-white/70 sm:text-base">VS</span>
+            <span className="h-8 w-px bg-white/10 sm:h-12" aria-hidden="true" />
+          </div>
+          <SideColumn side={awaySide} />
+        </div>
+
+        {/* Home or away, stated in words rather than left to be inferred from
+            column order -- a parent needs to know whether to travel. */}
+        {(fixture.homeAway === "Home" || fixture.homeAway === "Away") && (
+          <p className="px-4 pb-1 text-center text-xs tracking-wide text-white/70 uppercase sm:px-6">
+            {fixture.homeAway === "Home" ? "Home fixture" : "Away fixture"}
+            {venueName ? ` · ${venueName}` : ""}
+          </p>
+        )}
+
+        {/* The three facts a parent came for. Meet time is given equal weight to
+            kickoff, because it is the one they actually have to act on.
+            DISPLAY ONLY -- meet time is set in Fixture Management, which owns
+            the fixture; this page shows it and never edits it. */}
+        <dl className="mt-3 grid grid-cols-3 divide-x divide-white/10 border-t border-white/10">
+          <TimeCell Icon={CalendarDays} label="Date" value={formatFixtureDateCompact(fixture.kickoffDate)} />
+          <TimeCell Icon={Users} label="Meet" value={meet ?? "Not set"} muted={!meet} />
+          <TimeCell Icon={Clock} label="Kick-off" value={kickoff ?? "TBC"} muted={!kickoff} />
+        </dl>
+
+        {fixture.status === "CANCELLED" && fixture.cancellationReason && (
+          <p className="border-t border-white/10 px-4 py-3 text-sm text-red-100 sm:px-6">
+            <span className="font-medium">Cancelled.</span> {fixture.cancellationReason}
+          </p>
+        )}
+
+        {children && <div className="border-t border-white/10 bg-black/15">{children}</div>}
       </div>
-
-      {/* Home or away, stated in words rather than left to be inferred from
-          column order -- a parent needs to know whether to travel. */}
-      {(fixture.homeAway === "Home" || fixture.homeAway === "Away") && (
-        <p className="px-4 pb-1 text-center text-xs tracking-wide text-white/70 uppercase sm:px-6">
-          {fixture.homeAway === "Home" ? "Home fixture" : "Away fixture"}
-          {venueName ? ` · ${venueName}` : ""}
-        </p>
-      )}
-
-      {/* The three facts a parent came for. Meet time is given equal weight to
-          kickoff, because it is the one they actually have to act on. */}
-      <dl className="mt-3 grid grid-cols-1 divide-y divide-white/8 border-t border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <TimeCell Icon={CalendarDays} label="Date" value={formatFixtureDate(fixture.kickoffDate)} />
-        <TimeCell Icon={Users} label="Meet" value={meet ?? "Not set"} muted={!meet} />
-        <TimeCell Icon={Clock} label="Kick-off" value={kickoff ?? "To be confirmed"} muted={!kickoff} />
-      </dl>
-
-      {fixture.status === "CANCELLED" && fixture.cancellationReason && (
-        <p className="border-t border-white/10 px-4 py-3 text-sm text-red-100 sm:px-6">
-          <span className="font-medium">Cancelled.</span> {fixture.cancellationReason}
-        </p>
-      )}
     </section>
   )
 }
@@ -146,10 +186,14 @@ function TimeCell({
   muted?: boolean
 }) {
   return (
-    <div className="flex items-center gap-2.5 px-4 py-3 sm:flex-col sm:items-center sm:gap-1 sm:py-4 sm:text-center">
-      <Icon className="size-4 shrink-0 text-white/70" aria-hidden="true" />
-      <dt className="text-xs tracking-wide text-white/70 uppercase sm:order-first">{label}</dt>
-      <dd className={cn("font-display text-base leading-tight", muted ? "text-white/70" : "text-chalk")}>{value}</dd>
+    <div className="flex flex-col items-center gap-1 px-2 py-3.5 text-center sm:py-4">
+      <dt className="flex items-center gap-1.5 text-[11px] tracking-wide text-white/70 uppercase sm:text-xs">
+        <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+        {label}
+      </dt>
+      {/* text-balance keeps "Sat 12 Sep" from leaving one orphan word on a
+          second line inside a 110px column. */}
+      <dd className={cn("font-display text-sm leading-tight text-balance sm:text-base", muted ? "text-white/70" : "text-chalk")}>{value}</dd>
     </div>
   )
 }
@@ -188,7 +232,7 @@ function SideColumn({ side }: { side: MatchCentreSide }) {
           {/* Wraps, never truncates. text-balance keeps a two-line club name
               from leaving one orphan word on the second line. */}
           <p className="font-display text-sm leading-tight text-balance text-chalk sm:text-lg">{side.clubDisplayName}</p>
-          {side.fixtureSeasonTeamIdentity && <p className="mt-0.5 text-xs text-white/55 sm:text-sm">{side.fixtureSeasonTeamIdentity}</p>}
+          {side.fixtureSeasonTeamIdentity && <p className="mt-0.5 text-xs text-white/70 sm:text-sm">{side.fixtureSeasonTeamIdentity}</p>}
           {!side.claimed && (
             <p className="mt-1 text-[10px] leading-tight tracking-wide text-white/70 uppercase">
               {side.clubDirectoryId ? "Not yet on Ovalball" : "To be confirmed"}

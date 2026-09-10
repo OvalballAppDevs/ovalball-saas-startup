@@ -1,3 +1,4 @@
+import { fixtureOccupiedWindow } from "./occupancy"
 import type { AllocationFixture, ClubSchedulingPolicy, PitchOption } from "./types"
 
 /**
@@ -94,8 +95,10 @@ export function detectResourceConflicts(
       id: f.fixtureId,
       label: `${f.homeTeamLabel} v ${f.opponentLabel}`,
       pitchId: f.pitchId,
-      start: timeToMinutes(f.kickoffTime) - buffers.warmUpMinutes,
-      end: timeToMinutes(f.kickoffTime) + (f.durationMinutes ?? 60) + buffers.packUpMinutes,
+      // The one shared occupancy primitive, so a fixture occupies the same
+      // window here as it does on the board and in the auto-allocator.
+      start: fixtureOccupiedWindow(f, buffers)!.start,
+      end: fixtureOccupiedWindow(f, buffers)!.end,
     })
     byPitch.set(f.pitchId, list)
   }

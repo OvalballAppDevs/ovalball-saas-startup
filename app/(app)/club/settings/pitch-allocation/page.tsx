@@ -39,6 +39,13 @@ export default async function PitchAllocationSettingsPage() {
     .eq("club_id", clubId)
     .maybeSingle()
 
+  // The values ACTUALLY in effect, and where they came from -- resolved by the
+  // one canonical hierarchy rather than read off the row. Without this the
+  // form would show 0 for a club that has never configured anything, which is
+  // the very thing that made the bands disappear from the board.
+  const { data: buffers } = await supabase.rpc("resolve_club_scheduling_buffers", { p_club_id: clubId }).maybeSingle()
+  const bufferSource: "club" | "platform" = buffers?.source === "club" ? "club" : "platform"
+
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"
 
   return (
@@ -54,9 +61,10 @@ export default async function PitchAllocationSettingsPage() {
           clubId={clubId}
           initial={{
             autoAllocateHomeFixtures: policyRow?.auto_allocate_home_fixtures ?? false,
-            warmUpMinutes: policyRow?.warm_up_minutes ?? 0,
-            packUpMinutes: policyRow?.pack_up_minutes ?? 0,
+            warmUpMinutes: buffers?.warm_up_minutes ?? 0,
+            packUpMinutes: buffers?.pack_up_minutes ?? 0,
           }}
+          bufferSource={bufferSource}
         />
       </div>
     </div>

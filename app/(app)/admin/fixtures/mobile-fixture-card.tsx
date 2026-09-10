@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { ChevronRight, Pencil } from "lucide-react"
+import { ChevronRight, Pencil, Trophy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -158,10 +158,19 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
           >
             <Pencil className="size-4" />
           </button>
+          {/* The SAME row.id on the one shared Match Centre -- 44px, because
+              this is a phone and it sits beside two other icon targets. */}
+          <a
+            href={`/fixtures/${row.id}`}
+            aria-label={`Open Match Centre for ${row.homeTeamName} versus ${row.awayTeamName}`}
+            className="inline-flex size-11 items-center justify-center rounded-lg border border-ink/15 text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+          >
+            <Trophy className="size-4" />
+          </a>
           <a
             href={`/admin/fixtures/${row.id}`}
             aria-label="Open full details"
-            className="inline-flex size-9 items-center justify-center rounded-lg text-ink-muted outline-none hover:text-ink/60 focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="inline-flex size-11 items-center justify-center rounded-lg text-ink-muted outline-none hover:text-ink/60 focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <ChevronRight className="size-4" />
           </a>

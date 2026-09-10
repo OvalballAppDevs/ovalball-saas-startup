@@ -167,16 +167,40 @@ begin
   -- =================================================================
   -- E. Fixture scheduling facts are public BY DESIGN -- recorded, not assumed
   -- =================================================================
-  -- This is a pre-existing product decision (fixtures_select_all applies to
-  -- anon as well as authenticated), not something the Calendar link
-  -- introduced. It is asserted here so that if it ever changes, the change
-  -- is deliberate and this test is the thing that says so.
+  -- THE RULE CHANGED, DELIBERATELY, AND THIS IS THE THING THAT SAYS SO.
+  --
+  -- This assertion used to record that fixtures were anon-readable by design.
+  -- The integrity audit measured what that meant in practice -- every fixture
+  -- on the platform, meet_time / notes / changing_room included -- and the
+  -- boundary was rebuilt: the canonical table is authenticated and
+  -- relationship-scoped, and anonymous discovery goes through the
+  -- public_club_fixtures projection.
+  --
+  -- Match Centre's hero is STILL not a new exposure, for a better reason than
+  -- before: a viewer who can open Match Centre is one the fixture policy
+  -- already admits, rather than one everybody was admitted with.
   select count(*) into v_count from pg_policies
   where tablename='fixtures' and cmd='SELECT' and 'anon' = any(roles);
-  if v_count >= 1 then
-    raise notice 'PASS 10 (E): fixture scheduling rows are readable publicly by existing design -- Match Centre''s hero is not a new exposure';
+  if v_count = 0 then
+    raise notice 'PASS 10 (E): no anonymous SELECT policy on fixtures -- the canonical record is authenticated only';
   else
-    raise exception 'FAIL 10 (E): fixture visibility changed; the Match Centre link needs re-reviewing against the new rule';
+    raise exception 'FAIL 10 (E): an anonymous SELECT policy on fixtures has reappeared';
+  end if;
+
+  if exists (select 1 from information_schema.views where table_schema='public' and table_name='public_club_fixtures') then
+    raise notice 'PASS 11 (E): the public projection exists, so public club pages keep working without the base table';
+  else
+    raise exception 'FAIL 11 (E): public_club_fixtures is missing -- anonymous fixture discovery has no supported route';
+  end if;
+
+  -- And the projection must not grow operational columns by accident.
+  select count(*) into v_count from information_schema.columns
+  where table_schema='public' and table_name='public_club_fixtures'
+    and column_name in ('meet_time','notes','changing_room','pitch_allocation','venue_address','venue_id','pitch_id','home_score','away_score');
+  if v_count = 0 then
+    raise notice 'PASS 12 (E): the public projection carries no operational or result columns';
+  else
+    raise exception 'FAIL 12 (E): % operational column(s) have leaked into the public fixture projection', v_count;
   end if;
 
   -- =================================================================

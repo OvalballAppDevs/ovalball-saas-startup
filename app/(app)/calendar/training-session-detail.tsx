@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertTriangle, Info, Users } from "lucide-react"
+import Link from "next/link"
+import { AlertTriangle, ArrowRight, Info, Users } from "lucide-react"
 
+import { ATTENDANCE_STATE_WORDS } from "@/lib/attendance/vocabulary"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -20,11 +22,9 @@ import {
   type TrainingSessionCard,
 } from "./training-session-actions"
 
-const ATTENDANCE_LABEL: Record<string, string> = {
-  ATTENDING: "Attending",
-  CANNOT_ATTEND: "Cannot attend",
-  UNSURE: "Unsure",
-}
+// One vocabulary, shared with both registers -- this file used to say
+// "Cannot attend" where the rest of the product says "Can't attend".
+const ATTENDANCE_LABEL: Record<string, string> = ATTENDANCE_STATE_WORDS
 
 /**
  * Section 12: cancellation details behind a small accessible info button --
@@ -432,7 +432,7 @@ export function TrainingSessionDetail({ sessionId, fallbackLabel, onChanged, onC
     <div className="flex flex-col gap-3 px-4 pb-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", isCancelled ? "border-destructive/40 bg-destructive/10 text-destructive-text" : "border-sky-400/40 bg-sky-50 text-sky-900")}>
-          {isCancelled ? "CANCELLED" : card.status}
+          {isCancelled ? "Cancelled" : "Scheduled"}
         </span>
         {isCancelled && (
           <button
@@ -446,6 +446,23 @@ export function TrainingSessionDetail({ sessionId, fallbackLabel, onChanged, onC
           </button>
         )}
       </div>
+
+      {/*
+        THE ROUTE TO THE ONE SHARED SURFACE.
+        This sheet is the CALENDAR'S quick look, and it stays that: a summary
+        plus the management actions that belong to whoever opened it. The full
+        participant-facing session -- crest, weather, the register, the
+        availability control everybody uses -- lives at one canonical route
+        keyed on this session's own id, and this is the way there rather than a
+        second implementation of it growing inside a dialog.
+      */}
+      <Link
+        href={`/training/${sessionId}`}
+        className="inline-flex min-h-11 items-center justify-between gap-2 rounded-lg border border-forest-800/20 bg-forest-800/5 px-4 text-sm font-medium text-forest-900 transition-colors hover:bg-forest-800/10 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+      >
+        Open Training Centre
+        <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+      </Link>
 
       <dl className="flex flex-col gap-1.5 text-sm">
         <div className="flex justify-between gap-3">

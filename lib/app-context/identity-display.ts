@@ -54,12 +54,20 @@ export function resolveIdentityDisplay(
     case "club":
       return { avatarKind: "club", nameLabel: input.contextLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: false }
     case "family":
-      // All Children names the family, not any one child and not the adult.
-      // Its own avatar treatment exists because borrowing either would be
-      // wrong: the parent's photo is the bug this file was written to fix,
-      // and picking one child's photo to stand for all of them silently
-      // privileges a sibling.
-      return { avatarKind: "family", nameLabel: "All Children", subLabel: input.roleLabel, avatarUsesPersonPhoto: false }
+      // THE IDENTITY BLOCK NAMES THE PERSON SIGNED IN.
+      //
+      // This used to read "All Children", which is a SCOPE, not a person: the
+      // one place in the shell that says who you are was answering a different
+      // question, and a parent looking at their own account saw a category
+      // where their name belongs. "All Children" survives where it is
+      // genuinely the answer -- as the selected entry in the context switcher
+      // this block opens, which is where you go to change scope.
+      //
+      // The photo is correct here for the same reason it is in "player": the
+      // subject IS the signed-in adult. The rule this file was written to
+      // enforce -- never draw an adult's face beside a child's name -- is
+      // untouched, because no child is being named.
+      return { avatarKind: "person", nameLabel: personLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: true }
     case "team":
       return { avatarKind: "person", nameLabel: personLabel, subLabel: `${input.contextLabel} ${input.roleLabel}`, avatarUsesPersonPhoto: true }
     case "parent":

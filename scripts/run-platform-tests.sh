@@ -32,6 +32,33 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-match-centre-shared.mjs"; then
   exit 1
 fi
 
+# Training Centre carries the same invariant, for the same reason.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-training-centre-shared.mjs"; then
+  exit 1
+fi
+
+# Event Centre is the third of the same family, and carries the same rule --
+# plus the one-row-per-event property its whole span model rests on.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-event-centre-shared.mjs"; then
+  exit 1
+fi
+
+# Pitch Allocation is one shared scheduling surface, with ONE occupancy
+# calculation. The duplication this guards against had already happened five
+# times over before it was written.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-pitch-allocation-shared.mjs"; then
+  exit 1
+fi
+
+# Tournament Centre is the fourth of the family, and carries three more
+# invariants of its own: one canonical tournament model (never a club_event,
+# never one fixture per festival game), opponents that belong to a TEAM's
+# participation rather than to a flat list on the parent, and a
+# same-tournament overlap exception scoped by parent identity alone.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-tournament-centre-shared.mjs"; then
+  exit 1
+fi
+
 CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 
@@ -73,6 +100,8 @@ SUITES=(
   fixture_meet_time
   match_centre_core
   fixture_communications
+  fixture_attendance_invitations
+  fixture_message_moderation
   regulatory_coverage
   union_girls_dual_age_bands
   rugby_code_girls_identities
@@ -85,6 +114,11 @@ SUITES=(
   person_name_normalisation
   canonical_team_directory_propagation
   rugby_code_isolation
+  training_centre_visibility
+  training_communication
+  club_event_foundation
+  tournament_centre
+  scheduling_buffer_fallback
   team_people_roster
   registration_allocation
   adult_player_self_registration

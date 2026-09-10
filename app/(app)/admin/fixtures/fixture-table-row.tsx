@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronRight, FileText, Pencil } from "lucide-react"
+import { ChevronRight, FileText, Pencil, Trophy } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
 import { Button } from "@/components/ui/button"
@@ -259,6 +259,19 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
               <Pencil className="size-3.5" />
               Edit
             </button>
+            {/* The SAME row.id, opened on the one shared Match Centre. There is
+                no admin copy of a fixture and no admin Match Centre: this is
+                the fixture everybody sees, reached from the record being
+                managed. */}
+            <Link
+              href={`/fixtures/${row.id}`}
+              onClick={guardNavigate}
+              aria-label={`Open Match Centre for ${row.homeTeamName} versus ${row.awayTeamName}`}
+              className="inline-flex items-center gap-1 text-sm font-medium text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+            >
+              <Trophy className="size-3.5" aria-hidden="true" />
+              Match Centre
+            </Link>
             <Link
               href={`/admin/fixtures/${row.id}`}
               onClick={guardNavigate}

@@ -46,17 +46,29 @@ export interface AllocationFixture {
 }
 
 /**
- * Section 79: a confirmed tournament this club is hosting occupies real
- * pitch time but lives in its own `tournaments` table, never in
- * `fixtures` -- so it is invisible to autoAllocate/detectConflicts unless
- * surfaced separately. Never silently treated as "the day is free".
+ * A tournament this club is hosting occupies real pitch time but lives in its
+ * own tables, never in `fixtures` -- so it is invisible to
+ * autoAllocate/detectConflicts unless surfaced separately. Never silently
+ * treated as "the day is free".
+ *
+ * ONE ROW PER RESERVATION, NOT PER TOURNAMENT. A festival holds several
+ * pitches over real, stated periods; `tournamentId` is carried on every one so
+ * the board can tell two holds of the SAME occasion (legitimate, and never a
+ * conflict) from two unrelated things wanting one pitch.
  */
 export interface TournamentSummary {
+  /** The reservation's own id. */
   id: string
-  hostTeamLabel: string
-  pitchId: string | null
+  /** The stable parent occasion. Two rows sharing this are siblings, not a clash. */
+  tournamentId: string
+  tournamentName: string
+  /** Which of this club's teams are attending -- for the board card, not for authority. */
+  teamLabels: string[]
+  pitchId: string
   pitchDisplayName: string | null
   venueName: string | null
+  startTime: string
+  endTime: string
   status: string
 }
 

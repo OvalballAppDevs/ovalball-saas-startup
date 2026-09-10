@@ -16,7 +16,7 @@ import { CreateFixtureDialog, type CompetitionOption } from "./create-fixture-di
 import { FixtureEditPanel } from "./fixture-edit-panel"
 import { FIXTURE_ACTION_BUTTON_GRID, FIXTURE_ACTION_BUTTON_PRIMARY, FIXTURE_ACTION_BUTTON_SECONDARY } from "./fixture-action-button-styles"
 import { FixtureLifecycleActions } from "./fixture-lifecycle-panel"
-import { TournamentQuickView, type Lane, type TournamentPitchOption, type WeekEntry } from "./week-board"
+import { tournamentCentreHref, type Lane, type TournamentPitchOption, type WeekEntry } from "./week-board"
 import { TrainingSessionDetail } from "./training-session-detail"
 
 /**
@@ -222,6 +222,7 @@ export function MobileAgenda({
   competitions: CompetitionOption[]
   pitches: TournamentPitchOption[]
 }) {
+  const router = useRouter()
   const [selected, setSelected] = useState<WeekEntry | null>(null)
   const [editing, setEditing] = useState(false)
   const [addPickerOpen, setAddPickerOpen] = useState(false)
@@ -257,7 +258,7 @@ export function MobileAgenda({
       {entries.length === 0 ? (
         <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-ink/15 bg-white/60 px-5 py-8">
           <p className="text-sm font-medium text-ink">No fixtures or training this period.</p>
-          {canScheduleTraining && <p className="text-xs text-ink-muted">Use &ldquo;Schedule training&rdquo; above to add a session.</p>}
+          {canScheduleTraining && <p className="text-xs text-ink-muted">Use &ldquo;Schedule Training&rdquo; above to add a session.</p>}
         </div>
       ) : (
         <div className="flex flex-col gap-5">
@@ -272,6 +273,10 @@ export function MobileAgenda({
                     <button
                       type="button"
                       onClick={() => {
+                        if (e.kind === "tournament") {
+                          router.push(tournamentCentreHref(e))
+                          return
+                        }
                         setSelected(e)
                         setEditing(false)
                       }}
@@ -286,12 +291,12 @@ export function MobileAgenda({
                       ) : null}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-ink">
-                          {e.kind === "tournament" ? `Tournament · ${e.tournamentHostName}` : laneLabel(e.laneId)}
+                          {e.kind === "tournament" ? e.title : laneLabel(e.laneId)}
                           {e.kind === "fixture" ? ` vs ${e.opposition}` : e.kind === "training" ? " Scheduled Training Session" : ""}
                         </span>
                         <span className="block text-xs text-ink-muted">
                           {e.kind === "fixture" ? `${e.homeAway} · ` : ""}
-                          {e.kind === "tournament" ? `${e.tournamentParticipantCount ?? 0} team${e.tournamentParticipantCount === 1 ? "" : "s"} · ` : ""}
+                          {e.kind === "tournament" && e.venueAddress ? `${e.venueAddress} · ` : ""}
                           {e.time ? e.time.slice(0, 5) : "Time TBC"}
                         </span>
                       </span>
@@ -315,7 +320,6 @@ export function MobileAgenda({
         }}
       >
         <SheetContent>
-          {selected && selected.kind === "tournament" && <TournamentQuickView entry={selected} onChanged={() => setSelected(null)} />}
           {selected && selected.kind !== "tournament" && (
             <MobileFixtureSheet
               entry={selected}

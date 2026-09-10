@@ -9,11 +9,23 @@ export type MeetTimeResult = { ok: true; meetTime: string | null } | { ok: false
 /**
  * Sets the fixture's canonical arrival time.
  *
+ * WHY THIS LIVES IN FIXTURE MANAGEMENT AND NOT IN THE MATCH CENTRE
+ *
+ * Meet time is a property of the fixture, alongside kick-off, venue and pitch.
+ * It is scheduled by whoever runs the fixture, and it is scheduled once. The
+ * Match Centre is where the whole club READS the fixture -- putting an editing
+ * control there made the presentation surface a second editing authority for
+ * one field, which is how two places to change one fact come about.
+ *
+ * The canonical column, its CHECK constraints and this RPC are all unchanged:
+ * only the control moved. The Match Centre still displays meet_time in its
+ * hero, because everybody needs to know when to turn up.
+ *
  * Authority is NOT decided here. update_fixture_meet_time re-checks
- * internal.can_submit_fixture_result (plus Site Admin) server-side -- the
- * same check the rest of the schedule uses -- so this action only forwards
- * the value. The Match Centre hides the control for a viewer without the
- * capability, but hiding a control is presentation, never the boundary.
+ * internal.can_submit_fixture_result (plus Site Admin) server-side -- the same
+ * check the rest of the schedule uses, and one that covers EITHER side, so an
+ * away club can still tell its own players when to meet. This action only
+ * forwards the value.
  *
  * The two rules (a meet time needs a kick-off, and cannot be after it) are
  * enforced by the database in both a CHECK constraint and the RPC, so the
@@ -41,6 +53,9 @@ export async function setFixtureMeetTime(fixtureId: string, meetTime: string | n
     return { ok: false, error: "We couldn't save that meet time. Please try again." }
   }
 
+  // Every surface that shows a meet time, refreshed together -- the Match
+  // Centre reads the same canonical column this just wrote.
+  revalidatePath(`/admin/fixtures/${fixtureId}`)
   revalidatePath(`/fixtures/${fixtureId}`)
   revalidatePath("/agenda")
   revalidatePath("/calendar")

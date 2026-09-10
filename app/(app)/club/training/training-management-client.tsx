@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, Plus, Trash2 } from "lucide-react"
 
@@ -706,6 +707,14 @@ export function TrainingManagementClient({
                   <th className="px-4 py-2.5">Time</th>
                   <th className="px-4 py-2.5">Venue / Pitch</th>
                   <th className="px-4 py-2.5">Source</th>
+                  {/* The route from the SCHEDULER to the actual occurrence.
+                      Somebody who has just generated a term of Tuesdays can
+                      open any one of them as the people attending it will see
+                      it -- and each row carries that occurrence's own
+                      training_session_id, never the plan's. */}
+                  <th className="px-4 py-2.5">
+                    <span className="sr-only">Training Centre</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink/5">
@@ -721,6 +730,15 @@ export function TrainingManagementClient({
                       {s.venueName} / {s.pitchName}
                     </td>
                     <td className="px-4 py-2.5 text-ink-muted">{s.source === "AUTOMATIC_PLAN" ? "Automatic" : "Manual"}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Link
+                        href={`/training/${s.id}`}
+                        className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-forest-800 hover:text-forest-950 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+                      >
+                        Open
+                        <span className="sr-only"> Training Centre for {s.teamLabel} on {s.date}</span>
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

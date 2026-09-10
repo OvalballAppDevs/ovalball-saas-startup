@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, Check, Clock, Crown, Dumbbell, ExternalLink, MapPin, Plus, Trophy, X } from "lucide-react"
+import { AlertTriangle, CalendarHeart, Check, Clock, Crown, Dumbbell, ExternalLink, MapPin, Plus, Trophy, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -61,9 +61,25 @@ export interface TournamentParticipantView {
 export interface WeekEntry {
   id: string
   laneId: string
-  kind: "fixture" | "training" | "tournament"
+  kind: "fixture" | "training" | "tournament" | "event"
   date: string
   time: string | null
+  /**
+   * Where this day sits inside a multi-day event's span.
+   *
+   * A club event is ONE row with a start and an end; the calendar projects it
+   * onto each day it covers. This says which day of the run is being drawn, so
+   * the middle of a centenary weekend does not repeat Friday's start time as
+   * though it began again.
+   *
+   * Null for anything that happens on a single day, which is every fixture and
+   * every training session.
+   */
+  spanPosition?: "starts" | "continues" | "ends" | null
+  /** The event's own id, so a projected day still opens the one canonical Event Centre. */
+  eventId?: string | null
+  /** "7-14 September 2026" for a multi-day event; null for anything on one day. */
+  spanNote?: string | null
   title: string
   teamDisplayName: string
   opposition: string
@@ -99,6 +115,27 @@ export interface WeekEntry {
   tournamentHostTeamId: string | null
   /** The tournament's currently-selected venue (tournaments.venue_id), for the host-only "Change venue" control -- null for non-tournament entries and for a tournament with no venue chosen yet. */
   tournamentVenueId: string | null
+  /**
+   * THE STABLE PARENT IDENTITY. `id` above is unique per lane so one occasion
+   * can appear in the U12 and U13 lanes without colliding; this is the one
+   * tournament every one of those rows belongs to, and the id every link uses.
+   */
+  tournamentId: string | null
+  /** Which of our teams' participations this row is -- used to open Tournament Centre with that team already selected. */
+  tournamentEntryId: string | null
+}
+
+/**
+ * WHERE A TOURNAMENT ON THE CALENDAR GOES.
+ *
+ * Tournament Centre, always -- not a pop-over, not the fixture editor, not
+ * Event Centre. One physical tournament is one route, and the team whose lane
+ * was clicked arrives already selected, so a parent tapping the U12 row lands
+ * on U12's day rather than on a tournament-wide summary they have to re-filter.
+ */
+export function tournamentCentreHref(entry: WeekEntry): string {
+  const id = entry.tournamentId ?? entry.id
+  return entry.tournamentEntryId ? `/tournaments/${id}?team=${entry.tournamentEntryId}` : `/tournaments/${id}`
 }
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -165,7 +202,15 @@ export function WeekBoard({
   return (
     <>
       <div className="overflow-x-auto rounded-xl border border-ink/10 bg-white shadow-sm">
-        <div className="grid min-w-[920px] grid-cols-[8.5rem_repeat(7,1fr)]">
+        {/* FIXED SEVEN-DAY GEOMETRY.
+            `1fr` resolves to `minmax(auto, 1fr)`, so a column whose content
+            cannot shrink below its intrinsic width GROWS -- one long
+            opposition or venue name made Saturday wider than Monday and
+            pushed the whole week off the screen. `minmax(0, 1fr)` lets a
+            column shrink below its content, which is what allows the cards
+            inside it to truncate instead. Monday to Sunday are then exactly
+            equal at every width. */}
+        <div className="grid min-w-[920px] grid-cols-[8.5rem_repeat(7,minmax(0,1fr))]">
           <div className="sticky left-0 z-10 border-b border-ink/10 bg-white" />
           {days.map((day, i) => {
             const isToday = day === todayIso
@@ -221,10 +266,14 @@ export function WeekBoard({
                             key={e.id}
                             type="button"
                             onClick={() => {
+                              if (e.kind === "tournament") {
+                                router.push(tournamentCentreHref(e))
+                                return
+                              }
                               setSelected(e)
                               setEditing(false)
                             }}
-                            className="flex min-h-[24px] items-center gap-1 rounded-md border border-dashed border-forest-800/25 bg-transparent px-1.5 py-1 text-left text-[11px] leading-tight text-forest-800/80 outline-none transition-all hover:border-forest-800/40 hover:bg-forest-800/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                            className="flex min-h-[24px] w-full min-w-0 items-center gap-1 rounded-md border border-dashed border-forest-800/25 bg-transparent px-1.5 py-1 text-left text-[11px] leading-tight text-forest-800/80 outline-none transition-all hover:border-forest-800/40 hover:bg-forest-800/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
                           >
                             <Dumbbell className="size-3 shrink-0" />
                             {/* Section 28: "<Team Name> — Planned Training" plus venue/pitch, not a bare "Training" label -- e.teamDisplayName falls back to the lane's own label for a Mini-Rugby Group's shared session (no single team). */}
@@ -236,15 +285,42 @@ export function WeekBoard({
                               {e.pitchName && <span className="truncate text-[10px] text-forest-800/60">{e.pitchName}</span>}
                             </span>
                           </button>
+                        ) : e.kind === "event" ? (
+                          // A club event opens its own Centre. It is drawn in
+                          // the shared plum with the shared icon, so it can
+                          // never be read as a match, a session or a blockout.
+                          <Link
+                            key={e.id}
+                            href={`/events/${e.eventId ?? e.id}`}
+                            className="flex min-h-[28px] w-full min-w-0 flex-col gap-0.5 rounded-md border border-[#6d3b5d]/25 bg-[#6d3b5d]/10 px-1.5 py-1 text-left text-[11px] leading-tight text-[#6d3b5d] shadow-sm outline-none transition-all hover:-translate-y-px hover:shadow focus-visible:ring-2 focus-visible:ring-pitch-400"
+                          >
+                            <span className="flex min-w-0 items-center gap-1 font-medium">
+                              <CalendarHeart className="size-3 shrink-0" />
+                              <span className="truncate">{e.title}</span>
+                            </span>
+                            <span className="truncate opacity-75">
+                              {e.spanPosition && e.spanPosition !== "starts"
+                                ? e.spanPosition === "ends"
+                                  ? "Last day"
+                                  : "Continues"
+                                : e.time
+                                  ? e.time.slice(0, 5)
+                                  : "All day"}
+                            </span>
+                          </Link>
                         ) : e.kind === "tournament" ? (
                           <button
                             key={e.id}
                             type="button"
                             onClick={() => {
+                              if (e.kind === "tournament") {
+                                router.push(tournamentCentreHref(e))
+                                return
+                              }
                               setSelected(e)
                               setEditing(false)
                             }}
-                            className="flex min-h-[28px] flex-col gap-0.5 rounded-md border border-amber-600/30 bg-amber-500/10 px-1.5 py-1 text-left text-[11px] leading-tight text-amber-900 shadow-sm outline-none transition-all hover:-translate-y-px hover:shadow focus-visible:ring-2 focus-visible:ring-pitch-400"
+                            className="flex min-h-[28px] w-full min-w-0 flex-col gap-0.5 rounded-md border border-amber-600/30 bg-amber-500/10 px-1.5 py-1 text-left text-[11px] leading-tight text-amber-900 shadow-sm outline-none transition-all hover:-translate-y-px hover:shadow focus-visible:ring-2 focus-visible:ring-pitch-400"
                           >
                             <span className="flex items-center gap-1 font-medium">
                               <Trophy className="size-3 shrink-0" />
@@ -252,7 +328,10 @@ export function WeekBoard({
                             </span>
                             <span className="truncate opacity-75">
                               {e.time ? `${e.time.slice(0, 5)} · ` : ""}
-                              {e.tournamentParticipantCount ?? 0} team{e.tournamentParticipantCount === 1 ? "" : "s"}
+                              {/* This row is ONE team's lane, so the count of
+                                  every club attending the whole festival is
+                                  not what it is about. The venue is. */}
+                              {e.venueAddress ?? e.pitchName ?? "Venue TBC"}
                             </span>
                           </button>
                         ) : (
@@ -260,6 +339,10 @@ export function WeekBoard({
                             key={e.id}
                             type="button"
                             onClick={() => {
+                              if (e.kind === "tournament") {
+                                router.push(tournamentCentreHref(e))
+                                return
+                              }
                               setSelected(e)
                               setEditing(false)
                             }}
@@ -308,9 +391,6 @@ export function WeekBoard({
         }}
       >
         <SheetContent>
-          {selected && selected.kind === "tournament" && (
-            <TournamentQuickView entry={selected} onChanged={() => setSelected(null)} />
-          )}
           {selected && selected.kind === "training" && (
             <>
               <SheetHeader>
@@ -684,11 +764,11 @@ export function TournamentQuickView({ entry, onChanged }: { entry: WeekEntry; on
                 className="inline-flex items-center gap-1 text-sm font-medium text-forest-800 underline hover:text-forest-950"
               >
                 <Plus className="size-3.5" />
-                Add opposition
+                Add Opposition
               </button>
             ) : (
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Add opposition</p>
+                <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">Add Opposition</p>
                 {!hostIdentity ? (
                   <p className="text-sm text-ink-muted">Resolving host team…</p>
                 ) : (

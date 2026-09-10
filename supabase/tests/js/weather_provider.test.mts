@@ -9,6 +9,8 @@ import {
   msToMph,
   normalizeStep,
   pickClosestStep,
+  stepFeelsLike,
+  stepTemperature,
 } from "@/lib/weather/met-office"
 import { forecastCacheKey, forecastCacheSeconds, kickoffInstant, FORECAST_HORIZON_DAYS } from "@/lib/weather/forecast-window"
 
@@ -287,4 +289,60 @@ test("lead time is measured from now, in hours", () => {
   const now = Date.parse("2026-09-07T12:00:00Z")
   assert.equal(Math.round(leadHours("2026-09-07T18:00:00Z", now)), 6)
   assert.equal(Math.round(leadHours("2026-09-06T12:00:00Z", now)), -24)
+})
+
+
+/**
+ * THE THREE-HOURLY SERIES USES DIFFERENT FIELD NAMES.
+ *
+ * Found live, with a working Met Office credential, after the Match Centre had
+ * shown "Weather not available" for a fixture four days out. The API returned
+ * 200 and a full series; the adapter read only the HOURLY field names, so
+ * every step past 48 hours carried no temperature it recognised and every one
+ * of those fixtures rendered the unavailable card.
+ *
+ * That is the whole horizon a parent actually looks at a fixture in. It also
+ * failed silently and looked exactly like a missing credential, which is why
+ * it went unnoticed: nothing errored, there was simply never any weather.
+ */
+test("the three-hourly series carries a temperature under different field names", () => {
+  // A real three-hourly step: no screenTemperature, bounds instead.
+  const threeHourly = {
+    time: "2026-09-12T12:00Z",
+    maxScreenAirTemp: 16.2,
+    minScreenAirTemp: 13.8,
+    feelsLikeTemp: 14.6,
+    probOfPrecipitation: 53,
+    significantWeatherCode: 12,
+    windSpeed10m: 4.95,
+    windDirectionFrom10m: 212,
+  }
+  assert.equal(stepTemperature(threeHourly), 15, "the midpoint of the provider's own bounds is the block's temperature")
+  assert.equal(stepFeelsLike(threeHourly), 14.6, "feelsLikeTemp is the three-hourly spelling of feelsLikeTemperature")
+
+  const r = normalizeStep(threeHourly, "2026-09-12T13:30:00Z", new Date().toISOString())
+  assert.equal(r.state, "FORECAST_AVAILABLE", "a three-hourly step must produce a forecast, not an unavailable card")
+  assert.equal(r.forecast?.temperatureC, 15)
+  assert.equal(r.forecast?.feelsLikeC, 15)
+  assert.equal(r.forecast?.conditionLabel, "Light rain")
+  assert.equal(r.forecast?.windSpeedMph, 11)
+  assert.equal(r.forecast?.windDirection, "SSW")
+})
+
+test("the hourly series still reads its own point temperature, unchanged", () => {
+  const hourly = { time: "2026-09-12T13:00Z", screenTemperature: 12.4, feelsLikeTemperature: 9.8, significantWeatherCode: 12 }
+  assert.equal(stepTemperature(hourly), 12.4, "a direct reading is preferred over any derived one")
+  assert.equal(stepFeelsLike(hourly), 9.8)
+})
+
+test("a single bound is used rather than refusing a forecast outright", () => {
+  assert.equal(stepTemperature({ maxScreenAirTemp: 14 }), 14)
+  assert.equal(stepTemperature({ minScreenAirTemp: 9 }), 9)
+})
+
+test("no temperature under ANY name is still FORECAST_NOT_AVAILABLE, never a fabricated number", () => {
+  assert.equal(stepTemperature({ time: "2026-09-12T12:00Z", windSpeed10m: 4 }), null)
+  const r = normalizeStep({ time: "2026-09-12T12:00Z" }, "2026-09-12T12:00Z", new Date().toISOString())
+  assert.equal(r.state, "FORECAST_NOT_AVAILABLE")
+  assert.equal(r.forecast, null)
 })

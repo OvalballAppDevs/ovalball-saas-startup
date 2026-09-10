@@ -21,7 +21,7 @@
  * deliberate treatment, not an accident.
  */
 
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { execSync } from "node:child_process"
 import path from "node:path"
 
@@ -71,6 +71,12 @@ const files = execSync("git ls-files 'app/**/*.tsx' 'app/**/*.ts' 'components/**
   .trim()
   .split("\n")
   .filter((f) => !MARKETING.some((m) => f.startsWith(m)))
+  // git ls-files lists what is TRACKED, which still includes a file deleted in
+  // the working tree but not yet staged. Reading one threw ENOENT and took the
+  // whole guard down with it, so a legitimate deletion looked like a broken
+  // check. Skipping what is no longer on disk narrows nothing: a deleted file
+  // has no copy left to get wrong.
+  .filter((f) => existsSync(path.join(ROOT, f)))
 
 const failures = []
 

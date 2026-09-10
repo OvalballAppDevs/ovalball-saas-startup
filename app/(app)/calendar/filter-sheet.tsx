@@ -52,7 +52,11 @@ export function FilterSheet({
   showFamilyFilters: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const activeCount = activeStatuses.length + (activeHomeAway ? 1 : 0) + (activeKind ? 1 : 0) + (activeVenue ? 1 : 0) + (activeAttendance ? 1 : 0)
+  // Counts only what lives BEHIND this sheet. Event type and match location
+  // are visible controls in the toolbar now, and counting them here made the
+  // badge announce filters the sheet is not the way to change -- two controls
+  // claiming one state.
+  const activeCount = activeStatuses.length + (activeVenue ? 1 : 0) + (activeAttendance ? 1 : 0)
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -60,14 +64,14 @@ export function FilterSheet({
           and 32px is below the target size the rest of the product holds to. */}
       <Button type="button" variant="outline" size="sm" className="h-11 gap-1.5 sm:h-8" onClick={() => setOpen(true)}>
         <SlidersHorizontal className="size-3.5" />
-        Filter
+        More Filters
         {activeCount > 0 && (
           <span className="flex size-4 items-center justify-center rounded-full bg-pitch-600 text-[10px] font-semibold text-white">{activeCount}</span>
         )}
       </Button>
       <SheetContent side="right">
         <SheetHeader>
-          <SheetTitle>Filter Calendar</SheetTitle>
+          <SheetTitle>More Filters</SheetTitle>
         </SheetHeader>
         <form method="get" action="/calendar" className="flex max-h-[calc(100vh-8rem)] flex-col gap-5 overflow-y-auto px-4 pb-4">
           {activeTeam && <input type="hidden" name="team" value={activeTeam} />}

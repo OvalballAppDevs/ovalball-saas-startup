@@ -57,20 +57,37 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
   const [{ data: contacts }, { data: teams }, { data: fixtures }] = await Promise.all([
     supabase.from("club_contacts").select("role, name, phone, email").eq("club_id", club.id).eq("is_public", true),
     supabase.from("teams").select("id, display_name, category, age_group").eq("club_id", club.id).eq("active", true).order("category").order("age_group"),
+    // THE PUBLIC PROJECTION, not the canonical table.
+    //
+    // This page is the only anonymous surface in Ovalball that shows fixtures,
+    // and it used to read `fixtures` directly -- which worked because the
+    // table's policy was USING (true) for anon, and was safe only because
+    // this one query remembered to ask for a narrow field list and to filter
+    // by club afterwards. The audit measured what that left exposed: every
+    // fixture on the platform, meet times and coaches' notes included.
+    //
+    // public_club_fixtures is now the boundary. It carries the public columns
+    // only, and its row filter (confirmed, future, unarchived) lives in the
+    // view where a query cannot widen it. The club filter moves into the
+    // query too, so this page asks for its own club's fixtures rather than
+    // fetching everyone's and discarding the rest.
     supabase
-      .from("fixtures")
-      .select("id, kickoff_date, kickoff_time, home_away, raw_opposition_text, owning_team_id, season_id, teams!fixtures_owning_team_id_fkey(club_id, display_name)")
-      .eq("status", "Booked")
+      .from("public_club_fixtures")
+      .select("id, kickoff_date, kickoff_time, home_away, raw_opposition_text, owning_team_id, season_id, team_display_name")
+      .eq("club_id", club.id)
       .gte("kickoff_date", today)
       .order("kickoff_date")
       .limit(10),
   ])
 
-  // fixtures_select_all grants anon SELECT on the whole table (no
-  // club-scoping in RLS), so this club's own fixtures are filtered here,
-  // app-side, from a safe field list only -- never notes/venue_address/
-  // pitch_allocation/changing_room/confirmation flags.
-  const clubFixtures = (fixtures ?? []).filter((f) => f.teams?.club_id === club.id)
+  // Every column of a view is nullable to the type generator, even where the
+  // view's own join guarantees it. Narrowed once here rather than asserted at
+  // each use: a row without an id or an owning team could not have satisfied
+  // the view's join, so this filter removes nothing real.
+  const clubFixtures = (fixtures ?? []).filter(
+    (f): f is typeof f & { id: string; owning_team_id: string; kickoff_date: string } =>
+      Boolean(f.id && f.owning_team_id && f.kickoff_date)
+  )
 
   // Name each fixture's team as it stands in THAT fixture's season, through
   // the same projection the Calendar and Match Centre use. A public results
@@ -83,7 +100,7 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
   )
   const publicTeamLabel = (f: (typeof clubFixtures)[number]): string =>
     (f.season_id && publicFixtureIdentities.get(teamIdentityKey(f.owning_team_id, f.season_id))?.displayName) ||
-    f.teams?.display_name ||
+    f.team_display_name ||
     "Team"
 
   const logoUrl = resolveClubLogoUrl(supabase, club)

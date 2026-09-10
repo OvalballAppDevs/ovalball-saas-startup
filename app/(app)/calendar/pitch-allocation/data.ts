@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { isPrimaryMirror } from "@/lib/fixtures/mirror-pair"
 import { compactTeamLabel, fullTeamLabel } from "@/lib/teams/compact-label"
 import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
 import { effectiveFixtureParticipants } from "@/lib/mini-rugby/effective-teams"
@@ -10,6 +11,7 @@ import { loadOpponentGroupLabels } from "@/lib/calendar/resolve-entry-participan
 import { resolveHomeAwayGroupIds } from "@/lib/fixtures/resolve-home-away-groups"
 import { detectConflicts, partitionAllocation } from "@/lib/pitch-allocation/auto-allocate"
 import { detectResourceConflicts, type TrainingConflict, type TrainingOccupancy } from "@/lib/pitch-allocation/training-conflicts"
+import { detectTournamentConflicts, occupantsFromFixtures, occupantsFromSpans, type TournamentConflict } from "@/lib/pitch-allocation/tournament-conflicts"
 import { DEFAULT_SCHEDULING_POLICY, type AllocationConflict, type AllocationFixture, type ClubSchedulingPolicy, type PitchOption, type TournamentSummary } from "@/lib/pitch-allocation/types"
 import type { Database } from "@/types/database.types"
 
@@ -22,10 +24,43 @@ export interface PitchAllocationBoard {
   rugbyCode: "union" | "league" | null
   /** Section 79: confirmed tournaments this club is hosting today -- lives in its own table, never in `fixtures`, so it must be surfaced here explicitly rather than leaving the board silently blind to it. */
   tournaments: TournamentSummary[]
+  /** Reservations that genuinely clash with something unrelated. Siblings of one occasion are never listed here. */
+  tournamentConflicts: TournamentConflict[]
   /** SIDE PROJECT 2 -- Training Management (Section 32-38): read-only physical commitments sharing the same pitches as fixtures. Training is never converted into a fake fixture (Section 59) -- it is its own array, rendered as its own card type, and never counted in board.fixtures.length. */
   trainingSessions: TrainingOccupancy[]
   trainingConflicts: TrainingConflict[]
   fixtureConflictsFromTraining: { fixtureId: string; severity: "hard" | "warning"; reason: string }[]
+  /**
+   * Club events reserving a pitch today.
+   *
+   * READ FROM THE SAME RELATIONSHIP THE EVENT ITSELF OWNS -- public
+   * .club_event_pitches -- so there is no second, hand-maintained allocation
+   * copy to keep in step. Reserve a pitch on the event and it is occupied
+   * here; remove it there and it is free here, with no secondary edit.
+   *
+   * Its own array and its own card type, exactly as training is: an event is
+   * never converted into a fake fixture, and never counted in
+   * board.fixtures.length.
+   */
+  clubEvents: EventOccupancy[]
+  /**
+   * Where the warm-up/pack-up in `policy` came from: this club's own setting,
+   * or the platform default it inherits. Shown to an administrator so a value
+   * is never in effect without a visible reason.
+   */
+  bufferSource: "club" | "platform"
+}
+
+/** A club event's physical claim on a pitch for the day being viewed. */
+export interface EventOccupancy {
+  eventId: string
+  name: string
+  pitchId: string
+  startsOn: string
+  endsOn: string
+  startTime: string | null
+  endTime: string | null
+  isMultiDay: boolean
 }
 
 /**
@@ -64,6 +99,12 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     laneCount: p.lane_count,
   }))
 
+  // THE SCHEDULING BUFFERS COME FROM THE ONE RESOLVER, never from the code
+  // constant. Club override -> platform default, in the database, so this
+  // page and every other reader inherit the same hierarchy and "not
+  // configured" can never silently mean "no warm-up required" again.
+  const { data: buffers } = await supabase.rpc("resolve_club_scheduling_buffers", { p_club_id: clubId }).maybeSingle()
+
   const { data: policyRow } = await supabase.from("club_scheduling_policy").select("*").eq("club_id", clubId).maybeSingle()
   const policy: ClubSchedulingPolicy = policyRow
     ? {
@@ -74,31 +115,61 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
         weekendSeniorLatest: policyRow.weekend_senior_latest,
         turnaroundMinutes: policyRow.turnaround_minutes,
         autoAllocateHomeFixtures: policyRow.auto_allocate_home_fixtures,
-        warmUpMinutes: policyRow.warm_up_minutes,
-        packUpMinutes: policyRow.pack_up_minutes,
+        // Resolved, never read straight off the row -- a club row whose
+        // buffers are unset inherits the platform's.
+        warmUpMinutes: buffers?.warm_up_minutes ?? 0,
+        packUpMinutes: buffers?.pack_up_minutes ?? 0,
       }
-    : DEFAULT_SCHEDULING_POLICY
+    : { ...DEFAULT_SCHEDULING_POLICY, warmUpMinutes: buffers?.warm_up_minutes ?? 0, packUpMinutes: buffers?.pack_up_minutes ?? 0 }
+
+  const bufferSource: "club" | "platform" = buffers?.source === "club" ? "club" : "platform"
 
   const { data: rules } = await supabase.from("fixture_scheduling_rules").select("rugby_code, age_group, half_minutes, min_pitch_size_category, confidence")
 
-  // Section 79: tournaments are a SEPARATE table from fixtures -- a
-  // confirmed one hosted by this club today occupies real pitch/venue
-  // time that autoAllocate/detectConflicts know nothing about unless
-  // surfaced here. cancelled_at IS NULL is the only "still on" signal
-  // this table has (status is always 'confirmed' in practice).
+  // A TOURNAMENT'S REAL HOLD ON A PITCH.
+  //
+  // Read from public.tournament_pitches -- the relationship the tournament
+  // itself owns -- so there is no second, hand-maintained allocation copy to
+  // keep in step. Reserve a pitch on the tournament and it is occupied here;
+  // release it there and it is free here, with no secondary edit. This
+  // replaces an earlier approximation that treated a tournament's single
+  // legacy pitch_id as booked for the WHOLE day: a festival that finishes at
+  // 14:00 does not hold the pitch until midnight, and saying it does blocked
+  // an evening that was in fact free.
   const { data: tournamentRows } = await supabase
-    .from("tournaments")
-    .select("id, status, pitch_id, host_team_id, teams(display_name, rugby_code, category, age_group, gender, squad_designation), club_pitches(display_name), venues(name)")
-    .eq("host_club_id", clubId)
-    .eq("event_date", dateIso)
-    .is("cancelled_at", null)
-  const tournaments: TournamentSummary[] = (tournamentRows ?? []).map((t) => ({
-    id: t.id,
-    hostTeamLabel: t.teams ? fullTeamLabel({ category: t.teams.category ?? "youth", ageGroup: t.teams.age_group, gender: t.teams.gender, squadDesignation: t.teams.squad_designation, rugbyCode: t.teams.rugby_code }) : "Unknown team",
-    pitchId: t.pitch_id,
-    pitchDisplayName: t.club_pitches?.display_name ?? null,
-    venueName: t.venues?.name ?? null,
-    status: t.status,
+    .from("tournament_pitches")
+    .select("id, tournament_id, pitch_id, start_time, end_time, tournaments!inner(id, name, status, cancelled_at, host_club_id, venues(name)), club_pitches(display_name)")
+    .eq("reserved_on", dateIso)
+    .eq("tournaments.host_club_id", clubId)
+    .is("tournaments.cancelled_at", null)
+
+  // Which of this club's teams are attending, for the board card's own label.
+  // One batched query for every tournament on the day -- never one per card.
+  const tournamentIdsToday = Array.from(new Set((tournamentRows ?? []).map((r) => r.tournament_id)))
+  const { data: tournamentEntryRows } = tournamentIdsToday.length > 0
+    ? await supabase
+        .from("tournament_team_entries")
+        .select("tournament_id, teams(display_name)")
+        .in("tournament_id", tournamentIdsToday)
+    : { data: [] }
+  const teamLabelsByTournament = new Map<string, string[]>()
+  for (const row of tournamentEntryRows ?? []) {
+    const list = teamLabelsByTournament.get(row.tournament_id) ?? []
+    if (row.teams?.display_name) list.push(row.teams.display_name)
+    teamLabelsByTournament.set(row.tournament_id, list)
+  }
+
+  const tournaments: TournamentSummary[] = (tournamentRows ?? []).map((r) => ({
+    id: r.id,
+    tournamentId: r.tournament_id,
+    tournamentName: r.tournaments?.name ?? "Tournament",
+    teamLabels: (teamLabelsByTournament.get(r.tournament_id) ?? []).sort(),
+    pitchId: r.pitch_id,
+    pitchDisplayName: r.club_pitches?.display_name ?? null,
+    venueName: r.tournaments?.venues?.name ?? null,
+    startTime: r.start_time as string,
+    endTime: r.end_time as string,
+    status: r.tournaments?.status ?? "confirmed",
   }))
 
   // SIDE PROJECT 2 -- Training Management: batched, one query, joined to
@@ -131,8 +202,36 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     }
   })
 
+  // CLUB EVENTS occupying a pitch on this date. The overlap test is the span
+  // test, not an equality test: a centenary weekend booked Friday to Sunday
+  // occupies its pitches on the Saturday too, and a `starts_on = today` filter
+  // would have shown that Saturday as free.
+  const { data: eventRows } = await supabase
+    .from("club_events")
+    .select("id, name, starts_on, ends_on, start_time, end_time, status, club_event_pitches(pitch_id)")
+    .eq("club_id", clubId)
+    .lte("starts_on", dateIso)
+    .gte("ends_on", dateIso)
+  const clubEvents: EventOccupancy[] = (eventRows ?? [])
+    .filter((e) => e.status !== "CANCELLED")
+    .flatMap((e) =>
+      (e.club_event_pitches ?? [])
+        .map((p) => p.pitch_id)
+        .filter((id): id is string => Boolean(id))
+        .map((pitchId) => ({
+          eventId: e.id,
+          name: e.name,
+          pitchId,
+          startsOn: e.starts_on,
+          endsOn: e.ends_on,
+          startTime: e.start_time,
+          endTime: e.end_time,
+          isMultiDay: e.ends_on > e.starts_on,
+        }))
+    )
+
   if (teamIds.length === 0) {
-    return { fixtures: [], unallocated: [], pitches, policy, conflicts: [], rugbyCode, tournaments, trainingSessions, trainingConflicts: [], fixtureConflictsFromTraining: [] }
+    return { fixtures: [], unallocated: [], pitches, policy, conflicts: [], rugbyCode, tournaments, tournamentConflicts: [], trainingSessions, trainingConflicts: [], fixtureConflictsFromTraining: [], clubEvents, bufferSource }
   }
 
   const { data: rawFixtureRows } = await supabase
@@ -164,7 +263,11 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
    * replicated here exactly so Pitch Allocation shows precisely the one
    * row Fixture Management treats as canonical, never a second one.
    */
-  const fixtureRows = (rawFixtureRows ?? []).filter((f) => !f.mirror_fixture_id || f.id < f.mirror_fixture_id)
+  // Both halves of a pair ALWAYS arrive here (see the note above: the generated
+  // home_team_id resolves to this club's team for both rows), so the database's
+  // own is_primary_mirror rule applies exactly. lib/fixtures/mirror-pair.ts
+  // holds it once, shared with Fixture Management's view definition.
+  const fixtureRows = (rawFixtureRows ?? []).filter(isPrimaryMirror)
 
   const homeTeamIds = Array.from(new Set((fixtureRows ?? []).map((f) => f.home_team_id).filter((id): id is string => Boolean(id))))
   const { data: aliasRows } = homeTeamIds.length > 0 ? await supabase.from("team_aliases").select("team_id, alias").in("team_id", homeTeamIds) : { data: [] }
@@ -294,18 +397,6 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
   const { allocated, unallocated } = partitionAllocation(allocationFixtures)
   const conflicts = detectConflicts(allocated, pitches, { warmUpMinutes: policy.warmUpMinutes, packUpMinutes: policy.packUpMinutes })
 
-  // Section 79: a tournament with a real pitch assigned monopolizes that
-  // pitch for the whole day -- flag any fixture already sitting on it as
-  // a genuine hard conflict, same severity as a pitch/pitch double-booking,
-  // rather than leaving the clash invisible just because tournaments live
-  // outside detectConflicts' normal fixtures-only view.
-  const tournamentPitchIds = new Set(tournaments.map((t) => t.pitchId).filter((id): id is string => Boolean(id)))
-  for (const f of allocated) {
-    if (f.pitchId && tournamentPitchIds.has(f.pitchId) && !conflicts.some((c) => c.fixtureId === f.fixtureId)) {
-      const tournament = tournaments.find((t) => t.pitchId === f.pitchId)
-      conflicts.push({ fixtureId: f.fixtureId, severity: "hard", reason: `${tournament?.pitchDisplayName ?? "This pitch"} is booked all day for ${tournament?.hostTeamLabel ?? "a"} tournament.` })
-    }
-  }
 
   // Section 35: pitch conflicts consider BOTH fixture and training
   // occupancy together -- a separate call from the fixture-only
@@ -316,5 +407,37 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     packUpMinutes: policy.packUpMinutes,
   })
 
-  return { fixtures: allocated, unallocated, pitches, policy, conflicts, rugbyCode, tournaments, trainingSessions, trainingConflicts, fixtureConflictsFromTraining }
+  // A TOURNAMENT AGAINST EVERYTHING ELSE ON THE DAY. Two reservations of the
+  // same occasion are deliberately not compared -- a festival on three pitches
+  // is not conflicting with itself -- while a reservation against a fixture,
+  // training session, club event or a DIFFERENT tournament conflicts exactly
+  // as any other pair would.
+  const { tournamentConflicts, fixtureConflicts: fixtureConflictsFromTournament } = detectTournamentConflicts(
+    tournaments.map((t) => ({
+      id: t.id,
+      tournamentId: t.tournamentId,
+      tournamentName: t.tournamentName,
+      pitchId: t.pitchId,
+      startTime: t.startTime,
+      endTime: t.endTime,
+    })),
+    [
+      ...occupantsFromFixtures(allocated, { warmUpMinutes: policy.warmUpMinutes, packUpMinutes: policy.packUpMinutes }),
+      ...occupantsFromSpans(
+        "training",
+        trainingSessions
+          .filter((t) => t.status !== "CANCELLED")
+          .map((t) => ({ id: t.trainingSessionId, label: `${t.teamLabel} — Planned Training`, pitchId: t.pitchId, startTime: t.startTime, durationMinutes: t.durationMinutes }))
+      ),
+      ...occupantsFromSpans(
+        "event",
+        clubEvents.map((e) => ({ id: e.eventId, label: e.name, pitchId: e.pitchId, startTime: e.startTime, endTime: e.endTime }))
+      ),
+    ]
+  )
+  for (const c of fixtureConflictsFromTournament) {
+    if (!conflicts.some((existing) => existing.fixtureId === c.fixtureId)) conflicts.push(c)
+  }
+
+  return { fixtures: allocated, unallocated, pitches, policy, conflicts, rugbyCode, tournaments, tournamentConflicts, trainingSessions, trainingConflicts, fixtureConflictsFromTraining, clubEvents, bufferSource }
 }

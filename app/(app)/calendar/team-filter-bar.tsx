@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Users } from "lucide-react"
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { groupAndSortLanes, type FilterableLane } from "@/lib/teams/filter-groups"
@@ -10,19 +10,26 @@ import { qs } from "@/lib/calendar/query-string"
 import { cn } from "@/lib/utils"
 
 /**
- * The one grouped team-filter component Month/Week/Agenda all render
- * (Master Architecture Pass addendum reconciliation, "Calendar Filters" /
- * "One filter model" / "Same filters in Agenda") -- replaces the flat,
- * alphabetically-scattered chip wall with Minis+Juniors/Colts/Girls/
- * Women's/Men's groups (lib/teams/filter-groups.ts), never a
- * page-local reimplementation. Single-select, matching the existing
- * "view as this one lane, or All teams" semantics -- this was never a
- * multi-select filter and this rework doesn't change that.
+ * WHOSE RUGBY AM I LOOKING AT.
  *
- * Desktop: grouped chip clusters, each with its own small uppercase
- * label, wrapping naturally. Mobile: a compact trigger showing the
- * current selection, opening a Sheet with the same groups as a scrollable
- * list -- never the old full chip wall pushed below the fold.
+ * The one grouped team filter Calendar and Agenda both render -- never a
+ * page-local reimplementation. Single-select, matching the existing "this one
+ * lane, or All Teams" semantics; this was never a multi-select filter.
+ *
+ * IT IS A CHOICE, NOT A WALL. It used to lay every team out as a chip: a club
+ * running eighteen sides got eighteen equally-prominent pills across two rows,
+ * with "All Teams" as the first of them, so the global context choice looked
+ * like just another team and the filter out-shouted the season it was meant to
+ * be filtering. It is now one control stating the current choice, opening the
+ * same grouped list -- at every width, not only on a phone, because eighteen
+ * pills are no more readable on a desktop than on a handset.
+ *
+ * Grouping (Minis + Juniors / Colts / Girls / Women's / Men's) comes from
+ * lib/teams/filter-groups.ts, which is also the one place the group order and
+ * labels are decided.
+ *
+ * A viewer with a single team is offered nothing: there is no choice to make,
+ * and the team they are looking at is already named in the header above.
  */
 export function TeamFilterBar<T extends FilterableLane>({
   lanes,
@@ -42,27 +49,21 @@ export function TeamFilterBar<T extends FilterableLane>({
 
   return (
     <>
-      {/* Desktop: grouped chip clusters. */}
-      <div className="mt-3 hidden flex-wrap items-start gap-x-5 gap-y-2 md:flex">
-        <TeamChip label="All teams" active={!activeTeam} href={hrefFor(null)} />
-        {groups.map((g) => (
-          <div key={g.key} className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold tracking-[0.08em] text-ink-muted uppercase">{g.label}</span>
-            {g.lanes.map((l) => (
-              <TeamChip key={l.id} label={l.label} title={l.fullLabel} active={activeTeam === l.id} href={hrefFor(l.id)} />
-            ))}
-          </div>
-        ))}
-      </div>
-
-      {/* Mobile: compact trigger + grouped Sheet. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-3 flex w-full items-center justify-between gap-2 rounded-lg border border-ink/15 bg-white px-3 py-2 text-left text-sm font-medium text-ink outline-none md:hidden"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={cn(
+          "inline-flex min-h-11 max-w-full items-center gap-2 rounded-xl border px-3 text-[13px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none sm:min-h-9",
+          // A chosen team is a live filter and says so; "All Teams" is the
+          // resting state and stays quiet.
+          activeLane ? "border-forest-950 bg-forest-950 text-white" : "border-ink/12 bg-white text-ink-muted hover:text-ink"
+        )}
       >
-        <span className="truncate">{activeLane ? activeLane.fullLabel : "All teams"}</span>
-        <ChevronDown className="size-4 shrink-0 text-ink-muted" />
+        <Users className={cn("size-3.5 shrink-0", activeLane ? "text-white/70" : "text-ink-subtle")} aria-hidden="true" />
+        <span className="truncate">{activeLane ? activeLane.fullLabel : "All Teams"}</span>
+        <ChevronDown className={cn("size-3.5 shrink-0", activeLane ? "text-white/70" : "text-ink-subtle")} aria-hidden="true" />
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -70,33 +71,23 @@ export function TeamFilterBar<T extends FilterableLane>({
           <SheetHeader>
             <SheetTitle>Filter by Team</SheetTitle>
           </SheetHeader>
-          <div className="flex flex-col gap-5 px-4 pb-6">
-            <Link
-              href={hrefFor(null)}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "rounded-lg border px-3 py-2.5 text-sm font-medium",
-                !activeTeam ? "border-pitch-600 bg-pitch-600/10 text-forest-900" : "border-ink/15 text-ink/70"
-              )}
-            >
-              All teams
-            </Link>
+          <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pb-8">
+            {/* The global choice, set apart from the teams rather than filed
+                among them -- it is a different kind of answer. */}
+            <TeamOption label="All Teams" active={!activeTeam} href={hrefFor(null)} onNavigate={() => setOpen(false)} />
+
             {groups.map((g) => (
               <div key={g.key}>
-                <p className="text-xs font-semibold tracking-[0.06em] text-ink-muted uppercase">{g.label}</p>
-                <div className="mt-2 flex flex-col gap-1.5">
+                <p className="text-[11px] font-semibold tracking-[0.08em] text-ink-subtle uppercase">{g.label}</p>
+                <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                   {g.lanes.map((l) => (
-                    <Link
+                    <TeamOption
                       key={l.id}
+                      label={l.fullLabel}
+                      active={activeTeam === l.id}
                       href={hrefFor(l.id)}
-                      onClick={() => setOpen(false)}
-                      className={cn(
-                        "rounded-lg border px-3 py-2.5 text-sm font-medium",
-                        activeTeam === l.id ? "border-pitch-600 bg-pitch-600/10 text-forest-900" : "border-ink/15 text-ink/70"
-                      )}
-                    >
-                      {l.fullLabel}
-                    </Link>
+                      onNavigate={() => setOpen(false)}
+                    />
                   ))}
                 </div>
               </div>
@@ -108,14 +99,15 @@ export function TeamFilterBar<T extends FilterableLane>({
   )
 }
 
-function TeamChip({ label, title, active, href }: { label: string; title?: string; active: boolean; href: string }) {
+function TeamOption({ label, active, href, onNavigate }: { label: string; active: boolean; href: string; onNavigate: () => void }) {
   return (
     <Link
       href={href}
-      title={title}
+      onClick={onNavigate}
+      aria-current={active ? "true" : undefined}
       className={cn(
-        "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-        active ? "border-pitch-600 bg-pitch-600/10 text-forest-900" : "border-ink/15 text-ink/60 hover:bg-ink/5"
+        "flex min-h-11 items-center rounded-xl border px-3.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none",
+        active ? "border-forest-950 bg-forest-950 text-white" : "border-ink/12 bg-white text-ink hover:bg-chalk"
       )}
     >
       {label}

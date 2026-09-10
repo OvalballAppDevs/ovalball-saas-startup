@@ -11,6 +11,7 @@ import { loadOpponentGroupLabels } from "@/lib/calendar/resolve-entry-participan
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 
+import { fixtureOccupiedWindow } from "@/lib/pitch-allocation/occupancy"
 import { getPitchAllocationBoard } from "./data"
 
 /**
@@ -212,15 +213,20 @@ export async function createPitchAllocationProposal(clubId: string, dateIso: str
     : board.fixtures
         .filter((f) => f.pitchId && f.kickoffTime)
         .map((f) => {
-          const [h, m] = f.kickoffTime!.split(":").map(Number)
-          const kickoff = h * 60 + m
           // Section 31-40: an already-placed fixture's own warm-up/pack-up
           // window blocks time too, same as autoAllocate's own internal
           // placements -- otherwise a newly-proposed fixture could land
           // during another fixture's warm-up or pack-up just because that
           // fixture was already on the board rather than being placed in
           // this same run.
-          return { pitchId: f.pitchId!, start: kickoff - board.policy.warmUpMinutes, end: kickoff + (f.durationMinutes ?? 60) + board.policy.packUpMinutes + board.policy.turnaroundMinutes }
+          //
+          // Through the ONE occupancy primitive, so a move is validated
+          // against exactly the interval the board draws and the conflict
+          // detector tests. turnaroundMinutes is added on top: it is the gap
+          // this club wants BETWEEN fixtures, not part of either's own
+          // reservation.
+          const w = fixtureOccupiedWindow(f, board.policy)!
+          return { pitchId: f.pitchId!, start: w.start, end: w.end + board.policy.turnaroundMinutes }
         })
 
   // Section 79: a confirmed tournament with a real pitch assigned
