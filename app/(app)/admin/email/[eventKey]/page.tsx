@@ -3,13 +3,26 @@ import { notFound, redirect } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
 
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
-import { CONTRACTED_EVENT_KEYS, sampleVariables, templateContract } from "@/lib/email/contracts"
+import {
+  allowedVariables,
+  CONTRACTED_EVENT_KEYS,
+  recommendedDataFor,
+  sampleVariables,
+  structuredBlocksFor,
+  templateContract,
+} from "@/lib/email/contracts"
+import { dynamicDataItem } from "@/lib/email/dynamic-data/catalogue"
+import { listEmailEventPolicies } from "@/lib/email/delivery-policy"
 import { PREVIEW_FIXTURES } from "@/lib/email/preview-fixtures"
 import { renderEmail } from "@/lib/email/templates"
+import { fetchEmailUsageSummary, fetchRecentDeliveries } from "@/lib/email/usage"
 import { WIRED_EVENT_KEYS } from "@/lib/email/wiring"
-import { getSiteUrl } from "@/lib/site-url"
+import { getSiteUrl, previewAssetOrigin } from "@/lib/site-url"
 import { createClient } from "@/lib/supabase/server"
 
+import { EmailDeliveryHistory } from "../email-delivery-history"
+import { EmailEnabledSwitch } from "../email-enabled-switch"
+import { EmailOperationalStatus } from "../email-operational-status"
 import { TemplateEditor } from "./template-editor"
 
 import type { EmailEventKey } from "@/lib/email/catalogue"
@@ -45,11 +58,53 @@ export default async function EmailTemplatePage({ params }: { params: Promise<{ 
 
   const contract = templateContract(key)
 
+  // ONE merge of scalar variables and renderer-owned structured/image
+  // entries, both resolved from the same canonical catalogue -- the Dynamic
+  // Data panel draws its whole library from this, never a second list.
+  const dynamicData = [
+    ...allowedVariables(key).map((v) => ({
+      key: v.name,
+      label: v.label,
+      group: v.category,
+      kind: "scalar" as const,
+      description: v.description,
+      sample: v.sample,
+      source: v.source,
+      availability: dynamicDataItem(v.name)?.availability ?? "",
+    })),
+    ...structuredBlocksFor(key).map((b) => ({
+      key: b.key,
+      label: b.label,
+      group: b.group,
+      kind: b.kind,
+      description: b.description,
+      sample: b.sample,
+      source: b.source,
+      availability: b.availability,
+    })),
+  ]
+  const recommendedKeys = recommendedDataFor(key).map((r) => r.key)
+
   const { data: settings } = await supabase
     .from("email_template_settings")
     .select("active_version_id, lock_version, updated_at")
     .eq("event_key", key)
     .maybeSingle()
+
+  const [policies, usageThisMonth, usageAllTime, recentDeliveries] = canEdit
+    ? await Promise.all([
+        listEmailEventPolicies(supabase),
+        fetchEmailUsageSummary(supabase, new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+        fetchEmailUsageSummary(supabase),
+        fetchRecentDeliveries(supabase, key, 20),
+      ])
+    : ([{}, {}, {}, []] as [
+        Awaited<ReturnType<typeof listEmailEventPolicies>>,
+        Awaited<ReturnType<typeof fetchEmailUsageSummary>>,
+        Awaited<ReturnType<typeof fetchEmailUsageSummary>>,
+        Awaited<ReturnType<typeof fetchRecentDeliveries>>,
+      ])
+  const policy = policies[key] ?? null
 
   const { data: versionRows } = await supabase
     .from("email_template_versions")
@@ -98,7 +153,10 @@ export default async function EmailTemplatePage({ params }: { params: Promise<{ 
       heading: initial.heading,
       body: initial.body,
       ctaLabel: initial.ctaLabel || null,
-    }
+    },
+    // The embedded logo only: CTA destinations above still resolve from
+    // getSiteUrl(), unconditionally. See previewAssetOrigin()'s own comment.
+    await previewAssetOrigin()
   ).html
 
   return (
@@ -111,14 +169,41 @@ export default async function EmailTemplatePage({ params }: { params: Promise<{ 
         Email Configuration
       </Link>
 
-      <h1 className="mt-2 font-display text-display-l text-ink">{contract.name}</h1>
-      <p className="mt-2 max-w-xl text-sm text-ink-muted">{contract.trigger}</p>
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-display-l text-ink">{contract.name}</h1>
+          <p className="mt-2 max-w-xl text-sm text-ink-muted">{contract.trigger}</p>
+        </div>
+        {policy && canEdit && (
+          <EmailEnabledSwitch
+            eventKey={key}
+            eventName={contract.name}
+            active={policy.active}
+            wired={policy.wired}
+            classification={policy.classification}
+            lockVersion={policy.lockVersion}
+          />
+        )}
+      </div>
 
       {!(WIRED_EVENT_KEYS as readonly string[]).includes(key) && (
         <p className="mt-4 max-w-xl rounded-lg border border-amber-500/25 bg-amber-50/60 px-4 py-3 text-sm text-ink">
-          Nothing in Ovalball sends this email yet. You can write it now and it will be used as soon as the feature it
-          belongs to is switched on.
+          Nothing in Ovalball sends this email yet (Not Wired). You can write it now and it will gain the normal
+          On/Off control as soon as the feature it belongs to is switched on.
         </p>
+      )}
+
+      {policy && canEdit && (
+        <EmailOperationalStatus
+          active={policy.active}
+          wired={policy.wired}
+          templateStatus={active ? `Published v${active.revision}` : "Ovalball default"}
+          thisMonthRecipientDeliveries={usageThisMonth[key]?.recipientDeliveries ?? 0}
+          allTimeRecipientDeliveries={usageAllTime[key]?.recipientDeliveries ?? 0}
+          lastSentAt={usageAllTime[key]?.lastSentAt ?? null}
+          providerAccepted={usageThisMonth[key]?.providerAccepted ?? 0}
+          failed={usageThisMonth[key]?.failed ?? 0}
+        />
       )}
 
       <TemplateEditor
@@ -126,7 +211,8 @@ export default async function EmailTemplatePage({ params }: { params: Promise<{ 
         canEdit={canEdit}
         initial={initial}
         hasCta={contract.hasCta}
-        variables={contract.variables}
+        dynamicData={dynamicData}
+        recommendedKeys={recommendedKeys}
         expectedLock={settings?.lock_version ?? 0}
         hasDraft={draft !== null}
         isCustomised={active !== null}
@@ -140,6 +226,8 @@ export default async function EmailTemplatePage({ params }: { params: Promise<{ 
           subject: v.subject,
         }))}
       />
+
+      {canEdit && <EmailDeliveryHistory deliveries={recentDeliveries} />}
     </div>
   )
 }

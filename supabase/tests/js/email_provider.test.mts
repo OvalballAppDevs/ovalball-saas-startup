@@ -30,6 +30,7 @@ const MANAGED = [
   "EMAIL_REPLY_TO_ADDRESS",
   "EMAIL_REPLY_TO_NAME",
   "NODE_ENV",
+  "VERCEL_ENV",
 ]
 
 beforeEach(() => {

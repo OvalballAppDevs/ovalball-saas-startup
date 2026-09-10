@@ -45,6 +45,8 @@ export type RecipientKind =
   | "club_billing_contact"
   /** The person whose club claim was approved, read from the claim row. */
   | "club_claimant"
+  /** A fixture's own effective participant population -- public.fixture_notification_recipients, wrapping the canonical internal.fixture_audience_recipients Match Centre already uses. */
+  | "fixture_participants"
 
 export interface EmailEventDefinition {
   classification: EmailClassification
@@ -128,6 +130,17 @@ export const EMAIL_EVENTS = {
     recipientKind: "club_billing_contact",
     description:
       "A referred club paid its first subscription, so the referring club earned a free month.",
+  },
+  match_cancelled: {
+    // OPTIONAL, not mandatory: this is fixture-update logistics, the same
+    // category as the attendance reminder it shares a topic with -- a family
+    // who has switched fixture updates off is respected here too. Reuses
+    // fixture_updates rather than registering a second fixture-notification
+    // topic (20261103000000_fixture_communications.sql already owns it).
+    classification: "OPTIONAL_OPERATIONAL",
+    topicKey: "fixture_updates",
+    recipientKind: "fixture_participants",
+    description: "A fixture was cancelled, so its effective participant population is told.",
   },
 } as const satisfies Record<string, EmailEventDefinition>
 

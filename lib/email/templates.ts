@@ -1,18 +1,21 @@
 import "server-only"
 
 import { CONTACT_EMAIL, OPERATOR_STATEMENT, PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/legal/metadata"
+import { formatDayName } from "@/lib/email/dynamic-data/format"
 import { getSiteUrl } from "@/lib/site-url"
 
 import { templateContract, type EmailTemplateContent } from "./contracts"
 import { applyVariables } from "./resolve-content"
 
 import type { EmailEventKey } from "./catalogue"
+import type { FixtureEmailContext } from "./context/resolve-fixture-email-context"
 import {
   clubIdentity,
   ctaFallback,
   divider,
   heading,
   infoCard,
+  matchSummaryBlock,
   mutedParagraph,
   paragraph,
   primaryCta,
@@ -21,6 +24,7 @@ import {
   safeUrl,
   statusNote,
   subheading,
+  TEST_MODE_MESSAGE,
 } from "./design/components"
 
 /**
@@ -56,6 +60,7 @@ export type EmailEventData = {
   club_welcome: { firstName: string; clubName: string; clubLogoUrl: string | null }
   support_ticket_reply: { reference: string; subject: string; body: string }
   referral_reward_earned: { referringClubName: string; referredClubName: string; planLabel: string; rewardValue: string }
+  match_cancelled: { fixtureContext: FixtureEmailContext; cancellationReason: string }
 }
 
 /**
@@ -72,7 +77,20 @@ export type EmailEventData = {
 type Renderer<K extends EmailEventKey> = (
   data: EmailEventData[K],
   siteUrl: string,
-  content: EmailTemplateContent
+  content: EmailTemplateContent,
+  /**
+   * Where an EMBEDDED IMAGE (the brand logo, a club crest) is fetched from.
+   * Defaults to `siteUrl` -- real outbound mail always has assetOrigin equal
+   * to siteUrl, so a recipient's email always references Ovalball's one real
+   * origin. The two are allowed to differ ONLY for a Site Admin's own local
+   * preview, so a developer running this worktree on a nonstandard port can
+   * see the image that a request to their own dev server actually serves,
+   * without touching where a CTA or link is allowed to point -- see
+   * lib/site-url.ts#previewAssetOrigin for how that value is derived.
+   */
+  assetOrigin?: string,
+  /** Site Admin "Send Test Email" only -- see design/components.ts#testModeBanner. Real sends never set this. */
+  isTest?: boolean
 ) => RenderedEmail
 
 /**
@@ -89,9 +107,26 @@ const VARIABLE_MAPS: { [K in EmailEventKey]: (data: EmailEventData[K]) => Record
   site_admin_invitation: () => ({}),
   partner_club_invitation: (d) => ({ club_name: d.invitingClubName, invited_club_name: d.invitedClubName }),
   club_claim_submitted: (d) => ({ club_name: d.clubName }),
-  club_welcome: (d) => ({ first_name: d.firstName, club_name: d.clubName }),
+  // `first_name` is deprecated in favour of `recipient_first_name` (same
+  // value, both keys) -- see lib/email/dynamic-data/catalogue.ts's own
+  // deprecated entry. A published draft still using {{first_name}} must
+  // keep rendering exactly as it always did.
+  club_welcome: (d) => ({ first_name: d.firstName, recipient_first_name: d.firstName, club_name: d.clubName }),
   support_ticket_reply: (d) => ({ reference: d.reference }),
   referral_reward_earned: (d) => ({ referred_club_name: d.referredClubName }),
+  match_cancelled: (d) => ({
+    cancellation_reason: d.cancellationReason,
+    fixture_our_team: d.fixtureContext.ourTeam.displayName,
+    fixture_opposition_name: d.fixtureContext.opposition.displayName,
+    fixture_date: d.fixtureContext.fixtureDateDisplay,
+    fixture_day: formatDayName(d.fixtureContext.fixtureDateIso),
+    fixture_kickoff_time: d.fixtureContext.kickoffTimeDisplay ?? "",
+    fixture_meet_time: d.fixtureContext.meetTimeDisplay ?? "",
+    fixture_venue_name: d.fixtureContext.venue?.name ?? "",
+    fixture_venue_postcode: d.fixtureContext.venue?.postcode ?? "",
+    fixture_competition_name: d.fixtureContext.competitionName ?? "",
+    fixture_status: d.fixtureContext.status,
+  }),
 }
 
 /**
@@ -156,7 +191,7 @@ const TEXT_FOOTER = [
 /* Identity and invitations                                            */
 /* ------------------------------------------------------------------ */
 
-const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl, content) => {
+const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const url = link(`/invite/${d.inviteToken}`, siteUrl)
   const c = copyFor("club_invitation", d, content)
   return {
@@ -167,8 +202,10 @@ const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl, content) => {
       preheader: c.preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       body: [
-        clubIdentity(d.clubName, d.clubLogoUrl),
+        clubIdentity(d.clubName, d.clubLogoUrl, siteUrl),
         heading(c.heading),
         bodyParagraphs(c.body),
         d.roleLabel ? infoCard([{ label: "Your role", value: d.roleLabel }]) : "",
@@ -196,7 +233,7 @@ const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl, content) => {
   }
 }
 
-const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl, content) => {
+const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const url = link(`/guardian-invite/${d.inviteToken}`, siteUrl)
   const c = copyFor("guardian_invitation", d, content)
   return {
@@ -207,8 +244,10 @@ const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl, content
       preheader: c.preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       body: [
-        clubIdentity(d.clubName, d.clubLogoUrl),
+        clubIdentity(d.clubName, d.clubLogoUrl, siteUrl),
         heading(c.heading),
         bodyParagraphs(c.body),
         primaryCta(c.ctaLabel ?? "Accept and link your account", url),
@@ -233,7 +272,7 @@ const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl, content
   }
 }
 
-const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteUrl, content) => {
+const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const url = link(`/player-invite/${d.inviteToken}`, siteUrl)
   const c = copyFor("player_account_invitation", d, content)
   return {
@@ -244,6 +283,8 @@ const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteU
       preheader: c.preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       body: [
         heading(c.heading),
         bodyParagraphs(c.body),
@@ -265,7 +306,7 @@ const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteU
   }
 }
 
-const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation"> = (d, siteUrl, content) => {
+const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const c = copyFor("safeguarding_officer_invitation", d, content)
   const url = link(`/invite/safeguarding-officer/${d.inviteToken}`, siteUrl)
   const subject = c.subject
@@ -278,8 +319,10 @@ const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation">
       preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       body: [
-        clubIdentity(d.clubName, d.clubLogoUrl),
+        clubIdentity(d.clubName, d.clubLogoUrl, siteUrl),
         heading(c.heading),
         paragraph(
           `${d.clubName} has named you as their Safeguarding Officer on Ovalball. Accepting confirms the role and lets club staff contact you through Ovalball rather than by email.`
@@ -306,7 +349,7 @@ const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation">
   }
 }
 
-const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d, siteUrl, content) => {
+const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const c = copyFor("safeguarding_officer_message", d, content)
   const subject = c.subject
   const preheader = c.preheader
@@ -318,6 +361,8 @@ const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d,
       preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       footerNote:
         "You received this by email because you do not yet have an active Ovalball account. Once you accept your Safeguarding Officer invitation, messages arrive in Ovalball instead.",
       body: [
@@ -343,7 +388,7 @@ const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d,
   }
 }
 
-const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl, content) => {
+const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const c = copyFor("site_admin_invitation", d, content)
   const url = link(`/invite/site-admin/${d.inviteToken}`, siteUrl)
   const subject = c.subject
@@ -356,6 +401,8 @@ const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl, cont
       preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       body: [
         heading(c.heading),
         paragraph(`You've been invited to become a ${d.profileLabel} on Ovalball.`),
@@ -384,7 +431,7 @@ const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl, cont
 /* Referral -- the free-month programme, stated exactly                */
 /* ------------------------------------------------------------------ */
 
-const partnerClubInvitation: Renderer<"partner_club_invitation"> = (d, siteUrl, content) => {
+const partnerClubInvitation: Renderer<"partner_club_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const c = copyFor("partner_club_invitation", d, content)
   // The canonical destination the product already uses: the signup wizard
   // pre-pointed at this directory club. Not a bespoke invite route.
@@ -399,6 +446,8 @@ const partnerClubInvitation: Renderer<"partner_club_invitation"> = (d, siteUrl, 
       preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       body: [
         heading(c.heading),
         paragraph(
@@ -425,7 +474,7 @@ const partnerClubInvitation: Renderer<"partner_club_invitation"> = (d, siteUrl, 
   }
 }
 
-const referralRewardEarned: Renderer<"referral_reward_earned"> = (d, siteUrl, content) => {
+const referralRewardEarned: Renderer<"referral_reward_earned"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const c = copyFor("referral_reward_earned", d, content)
   const url = link("/club/settings/ovalball-billing", siteUrl)
   const subject = c.subject
@@ -438,6 +487,8 @@ const referralRewardEarned: Renderer<"referral_reward_earned"> = (d, siteUrl, co
       preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       body: [
         heading(c.heading),
         paragraph(
@@ -481,7 +532,7 @@ const referralRewardEarned: Renderer<"referral_reward_earned"> = (d, siteUrl, co
 /* Operational                                                         */
 /* ------------------------------------------------------------------ */
 
-const clubClaimSubmitted: Renderer<"club_claim_submitted"> = (d, siteUrl, content) => {
+const clubClaimSubmitted: Renderer<"club_claim_submitted"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const c = copyFor("club_claim_submitted", d, content)
   const url = link(d.reviewPath, siteUrl)
   const subject = c.subject
@@ -494,6 +545,8 @@ const clubClaimSubmitted: Renderer<"club_claim_submitted"> = (d, siteUrl, conten
       preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       body: [
         heading(c.heading),
         infoCard([
@@ -521,7 +574,7 @@ const clubClaimSubmitted: Renderer<"club_claim_submitted"> = (d, siteUrl, conten
   }
 }
 
-const clubWelcome: Renderer<"club_welcome"> = (d, siteUrl, content) => {
+const clubWelcome: Renderer<"club_welcome"> = (d, siteUrl, content, assetOrigin, isTest) => {
   // The destination is generated here, from canonical routing -- an editable
   // CTA URL would turn every welcome email into a correctly-branded,
   // correctly-authenticated phishing vector.
@@ -535,8 +588,10 @@ const clubWelcome: Renderer<"club_welcome"> = (d, siteUrl, content) => {
       preheader: c.preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       body: [
-        clubIdentity(d.clubName, d.clubLogoUrl),
+        clubIdentity(d.clubName, d.clubLogoUrl, siteUrl),
         heading(c.heading),
         bodyParagraphs(c.body),
         primaryCta(c.ctaLabel ?? "Open Ovalball", url),
@@ -547,7 +602,7 @@ const clubWelcome: Renderer<"club_welcome"> = (d, siteUrl, content) => {
   }
 }
 
-const supportTicketReply: Renderer<"support_ticket_reply"> = (d, siteUrl, content) => {
+const supportTicketReply: Renderer<"support_ticket_reply"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const c = copyFor("support_ticket_reply", d, content)
   const subject = c.subject
   const preheader = c.preheader
@@ -559,6 +614,8 @@ const supportTicketReply: Renderer<"support_ticket_reply"> = (d, siteUrl, conten
       preheader,
       eyebrow: c.eyebrow,
       siteUrl,
+      assetOrigin,
+      isTest,
       footerNote: `Quote ${d.reference} if you reply.`,
       body: [
         heading(c.heading),
@@ -585,6 +642,61 @@ const supportTicketReply: Renderer<"support_ticket_reply"> = (d, siteUrl, conten
   }
 }
 
+/** Plain-text counterpart of matchSummaryBlock -- the same facts, no HTML, for a client that shows the text part. */
+function matchSummaryText(context: FixtureEmailContext): string {
+  const timing = [
+    context.meetTimeDisplay ? `Meet ${context.meetTimeDisplay}` : null,
+    context.kickoffTimeDisplay ? `Kick-off ${context.kickoffTimeDisplay}` : null,
+  ].filter((p): p is string => p !== null)
+  const venueLines = context.venue
+    ? [context.venue.name, ...context.venue.addressLines, context.venue.postcode].filter((l): l is string => Boolean(l && l.trim()))
+    : []
+  return [
+    `${context.home.displayName} v ${context.away.displayName}`,
+    context.fixtureDateDisplay,
+    timing.join(", "),
+    [...venueLines, context.pitchName].filter((l): l is string => Boolean(l)).join(", "),
+  ]
+    .filter((l) => l.trim().length > 0)
+    .join("\n")
+}
+
+const matchCancelled: Renderer<"match_cancelled"> = (d, siteUrl, content, assetOrigin, isTest) => {
+  const c = copyFor("match_cancelled", d, content)
+  const url = link(`/fixtures/${d.fixtureContext.fixtureId}`, siteUrl)
+  return {
+    subject: c.subject,
+    preheader: c.preheader,
+    html: renderEmailDocument({
+      title: c.subject,
+      preheader: c.preheader,
+      eyebrow: c.eyebrow,
+      siteUrl,
+      assetOrigin,
+      isTest,
+      body: [
+        heading(c.heading),
+        bodyParagraphs(c.body),
+        matchSummaryBlock(d.fixtureContext, siteUrl),
+        primaryCta(c.ctaLabel ?? "View Match Centre", url),
+        ctaFallback(url),
+      ].join("\n"),
+    }),
+    text: [
+      c.heading,
+      "",
+      c.body,
+      "",
+      matchSummaryText(d.fixtureContext),
+      "",
+      `${c.ctaLabel ?? "View Match Centre"}:`,
+      url,
+      "",
+      SUPPORT_LINE(siteUrl),
+    ].join("\n"),
+  }
+}
+
 const RENDERERS = {
   club_invitation: clubInvitation,
   guardian_invitation: guardianInvitation,
@@ -597,19 +709,34 @@ const RENDERERS = {
   club_welcome: clubWelcome,
   support_ticket_reply: supportTicketReply,
   referral_reward_earned: referralRewardEarned,
+  match_cancelled: matchCancelled,
 } as const
 
 export function renderEmail<K extends EmailEventKey>(
   eventKey: K,
   data: EmailEventData[K],
   siteUrl: string = getSiteUrl(),
-  content?: EmailTemplateContent
+  content?: EmailTemplateContent,
+  /**
+   * ONLY ever passed by the Site Admin preview action, and only ever a value
+   * derived server-side from the request that is actually rendering the
+   * preview -- see lib/site-url.ts#previewAssetOrigin. Every real send leaves
+   * this undefined, so an embedded image always falls back to `siteUrl`: the
+   * one origin a recipient's own mail actually resolves.
+   */
+  assetOrigin?: string,
+  /**
+   * ONLY ever passed by the Site Admin "Send Test Email" action. Adds the
+   * renderer-owned test banner AND the subject prefix below -- never
+   * settable from template copy, never true for a real send.
+   */
+  isTest?: boolean
 ): RenderedEmail {
   const renderer = RENDERERS[eventKey] as Renderer<K>
   // Defaulting to the registered content keeps this callable synchronously --
   // by tests, by the preview fixtures, and by anything that has not resolved a
   // Site Admin override. Production passes the resolved content explicitly.
-  const rendered = renderer(data, siteUrl, content ?? templateContract(eventKey).default)
+  const rendered = renderer(data, siteUrl, content ?? templateContract(eventKey).default, assetOrigin, isTest)
 
   // The plain-text brand footer is appended HERE, not in each template.
   //
@@ -619,5 +746,19 @@ export function renderEmail<K extends EmailEventKey>(
   // that problem because every template renders through one shell; doing the
   // same for text makes the two structurally equal rather than equal by
   // convention.
-  return { ...rendered, text: `${rendered.text.trimEnd()}\n\n${TEXT_FOOTER}` }
+  const withFooter = { ...rendered, text: `${rendered.text.trimEnd()}\n\n${TEXT_FOOTER}` }
+
+  // The [TEST] subject marker AND the plain-text test disclosure both live
+  // HERE, in the one function every send and every renderer passes through,
+  // for the same reason the footer does: a template author's subject and
+  // body never have a say in whether this is a real send, and a marker
+  // added inside one renderer is a marker a new renderer is free to forget.
+  // TEST_MODE_MESSAGE is the same sentence testModeBanner() puts in the
+  // HTML, so the two can never say different things about the same send.
+  if (!isTest) return withFooter
+  return {
+    ...withFooter,
+    subject: `[TEST] ${withFooter.subject}`,
+    text: `${TEST_MODE_MESSAGE}\n\n${withFooter.text}`,
+  }
 }

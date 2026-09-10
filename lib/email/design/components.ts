@@ -89,8 +89,17 @@ export const EMAIL_LOGO_PATH = "/email-assets/logo.png"
  */
 const LOGO_DISPLAY_PX = 112
 
-export function emailLogoUrl(siteUrl: string): string | null {
-  return safeUrl(`${siteUrl}${EMAIL_LOGO_PATH}`, siteUrl)
+/**
+ * `assetOrigin` lets a Site Admin preview fetch this image from the server
+ * that is actually rendering the preview, without weakening the rule for real
+ * mail: every send leaves it undefined, so `siteUrl` -- the one canonical
+ * origin -- is what a recipient's own copy of this URL always resolves. The
+ * safety check below still runs, against whichever origin is actually in use,
+ * so a preview can never point the logo somewhere neither origin allows.
+ */
+export function emailLogoUrl(siteUrl: string, assetOrigin?: string): string | null {
+  const origin = assetOrigin ?? siteUrl
+  return safeUrl(`${origin}${EMAIL_LOGO_PATH}`, origin)
 }
 
 export function escapeHtml(value: string): string {
@@ -177,13 +186,142 @@ export function infoCard(rows: Array<{ label: string; value: string }>): string 
  * Club identity. The crest is included only when a real stored URL is passed
  * -- there is no placeholder image, because a broken image icon in an
  * invitation reads as a broken product.
+ *
+ * `siteUrl` is required, not optional, and the crest is dropped rather than
+ * rendered when `logoUrl` fails `safeUrl()` against it. `logoUrl` is expected
+ * to already be an Ovalball-origin path built by lib/email/club-crest.ts
+ * (`/email-assets/club-crest/[clubId]` or `.../directory-crest/[directoryId]`)
+ * -- this check is the backstop, not the only gate: a club's crest is
+ * data-shaped, but it is still an image URL landing in a trusted,
+ * correctly-authenticated email, and it must resolve to Ovalball's own origin
+ * or not render at all.
  */
-export function clubIdentity(clubName: string, logoUrl: string | null): string {
-  const crest = logoUrl
-    ? `<td width="46" style="padding-right:14px;vertical-align:middle;"><img src="${escapeHtml(logoUrl)}" width="46" height="46" alt="" style="display:block;width:46px;height:46px;border-radius:6px;border:1px solid ${EMAIL_COLORS.border};" /></td>`
+export function clubIdentity(clubName: string, logoUrl: string | null, siteUrl: string): string {
+  const safeLogoUrl = logoUrl ? safeUrl(logoUrl, siteUrl) : null
+  const crest = safeLogoUrl
+    ? `<td width="46" style="padding-right:14px;vertical-align:middle;"><img src="${escapeHtml(safeLogoUrl)}" width="46" height="46" alt="" style="display:block;width:46px;height:46px;border-radius:6px;border:1px solid ${EMAIL_COLORS.border};" /></td>`
     : ""
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
     <tr>${crest}<td style="vertical-align:middle;font-family:${FONT_STACK};font-size:15px;font-weight:700;letter-spacing:0.2px;color:${EMAIL_COLORS.forest800};">${escapeHtml(clubName)}</td></tr>
+  </table>`
+}
+
+/**
+ * MATCH SUMMARY -- the structured, renderer-owned fixture identity block.
+ *
+ * Consumes lib/email/context/resolve-fixture-email-context.ts's typed
+ * output directly: nothing here reads a database, walks a domain object, or
+ * lets a template author choose which field appears. A Site Admin can decide
+ * this block appears in an email's copy (a future contract flag, mirroring
+ * `hasClubCrest`); they cannot change what it shows or how, for the same
+ * reason clubIdentity() is not an editable token -- a fixture's own identity
+ * is a fact about the event, not wording.
+ *
+ * NULL-SAFE BY CONSTRUCTION. Real fixtures are frequently incomplete (no
+ * pitch assigned yet, meet time not set, opposition not yet confirmed), and
+ * this renders each optional row only when it has something to say --
+ * never "Meet: —" or "Pitch: undefined". See resolveFixtureEmailContext's
+ * own header for why attendance here is an aggregate count, never a named
+ * participant.
+ */
+export function matchSummaryBlock(
+  context: import("../context/resolve-fixture-email-context").FixtureEmailContext,
+  siteUrl: string
+): string {
+  const side = (s: { displayName: string; crestUrl: string | null }) => {
+    const crest = s.crestUrl
+      ? (() => {
+          const safe = safeUrl(s.crestUrl!, siteUrl)
+          return safe
+            ? `<img src="${escapeHtml(safe)}" width="40" height="40" alt="" style="display:block;width:40px;height:40px;border-radius:6px;border:1px solid ${EMAIL_COLORS.border};margin:0 auto 8px;" />`
+            : ""
+        })()
+      : ""
+    return `<td align="center" width="46%" style="vertical-align:top;">
+      ${crest}
+      <div style="font-family:${FONT_STACK};font-size:14px;font-weight:700;color:${EMAIL_COLORS.forest950};line-height:1.3;">${escapeHtml(s.displayName)}</div>
+    </td>`
+  }
+
+  const timingParts = [
+    context.meetTimeDisplay ? `Meet ${escapeHtml(context.meetTimeDisplay)}` : null,
+    context.kickoffTimeDisplay ? `Kick-off ${escapeHtml(context.kickoffTimeDisplay)}` : null,
+  ].filter((p): p is string => p !== null)
+
+  const venueLines = context.venue
+    ? [context.venue.name, ...context.venue.addressLines, context.venue.postcode].filter((l): l is string => Boolean(l && l.trim()))
+    : []
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;border:1px solid ${EMAIL_COLORS.border};border-radius:10px;background:${EMAIL_COLORS.chalk};">
+    <tr><td style="padding:20px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+          ${side(context.home)}
+          <td align="center" width="8%" style="vertical-align:middle;font-family:${FONT_STACK};font-size:12px;font-weight:700;color:${EMAIL_COLORS.inkMuted};">v</td>
+          ${side(context.away)}
+        </tr>
+      </table>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:16px;border-top:1px solid ${EMAIL_COLORS.border};padding-top:14px;">
+        <tr><td style="font-family:${FONT_STACK};font-size:14px;font-weight:600;color:${EMAIL_COLORS.forest950};padding-bottom:${timingParts.length > 0 ? "4px" : "0"};">${escapeHtml(context.fixtureDateDisplay)}</td></tr>
+        ${timingParts.length > 0 ? `<tr><td style="font-family:${FONT_STACK};font-size:13px;color:${EMAIL_COLORS.inkMuted};padding-bottom:${venueLines.length > 0 ? "10px" : "0"};">${timingParts.join(" &middot; ")}</td></tr>` : ""}
+        ${
+          venueLines.length > 0 || context.pitchName
+            ? `<tr><td style="font-family:${FONT_STACK};font-size:13px;color:${EMAIL_COLORS.inkMuted};">${[...venueLines, context.pitchName].filter((l): l is string => Boolean(l)).map(escapeHtml).join("<br/>")}</td></tr>`
+            : ""
+        }
+      </table>
+    </td></tr>
+  </table>`
+}
+
+/**
+ * A compact, human list for a "how many of these" field a scalar cannot
+ * honestly answer -- 0 pitches, 1 pitch, several pitches, many pitches. Never
+ * lets a narrow email column try to list eighteen team names.
+ */
+function compactList(names: string[], manyLabel: (count: number) => string, manyThreshold = 3): string {
+  if (names.length === 0) return ""
+  if (names.length <= manyThreshold) return names.join(", ")
+  return manyLabel(names.length)
+}
+
+/**
+ * THE TRAINING SUMMARY BLOCK -- same design family as matchSummaryBlock,
+ * built for what training actually has (a team, a time, a place) rather than
+ * a copy of the match block with fixture-only fields hidden. No home/away,
+ * no opposition, no attendance count: training has none of those concepts.
+ *
+ * NULL-SAFE BY CONSTRUCTION, same rule as matchSummaryBlock: an optional row
+ * renders only when it has something to say.
+ */
+export function trainingSummaryBlock(
+  context: import("../context/resolve-training-email-context").TrainingEmailContext
+): string {
+  const venueLines = context.venue
+    ? [context.venue.name, ...context.venue.addressLines, context.venue.postcode].filter((l): l is string => Boolean(l && l.trim()))
+    : []
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;border:1px solid ${EMAIL_COLORS.border};border-radius:10px;background:${EMAIL_COLORS.chalk};">
+    <tr><td style="padding:20px;">
+      ${
+        context.teamName
+          ? `<div style="font-family:${FONT_STACK};font-size:14px;font-weight:700;color:${EMAIL_COLORS.forest950};line-height:1.3;padding-bottom:10px;">${escapeHtml(context.teamName)}</div>`
+          : ""
+      }
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="${context.teamName ? `border-top:1px solid ${EMAIL_COLORS.border};padding-top:14px;` : ""}">
+        <tr><td style="font-family:${FONT_STACK};font-size:14px;font-weight:600;color:${EMAIL_COLORS.forest950};padding-bottom:${context.timeRangeDisplay ? "4px" : "0"};">${escapeHtml(context.sessionDateDisplay)}</td></tr>
+        ${
+          context.timeRangeDisplay
+            ? `<tr><td style="font-family:${FONT_STACK};font-size:13px;color:${EMAIL_COLORS.inkMuted};padding-bottom:${venueLines.length > 0 || context.pitchName ? "10px" : "0"};">${escapeHtml(context.timeRangeDisplay)}</td></tr>`
+            : ""
+        }
+        ${
+          venueLines.length > 0 || context.pitchName
+            ? `<tr><td style="font-family:${FONT_STACK};font-size:13px;color:${EMAIL_COLORS.inkMuted};">${[...venueLines, context.pitchName].filter((l): l is string => Boolean(l)).map(escapeHtml).join("<br/>")}</td></tr>`
+            : ""
+        }
+      </table>
+    </td></tr>
   </table>`
 }
 
@@ -211,6 +349,26 @@ export function statusNote(text: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 22px;">
     <tr><td style="background:${EMAIL_COLORS.amberBg};border:1px solid #e8d9a8;border-radius:10px;padding:14px 16px;font-family:${FONT_STACK};font-size:14px;line-height:1.5;color:${EMAIL_COLORS.amber};">${escapeHtml(text)}</td></tr>
   </table>`
+}
+
+/**
+ * THE TEST MARKER'S WORDING -- the one copy of this sentence. Used by the
+ * HTML banner below AND by renderEmail()'s plain-text pass (lib/email/
+ * templates.ts), so a test send discloses itself identically in both parts
+ * of the message rather than only in whichever one somebody remembered.
+ */
+export const TEST_MODE_MESSAGE =
+  "TEST EMAIL -- sent by a Site Admin to check this template. This is not a real Ovalball notification and nothing described below has actually happened."
+
+/**
+ * THE TEST MARKER -- renderer-owned, never a string a Site Admin can type or
+ * omit from a draft. Threaded through renderEmailDocument's own `isTest`
+ * flag so it appears in EVERY test send regardless of which event or which
+ * copy is being tested, the same way the brand band or the footer cannot be
+ * turned off from Email Configuration.
+ */
+export function testModeBanner(): string {
+  return statusNote(TEST_MODE_MESSAGE)
 }
 
 export function divider(): string {
@@ -258,9 +416,13 @@ export function renderEmailDocument(options: {
   /** The code-owned category label shown in the brand band. */
   eyebrow?: string
   footerNote?: string
+  /** Site Admin preview only -- see emailLogoUrl(). Real sends never set this. */
+  assetOrigin?: string
+  /** Site Admin "Send Test Email" only -- see testModeBanner(). Never settable from template copy. */
+  isTest?: boolean
 }): string {
-  const { title, preheader, body, siteUrl, eyebrow, footerNote } = options
-  const logo = emailLogoUrl(siteUrl)
+  const { title, preheader, body, siteUrl, eyebrow, footerNote, assetOrigin, isTest } = options
+  const logo = emailLogoUrl(siteUrl, assetOrigin)
 
   // The band always renders: it is the brand rule under the mark. With an
   // eyebrow it also says what kind of message this is.
@@ -305,6 +467,7 @@ export function renderEmailDocument(options: {
           ${band}
 
           <tr><td class="ovb-pad" style="padding:34px 28px 30px;">
+            ${isTest ? testModeBanner() : ""}
             ${body}
           </td></tr>
 

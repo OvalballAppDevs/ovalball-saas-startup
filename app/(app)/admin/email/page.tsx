@@ -4,12 +4,18 @@ import { Mail } from "lucide-react"
 
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { EMAIL_TEMPLATE_CONTRACTS, CONTRACTED_EVENT_KEYS } from "@/lib/email/contracts"
+import { listEmailEventPolicies } from "@/lib/email/delivery-policy"
 import { WIRED_EVENT_KEYS } from "@/lib/email/wiring"
 import { listBrandImages, readBrandLogoState } from "@/lib/email/brand"
 import { EMAIL_LOGO_PATH } from "@/lib/email/design/components"
+import { describeEmailConfiguration } from "@/lib/email/provider"
+import { fetchEmailUsageSummary, summariseTotals } from "@/lib/email/usage"
 import { createClient } from "@/lib/supabase/server"
 
 import { BrandPanel } from "./brand-panel"
+import { EmailEnabledSwitch } from "./email-enabled-switch"
+import { ProviderStatusPanel, type LastTestSend } from "./provider-status-panel"
+import { UsageDashboard } from "./usage-dashboard"
 
 import type { EmailEventKey } from "@/lib/email/catalogue"
 
@@ -42,10 +48,28 @@ export default async function EmailConfigurationPage() {
   // functions enforce. A narrow Site Admin sees the page and can read it.
   const canEdit = activeSiteAdmin.ctx.siteAdminRole === "full"
 
-  const [brand, brandImages] = await Promise.all([
+  const [brand, brandImages, lastTestSendRes] = await Promise.all([
     readBrandLogoState(supabase),
     listBrandImages(supabase),
+    canEdit
+      ? supabase
+          .from("email_deliveries")
+          .select("status, event_key, provider, queued_at")
+          .eq("recipient_kind", "site_admin_test")
+          .order("queued_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
+  const lastTestSend: LastTestSend | null = lastTestSendRes.data
+    ? {
+        status: lastTestSendRes.data.status,
+        eventKey: lastTestSendRes.data.event_key,
+        provider: lastTestSendRes.data.provider,
+        queuedAt: lastTestSendRes.data.queued_at,
+      }
+    : null
+  const providerStatus = canEdit ? describeEmailConfiguration() : null
 
   const { data: settings } = await supabase
     .from("email_template_settings")
@@ -55,6 +79,18 @@ export default async function EmailConfigurationPage() {
     .from("email_template_versions")
     .select("id, event_key, revision, status")
 
+  const [policies, usageThisMonth, usageAllTime] = canEdit
+    ? await Promise.all([
+        listEmailEventPolicies(supabase),
+        fetchEmailUsageSummary(supabase, new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+        fetchEmailUsageSummary(supabase),
+      ])
+    : [
+        {} as Record<string, Awaited<ReturnType<typeof listEmailEventPolicies>>[string]>,
+        {} as Record<string, Awaited<ReturnType<typeof fetchEmailUsageSummary>>[string]>,
+        {} as Record<string, Awaited<ReturnType<typeof fetchEmailUsageSummary>>[string]>,
+      ]
+
   const settingsByKey = new Map((settings ?? []).map((s) => [s.event_key, s]))
   const draftKeys = new Set((versions ?? []).filter((v) => v.status === "draft").map((v) => v.event_key))
   const revisionById = new Map((versions ?? []).map((v) => [v.id, v.revision]))
@@ -63,17 +99,28 @@ export default async function EmailConfigurationPage() {
     const contract = EMAIL_TEMPLATE_CONTRACTS[key]
     const setting = settingsByKey.get(key)
     const activeRevision = setting?.active_version_id ? revisionById.get(setting.active_version_id) : undefined
+    const wired = (WIRED_EVENT_KEYS as readonly string[]).includes(key)
     return {
       key,
       name: contract.name,
       category: contract.category,
       trigger: contract.trigger,
-      wired: (WIRED_EVENT_KEYS as readonly string[]).includes(key),
+      wired,
       wording: activeRevision ? `Customised (version ${activeRevision})` : "Ovalball default",
       hasDraft: draftKeys.has(key),
       updatedAt: setting?.updated_at ?? null,
+      policy: policies[key] ?? null,
+      thisMonth: usageThisMonth[key] ?? null,
+      allTime: usageAllTime[key] ?? null,
     }
   })
+
+  const totals = canEdit
+    ? summariseTotals(
+        usageThisMonth,
+        Object.fromEntries(Object.entries(policies).map(([k, p]) => [k, p.active]))
+      )
+    : null
 
   const categories = [...new Set(rows.map((r) => r.category))]
 
@@ -95,6 +142,17 @@ export default async function EmailConfigurationPage() {
         </p>
       )}
 
+      {totals && (
+        <UsageDashboard
+          thisMonthRecipientDeliveries={totals.recipientDeliveries}
+          providerAccepted={totals.providerAccepted}
+          failed={totals.failed}
+          testSends={totals.testSends}
+          activeEventCount={totals.activeEventCount}
+          totalEventCount={CONTRACTED_EVENT_KEYS.length}
+        />
+      )}
+
       <BrandPanel
         canEdit={canEdit}
         images={brandImages}
@@ -106,6 +164,23 @@ export default async function EmailConfigurationPage() {
         logoUrl={`${EMAIL_LOGO_PATH}?v=${brand.lockVersion}`}
       />
 
+      {providerStatus && (
+        <ProviderStatusPanel
+          providerName={providerStatus.providerName}
+          delivers={providerStatus.delivers}
+          configurationError={providerStatus.configurationError}
+          environment={providerStatus.environment}
+          apiKeyConfigured={providerStatus.apiKeyConfigured}
+          apiUrlEffective={providerStatus.apiUrlEffective}
+          fromAddress={providerStatus.fromAddress}
+          fromName={providerStatus.fromName}
+          replyToAddress={providerStatus.replyToAddress}
+          replyToName={providerStatus.replyToName}
+          identityMatchesCanonicalProduction={providerStatus.identityMatchesCanonicalProduction}
+          lastTestSend={lastTestSend}
+        />
+      )}
+
       {categories.map((category) => (
         <section key={category} className="mt-8">
           <h2 className="font-display text-lg text-ink">{category}</h2>
@@ -113,21 +188,35 @@ export default async function EmailConfigurationPage() {
             {rows
               .filter((r) => r.category === category)
               .map((row) => (
-                <li key={row.key}>
+                <li key={row.key} className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <Link
                     href={`/admin/email/${row.key}`}
-                    className="flex min-h-11 flex-col gap-1 px-5 py-3.5 outline-none hover:bg-ink/[0.02] focus-visible:ring-2 focus-visible:ring-pitch-400 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
                   >
-                    <span className="min-w-0">
-                      <span className="block text-sm font-medium text-ink">{row.name}</span>
-                      <span className="mt-0.5 block text-sm text-ink-muted">{row.trigger}</span>
-                    </span>
-                    <span className="flex shrink-0 flex-wrap items-center gap-2">
+                    <span className="block text-sm font-medium text-ink">{row.name}</span>
+                    <span className="mt-0.5 block text-sm text-ink-muted">{row.trigger}</span>
+                    <span className="mt-1 flex flex-wrap items-center gap-2">
                       {row.hasDraft && <Chip tone="amber">Unpublished draft</Chip>}
                       <Chip tone={row.wording === "Ovalball default" ? "quiet" : "forest"}>{row.wording}</Chip>
-                      {!row.wired && <Chip tone="quiet">Not yet sent by anything</Chip>}
+                      {!row.wired && <Chip tone="quiet">Not Wired</Chip>}
+                      {row.allTime && row.allTime.recipientDeliveries > 0 && (
+                        <Chip tone="quiet">
+                          {row.thisMonth?.recipientDeliveries ?? 0} this month &middot; {row.allTime.recipientDeliveries} all time
+                        </Chip>
+                      )}
+                      {row.allTime && row.allTime.failed > 0 && <Chip tone="amber">{row.allTime.failed} failed this period</Chip>}
                     </span>
                   </Link>
+                  {row.policy && canEdit && (
+                    <EmailEnabledSwitch
+                      eventKey={row.key}
+                      eventName={row.name}
+                      active={row.policy.active}
+                      wired={row.policy.wired}
+                      classification={row.policy.classification}
+                      lockVersion={row.policy.lockVersion}
+                    />
+                  )}
                 </li>
               ))}
           </ul>

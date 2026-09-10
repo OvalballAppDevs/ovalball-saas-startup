@@ -2213,96 +2213,6 @@ export type Database = {
           },
         ]
       }
-      club_message_blocks: {
-        Row: {
-          blocked_by: string
-          blocked_user_id: string
-          club_id: string
-          created_at: string
-          id: string
-          lifted_at: string | null
-          lifted_by: string | null
-          reason: string | null
-        }
-        Insert: {
-          blocked_by: string
-          blocked_user_id: string
-          club_id: string
-          created_at?: string
-          id?: string
-          lifted_at?: string | null
-          lifted_by?: string | null
-          reason?: string | null
-        }
-        Update: {
-          blocked_by?: string
-          blocked_user_id?: string
-          club_id?: string
-          created_at?: string
-          id?: string
-          lifted_at?: string | null
-          lifted_by?: string | null
-          reason?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "club_message_blocks_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_club_overview"
-            referencedColumns: ["club_id"]
-          },
-          {
-            foreignKeyName: "club_message_blocks_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["opponent_club_id"]
-          },
-          {
-            foreignKeyName: "club_message_blocks_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["owning_club_id"]
-          },
-          {
-            foreignKeyName: "club_message_blocks_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "club_message_blocks_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["fixture_owning_club_id"]
-          },
-          {
-            foreignKeyName: "club_message_blocks_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_opponent_club_id"]
-          },
-          {
-            foreignKeyName: "club_message_blocks_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "admin_message_overview"
-            referencedColumns: ["request_requesting_club_id"]
-          },
-          {
-            foreignKeyName: "club_message_blocks_club_id_fkey"
-            columns: ["club_id"]
-            isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       club_opponent_notes: {
         Row: {
           created_at: string
@@ -4254,10 +4164,12 @@ export type Database = {
           failed_at: string | null
           id: string
           idempotency_key: string
+          initiated_by: string | null
+          occurrence_key: string
           provider: string | null
           provider_reference: string | null
           queued_at: string
-          recipient_email: string
+          recipient_email: string | null
           recipient_kind: string
           recipient_ref: string | null
           sent_at: string | null
@@ -4274,10 +4186,12 @@ export type Database = {
           failed_at?: string | null
           id?: string
           idempotency_key: string
+          initiated_by?: string | null
+          occurrence_key: string
           provider?: string | null
           provider_reference?: string | null
           queued_at?: string
-          recipient_email: string
+          recipient_email?: string | null
           recipient_kind: string
           recipient_ref?: string | null
           sent_at?: string | null
@@ -4294,10 +4208,12 @@ export type Database = {
           failed_at?: string | null
           id?: string
           idempotency_key?: string
+          initiated_by?: string | null
+          occurrence_key?: string
           provider?: string | null
           provider_reference?: string | null
           queued_at?: string
-          recipient_email?: string
+          recipient_email?: string | null
           recipient_kind?: string
           recipient_ref?: string | null
           sent_at?: string | null
@@ -4371,6 +4287,41 @@ export type Database = {
           },
         ]
       }
+      email_delivery_policy_audit: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          event_key: string
+          id: string
+          new_active: boolean
+          previous_active: boolean
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          event_key: string
+          id?: string
+          new_active: boolean
+          previous_active: boolean
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          event_key?: string
+          id?: string
+          new_active?: boolean
+          previous_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_delivery_policy_audit_event_key_fkey"
+            columns: ["event_key"]
+            isOneToOne: false
+            referencedRelation: "email_events"
+            referencedColumns: ["event_key"]
+          },
+        ]
+      }
       email_events: {
         Row: {
           active: boolean
@@ -4378,8 +4329,11 @@ export type Database = {
           created_at: string
           description: string
           event_key: string
+          lock_version: number
           recipient_kind: string
           topic_key: string | null
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           active?: boolean
@@ -4387,8 +4341,11 @@ export type Database = {
           created_at?: string
           description: string
           event_key: string
+          lock_version?: number
           recipient_kind: string
           topic_key?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           active?: boolean
@@ -4396,8 +4353,11 @@ export type Database = {
           created_at?: string
           description?: string
           event_key?: string
+          lock_version?: number
           recipient_kind?: string
           topic_key?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -4412,7 +4372,6 @@ export type Database = {
       email_template_settings: {
         Row: {
           active_version_id: string | null
-          enabled: boolean
           event_key: string
           lock_version: number
           updated_at: string
@@ -4420,7 +4379,6 @@ export type Database = {
         }
         Insert: {
           active_version_id?: string | null
-          enabled?: boolean
           event_key: string
           lock_version?: number
           updated_at?: string
@@ -4428,7 +4386,6 @@ export type Database = {
         }
         Update: {
           active_version_id?: string | null
-          enabled?: boolean
           event_key?: string
           lock_version?: number
           updated_at?: string
@@ -4590,46 +4547,6 @@ export type Database = {
             columns: ["club_id"]
             isOneToOne: false
             referencedRelation: "clubs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      fixture_attendance_invitations: {
-        Row: {
-          fixture_id: string
-          invited_at: string
-          user_id: string
-        }
-        Insert: {
-          fixture_id: string
-          invited_at?: string
-          user_id: string
-        }
-        Update: {
-          fixture_id?: string
-          invited_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fixture_attendance_invitations_fixture_id_fkey"
-            columns: ["fixture_id"]
-            isOneToOne: false
-            referencedRelation: "admin_fixture_overview"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fixture_attendance_invitations_fixture_id_fkey"
-            columns: ["fixture_id"]
-            isOneToOne: false
-            referencedRelation: "fixture_season_identity"
-            referencedColumns: ["fixture_id"]
-          },
-          {
-            foreignKeyName: "fixture_attendance_invitations_fixture_id_fkey"
-            columns: ["fixture_id"]
-            isOneToOne: false
-            referencedRelation: "fixtures"
             referencedColumns: ["id"]
           },
         ]
@@ -14574,9 +14491,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           directions: string | null
-          geocode_source: string | null
-          geocode_status: string
-          geocoded_at: string | null
           id: string
           is_default_home: boolean
           latitude: number | null
@@ -14600,9 +14514,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           directions?: string | null
-          geocode_source?: string | null
-          geocode_status?: string
-          geocoded_at?: string | null
           id?: string
           is_default_home?: boolean
           latitude?: number | null
@@ -14626,9 +14537,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           directions?: string | null
-          geocode_source?: string | null
-          geocode_status?: string
-          geocoded_at?: string | null
           id?: string
           is_default_home?: boolean
           latitude?: number | null
@@ -14790,7 +14698,6 @@ export type Database = {
           is_primary_mirror: boolean | null
           kickoff_date: string | null
           kickoff_time: string | null
-          meet_time: string | null
           message_count: number | null
           mirror_fixture_id: string | null
           notes: string | null
@@ -16133,10 +16040,6 @@ export type Database = {
         }
         Returns: string
       }
-      block_user_from_club_messages: {
-        Args: { p_club_id: string; p_reason?: string; p_user_id: string }
-        Returns: string
-      }
       can_send_team_conversation: {
         Args: { p_team_id: string }
         Returns: boolean
@@ -16181,11 +16084,20 @@ export type Database = {
         Args: { p_invitation_id: string }
         Returns: string
       }
+      claim_disabled_email_suppression: {
+        Args: {
+          p_event_key: string
+          p_occurrence_key: string
+          p_recipient_kind: string
+        }
+        Returns: string
+      }
       claim_email_delivery: {
         Args: {
           p_club_id?: string
           p_event_key: string
           p_idempotency_key: string
+          p_occurrence_key: string
           p_recipient_email?: string
           p_recipient_kind: string
           p_recipient_ref?: string
@@ -16205,6 +16117,14 @@ export type Database = {
       }
       claim_responsible_payer: {
         Args: { p_player_id: string; p_programme_id: string }
+        Returns: string
+      }
+      claim_test_email_send: {
+        Args: {
+          p_event_key: string
+          p_recipient_email: string
+          p_subject: string
+        }
         Returns: string
       }
       claim_tournament_host: {
@@ -16270,6 +16190,22 @@ export type Database = {
           gross_pence: number
           net_pence: number
           will_skip: boolean
+        }[]
+      }
+      club_playing_group_recipients: {
+        Args: { p_club_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      club_playing_group_summary: {
+        Args: { p_club_id: string }
+        Returns: {
+          eligible_recipient_count: number
+          excluded_count: number
+          guardian_destination_count: number
+          self_destination_count: number
+          source_player_count: number
         }[]
       }
       club_referral_summary: {
@@ -16708,6 +16644,34 @@ export type Database = {
           suppressed_24h: number
         }[]
       }
+      email_event_active: { Args: { p_event_key: string }; Returns: boolean }
+      email_recent_deliveries: {
+        Args: { p_event_key: string; p_limit?: number }
+        Returns: {
+          destination: string
+          error_code: string
+          id: string
+          is_test: boolean
+          provider: string
+          provider_reference: string
+          queued_at: string
+          recipient_kind: string
+          status: string
+        }[]
+      }
+      email_usage_summary: {
+        Args: { p_since?: string; p_until?: string }
+        Returns: {
+          event_key: string
+          failed: number
+          last_sent_at: string
+          provider_accepted: number
+          recipient_deliveries: number
+          send_occurrences: number
+          suppressed: number
+          test_sends: number
+        }[]
+      }
       end_membership_subscription: {
         Args: {
           p_actor_user_id?: string
@@ -16756,6 +16720,13 @@ export type Database = {
           attending_count: number
           outstanding_count: number
           team_count: number
+        }[]
+      }
+      fixture_notification_recipients: {
+        Args: { p_fixture_id: string }
+        Returns: {
+          email: string
+          user_id: string
         }[]
       }
       fold_team: {
@@ -17364,10 +17335,6 @@ export type Database = {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
         Returns: undefined
       }
-      lift_club_message_block: {
-        Args: { p_club_id: string; p_user_id: string }
-        Returns: undefined
-      }
       link_conflict_fact: {
         Args: { p_conflict_id: string; p_fact_id: string }
         Returns: undefined
@@ -17700,6 +17667,21 @@ export type Database = {
           subscription_status: string
           trial_remaining_seconds: number
           trial_status: string
+        }[]
+      }
+      platform_eligible_audience_summary: {
+        Args: never
+        Returns: {
+          eligible_recipient_count: number
+          excluded_count: number
+          source_club_count: number
+          source_player_count: number
+        }[]
+      }
+      platform_eligible_recipients: {
+        Args: never
+        Returns: {
+          user_id: string
         }[]
       }
       platform_public_state: {
@@ -18199,10 +18181,6 @@ export type Database = {
           resolution: string
         }[]
       }
-      resolve_blocking_club_for_fixture: {
-        Args: { p_fixture_id: string }
-        Returns: string
-      }
       resolve_canonical_team_type_id: {
         Args: {
           p_age_group: string
@@ -18396,7 +18374,6 @@ export type Database = {
           teams_total: number
         }[]
       }
-      run_fixture_attendance_invitation_check: { Args: never; Returns: number }
       run_fixture_completion_check: { Args: never; Returns: number }
       run_season_transition_check: { Args: never; Returns: undefined }
       run_trial_expiry_check: { Args: never; Returns: number }
@@ -18503,6 +18480,14 @@ export type Database = {
       set_default_venue: { Args: { p_id: string }; Returns: undefined }
       set_email_brand_logo: {
         Args: { p_expected_lock: number; p_path: string }
+        Returns: undefined
+      }
+      set_email_event_active: {
+        Args: {
+          p_active: boolean
+          p_event_key: string
+          p_expected_lock: number
+        }
         Returns: undefined
       }
       set_fixture_conversation_mute: {
@@ -18820,10 +18805,6 @@ export type Database = {
         Args: { p_fixture_id: string }
         Returns: undefined
       }
-      team_delete_fixture_message: {
-        Args: { p_message_id: string }
-        Returns: undefined
-      }
       team_people: {
         Args: { p_team_id: string }
         Returns: {
@@ -18834,6 +18815,30 @@ export type Database = {
           requested_at: string
           row_id: string
           status: string
+        }[]
+      }
+      team_playing_group_recipient_context: {
+        Args: { p_team_id: string }
+        Returns: {
+          player_id: string
+          relationship: string
+          user_id: string
+        }[]
+      }
+      team_playing_group_recipients: {
+        Args: { p_team_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      team_playing_group_summary: {
+        Args: { p_team_id: string }
+        Returns: {
+          eligible_recipient_count: number
+          excluded_count: number
+          guardian_destination_count: number
+          self_destination_count: number
+          source_player_count: number
         }[]
       }
       touch_last_active: { Args: never; Returns: undefined }

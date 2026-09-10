@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
 
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
@@ -59,16 +60,18 @@ async function sendClubWelcome(
 ): Promise<void> {
   const { data: claim } = await supabase
     .from("club_claims")
-    .select("id, claimant_user_id, club_directory(name)")
+    .select("id, claimant_user_id, directory_id, club_directory(name)")
     .eq("id", claimId)
     .maybeSingle()
   if (!claim) return
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("first_name")
-    .eq("id", claim.claimant_user_id)
-    .maybeSingle()
+  const [{ data: profile }, { data: club }] = await Promise.all([
+    supabase.from("profiles").select("first_name").eq("id", claim.claimant_user_id).maybeSingle(),
+    // approve_club_claim() has already run and created this row -- see this
+    // function's own call site. Read by directory_id rather than trusting a
+    // parameter, since the newly-activated club's own id was never handed in.
+    supabase.from("clubs").select("id").eq("directory_id", claim.directory_id).maybeSingle(),
+  ])
 
   const directory = claim.club_directory as unknown as { name: string } | null
   const clubName = directory?.name ?? ""
@@ -79,7 +82,11 @@ async function sendClubWelcome(
     eventKey: "club_welcome",
     idempotencyKey: `club_welcome:${claim.id}`,
     recipient: { kind: "club_claimant", claimId: claim.id },
-    data: { firstName: profile?.first_name ?? "", clubName, clubLogoUrl: null },
+    data: {
+      firstName: profile?.first_name ?? "",
+      clubName,
+      clubLogoUrl: await resolveClubCrestEmailUrl(supabase, club?.id ?? null),
+    },
   })
 }
 

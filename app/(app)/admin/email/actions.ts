@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache"
 
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { CONTRACTED_EVENT_KEYS, templateContract, unknownVariables } from "@/lib/email/contracts"
+import { setEmailEventActive } from "@/lib/email/delivery-policy"
 import { PREVIEW_FIXTURES } from "@/lib/email/preview-fixtures"
+import { sendTestEmail as dispatchTestEmail } from "@/lib/email/send"
 import { renderEmail } from "@/lib/email/templates"
-import { getSiteUrl } from "@/lib/site-url"
+import { validateTestEmailDestination } from "@/lib/email/test-send-validation"
+import { getSiteUrl, previewAssetOrigin } from "@/lib/site-url"
 import type { EmailEventKey } from "@/lib/email/catalogue"
 import { createClient } from "@/lib/supabase/server"
 
@@ -197,14 +200,93 @@ export async function renderPreview(input: TemplateCopyInput): Promise<RenderPre
   // awkward lengths. No live record is read to build a preview, so a preview
   // can never disclose a real person's details to whoever is editing copy.
   const fixture = PREVIEW_FIXTURES[key][0]
-  const rendered = renderEmail(key, fixture.data as never, getSiteUrl(), {
-    subject: input.subject,
-    preheader: input.preheader,
-    heading: input.heading,
-    body: input.body,
-    ctaLabel: input.ctaLabel.trim() || null,
-  })
+  const rendered = renderEmail(
+    key,
+    fixture.data as never,
+    getSiteUrl(),
+    {
+      subject: input.subject,
+      preheader: input.preheader,
+      heading: input.heading,
+      body: input.body,
+      ctaLabel: input.ctaLabel.trim() || null,
+    },
+    // The embedded logo only -- see previewAssetOrigin()'s own comment. CTA
+    // destinations above are still built from getSiteUrl(), unconditionally.
+    await previewAssetOrigin()
+  )
   return { ok: true, html: rendered.html }
+}
+
+export type SendTestEmailResult = { ok: true; destination: string } | { ok: false; error: string }
+
+/**
+ * SEND TEST EMAIL.
+ *
+ * See lib/email/send.ts#sendTestEmail's own comment for the full reasoning --
+ * this is the one deliberate, disclosed exception to "no arbitrary
+ * recipient" in this codebase, and everything that keeps it safe lives
+ * there, not here. This action's own job is narrower: the same Full Site
+ * Admin authority check every other write in this file uses, the same
+ * content validation renderPreview already applies (an unknown variable is
+ * refused here exactly as it would be on save), and a single explicit
+ * destination -- never an audience, never inferred from anything.
+ *
+ * Tests whatever CONTENT the editor currently holds, draft or not: the
+ * caller passes the same TemplateCopyInput renderPreview does, so a Site
+ * Admin can send themselves a test of unsaved wording without publishing it
+ * first. Nothing here writes to the template registry.
+ */
+export async function sendTestEmail(input: TemplateCopyInput, destinationEmail: string): Promise<SendTestEmailResult> {
+  const auth = await authorise()
+  if (!auth.ok) return auth
+
+  const key = asEventKey(input.eventKey)
+  if (!key) return { ok: false, error: "That is not an email Ovalball sends." }
+
+  const destination = validateTestEmailDestination(destinationEmail)
+  if (!destination.ok) return { ok: false, error: destination.error }
+
+  const problem = problemWith(key, input)
+  if (problem) return { ok: false, error: problem }
+
+  const fixture = PREVIEW_FIXTURES[key][0]
+  const outcome = await dispatchTestEmail({
+    supabase: auth.supabase,
+    eventKey: key,
+    destinationEmail: destination.email,
+    data: fixture.data as never,
+    content: {
+      subject: input.subject,
+      preheader: input.preheader,
+      heading: input.heading,
+      body: input.body,
+      ctaLabel: input.ctaLabel.trim() || null,
+    },
+    // The embedded logo only -- see previewAssetOrigin()'s own comment. A
+    // test send is a real email in a real mail client, so it needs the
+    // request's own origin for the image to load, exactly like the preview.
+    assetOrigin: await previewAssetOrigin(),
+  })
+
+  if (outcome.status === "failed") return { ok: false, error: toPublicTestSendError(outcome.reason) }
+  return { ok: true, destination: outcome.destination }
+}
+
+const TEST_SEND_REFUSALS = [
+  "Only a Full Site Admin may send a test email.",
+  "Too many test emails sent recently. Please wait a few minutes and try again.",
+  "That is not an email Ovalball sends.",
+]
+
+function toPublicTestSendError(message: string): string {
+  const refusal = TEST_SEND_REFUSALS.find((known) => message.includes(known))
+  if (refusal) return refusal
+  if (message.includes("EMAIL_FROM_ADDRESS") || message.toLowerCase().includes("no email provider")) {
+    return "No email provider is configured on this server, so the test could not be sent."
+  }
+  console.error(`[email-test-send] ${message}`)
+  return "That test email could not be sent. Please try again."
 }
 
 /**
@@ -232,4 +314,56 @@ function toPublicError(message: string): string {
   if (refusal) return refusal
   console.error(`[email-config] ${message}`)
   return "That change could not be saved. Please try again."
+}
+
+/**
+ * THE ON/OFF SWITCH.
+ *
+ * See lib/email/delivery-policy.ts and migration 20270128000000 for the
+ * full architecture. This action's own job is narrow: the same Full Site
+ * Admin authority every other write in this file requires, an event key
+ * that must exist in the code catalogue before it ever reaches the
+ * database, and translating the database's own refusals (wrong
+ * classification, stale lock) into a sentence a Site Admin can act on.
+ * The database re-checks authority AND classification itself
+ * (set_email_event_active) -- this is the honest front door, never the
+ * lock.
+ */
+const DELIVERY_POLICY_REFUSALS = [
+  "Only a Full Site Admin may change whether an email is switched on.",
+  "That is not an email Ovalball sends.",
+]
+
+function toPublicPolicyError(message: string): string {
+  const refusal = DELIVERY_POLICY_REFUSALS.find((known) => message.includes(known))
+  if (refusal) return refusal
+  if (message.includes("has been changed by someone else")) {
+    return "This email's status has been changed by someone else since you opened it. Reload to see the current state."
+  }
+  if (message.includes("always sends")) {
+    // The database's own sentence already names the event and its
+    // classification plainly -- shown as written, not paraphrased.
+    return message
+  }
+  console.error(`[email-delivery-policy] ${message}`)
+  return "That change could not be saved. Please try again."
+}
+
+export async function setEmailEnabled(
+  eventKey: string,
+  active: boolean,
+  expectedLock: number
+): Promise<EmailTemplateActionResult> {
+  const auth = await authorise()
+  if (!auth.ok) return auth
+
+  const key = asEventKey(eventKey)
+  if (!key) return { ok: false, error: "That is not an email Ovalball sends." }
+
+  const result = await setEmailEventActive(auth.supabase, key, active, expectedLock)
+  if (!result.ok) return { ok: false, error: toPublicPolicyError(result.error) }
+
+  revalidatePath(`/admin/email/${key}`)
+  revalidatePath("/admin/email")
+  return { ok: true }
 }

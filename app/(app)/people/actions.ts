@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
@@ -77,7 +78,7 @@ export async function createInvitation(input: InviteInput): Promise<InviteResult
     recipient: { kind: "club_invitation", invitationId: invitation.id },
     data: {
       clubName: input.clubName,
-      clubLogoUrl: null,
+      clubLogoUrl: await resolveClubCrestEmailUrl(supabase, input.clubId),
       inviteToken: invitation.token,
       roleLabel: input.declaredRole || null,
     },

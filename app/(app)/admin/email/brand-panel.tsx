@@ -121,7 +121,7 @@ export function BrandPanel({
               onChange={(e) => handleUpload(e.target.files)}
             />
             <Button type="button" className="h-11" disabled={pending} onClick={() => fileInput.current?.click()}>
-              {pending ? "Working…" : "Upload an image"}
+              {pending ? "Working…" : "Upload an Image"}
             </Button>
             {activePath && (
               <button

@@ -32,4 +32,5 @@ export const WIRED_EVENT_KEYS: readonly EmailEventKey[] = [
   "club_claim_submitted",
   "club_welcome",
   "support_ticket_reply",
+  "match_cancelled",
 ]

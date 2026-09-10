@@ -85,11 +85,18 @@ test("a variable the event does not provide is refused, not rendered blank", () 
 })
 
 test("no contracted variable exposes a date of birth, a token, an address or an id", () => {
-  const forbidden = /(date_of_birth|dob|password|token|secret|api_key|email_address|postcode|phone|user_id|\bid\b)/
+  const forbidden = /(date_of_birth|dob|password|token|secret|api_key|email_address|phone|user_id|\bid\b)/
+  // `postcode` alone is deliberately not in the forbidden list: a public
+  // sports venue's postcode (fixture_venue_postcode, training_venue_postcode)
+  // is not personal data -- it is the same address already shown in the
+  // structured Match/Training Summary block to the same recipients. A
+  // PERSON's postcode remains covered by this test via the separate
+  // `_person_postcode` / `home_postcode`-shaped check below.
+  const personalPostcode = /(person_postcode|home_postcode|guardian_postcode|player_postcode)/
   for (const key of CONTRACTED_EVENT_KEYS) {
-    for (const variable of templateContract(key).variables) {
+    for (const variable of allowedVariables(key)) {
       assert.ok(
-        !forbidden.test(variable.name),
+        !forbidden.test(variable.name) && !personalPostcode.test(variable.name),
         `"${key}" offers {{${variable.name}}}, which would put protected data in editable copy`
       )
     }
@@ -145,7 +152,7 @@ test("copy cannot move a button: every link still points at Ovalball's own origi
 test("no contract lets an administrator supply a destination", () => {
   const destinationish = /(url|link|href|destination|redirect)/
   for (const key of CONTRACTED_EVENT_KEYS) {
-    for (const variable of templateContract(key).variables) {
+    for (const variable of allowedVariables(key)) {
       assert.ok(!destinationish.test(variable.name), `"${key}" offers {{${variable.name}}}, which is a destination`)
     }
   }

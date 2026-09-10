@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
@@ -50,12 +51,19 @@ export async function sendReplacementGuardianInvite(
   const siteUrl = getSiteUrl()
   const inviteLink = `${siteUrl}/guardian-invite/${data.token}`
 
+  const { data: team } = await supabase.from("teams").select("club_id").eq("id", teamId).maybeSingle()
+
   await sendEmailEvent({
     supabase,
     eventKey: "guardian_invitation",
     idempotencyKey: `guardian_invitation:${data.invitation_id}`,
     recipient: { kind: "guardian_invitation", invitationId: data.invitation_id },
-    data: { clubName, clubLogoUrl: null, teamName, inviteToken: data.token },
+    data: {
+      clubName,
+      clubLogoUrl: await resolveClubCrestEmailUrl(supabase, team?.club_id ?? null),
+      teamName,
+      inviteToken: data.token,
+    },
   })
 
   revalidatePath("/club/settings/guardians")

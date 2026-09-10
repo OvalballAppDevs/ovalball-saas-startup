@@ -1,5 +1,7 @@
 import "server-only"
 
+import { getSiteUrlForMetadata } from "@/lib/site-url"
+
 /**
  * The email provider abstraction.
  *
@@ -229,8 +231,47 @@ function zeptoMailProvider(apiKey: string, endpoint: string): EmailProvider {
   }
 }
 
-/** ZeptoMail is region-hosted; the default is the global endpoint. */
+/**
+ * ZeptoMail's documented global Send API endpoint.
+ *
+ * This is NOT a guess at which data centre an Ovalball ZeptoMail account
+ * lives in -- that is chosen when the account/Agent is created and is only
+ * knowable from the ZeptoMail console, never inferred from anything else
+ * Ovalball has configured. In particular, Zoho Mail's MX region
+ * (`mx.zoho.eu`, from the pre-existing `ovalball.co.uk` mailboxes) says
+ * nothing about which ZeptoMail data centre the transactional Agent uses --
+ * they are two independent decisions, and this file must never treat one as
+ * evidence for the other. If the account genuinely needs a regional
+ * endpoint, ZEPTOMAIL_API_URL exists precisely so that never has to be
+ * guessed: the value is copied verbatim from the ZeptoMail Agent's own
+ * SMTP/API screen. See docs/ZEPTOMAIL_PRODUCTION_SETUP.md.
+ */
 const ZEPTOMAIL_DEFAULT_ENDPOINT = "https://api.zeptomail.com/v1.1/email"
+
+type EndpointResolution = { ok: true; endpoint: string } | { ok: false; error: string }
+
+/**
+ * A malformed or non-HTTPS ZEPTOMAIL_API_URL must refuse to deliver rather
+ * than hand an API key to whatever that string turns out to be. This is the
+ * same class of check getSiteUrl() already applies to its own origin, for
+ * the same reason: a configuration value that reaches an outbound request
+ * deserves the same scrutiny as one that reaches a browser.
+ */
+function resolveZeptoMailEndpoint(): EndpointResolution {
+  const configured = process.env.ZEPTOMAIL_API_URL?.trim()
+  if (!configured) return { ok: true, endpoint: ZEPTOMAIL_DEFAULT_ENDPOINT }
+
+  let parsed: URL
+  try {
+    parsed = new URL(configured)
+  } catch {
+    return { ok: false, error: "ZEPTOMAIL_API_URL is not a valid absolute URL." }
+  }
+  if (parsed.protocol !== "https:") {
+    return { ok: false, error: "ZEPTOMAIL_API_URL must be an HTTPS URL." }
+  }
+  return { ok: true, endpoint: parsed.toString() }
+}
 
 export interface ProviderSelection {
   provider: EmailProvider
@@ -264,6 +305,22 @@ export function selectEmailProvider(): ProviderSelection {
   }
 
   if (configured === "zeptomail") {
+    // Preview deployments run with NODE_ENV=production (Next treats every
+    // Vercel build that way), so the production checks above cannot tell a
+    // preview URL from the real site. VERCEL_ENV can: it is only ever set by
+    // Vercel's own runtime, never by a developer's shell, so this has no
+    // effect on `next dev` or a local `next build`. Preview has no isolated
+    // email policy of its own yet -- see docs/ZEPTOMAIL_PRODUCTION_SETUP.md
+    // -- so ZeptoMail is refused there even if someone sets the variable,
+    // rather than quietly mailing real addresses from a preview branch.
+    if (process.env.VERCEL_ENV === "preview") {
+      return {
+        provider: logOnlyProvider,
+        configurationError:
+          "EMAIL_PROVIDER=zeptomail is refused in Preview. Preview has no isolated email policy yet -- see docs/ZEPTOMAIL_PRODUCTION_SETUP.md.",
+      }
+    }
+
     const key = process.env.ZEPTOMAIL_API_KEY?.trim()
     if (!key) {
       return {
@@ -271,8 +328,13 @@ export function selectEmailProvider(): ProviderSelection {
         configurationError: "EMAIL_PROVIDER=zeptomail but ZEPTOMAIL_API_KEY is not set.",
       }
     }
-    const endpoint = process.env.ZEPTOMAIL_API_URL?.trim() || ZEPTOMAIL_DEFAULT_ENDPOINT
-    return { provider: zeptoMailProvider(key, endpoint), configurationError: null }
+
+    const endpointResult = resolveZeptoMailEndpoint()
+    if (!endpointResult.ok) {
+      return { provider: logOnlyProvider, configurationError: endpointResult.error }
+    }
+
+    return { provider: zeptoMailProvider(key, endpointResult.endpoint), configurationError: null }
   }
 
   return {
@@ -323,21 +385,110 @@ export function getSenderIdentity(): SenderIdentity | null {
   return { from, replyTo: getReplyToAddress() }
 }
 
-/** What System Health reports. Deliberately separates "off on purpose" from "broken". */
+/**
+ * Ovalball's intended production transactional identity.
+ *
+ * Not a fallback and not enforced by getFromAddress()/getReplyToAddress() --
+ * this file still invents no default sender, for the reason those functions
+ * already give: a guessed address is a worse failure than a visible one.
+ * This exists only so describeEmailConfiguration() can flag when what is
+ * actually configured has drifted from what production is supposed to be --
+ * a Site Admin seeing "no-reply@ovalball.test" active in what is meant to be
+ * the production deployment is the kind of mistake this is built to catch.
+ */
+const CANONICAL_PRODUCTION_IDENTITY = {
+  fromAddress: "no-reply@ovalball.co.uk",
+  fromName: "Ovalball",
+  replyToAddress: "hello@ovalball.co.uk",
+  replyToName: "Ovalball Support",
+  siteUrl: "https://ovalball.co.uk",
+} as const
+
+/**
+ * THE one canonical, server-only ZeptoMail/email configuration validator.
+ *
+ * Every surface that needs to answer "is production email actually ready" --
+ * System Health, the Email Configuration provider status panel, this
+ * session's own live-verification passes -- reads it from here and nowhere
+ * else, so there is exactly one place that knows how to interpret the
+ * environment.
+ *
+ * WHAT THIS NEVER DOES, BY CONSTRUCTION
+ * --------------------------------------
+ * It never returns ZEPTOMAIL_API_KEY, in any form -- only whether one is
+ * set. It never puts a secret into configurationError's text (every error
+ * string above is a fixed sentence naming a variable, never a value). And
+ * this whole module is `server-only`, so none of it can reach a browser
+ * bundle regardless of what a caller does with the result.
+ *
+ * WHAT "DOMAIN VERIFICATION" DELIBERATELY DOES NOT APPEAR HERE
+ * --------------------------------------------------------------
+ * ZeptoMail domain verification is decided by ZeptoMail, from DKIM and
+ * bounce/return-path CNAME records generated per account and copied from
+ * ITS console -- there is no selector name stable enough to look up, and no
+ * DNS query this function could run would be authoritative. A caller that
+ * wants to show verification status must say, plainly, that it requires
+ * checking the ZeptoMail console -- never compute or guess it here.
+ */
 export function describeEmailConfiguration(): {
   providerName: string
   delivers: boolean
   configurationError: string | null
+  environment: "production" | "preview" | "development"
+  /** Whether an outbound send in this environment would actually reach ZeptoMail. */
+  apiKeyConfigured: boolean
+  /** Whether ZEPTOMAIL_API_URL was explicitly set, as opposed to using the documented default. */
+  apiUrlConfigured: boolean
+  /** The endpoint that would actually be used if the provider is zeptomail. Not a secret -- an API host, not a key. Null for every other provider. */
+  apiUrlEffective: string | null
   fromConfigured: boolean
+  fromAddress: string | null
+  fromName: string | null
   /** Whether replies reach a mailbox. Not an error when false -- see getReplyToAddress. */
   replyToConfigured: boolean
+  replyToAddress: string | null
+  replyToName: string | null
+  siteUrl: string | null
+  /** True only when provider is zeptomail AND From/Reply-To/Site all match Ovalball's intended production identity exactly. */
+  identityMatchesCanonicalProduction: boolean
 } {
   const { provider, configurationError } = selectEmailProvider()
+  const from = getFromAddress()
+  const replyTo = getReplyToAddress()
+  const siteUrl = getSiteUrlForMetadata()
+
+  const environment: "production" | "preview" | "development" =
+    process.env.VERCEL_ENV === "preview"
+      ? "preview"
+      : process.env.NODE_ENV === "production"
+        ? "production"
+        : "development"
+
+  const endpointResult = resolveZeptoMailEndpoint()
+
+  const identityMatchesCanonicalProduction =
+    provider.name === "zeptomail" &&
+    from?.address === CANONICAL_PRODUCTION_IDENTITY.fromAddress &&
+    (from?.name ?? null) === CANONICAL_PRODUCTION_IDENTITY.fromName &&
+    replyTo?.address === CANONICAL_PRODUCTION_IDENTITY.replyToAddress &&
+    (replyTo?.name ?? null) === CANONICAL_PRODUCTION_IDENTITY.replyToName &&
+    siteUrl === CANONICAL_PRODUCTION_IDENTITY.siteUrl
+
   return {
     providerName: provider.name,
     delivers: provider.delivers,
     configurationError,
-    fromConfigured: getFromAddress() !== null,
-    replyToConfigured: getReplyToAddress() !== null,
+    environment,
+    apiKeyConfigured: (process.env.ZEPTOMAIL_API_KEY?.trim().length ?? 0) > 0,
+    apiUrlConfigured: (process.env.ZEPTOMAIL_API_URL?.trim().length ?? 0) > 0,
+    apiUrlEffective: provider.name === "zeptomail" && endpointResult.ok ? endpointResult.endpoint : null,
+    fromConfigured: from !== null,
+    fromAddress: from?.address ?? null,
+    fromName: from?.name ?? null,
+    replyToConfigured: replyTo !== null,
+    replyToAddress: replyTo?.address ?? null,
+    replyToName: replyTo?.name ?? null,
+    siteUrl,
+    identityMatchesCanonicalProduction,
   }
 }
