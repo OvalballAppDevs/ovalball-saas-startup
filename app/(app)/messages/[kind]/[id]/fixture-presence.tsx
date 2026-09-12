@@ -48,32 +48,67 @@ export function useFixturePresence(topic: string, myUserId: string): Set<string>
   const heartbeatStarted = useRef(false)
   const router = useRouter()
 
+  // Read by the broadcast callback, never during render -- naming the router
+  // as a dependency below would rebuild the channel on every render, and
+  // removeChannel() is async, so the rebuild would race its own teardown.
+  const routerRef = useRef(router)
+  useEffect(() => {
+    routerRef.current = router
+  })
+
   useEffect(() => {
     const supabase = createClient()
-    const channel = supabase.channel(topic, { config: { presence: { key: myUserId }, private: true } })
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
+    let heartbeat: ReturnType<typeof setInterval> | null = null
 
-    channel
-      .on("presence", { event: "sync" }, () => {
-        setOnlineUserIds(new Set(Object.keys(channel.presenceState())))
-      })
-      .on("broadcast", { event: "fixture_message_inserted" }, () => {
-        router.refresh()
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await channel.track({ online_at: new Date().toISOString() })
-        }
-      })
+    // THE SOCKET MUST CARRY THE PERSON'S TOKEN BEFORE IT JOINS.
+    //
+    // This topic is private, and realtime authorises it with the token given
+    // to setAuth -- not the cookie session on its own. Subscribing before the
+    // browser client has restored that session joins an anonymous socket and
+    // realtime RLS answers "Unauthorized: You do not have permission".
+    //
+    // Nothing surfaced, because supabase-js simply retries: the join was
+    // refused twice and succeeded on the third attempt, several seconds after
+    // the page looked ready. Every message that arrived in that window was
+    // silently missed -- which is exactly how a fixture message sent moments
+    // after the opponent opened the thread failed to appear for them.
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (cancelled || !session) return
+
+      await supabase.realtime.setAuth(session.access_token)
+      if (cancelled) return
+
+      channel = supabase.channel(topic, { config: { presence: { key: myUserId }, private: true } })
+
+      channel
+        .on("presence", { event: "sync" }, () => {
+          setOnlineUserIds(new Set(Object.keys(channel!.presenceState())))
+        })
+        .on("broadcast", { event: "fixture_message_inserted" }, () => {
+          routerRef.current.refresh()
+        })
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED") {
+            await channel!.track({ online_at: new Date().toISOString() })
+          }
+        })
+    })()
 
     if (!heartbeatStarted.current) {
       heartbeatStarted.current = true
       void supabase.rpc("touch_last_active")
     }
-    const heartbeat = setInterval(() => void supabase.rpc("touch_last_active"), 60_000)
+    heartbeat = setInterval(() => void supabase.rpc("touch_last_active"), 60_000)
 
     return () => {
-      clearInterval(heartbeat)
-      void supabase.removeChannel(channel)
+      cancelled = true
+      if (heartbeat) clearInterval(heartbeat)
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [topic, myUserId])
 

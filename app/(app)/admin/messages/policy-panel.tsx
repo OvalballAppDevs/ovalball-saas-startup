@@ -88,18 +88,30 @@ export function PolicyPanel({
 
       <div className="mt-4 grid grid-cols-1 gap-3 border-t border-ink/8 pt-4 sm:grid-cols-2">
         <div>
-          <p className="text-xs font-medium text-ink-muted uppercase">Max attachment size</p>
+          {/* The heading WAS the label, visually only -- a screen reader
+              reached an unnamed number box. A real <label> names it, and the
+              units line becomes its description rather than loose text. */}
+          <label
+            htmlFor="max-attachment-size"
+            className="block text-xs font-medium text-ink-muted uppercase"
+          >
+            Max Attachment Size
+          </label>
           <div className="mt-1 flex items-center gap-2">
             <input
+              id="max-attachment-size"
               type="number"
               disabled={!editing}
               min={1}
               max={2097152}
               value={draft.maxAttachmentSizeBytes}
               onChange={(e) => setDraft((d) => ({ ...d, maxAttachmentSizeBytes: Number(e.target.value) }))}
+              aria-describedby="max-attachment-size-units"
               className="h-9 w-32 rounded-md border border-ink/15 px-2 text-sm outline-none disabled:bg-ink/[0.03] disabled:text-ink-muted"
             />
-            <span className="text-xs text-ink-muted">bytes (platform ceiling is 2,097,152 / 2MB)</span>
+            <span id="max-attachment-size-units" className="text-xs text-ink-muted">
+              bytes (platform ceiling is 2,097,152 / 2MB)
+            </span>
           </div>
         </div>
       </div>

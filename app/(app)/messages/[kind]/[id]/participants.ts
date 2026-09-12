@@ -9,6 +9,14 @@ import type { ConversationKind } from "../../actions"
 export interface AddableClubMember {
   userId: string
   name: string
+  /**
+   * True when the CALLER has blocked this person. Safe to show: it reports
+   * the viewer's own decision back to them. There is deliberately no
+   * corresponding "they blocked me" flag -- the server omits those people
+   * entirely, because a disabled row with any reason attached is still an
+   * answer to a question nobody is entitled to ask.
+   */
+  blockedByMe: boolean
 }
 
 /**
@@ -26,7 +34,7 @@ export async function listAddableClubMembers(kind: ConversationKind, id: string)
     p_fixture_request_id: (kind === "request" ? id : null) as unknown as string,
   })
   if (error || !data) return []
-  return data.map((row) => ({ userId: row.user_id, name: row.name }))
+  return data.map((row) => ({ userId: row.user_id, name: row.name, blockedByMe: row.blocked_by_me }))
 }
 
 export type ParticipantActionResult = { ok: true } | { ok: false; error: string }
@@ -91,5 +99,36 @@ export async function setConversationMute(kind: ConversationKind, id: string, mu
     p_muted: muted,
   })
   if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
+/**
+ * BLOCKING A PERSON, from the one place a person is genuinely identifiable.
+ *
+ * Both calls are thin passes to the RPCs from 20270241000000. The blocker is
+ * always auth.uid() inside the database, so nothing here can act on somebody
+ * else's behalf however it is called.
+ *
+ * The error text is deliberately the RPC's own: `block_user` says "That
+ * person could not be blocked" whether the account is missing or the id is
+ * nonsense, precisely so that probing it cannot confirm an account exists.
+ * Rewriting that here with something more specific would undo the point.
+ */
+export async function blockUser(userId: string): Promise<ParticipantActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("block_user", { p_user_id: userId })
+  if (error) return { ok: false, error: error.message || "That person could not be blocked." }
+
+  // Every Messenger surface reads block state, so all of them are stale now.
+  revalidatePath("/messages", "layout")
+  return { ok: true }
+}
+
+export async function unblockUser(userId: string): Promise<ParticipantActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("unblock_user", { p_user_id: userId })
+  if (error) return { ok: false, error: error.message || "That person could not be unblocked." }
+
+  revalidatePath("/messages", "layout")
   return { ok: true }
 }

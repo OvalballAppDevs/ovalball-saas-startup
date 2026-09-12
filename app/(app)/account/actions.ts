@@ -44,9 +44,22 @@ export async function setRememberPreference(remember: boolean): Promise<{ ok: tr
  * regardless of what the client sends (Section 43: optional preferences
  * must never suppress mandatory notices).
  */
-export async function setNotificationPreference(topicKey: string, inAppEnabled: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+/**
+ * Sets ONE channel of ONE category. The channel not named is left alone by the
+ * RPC, so the two switches on a row cannot overwrite each other — which they
+ * would if this sent both values every time and the user toggled quickly.
+ */
+export async function setNotificationPreference(
+  topicKey: string,
+  channel: "in_app" | "email",
+  enabled: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("set_notification_preference", { p_topic_key: topicKey, p_in_app_enabled: inAppEnabled })
+  const { error } = await supabase.rpc("set_notification_preference", {
+    p_topic_key: topicKey,
+    p_in_app_enabled: channel === "in_app" ? enabled : undefined,
+    p_email_enabled: channel === "email" ? enabled : undefined,
+  })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/account")
   return { ok: true }

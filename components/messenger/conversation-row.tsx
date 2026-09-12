@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { CalendarDays, LifeBuoy, MessageSquare, Send } from "lucide-react"
+import { CalendarDays, LifeBuoy, Megaphone, MessageSquare, Send, User } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
 import {
@@ -33,6 +33,8 @@ const KIND_MARK: Record<MessengerRow["kind"], { icon: typeof MessageSquare; labe
   request: { icon: Send, label: "Fixture request" },
   club: { icon: MessageSquare, label: "Club message" },
   support: { icon: LifeBuoy, label: "Ovalball Support" },
+  announcement: { icon: Megaphone, label: "Announcement" },
+  direct: { icon: User, label: "Direct message" },
 }
 
 const TONE_CLASS = {
@@ -47,6 +49,7 @@ export function ConversationRow({
   selected = false,
   density = "comfortable",
   onNavigate,
+  onSelect,
 }: {
   row: MessengerRow
   /** Desktop split only: the conversation currently open in the main pane. */
@@ -54,24 +57,26 @@ export function ConversationRow({
   /** "compact" for the header panel, where vertical space is borrowed. */
   density?: "comfortable" | "compact"
   onNavigate?: () => void
+  /**
+   * When given, the row opens the conversation IN PLACE instead of navigating
+   * -- the compact Messenger turns itself into the conversation rather than
+   * sending somebody away from the page they were working on. A row with no
+   * handler stays an ordinary link, which is what the workspace wants.
+   */
+  onSelect?: () => void
 }) {
   const unread = row.unreadCount > 0
   const { icon: KindIcon, label: kindLabel } = KIND_MARK[row.kind]
 
-  return (
-    <Link
-      href={row.href}
-      onClick={onNavigate}
-      // aria-current="page" is how a screen reader is told WHICH of these is
-      // open -- the selected styling below says it to everyone else.
-      aria-current={selected ? "page" : undefined}
-      className={cn(
-        "group relative flex w-full items-start gap-3 outline-none transition-colors",
-        "focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset",
-        density === "compact" ? "px-3 py-2.5" : "px-3 py-3 sm:px-4",
-        selected ? "bg-forest-950/[0.06]" : "hover:bg-ink/[0.035]"
-      )}
-    >
+  const className = cn(
+    "group relative flex w-full items-start gap-3 outline-none transition-colors",
+    "focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset",
+    density === "compact" ? "px-3 py-2.5" : "px-3 py-3 sm:px-4",
+    selected ? "bg-forest-950/[0.06]" : "hover:bg-ink/[0.035]"
+  )
+
+  const inner = (
+    <>
       {/* The selected marker is a rail, not a fill: it survives at any zoom,
           is not a hue, and does not repaint the row's text. */}
       <span
@@ -125,6 +130,30 @@ export function ConversationRow({
           </span>
         )}
       </div>
+    </>
+  )
+
+  // A row that opens the conversation in place is a button, because that is
+  // what it does. A row that navigates stays a link, so it keeps middle-click,
+  // open-in-new-tab and a real href.
+  if (onSelect) {
+    return (
+      <button type="button" onClick={onSelect} className={cn(className, "text-left")}>
+        {inner}
+      </button>
+    )
+  }
+
+  return (
+    <Link
+      href={row.href}
+      onClick={onNavigate}
+      // aria-current="page" is how a screen reader is told WHICH of these is
+      // open -- the selected styling says it to everyone else.
+      aria-current={selected ? "page" : undefined}
+      className={className}
+    >
+      {inner}
     </Link>
   )
 }

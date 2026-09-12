@@ -48,8 +48,15 @@ export default async function MessagesLayout({ children }: { children: React.Rea
 
   const rows = await getMessengerRows(supabase, ctx, user.id, { includeClubToClub })
 
+  // WHETHER THE ANNOUNCEMENT CONTROL APPEARS is asked of the database, using
+  // the same function the composer and the send trigger use. Deriving it from
+  // session roles here would eventually offer the control to somebody the
+  // composer then shows an empty identity list to.
+  const { data: senderIdentities } = await supabase.rpc("my_sender_identities")
+  const canAnnounce = (senderIdentities ?? []).length > 0
+
   return (
-    <MessengerShell rows={rows} canStartConversation={canStartConversation}>
+    <MessengerShell rows={rows} canStartConversation={canStartConversation} canAnnounce={canAnnounce}>
       {children}
     </MessengerShell>
   )

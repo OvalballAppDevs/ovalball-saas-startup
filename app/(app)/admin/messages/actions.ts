@@ -101,3 +101,57 @@ export async function resolveMessageReportAction(messageId: string): Promise<Act
   revalidatePath("/admin/messages")
   return { ok: true }
 }
+
+export type DirectMessagingResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * THE SITE-WIDE DIRECT MESSAGING SWITCH.
+ *
+ * Written through update_message_communication_policy, the same canonical
+ * writer every communication feature uses — not a second settings mechanism.
+ *
+ * This one is the master control: internal.direct_messaging_allowed_for_pair
+ * resolves direct messaging as site AND club rather than as
+ * coalesce(club, site), so switching it off here cannot be overridden by any
+ * club. Deliberately NOT accompanied by a "club override allowed" switch: the
+ * club setting can only ever restrict further, so there is nothing to delegate.
+ */
+/**
+ * One writer for every platform communication capability.
+ *
+ * The key is passed through to update_message_communication_policy, which
+ * validates it against its own list and raises on anything it does not
+ * recognise — so an unknown key is refused by the database rather than
+ * silently doing nothing here.
+ */
+export async function setSiteCommunicationPolicy(
+  key: string,
+  enabled: boolean,
+): Promise<DirectMessagingResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("update_message_communication_policy", {
+    p_club_id: null as unknown as string,
+    p_settings: { [key]: enabled },
+  })
+  if (error) return { ok: false, error: error.message || "That setting could not be saved." }
+
+  revalidatePath("/admin/messages")
+  revalidatePath("/messages", "layout")
+  return { ok: true }
+}
+
+export async function setSiteDirectMessaging(enabled: boolean): Promise<DirectMessagingResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("update_message_communication_policy", {
+    // null club id = the platform row. Cast because the generated types model
+    // a required-but-nullable argument as non-null (see the same idiom in
+    // app/(app)/messages/actions.ts).
+    p_club_id: null as unknown as string,
+    p_settings: { allow_direct_messaging: enabled },
+  })
+  if (error) return { ok: false, error: error.message || "That setting could not be saved." }
+
+  revalidatePath("/admin/messages")
+  revalidatePath("/messages", "layout")
+  return { ok: true }
+}

@@ -48,10 +48,13 @@ export default async function AccountPage() {
     // is DERIVED from whether the topic has an active email event, rather than
     // read off a hand-maintained boolean that had already drifted into telling
     // people "email coming soon" for a topic Ovalball was already mailing.
-    supabase.from("notification_topic_channels").select("key, label, description, mandatory, email_ready, push_ready").order("sort_order"),
-    supabase.from("notification_preferences").select("topic_key, in_app_enabled").eq("user_id", user.id),
+    // notification_topic_settings, not notification_topic_channels: it also
+    // reports whether a topic still delivers mandatory events when switched
+    // off, and whether an email switch would actually control anything.
+    supabase.from("notification_topic_settings").select("key, label, description, mandatory, has_mandatory_events, email_controllable, push_ready").order("sort_order"),
+    supabase.from("notification_preferences").select("topic_key, in_app_enabled, email_enabled").eq("user_id", user.id),
   ])
-  const preferenceByTopic = new Map((preferenceRows ?? []).map((p) => [p.topic_key, p.in_app_enabled]))
+  const preferenceByTopic = new Map((preferenceRows ?? []).map((p) => [p.topic_key, p]))
   // A view's columns are typed nullable even where every underlying column is
   // NOT NULL, so the narrowing is done once, here, rather than with a
   // non-null assertion at each field.
@@ -64,11 +67,17 @@ export default async function AccountPage() {
     label: t.label,
     description: t.description,
     mandatory: t.mandatory,
-    emailReady: t.email_ready ?? false,
+    // Does switching this category off still leave some events arriving?
+    hasMandatoryEvents: t.has_mandatory_events ?? false,
+    // An email switch is only offered where an OPTIONAL email event exists;
+    // a category whose email is mandatory or absent gets no switch, because
+    // one would either do nothing or lie.
+    emailControllable: t.email_controllable ?? false,
     pushReady: t.push_ready ?? false,
     // Absent row = on (Section 44's forward-compatible opt-out default),
     // matching internal.should_deliver_notification()'s own fallback.
-    inAppEnabled: preferenceByTopic.get(t.key) ?? true,
+    inAppEnabled: preferenceByTopic.get(t.key)?.in_app_enabled ?? true,
+    emailEnabled: preferenceByTopic.get(t.key)?.email_enabled ?? true,
   }))
 
   return (

@@ -35,7 +35,13 @@ export function ConversationTable({ rows, canRevealContent, logoUrl }: { rows: C
   }
 
   return (
-    <div className="mt-4 overflow-x-auto rounded-lg border border-ink/10 bg-white">
+    // `relative` is load-bearing, not decoration. The table's sr-only spans
+    // are position:absolute, and without a positioned ancestor here their
+    // containing block resolves OUTSIDE this scroll container -- so at 320px
+    // an invisible screen-reader label sat 910px to the right and made the
+    // whole admin page scroll sideways. Containing them restores the intended
+    // behaviour: the table scrolls inside its own box, the page does not.
+    <div className="relative mt-4 overflow-x-auto rounded-lg border border-ink/10 bg-white">
       <table className="w-full min-w-[720px] text-sm">
         <thead>
           <tr className="border-b border-ink/8 text-left text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">

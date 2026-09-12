@@ -181,7 +181,10 @@ export async function getConversationSummaries(
   for (const m of messages ?? []) {
     const key = m.fixture_id ? `fixture:${m.fixture_id}` : `request:${m.fixture_request_id}`
     if (!latestByKey.has(key)) {
-      latestByKey.set(key, { body: m.body, createdAt: m.created_at, senderId: m.sender_user_id })
+      // A preview line for an uncaptioned image says what it is. An empty
+      // string here would render a conversation whose last message looks
+      // like nothing happened.
+      latestByKey.set(key, { body: m.body ?? "Photo", createdAt: m.created_at, senderId: m.sender_user_id })
       latestSenderIds.add(m.sender_user_id)
     }
   }
@@ -315,7 +318,7 @@ export async function getClubConversationSummaries(
   for (const m of messages ?? []) {
     const key = `club:${m.club_conversation_id}`
     if (!latestByKey.has(key)) {
-      latestByKey.set(key, { body: m.body, createdAt: m.created_at, senderId: m.sender_user_id, isSystemEvent: m.kind === "system_event" })
+      latestByKey.set(key, { body: m.body ?? "Photo", createdAt: m.created_at, senderId: m.sender_user_id, isSystemEvent: m.kind === "system_event" })
       if (m.kind !== "system_event") latestSenderIds.add(m.sender_user_id)
     }
   }

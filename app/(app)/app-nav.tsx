@@ -73,7 +73,12 @@ export function AppNav({
   const pathname = usePathname()
 
   return (
-    <aside className="flex h-full max-h-screen w-full flex-col bg-forest-950 text-chalk md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0">
+    // h-screen MINUS whatever chrome sits above the application shell. The
+    // bare 100dvh claim made every authenticated page scroll by exactly the
+    // Beta strip's height, because the sidebar asked for a full viewport it
+    // had already been pushed down inside. --app-banner-h is published by the
+    // layout, which is the only place that knows which banners are rendered.
+    <aside className="flex h-full w-full flex-col bg-forest-950 text-chalk md:sticky md:top-0 md:h-[calc(100dvh-var(--app-banner-h,0px))] md:w-64 md:shrink-0">
       <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
         <OvalballLogo variant="dark" />
         <div className="flex items-center gap-0.5">

@@ -96,7 +96,7 @@ export function KickoffInlineEdit({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-ink/12 bg-white px-2.5 py-1 text-xs font-medium text-ink/70 outline-none transition-colors hover:border-pitch-600/40 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white/10 px-3 text-xs font-medium text-chalk/85 outline-none transition-colors hover:bg-white/16 hover:text-chalk focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
         <Clock className="size-3.5 text-ink-muted" />
         {formatKickoff(kickoffDate, kickoffTime)}

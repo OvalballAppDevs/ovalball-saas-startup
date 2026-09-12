@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { MessageSquarePlus, Search } from "lucide-react"
+import { Megaphone, MessageSquarePlus, Search, ShieldBan, UserPlus } from "lucide-react"
 
 import { ConversationRow } from "@/components/messenger/conversation-row"
 import { badgeCount, byRecentActivity, unreadLabel, type MessengerRow } from "@/lib/messenger/view-model"
@@ -37,10 +37,13 @@ import { cn } from "@/lib/utils"
 export function MessengerShell({
   rows,
   canStartConversation,
+  canAnnounce = false,
   children,
 }: {
   rows: MessengerRow[]
   canStartConversation: boolean
+  /** Whether this person may speak as any team, club, or Ovalball itself. */
+  canAnnounce?: boolean
   children: ReactNode
 }) {
   const pathname = usePathname()
@@ -91,15 +94,56 @@ export function MessengerShell({
         <div className="shrink-0 border-b border-ink/10 px-4 pt-5 pb-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-display text-[1.375rem] leading-none text-ink">Messages</h1>
-            {canStartConversation && (
+            <div className="flex items-center gap-1.5">
+              {/* PERSONAL privacy, not administration. It sits with the other
+                  Messenger controls because it governs Messenger, and it is
+                  deliberately not in Club or Site Admin settings: no
+                  administrator can see or change who a person has blocked. */}
               <Link
-                href="/messages/new"
-                className="flex size-9 items-center justify-center rounded-lg bg-forest-950 text-white outline-none transition-colors hover:bg-forest-900 focus-visible:ring-2 focus-visible:ring-pitch-400"
-                aria-label="New Message"
+                href="/messages/blocked"
+                className="flex size-9 items-center justify-center rounded-lg border border-ink/15 text-ink outline-none transition-colors hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                aria-label="Blocked People"
+                title="Blocked People"
               >
-                <MessageSquarePlus className="size-[18px]" aria-hidden="true" />
+                <ShieldBan className="size-[18px]" aria-hidden="true" />
               </Link>
-            )}
+              {/* TWO DIFFERENT ACTS, TWO CONTROLS. Starting a conversation is
+                  a message to somebody who can answer; an announcement goes to
+                  a whole team or club and most often cannot be answered at
+                  all. Folding them into one "+" menu would ask a person to
+                  discover that difference, when getting it wrong means
+                  telling four hundred families something meant for one club. */}
+              {/* MESSAGE A PERSON. Always offered: whether anybody is
+                  actually reachable is the server's answer, and the picker
+                  says so honestly rather than the control vanishing and
+                  leaving the person wondering where it went. */}
+              <Link
+                href="/messages/new/person"
+                className="flex size-9 items-center justify-center rounded-lg border border-ink/15 text-ink outline-none transition-colors hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                aria-label="Message a Person"
+                title="Message a Person"
+              >
+                <UserPlus className="size-[18px]" aria-hidden="true" />
+              </Link>
+              {canAnnounce && (
+                <Link
+                  href="/messages/new/announcement"
+                  className="flex size-9 items-center justify-center rounded-lg border border-ink/15 text-ink outline-none transition-colors hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                  aria-label="Send an Announcement"
+                >
+                  <Megaphone className="size-[18px]" aria-hidden="true" />
+                </Link>
+              )}
+              {canStartConversation && (
+                <Link
+                  href="/messages/new"
+                  className="flex size-9 items-center justify-center rounded-lg bg-forest-950 text-white outline-none transition-colors hover:bg-forest-900 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                  aria-label="New Message"
+                >
+                  <MessageSquarePlus className="size-[18px]" aria-hidden="true" />
+                </Link>
+              )}
+            </div>
           </div>
           <p className="mt-1.5 text-xs text-ink-muted">
             {totalUnread > 0 ? (
@@ -143,14 +187,21 @@ export function MessengerShell({
       {/* ---------------------------------------------------------------
           THE CONVERSATION
           --------------------------------------------------------------- */}
-      <main
+      {/* A SECTION, NOT A SECOND <main>. The app shell already renders the
+          page's one main landmark, and this sits inside it -- two nested
+          mains is a landmark violation, and it leaves a screen-reader user
+          with two "main" targets and no way to tell which is the page. A
+          labelled region says the same thing truthfully: this is the
+          conversation, beside the list. */}
+      <section
+        aria-label="Conversation"
         className={cn(
           "min-h-0 min-w-0 flex-1 flex-col lg:flex",
           listIsTheWholeScreen ? "hidden" : "flex"
         )}
       >
         {children}
-      </main>
+      </section>
     </div>
   )
 }

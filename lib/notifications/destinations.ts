@@ -49,6 +49,22 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
       const clubConversationId = str(data.club_conversation_id)
       return clubConversationId ? `/messages/club/${clubConversationId}` : "/messages"
     }
+    // A direct message opens the 1:1 thread. Routed by the CONVERSATION id,
+    // never by the sender's user id -- a route keyed on a person would be a
+    // way to probe whether a thread with them exists.
+    case "new_direct_message": {
+      const directId = str(data.direct_conversation_id)
+      return directId ? `/messages/direct/${directId}` : "/messages"
+    }
+    // An announcement opens on its own thread, whether or not it invited a
+    // reply: a recipient who cannot answer still needs to read what was said
+    // and see it stay readable afterwards. Deliberately NOT routed by scope --
+    // a team announcement is not a team conversation, and sending someone to
+    // the team's standing thread would show them a different set of messages.
+    case "announcement_received": {
+      const announcementId = str(data.announcement_id)
+      return announcementId ? `/messages/announcement/${announcementId}` : "/messages"
+    }
 
     // ---- Match Centre ---------------------------------------------------
     // Everything about one physical game lands on that game. The invitation

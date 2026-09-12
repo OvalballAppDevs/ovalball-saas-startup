@@ -7,6 +7,8 @@ import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
 import { ClubContactsSection } from "./club-contacts-section"
+import { ClubCommunicationsPanel } from "./club-communications-panel"
+import { COMMUNICATION_ROWS } from "./communication-rows"
 import { ClubMessagingSection, type ClubMessagingPolicy } from "./club-messaging-section"
 import type { ClubContact } from "./actions"
 import { ClubProfileForm } from "./club-profile-form"
@@ -218,6 +220,25 @@ export default async function ClubProfilePage() {
       {messagingPolicy && (
         <div className="mt-8">
           <ClubMessagingSection clubId={club.id} initial={messagingPolicy} />
+
+          {/* The capabilities above are about what may be ATTACHED to a
+              message. These are about who may send one at all, and they are
+              the club's half of the same settings Site Admin holds. */}
+          <ClubCommunicationsPanel
+            clubId={club.id}
+            canEdit={canEditProfile}
+            rows={COMMUNICATION_ROWS.map((row) => ({
+              ...row,
+              siteEnabled:
+                (globalPolicy?.[row.key as keyof typeof globalPolicy] as boolean | undefined) ?? true,
+              clubEnabled:
+                (clubPolicy?.[row.key as keyof typeof clubPolicy] as boolean | undefined) ?? true,
+              overrideAllowed:
+                (clubPolicy?.[
+                  `${row.key}_club_override_allowed` as keyof typeof clubPolicy
+                ] as boolean | undefined) ?? false,
+            }))}
+          />
         </div>
       )}
     </div>

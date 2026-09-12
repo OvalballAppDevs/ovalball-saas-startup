@@ -5,7 +5,9 @@ import { ArrowLeft, Settings2 } from "lucide-react"
 import { AttendancePanel } from "@/components/fixtures/match-centre/attendance-panel"
 import { MatchCentreHero } from "@/components/fixtures/match-centre/hero"
 import { MatchConditions } from "@/components/fixtures/match-centre/match-conditions"
+import { MessageOpposition } from "@/components/fixtures/match-centre/message-opposition"
 import { MessagingPanel, type FixtureMessageRow } from "@/components/fixtures/match-centre/messaging-panel"
+import { listOppositionContacts } from "./opposition-contacts"
 import { ParticipantList } from "@/components/fixtures/match-centre/participant-list"
 import { getFixtureForecast } from "@/lib/weather/fixture-forecast"
 
@@ -91,6 +93,8 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
     longitude: context.venue.longitude,
   })
 
+  const oppositionContacts = await listOppositionContacts(fixtureId)
+
   let messages: FixtureMessageRow[] = []
   if (context.messaging.canView) {
     const { data: rows } = await supabase
@@ -124,7 +128,8 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
       const name = `${first} ${surname}`.trim()
       return {
         id: m.id,
-        body: m.body,
+        // An image message may legitimately have no caption -- see 20270239000000.
+        body: m.body ?? "",
         createdAt: m.created_at,
         senderName: name.length > 0 ? name : "Someone",
         senderUserId: m.sender_user_id,
@@ -195,6 +200,13 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
              delivered through the safeguarding-aware recipient model, so it
              reaches a guardian who never opens the app. Collapsing the second
              into the first would quietly stop families being told things. */}
+      {/* CONTACTING THE OTHER SIDE is a communication action, so it sits with
+          the messaging section rather than among the fixture controls. It
+          renders nothing unless the server found somebody: most fixtures name
+          their opponent from the Club Directory, where there is no account to
+          message. */}
+      <MessageOpposition contacts={oppositionContacts} />
+
       <MessagingPanel
         fixtureId={context.fixture.fixtureId}
         conversation={context.messaging}

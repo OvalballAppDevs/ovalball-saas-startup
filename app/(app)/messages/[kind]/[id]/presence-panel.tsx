@@ -1,19 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react"
 import { MoreHorizontal, Plus, Settings, X } from "lucide-react"
 
 import type { ConversationKind } from "../../actions"
 import { presenceLabel, PresenceDot, useFixturePresence } from "./fixture-presence"
-import {
-  addConversationParticipant,
-  leaveConversation,
-  listAddableClubMembers,
-  rejoinConversation,
-  removeConversationParticipant,
-  setConversationMute,
-  type AddableClubMember,
-} from "./participants"
+import { addConversationParticipant, blockUser, leaveConversation, listAddableClubMembers, rejoinConversation, removeConversationParticipant, setConversationMute, type AddableClubMember } from "./participants"
 
 export interface PresenceParticipant {
   userId: string
@@ -65,7 +57,13 @@ export function FixtureConversationHeader({
           <RejoinButton kind={kind} id={id} />
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink/8 pt-3">
+      {/*
+        ONE ROW OF CONVERSATION ACTIONS, not a second header.
+        Kick-off negotiation on the left, the people and their controls on the
+        right, on the header's own dark ground -- so participant metadata stops
+        competing with the name of the club you are talking to.
+      */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>{dateStatusLine}</div>
         <div className="flex items-center gap-1.5">
           {participants.length > 0 && (
@@ -129,9 +127,9 @@ function ConversationSettingsButton({ kind, id, myMuted, myLeft }: { kind: Conve
         onClick={() => setOpen((v) => !v)}
         aria-label="Conversation settings"
         title="Conversation settings"
-        className="flex size-7 items-center justify-center rounded-full border border-ink/12 bg-white text-ink-muted outline-none transition-colors hover:border-forest-800/30 hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
+        className="flex size-9 items-center justify-center rounded-full text-chalk/70 outline-none transition-colors hover:bg-white/12 hover:text-chalk focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
-        <Settings className="size-3.5" />
+        <Settings className="size-4" />
       </button>
       {open && (
         <div className="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-ink/10 bg-white p-2 shadow-lg">
@@ -221,9 +219,9 @@ function AddParticipantButton({ kind, id }: { kind: ConversationKind; id: string
         onClick={() => setOpen((v) => !v)}
         aria-label="Add a participant from your club"
         title="Add a participant"
-        className="flex size-7 items-center justify-center rounded-full border border-ink/12 bg-white text-ink-muted outline-none transition-colors hover:border-forest-800/30 hover:text-forest-800 focus-visible:ring-2 focus-visible:ring-pitch-400"
+        className="flex size-9 items-center justify-center rounded-full text-chalk/70 outline-none transition-colors hover:bg-white/12 hover:text-chalk focus-visible:ring-2 focus-visible:ring-pitch-400"
       >
-        <Plus className="size-3.5" />
+        <Plus className="size-4" />
       </button>
       {open && (
         <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-ink/10 bg-white p-3 shadow-lg">
@@ -244,10 +242,15 @@ function AddParticipantButton({ kind, id }: { kind: ConversationKind; id: string
                 const added = addedIds.has(m.userId)
                 return (
                   <li key={m.userId} className="flex items-center justify-between gap-2 rounded-md px-1.5 py-2 hover:bg-ink/[0.03]">
-                    <span className="truncate text-sm text-ink">{m.name}</span>
+                    <span className={`truncate text-sm ${m.blockedByMe ? "text-ink-subtle" : "text-ink"}`}>{m.name}</span>
+                    {/* "Blocked" reports the viewer's OWN decision, so it is
+                        safe to state plainly. Somebody who has blocked the
+                        viewer never reaches this list at all -- the server
+                        omits them -- so there is no equivalent label in the
+                        other direction and no way to infer one. */}
                     <button
                       type="button"
-                      disabled={added || addingId === m.userId}
+                      disabled={added || m.blockedByMe || addingId === m.userId}
                       onClick={async () => {
                         setAddingId(m.userId)
                         setError(null)
@@ -261,7 +264,7 @@ function AddParticipantButton({ kind, id }: { kind: ConversationKind; id: string
                       }}
                       className="shrink-0 rounded-md bg-pitch-600 px-2.5 py-1 text-xs font-medium text-white outline-none hover:bg-pitch-600/90 disabled:bg-ink/15 disabled:text-ink-muted"
                     >
-                      {added ? "Added" : addingId === m.userId ? "Adding…" : "Add"}
+                      {m.blockedByMe ? "Blocked" : added ? "Added" : addingId === m.userId ? "Adding…" : "Add"}
                     </button>
                   </li>
                 )
@@ -279,12 +282,20 @@ function ParticipantRow({
   person,
   status,
   canRemove,
+  canBlock,
   kind,
   id,
 }: {
   person: PresenceParticipant
   status: { online: boolean; label: string }
   canRemove: boolean
+  /**
+   * Whether this row is a PERSON the viewer could meaningfully block -- never
+   * themselves, and never an organisational identity. Blocking is about one
+   * human declining contact from another; there is nobody to decline on a
+   * team or a club.
+   */
+  canBlock: boolean
   kind: ConversationKind
   id: string
 }) {
@@ -292,11 +303,36 @@ function ParticipantRow({
   const [confirming, setConfirming] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [removed, setRemoved] = useState(false)
+  const [confirmBlock, setConfirmBlock] = useState(false)
+  const [blocking, setBlocking] = useState(false)
+  const [blockError, setBlockError] = useState<string | null>(null)
 
   if (removed) return null
 
+  const hasMenu = canRemove || canBlock
+
+  /**
+   * ESCAPE BACKS OUT ONE STEP AT A TIME, and never performs the action.
+   * From a confirmation it returns to the menu; from the menu it closes.
+   * Without this the only way out of "Block this person?" was to find and
+   * click Cancel, which is the wrong thing to ask of somebody who has just
+   * realised they opened the wrong row.
+   */
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLLIElement>) {
+    if (event.key !== "Escape") return
+    event.stopPropagation()
+    if (confirmBlock) {
+      setConfirmBlock(false)
+      setBlockError(null)
+    } else if (confirming) {
+      setConfirming(false)
+    } else {
+      setMenuOpen(false)
+    }
+  }
+
   return (
-    <li className="relative flex items-center justify-between gap-2 text-sm text-ink/75">
+    <li className="relative flex items-center justify-between gap-2 text-sm text-ink/75" onKeyDown={hasMenu ? handleKeyDown : undefined}>
       <span className="min-w-0 truncate">
         {person.name} <span className="text-ink-muted">&middot; {person.roleLabel}</span>
       </span>
@@ -305,7 +341,7 @@ function ParticipantRow({
           <PresenceDot online={status.online} />
           {status.label}
         </span>
-        {canRemove && (
+        {hasMenu && (
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
@@ -318,7 +354,73 @@ function ParticipantRow({
       </span>
       {menuOpen && (
         <div className="absolute top-full right-0 z-30 mt-1 w-64 rounded-lg border border-ink/10 bg-white p-2 shadow-lg">
-          {!confirming ? (
+          {/* THREE DIFFERENT ACTS, kept visually distinct.
+              "Remove from conversation" is an administrative act on the
+              conversation. "Block" is a personal decision about contact, and
+              affects nothing about this fixture. Confusing them would be easy
+              and expensive, so blocking sits below a rule with its own
+              heading rather than as a fourth item in one undifferentiated
+              list of red text. */}
+          {canBlock && !confirming && (
+            <div className={canRemove ? "mb-1 border-b border-ink/10 pb-1" : ""}>
+              {!confirmBlock ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmBlock(true)}
+                  className="flex w-full items-center rounded-md px-2.5 py-2 text-left text-sm text-ink/75 outline-none hover:bg-ink/[0.03] focus-visible:bg-ink/[0.03]"
+                >
+                  Block {person.name.split(" ")[0]}
+                </button>
+              ) : (
+                <div className="p-1">
+                  <p className="text-xs font-medium text-ink">Block {person.name}?</p>
+                  {/* The consequence, accurately and in that order: what stops,
+                      what does NOT stop, and the fact they are not told. The
+                      middle clause is the one people get wrong -- blocking a
+                      coach must not read as leaving the team. */}
+                  <p className="mt-1 text-xs text-ink/60">
+                    They won&rsquo;t be able to message you privately, and you won&rsquo;t be able to message them.
+                    You&rsquo;ll still see each other in team conversations, and announcements from a team or club
+                    still reach you both. They aren&rsquo;t told.
+                  </p>
+                  {blockError && <p className="mt-1.5 text-xs text-red-700">{blockError}</p>}
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={blocking}
+                      onClick={async () => {
+                        setBlocking(true)
+                        setBlockError(null)
+                        const result = await blockUser(person.userId)
+                        setBlocking(false)
+                        if (result.ok) {
+                          setConfirmBlock(false)
+                          setMenuOpen(false)
+                        } else {
+                          setBlockError(result.error)
+                        }
+                      }}
+                      className="rounded-md bg-destructive px-2.5 py-1.5 text-xs font-medium text-white outline-none hover:bg-destructive/90 focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:opacity-50"
+                    >
+                      {blocking ? "Blocking…" : "Block"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={blocking}
+                      onClick={() => {
+                        setConfirmBlock(false)
+                        setBlockError(null)
+                      }}
+                      className="rounded-md px-2.5 py-1.5 text-xs font-medium text-ink/70 outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {canRemove && !confirmBlock && !confirming ? (
             <button
               type="button"
               onClick={() => setConfirming(true)}
@@ -326,7 +428,7 @@ function ParticipantRow({
             >
               Remove from conversation
             </button>
-          ) : (
+          ) : confirming ? (
             <div className="p-1">
               <p className="text-xs text-ink/60">
                 Remove <span className="font-medium text-ink">{person.name}</span> from this conversation? They will no longer receive
@@ -352,7 +454,7 @@ function ParticipantRow({
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </li>
@@ -382,24 +484,35 @@ function ParticipantsPanel({
     entry.people.push(p)
     byClub.set(p.clubId, entry)
   }
+  // A → Z inside every club, regardless of how the rows arrived. Sorted here
+  // as well as upstream so any future caller of this panel gets the ordering
+  // without having to remember it.
+  for (const entry of byClub.values()) {
+    entry.people.sort((a, b) => a.name.localeCompare(b.name, "en-GB", { sensitivity: "base" }))
+  }
 
   const onlineCount = participants.filter((p) => onlineUserIds.has(p.userId)).length
 
   return (
     <details className="group relative">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-full border border-ink/12 bg-white py-1 pr-3 pl-1 text-xs font-medium text-forest-800 outline-none transition-colors hover:border-forest-800/30 focus-visible:ring-2 focus-visible:ring-pitch-400">
+      {/* An avatar stack, not a sentence. "1 participant · 1 online" was a
+          large light pill on the header competing with the name of the club
+          you are talking to; the people are shown, the counts live inside. */}
+      <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-full px-1.5 text-xs font-medium text-chalk/80 outline-none transition-colors hover:bg-white/12 hover:text-chalk focus-visible:ring-2 focus-visible:ring-pitch-400">
         <span className="flex -space-x-1.5">
           {participants.slice(0, 4).map((p) => (
             <span
               key={p.userId}
-              className="flex size-5 items-center justify-center rounded-full border-2 border-white bg-forest-800 text-[9px] font-semibold text-white"
+              className="flex size-6 items-center justify-center rounded-full bg-forest-800 text-[9px] font-semibold text-white ring-2 ring-forest-950"
             >
               {p.name.charAt(0).toUpperCase()}
             </span>
           ))}
         </span>
         {participants.length} participant{participants.length === 1 ? "" : "s"}
-        {onlineCount > 0 && <span className="text-pitch-700">&middot; {onlineCount} online</span>}
+        {onlineCount > 0 && (
+          <span className="size-1.5 shrink-0 rounded-full bg-pitch-400" title={`${onlineCount} online`} aria-label={`${onlineCount} online`} />
+        )}
       </summary>
       <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-ink/10 bg-white p-3 shadow-lg">
         {[...byClub.values()].map((group) => (
@@ -412,6 +525,10 @@ function ParticipantsPanel({
                   person={p}
                   status={presenceLabel(p.userId, onlineUserIds, p.lastActiveAt)}
                   canRemove={canManageParticipants && p.clubId === myManageableClubId && p.userId !== myUserId}
+                  // Anyone but yourself. Blocking needs no authority over the
+                  // other person -- it is a decision about your own inbox --
+                  // so it is offered wherever a real human is named.
+                  canBlock={p.userId !== myUserId}
                   kind={kind}
                   id={id}
                 />

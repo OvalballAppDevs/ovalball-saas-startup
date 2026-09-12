@@ -21,7 +21,7 @@
  * What kind of conversation this is. These are the real conversation kinds the
  * product already has -- not a taxonomy invented to give the UI more icons.
  */
-export type ConversationKind = "request" | "fixture" | "club" | "support"
+export type ConversationKind = "request" | "fixture" | "club" | "support" | "announcement" | "direct"
 
 export interface MessengerRow {
   /** Stable across renders and unique across kinds: "fixture:<uuid>". */

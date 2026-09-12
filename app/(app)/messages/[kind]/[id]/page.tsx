@@ -14,8 +14,6 @@ import { markConversationRead, type ConversationKind } from "../../actions"
 import { MessageRequestDecision } from "../../message-request-decision"
 import { ConversationThread, type ThreadMessage } from "./conversation-thread"
 import { FixtureResultPanel, type FixtureResultData } from "./fixture-result-panel"
-import { CompetitionInlineEdit } from "./competition-inline-edit"
-import { PitchInlineEdit } from "./pitch-inline-edit"
 import { KickoffInlineEdit } from "./kickoff-inline-edit"
 import { FixtureConversationHeader } from "./presence-panel"
 
@@ -31,20 +29,6 @@ const STATUS_LABELS: Record<string, string> = {
   Planned: "Planned",
   Cancelled: "Cancelled",
   Completed: "Completed",
-}
-
-const STATUS_BADGE_STYLE: Record<string, string> = {
-  accepted: "bg-pitch-600/10 text-pitch-700",
-  Booked: "bg-pitch-600/10 text-pitch-700",
-  Completed: "bg-forest-800/10 text-forest-800",
-  sent: "bg-amber-500/10 text-amber-700",
-  pending: "bg-amber-500/10 text-amber-700",
-  Planned: "bg-amber-500/10 text-amber-700",
-  counter_proposed: "bg-amber-500/10 text-amber-700",
-  declined: "bg-destructive/10 text-destructive-text",
-  cancelled: "bg-destructive/10 text-destructive-text",
-  Cancelled: "bg-destructive/10 text-destructive-text",
-  expired: "bg-ink/8 text-ink-muted",
 }
 
 /**
@@ -368,15 +352,6 @@ export default async function ConversationThreadPage({
     }
   }
 
-  const { data: homeClubPitches } = header.homeClubId
-    ? await supabase
-        .from("club_pitches")
-        .select("id, display_name")
-        .eq("club_id", header.homeClubId)
-        .eq("active", true)
-        .order("sort_order")
-    : { data: null }
-
   // For a fixture thread, read by conversation_id (shared by both mirror
   // rows of one real fixture) rather than the specific row's own id --
   // fixture_id on each message row is only "which side's action created
@@ -443,7 +418,11 @@ export default async function ConversationThreadPage({
       // the original content again once deleted; it survives only in the
       // raw fixture_messages row for an authorised moderator querying
       // directly (never exposed through this page).
-      const body = isDeleted ? (m.deleted_by_role === "moderator" ? "Message has been deleted by admin." : "Message has been deleted by user.") : m.body
+      // `?? ""` because body is nullable since 20270239000000: an image sent
+      // without a caption has no words, and inventing some ("Attached:
+      // IMG_4821.HEIC") was the defect that migration removed. Normalised
+      // once here, exactly as lib/messenger/thread.ts does it.
+      const body = isDeleted ? (m.deleted_by_role === "moderator" ? "Message has been deleted by admin." : "Message has been deleted by user.") : (m.body ?? "")
       return {
         id: m.id,
         body,
@@ -576,9 +555,15 @@ export default async function ConversationThreadPage({
   const myMuted = (subscriptionRows ?? []).find((s) => s.user_id === user.id)?.muted ?? false
   const myLeft = leftUserIds.has(user.id)
 
+  // ALPHABETICAL BY DISPLAY NAME. The list was in the order the two queries
+  // happened to return -- club officials, then team officials -- which is
+  // insertion order wearing a grouping. Presence is shown but never reorders
+  // anybody: a list that rearranges itself as people come online is a list you
+  // cannot scan twice.
   const participantsWithPresence = participants
     .filter((p) => !leftUserIds.has(p.userId))
     .map((p) => ({ ...p, lastActiveAt: participantLastActiveById.get(p.userId) ?? null }))
+    .sort((a, b) => a.name.localeCompare(b.name, "en-GB", { sensitivity: "base" }))
   const presenceTopic = `presence:${kind === "fixture" ? "f" : kind === "club" ? "c" : "r"}:${kind === "fixture" || kind === "club" ? (header.conversationId ?? id) : id}`
 
   // Same "operational contact" resolution the RPCs use server-side --
@@ -612,38 +597,65 @@ export default async function ConversationThreadPage({
     // second max-width inside it would leave the thread stranded in the middle
     // of its own column. min-h-0 so the message area is what scrolls, never
     // the page.
-    <div className="flex h-full min-h-0 flex-col px-4 py-4 md:px-6 md:py-6">
-      {/* Back exists only where it means something. On a phone the
-          conversation IS the screen, so leaving it is a real navigation; on a
-          laptop the list is already in view and a Back link would point at
-          something two inches to the left. */}
-      <Link
-        href="/messages"
-        className="inline-flex h-11 items-center gap-1.5 self-start text-sm font-medium text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400 lg:hidden"
-      >
-        <ChevronLeft className="size-4" aria-hidden="true" />
-        Messages
-      </Link>
-
-      <div className="rounded-lg border border-ink/10 bg-white px-4 py-4 sm:px-5 lg:mt-0">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <ClubAvatar logoUrl={header.myClubLogoUrl} name={header.myClubName} size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink">{header.myClubName}</p>
-              {header.myTeamName && <p className="truncate text-xs text-ink-muted">{header.myTeamName}</p>}
-            </div>
-          </div>
-          <span className="shrink-0 text-ink-muted">&harr;</span>
-          <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-2.5 text-right">
-            <ClubAvatar logoUrl={header.opponentClubLogoUrl} name={header.opponentClubName} size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink">{header.opponentClubName}</p>
-              {header.opponentName && <p className="truncate text-xs text-ink-muted">{header.opponentName}</p>}
-            </div>
-          </div>
+    // THE PANE IS THE CONVERSATION.
+    // No page padding, no nested cards: a header, a history that scrolls, and
+    // a composer pinned to the foot. The page itself never scrolls.
+    <div className="flex h-full min-h-0 flex-col bg-chalk">
+      {/* -----------------------------------------------------------------
+          THE CONVERSATION HEADER.
+          The same dark forest language as the compact Messenger the owner
+          approved, carrying the same mown stripes -- so the workspace reads
+          as the big version of that panel rather than an admin page with a
+          chat inside it. It used to be a 200px white card with two crests,
+          two club names, a repeated date and four control chips.
+          ----------------------------------------------------------------- */}
+      {/* NOT overflow-hidden. The mown stripes are inset-0 and clip
+          themselves, but putting overflow-hidden on the header clipped the
+          participants panel, the add-participant picker and the conversation
+          settings menu -- every popover anchored inside it rendered as a
+          few-pixel sliver. The stripe layer carries its own clipping instead. */}
+      <div className="relative shrink-0 bg-gradient-to-b from-forest-900 to-forest-950 text-chalk">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex overflow-hidden">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <span key={i} className={i % 2 === 0 ? "h-full flex-1 bg-white/[0.035]" : "h-full flex-1"} />
+          ))}
         </div>
-        <div className="mt-3">
+
+        <div className="relative flex flex-wrap items-center gap-x-2.5 gap-y-1.5 px-3 py-2.5 sm:flex-nowrap sm:px-4">
+          {/* Back exists only where leaving is a real navigation. On a laptop
+              the list is already two inches to the left. */}
+          <Link
+            href="/messages"
+            aria-label="Back to conversations"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full text-chalk/85 outline-none transition-colors hover:bg-white/12 hover:text-chalk focus-visible:ring-2 focus-visible:ring-pitch-400 lg:hidden"
+          >
+            <ChevronLeft className="size-[18px]" aria-hidden="true" />
+          </Link>
+
+          <ClubAvatar
+            logoUrl={header.opponentClubLogoUrl}
+            name={header.opponentClubName}
+            size="sm"
+            className="shrink-0 ring-1 ring-white/15"
+          />
+
+          {/* WHO comes first and keeps its width. The action cluster wraps
+              beneath on a phone rather than squeezing the club name to
+              nothing, which is what a single nowrap row did at 390. */}
+          <div className="min-w-0 flex-1 basis-40">
+            <h1 className="truncate font-display text-[1.0625rem] leading-tight text-chalk">{header.opponentClubName}</h1>
+            {/* ONE context line, and the date appears in it exactly once. */}
+            <p className="truncate text-xs text-chalk/60">
+              {[
+                [header.myTeamName || null, header.opponentName || null].filter(Boolean).join(" vs ") || header.myClubName,
+                dateLabel,
+                STATUS_LABELS[header.status] ?? header.status,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+
           <FixtureConversationHeader
             topic={presenceTopic}
             myUserId={user.id}
@@ -655,51 +667,32 @@ export default async function ConversationThreadPage({
             myMuted={myMuted}
             myLeft={myLeft}
             dateStatusLine={
-              <div className="flex flex-wrap items-center gap-2">
-                {dateLabel && <span className="text-sm font-medium text-ink/70">{dateLabel}</span>}
-                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_BADGE_STYLE[header.status] ?? "bg-ink/8 text-ink/60"}`}>
-                  {STATUS_LABELS[header.status] ?? header.status}
-                </span>
-                {kind === "fixture" && (
-                  <>
-                    <KickoffInlineEdit
-                      fixtureId={id}
-                      kickoffDate={header.date ?? ""}
-                      kickoffTime={header.kickoffTime}
-                      pendingAmendment={header.kickoffAmendment}
-                    />
-                    <PitchInlineEdit
-                      fixtureId={id}
-                      pitch={header.pitch}
-                      pitchId={header.pitchId}
-                      isHomeFixture={header.homeAway === "Home"}
-                      availablePitches={homeClubPitches ?? []}
-                    />
-                    <CompetitionInlineEdit
-                      fixtureId={id}
-                      rugbyCode={header.rugbyCode}
-                      competitionEditionId={header.competitionEditionId}
-                      competitionName={header.competitionName}
-                      canEdit={header.canEditCompetition}
-                    />
-                  </>
-                )}
-              </div>
+              kind === "fixture" ? (
+                <KickoffInlineEdit
+                  fixtureId={id}
+                  kickoffDate={header.date ?? ""}
+                  kickoffTime={header.kickoffTime}
+                  pendingAmendment={header.kickoffAmendment}
+                />
+              ) : null
             }
           />
         </div>
+
         {kind === "request" && resultingFixtureId && (
           <Link
             href={`/messages/fixture/${resultingFixtureId}`}
-            className="mt-3 inline-block text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
+            className="relative block border-t border-white/10 px-4 py-2 text-xs font-medium text-pitch-400 underline underline-offset-2 hover:text-pitch-400/80"
           >
             This fixture is confirmed &mdash; continue the conversation here
           </Link>
         )}
       </div>
 
+      {/* Banners sit between the header and the history, each shrink-0 so the
+          conversation keeps the rest of the height. */}
       {kind === "fixture" && header.result && (
-        <div className="mt-3">
+        <div className="shrink-0 px-3 pt-3 sm:px-4">
           <FixtureResultPanel
             fixtureId={id}
             result={header.result}
@@ -716,7 +709,7 @@ export default async function ConversationThreadPage({
           belongs on this screen rather than in a list elsewhere -- and until
           this was wired up, nothing in the product answered it at all. */}
       {kind === "club" && header.status === "pending" && (
-        <div className="mt-3">
+        <div className="shrink-0 px-3 pt-3 sm:px-4">
           <MessageRequestDecision
             conversationId={id}
             side={header.clubRequestSide === "requester" ? "requester" : "recipient"}
@@ -725,7 +718,7 @@ export default async function ConversationThreadPage({
         </div>
       )}
 
-      <div className="mt-4 min-h-0 flex-1">
+      <div className="min-h-0 flex-1">
         <ConversationThread
           kind={kind}
           id={id}

@@ -515,3 +515,35 @@ export async function saveClubKit(input: {
   revalidatePath("/club")
   return { ok: true }
 }
+
+export type ClubDirectMessagingResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * A CLUB'S OWN DIRECT MESSAGING SETTING.
+ *
+ * Written through update_message_communication_policy, which performs the
+ * real authorisation: only this club's Club Admin or a Full Site Admin may
+ * change it. The check is deliberately NOT repeated here — a second opinion
+ * in a server action is the one that goes stale when the rule changes.
+ *
+ * A club setting can only ever RESTRICT direct messaging.
+ * internal.direct_messaging_allowed_for_pair resolves it as site AND club, so
+ * switching this on while Ovalball has it off changes nothing, and the panel
+ * says so rather than implying otherwise.
+ */
+export async function setClubCommunicationPolicy(
+  clubId: string,
+  key: string,
+  enabled: boolean,
+): Promise<ClubDirectMessagingResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("update_message_communication_policy", {
+    p_club_id: clubId,
+    p_settings: { [key]: enabled },
+  })
+  if (error) return { ok: false, error: error.message || "That setting could not be saved." }
+
+  revalidatePath("/club")
+  revalidatePath("/messages", "layout")
+  return { ok: true }
+}

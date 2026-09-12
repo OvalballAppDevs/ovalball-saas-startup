@@ -184,7 +184,21 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
 
   return (
     <SwitchContextProvider>
-      <div className="flex min-h-screen flex-col bg-chalk">
+      {/*
+        HOW TALL THE CHROME ABOVE THE APPLICATION IS.
+        The sidebar claims md:h-screen -- a full 100dvh -- which is correct
+        only when nothing sits above it. With the Beta strip or the diagnostic
+        banner present the whole row was pushed down while still claiming the
+        full viewport, so every authenticated page scrolled by exactly the
+        banner height. Harmless on a document page; on Messenger it pushed the
+        composer below the fold.
+        Published here because this is the only place that knows which banners
+        are rendered.
+      */}
+      <div
+        className="flex min-h-screen flex-col bg-chalk"
+        style={{ "--app-banner-h": `${(betaState.mode === "beta" ? 36 : 0) + (diagnosticClub ? 44 : 0)}px` } as React.CSSProperties}
+      >
         {/* ONE Beta indicator for every authenticated role -- Site Admin,
             Club Admin, Team Admin, Parent and Player all render through this
             shell, so none of them needs its own. Renders nothing at all when

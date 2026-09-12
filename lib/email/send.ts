@@ -104,14 +104,18 @@ export async function sendEmailEvent<K extends EmailEventKey>(
   if (definition.classification === "OPTIONAL_OPERATIONAL" && definition.topicKey) {
     const userIds = allowed.map((r) => r.userId).filter((id): id is string => id !== null)
     if (userIds.length > 0) {
-      const { data: prefs } = await supabase
-        .from("notification_preferences")
-        .select("user_id, email_enabled")
-        .eq("topic_key", definition.topicKey)
-        .in("user_id", userIds)
-      const optedOut = new Set(
-        (prefs ?? []).filter((p) => p.email_enabled === false).map((p) => p.user_id)
-      )
+      // ASKED THROUGH A FUNCTION, NOT A TABLE READ.
+      //
+      // notification_preferences is self-only under RLS, and this code runs
+      // as whoever triggered the event -- so selecting the recipients' rows
+      // directly returned nothing, the opt-out set was always empty, and
+      // every recipient was emailed regardless of their setting. An empty
+      // result read exactly like unanimous consent.
+      const { data: optedOutRows } = await supabase.rpc("email_opted_out_user_ids", {
+        p_topic_key: definition.topicKey,
+        p_user_ids: userIds,
+      })
+      const optedOut = new Set((optedOutRows ?? []) as string[])
       allowed = allowed.filter((r) => !r.userId || !optedOut.has(r.userId))
     }
     if (allowed.length === 0) {

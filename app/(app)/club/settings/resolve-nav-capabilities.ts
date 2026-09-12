@@ -26,6 +26,8 @@ import type { Database } from "@/types/database.types"
  * which tabs a tampered or stale client render shows.
  */
 export interface ClubSettingsNavCapabilities {
+  /** May decide who at this club holds the operational capabilities. */
+  canPermissions: boolean
   canProfile: boolean
   canPitchesManage: boolean
   canTeams: boolean
@@ -46,6 +48,7 @@ export interface ClubSettingsNavCapabilities {
 }
 
 const EMPTY: ClubSettingsNavCapabilities = {
+  canPermissions: false,
   canProfile: false,
   canPitchesManage: false,
   canTeams: false,
@@ -84,11 +87,13 @@ export async function resolveClubSettingsNavCapabilities(
     canSubscriptionConfigure,
     canSubscriptionViewFinance,
     canPlatformBillingView,
+    canPermissions
   ] = await Promise.all([
     hasCapability(supabase, "club.edit_profile", "club", { clubId }),
     hasCapability(supabase, "club.pitches.manage", "club", { clubId }),
     hasCapability(supabase, "club.venues.manage", "club", { clubId }),
     hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
+    hasCapability(supabase, "club.capabilities.manage", "club", { clubId }),
     hasCapability(supabase, "fixture.edit", "club", { clubId }),
     hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
     hasCapability(supabase, "manage_player_dispensations", "club", { clubId }),
@@ -100,6 +105,7 @@ export async function resolveClubSettingsNavCapabilities(
   ])
 
   return {
+    canPermissions,
     canProfile,
     canPitchesManage,
     canTeams: canProfile || canPitchesManage,

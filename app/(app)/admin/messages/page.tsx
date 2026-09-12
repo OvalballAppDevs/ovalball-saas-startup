@@ -8,6 +8,7 @@ import { getSupportConversationsForAdmin } from "@/lib/support/conversations"
 import { createClient } from "@/lib/supabase/server"
 
 import { getClubDirectoryOptions, getConversationLog, getGlobalMessagePolicy, getMessageAnalytics, getTeamOptions, type MessageFilters } from "./query"
+import { CommunicationsPanel } from "./communications-panel"
 import { PolicyPanel } from "./policy-panel"
 import { MessageFiltersBar } from "./filters"
 import { ConversationTable } from "./conversation-table"
@@ -118,6 +119,20 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
               maxAttachmentSizeBytes: policy.max_attachment_size_bytes ?? 2097152,
               allowedFileTypes: policy.allowed_file_types ?? ["application/pdf", "image/jpeg", "image/png", "image/webp"],
             }}
+          />
+
+          <CommunicationsPanel
+            canEdit={canEditGlobalPolicy}
+            flags={[
+              { key: "allow_direct_messaging", value: policy.allow_direct_messaging ?? true, overrideAllowed: null },
+              { key: "allow_team_conversations", value: policy.allow_team_conversations ?? true, overrideAllowed: policy.allow_team_conversations_club_override_allowed },
+              { key: "allow_multi_person_conversations", value: policy.allow_multi_person_conversations ?? true, overrideAllowed: policy.allow_multi_person_conversations_club_override_allowed },
+              { key: "allow_team_announcements", value: policy.allow_team_announcements ?? true, overrideAllowed: policy.allow_team_announcements_club_override_allowed },
+              { key: "allow_club_announcements", value: policy.allow_club_announcements ?? true, overrideAllowed: policy.allow_club_announcements_club_override_allowed },
+              { key: "allow_platform_announcements", value: policy.allow_platform_announcements ?? true, overrideAllowed: false },
+              { key: "allow_private_replies", value: policy.allow_private_replies ?? true, overrideAllowed: policy.allow_private_replies_club_override_allowed },
+              { key: "allow_group_discussion", value: policy.allow_group_discussion ?? true, overrideAllowed: policy.allow_group_discussion_club_override_allowed },
+            ]}
           />
         </div>
       )}

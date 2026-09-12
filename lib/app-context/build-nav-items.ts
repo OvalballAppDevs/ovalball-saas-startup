@@ -282,7 +282,7 @@ export function buildNavItems(
     items.push({ href: "/admin/clubs", label: "Club Management" })
     items.push({ href: "/admin/users", label: "User Management" })
     items.push({ href: "/admin/permissions", label: "Permission Management" })
-    items.push({ href: "/admin/fixtures", label: "Fixture Management" })
+    items.push({ href: "/admin/fixtures", label: "Fixture Control Centre" })
     items.push({ href: "/admin/messages", label: "Message Management" })
     items.push({ href: "/admin/seasons", label: "Seasons" })
     items.push({ href: "/admin/team-directory", label: "Team Directory" })
