@@ -23,6 +23,16 @@
     --chalk: #f8faf7;
     --ink: #101512;
 
+    /* The Story of Rugby: two colours added specifically for the 1895
+       schism narrative, not reused from elsewhere. Forest green (above)
+       carries the shared pre-schism history; these carry each code's own
+       path after the split. Chosen at a lightness comparable to
+       --rugby-700 / --forest-800 so text set in either clears WCAG AA on
+       chalk, matching the accessible-secondary-text work above rather than
+       introducing a new contrast risk. */
+    --heritage-union: #7a4a12;
+    --heritage-league: #1f3a4d;
+
     /* ---------------------------------------------------------------
      * Messenger blue. The ONE thing in Ovalball that is blue.
      *
@@ -52,9 +62,9 @@
      * Accessible secondary text.
      *
      * The palette's secondary text was written as opacity on --ink, and
-     * an axe pass over the product measured the result: text-ink/55 on
+     * an axe pass over the product measured the result: text-ink-muted on
      * chalk is 4.03:1, below the 4.5:1 WCAG AA needs for normal text --
-     * and text-ink/45 and /40, used for hints and captions, are worse
+     * and text-ink-muted and /40, used for hints and captions, are worse
      * (2.96:1 and 2.57:1). Roughly 1,150 places were affected across the
      * public site, signup, legal, club and admin surfaces.
      *
@@ -109,6 +119,8 @@
     --color-ink-muted: var(--ink-muted);
     --color-ink-subtle: var(--ink-subtle);
     --color-destructive-text: var(--destructive-text);
+    --color-heritage-union: var(--heritage-union);
+    --color-heritage-league: var(--heritage-league);
 
     /* Fluid display type scale (Bebas Neue). Storyboard-defined clamps. */
     --text-display-2xl: clamp(3.5rem, 3rem + 5vw, 9.5rem);

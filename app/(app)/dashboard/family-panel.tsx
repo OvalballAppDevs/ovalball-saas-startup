@@ -143,7 +143,7 @@ export async function FamilyPanel({
                         </dd>
                       </div>
                       <div className="flex items-start gap-2 text-sm">
-                        <Dumbbell className="mt-0.5 size-3.5 shrink-0 text-ink/50" aria-hidden="true" />
+                        <Dumbbell className="mt-0.5 size-3.5 shrink-0 text-ink-muted" aria-hidden="true" />
                         <dt className="sr-only">Next training</dt>
                         <dd className="text-ink">
                           {nextTraining ? (

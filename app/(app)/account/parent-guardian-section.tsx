@@ -53,7 +53,7 @@ export async function ParentGuardianSection({ supabase, userId }: { supabase: Su
               </span>
             </span>
           </span>
-          <ChevronRight className="size-4 shrink-0 text-ink/40" aria-hidden="true" />
+          <ChevronRight className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
         </Link>
 
         {/* Only shown when there is genuinely something to decide -- the
@@ -73,7 +73,7 @@ export async function ParentGuardianSection({ supabase, userId }: { supabase: Su
                 </span>
               </span>
             </span>
-            <ChevronRight className="size-4 shrink-0 text-ink/40" aria-hidden="true" />
+            <ChevronRight className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
           </Link>
         )}
       </div>

@@ -232,7 +232,7 @@ function BatchCard({ batch }: { batch: RolloverBatch }) {
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 bg-ink/[0.02] px-5 py-2.5">
             <h3 className="text-sm font-medium text-ink">{group.age}</h3>
             {group.rows.some((r) => r.teamSquadDesignation) && (
-              <p className="text-xs text-ink/55">
+              <p className="text-xs text-ink-muted">
                 Each squad is decided on its own — confirming {group.age} does not decide{" "}
                 {group.rows
                   .filter((r) => r.teamSquadDesignation)
@@ -597,7 +597,7 @@ function TeamProposalRow({ proposal }: { proposal: RolloverTeamProposalRow }) {
       </div>
 
       {noSuccessor && !adjusting && !folding && (
-        <p className="mt-1.5 max-w-2xl text-sm text-ink/55">
+        <p className="mt-1.5 max-w-2xl text-sm text-ink-muted">
           There is no established next age grade for this cohort in this code, so Ovalball will not invent one. Either the youth
           pathway ends here — its players move to the club&apos;s holding list, with no senior team assigned automatically — or
           you choose a destination yourself.

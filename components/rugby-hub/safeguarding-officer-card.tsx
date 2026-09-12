@@ -21,7 +21,7 @@ export function SafeguardingOfficerCard({ officer }: { officer: SafeguardingOffi
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium tracking-[0.06em] text-forest-800 uppercase">{officer.officerType === "primary" ? "Primary Safeguarding Officer" : "Deputy Safeguarding Officer"}</p>
         <h3 className="mt-0.5 text-[15px] font-semibold text-ink">{officer.officerDisplayName}</h3>
-        {isPending && <p className="mt-1 text-xs text-ink/50">Not yet an active Ovalball user &mdash; reachable by email only.</p>}
+        {isPending && <p className="mt-1 text-xs text-ink-muted">Not yet an active Ovalball user &mdash; reachable by email only.</p>}
         <Link
           href={`/rugby-hub/safeguarding/contact?club=${officer.clubId}&assignment=${officer.safeguardingOfficerAssignmentId}&mode=${officer.messageMode}`}
           className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-sm font-medium text-forest-800 outline-none transition-colors hover:border-ink/30 focus-visible:ring-2 focus-visible:ring-pitch-400"

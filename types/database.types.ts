@@ -8685,6 +8685,7 @@ export type Database = {
           id: string
           people: string[]
           places: string[]
+          search_vector: unknown
           significance: number
           summary: string
           tags: string[]
@@ -8706,6 +8707,7 @@ export type Database = {
           id?: string
           people?: string[]
           places?: string[]
+          search_vector?: unknown
           significance?: number
           summary: string
           tags?: string[]
@@ -8727,6 +8729,7 @@ export type Database = {
           id?: string
           people?: string[]
           places?: string[]
+          search_vector?: unknown
           significance?: number
           summary?: string
           tags?: string[]
@@ -8825,6 +8828,1246 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      hub_content_applicability: {
+        Row: {
+          competition_overlay_id: string | null
+          content_item_id: string | null
+          created_at: string
+          created_by: string | null
+          effective_from: string | null
+          effective_to: string | null
+          gender_pathway: string | null
+          geographic_scope: string | null
+          glossary_term_id: string | null
+          id: string
+          is_universal: boolean
+          position_id: string | null
+          regulatory_identity_id: string | null
+          season_id: string | null
+          skill_id: string | null
+        }
+        Insert: {
+          competition_overlay_id?: string | null
+          content_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          gender_pathway?: string | null
+          geographic_scope?: string | null
+          glossary_term_id?: string | null
+          id?: string
+          is_universal?: boolean
+          position_id?: string | null
+          regulatory_identity_id?: string | null
+          season_id?: string | null
+          skill_id?: string | null
+        }
+        Update: {
+          competition_overlay_id?: string | null
+          content_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          gender_pathway?: string | null
+          geographic_scope?: string | null
+          glossary_term_id?: string | null
+          id?: string
+          is_universal?: boolean
+          position_id?: string | null
+          regulatory_identity_id?: string | null
+          season_id?: string | null
+          skill_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_content_applicability_competition_overlay_id_fkey"
+            columns: ["competition_overlay_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_competition_overlays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_applicability_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_applicability_glossary_term_id_fkey"
+            columns: ["glossary_term_id"]
+            isOneToOne: false
+            referencedRelation: "hub_glossary_terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_applicability_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hub_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_applicability_regulatory_identity_id_fkey"
+            columns: ["regulatory_identity_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_identities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_applicability_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_applicability_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "hub_skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_content_heritage_links: {
+        Row: {
+          content_item_id: string
+          created_at: string
+          heritage_entry_id: string
+          id: string
+        }
+        Insert: {
+          content_item_id: string
+          created_at?: string
+          heritage_entry_id: string
+          id?: string
+        }
+        Update: {
+          content_item_id?: string
+          created_at?: string
+          heritage_entry_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_content_heritage_links_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_heritage_links_heritage_entry_id_fkey"
+            columns: ["heritage_entry_id"]
+            isOneToOne: false
+            referencedRelation: "heritage_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_content_item_positions: {
+        Row: {
+          content_item_id: string
+          created_at: string
+          position_id: string
+        }
+        Insert: {
+          content_item_id: string
+          created_at?: string
+          position_id: string
+        }
+        Update: {
+          content_item_id?: string
+          created_at?: string
+          position_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_content_item_positions_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_item_positions_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hub_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_content_items: {
+        Row: {
+          aliases: string[] | null
+          birth_year: number | null
+          body: string | null
+          club_directory_id: string | null
+          coaching_family: string | null
+          common_misunderstanding: string | null
+          concept_family: string | null
+          content_key: string
+          content_type: string
+          created_at: string
+          created_by: string | null
+          death_year: number | null
+          development_family: string | null
+          how_it_is_signalled: string | null
+          id: string
+          journey_order: number | null
+          officiating_family: string | null
+          parent_family: string | null
+          published_at: string | null
+          published_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          roles: string[] | null
+          rugby_code: string | null
+          search_vector: unknown
+          source_note: string | null
+          source_retrieved_on: string | null
+          source_url: string | null
+          status: string
+          summary: string
+          superseded_by: string | null
+          team_gender: string | null
+          team_type: string | null
+          title: string
+          union_league_difference: string | null
+          updated_at: string
+          updated_by: string | null
+          what_happens: string | null
+          what_happens_next: string | null
+          what_to_watch_for: string | null
+          why_it_matters: string | null
+        }
+        Insert: {
+          aliases?: string[] | null
+          birth_year?: number | null
+          body?: string | null
+          club_directory_id?: string | null
+          coaching_family?: string | null
+          common_misunderstanding?: string | null
+          concept_family?: string | null
+          content_key: string
+          content_type: string
+          created_at?: string
+          created_by?: string | null
+          death_year?: number | null
+          development_family?: string | null
+          how_it_is_signalled?: string | null
+          id?: string
+          journey_order?: number | null
+          officiating_family?: string | null
+          parent_family?: string | null
+          published_at?: string | null
+          published_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          roles?: string[] | null
+          rugby_code?: string | null
+          search_vector?: unknown
+          source_note?: string | null
+          source_retrieved_on?: string | null
+          source_url?: string | null
+          status?: string
+          summary: string
+          superseded_by?: string | null
+          team_gender?: string | null
+          team_type?: string | null
+          title: string
+          union_league_difference?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          what_happens?: string | null
+          what_happens_next?: string | null
+          what_to_watch_for?: string | null
+          why_it_matters?: string | null
+        }
+        Update: {
+          aliases?: string[] | null
+          birth_year?: number | null
+          body?: string | null
+          club_directory_id?: string | null
+          coaching_family?: string | null
+          common_misunderstanding?: string | null
+          concept_family?: string | null
+          content_key?: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          death_year?: number | null
+          development_family?: string | null
+          how_it_is_signalled?: string | null
+          id?: string
+          journey_order?: number | null
+          officiating_family?: string | null
+          parent_family?: string | null
+          published_at?: string | null
+          published_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          roles?: string[] | null
+          rugby_code?: string | null
+          search_vector?: unknown
+          source_note?: string | null
+          source_retrieved_on?: string | null
+          source_url?: string | null
+          status?: string
+          summary?: string
+          superseded_by?: string | null
+          team_gender?: string | null
+          team_type?: string | null
+          title?: string
+          union_league_difference?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          what_happens?: string | null
+          what_happens_next?: string | null
+          what_to_watch_for?: string | null
+          why_it_matters?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_content_items_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["directory_id"]
+          },
+          {
+            foreignKeyName: "hub_content_items_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_directory_id"]
+          },
+          {
+            foreignKeyName: "hub_content_items_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "club_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_items_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_content_relationships: {
+        Row: {
+          content_item_id: string
+          created_at: string
+          related_content_item_id: string
+          relationship_type: string
+        }
+        Insert: {
+          content_item_id: string
+          created_at?: string
+          related_content_item_id: string
+          relationship_type: string
+        }
+        Update: {
+          content_item_id?: string
+          created_at?: string
+          related_content_item_id?: string
+          relationship_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_content_relationships_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_content_relationships_related_content_item_id_fkey"
+            columns: ["related_content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_content_sources: {
+        Row: {
+          content_item_id: string
+          created_at: string
+          id: string
+          retrieved_on: string | null
+          source_tier: string
+          source_title: string
+          source_url: string | null
+        }
+        Insert: {
+          content_item_id: string
+          created_at?: string
+          id?: string
+          retrieved_on?: string | null
+          source_tier: string
+          source_title: string
+          source_url?: string | null
+        }
+        Update: {
+          content_item_id?: string
+          created_at?: string
+          id?: string
+          retrieved_on?: string | null
+          source_tier?: string
+          source_title?: string
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_content_sources_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_glossary_content_links: {
+        Row: {
+          content_item_id: string
+          created_at: string
+          glossary_term_id: string
+        }
+        Insert: {
+          content_item_id: string
+          created_at?: string
+          glossary_term_id: string
+        }
+        Update: {
+          content_item_id?: string
+          created_at?: string
+          glossary_term_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_glossary_content_links_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_glossary_content_links_glossary_term_id_fkey"
+            columns: ["glossary_term_id"]
+            isOneToOne: false
+            referencedRelation: "hub_glossary_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_glossary_positions: {
+        Row: {
+          created_at: string
+          glossary_term_id: string
+          position_id: string
+        }
+        Insert: {
+          created_at?: string
+          glossary_term_id: string
+          position_id: string
+        }
+        Update: {
+          created_at?: string
+          glossary_term_id?: string
+          position_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_glossary_positions_glossary_term_id_fkey"
+            columns: ["glossary_term_id"]
+            isOneToOne: false
+            referencedRelation: "hub_glossary_terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_glossary_positions_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hub_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_glossary_relationships: {
+        Row: {
+          created_at: string
+          glossary_term_id: string
+          related_glossary_term_id: string
+        }
+        Insert: {
+          created_at?: string
+          glossary_term_id: string
+          related_glossary_term_id: string
+        }
+        Update: {
+          created_at?: string
+          glossary_term_id?: string
+          related_glossary_term_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_glossary_relationships_glossary_term_id_fkey"
+            columns: ["glossary_term_id"]
+            isOneToOne: false
+            referencedRelation: "hub_glossary_terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_glossary_relationships_related_glossary_term_id_fkey"
+            columns: ["related_glossary_term_id"]
+            isOneToOne: false
+            referencedRelation: "hub_glossary_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_glossary_skills: {
+        Row: {
+          created_at: string
+          glossary_term_id: string
+          skill_id: string
+        }
+        Insert: {
+          created_at?: string
+          glossary_term_id: string
+          skill_id: string
+        }
+        Update: {
+          created_at?: string
+          glossary_term_id?: string
+          skill_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_glossary_skills_glossary_term_id_fkey"
+            columns: ["glossary_term_id"]
+            isOneToOne: false
+            referencedRelation: "hub_glossary_terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_glossary_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "hub_skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_glossary_terms: {
+        Row: {
+          aliases: string[]
+          created_at: string
+          created_by: string | null
+          detail_content_item_id: string | null
+          display_term: string
+          id: string
+          plain_language_definition: string
+          published_at: string | null
+          published_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rugby_code: string | null
+          search_vector: unknown
+          status: string
+          superseded_by: string | null
+          term_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          aliases?: string[]
+          created_at?: string
+          created_by?: string | null
+          detail_content_item_id?: string | null
+          display_term: string
+          id?: string
+          plain_language_definition: string
+          published_at?: string | null
+          published_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rugby_code?: string | null
+          search_vector?: unknown
+          status?: string
+          superseded_by?: string | null
+          term_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          aliases?: string[]
+          created_at?: string
+          created_by?: string | null
+          detail_content_item_id?: string | null
+          display_term?: string
+          id?: string
+          plain_language_definition?: string
+          published_at?: string | null
+          published_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rugby_code?: string | null
+          search_vector?: unknown
+          status?: string
+          superseded_by?: string | null
+          term_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_glossary_terms_detail_content_item_id_fkey"
+            columns: ["detail_content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_glossary_terms_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "hub_glossary_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_person_honour_relationships: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          honour_id: string
+          id: string
+          notes: string | null
+          person_id: string
+          role_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          honour_id: string
+          id?: string
+          notes?: string | null
+          person_id: string
+          role_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          honour_id?: string
+          id?: string
+          notes?: string | null
+          person_id?: string
+          role_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_person_honour_relationships_honour_id_fkey"
+            columns: ["honour_id"]
+            isOneToOne: false
+            referencedRelation: "hub_team_honours"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_person_honour_relationships_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_person_team_relationships: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          person_id: string
+          role_type: string
+          source_note: string | null
+          source_retrieved_on: string | null
+          source_url: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          person_id: string
+          role_type: string
+          source_note?: string | null
+          source_retrieved_on?: string | null
+          source_url?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          person_id?: string
+          role_type?: string
+          source_note?: string | null
+          source_retrieved_on?: string | null
+          source_url?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_person_team_relationships_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_person_team_relationships_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_position_age_stage: {
+        Row: {
+          created_at: string
+          id: string
+          position_id: string
+          regulatory_identity_id: string
+          stage: string
+          stage_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position_id: string
+          regulatory_identity_id: string
+          stage: string
+          stage_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position_id?: string
+          regulatory_identity_id?: string
+          stage?: string
+          stage_note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_position_age_stage_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hub_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_position_age_stage_regulatory_identity_id_fkey"
+            columns: ["regulatory_identity_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_identities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_position_relationships: {
+        Row: {
+          created_at: string
+          position_id: string
+          related_position_id: string
+        }
+        Insert: {
+          created_at?: string
+          position_id: string
+          related_position_id: string
+        }
+        Update: {
+          created_at?: string
+          position_id?: string
+          related_position_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_position_relationships_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hub_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_position_relationships_related_position_id_fkey"
+            columns: ["related_position_id"]
+            isOneToOne: false
+            referencedRelation: "hub_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_position_skills: {
+        Row: {
+          created_at: string
+          note: string | null
+          position_id: string
+          skill_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          position_id: string
+          skill_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          position_id?: string
+          skill_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_position_skills_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hub_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_position_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "hub_skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_positions: {
+        Row: {
+          age_guidance_note: string | null
+          alternative_names: string[]
+          attack_responsibilities: string | null
+          common_mistakes: string | null
+          communication: string | null
+          created_at: string
+          created_by: string | null
+          decision_making: string | null
+          defence_responsibilities: string | null
+          detail_content_item_id: string | null
+          development_priorities: string | null
+          display_name: string
+          id: string
+          key_skills_summary: string | null
+          pitch_anchor_x: number | null
+          pitch_anchor_y: number | null
+          position_family: string
+          position_key: string
+          published_at: string | null
+          published_by: string | null
+          purpose: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          role_with_ball: string | null
+          role_without_ball: string | null
+          rugby_code: string
+          search_vector: unknown
+          set_piece_responsibilities: string | null
+          shirt_number: number | null
+          status: string
+          strong_performance_looks_like: string | null
+          superseded_by: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          age_guidance_note?: string | null
+          alternative_names?: string[]
+          attack_responsibilities?: string | null
+          common_mistakes?: string | null
+          communication?: string | null
+          created_at?: string
+          created_by?: string | null
+          decision_making?: string | null
+          defence_responsibilities?: string | null
+          detail_content_item_id?: string | null
+          development_priorities?: string | null
+          display_name: string
+          id?: string
+          key_skills_summary?: string | null
+          pitch_anchor_x?: number | null
+          pitch_anchor_y?: number | null
+          position_family: string
+          position_key: string
+          published_at?: string | null
+          published_by?: string | null
+          purpose: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          role_with_ball?: string | null
+          role_without_ball?: string | null
+          rugby_code: string
+          search_vector?: unknown
+          set_piece_responsibilities?: string | null
+          shirt_number?: number | null
+          status?: string
+          strong_performance_looks_like?: string | null
+          superseded_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          age_guidance_note?: string | null
+          alternative_names?: string[]
+          attack_responsibilities?: string | null
+          common_mistakes?: string | null
+          communication?: string | null
+          created_at?: string
+          created_by?: string | null
+          decision_making?: string | null
+          defence_responsibilities?: string | null
+          detail_content_item_id?: string | null
+          development_priorities?: string | null
+          display_name?: string
+          id?: string
+          key_skills_summary?: string | null
+          pitch_anchor_x?: number | null
+          pitch_anchor_y?: number | null
+          position_family?: string
+          position_key?: string
+          published_at?: string | null
+          published_by?: string | null
+          purpose?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          role_with_ball?: string | null
+          role_without_ball?: string | null
+          rugby_code?: string
+          search_vector?: unknown
+          set_piece_responsibilities?: string | null
+          shirt_number?: number | null
+          status?: string
+          strong_performance_looks_like?: string | null
+          superseded_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_positions_detail_content_item_id_fkey"
+            columns: ["detail_content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_positions_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "hub_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_regulatory_fact_references: {
+        Row: {
+          content_item_id: string | null
+          created_at: string
+          glossary_term_id: string | null
+          id: string
+          reference_type: string
+          regulatory_fact_id: string
+        }
+        Insert: {
+          content_item_id?: string | null
+          created_at?: string
+          glossary_term_id?: string | null
+          id?: string
+          reference_type: string
+          regulatory_fact_id: string
+        }
+        Update: {
+          content_item_id?: string | null
+          created_at?: string
+          glossary_term_id?: string | null
+          id?: string
+          reference_type?: string
+          regulatory_fact_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_regulatory_fact_references_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_regulatory_fact_references_glossary_term_id_fkey"
+            columns: ["glossary_term_id"]
+            isOneToOne: false
+            referencedRelation: "hub_glossary_terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_regulatory_fact_references_regulatory_fact_id_fkey"
+            columns: ["regulatory_fact_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_facts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_skill_content_links: {
+        Row: {
+          content_item_id: string
+          created_at: string
+          skill_id: string
+        }
+        Insert: {
+          content_item_id: string
+          created_at?: string
+          skill_id: string
+        }
+        Update: {
+          content_item_id?: string
+          created_at?: string
+          skill_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_skill_content_links_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_skill_content_links_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "hub_skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_skill_relationships: {
+        Row: {
+          created_at: string
+          related_skill_id: string
+          relationship_type: string
+          skill_id: string
+        }
+        Insert: {
+          created_at?: string
+          related_skill_id: string
+          relationship_type: string
+          skill_id: string
+        }
+        Update: {
+          created_at?: string
+          related_skill_id?: string
+          relationship_type?: string
+          skill_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_skill_relationships_related_skill_id_fkey"
+            columns: ["related_skill_id"]
+            isOneToOne: false
+            referencedRelation: "hub_skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_skill_relationships_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "hub_skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_skills: {
+        Row: {
+          common_mistakes: string | null
+          created_at: string
+          created_by: string | null
+          detail_content_item_id: string | null
+          display_name: string
+          game_examples: string | null
+          how_to_improve: string | null
+          id: string
+          key_cues: string | null
+          published_at: string | null
+          published_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rugby_code: string | null
+          search_vector: unknown
+          skill_family: string
+          skill_key: string
+          status: string
+          summary: string
+          superseded_by: string | null
+          technique_steps: Json | null
+          updated_at: string
+          updated_by: string | null
+          when_you_use_it: string | null
+          why_it_matters: string | null
+        }
+        Insert: {
+          common_mistakes?: string | null
+          created_at?: string
+          created_by?: string | null
+          detail_content_item_id?: string | null
+          display_name: string
+          game_examples?: string | null
+          how_to_improve?: string | null
+          id?: string
+          key_cues?: string | null
+          published_at?: string | null
+          published_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rugby_code?: string | null
+          search_vector?: unknown
+          skill_family: string
+          skill_key: string
+          status?: string
+          summary: string
+          superseded_by?: string | null
+          technique_steps?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+          when_you_use_it?: string | null
+          why_it_matters?: string | null
+        }
+        Update: {
+          common_mistakes?: string | null
+          created_at?: string
+          created_by?: string | null
+          detail_content_item_id?: string | null
+          display_name?: string
+          game_examples?: string | null
+          how_to_improve?: string | null
+          id?: string
+          key_cues?: string | null
+          published_at?: string | null
+          published_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rugby_code?: string | null
+          search_vector?: unknown
+          skill_family?: string
+          skill_key?: string
+          status?: string
+          summary?: string
+          superseded_by?: string | null
+          technique_steps?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+          when_you_use_it?: string | null
+          why_it_matters?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_skills_detail_content_item_id_fkey"
+            columns: ["detail_content_item_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_skills_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "hub_skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_team_honours: {
+        Row: {
+          competition_id: string
+          created_at: string
+          created_by: string | null
+          honour_type: string
+          id: string
+          notes: string | null
+          source_note: string | null
+          source_retrieved_on: string | null
+          source_url: string | null
+          team_id: string
+          updated_at: string
+          year_label: string
+        }
+        Insert: {
+          competition_id: string
+          created_at?: string
+          created_by?: string | null
+          honour_type: string
+          id?: string
+          notes?: string | null
+          source_note?: string | null
+          source_retrieved_on?: string | null
+          source_url?: string | null
+          team_id: string
+          updated_at?: string
+          year_label: string
+        }
+        Update: {
+          competition_id?: string
+          created_at?: string
+          created_by?: string | null
+          honour_type?: string
+          id?: string
+          notes?: string | null
+          source_note?: string | null
+          source_retrieved_on?: string | null
+          source_url?: string | null
+          team_id?: string
+          updated_at?: string
+          year_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_team_honours_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_team_honours_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "hub_content_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invitation_teams: {
         Row: {
@@ -12507,6 +13750,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          display_title: string | null
           effective_from: string | null
           effective_to: string | null
           fact_key: string
@@ -12515,6 +13759,7 @@ export type Database = {
           notes: string | null
           obligation_level: string | null
           rugby_code: string
+          search_vector: unknown
           season_id: string | null
           status: string
           subtopic: string | null
@@ -12540,6 +13785,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          display_title?: string | null
           effective_from?: string | null
           effective_to?: string | null
           fact_key: string
@@ -12548,6 +13794,7 @@ export type Database = {
           notes?: string | null
           obligation_level?: string | null
           rugby_code: string
+          search_vector?: unknown
           season_id?: string | null
           status?: string
           subtopic?: string | null
@@ -12573,6 +13820,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          display_title?: string | null
           effective_from?: string | null
           effective_to?: string | null
           fact_key?: string
@@ -12581,6 +13829,7 @@ export type Database = {
           notes?: string | null
           obligation_level?: string | null
           rugby_code?: string
+          search_vector?: unknown
           season_id?: string | null
           status?: string
           subtopic?: string | null
@@ -13564,6 +14813,7 @@ export type Database = {
           manage_competitions: boolean
           manage_fixture_support: boolean
           manage_global_lookups: boolean
+          manage_hub_content: boolean
           manage_permissions: boolean
           manage_regulatory_content: boolean
           manage_seasons: boolean
@@ -13575,6 +14825,7 @@ export type Database = {
           updated_at: string
           user_id: string
           view_commercial: boolean
+          view_hub_content: boolean
           view_regulatory_content: boolean
         }
         Insert: {
@@ -13587,6 +14838,7 @@ export type Database = {
           manage_competitions?: boolean
           manage_fixture_support?: boolean
           manage_global_lookups?: boolean
+          manage_hub_content?: boolean
           manage_permissions?: boolean
           manage_regulatory_content?: boolean
           manage_seasons?: boolean
@@ -13598,6 +14850,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           view_commercial?: boolean
+          view_hub_content?: boolean
           view_regulatory_content?: boolean
         }
         Update: {
@@ -13610,6 +14863,7 @@ export type Database = {
           manage_competitions?: boolean
           manage_fixture_support?: boolean
           manage_global_lookups?: boolean
+          manage_hub_content?: boolean
           manage_permissions?: boolean
           manage_regulatory_content?: boolean
           manage_seasons?: boolean
@@ -13621,6 +14875,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           view_commercial?: boolean
+          view_hub_content?: boolean
           view_regulatory_content?: boolean
         }
         Relationships: []
@@ -18570,6 +19825,38 @@ export type Database = {
           team_display_name: string
         }[]
       }
+      get_hub_glossary_term_regulatory_facts: {
+        Args: { p_glossary_term_id: string }
+        Returns: {
+          fact_key: string
+          value_text: string
+        }[]
+      }
+      get_hub_recommended_content: {
+        Args: { p_limit?: number; p_regulatory_identity_id?: string }
+        Returns: {
+          is_universal_match: boolean
+          result_id: string
+          result_type: string
+          summary: string
+          title: string
+        }[]
+      }
+      get_hub_regulatory_fact_applies: {
+        Args: { p_fact_key: string; p_regulatory_identity_id: string }
+        Returns: boolean
+      }
+      get_hub_skill_content_regulatory_facts: {
+        Args: { p_content_item_id: string }
+        Returns: {
+          fact_key: string
+          value_text: string
+        }[]
+      }
+      get_hub_superseded_skill_redirect: {
+        Args: { p_skill_key: string }
+        Returns: string
+      }
       get_invitation_preview: {
         Args: { p_token: string }
         Returns: {
@@ -18679,6 +19966,20 @@ export type Database = {
           permission_key: string
         }[]
       }
+      get_regulatory_fact_search_context: {
+        Args: { p_fact_ids: string[] }
+        Returns: {
+          destination_kind: string
+          fact_id: string
+          identity_key: string
+          occurrence_count: number
+          regulatory_identity_id: string
+          rugby_code: string
+          section_key: string
+          skill_key: string
+          topic: string
+        }[]
+      }
       get_rugby_hub_identity_context: {
         Args: { p_team_id: string }
         Returns: {
@@ -18695,10 +19996,12 @@ export type Database = {
         }
         Returns: {
           content_set_id: string
+          display_title: string
           fact_id: string
           fact_key: string
           fact_type: string
           is_overlay: boolean
+          is_tier1_variation: boolean
           primary_source_key: string
           primary_source_locator: string
           section_key: string
@@ -18713,6 +20016,52 @@ export type Database = {
           value_text: string
           value_type: string
           value_unit: string
+        }[]
+      }
+      get_rugby_hub_rules_by_identity: {
+        Args: { p_identity_key: string }
+        Returns: {
+          content_set_id: string
+          display_title: string
+          fact_id: string
+          fact_key: string
+          fact_type: string
+          identity_label: string
+          identity_rugby_code: string
+          is_overlay: boolean
+          is_tier1_variation: boolean
+          primary_source_key: string
+          primary_source_locator: string
+          section_key: string
+          value_boolean: boolean
+          value_decimal: number
+          value_distance_metres: number
+          value_duration_minutes: number
+          value_enum: string
+          value_integer: number
+          value_range_max: number
+          value_range_min: number
+          value_text: string
+          value_type: string
+          value_unit: string
+        }[]
+      }
+      get_rugby_hub_safeguarding_by_identity: {
+        Args: { p_identity_key?: string; p_rugby_code: string }
+        Returns: {
+          body: string
+          content_set_id: string
+          display_order: number
+          fact_id: string
+          fact_type: string
+          identity_label: string
+          identity_rugby_code: string
+          primary_source_key: string
+          primary_source_locator: string
+          section_key: string
+          value_boolean: boolean
+          value_text: string
+          value_type: string
         }[]
       }
       get_rugby_hub_safeguarding_content: {
@@ -18754,6 +20103,26 @@ export type Database = {
           display_order: number
           fact_id: string
           fact_type: string
+          obligation_level: string
+          primary_source_key: string
+          primary_source_locator: string
+          section_key: string
+          value_integer: number
+          value_text: string
+          value_type: string
+          value_unit: string
+        }[]
+      }
+      get_rugby_hub_welfare_by_identity: {
+        Args: { p_identity_key?: string; p_rugby_code: string }
+        Returns: {
+          body: string
+          content_set_id: string
+          display_order: number
+          fact_id: string
+          fact_type: string
+          identity_label: string
+          identity_rugby_code: string
           obligation_level: string
           primary_source_key: string
           primary_source_locator: string
@@ -20302,6 +21671,16 @@ export type Database = {
         }
         Returns: string
       }
+      search_hub_content: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          rank: number
+          result_id: string
+          result_type: string
+          snippet: string
+          title: string
+        }[]
+      }
       search_scheduling_groups: {
         Args: { p_requesting_team_id: string }
         Returns: {
@@ -20598,6 +21977,8 @@ export type Database = {
         }
         Returns: string
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       site_admin_dashboard_commercial: {
         Args: never
         Returns: {

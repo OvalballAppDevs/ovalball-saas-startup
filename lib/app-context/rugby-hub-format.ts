@@ -33,7 +33,17 @@ export const RULES_SECTION_LABELS: Record<string, string> = {
   BALL: "Ball Size",
   SCRUM: "Scrum",
   LINEOUT: "Lineout",
+  KICKING: "Kicking",
+  RESTART: "Restarts",
   SAFETY: "Contact / Tackle",
+  SCORING: "Scoring",
+  ADVANTAGE: "Advantage",
+  OFFSIDE: "Offside",
+  TACKLE_BREAKDOWN: "Tackle & Breakdown",
+  FOUL_PLAY: "Foul Play",
+  SANCTIONS: "Sanctions",
+  TOUCH_AND_RESTART: "Touch & Restart",
+  VIDEO_REVIEW: "Video Review",
   OTHER: "Other Variations",
 }
 

@@ -313,7 +313,7 @@ export function TemplateEditor({
                 aria-describedby="body-hint"
                 className="mt-1.5 w-full rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:bg-ink/[0.03]"
               />
-              <p id="body-hint" className="mt-1 text-xs text-ink/55">
+              <p id="body-hint" className="mt-1 text-xs text-ink-muted">
                 Leave a blank line between paragraphs. Formatting, spacing and the Ovalball footer are added for you.
               </p>
             </div>
@@ -461,7 +461,7 @@ export function TemplateEditor({
                     <span className="text-sm font-medium text-ink">Version {v.revision}</span>
                     <span className="mt-0.5 block truncate text-sm text-ink-muted">{v.subject}</span>
                   </span>
-                  <span className="shrink-0 text-xs text-ink/55">
+                  <span className="shrink-0 text-xs text-ink-muted">
                     {v.isActive ? "Being sent now · " : v.status === "draft" ? "Unpublished draft · " : ""}
                     {new Date(v.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
@@ -624,7 +624,7 @@ function DynamicDataPanel({
       </p>
 
       <div className="relative mt-3">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink/40" aria-hidden="true" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
         <label htmlFor="dynamic-data-search" className="sr-only">
           Search Dynamic Data
         </label>
@@ -641,7 +641,7 @@ function DynamicDataPanel({
             type="button"
             onClick={() => setQuery("")}
             aria-label="Clear search"
-            className="absolute top-1/2 right-0 flex size-11 -translate-y-1/2 items-center justify-center text-ink/40 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+            className="absolute top-1/2 right-0 flex size-11 -translate-y-1/2 items-center justify-center text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -649,7 +649,7 @@ function DynamicDataPanel({
       </div>
 
       {canEdit && (
-        <p className="mt-3 text-xs text-ink/55">
+        <p className="mt-3 text-xs text-ink-muted">
           Inserting into: <span className="font-medium text-ink/70">{activeFieldLabel}</span>
         </p>
       )}
@@ -657,7 +657,7 @@ function DynamicDataPanel({
       <div className="mt-3 max-h-[420px] space-y-4 overflow-y-auto">
         {recommended.length > 0 && (
           <div>
-            <p className="text-xs font-semibold tracking-[0.06em] text-ink/50 uppercase">Recommended for this email</p>
+            <p className="text-xs font-semibold tracking-[0.06em] text-ink-muted uppercase">Recommended for this email</p>
             <ul className="mt-1.5 space-y-1.5">
               {recommended.map((row) => (
                 <li key={row.key}>
@@ -676,7 +676,7 @@ function DynamicDataPanel({
 
         {groups.map((group) => (
           <div key={group}>
-            <p className="text-xs font-semibold tracking-[0.06em] text-ink/50 uppercase">{group}</p>
+            <p className="text-xs font-semibold tracking-[0.06em] text-ink-muted uppercase">{group}</p>
             <ul className="mt-1.5 space-y-1.5">
               {rest
                 .filter((i) => i.group === group)
@@ -748,7 +748,7 @@ function DynamicDataCard({
             <code className="block truncate text-xs font-medium text-forest-800">{`{{${row.key}}}`}</code>
           ) : (
             <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
-              <Info className="size-3.5 shrink-0 text-ink/50" aria-hidden="true" />
+              <Info className="size-3.5 shrink-0 text-ink-muted" aria-hidden="true" />
               {row.label}
             </span>
           )}
@@ -761,15 +761,15 @@ function DynamicDataCard({
           <p className="text-xs text-ink-muted">{row.description}</p>
           <dl className="grid grid-cols-1 gap-y-1 text-[11px] text-ink/60">
             <div>
-              <dt className="inline font-medium text-ink/50">Example: </dt>
+              <dt className="inline font-medium text-ink-muted">Example: </dt>
               <dd className="inline text-ink">&ldquo;{sample}&rdquo;</dd>
             </div>
             <div>
-              <dt className="inline font-medium text-ink/50">Available when: </dt>
+              <dt className="inline font-medium text-ink-muted">Available when: </dt>
               <dd className="inline text-ink">{row.availability || "Always."}</dd>
             </div>
             <div>
-              <dt className="inline font-medium text-ink/50">Source: </dt>
+              <dt className="inline font-medium text-ink-muted">Source: </dt>
               <dd className="inline text-ink">{row.source}</dd>
             </div>
           </dl>
@@ -779,7 +779,7 @@ function DynamicDataCard({
             </Button>
           )}
           {!insertable && (
-            <p className="text-[11px] text-ink/50">
+            <p className="text-[11px] text-ink-muted">
               Not a token &mdash; there is nothing to insert, and it cannot be added to Subject, Preview text or the button
               label.
             </p>
@@ -822,7 +822,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
       />
-      <p id={`${id}-hint`} className="mt-1 text-xs text-ink/55">
+      <p id={`${id}-hint`} className="mt-1 text-xs text-ink-muted">
         {hint}
       </p>
     </div>

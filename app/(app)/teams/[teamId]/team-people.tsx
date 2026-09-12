@@ -162,7 +162,7 @@ export function TeamPeople({
               aria-selected={active}
               onClick={() => setTab(t.key)}
               className={`min-h-11 border-b-2 px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400 ${
-                active ? "-mb-px border-forest-800 text-forest-950" : "border-transparent text-ink/50 hover:text-ink/80"
+                active ? "-mb-px border-forest-800 text-forest-950" : "border-transparent text-ink-muted hover:text-ink/80"
               }`}
             >
               {t.label}

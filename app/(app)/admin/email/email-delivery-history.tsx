@@ -43,7 +43,7 @@ export function EmailDeliveryHistory({ deliveries }: { deliveries: EmailRecentDe
 
 function Chip({ tone, children }: { tone: "quiet" | "forest" | "amber"; children: React.ReactNode }) {
   const tones = {
-    quiet: "border-ink/15 text-ink/55",
+    quiet: "border-ink/15 text-ink-muted",
     forest: "border-forest-800/30 text-forest-800",
     amber: "border-amber-500/40 text-ink",
   } as const

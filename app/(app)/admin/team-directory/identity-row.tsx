@@ -47,7 +47,7 @@ export function IdentityRow({
     <li className="flex items-center justify-between gap-3 px-4 py-2.5">
       <div className="min-w-0">
         <p className={`truncate text-sm font-medium ${isActive ? "text-ink" : "text-ink-muted"}`}>{compact}</p>
-        <p className="truncate text-sm text-ink/55">{display}</p>
+        <p className="truncate text-sm text-ink-muted">{display}</p>
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
@@ -58,7 +58,7 @@ export function IdentityRow({
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`More options for ${display}`}
-              className="rounded-md p-1.5 text-ink/45 outline-none hover:bg-ink/5 hover:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400"
+              className="rounded-md p-1.5 text-ink-muted outline-none hover:bg-ink/5 hover:text-ink/70 focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
               <EllipsisVertical className="size-4" aria-hidden="true" />
             </DropdownMenuTrigger>

@@ -38,7 +38,7 @@ export function HandoverNav({ active, attentionCount }: { active: HandoverSectio
             className={`rounded-t-md px-3.5 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 ${
               isActive
                 ? "-mb-px border-b-2 border-forest-800 font-medium text-forest-950"
-                : "border-b-2 border-transparent text-ink/55 hover:text-ink/80"
+                : "border-b-2 border-transparent text-ink-muted hover:text-ink/80"
             }`}
           >
             {LABELS[section]}
