@@ -21,7 +21,7 @@
  * deliberate treatment, not an accident.
  */
 
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { execSync } from "node:child_process"
 import path from "node:path"
 
@@ -64,12 +64,45 @@ const CANONICAL_DESTINATIONS = [
 /** Never re-cased by any pass, now or later. */
 const PROTECTED_ACRONYMS = ["RFU", "RFL", "DOB", "GoCardless", "Ovalball"]
 
-const files = execSync("git ls-files 'app/**/*.tsx' 'app/**/*.ts' 'components/**/*.tsx' 'lib/**/*.ts'", {
-  cwd: ROOT,
-  encoding: "utf8",
-})
+/**
+ * A GUARD THAT CANNOT SEE NEW WORK IS WORSE THAN NO GUARD.
+ *
+ * This enumeration used plain `git ls-files`, which lists only TRACKED
+ * files. Every file is untracked while it is being written, so the guard
+ * reported "ok" over hundreds of files while never once looking at the work
+ * actually in progress — and only started checking it after it had been
+ * committed, which is the point at which a violation is most expensive to
+ * find. A green result for content it has not examined is the most
+ * misleading answer a check can give.
+ *
+ * `--cached --others --exclude-standard` lists tracked files AND untracked
+ * files that are not ignored. Tracked behaviour is unchanged; what is added
+ * is the work in flight. `--exclude-standard` honours .gitignore, so
+ * node_modules, .next and build output never appear, and the pathspecs
+ * already confine this to app/, components/ and lib/ source.
+ *
+ * NEVER_SCAN is belt and braces for directories that are NOT gitignored --
+ * .claude holds worktrees and job scratch, and a nested worktree contains a
+ * whole second copy of the app that must not be linted as if it were this
+ * one.
+ */
+const NEVER_SCAN = [".claude/", "node_modules/", ".next/", "out/", "dist/", "build/", "coverage/"]
+
+// PATHSPECS: `app/*.tsx`, not `app/**/*.tsx`.
+//
+// In git's default pathspec matching `*` already crosses `/`, so `lib/*.ts`
+// matches lib/utils.ts AND lib/app-context/clubs-data.ts. `lib/**/*.ts` does
+// NOT match lib/utils.ts — it requires at least one intervening directory.
+// That silently excluded every top-level file in app/, components/ and lib/
+// for the whole life of this guard. The untracked self-test below is what
+// surfaced it, which is the argument for having the self-test at all.
+const files = execSync(
+  "git ls-files --cached --others --exclude-standard 'app/*.tsx' 'app/*.ts' 'components/*.tsx' 'components/*.ts' 'lib/*.ts' 'lib/*.tsx'",
+  { cwd: ROOT, encoding: "utf8" },
+)
   .trim()
   .split("\n")
+  .filter((f) => f && !NEVER_SCAN.some((d) => f.startsWith(d)))
   .filter((f) => !MARKETING.some((m) => f.startsWith(m)))
   // git ls-files lists what is TRACKED, which still includes a file deleted in
   // the working tree but not yet staged. Reading one threw ENOENT and took the
@@ -77,6 +110,59 @@ const files = execSync("git ls-files 'app/**/*.tsx' 'app/**/*.ts' 'components/**
   // check. Skipping what is no longer on disk narrows nothing: a deleted file
   // has no copy left to get wrong.
   .filter((f) => existsSync(path.join(ROOT, f)))
+
+/**
+ * THE REGRESSION FOR THE BLIND SPOT ITSELF.
+ *
+ * The defect this guards against was not a wrong rule — every rule passed.
+ * It was that the enumeration silently skipped untracked files, so the
+ * guard could report "ok" over work it had never opened. A rule test would
+ * not have caught that; only a test of what gets ENUMERATED can.
+ *
+ * So on every run the guard writes one throwaway source file in an
+ * eligible location, asks the enumeration for its file list again, and
+ * requires that the new file appears. The file is removed in a finally, so
+ * an interrupted run cannot leave it behind, and it lives under a name
+ * nothing else could mistake for real source.
+ *
+ * If somebody reverts the enumeration to tracked-only, this fails loudly
+ * instead of going quietly green.
+ */
+function enumerateForSelfTest() {
+  return execSync(
+    "git ls-files --cached --others --exclude-standard 'app/*.tsx' 'app/*.ts' 'components/*.tsx' 'components/*.ts' 'lib/*.ts' 'lib/*.tsx'",
+    { cwd: ROOT, encoding: "utf8" },
+  )
+    .trim()
+    .split("\n")
+}
+
+const PROBE = "lib/__content_guard_untracked_probe__.ts"
+{
+  const probePath = path.join(ROOT, PROBE)
+  let seen = false
+  try {
+    writeFileSync(probePath, "export const CONTENT_GUARD_PROBE = true\n")
+    seen = enumerateForSelfTest().includes(PROBE)
+  } finally {
+    try {
+      unlinkSync(probePath)
+    } catch {}
+  }
+  if (!seen) {
+    console.error("  FAIL  content_standard")
+    console.error(
+      `          self-test: an UNTRACKED eligible file (${PROBE}) was not enumerated.`,
+    )
+    console.error(
+      "          The guard would report ok over work it never opened. Restore",
+    )
+    console.error(
+      "          `git ls-files --cached --others --exclude-standard` in the enumeration.",
+    )
+    process.exit(1)
+  }
+}
 
 const failures = []
 
@@ -152,7 +238,7 @@ const { toTitleCase } = await import(path.join(ROOT, "lib/content/title-case.ts"
 const NAV_SOURCES = [
   "lib/app-context/build-nav-items.ts",
   "app/(app)/club/settings/club-settings-nav.tsx",
-  "app/(app)/rugby-hub/section-nav.tsx",
+  "components/rugby-hub/nav/hub-nav-groups.ts",
   "app/(app)/club/rollover/handover-nav.tsx",
 ]
 for (const file of NAV_SOURCES) {
@@ -162,7 +248,12 @@ for (const file of NAV_SOURCES) {
       failures.push(`${file}  navigation label "${m[1]}" should be "${toTitleCase(m[1])}"`)
     }
   }
+  // Prose keys are body copy, not labels: CLAUDE.md rule 2 puts descriptions
+  // and blurbs in sentence case, so title-casing them would be the defect.
+  // Every real `label:` is still checked by the pattern above.
+  const PROSE_KEYS = new Set(["description", "blurb", "summary", "helpText", "hint"])
   for (const m of src.matchAll(/^\s+(\w+):\s*"([A-Z][^"]+)",?$/gm)) {
+    if (PROSE_KEYS.has(m[1])) continue
     if (toTitleCase(m[2]) !== m[2]) {
       failures.push(`${file}  navigation label "${m[2]}" should be "${toTitleCase(m[2])}"`)
     }

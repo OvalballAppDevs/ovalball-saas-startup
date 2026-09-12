@@ -59,6 +59,15 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-tournament-centre-shared.mjs"; 
   exit 1
 fi
 
+# Rugby Hub general knowledge: Training Centre/Training Knowledge stay
+# separate, general content cannot escape-hatch around regulatory
+# provenance controls, one applicability architecture, published-only RLS
+# by default, no role-branched Hub implementation. See the script's own
+# header.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-hub-content-architecture.mjs"; then
+  exit 1
+fi
+
 # The email catalogue, its editable contracts and its wiring must agree. See
 # the script's own header for the quiet failure this exists to catch.
 if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-email-wiring.mjs"; then
@@ -157,6 +166,22 @@ SUITES=(
   club_event_foundation
   tournament_centre
   canonical_recipient_safeguarding
+  hub_content_schema
+  hub_content_applicability
+  hub_content_relationships
+  hub_content_rls
+  hub_search_and_recommendations
+  hub_game_knowledge
+  hub_glossary_explorer
+  hub_officiating
+  hub_rules_law_of_the_game
+  hub_teams_competitions
+  hub_international_rugby
+  hub_people_and_legends
+  hub_famous_clubs
+  hub_player_development
+  hub_coaching_knowledge
+  hub_parents_and_guardians
   scheduling_buffer_fallback
   team_people_roster
   registration_allocation

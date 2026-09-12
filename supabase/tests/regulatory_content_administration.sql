@@ -129,24 +129,36 @@ begin
     raise notice 'SKIP D/E: no U6 mixed canonical_team_type seeded in this environment';
   end if;
 
-  -- F. No RULES/SAFEGUARDING-content/SAFEGUARDING-routes exist for THIS
-  -- team's own identity/rugby_code (Phase 3 ported zero RFU age-grade
-  -- RULES content and zero RFU safeguarding content/routes -- every RFU
-  -- age-grade band and RFU safeguarding source remained genuinely
-  -- inaccessible research, disclosed honestly rather than fabricated) --
-  -- these resolvers stay honestly empty, not fabricated. WELFARE is
-  -- deliberately excluded from this check: Phase 3 DID port real, general
-  -- (identity-unscoped) RFU community concussion guidance
-  -- (RFU-PLAYER-WELFARE-COMMUNITY-2026), which G below asserts IS now
-  -- correctly reachable by this team via the general-content fallback.
+  -- F. No SAFEGUARDING content/routes exist for THIS team's own identity/
+  -- rugby_code (Phase 3 ported zero RFU safeguarding content/routes -- every
+  -- RFU safeguarding source remained genuinely inaccessible research,
+  -- disclosed honestly rather than fabricated) -- these resolvers stay
+  -- honestly empty, not fabricated. WELFARE and RULES are deliberately
+  -- excluded from this check: WELFARE has real, general (identity-unscoped)
+  -- RFU community concussion guidance (RFU-PLAYER-WELFARE-COMMUNITY-2026,
+  -- asserted by F2 below), and RULES gained a real, general (identity-
+  -- unscoped) Union Laws-of-the-Game content set in the Rules & Laws
+  -- Deepening slice -- both are asserted as now-reachable by F3 below,
+  -- mirroring exactly the general-content fallback F2 already proved.
   reset role; set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_coach::text, 'role', 'authenticated')::text, true);
-  if (select count(*) from get_rugby_hub_rules(v_team)) = 0
-     and (select count(*) from get_rugby_hub_safeguarding_content(v_team)) = 0
+  if (select count(*) from get_rugby_hub_safeguarding_content(v_team)) = 0
      and (select count(*) from get_rugby_hub_safeguarding_routes(v_team)) = 0 then
-    raise notice 'PASS F: RULES/SAFEGUARDING resolvers are honestly empty for this team -- no fabricated content for a topic Phase 3 never populated for this rugby_code';
+    raise notice 'PASS F: SAFEGUARDING resolvers are honestly empty for this team — no fabricated content for a topic never populated for this rugby_code';
   else
-    raise notice 'FAIL F: a RULES/SAFEGUARDING resolver returned rows despite no matching content ever being published for this team';
+    raise notice 'FAIL F: a SAFEGUARDING resolver returned rows despite no matching content ever being published for this team';
+  end if;
+
+  -- F3. RULES, by contrast, DOES resolve real content for this team: the
+  -- Rules & Laws Deepening slice's general (identity-unscoped) Union Laws-
+  -- of-the-Game content set correctly falls back to any Union team with no
+  -- more specific identity-scoped RULES content of its own -- proving the
+  -- Tier-1/Tier-2 merge resolver's general-content fallback actually works
+  -- end to end for RULES, not just for WELFARE.
+  if (select count(*) from get_rugby_hub_rules(v_team)) >= 20 then
+    raise notice 'PASS F3: the general Union Laws-of-the-Game content resolves for a team with no identity-specific RULES content of its own';
+  else
+    raise notice 'FAIL F3: general Union Law content did not resolve for this team';
   end if;
 
   -- F2. WELFARE, by contrast, DOES resolve real content for this team:
