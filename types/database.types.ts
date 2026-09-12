@@ -3983,6 +3983,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "competition_edition_teams_competition_edition_id_fkey"
+            columns: ["competition_edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
+          },
+          {
             foreignKeyName: "competition_edition_teams_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
@@ -4160,6 +4167,36 @@ export type Database = {
           source_checked_on?: string | null
           source_url?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      direct_conversations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          last_message_at: string | null
+          updated_at: string
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          last_message_at?: string | null
+          updated_at?: string
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          last_message_at?: string | null
+          updated_at?: string
+          user_a?: string
+          user_b?: string
         }
         Relationships: []
       }
@@ -4724,6 +4761,20 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "email_events_topic_key_fkey"
+            columns: ["topic_key"]
+            isOneToOne: false
+            referencedRelation: "notification_topic_channels"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "email_events_topic_key_fkey"
+            columns: ["topic_key"]
+            isOneToOne: false
+            referencedRelation: "notification_topic_settings"
+            referencedColumns: ["key"]
+          },
           {
             foreignKeyName: "email_events_topic_key_fkey"
             columns: ["topic_key"]
@@ -5305,9 +5356,11 @@ export type Database = {
           created_at: string
           errors: Json
           fixture_date: string | null
+          home_away: string | null
           id: string
           kickoff_time: string | null
           matched_fixture_id: string | null
+          meet_time: string | null
           normalized_game_type: string | null
           notes: string | null
           published_fixture_id: string | null
@@ -5335,9 +5388,11 @@ export type Database = {
           created_at?: string
           errors?: Json
           fixture_date?: string | null
+          home_away?: string | null
           id?: string
           kickoff_time?: string | null
           matched_fixture_id?: string | null
+          meet_time?: string | null
           normalized_game_type?: string | null
           notes?: string | null
           published_fixture_id?: string | null
@@ -5365,9 +5420,11 @@ export type Database = {
           created_at?: string
           errors?: Json
           fixture_date?: string | null
+          home_away?: string | null
           id?: string
           kickoff_time?: string | null
           matched_fixture_id?: string | null
+          meet_time?: string | null
           normalized_game_type?: string | null
           notes?: string | null
           published_fixture_id?: string | null
@@ -5542,6 +5599,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "competition_editions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_import_rows_resolved_competition_edition_id_fkey"
+            columns: ["resolved_competition_edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
           },
           {
             foreignKeyName: "fixture_import_rows_resolved_home_team_id_fkey"
@@ -5734,13 +5798,16 @@ export type Database = {
       }
       fixture_messages: {
         Row: {
-          body: string
+          announcement_id: string | null
+          body: string | null
           club_conversation_id: string | null
+          content_type: string
           conversation_id: string | null
           created_at: string
           deleted_at: string | null
           deleted_by: string | null
           deleted_by_role: string | null
+          direct_conversation_id: string | null
           fixture_id: string | null
           fixture_request_id: string | null
           id: string
@@ -5753,17 +5820,22 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           safeguarding_conversation_id: string | null
+          sender_identity_id: string | null
+          sender_identity_type: string
           sender_user_id: string
           team_conversation_id: string | null
         }
         Insert: {
-          body: string
+          announcement_id?: string | null
+          body?: string | null
           club_conversation_id?: string | null
+          content_type?: string
           conversation_id?: string | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
           deleted_by_role?: string | null
+          direct_conversation_id?: string | null
           fixture_id?: string | null
           fixture_request_id?: string | null
           id?: string
@@ -5776,17 +5848,22 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           safeguarding_conversation_id?: string | null
+          sender_identity_id?: string | null
+          sender_identity_type?: string
           sender_user_id: string
           team_conversation_id?: string | null
         }
         Update: {
-          body?: string
+          announcement_id?: string | null
+          body?: string | null
           club_conversation_id?: string | null
+          content_type?: string
           conversation_id?: string | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
           deleted_by_role?: string | null
+          direct_conversation_id?: string | null
           fixture_id?: string | null
           fixture_request_id?: string | null
           id?: string
@@ -5799,15 +5876,31 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           safeguarding_conversation_id?: string | null
+          sender_identity_id?: string | null
+          sender_identity_type?: string
           sender_user_id?: string
           team_conversation_id?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "fixture_messages_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "messenger_announcements"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fixture_messages_club_conversation_id_fkey"
             columns: ["club_conversation_id"]
             isOneToOne: false
             referencedRelation: "club_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_messages_direct_conversation_id_fkey"
+            columns: ["direct_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "direct_conversations"
             referencedColumns: ["id"]
           },
           {
@@ -6078,6 +6171,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "competition_editions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_request_groups_competition_edition_id_fkey"
+            columns: ["competition_edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
           },
           {
             foreignKeyName: "fixture_request_groups_opponent_club_id_fkey"
@@ -6864,6 +6964,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "competition_editions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixtures_competition_edition_id_fkey"
+            columns: ["competition_edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
           },
           {
             foreignKeyName: "fixtures_import_batch_id_fkey"
@@ -9051,16 +9158,32 @@ export type Database = {
       }
       message_policies: {
         Row: {
+          allow_club_announcements: boolean | null
+          allow_club_announcements_club_override_allowed: boolean
           allow_contact_card_sharing: boolean | null
           allow_contact_card_sharing_club_override_allowed: boolean
           allow_direct_attachments: boolean | null
           allow_direct_attachments_club_override_allowed: boolean
+          allow_direct_messaging: boolean | null
+          allow_direct_messaging_club_override_allowed: boolean
           allow_document_library_sharing: boolean | null
           allow_document_library_sharing_club_override_allowed: boolean
+          allow_group_discussion: boolean | null
+          allow_group_discussion_club_override_allowed: boolean
           allow_image_uploads: boolean | null
           allow_image_uploads_club_override_allowed: boolean
+          allow_multi_person_conversations: boolean | null
+          allow_multi_person_conversations_club_override_allowed: boolean
           allow_participant_management: boolean | null
           allow_participant_management_club_override_allowed: boolean
+          allow_platform_announcements: boolean | null
+          allow_platform_announcements_club_override_allowed: boolean
+          allow_private_replies: boolean | null
+          allow_private_replies_club_override_allowed: boolean
+          allow_team_announcements: boolean | null
+          allow_team_announcements_club_override_allowed: boolean
+          allow_team_conversations: boolean | null
+          allow_team_conversations_club_override_allowed: boolean
           allowed_file_types: string[]
           club_id: string | null
           created_at: string
@@ -9070,16 +9193,32 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          allow_club_announcements?: boolean | null
+          allow_club_announcements_club_override_allowed?: boolean
           allow_contact_card_sharing?: boolean | null
           allow_contact_card_sharing_club_override_allowed?: boolean
           allow_direct_attachments?: boolean | null
           allow_direct_attachments_club_override_allowed?: boolean
+          allow_direct_messaging?: boolean | null
+          allow_direct_messaging_club_override_allowed?: boolean
           allow_document_library_sharing?: boolean | null
           allow_document_library_sharing_club_override_allowed?: boolean
+          allow_group_discussion?: boolean | null
+          allow_group_discussion_club_override_allowed?: boolean
           allow_image_uploads?: boolean | null
           allow_image_uploads_club_override_allowed?: boolean
+          allow_multi_person_conversations?: boolean | null
+          allow_multi_person_conversations_club_override_allowed?: boolean
           allow_participant_management?: boolean | null
           allow_participant_management_club_override_allowed?: boolean
+          allow_platform_announcements?: boolean | null
+          allow_platform_announcements_club_override_allowed?: boolean
+          allow_private_replies?: boolean | null
+          allow_private_replies_club_override_allowed?: boolean
+          allow_team_announcements?: boolean | null
+          allow_team_announcements_club_override_allowed?: boolean
+          allow_team_conversations?: boolean | null
+          allow_team_conversations_club_override_allowed?: boolean
           allowed_file_types?: string[]
           club_id?: string | null
           created_at?: string
@@ -9089,16 +9228,32 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          allow_club_announcements?: boolean | null
+          allow_club_announcements_club_override_allowed?: boolean
           allow_contact_card_sharing?: boolean | null
           allow_contact_card_sharing_club_override_allowed?: boolean
           allow_direct_attachments?: boolean | null
           allow_direct_attachments_club_override_allowed?: boolean
+          allow_direct_messaging?: boolean | null
+          allow_direct_messaging_club_override_allowed?: boolean
           allow_document_library_sharing?: boolean | null
           allow_document_library_sharing_club_override_allowed?: boolean
+          allow_group_discussion?: boolean | null
+          allow_group_discussion_club_override_allowed?: boolean
           allow_image_uploads?: boolean | null
           allow_image_uploads_club_override_allowed?: boolean
+          allow_multi_person_conversations?: boolean | null
+          allow_multi_person_conversations_club_override_allowed?: boolean
           allow_participant_management?: boolean | null
           allow_participant_management_club_override_allowed?: boolean
+          allow_platform_announcements?: boolean | null
+          allow_platform_announcements_club_override_allowed?: boolean
+          allow_private_replies?: boolean | null
+          allow_private_replies_club_override_allowed?: boolean
+          allow_team_announcements?: boolean | null
+          allow_team_announcements_club_override_allowed?: boolean
+          allow_team_conversations?: boolean | null
+          allow_team_conversations_club_override_allowed?: boolean
           allowed_file_types?: string[]
           club_id?: string | null
           created_at?: string
@@ -9166,6 +9321,132 @@ export type Database = {
           },
         ]
       }
+      messenger_announcement_deliveries: {
+        Row: {
+          announcement_id: string
+          attempts: number
+          concerning_player_id: string | null
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          id: string
+          idempotency_key: string
+          read_at: string | null
+          recipient_user_id: string
+          safeguarding_route: string | null
+          status: string
+        }
+        Insert: {
+          announcement_id: string
+          attempts?: number
+          concerning_player_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          idempotency_key: string
+          read_at?: string | null
+          recipient_user_id: string
+          safeguarding_route?: string | null
+          status?: string
+        }
+        Update: {
+          announcement_id?: string
+          attempts?: number
+          concerning_player_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string
+          read_at?: string | null
+          recipient_user_id?: string
+          safeguarding_route?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messenger_announcement_deliveries_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "messenger_announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messenger_announcement_deliveries_concerning_player_id_fkey"
+            columns: ["concerning_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messenger_announcements: {
+        Row: {
+          actor_user_id: string
+          audience_spec: Json
+          body: string
+          created_at: string
+          exclude_u18: boolean
+          fanout_state: string
+          id: string
+          reply_mode: string
+          resolved_recipient_count: number | null
+          scope: string
+          scope_id: string | null
+          sender_identity_id: string | null
+          sender_identity_type: string
+          sent_at: string | null
+          status: string
+          title: string | null
+          updated_at: string
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+        }
+        Insert: {
+          actor_user_id: string
+          audience_spec?: Json
+          body: string
+          created_at?: string
+          exclude_u18?: boolean
+          fanout_state?: string
+          id?: string
+          reply_mode?: string
+          resolved_recipient_count?: number | null
+          scope: string
+          scope_id?: string | null
+          sender_identity_id?: string | null
+          sender_identity_type: string
+          sent_at?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Update: {
+          actor_user_id?: string
+          audience_spec?: Json
+          body?: string
+          created_at?: string
+          exclude_u18?: boolean
+          fanout_state?: string
+          id?: string
+          reply_mode?: string
+          resolved_recipient_count?: number | null
+          scope?: string
+          scope_id?: string | null
+          sender_identity_id?: string | null
+          sender_identity_type?: string
+          sent_at?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           email_enabled: boolean
@@ -9196,42 +9477,25 @@ export type Database = {
             foreignKeyName: "notification_preferences_topic_key_fkey"
             columns: ["topic_key"]
             isOneToOne: false
+            referencedRelation: "notification_topic_channels"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "notification_preferences_topic_key_fkey"
+            columns: ["topic_key"]
+            isOneToOne: false
+            referencedRelation: "notification_topic_settings"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "notification_preferences_topic_key_fkey"
+            columns: ["topic_key"]
+            isOneToOne: false
             referencedRelation: "notification_topics"
             referencedColumns: ["key"]
           },
         ]
       }
-      notification_topic_channels: {
-        Row: {
-          description: string | null
-          email_ready: boolean | null
-          key: string | null
-          label: string | null
-          mandatory: boolean | null
-          push_ready: boolean | null
-          sort_order: number | null
-        }
-        Insert: {
-          description?: string | null
-          email_ready?: never
-          key?: string | null
-          label?: string | null
-          mandatory?: boolean | null
-          push_ready?: never
-          sort_order?: number | null
-        }
-        Update: {
-          description?: string | null
-          email_ready?: never
-          key?: string | null
-          label?: string | null
-          mandatory?: boolean | null
-          push_ready?: never
-          sort_order?: number | null
-        }
-        Relationships: []
-      }
-
       notification_topics: {
         Row: {
           description: string
@@ -9258,14 +9522,17 @@ export type Database = {
       }
       notification_types: {
         Row: {
+          mandatory_override: boolean | null
           topic_key: string
           type_key: string
         }
         Insert: {
+          mandatory_override?: boolean | null
           topic_key: string
           type_key: string
         }
         Update: {
+          mandatory_override?: boolean | null
           topic_key?: string
           type_key?: string
         }
@@ -9275,6 +9542,13 @@ export type Database = {
             columns: ["topic_key"]
             isOneToOne: false
             referencedRelation: "notification_topic_channels"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "notification_types_topic_key_fkey"
+            columns: ["topic_key"]
+            isOneToOne: false
+            referencedRelation: "notification_topic_settings"
             referencedColumns: ["key"]
           },
           {
@@ -14759,6 +15033,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tournaments_competition_edition_id_fkey"
+            columns: ["competition_edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
+          },
+          {
             foreignKeyName: "tournaments_host_club_id_fkey"
             columns: ["host_club_id"]
             isOneToOne: false
@@ -15439,6 +15720,33 @@ export type Database = {
           },
         ]
       }
+      user_message_blocks: {
+        Row: {
+          blocked_user_id: string
+          blocker_user_id: string
+          created_at: string
+          id: string
+          lifted_at: string | null
+          lifted_by: string | null
+        }
+        Insert: {
+          blocked_user_id: string
+          blocker_user_id: string
+          created_at?: string
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+        }
+        Update: {
+          blocked_user_id?: string
+          blocker_user_id?: string
+          created_at?: string
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+        }
+        Relationships: []
+      }
       user_session_versions: {
         Row: {
           set_at: string
@@ -15737,6 +16045,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "competition_editions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixtures_competition_edition_id_fkey"
+            columns: ["competition_edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
           },
           {
             foreignKeyName: "fixtures_mirror_fixture_id_fkey"
@@ -16239,6 +16554,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tournaments_competition_edition_id_fkey"
+            columns: ["competition_edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
+          },
+          {
             foreignKeyName: "tournaments_host_club_id_fkey"
             columns: ["host_club_id"]
             isOneToOne: false
@@ -16388,6 +16710,15 @@ export type Database = {
           team_id: string | null
           team_name: string | null
           venue_name: string | null
+        }
+        Relationships: []
+      }
+      fixture_competition_edition_usage: {
+        Row: {
+          club_ids: string[] | null
+          competition_edition_id: string | null
+          competition_name: string | null
+          season_name: string | null
         }
         Relationships: []
       }
@@ -16682,6 +17013,72 @@ export type Database = {
           summary: string | null
           tags: string[] | null
           title: string | null
+        }
+        Relationships: []
+      }
+      notification_topic_channels: {
+        Row: {
+          description: string | null
+          email_ready: boolean | null
+          key: string | null
+          label: string | null
+          mandatory: boolean | null
+          push_ready: boolean | null
+          sort_order: number | null
+        }
+        Insert: {
+          description?: string | null
+          email_ready?: never
+          key?: string | null
+          label?: string | null
+          mandatory?: boolean | null
+          push_ready?: never
+          sort_order?: number | null
+        }
+        Update: {
+          description?: string | null
+          email_ready?: never
+          key?: string | null
+          label?: string | null
+          mandatory?: boolean | null
+          push_ready?: never
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      notification_topic_settings: {
+        Row: {
+          description: string | null
+          email_controllable: boolean | null
+          email_ready: boolean | null
+          has_mandatory_events: boolean | null
+          key: string | null
+          label: string | null
+          mandatory: boolean | null
+          push_ready: boolean | null
+          sort_order: number | null
+        }
+        Insert: {
+          description?: string | null
+          email_controllable?: never
+          email_ready?: never
+          has_mandatory_events?: never
+          key?: string | null
+          label?: string | null
+          mandatory?: boolean | null
+          push_ready?: never
+          sort_order?: number | null
+        }
+        Update: {
+          description?: string | null
+          email_controllable?: never
+          email_ready?: never
+          has_mandatory_events?: never
+          key?: string | null
+          label?: string | null
+          mandatory?: boolean | null
+          push_ready?: never
+          sort_order?: number | null
         }
         Relationships: []
       }
@@ -17086,6 +17483,20 @@ export type Database = {
         Args: { p_club_id: string; p_step: number }
         Returns: undefined
       }
+      announcement_replies: {
+        Args: { p_announcement_id: string }
+        Returns: {
+          body: string
+          created_at: string
+          deleted: boolean
+          message_id: string
+          sender_user_id: string
+        }[]
+      }
+      announcement_sender_label: {
+        Args: { p_announcement_id: string }
+        Returns: string
+      }
       apply_payment_status_transition: {
         Args: {
           p_charge_date?: string
@@ -17169,9 +17580,30 @@ export type Database = {
         }
         Returns: string
       }
+      audience_unreachable: {
+        Args: {
+          p_audience_spec?: Json
+          p_exclude_u18?: boolean
+          p_scope: string
+          p_scope_id: string
+        }
+        Returns: {
+          outcome: string
+          player_id: string
+        }[]
+      }
+      block_user: { Args: { p_user_id: string }; Returns: undefined }
       block_user_from_club_messages: {
         Args: { p_club_id: string; p_reason?: string; p_user_id: string }
         Returns: string
+      }
+      bulk_update_fixtures: {
+        Args: { p_changes: Json }
+        Returns: {
+          error_message: string
+          fixture_id: string
+          ok: boolean
+        }[]
       }
       can_send_team_conversation: {
         Args: { p_team_id: string }
@@ -17306,6 +17738,16 @@ export type Database = {
       club_has_entitlement: {
         Args: { p_club_id: string; p_entitlement_key: string }
         Returns: boolean
+      }
+      club_member_capabilities: {
+        Args: { p_club_id: string }
+        Returns: {
+          capability_key: string
+          effective: boolean
+          override_id: string
+          source: string
+          user_id: string
+        }[]
       }
       club_platform_billing_state: {
         Args: { p_club_id: string }
@@ -17450,6 +17892,20 @@ export type Database = {
       correct_club_rugby_code: {
         Args: { p_directory_id: string; p_new_code: string; p_reason: string }
         Returns: undefined
+      }
+      create_announcement: {
+        Args: {
+          p_audience_spec?: Json
+          p_body: string
+          p_exclude_u18?: boolean
+          p_reply_mode?: string
+          p_scope: string
+          p_scope_id: string
+          p_sender_identity_id: string
+          p_sender_identity_type: string
+          p_title?: string
+        }
+        Returns: string
       }
       create_canonical_team_type: {
         Args: {
@@ -17774,6 +18230,14 @@ export type Database = {
         Args: { p_game_id: string }
         Returns: undefined
       }
+      direct_conversation_header: {
+        Args: { p_conversation_id: string }
+        Returns: {
+          can_send: boolean
+          other_display_name: string
+          other_user_id: string
+        }[]
+      }
       disconnect_gocardless: {
         Args: { p_club_id: string; p_reason: string }
         Returns: undefined
@@ -17790,6 +18254,10 @@ export type Database = {
         }[]
       }
       email_event_active: { Args: { p_event_key: string }; Returns: boolean }
+      email_opted_out_user_ids: {
+        Args: { p_topic_key: string; p_user_ids: string[] }
+        Returns: string[]
+      }
       email_recent_deliveries: {
         Args: { p_event_key: string; p_limit?: number }
         Returns: {
@@ -17871,6 +18339,15 @@ export type Database = {
         Args: { p_fixture_id: string }
         Returns: {
           email: string
+          user_id: string
+        }[]
+      }
+      fixture_opposition_contacts: {
+        Args: { p_fixture_id: string }
+        Returns: {
+          club_label: string
+          display_name: string
+          team_label: string
           user_id: string
         }[]
       }
@@ -17988,21 +18465,45 @@ export type Database = {
       get_effective_message_policy: {
         Args: { p_club_id?: string }
         Returns: {
+          allow_club_announcements: boolean
+          allow_club_announcements_club_override_allowed: boolean
+          allow_club_announcements_origin: string
           allow_contact_card_sharing: boolean
           allow_contact_card_sharing_club_override_allowed: boolean
           allow_contact_card_sharing_origin: string
           allow_direct_attachments: boolean
           allow_direct_attachments_club_override_allowed: boolean
           allow_direct_attachments_origin: string
+          allow_direct_messaging: boolean
+          allow_direct_messaging_club_override_allowed: boolean
+          allow_direct_messaging_origin: string
           allow_document_library_sharing: boolean
           allow_document_library_sharing_club_override_allowed: boolean
           allow_document_library_sharing_origin: string
+          allow_group_discussion: boolean
+          allow_group_discussion_club_override_allowed: boolean
+          allow_group_discussion_origin: string
           allow_image_uploads: boolean
           allow_image_uploads_club_override_allowed: boolean
           allow_image_uploads_origin: string
+          allow_multi_person_conversations: boolean
+          allow_multi_person_conversations_club_override_allowed: boolean
+          allow_multi_person_conversations_origin: string
           allow_participant_management: boolean
           allow_participant_management_club_override_allowed: boolean
           allow_participant_management_origin: string
+          allow_platform_announcements: boolean
+          allow_platform_announcements_club_override_allowed: boolean
+          allow_platform_announcements_origin: string
+          allow_private_replies: boolean
+          allow_private_replies_club_override_allowed: boolean
+          allow_private_replies_origin: string
+          allow_team_announcements: boolean
+          allow_team_announcements_club_override_allowed: boolean
+          allow_team_announcements_origin: string
+          allow_team_conversations: boolean
+          allow_team_conversations_club_override_allowed: boolean
+          allow_team_conversations_origin: string
           allowed_file_types: string[]
           max_attachment_size_bytes: number
         }[]
@@ -18526,6 +19027,7 @@ export type Database = {
       list_addable_club_members: {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
         Returns: {
+          blocked_by_me: boolean
           name: string
           user_id: string
         }[]
@@ -18728,6 +19230,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      mark_announcement_read: {
+        Args: { p_announcement_id: string }
+        Returns: undefined
+      }
+      mark_direct_conversation_read: {
+        Args: { p_conversation_id: string }
+        Returns: undefined
+      }
       mark_gocardless_event_processed: {
         Args: { p_error?: string; p_event_id: string }
         Returns: undefined
@@ -18748,6 +19258,62 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
+      my_announcements: {
+        Args: { p_limit?: number }
+        Returns: {
+          announcement_id: string
+          body: string
+          delivered_at: string
+          read_at: string
+          reply_mode: string
+          sender_identity_id: string
+          sender_identity_type: string
+          sender_label: string
+          title: string
+          withdrawn: boolean
+        }[]
+      }
+      my_bell_notifications: {
+        Args: { p_limit?: number }
+        Returns: {
+          body: string
+          created_at: string
+          data: Json
+          id: string
+          read_at: string
+          title: string
+          type: string
+        }[]
+      }
+      my_blocked_users: {
+        Args: never
+        Returns: {
+          blocked_at: string
+          display_name: string
+          user_id: string
+        }[]
+      }
+      my_direct_conversations: {
+        Args: { p_limit?: number }
+        Returns: {
+          conversation_id: string
+          last_message_at: string
+          last_message_from_me: boolean
+          last_message_preview: string
+          other_display_name: string
+          other_user_id: string
+          unread: number
+        }[]
+      }
+      my_direct_message_candidates: {
+        Args: never
+        Returns: {
+          context_detail: string
+          context_label: string
+          display_name: string
+          user_id: string
+        }[]
+      }
       my_guardian_link_requests: {
         Args: never
         Returns: {
@@ -18761,39 +19327,6 @@ export type Database = {
           status: string
         }[]
       }
-      my_unread_counts: {
-        Args: never
-        Returns: {
-          messages: number
-          notifications: number
-          support: number
-          total: number
-        }[]
-      }
-
-      my_bell_notifications: {
-        Args: { p_limit?: number }
-        Returns: {
-          body: string
-          created_at: string
-          data: Json
-          id: string
-          read_at: string | null
-          title: string
-          type: string
-        }[]
-      }
-
-      my_unread_message_counts: {
-        Args: never
-        Returns: {
-          club_conversation_id: string | null
-          fixture_id: string | null
-          fixture_request_id: string | null
-          unread: number
-        }[]
-      }
-
       my_player_context: {
         Args: never
         Returns: {
@@ -18812,6 +19345,34 @@ export type Database = {
           team_name: string
         }[]
       }
+      my_sender_identities: {
+        Args: never
+        Returns: {
+          can_address_club: boolean
+          can_address_team: boolean
+          identity_id: string
+          identity_type: string
+          label: string
+        }[]
+      }
+      my_unread_counts: {
+        Args: never
+        Returns: {
+          messages: number
+          notifications: number
+          support: number
+          total: number
+        }[]
+      }
+      my_unread_message_counts: {
+        Args: never
+        Returns: {
+          club_conversation_id: string
+          fixture_id: string
+          fixture_request_id: string
+          unread: number
+        }[]
+      }
       nominate_safeguarding_officer: {
         Args: {
           p_club_id: string
@@ -18819,6 +19380,10 @@ export type Database = {
           p_contact_name: string
           p_officer_type: string
         }
+        Returns: string
+      }
+      open_direct_conversation: {
+        Args: { p_other_user_id: string }
         Returns: string
       }
       open_platform_billing_cycle: {
@@ -18917,6 +19482,22 @@ export type Database = {
           rugby_code: string
           season_id: string
           season_name: string
+        }[]
+      }
+      preview_audience: {
+        Args: {
+          p_audience_spec?: Json
+          p_exclude_u18?: boolean
+          p_reply_mode?: string
+          p_scope: string
+          p_scope_id?: string
+          p_sender_identity_type?: string
+        }
+        Returns: {
+          direct_route_count: number
+          guardian_route_count: number
+          recipient_count: number
+          unreachable_count: number
         }[]
       }
       preview_directory_verification_scope: {
@@ -19336,6 +19917,10 @@ export type Database = {
         Args: { p_club_id: string; p_pitch_ids: string[] }
         Returns: undefined
       }
+      reply_to_announcement: {
+        Args: { p_announcement_id: string; p_body: string }
+        Returns: string
+      }
       report_fixture_message: {
         Args: { p_message_id: string; p_reason: string }
         Returns: undefined
@@ -19733,6 +20318,21 @@ export type Database = {
         Args: { p_club_id: string; p_plan_code: string }
         Returns: string
       }
+      selectable_announcement_audience: {
+        Args: { p_scope: string; p_scope_id: string }
+        Returns: {
+          display_name: string
+          is_adult: boolean
+          outcome: string
+          player_id: string
+          reachable: boolean
+          recipient_count: number
+        }[]
+      }
+      send_announcement: {
+        Args: { p_announcement_id: string }
+        Returns: number
+      }
       send_fixture_communication: {
         Args: { p_action: string; p_body?: string; p_fixture_id: string }
         Returns: {
@@ -19834,7 +20434,11 @@ export type Database = {
         Returns: undefined
       }
       set_notification_preference: {
-        Args: { p_in_app_enabled: boolean; p_topic_key: string }
+        Args: {
+          p_email_enabled?: boolean
+          p_in_app_enabled?: boolean
+          p_topic_key: string
+        }
         Returns: undefined
       }
       set_obligation_exemption: {
@@ -19956,6 +20560,10 @@ export type Database = {
       }
       set_team_alias: {
         Args: { p_alias: string; p_team_id: string }
+        Returns: undefined
+      }
+      set_team_conversation_active: {
+        Args: { p_active: boolean; p_team_id: string }
         Returns: undefined
       }
       set_venue_active: {
@@ -20136,6 +20744,16 @@ export type Database = {
         Args: { p_fixture_id: string }
         Returns: undefined
       }
+      team_conversation_state: {
+        Args: { p_team_id: string }
+        Returns: {
+          active: boolean
+          allowed_by_policy: boolean
+          enabled_at: string
+          may_manage: boolean
+          may_send: boolean
+        }[]
+      }
       team_delete_fixture_message: {
         Args: { p_message_id: string }
         Returns: undefined
@@ -20188,6 +20806,7 @@ export type Database = {
           team_recipients: number
         }[]
       }
+      unblock_user: { Args: { p_user_id: string }; Returns: undefined }
       undo_rollover_team_decision: {
         Args: { p_proposal_id: string }
         Returns: undefined
@@ -20302,6 +20921,10 @@ export type Database = {
         Args: { p_club_id: string; p_status: string }
         Returns: undefined
       }
+      update_message_communication_policy: {
+        Args: { p_club_id: string; p_settings: Json }
+        Returns: undefined
+      }
       update_safeguarding_officer_contact: {
         Args: {
           p_contact_email: string
@@ -20358,6 +20981,10 @@ export type Database = {
       }
       verify_regulatory_reporting_route: {
         Args: { p_route_id: string }
+        Returns: undefined
+      }
+      withdraw_announcement: {
+        Args: { p_announcement_id: string }
         Returns: undefined
       }
       withdraw_player_club_join_request: {
