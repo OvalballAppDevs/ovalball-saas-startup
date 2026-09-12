@@ -107,7 +107,7 @@ export function PlannerToolbar({ rowLabels }: { rowLabels: Record<string, string
             <>
               {/* Set one field across the selection, then Save as usual. */}
               <label className="sr-only" htmlFor="bulk-field">
-                Field to change on selected fixtures
+                Field to Change on Selected Fixtures
               </label>
               <select
                 id="bulk-field"
