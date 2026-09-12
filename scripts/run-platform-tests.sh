@@ -170,6 +170,23 @@ SUITES=(
   canonical_recipient_safeguarding
   notification_catalogue
   unread_truth
+  announcement_privacy
+  message_communication_policy
+  audience_resolution
+  announcement_fanout
+  announcement_replies
+  team_conversation_activation
+  announcement_unread_surfaces
+  announcement_recipient_picker
+  personal_block_product
+  direct_messaging_security
+  adult_messaging_age_fallback
+  fixture_opposition_contacts
+  communication_policy_authority
+  conversation_channel_authority
+  fixture_management_authority
+  fixture_staging_fidelity
+  notification_mandatory_and_preferences
   scheduling_buffer_fallback
   team_people_roster
   registration_allocation

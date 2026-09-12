@@ -64,6 +64,41 @@ const CANONICAL_DESTINATIONS = [
 /** Never re-cased by any pass, now or later. */
 const PROTECTED_ACRONYMS = ["RFU", "RFL", "DOB", "GoCardless", "Ovalball"]
 
+/**
+ * WORDING THE PRODUCT OWNER HAS ALREADY REJECTED.
+ *
+ * A style rule can be satisfied by more than one phrase, and a later pass
+ * tidying case or grammar can land on a phrase that reads worse and was
+ * specifically turned down before. "Add one fixture" is exactly that: it
+ * satisfies every mechanical rule here and was still the wrong words.
+ *
+ * So the decision is recorded rather than re-argued. Each entry names the
+ * phrase, what to use instead, and why -- because a guard that only says
+ * "banned" invites somebody to delete the guard.
+ */
+const REJECTED_COPY = [
+  {
+    phrase: "Add one fixture",
+    use: "Add a Fixture",
+    why: "the product wording for single-fixture creation, chosen over the literal-but-clumsy alternative",
+  },
+  {
+    phrase: "Add One Fixture",
+    use: "Add a Fixture",
+    why: "Title Case does not make this the right phrase; it is still not what the control is called",
+  },
+  {
+    phrase: "Import fixtures",
+    use: "Import Fixtures",
+    why: "a button label, so Title Case",
+  },
+  {
+    phrase: "Export fixtures",
+    use: "Export Fixtures",
+    why: "a button label, so Title Case",
+  },
+]
+
 const files = execSync("git ls-files 'app/**/*.tsx' 'app/**/*.ts' 'components/**/*.tsx' 'lib/**/*.ts'", {
   cwd: ROOT,
   encoding: "utf8",
@@ -210,10 +245,27 @@ for (const file of files) {
   }
 }
 
+// The rejected-copy sweep runs over the same file set as everything else,
+// and deliberately over the RAW source: these phrases must not reappear in
+// a label, an aria-label, a tooltip or a comment that a later pass might
+// copy back into a label.
+for (const file of files) {
+  if (COPY_EXEMPT.some((prefix) => file.startsWith(prefix))) continue
+  if (file.startsWith("scripts/")) continue
+  const source = readFileSync(path.join(ROOT, file), "utf8")
+  for (const { phrase, use, why } of REJECTED_COPY) {
+    if (source.includes(phrase)) {
+      failures.push(`${file}  uses rejected copy "${phrase}" -- use "${use}" (${why})`)
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error("  FAIL  content_standard")
   for (const f of failures) console.error(`          ${f}`)
   process.exit(1)
 }
 
-console.log(`  ok    content_standard                   ${files.length} files, ${CANONICAL_DESTINATIONS.length} destinations, ${PROTECTED_ACRONYMS.length} protected terms`)
+console.log(
+  `  ok    content_standard                   ${files.length} files, ${CANONICAL_DESTINATIONS.length} destinations, ${PROTECTED_ACRONYMS.length} protected terms, ${REJECTED_COPY.length} rejected phrases`,
+)
