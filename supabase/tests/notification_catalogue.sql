@@ -277,9 +277,15 @@ insert into public.notification_preferences (user_id, topic_key, in_app_enabled,
 values (v_person, v_topic, false, false)
 on conflict (user_id, topic_key) do update set in_app_enabled = false, email_enabled = false;
 
-if internal.should_deliver_notification(v_person, v_txt, 'in_app')
-   and internal.should_deliver_notification(v_person, v_txt, 'email') then
-  raise notice 'PASS 13 (C): a mandatory topic (%) is delivered even when the person has switched it off', v_topic;
+-- MANDATORY IS ABOUT THE IN-APP NOTIFICATION, NOT EVERY CHANNEL.
+-- Until 20270259000000 this asserted that a mandatory topic delivered on
+-- every channel, which conflated two different questions. A person must be
+-- told IN THE PRODUCT that their membership payment failed; whether they are
+-- also emailed is decided by the email event's own classification, and where
+-- a topic has no active email event there is simply no email to send.
+-- The in-app half is the safeguard and is what is asserted here.
+if internal.should_deliver_notification(v_person, v_txt, 'in_app') then
+  raise notice 'PASS 13 (C): a mandatory topic (%) is delivered in-app even when the person has switched it off', v_topic;
 else
   raise notice 'FAIL 13 (C): mandatory topic % was suppressed by a preference', v_topic;
 end if;

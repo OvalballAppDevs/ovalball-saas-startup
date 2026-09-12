@@ -44,6 +44,8 @@ const matrix: Row[] = [
   ["fixture_staff_message", { fixture_id: ID }, `/messages/fixture/${ID}`],
   ["club_message_request_received", { club_conversation_id: ID }, `/messages/club/${ID}`],
   ["club_message_request_declined", { club_conversation_id: ID }, `/messages/club/${ID}`],
+  ["announcement_received", { announcement_id: ID }, `/messages/announcement/${ID}`],
+  ["new_direct_message", { direct_conversation_id: ID }, `/messages/direct/${ID}`],
 
   // ---- Match Centre: one fixture, one route --------------------------
   ["fixture_cancelled", { fixture_id: ID }, `/fixtures/${ID}`],
@@ -163,6 +165,8 @@ test("a payload that lost its id degrades to the index, never to a broken route"
     ["new_fixture_message", "/messages"],
     ["fixture_staff_message", "/messages"],
     ["club_message_request_received", "/messages"],
+    ["announcement_received", "/messages"],
+    ["new_direct_message", "/messages"],
     ["fixture_request_received", "/fixtures"],
     ["support_ticket_update", "/support"],
   ]

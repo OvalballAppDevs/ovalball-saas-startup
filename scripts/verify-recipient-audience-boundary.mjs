@@ -55,10 +55,22 @@ for (const file of migrationFiles) {
   const source = readFileSync(join(migrationDir, file), "utf8")
   // `create [or replace] function <schema>.<name>(` ... up to the closing
   // `$$;` of its body. Dollar-quoted bodies are the only form this repo uses.
-  const re = /create\s+(?:or\s+replace\s+)?function\s+([a-z_]+\.[a-z_0-9]+)\s*\(/gi
+  // CREATEs and DROPs are walked in SOURCE ORDER, not in two passes. A
+  // migration that drops a function and immediately recreates it with a wider
+  // return type is a normal thing to do -- the return type cannot be changed
+  // in place -- and a two-pass reading would let the DROP retire the CREATE
+  // that follows it, concluding the canonical predicate no longer exists.
+  const statementRe =
+    /(create\s+(?:or\s+replace\s+)?function|drop\s+function(?:\s+if\s+exists)?)\s+([a-z_]+\.[a-z_0-9]+)\s*\(/gi
   let match
-  while ((match = re.exec(source)) !== null) {
-    const name = match[1].toLowerCase()
+  while ((match = statementRe.exec(source)) !== null) {
+    const name = match[2].toLowerCase()
+
+    if (/^drop/i.test(match[1])) {
+      finalDefinitions.delete(name)
+      continue
+    }
+
     const rest = source.slice(match.index)
     // The body ends at whichever comes FIRST: the `$$;` that closes it, or the
     // next `create function` in the file. Without the second bound a function
@@ -72,12 +84,6 @@ for (const file of migrationFiles) {
     finalDefinitions.set(name, { file, body: end === Infinity ? rest : rest.slice(0, end) })
   }
 
-  // A DROP retires the function: whatever came before it no longer exists.
-  const dropRe = /drop\s+function\s+(?:if\s+exists\s+)?([a-z_]+\.[a-z_0-9]+)\s*\(/gi
-  let dropMatch
-  while ((dropMatch = dropRe.exec(source)) !== null) {
-    finalDefinitions.delete(dropMatch[1].toLowerCase())
-  }
 }
 
 // ---------------------------------------------------------------------------
