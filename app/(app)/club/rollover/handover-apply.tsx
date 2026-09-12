@@ -114,7 +114,7 @@ export function HandoverApply({
     return (
       <div className="rounded-lg border border-ink/10 bg-white p-6">
         <p className="text-sm font-medium text-ink">No handover to apply</p>
-        <p className="mt-1 max-w-lg text-sm text-ink/55">
+        <p className="mt-1 max-w-lg text-sm text-ink-muted">
           Prepare one from{" "}
           <Link href="/club/rollover?section=teams" className="text-forest-800 underline underline-offset-2">
             Teams
@@ -223,16 +223,16 @@ export function HandoverApply({
       <div className="rounded-lg border border-ink/10 bg-white">
         <div className="border-b border-ink/8 px-5 py-3.5">
           <p className="text-sm font-medium text-ink">Audit</p>
-          <p className="mt-0.5 text-sm text-ink/55">Every decision and every consequence, in the order they happened.</p>
+          <p className="mt-0.5 text-sm text-ink-muted">Every decision and every consequence, in the order they happened.</p>
         </div>
         {audit.length === 0 ? (
-          <p className="px-5 py-3.5 text-sm text-ink/55">Nothing recorded yet.</p>
+          <p className="px-5 py-3.5 text-sm text-ink-muted">Nothing recorded yet.</p>
         ) : (
           <ul className="divide-y divide-ink/8">
             {audit.map((a, i) => (
               <li key={`${a.at}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3">
                 <span className="text-sm text-ink">{EVENT_WORDS[a.event] ?? a.event}</span>
-                <span className="text-sm text-ink/55">
+                <span className="text-sm text-ink-muted">
                   {a.actorName} ·{" "}
                   {new Date(a.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                 </span>
@@ -266,7 +266,7 @@ export function HandoverApply({
             {folding > 0 && <li>{folding} team{folding === 1 ? "" : "s"} will not continue. Their fixtures and results stay available.</li>}
             <li>Players move to the teams recorded against them.</li>
           </ul>
-          <p className="text-sm text-ink/55">This cannot be undone from the handover board.</p>
+          <p className="text-sm text-ink-muted">This cannot be undone from the handover board.</p>
           {error && (
             <p role="alert" className="text-sm text-destructive-text">
               {error}

@@ -95,7 +95,7 @@ export default async function TeamDirectoryPage({
       <TeamDirectoryCodeNav active={rugbyCode} showRetired={showRetired} />
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-ink/55">
+        <p className="text-sm text-ink-muted">
           {activeCount} identit{activeCount === 1 ? "y" : "ies"} in {CODE_LABELS[rugbyCode]}
         </p>
         <div className="flex flex-wrap items-center gap-3">
@@ -122,7 +122,7 @@ export default async function TeamDirectoryPage({
             <h2 id={`group-${group.key}`} className="font-display text-lg text-ink">
               {group.title}
             </h2>
-            <p className="mt-0.5 text-sm text-ink/55">{group.note}</p>
+            <p className="mt-0.5 text-sm text-ink-muted">{group.note}</p>
             <div className="mt-2.5 overflow-hidden rounded-lg border border-ink/10 bg-white">
               <ul className="divide-y divide-ink/8">
                 {rowsInGroup.map((identity) => (

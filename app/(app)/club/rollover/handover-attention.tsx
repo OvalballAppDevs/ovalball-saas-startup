@@ -41,7 +41,7 @@ export function HandoverNeedsAttention({ blockers, planned }: { blockers: Handov
           <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-forest-700" />
           <div>
             <p className="text-sm font-medium text-ink">Nothing outstanding</p>
-            <p className="mt-1 max-w-lg text-sm text-ink/55">
+            <p className="mt-1 max-w-lg text-sm text-ink-muted">
               Every team has a decision and every player has somewhere to go. The handover can be applied from{" "}
               <Link href="/club/rollover?section=apply" className="text-forest-800 underline underline-offset-2">
                 Apply &amp; audit
@@ -56,7 +56,7 @@ export function HandoverNeedsAttention({ blockers, planned }: { blockers: Handov
             <p className="text-sm font-medium text-ink">
               {blockers.length} {blockers.length === 1 ? "item needs" : "items need"} a decision
             </p>
-            <p className="mt-0.5 max-w-xl text-sm text-ink/55">
+            <p className="mt-0.5 max-w-xl text-sm text-ink-muted">
               Nothing about your club has changed. The handover holds here until each of these is settled, rather than moving
               some cohorts and leaving others.
             </p>
@@ -92,7 +92,7 @@ export function HandoverNeedsAttention({ blockers, planned }: { blockers: Handov
         <div className="rounded-lg border border-ink/10 bg-white">
           <div className="border-b border-ink/8 px-5 py-3.5">
             <p className="text-sm font-medium text-ink">Resolved by a decision to add a team</p>
-            <p className="mt-0.5 max-w-xl text-sm text-ink/55">
+            <p className="mt-0.5 max-w-xl text-sm text-ink-muted">
               These were gaps. The club has decided to run the missing side, so they no longer hold the handover -- the team is
               created when it is applied.
             </p>
@@ -103,7 +103,7 @@ export function HandoverNeedsAttention({ blockers, planned }: { blockers: Handov
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-forest-700" />
                 <div>
                   <p className="text-sm font-medium text-ink">{p.label}</p>
-                  <p className="mt-0.5 text-sm text-ink/55">{p.note}</p>
+                  <p className="mt-0.5 text-sm text-ink-muted">{p.note}</p>
                 </div>
               </li>
             ))}

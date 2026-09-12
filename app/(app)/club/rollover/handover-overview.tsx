@@ -36,7 +36,7 @@ function ConsequenceLine({ c }: { c: HandoverConsequence }) {
       sentence = (
         <>
           <span className="font-medium text-ink">{c.fromLabel}</span>
-          <span className="text-ink/40"> {c.toLabel ? `would normally become ${c.toLabel}` : "has no proposed destination"} </span>
+          <span className="text-ink-muted"> {c.toLabel ? `would normally become ${c.toLabel}` : "has no proposed destination"} </span>
           <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-900">Needs a decision</span>
         </>
       )
@@ -45,7 +45,7 @@ function ConsequenceLine({ c }: { c: HandoverConsequence }) {
       sentence = (
         <>
           <span className="font-medium text-ink">{c.fromLabel}</span>
-          <span className="text-ink/40"> {applied ? "became" : "will become"} </span>
+          <span className="text-ink-muted"> {applied ? "became" : "will become"} </span>
           <span className="font-medium text-ink">{c.toLabel}</span>
         </>
       )
@@ -54,7 +54,7 @@ function ConsequenceLine({ c }: { c: HandoverConsequence }) {
       sentence = (
         <>
           <span className="font-medium text-ink">{c.fromLabel}</span>
-          <span className="text-ink/55"> {applied ? "completed" : "completes"} the youth pathway</span>
+          <span className="text-ink-muted"> {applied ? "completed" : "completes"} the youth pathway</span>
         </>
       )
       break
@@ -62,7 +62,7 @@ function ConsequenceLine({ c }: { c: HandoverConsequence }) {
       sentence = (
         <>
           <span className="font-medium text-ink">{c.fromLabel}</span>
-          <span className="text-ink/55"> {applied ? "did not continue" : "will not continue"}</span>
+          <span className="text-ink-muted"> {applied ? "did not continue" : "will not continue"}</span>
         </>
       )
       break
@@ -70,7 +70,7 @@ function ConsequenceLine({ c }: { c: HandoverConsequence }) {
       sentence = (
         <>
           <span className="font-medium text-ink">{c.toLabel}</span>
-          <span className="text-ink/55"> {applied ? "was reactivated" : "will be reactivated"}</span>
+          <span className="text-ink-muted"> {applied ? "was reactivated" : "will be reactivated"}</span>
         </>
       )
       break
@@ -78,7 +78,7 @@ function ConsequenceLine({ c }: { c: HandoverConsequence }) {
       sentence = (
         <>
           <span className="font-medium text-ink">{c.toLabel}</span>
-          <span className="text-ink/55"> {applied ? "was created" : "will be created"}</span>
+          <span className="text-ink-muted"> {applied ? "was created" : "will be created"}</span>
         </>
       )
   }
@@ -86,7 +86,7 @@ function ConsequenceLine({ c }: { c: HandoverConsequence }) {
   return (
     <li className="px-5 py-3.5">
       <p className="text-sm">{sentence}</p>
-      {c.note && <p className="mt-0.5 text-sm text-ink/55">{c.note}</p>}
+      {c.note && <p className="mt-0.5 text-sm text-ink-muted">{c.note}</p>}
     </li>
   )
 }
@@ -106,7 +106,7 @@ export function HandoverOverview({
     return (
       <div className="rounded-lg border border-ink/10 bg-white p-6">
         <p className="text-sm font-medium text-ink">Nothing prepared yet</p>
-        <p className="mt-1 max-w-lg text-sm text-ink/55">
+        <p className="mt-1 max-w-lg text-sm text-ink-muted">
           Once a handover is prepared, everything it will do to {toSeasonName ? `your club for ${toSeasonName}` : "your club"} is
           listed here before any of it happens. Prepare one from{" "}
           <Link href="/club/rollover?section=teams" className="text-forest-800 underline underline-offset-2">
@@ -127,7 +127,7 @@ export function HandoverOverview({
       <div className="rounded-lg border border-ink/10 bg-white">
         <div className="border-b border-ink/8 px-5 py-3.5">
           <p className="text-sm font-medium text-ink">Teams already at the club</p>
-          <p className="mt-0.5 text-sm text-ink/55">
+          <p className="mt-0.5 text-sm text-ink-muted">
             {isApplied
               ? "What this handover did to each cohort."
               : undecided > 0
@@ -139,7 +139,7 @@ export function HandoverOverview({
           {teamLines.map((c, i) => (
             <ConsequenceLine key={`${c.kind}-${c.fromLabel}-${i}`} c={c} />
           ))}
-          {teamLines.length === 0 && <li className="px-5 py-3.5 text-sm text-ink/55">No team decisions recorded yet.</li>}
+          {teamLines.length === 0 && <li className="px-5 py-3.5 text-sm text-ink-muted">No team decisions recorded yet.</li>}
         </ul>
       </div>
 
@@ -147,7 +147,7 @@ export function HandoverOverview({
         <div className="rounded-lg border border-ink/10 bg-white">
           <div className="border-b border-ink/8 px-5 py-3.5">
             <p className="text-sm font-medium text-ink">{isApplied ? "Teams the club now runs" : "Teams the club will run"}</p>
-            <p className="mt-0.5 text-sm text-ink/55">
+            <p className="mt-0.5 text-sm text-ink-muted">
               {isApplied
                 ? "Sides this handover created."
                 : "Planned, not created. Each of these takes an identity that a current cohort only gives up when the handover runs."}

@@ -345,12 +345,12 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
         <span className="text-ink">
-          {currentSeasonRows?.name ?? "This season"} <span className="text-ink/40">&rarr;</span>{" "}
+          {currentSeasonRows?.name ?? "This season"} <span className="text-ink-muted">&rarr;</span>{" "}
           {nextSeasonOption?.name ?? "next season"}
         </span>
         <span className="rounded-md bg-ink/5 px-2 py-0.5 text-xs font-medium text-ink/70">{STATE_WORDS[handoverState] ?? handoverState}</span>
         {nextSeasonRaw?.pre_season_starts_on && (
-          <span className="text-ink/55">
+          <span className="text-ink-muted">
             Runs from{" "}
             {new Date(nextSeasonRaw.pre_season_starts_on).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
           </span>
@@ -372,7 +372,7 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
         )}
       </p>
       {readiness && (
-        <p className="mt-1.5 text-sm text-ink/55">
+        <p className="mt-1.5 text-sm text-ink-muted">
           {readiness.teams_total} team{readiness.teams_total === 1 ? "" : "s"} · {readiness.players_total} player
           {readiness.players_total === 1 ? "" : "s"} · {readiness.blocker_count} decision
           {readiness.blocker_count === 1 ? "" : "s"} needed

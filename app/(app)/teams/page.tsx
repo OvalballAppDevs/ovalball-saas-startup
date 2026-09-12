@@ -298,7 +298,7 @@ export default async function TeamsPage() {
               <h2 id="teams-unrecognised" className="font-display text-lg text-ink">
                 Not yet recognised
               </h2>
-              <p className="mt-0.5 text-sm text-ink/55">
+              <p className="mt-0.5 text-sm text-ink-muted">
                 These teams predate the Team Directory, so Ovalball does not know which age grade or pathway they
                 belong to. Open one to set it.
               </p>

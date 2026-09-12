@@ -284,7 +284,7 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
                       <option value="MALE">Boys</option>
                       <option value="FEMALE">Girls</option>
                     </select>
-                    <p id={`pathway-hint-${child.key}`} className="text-xs text-ink/55">
+                    <p id={`pathway-hint-${child.key}`} className="text-xs text-ink-muted">
                       Rugby runs separate boys&apos; and girls&apos; age grades from Under-12. Below that, children play
                       mixed rugby together — we ask now so their age group is right when they get there.
                     </p>

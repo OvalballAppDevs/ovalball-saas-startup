@@ -229,7 +229,7 @@ function FixtureCard({
       </div>
       <p className="truncate text-[11px] text-forest-900/70">v {fixture.opponentLabel}</p>
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[10px] font-medium text-forest-900/60">{fixture.kickoffTime ?? "--:--"}</span>
+        <span className="text-[10px] font-medium text-forest-900/70">{fixture.kickoffTime ?? "--:--"}</span>
         {canManage && (
           <button
             type="button"

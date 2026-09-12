@@ -45,7 +45,7 @@ function CandidateCard({ candidate, isBestMatch, onSelect, disabled }: { candida
     <div className={cn("rounded-lg border bg-white p-3 text-xs", isBestMatch ? "border-pitch-600/50 ring-1 ring-pitch-600/30" : "border-forest-900/12")}>
       {isBestMatch && <p className="mb-1 text-[10px] font-semibold tracking-[0.06em] text-pitch-700 uppercase">Best match</p>}
       <p className="text-sm font-semibold text-forest-900">{candidate.clubDisplayName}</p>
-      <p className="text-forest-900/60">{candidate.canonicalTeamLabel}</p>
+      <p className="text-forest-900/70">{candidate.canonicalTeamLabel}</p>
       <dl className="mt-1.5 flex flex-col gap-0.5 text-forest-900/70">
         <div>{formatDistance(candidate.approximateDistanceMiles)}</div>
         <div>{AVAILABILITY_LABEL[candidate.fixtureAvailabilityState]}</div>
@@ -195,7 +195,7 @@ export function AskOvie() {
             </div>
           )
         })}
-        {pending && <div className="w-fit rounded-xl bg-forest-900/5 px-3 py-2 text-sm text-forest-900/60">{ACTIVITY_MESSAGES[activityIndex]}</div>}
+        {pending && <div className="w-fit rounded-xl bg-forest-900/5 px-3 py-2 text-sm text-forest-900/70">{ACTIVITY_MESSAGES[activityIndex]}</div>}
       </div>
 
       {notConfigured && (

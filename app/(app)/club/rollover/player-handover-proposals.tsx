@@ -222,7 +222,7 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
               Player Handover proposals for {toSeasonName ?? "next season"}
             </caption>
             <thead>
-              <tr className="border-b border-ink/10 text-xs tracking-[0.04em] text-ink/55 uppercase">
+              <tr className="border-b border-ink/10 text-xs tracking-[0.04em] text-ink-muted uppercase">
                 <th scope="col" className="px-5 py-2.5 font-medium">
                   Player
                 </th>
@@ -255,7 +255,7 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
                           className="flex items-center gap-1.5 rounded text-left focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
                         >
                           <ChevronRight
-                            className={`size-4 shrink-0 text-ink/40 transition-transform motion-reduce:transition-none ${open ? "rotate-90" : ""}`}
+                            className={`size-4 shrink-0 text-ink-muted transition-transform motion-reduce:transition-none ${open ? "rotate-90" : ""}`}
                             aria-hidden="true"
                           />
                           {row.playerName}
@@ -263,14 +263,14 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
                       </th>
                       <td className="px-5 py-3 text-sm text-ink/80">{row.currentTeamName}</td>
                       <td className="px-5 py-3 text-sm text-ink/80">
-                        {row.normalPlacementName ?? <span className="text-ink/55">Not available</span>}
+                        {row.normalPlacementName ?? <span className="text-ink-muted">Not available</span>}
                       </td>
                       <td className="px-5 py-3 text-sm text-ink/80">
                         {row.selectedPlacementName ?? row.normalPlacementName ?? (
                           row.plannedTeamName ? (
                             <span>
                               {row.plannedTeamName}
-                              {row.plannedTeamPending && <span className="ml-1.5 text-xs text-ink/55">planned</span>}
+                              {row.plannedTeamPending && <span className="ml-1.5 text-xs text-ink-muted">planned</span>}
                             </span>
                           ) : (
                             "—"
@@ -312,13 +312,13 @@ export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerPr
                 </div>
                 <div className="mt-2.5 text-sm text-ink/80">
                   <p>{row.currentTeamName}</p>
-                  <p className="my-1 ml-1.5 border-l border-ink/20 pl-3 text-xs text-ink/50" aria-hidden="true">
+                  <p className="my-1 ml-1.5 border-l border-ink/20 pl-3 text-xs text-ink-muted" aria-hidden="true">
                     &nbsp;
                   </p>
                   <p>
                     {row.selectedPlacementName ?? row.normalPlacementName ?? row.plannedTeamName ?? "No team yet"}
                     {!row.selectedPlacementName && !row.normalPlacementName && row.plannedTeamName && row.plannedTeamPending && (
-                      <span className="ml-1.5 text-xs text-ink/55">planned</span>
+                      <span className="ml-1.5 text-xs text-ink-muted">planned</span>
                     )}
                   </p>
                 </div>
@@ -378,7 +378,7 @@ function PlayerDetail({
       )}
 
       {row.regulatoryAgeLabel && (
-        <p className="text-sm text-ink/55">
+        <p className="text-sm text-ink-muted">
           {row.regulatoryAgeLabel} is {row.playerName.split(" ")[0]}&apos;s age group for this season.
         </p>
       )}
@@ -510,7 +510,7 @@ function ChangePlacementDialog({
               className="flex w-full items-center justify-between gap-3 rounded-lg border border-ink/10 px-3.5 py-3 text-left text-sm hover:bg-chalk focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
             >
               <span className="text-ink">{o.displayName}</span>
-              <span className="flex shrink-0 items-center gap-2 text-xs text-ink/55">
+              <span className="flex shrink-0 items-center gap-2 text-xs text-ink-muted">
                 {o.isPlanned && <span>Created on apply</span>}
                 {o.isNormal && <span>Normal placement</span>}
               </span>

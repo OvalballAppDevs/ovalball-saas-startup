@@ -133,7 +133,7 @@ export function BrandPanel({
                 Restore Ovalball&apos;s logo
               </button>
             )}
-            <p className="w-full text-xs text-ink/55">
+            <p className="w-full text-xs text-ink-muted">
               PNG, JPEG or WebP, up to 1.5 MB. A square image works best. Other formats do not render reliably in email.
             </p>
           </div>

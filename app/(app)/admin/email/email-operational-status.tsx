@@ -45,7 +45,7 @@ export function EmailOperationalStatus({
         <Stat label="Recent Health" value={`${providerAccepted} accepted / ${failed} failed`} />
       </dl>
       {!wired && (
-        <p className="mt-4 text-xs text-ink/50">
+        <p className="mt-4 text-xs text-ink-muted">
           Nothing in Ovalball sends this email yet, so there is no channel to enable or disable.
         </p>
       )}

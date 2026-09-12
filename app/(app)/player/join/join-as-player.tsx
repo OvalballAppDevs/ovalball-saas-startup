@@ -165,7 +165,7 @@ export function JoinAsPlayer({
                 <option value="MALE">Men&apos;s</option>
                 <option value="FEMALE">Women&apos;s</option>
               </select>
-              <p id="player-pathway-hint" className="text-xs text-ink/55">
+              <p id="player-pathway-hint" className="text-xs text-ink-muted">
                 Adult rugby is played as a men&apos;s or a women&apos;s game. This is recorded once.
               </p>
             </div>
