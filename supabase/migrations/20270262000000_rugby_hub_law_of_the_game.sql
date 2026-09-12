@@ -366,7 +366,25 @@ begin
   -- verified_by/published_by on every existing regulatory_facts row and
   -- regulatory_content_sets row -- reused here rather than minting a second
   -- identity for the same provenance role.
-  v_admin := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  -- THE CONTENT-IMPORT IDENTITY IS LOOKED UP, NEVER HARDCODED.
+  --
+  -- This previously assigned a literal auth.users UUID taken from the
+  -- machine the content was authored on. That row exists in exactly one
+  -- database, so the migration could only ever succeed there: applying it
+  -- anywhere else -- a colleague's machine, a clean boot, production --
+  -- failed on the verified_by foreign key. It is resolved by email against
+  -- the stable system account an earlier Hub migration creates, and created
+  -- here if this migration happens to be the first to need it.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
+  if v_admin is null then
+    v_admin := gen_random_uuid();
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    values (v_admin, 'rugby-hub-content-import@system.ovalball.internal', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
+    insert into public.profiles (id, first_name, surname, email)
+    values (v_admin, 'Rugby Hub', 'Content Import', 'rugby-hub-content-import@system.ovalball.internal')
+    on conflict (id) do nothing;
+  end if;
 
   select id into v_wr_lawbook from public.regulatory_sources where source_key = 'WR-LAWBOOK-2026';
   select id into v_wr_passport from public.regulatory_sources where source_key = 'WR-LAWSBYNUMBER';

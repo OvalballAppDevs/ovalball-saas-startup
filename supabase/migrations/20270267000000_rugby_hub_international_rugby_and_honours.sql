@@ -174,7 +174,7 @@ create policy hub_content_heritage_links_public_read on public.hub_content_herit
 
 do $$
 declare
-  v_admin uuid := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  v_admin uuid;
 
   v_england_ru_m uuid; v_ireland_ru_m uuid; v_nz_ru_m uuid; v_rsa_ru_m uuid; v_australia_ru_m uuid; v_france_ru_m uuid;
   v_england_ru_w uuid; v_nz_ru_w uuid;
@@ -188,6 +188,25 @@ declare
   v_heritage_lions_1888 uuid; v_heritage_mandela uuid; v_heritage_lomu uuid; v_heritage_challenge_cup_1897 uuid; v_heritage_super_league_1996 uuid;
   v_comp_challenge_cup uuid; v_comp_super_league uuid;
 begin
+  -- THE CONTENT-IMPORT IDENTITY IS LOOKED UP, NEVER HARDCODED.
+  --
+  -- This previously assigned a literal auth.users UUID taken from the
+  -- machine the content was authored on. That row exists in exactly one
+  -- database, so the migration could only ever succeed there: applying it
+  -- anywhere else -- a colleague's machine, a clean boot, production --
+  -- failed on the verified_by foreign key. It is resolved by email against
+  -- the stable system account an earlier Hub migration creates, and created
+  -- here if this migration happens to be the first to need it.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
+  if v_admin is null then
+    v_admin := gen_random_uuid();
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    values (v_admin, 'rugby-hub-content-import@system.ovalball.internal', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
+    insert into public.profiles (id, first_name, surname, email)
+    values (v_admin, 'Rugby Hub', 'Content Import', 'rugby-hub-content-import@system.ovalball.internal')
+    on conflict (id) do nothing;
+  end if;
   select id into v_heritage_lions_1888 from public.heritage_entries where entry_key = 'LIONS-1888';
   select id into v_heritage_mandela from public.heritage_entries where entry_key = 'RWC-1995-MANDELA';
   select id into v_heritage_lomu from public.heritage_entries where entry_key = 'LOMU-1995';

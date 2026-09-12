@@ -87,7 +87,7 @@ comment on column public.hub_content_items.development_family is 'PLAYER_DEVELOP
 
 do $$
 declare
-  v_admin uuid := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  v_admin uuid;
 
   v_basics uuid; v_core uuid; v_habits uuid; v_mistakes uuid;
   v_scanning uuid; v_linking uuid; v_contact uuid;
@@ -109,6 +109,25 @@ declare
 
   v_fact_tackle_complete uuid; v_fact_tackle_release uuid; v_fact_ruck_forms uuid; v_fact_league_playball uuid;
 begin
+  -- THE CONTENT-IMPORT IDENTITY IS LOOKED UP, NEVER HARDCODED.
+  --
+  -- This previously assigned a literal auth.users UUID taken from the
+  -- machine the content was authored on. That row exists in exactly one
+  -- database, so the migration could only ever succeed there: applying it
+  -- anywhere else -- a colleague's machine, a clean boot, production --
+  -- failed on the verified_by foreign key. It is resolved by email against
+  -- the stable system account an earlier Hub migration creates, and created
+  -- here if this migration happens to be the first to need it.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
+  if v_admin is null then
+    v_admin := gen_random_uuid();
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    values (v_admin, 'rugby-hub-content-import@system.ovalball.internal', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
+    insert into public.profiles (id, first_name, surname, email)
+    values (v_admin, 'Rugby Hub', 'Content Import', 'rugby-hub-content-import@system.ovalball.internal')
+    on conflict (id) do nothing;
+  end if;
   select id into v_skill_passing from public.hub_skills where skill_key = 'passing-under-pressure';
   select id into v_skill_catching from public.hub_skills where skill_key = 'catching-under-pressure';
   select id into v_skill_decisions from public.hub_skills where skill_key = 'decision-making-under-pressure';
@@ -140,10 +159,18 @@ begin
   select id into v_pos_league_halfback from public.hub_positions where position_key = 'league-halfback';
   select id into v_pos_league_fullback from public.hub_positions where position_key = 'league-fullback';
 
-  select id into v_fact_tackle_complete from public.regulatory_facts where id = '361eeb9a-e409-440f-8290-09ae444f666f';
-  select id into v_fact_tackle_release from public.regulatory_facts where id = '6ff96c51-b19b-4f24-b5cd-36e89186109e';
-  select id into v_fact_ruck_forms from public.regulatory_facts where id = '12500a36-14cf-4671-a637-711da5395fb7';
-  select id into v_fact_league_playball from public.regulatory_facts where id = 'b0903485-0e6a-4d6a-a5b8-b5fba38c99e6';
+  -- LOOKED UP BY FACT KEY, NOT BY ID.
+  --
+  -- These four previously selected regulatory_facts by literal UUID. Those
+  -- ids are generated per database, so the literals only ever resolved on
+  -- the machine the content was authored on; anywhere else the selects
+  -- returned NULL and the insert below failed on a NOT NULL constraint.
+  -- fact_key is the stable business key these rows already carry, and the
+  -- migration that creates them runs earlier in this same sequence.
+  select id into v_fact_tackle_complete from public.regulatory_facts where fact_key = 'WR-LAW-TACKLE-COMPLETION';
+  select id into v_fact_tackle_release from public.regulatory_facts where fact_key = 'WR-LAW-TACKLE-RELEASE';
+  select id into v_fact_ruck_forms from public.regulatory_facts where fact_key = 'WR-LAW-RUCK';
+  select id into v_fact_league_playball from public.regulatory_facts where fact_key = 'IRL-LAW-PLAY-THE-BALL';
 
   -- ============ FOUNDATIONS ============
 

@@ -60,7 +60,7 @@
 
 do $$
 declare
-  v_admin uuid := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  v_admin uuid;
 
   v_wigan uuid; v_saints uuid; v_leeds uuid; v_bradford uuid;
   v_leicester uuid; v_bath uuid; v_quins uuid; v_munster uuid;
@@ -75,6 +75,25 @@ declare
   v_heritage_wembley_1929 uuid; v_heritage_challenge_cup_1897 uuid; v_heritage_super_league_1996 uuid;
   v_heritage_bradford_2017 uuid; v_heritage_munster_2006 uuid;
 begin
+  -- THE CONTENT-IMPORT IDENTITY IS LOOKED UP, NEVER HARDCODED.
+  --
+  -- This previously assigned a literal auth.users UUID taken from the
+  -- machine the content was authored on. That row exists in exactly one
+  -- database, so the migration could only ever succeed there: applying it
+  -- anywhere else -- a colleague's machine, a clean boot, production --
+  -- failed on the verified_by foreign key. It is resolved by email against
+  -- the stable system account an earlier Hub migration creates, and created
+  -- here if this migration happens to be the first to need it.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
+  if v_admin is null then
+    v_admin := gen_random_uuid();
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    values (v_admin, 'rugby-hub-content-import@system.ovalball.internal', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
+    insert into public.profiles (id, first_name, surname, email)
+    values (v_admin, 'Rugby Hub', 'Content Import', 'rugby-hub-content-import@system.ovalball.internal')
+    on conflict (id) do nothing;
+  end if;
   select id into v_comp_challenge_cup from public.hub_content_items where content_key = 'challenge-cup';
   select id into v_comp_super_league from public.hub_content_items where content_key = 'super-league';
   select id into v_comp_premiership from public.hub_content_items where content_key = 'premiership-rugby';

@@ -288,7 +288,7 @@ create policy hub_content_sources_public_read on public.hub_content_sources
 
 do $$
 declare
-  v_admin uuid := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  v_admin uuid;
 
   v_lomu uuid; v_boston uuid; v_robinson uuid; v_sinfield uuid; v_barnes uuid; v_cunningham uuid;
   v_johnson uuid; v_wilkinson uuid; v_alphonsi uuid; v_scarratt uuid; v_pienaar uuid; v_hanley uuid;
@@ -304,6 +304,25 @@ declare
 
   v_officiating_what_referee_does uuid; v_officiating_becoming_referee uuid; v_comp_rwc uuid;
 begin
+  -- THE CONTENT-IMPORT IDENTITY IS LOOKED UP, NEVER HARDCODED.
+  --
+  -- This previously assigned a literal auth.users UUID taken from the
+  -- machine the content was authored on. That row exists in exactly one
+  -- database, so the migration could only ever succeed there: applying it
+  -- anywhere else -- a colleague's machine, a clean boot, production --
+  -- failed on the verified_by foreign key. It is resolved by email against
+  -- the stable system account an earlier Hub migration creates, and created
+  -- here if this migration happens to be the first to need it.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
+  if v_admin is null then
+    v_admin := gen_random_uuid();
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    values (v_admin, 'rugby-hub-content-import@system.ovalball.internal', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
+    insert into public.profiles (id, first_name, surname, email)
+    values (v_admin, 'Rugby Hub', 'Content Import', 'rugby-hub-content-import@system.ovalball.internal')
+    on conflict (id) do nothing;
+  end if;
   select id into v_team_nz_ru_m from public.hub_content_items where content_key = 'new-zealand-rugby-union-men';
   select id into v_team_england_rl_m from public.hub_content_items where content_key = 'england-rugby-league-men';
   select id into v_team_england_ru_m from public.hub_content_items where content_key = 'england-rugby-union-men';
