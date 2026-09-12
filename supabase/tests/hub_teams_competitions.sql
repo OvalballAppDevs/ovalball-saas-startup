@@ -150,7 +150,7 @@ begin
   -- ============ I/J. Search indexes competition articles via the existing, unchanged CONTENT_ITEM branch ============
   update public.hub_content_items set title = 'Htctestsearchablecompetition' where id = v_test_guide;
   insert into public.hub_content_applicability (content_item_id, is_universal) values (v_test_guide, true);
-  update public.hub_content_items set status = 'PUBLISHED', reviewed_by = '54518912-752c-4f36-a3ff-176d28a6262d'::uuid, reviewed_at = now(), published_by = '54518912-752c-4f36-a3ff-176d28a6262d'::uuid, published_at = now() where id = v_test_guide;
+  update public.hub_content_items set status = 'PUBLISHED', reviewed_by = (select id from auth.users where email = 'rugby-hub-content-import@system.ovalball.internal'), reviewed_at = now(), published_by = (select id from auth.users where email = 'rugby-hub-content-import@system.ovalball.internal'), published_at = now() where id = v_test_guide;
   if (select count(*) from public.search_hub_content('Htctestsearchablecompetition', 20) where result_id = v_test_guide and result_type = 'CONTENT_ITEM') <> 1 then
     raise exception 'FAIL (I): a published COMPETITION_GUIDE did not appear in search_hub_content via the existing CONTENT_ITEM branch';
   end if;

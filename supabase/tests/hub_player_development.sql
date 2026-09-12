@@ -32,7 +32,7 @@ declare
   v_league_identity uuid;
   v_count int;
   v_bad text;
-  v_admin uuid := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  v_admin uuid;
   v_dev_keys text[] := array[
     'learning-the-basics', 'building-core-skills', 'training-habits', 'learning-from-mistakes',
     'scanning-before-you-act', 'linking-skills-together', 'contact-confidence',
@@ -41,6 +41,12 @@ declare
     'confidence-and-composure', 'preparing-for-match-day', 'trying-different-positions', 'moving-through-age-grade-rugby'
   ];
 begin
+  -- Resolved, not hardcoded. This literal was a real auth.users id from the
+  -- machine the Hub content was authored on, so this suite could only ever
+  -- pass there; anywhere else it failed on a verified_by foreign key. The
+  -- system content-import account is created by the Hub migrations.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
   select id into v_union_identity from public.regulatory_identities where rugby_code = 'union' limit 1;
   select id into v_league_identity from public.regulatory_identities where rugby_code = 'league' limit 1;
 

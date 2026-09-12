@@ -44,12 +44,18 @@ declare
   v_glossary uuid;
   v_real_fact uuid;
   v_real_glossary_term uuid;
-  v_admin uuid := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  v_admin uuid;
   v_full_admin uuid := gen_random_uuid();
   v_raised boolean;
   v_n int;
   v_rfl_girls_u12 uuid;
 begin
+  -- Resolved, not hardcoded. This literal was a real auth.users id from the
+  -- machine the Hub content was authored on, so this suite could only ever
+  -- pass there; anywhere else it failed on a verified_by foreign key. The
+  -- system content-import account is created by the Hub migrations.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data) values
     (v_full_admin, 'hlaw-full-admin-' || v_full_admin::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
   insert into public.profiles (id, first_name, surname, email) values

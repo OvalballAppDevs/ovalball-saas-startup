@@ -23,9 +23,15 @@ declare
   v_raised boolean;
   v_count int;
   v_bad text;
-  v_admin uuid := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  v_admin uuid;
   v_families text[] := array['GETTING_STARTED','TRAINING_AND_MATCH_DAY','SUPPORTING_YOUR_PLAYER','WELFARE_AND_SAFETY','CLUB_CULTURE','PATHWAYS_AND_OPPORTUNITIES','PRACTICAL_RUGBY'];
 begin
+  -- Resolved, not hardcoded. This literal was a real auth.users id from the
+  -- machine the Hub content was authored on, so this suite could only ever
+  -- pass there; anywhere else it failed on a verified_by foreign key. The
+  -- system content-import account is created by the Hub migrations.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
   -- ============ A. PARENT_GUIDE accepted ============
   insert into public.hub_content_items (content_key, content_type, parent_family, title, summary)
   values ('hpg-test-guide-' || substr(gen_random_uuid()::text,1,8), 'PARENT_GUIDE', 'GETTING_STARTED', 'Test Parent Guide', 'A test summary for the parents suite.')

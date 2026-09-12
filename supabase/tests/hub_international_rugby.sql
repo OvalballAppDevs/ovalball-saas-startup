@@ -32,10 +32,16 @@ declare
   v_test_honour uuid;
   v_raised boolean;
   v_n int;
-  v_admin uuid := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  v_admin uuid;
   v_operational_teams_before int;
   v_operational_competitions_before int;
 begin
+  -- Resolved, not hardcoded. This literal was a real auth.users id from the
+  -- machine the Hub content was authored on, so this suite could only ever
+  -- pass there; anywhere else it failed on a verified_by foreign key. The
+  -- system content-import account is created by the Hub migrations.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
   insert into public.regulatory_identities (rugby_code, identity_key, label, mapping_type)
   values ('union', 'hir-identity-union-' || substr(gen_random_uuid()::text,1,8), 'Test Union Identity', 'DIRECT')
   returning id into v_test_identity_union;

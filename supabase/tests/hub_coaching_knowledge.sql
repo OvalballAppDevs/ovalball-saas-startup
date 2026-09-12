@@ -25,9 +25,15 @@ declare
   v_raised boolean;
   v_count int;
   v_bad text;
-  v_admin uuid := '54518912-752c-4f36-a3ff-176d28a6262d'::uuid;
+  v_admin uuid;
   v_families text[] := array['COACHING_APPROACH','SESSION_DESIGN','PRACTICE_DESIGN','COMMUNICATION','INCLUSION','SAFETY','REFLECTION'];
 begin
+  -- Resolved, not hardcoded. This literal was a real auth.users id from the
+  -- machine the Hub content was authored on, so this suite could only ever
+  -- pass there; anywhere else it failed on a verified_by foreign key. The
+  -- system content-import account is created by the Hub migrations.
+  select id into v_admin from auth.users
+  where email = 'rugby-hub-content-import@system.ovalball.internal';
   -- ============ A. COACHING_CONCEPT accepted ============
   insert into public.hub_content_items (content_key, content_type, coaching_family, title, summary)
   values ('hck-test-concept-' || substr(gen_random_uuid()::text,1,8), 'COACHING_CONCEPT', 'SESSION_DESIGN', 'Test Coaching Concept', 'A test summary for the coaching suite.')
