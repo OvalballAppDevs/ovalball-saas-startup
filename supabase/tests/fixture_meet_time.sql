@@ -205,6 +205,18 @@ begin
   -- copy -- it is a read of the one column, and Fixture Management needs one to
   -- show the value it edits. A second base table carrying a meet or arrival
   -- time still fails here, which is the case this assertion exists for.
+  --
+  -- fixture_import_rows is the one exemption, and it is an exemption for the
+  -- same reason a view is: it is not a second home for the value, it is the
+  -- INPUT the value arrives in. A staged row records what an uploaded file or
+  -- a pasted spreadsheet said, before anybody has agreed it is a fixture --
+  -- the whole row already sits untyped in fixture_import_rows.raw, so the
+  -- typed column adds a shape, not a source of truth. publish_import_row
+  -- copies it once into fixtures.meet_time and the staged row is marked
+  -- published; nothing ever reads it back as a fixture's meet time.
+  --
+  -- Assertion 14 below is what keeps this exemption honest: staging may hold
+  -- the value on its way in, but it must never be readable as the answer.
   select count(*) into v_n
   from information_schema.columns c
   join information_schema.tables t
@@ -212,11 +224,35 @@ begin
   where c.table_schema = 'public'
     and c.column_name in ('meet_time','arrival_time','meet_at')
     and t.table_type = 'BASE TABLE'
-    and c.table_name <> 'fixtures';
+    and c.table_name not in ('fixtures', 'fixture_import_rows');
   if v_n = 0 then
     raise notice 'PASS 13 (F): meet time is STORED only on fixtures -- no second copy, however many views read it';
   else
     raise exception 'FAIL 13 (F): % other base table(s) carry a meet/arrival time', v_n;
+  end if;
+
+  -- =================================================================
+  -- 14 (F). THE EXEMPTION, KEPT HONEST.
+  --
+  -- Staging may hold a meet time on its way in. It must never become a
+  -- second place the answer is read FROM -- if anything ever resolved a
+  -- fixture's meet time by looking at fixture_import_rows, the single
+  -- canonical column would have quietly become two.
+  --
+  -- Checked structurally: no view, function or generated column outside
+  -- the import pipeline itself may reference the staged column.
+  -- =================================================================
+  select count(*) into v_n
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname in ('public', 'internal')
+    and p.prosrc ilike '%fixture_import_rows%'
+    and p.prosrc ilike '%meet_time%'
+    and p.proname <> 'publish_import_row';
+  if v_n = 0 then
+    raise notice 'PASS 14 (F): the staged meet time is written once into fixtures and never read back as the answer';
+  else
+    raise exception 'FAIL 14 (F): % function(s) besides publish_import_row read a staged meet time', v_n;
   end if;
 
   raise notice 'Fixture meet time complete.';

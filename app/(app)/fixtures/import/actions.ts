@@ -6,6 +6,7 @@ import { redirect } from "next/navigation"
 
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
+import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 import { applyRowCorrection, stageImportBatch, type RowCorrectionInput } from "@/lib/fixtures/import-engine"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
@@ -41,6 +42,21 @@ async function resolveImportClubId(): Promise<{ clubId: string } | { error: stri
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeManageableClubId(ctx, activeContext)
   if (!clubId) return { error: "You don't have fixture management authority for a club right now." }
+
+  // IMPORTING A SEASON IS ITS OWN AUTHORITY. Until now this was gated only
+  // by "can you manage any of this club's fixtures", which is the same
+  // permission as changing one kick-off time -- so a club had no way to let
+  // somebody edit fixtures without also letting them replace the season in
+  // one upload. fixture.import is granted by default to exactly the roles
+  // that could already do this (Club Admin, Fixture Secretary), so nobody
+  // loses an ability; a club can now withhold it from anyone else.
+  //
+  // This is the convenience check. RLS (internal.can_manage_club_fixtures)
+  // remains the real boundary on every row the import writes.
+  if (!(await hasCapability(supabase, "fixture.import", "club", { clubId }))) {
+    return { error: "You don't have permission to import fixtures for this club." }
+  }
+
   return { clubId }
 }
 

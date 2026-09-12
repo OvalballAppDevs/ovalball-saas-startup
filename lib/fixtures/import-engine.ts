@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
 
 import { teamsCanPlayFixture, type TeamEligibilityFields } from "./eligibility"
+import { normaliseHeader } from "./header-vocabulary"
 import { GAME_TYPE_OPTIONS } from "@/app/(app)/admin/fixtures/types"
 
 /**
@@ -19,6 +20,37 @@ import { GAME_TYPE_OPTIONS } from "@/app/(app)/admin/fixtures/types"
  */
 
 export const REQUIRED_IMPORT_COLUMNS = ["home_club", "home_team"] as const
+
+/**
+ * A CALL-SCOPED MEMO, AND NOTHING MORE.
+ *
+ * A season is repetitive by nature: the same five teams, the same dozen
+ * opponents and the same two venues appear across a hundred rows. Resolving
+ * each one from scratch on every row meant a 120-row paste issued several
+ * hundred round trips to answer a few dozen distinct questions, and took
+ * over half a minute.
+ *
+ * The cache changes NOTHING about what a lookup returns. Every key includes
+ * every input that could change the answer -- including the club scope -- so
+ * a hit is a question already asked with the same arguments in the same
+ * call.
+ *
+ * IT IS CREATED PER CALL AND NEVER SHARED. That is the whole safety
+ * argument: a cache that outlived one caller's request would be a cache that
+ * could answer one person's question with another person's RLS-filtered
+ * results. Callers pass a fresh Map or nothing at all.
+ */
+export type LookupCache = Map<string, unknown>
+
+// PromiseLike, not Promise: a PostgREST builder is a thenable that is only
+// dispatched when awaited, which is exactly what makes it cacheable here.
+async function memo<T>(cache: LookupCache | undefined, key: string, run: () => PromiseLike<T>): Promise<T> {
+  if (!cache) return run()
+  if (cache.has(key)) return cache.get(key) as T
+  const value = await run()
+  cache.set(key, value)
+  return value
+}
 
 export function normalizeGameType(raw: string): string | null {
   const trimmed = raw.trim()
@@ -36,9 +68,37 @@ export function normalizeGameType(raw: string): string | null {
  * on every row. Both names are accepted, new name preferred, so a v2
  * export round-trips and an old hand-made v1-style file keeps working.
  */
+
+/**
+ * Reads one logical column, accepting any header that normalises to one of
+ * the given names.
+ *
+ * AMBIGUITY IS NOT RESOLVED SILENTLY. If a file carries two different
+ * headers that mean the same thing AND they disagree, picking one would
+ * quietly discard the other -- so the disagreement is thrown and surfaces as
+ * a row error the person can see and fix.
+ */
 function readColumn(raw: Record<string, string>, ...names: string[]): string {
+  const wanted = new Set(names.map(normaliseHeader))
+  const found = new Map<string, string>()
+
+  for (const [header, value] of Object.entries(raw)) {
+    const key = normaliseHeader(header)
+    if (!wanted.has(key)) continue
+    const trimmed = value?.trim()
+    if (!trimmed) continue
+    const existing = found.get(key)
+    if (existing !== undefined && existing !== trimmed) {
+      throw new Error(
+        `This file has more than one "${names[0]}" column and they disagree ("${existing}" and "${trimmed}"). Remove one and upload it again.`,
+      )
+    }
+    found.set(key, trimmed)
+  }
+
+  // Caller order is preference order: the canonical name wins over a synonym.
   for (const name of names) {
-    const value = raw[name]?.trim()
+    const value = found.get(normaliseHeader(name))
     if (value) return value
   }
   return ""
@@ -64,6 +124,23 @@ export interface ImportRowMatchResult {
   kickoffTime: string | null
   conflictingFixtureId: string | null
   matchedFixtureId: string | null
+  /** "Home" | "Away" | null -- null means the source did not say, which publishes as Home. */
+  homeAway: string | null
+  meetTime: string | null
+}
+
+/**
+ * "H", "home" and "HOME" are one answer; anything else is not an answer.
+ *
+ * A value this does not understand is NOT quietly treated as Home -- the
+ * row says so and stays for review, because publishing an away match at
+ * the club's own ground sends every parent to the wrong postcode.
+ */
+export function normaliseHomeAwayValue(raw: string): "Home" | "Away" | null {
+  const v = raw.trim().toLowerCase()
+  if (v === "h" || v === "home") return "Home"
+  if (v === "a" || v === "away") return "Away"
+  return null
 }
 
 const EMPTY_ROW_FIELDS = {
@@ -132,7 +209,8 @@ function parseStatusAndScore(raw: Record<string, string>): { status: string | nu
 export async function matchAndValidateImportRow(
   supabase: SupabaseClient<Database>,
   raw: Record<string, string>,
-  restrictHomeClubId?: string
+  restrictHomeClubId?: string,
+  cache?: LookupCache
 ): Promise<ImportRowMatchResult> {
   const errors: string[] = []
   const homeClub = readColumn(raw, "home_club")
@@ -152,6 +230,21 @@ export async function matchAndValidateImportRow(
   const venueName = readColumn(raw, "venue_name")
   const sourceReference = raw.source_reference?.trim() ?? ""
   const explicitFixtureId = raw.fixture_id?.trim() || null
+
+  // WHICH SIDE, AND WHEN TO BE THERE.
+  //
+  // Both columns were in the synonym vocabulary but nothing ever read
+  // them, so a file that carried "H/A" and "Meet" had both silently
+  // discarded. They are carried on the result rather than resolved,
+  // because neither needs a canonical lookup -- one is an enum, the other
+  // a clock time the database parses itself.
+  const homeAwayCol = readColumn(raw, "home_away")
+  const homeAway = homeAwayCol ? normaliseHomeAwayValue(homeAwayCol) : null
+  if (homeAwayCol && !homeAway) {
+    errors.push(`"${homeAwayCol}" is not Home or Away -- needs review.`)
+  }
+  const meetTime = readColumn(raw, "meet_time", "meet") || null
+  const carried = { homeAway, meetTime }
   const { status: resolvedStatus, homeScore: resolvedHomeScore, awayScore: resolvedAwayScore, errors: statusScoreErrors } = parseStatusAndScore(raw)
 
   // An explicit fixture_id column names an EXISTING fixture to update --
@@ -184,6 +277,7 @@ export async function matchAndValidateImportRow(
         kickoffTime,
         conflictingFixtureId: null,
         matchedFixtureId: null,
+        ...carried,
       }
     }
     if (restrictHomeClubId && matched.clubId !== restrictHomeClubId) {
@@ -197,6 +291,7 @@ export async function matchAndValidateImportRow(
         kickoffTime,
         conflictingFixtureId: null,
         matchedFixtureId: null,
+        ...carried,
       }
     }
     const normalizedGameType = normalizeGameType(raw.game_type ?? "")
@@ -242,6 +337,7 @@ export async function matchAndValidateImportRow(
         kickoffTime,
         conflictingFixtureId: null,
         matchedFixtureId: explicitFixtureId,
+        ...carried,
       }
     }
     return {
@@ -260,12 +356,17 @@ export async function matchAndValidateImportRow(
       kickoffTime,
       conflictingFixtureId: null,
       matchedFixtureId: explicitFixtureId,
+      ...carried,
     }
   }
 
   errors.push(...statusScoreErrors)
-  if (!homeClub || !homeTeam) {
-    errors.push("Missing home_club or home_team.")
+  // On a club-scoped import the home club is already known -- the row only
+  // has to say which of that club's teams is playing. Requiring the club's
+  // own name on every row was asking for something the import already had.
+  const homeClubKnown = Boolean(homeClub) || Boolean(restrictHomeClubId)
+  if (!homeClubKnown || !homeTeam) {
+    errors.push(restrictHomeClubId ? "Missing our team." : "Missing home_club or home_team.")
   }
   if (!awayClub && !awayTeam) {
     errors.push("Missing away_club/away_team (or an opposition description).")
@@ -278,7 +379,7 @@ export async function matchAndValidateImportRow(
 
   let resolvedHomeTeamId: string | null = null
   let resolvedHomeTeamFields: TeamEligibilityFields | null = null
-  if (homeClub && homeTeam) {
+  if (homeClubKnown && homeTeam) {
     // Reconciliation complaint 27: the LOCAL side must be an actual ACTIVE
     // club team, never merely a name that happens to exist in this club's
     // `teams` rows (a canonical identity that was later deactivated must
@@ -286,13 +387,17 @@ export async function matchAndValidateImportRow(
     // first; only when it finds nothing do we separately check whether an
     // INACTIVE row of the same name exists, purely to give a clearer,
     // more actionable error than a bare "not found".
-    let homeQuery = supabase.from("teams").select(eligibilityCols).ilike("display_name", homeTeam).eq("active", true).limit(3)
-    homeQuery = restrictHomeClubId ? homeQuery.eq("club_id", restrictHomeClubId) : homeQuery.ilike("clubs.club_directory.name", homeClub)
-    const { data: homeMatches } = await homeQuery
+    const { data: homeMatches } = await memo(cache, `home|${restrictHomeClubId ?? ""}|${homeClub}|${homeTeam}`, async () => {
+      let homeQuery = supabase.from("teams").select(eligibilityCols).ilike("display_name", homeTeam).eq("active", true).limit(3)
+      homeQuery = restrictHomeClubId ? homeQuery.eq("club_id", restrictHomeClubId) : homeQuery.ilike("clubs.club_directory.name", homeClub)
+      return homeQuery
+    })
     if (!homeMatches || homeMatches.length === 0) {
-      let inactiveQuery = supabase.from("teams").select("id").ilike("display_name", homeTeam).eq("active", false).limit(1)
-      inactiveQuery = restrictHomeClubId ? inactiveQuery.eq("club_id", restrictHomeClubId) : inactiveQuery.ilike("clubs.club_directory.name", homeClub)
-      const { data: inactiveMatch } = await inactiveQuery
+      const { data: inactiveMatch } = await memo(cache, `homeInactive|${restrictHomeClubId ?? ""}|${homeClub}|${homeTeam}`, async () => {
+        let inactiveQuery = supabase.from("teams").select("id").ilike("display_name", homeTeam).eq("active", false).limit(1)
+        inactiveQuery = restrictHomeClubId ? inactiveQuery.eq("club_id", restrictHomeClubId) : inactiveQuery.ilike("clubs.club_directory.name", homeClub)
+        return inactiveQuery
+      })
       errors.push(
         inactiveMatch && inactiveMatch.length > 0
           ? `Home team "${homeTeam}" exists but is not currently an active team -- needs review.`
@@ -327,13 +432,15 @@ export async function matchAndValidateImportRow(
     // that real team_id; anything else (no matching active team, or an
     // unactivated club) falls through to the Club Directory-only
     // resolution below, never a stale/inactive team_id.
-    const { data: awayTeamMatches } = await supabase
-      .from("teams")
-      .select(eligibilityCols)
-      .ilike("display_name", awayTeam)
-      .ilike("clubs.club_directory.name", awayClub)
-      .eq("active", true)
-      .limit(3)
+    const { data: awayTeamMatches } = await memo(cache, `awayTeam|${awayClub}|${awayTeam}`, () =>
+      supabase
+        .from("teams")
+        .select(eligibilityCols)
+        .ilike("display_name", awayTeam)
+        .ilike("clubs.club_directory.name", awayClub)
+        .eq("active", true)
+        .limit(3)
+    )
     if (awayTeamMatches && awayTeamMatches.length === 1) {
       resolvedAwayTeamId = awayTeamMatches[0].id
       if (resolvedHomeTeamFields) {
@@ -355,7 +462,9 @@ export async function matchAndValidateImportRow(
     }
   }
   if (!resolvedAwayTeamId && awayClub && !ageMismatch) {
-    const { data: directoryMatches } = await supabase.from("club_directory").select("id, name").ilike("name", awayClub).limit(3)
+    const { data: directoryMatches } = await memo(cache, `directory|${awayClub}`, () =>
+      supabase.from("club_directory").select("id, name").ilike("name", awayClub).limit(3)
+    )
     if (directoryMatches && directoryMatches.length === 1) {
       resolvedAwayDirectoryId = directoryMatches[0].id
     } else if (directoryMatches && directoryMatches.length > 1) {
@@ -388,10 +497,14 @@ export async function matchAndValidateImportRow(
   // names that does not correspond to a real row is flagged, rather than
   // silently ignored.
   if (seasonId) {
-    const { data: seasonRow } = await supabase.from("seasons").select("id").eq("id", seasonId).maybeSingle()
+    const { data: seasonRow } = await memo(cache, `seasonId|${seasonId}`, () =>
+      supabase.from("seasons").select("id").eq("id", seasonId).maybeSingle()
+    )
     if (!seasonRow) errors.push(`season_id "${seasonId}" does not match a real Site Admin Season record -- needs review.`)
   } else if (seasonLabel) {
-    const { data: seasonRow } = await supabase.from("seasons").select("id").ilike("name", seasonLabel).maybeSingle()
+    const { data: seasonRow } = await memo(cache, `seasonLabel|${seasonLabel}`, () =>
+      supabase.from("seasons").select("id").ilike("name", seasonLabel).maybeSingle()
+    )
     if (!seasonRow) errors.push(`Season "${seasonLabel}" does not match a real Site Admin Season record -- needs review.`)
   }
 
@@ -409,7 +522,8 @@ export async function matchAndValidateImportRow(
     pitchName,
     venueIdCol,
     venueName,
-    restrictHomeClubId
+    restrictHomeClubId,
+    cache
   )
   errors.push(...linkErrors)
 
@@ -439,26 +553,33 @@ export async function matchAndValidateImportRow(
         kickoffTime,
         conflictingFixtureId: null,
         matchedFixtureId: null,
+        ...carried,
       }
     }
   }
 
   let conflictingFixtureId: string | null = null
   if (resolvedHomeTeamId && fixtureDate) {
-    const { data: existingFixtures } = await supabase
-      .from("fixtures")
-      .select("id")
-      .eq("owning_team_id", resolvedHomeTeamId)
-      .eq("kickoff_date", fixtureDate)
-      .neq("status", "Cancelled")
-      .limit(1)
+    const { data: existingFixtures } = await memo(cache, `clash|${resolvedHomeTeamId}|${fixtureDate}`, () =>
+      supabase
+        .from("fixtures")
+        .select("id")
+        .eq("owning_team_id", resolvedHomeTeamId)
+        .eq("kickoff_date", fixtureDate)
+        .neq("status", "Cancelled")
+        .limit(1)
+    )
     if (existingFixtures && existingFixtures.length > 0) {
       conflictingFixtureId = existingFixtures[0].id
     }
   }
 
   if (errors.length > 0) {
-    const hasHardFailure = !homeClub || !homeTeam || (!awayClub && !awayTeam)
+    // homeClubKnown, not homeClub. On a club-scoped import the club is
+    // implied rather than typed, so testing the raw column graded EVERY
+    // imperfect row as hard-invalid -- unfixable, when the actual fault was
+    // usually one correctable field.
+    const hasHardFailure = !homeClubKnown || !homeTeam || (!awayClub && !awayTeam)
     return {
       status: hasHardFailure ? "invalid" : "needs_review",
       errors,
@@ -477,6 +598,7 @@ export async function matchAndValidateImportRow(
       kickoffTime,
       conflictingFixtureId,
       matchedFixtureId: null,
+      ...carried,
     }
   }
 
@@ -499,6 +621,7 @@ export async function matchAndValidateImportRow(
       kickoffTime,
       conflictingFixtureId,
       matchedFixtureId: null,
+      ...carried,
     }
   }
 
@@ -520,6 +643,7 @@ export async function matchAndValidateImportRow(
     kickoffTime,
     conflictingFixtureId: null,
     matchedFixtureId: null,
+    ...carried,
   }
 }
 
@@ -544,7 +668,8 @@ async function resolveCompetitionAndPitchAndVenue(
   pitchName: string,
   venueIdCol: string,
   venueName: string,
-  clubId: string | undefined
+  clubId: string | undefined,
+  cache?: LookupCache
 ): Promise<{ competitionEditionId: string | null; pitchId: string | null; venueId: string | null; errors: string[] }> {
   const errors: string[] = []
   let competitionEditionId: string | null = null
@@ -552,7 +677,9 @@ async function resolveCompetitionAndPitchAndVenue(
   let venueId: string | null = null
 
   if (competitionEditionIdCol) {
-    const { data } = await supabase.from("competition_editions").select("id, rugby_code, active").eq("id", competitionEditionIdCol).maybeSingle()
+    const { data } = await memo(cache, `editionId|${competitionEditionIdCol}`, () =>
+      supabase.from("competition_editions").select("id, rugby_code, active").eq("id", competitionEditionIdCol).maybeSingle()
+    )
     if (!data || !data.active) {
       errors.push(`competition_edition_id "${competitionEditionIdCol}" does not match a real, active competition edition -- needs review.`)
     } else if (rugbyCode && data.rugby_code !== rugbyCode) {
@@ -562,12 +689,14 @@ async function resolveCompetitionAndPitchAndVenue(
     }
   } else if (competitionLabel) {
     const [namePart] = competitionLabel.split("·").map((s) => s.trim())
-    const { data } = await supabase
-      .from("competition_editions")
-      .select("id, rugby_code, active, competitions(name), seasons(name)")
-      .eq("active", true)
-      .ilike("competitions.name", namePart || competitionLabel)
-      .limit(5)
+    const { data } = await memo(cache, `editionLabel|${namePart || competitionLabel}`, () =>
+      supabase
+        .from("competition_editions")
+        .select("id, rugby_code, active, competitions(name), seasons(name)")
+        .eq("active", true)
+        .ilike("competitions.name", namePart || competitionLabel)
+        .limit(5)
+    )
     const matches = (data ?? []).filter((row) => (rugbyCode ? row.rugby_code === rugbyCode : true))
     if (matches.length === 1) {
       competitionEditionId = matches[0].id
@@ -589,7 +718,9 @@ async function resolveCompetitionAndPitchAndVenue(
       pitchId = data.id
     }
   } else if (pitchName && clubId) {
-    const { data } = await supabase.from("club_pitches").select("id").eq("club_id", clubId).ilike("display_name", pitchName).eq("active", true).limit(2)
+    const { data } = await memo(cache, `pitchName|${clubId}|${pitchName}`, () =>
+      supabase.from("club_pitches").select("id").eq("club_id", clubId).ilike("display_name", pitchName).eq("active", true).limit(2)
+    )
     if (data && data.length === 1) {
       pitchId = data[0].id
     } else if (data && data.length > 1) {
@@ -612,7 +743,9 @@ async function resolveCompetitionAndPitchAndVenue(
       venueId = data.id
     }
   } else if (venueName && clubId) {
-    const { data } = await supabase.from("venues").select("id").eq("club_id", clubId).ilike("name", venueName).eq("active", true).limit(2)
+    const { data } = await memo(cache, `venueName|${clubId}|${venueName}`, () =>
+      supabase.from("venues").select("id").eq("club_id", clubId).ilike("name", venueName).eq("active", true).limit(2)
+    )
     if (data && data.length === 1) {
       venueId = data[0].id
     } else if (data && data.length > 1) {
@@ -750,9 +883,29 @@ export async function stageImportBatch(
   clubId?: string
 ): Promise<{ ok: true; batchId: string } | { ok: false; error: string }> {
   if (rawRows.length === 0) return { ok: false, error: "The file has no data rows." }
-  const headers = Object.keys(rawRows[0])
-  const missing = REQUIRED_IMPORT_COLUMNS.filter((c) => !headers.includes(c))
-  if (missing.length > 0) return { ok: false, error: `Missing required column(s): ${missing.join(", ")}.` }
+  // THE SAME HEADER VOCABULARY THE ROWS ARE READ WITH.
+  //
+  // This check used exact key matching while every row below is read
+  // through readColumn's normalisation and synonyms -- so a file headed
+  // "Our Team" was rejected for missing "home_team" that the parser would
+  // have understood perfectly well one line later.
+  //
+  // A CLUB-SCOPED IMPORT DOES NOT NAME ITS OWN CLUB. When clubId is set the
+  // home club IS the club doing the importing (restrictHomeClubId narrows
+  // team resolution to exactly that club), so demanding a home_club column
+  // asks a secretary to type their own club's name on all two hundred rows
+  // to tell us something we already know.
+  const presentHeaders = new Set(Object.keys(rawRows[0]).map(normaliseHeader))
+  const required = clubId
+    ? REQUIRED_IMPORT_COLUMNS.filter((c) => c !== "home_club")
+    : REQUIRED_IMPORT_COLUMNS
+  const missing = required.filter((c) => !presentHeaders.has(normaliseHeader(c)))
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: `Missing required column(s): ${missing.join(", ")}. Headings like "Our Team" or "Opposition Club" are understood too.`,
+    }
+  }
 
   const { data: batch, error: batchError } = await supabase
     .from("fixture_import_batches")
@@ -766,7 +919,28 @@ export async function stageImportBatch(
 
   let hasNeedsReview = false
   for (let i = 0; i < rawRows.length; i++) {
-    const result = await matchAndValidateImportRow(supabase, rawRows[i], clubId)
+    // A header the file itself contradicts (two "Date" columns that
+    // disagree) is a problem with THAT ROW's file, not a reason to abandon
+    // the upload -- it becomes an invalid row the person can see and fix,
+    // exactly like a date that will not parse.
+    let result: ImportRowMatchResult
+    try {
+      result = await matchAndValidateImportRow(supabase, rawRows[i], clubId)
+    } catch (headerError) {
+      result = {
+        status: "invalid",
+        errors: [headerError instanceof Error ? headerError.message : "This row could not be read."],
+        ...EMPTY_ROW_FIELDS,
+        rawOppositionText: "",
+        normalizedGameType: null,
+        fixtureDate: null,
+        kickoffTime: null,
+        conflictingFixtureId: null,
+        matchedFixtureId: null,
+        homeAway: null,
+        meetTime: null,
+      }
+    }
     if (result.status !== "ready") hasNeedsReview = true
 
     const { error: rowError } = await supabase.from("fixture_import_rows").insert({
@@ -788,6 +962,10 @@ export async function stageImportBatch(
       normalized_game_type: result.normalizedGameType,
       fixture_date: result.fixtureDate,
       kickoff_time: result.kickoffTime,
+      // Staged, not assumed. publish_import_row reads null as Home and as
+      // no meet time, which is exactly what a file that says nothing means.
+      home_away: result.homeAway,
+      meet_time: result.meetTime,
       source_reference: rawRows[i].source_reference?.trim() || null,
       notes: rawRows[i].notes?.trim() || null,
       conflicting_fixture_id: result.conflictingFixtureId,

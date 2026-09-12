@@ -47,7 +47,7 @@ export default async function ImportFixturesPage() {
           <li>1. Upload a CSV using the template below.</li>
           <li>2. Each row is matched against canonical clubs/teams &mdash; ambiguous or missing matches are flagged for review, never guessed.</li>
           <li>3. Any row that would conflict with an existing fixture is shown side by side so you can decide what happens.</li>
-          <li>4. Nothing changes in Fixture Management until you explicitly publish.</li>
+          <li>4. Nothing changes in the Fixture Control Centre until you explicitly publish.</li>
         </ol>
         <p className="mt-3 text-sm text-ink/60">
           Required columns: <code className="rounded bg-ink/[0.05] px-1 py-0.5 text-xs">home_club</code>,{" "}
