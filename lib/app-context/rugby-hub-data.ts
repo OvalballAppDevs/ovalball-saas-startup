@@ -145,6 +145,10 @@ export type SafeguardingContentRow = Database["public"]["Functions"]["get_rugby_
 export type SafeguardingRouteRow = Database["public"]["Functions"]["get_rugby_hub_safeguarding_routes"]["Returns"][number]
 export type WelfareRow = Database["public"]["Functions"]["get_rugby_hub_welfare"]["Returns"][number]
 
+export type RulesByIdentityRow = Database["public"]["Functions"]["get_rugby_hub_rules_by_identity"]["Returns"][number]
+export type SafeguardingByIdentityRow = Database["public"]["Functions"]["get_rugby_hub_safeguarding_by_identity"]["Returns"][number]
+export type WelfareByIdentityRow = Database["public"]["Functions"]["get_rugby_hub_welfare_by_identity"]["Returns"][number]
+
 export interface SourceMetadata {
   title: string
   authorityName: string
@@ -188,6 +192,38 @@ export async function getSafeguardingRoutes(supabase: SupabaseClient<Database>, 
 
 export async function getWelfareBundle(supabase: SupabaseClient<Database>, teamId: string, audience: RugbyHubAudience): Promise<DomainResult<WelfareRow>> {
   const { data, error } = await supabase.rpc("get_rugby_hub_welfare", { p_team_id: teamId, p_audience: audience })
+  if (error) return { status: "error" }
+  if (!data || data.length === 0) return { status: "empty" }
+  return { status: "content", rows: data }
+}
+
+// ---------------------------------------------------------------------
+// Broad-browse regulatory content -- addressed by the stable public
+// identity_key (Rules) or by rugby code, optionally narrowed to an
+// identity_key (Safeguarding/Player Welfare, which genuinely has
+// non-identity-scoped general content). A read/browse capability only:
+// grants no membership, no write authority, no personalised status for
+// whichever identity is being viewed. Never used to derive the viewer's
+// own active context -- resolveActiveRugbyHubTeamId/getRugbyHubIdentity
+// Context remain the only source of "my own" identity.
+// ---------------------------------------------------------------------
+
+export async function getRulesBundleByIdentity(supabase: SupabaseClient<Database>, identityKey: string): Promise<DomainResult<RulesByIdentityRow>> {
+  const { data, error } = await supabase.rpc("get_rugby_hub_rules_by_identity", { p_identity_key: identityKey })
+  if (error) return { status: "error" }
+  if (!data || data.length === 0) return { status: "empty" }
+  return { status: "content", rows: data }
+}
+
+export async function getSafeguardingBundleByIdentity(supabase: SupabaseClient<Database>, rugbyCode: RugbyCode, identityKey: string | null): Promise<DomainResult<SafeguardingByIdentityRow>> {
+  const { data, error } = await supabase.rpc("get_rugby_hub_safeguarding_by_identity", { p_rugby_code: rugbyCode, p_identity_key: identityKey ?? undefined })
+  if (error) return { status: "error" }
+  if (!data || data.length === 0) return { status: "empty" }
+  return { status: "content", rows: data }
+}
+
+export async function getWelfareBundleByIdentity(supabase: SupabaseClient<Database>, rugbyCode: RugbyCode, identityKey: string | null): Promise<DomainResult<WelfareByIdentityRow>> {
+  const { data, error } = await supabase.rpc("get_rugby_hub_welfare_by_identity", { p_rugby_code: rugbyCode, p_identity_key: identityKey ?? undefined })
   if (error) return { status: "error" }
   if (!data || data.length === 0) return { status: "empty" }
   return { status: "content", rows: data }

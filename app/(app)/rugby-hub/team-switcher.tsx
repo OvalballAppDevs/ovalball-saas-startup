@@ -12,7 +12,7 @@ export function TeamSwitcher({ options, activeTeamId }: { options: RugbyHubTeamO
   return (
     <form key={activeTeamId ?? ""} ref={formRef} action={setRugbyHubTeam} className="mb-4 rounded-lg border border-ink/10 bg-white px-4 py-3">
       <label className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:gap-3">
-        <span className="text-xs font-medium tracking-[0.06em] text-ink/50 uppercase">Viewing</span>
+        <span className="text-xs font-medium tracking-[0.06em] text-ink-muted uppercase">Viewing</span>
         <select
           name="teamId"
           defaultValue={activeTeamId ?? undefined}

@@ -12,12 +12,16 @@ import { getSessionContext } from "@/lib/app-context/session-context"
 import {
   contactableOfficers,
   getRugbyHubTeamOptions,
+  getSafeguardingBundleByIdentity,
   getSafeguardingContent,
   getSafeguardingOfficerProjections,
   getSafeguardingRoutes,
   getSourceMetadata,
   resolveActiveRugbyHubTeamId,
   resolveRugbyHubAudience,
+  type RugbyCode,
+  type SafeguardingByIdentityRow,
+  type SafeguardingContentRow,
 } from "@/lib/app-context/rugby-hub-data"
 import { SAFEGUARDING_SECTION_LABELS } from "@/lib/app-context/rugby-hub-format"
 import { createClient } from "@/lib/supabase/server"
@@ -29,12 +33,17 @@ export const metadata: Metadata = {
   description: "Official safeguarding guidance and reporting information from the RFU and RFL.",
 }
 
-export default async function SafeguardingPage() {
+export default async function SafeguardingPage({ searchParams }: { searchParams: Promise<{ code?: string; identity?: string }> }) {
+  const { code: browseCode, identity: browseIdentityKey } = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect("/login")
+
+  if (browseCode === "union" || browseCode === "league") {
+    return <BrowseSafeguardingContent supabase={supabase} rugbyCode={browseCode} identityKey={browseIdentityKey ?? null} />
+  }
 
   const ctx = await getSessionContext(supabase, user)
   const store = await cookies()
@@ -91,17 +100,7 @@ export default async function SafeguardingPage() {
         <div className="mt-3 flex flex-col gap-3">
           {contentResult.status === "error" && <ReviewStatusNotice tone="unavailable" message="Safeguarding guidance is temporarily unavailable. Please try again shortly." />}
           {contentResult.status === "empty" && <ReviewStatusNotice tone="reviewing" message="Detailed safeguarding guidance for this rugby code is being reviewed and isn't published here yet." />}
-          {contentResult.status === "content" &&
-            contentResult.rows.map((row) => (
-              <RegulatoryFactCard
-                key={`${row.fact_id ?? ""}-${row.section_key}`}
-                title={SAFEGUARDING_SECTION_LABELS[row.section_key] ?? row.section_key}
-                body={row.body ?? row.value_text ?? null}
-                sourceKey={row.primary_source_key}
-                locator={row.primary_source_locator}
-                sourceMetadata={sourceMetadata.get(row.primary_source_key ?? "")}
-              />
-            ))}
+          {contentResult.status === "content" && <SafeguardingCards rows={contentResult.rows} sourceMetadata={sourceMetadata} />}
         </div>
       </div>
 
@@ -142,13 +141,64 @@ export default async function SafeguardingPage() {
         </div>
       </div>
 
-      <p className="mt-8 text-sm text-ink/50">
+      <p className="mt-8 text-sm text-ink-muted">
         For concerns about how Ovalball itself is used (not rugby-regulatory safeguarding), see{" "}
         <Link href="/legal/safeguarding" className="font-medium text-forest-800 underline underline-offset-2">
           Safeguarding &amp; Online Safety
         </Link>
         .
       </p>
+    </div>
+  )
+}
+
+/**
+ * Broad-browse mode: reached from a search result, never from the personal
+ * navigation. Shows one rugby code's PUBLISHED safeguarding guidance,
+ * optionally narrowed to a specific identity_key -- Safeguarding content is
+ * genuinely not always identity-scoped, so identity_key is optional here
+ * unlike Rules. No club-officer or reporting-route sections: those are
+ * personal to the viewer's own team, not something browsing another
+ * identity should surface.
+ */
+async function BrowseSafeguardingContent({ supabase, rugbyCode, identityKey }: { supabase: Awaited<ReturnType<typeof createClient>>; rugbyCode: RugbyCode; identityKey: string | null }) {
+  const result = await getSafeguardingBundleByIdentity(supabase, rugbyCode, identityKey)
+  const sourceMetadata = await getSourceMetadata(supabase, result.status === "content" ? result.rows.map((r) => r.primary_source_key) : [])
+  const codeLabel = rugbyCode === "league" ? "Rugby League" : "Rugby Union"
+  const identityLabel = result.status === "content" ? result.rows[0]?.identity_label : null
+
+  return (
+    <div>
+      <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Rugby Hub</p>
+      <h1 className="mt-3 font-display text-display-l text-ink">Safeguarding</h1>
+      <div className="mt-6 rounded-xl border border-mint-300/60 bg-mint-100/50 px-4 py-3">
+        <p className="text-sm text-forest-900">
+          Showing {codeLabel} safeguarding guidance{identityLabel ? ` for ${identityLabel}` : ""} &mdash; not necessarily your own team&apos;s guidance.
+        </p>
+      </div>
+      <div className="mt-8">
+        {result.status === "error" && <ReviewStatusNotice tone="unavailable" message="Safeguarding guidance is temporarily unavailable. Please try again shortly." />}
+        {result.status === "empty" && <ReviewStatusNotice tone="reviewing" message="No published safeguarding guidance was found for that context." />}
+        {result.status === "content" && <SafeguardingCards rows={result.rows} sourceMetadata={sourceMetadata} />}
+      </div>
+    </div>
+  )
+}
+
+function SafeguardingCards({ rows, sourceMetadata }: { rows: SafeguardingContentRow[] | SafeguardingByIdentityRow[]; sourceMetadata: Map<string, { title: string; authorityName: string; canonicalUrl: string }> }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {rows.map((row) => (
+        <RegulatoryFactCard
+          key={`${row.fact_id ?? ""}-${row.section_key}`}
+          anchorId={`section-${row.section_key}`}
+          title={SAFEGUARDING_SECTION_LABELS[row.section_key] ?? row.section_key}
+          body={row.body ?? row.value_text ?? null}
+          sourceKey={row.primary_source_key}
+          locator={row.primary_source_locator}
+          sourceMetadata={sourceMetadata.get(row.primary_source_key ?? "")}
+        />
+      ))}
     </div>
   )
 }

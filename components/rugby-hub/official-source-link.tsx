@@ -6,7 +6,7 @@ import type { SourceMetadata } from "@/lib/app-context/rugby-hub-data"
 export function OfficialSourceLink({ sourceKey, locator, metadata }: { sourceKey: string | null; locator: string | null; metadata: SourceMetadata | undefined }) {
   if (!sourceKey || !metadata) return null
   return (
-    <p className="mt-2 flex items-start gap-1.5 text-xs text-ink/50">
+    <p className="mt-2 flex items-start gap-1.5 text-xs text-ink-muted">
       <span>
         Source: {metadata.authorityName} &mdash;{" "}
         <a
