@@ -3,9 +3,18 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronRight, FileText, Pencil, Trophy } from "lucide-react"
+import { ChevronRight, Copy, FileText, MoreHorizontal, Pencil, Trophy } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLinkItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { HomeAwayBadge } from "./home-away-badge"
+import { PlannerCell, PlannerRowSelect } from "./planner-cell"
 import { Button } from "@/components/ui/button"
 import { listCompetitionEditionsForRugbyCode, type CompetitionEditionOption } from "@/lib/fixtures/competitions"
 import { FIXTURE_STATUS_BADGE_CLASS } from "@/lib/fixtures/status"
@@ -16,7 +25,8 @@ import { OpponentTeamEditor } from "./[fixtureId]/opponent-team-editor"
 import { OwningTeamEditor } from "./[fixtureId]/owning-team-editor"
 import { PitchInline } from "./[fixtureId]/pitch-inline"
 import { getClubPitches, updateFixture, updateFixtureCompetition, type PitchOption, type TeamSearchResult } from "./actions"
-import { RESULT_STATUS_LABEL, RUGBY_CODE_LABEL, SOURCE_LABEL, formatFixtureDate } from "./format"
+import { duplicateFixture } from "./planner-actions"
+import { RESULT_STATUS_LABEL, RUGBY_CODE_LABEL, SOURCE_LABEL } from "./format"
 import type { AdminFixtureRow } from "./types"
 
 /**
@@ -33,8 +43,30 @@ import type { AdminFixtureRow } from "./types"
  * changing operations with their own dedicated UI on the fixture detail
  * page (linked below).
  */
-export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
+export function FixtureTableRow({
+  row,
+  clubScoped = false,
+  grouped = false,
+  columnCount,
+}: {
+  row: AdminFixtureRow
+  /**
+   * A club's own Control Centre. Drops the columns that only mean something
+   * across clubs and codes -- Code, Meet, Source, and the club name repeated
+   * under our own teams. Site Admin, which genuinely spans all of those,
+   * passes false and keeps them.
+   */
+  clubScoped?: boolean
+  /** Inside a match-day group the year is already stated overhead. */
+  grouped?: boolean
+  /** How wide the expanded editor must span; the column set is conditional. */
+  columnCount: number
+}) {
   const router = useRouter()
+  // One fixture detail surface for both scopes: /admin/fixtures/[id] already
+  // admits any club involved in the fixture, so a Fixture Secretary reaches
+  // the same record a Site Admin does rather than a parallel club copy.
+  const detailHref = `/admin/fixtures/${row.id}`
   const [open, setOpen] = useState(false)
   const [pitches, setPitches] = useState<PitchOption[]>([])
   const [competitions, setCompetitions] = useState<CompetitionEditionOption[]>([])
@@ -138,6 +170,24 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
   const homeClubIdForPitch = row.homeAway === "Away" ? null : row.owningClubId
   const isHomeFixtureForPitch = row.homeAway === "Home"
   const [fetched, setFetched] = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
+
+  /**
+   * Duplicates to the next week this team is actually free, then lets the
+   * date be corrected in place -- which the planner now supports. Asking
+   * "which date?" in a modal only to refuse the obvious answer would be
+   * worse than offering one that works.
+   */
+  const [duplicateError, setDuplicateError] = useState<string | null>(null)
+
+  async function handleDuplicate() {
+    setDuplicating(true)
+    setDuplicateError(null)
+    const result = await duplicateFixture(row.id)
+    setDuplicating(false)
+    if (!result.ok) setDuplicateError(result.error)
+    else router.refresh()
+  }
 
   const isHome = row.homeAway !== "Away"
   const opponentTeamForEditor: TeamSearchResult | null =
@@ -164,6 +214,9 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
   const opponentClubResolved = isHome ? row.awayClubResolved : row.homeClubResolved
   const opponentClubName = isHome ? row.awayClubName : row.homeClubName
   const opponentTeamName = isHome ? row.awayTeamName : row.homeTeamName
+  const plannerLabel = `${row.owningTeamName} v ${opponentClubName || row.rawOppositionText}`
+  const opponentClubLogoUrl = isHome ? row.awayClubLogoUrl : row.homeClubLogoUrl
+  const owningClubLogoUrl = isHome ? row.homeClubLogoUrl : row.awayClubLogoUrl
 
   function handleToggleOpen() {
     const next = !open
@@ -183,41 +236,131 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
 
   return (
     <>
-      <tr className="border-b border-ink/6 last:border-0 hover:bg-ink/[0.02]">
-        <td className="px-4 py-3 text-ink/70">{formatFixtureDate(row.kickoffDate)}</td>
-        <td className="px-4 py-3 text-ink/70">{row.kickoffTime ? row.kickoffTime.slice(0, 5) : <span className="text-ink-muted">&mdash;</span>}</td>
-        <td className="px-4 py-3 text-ink/60">{RUGBY_CODE_LABEL[row.rugbyCode] ?? row.rugbyCode}</td>
-        <td className="px-4 py-3">
-          {row.homeClubResolved ? (
+      {/* THE ROW OPENS THE FIXTURE.
+          Hunting for a "View >" at the far right of a wide table is work
+          the row itself can absorb. The guard matters more than the
+          convenience: a click that began on a checkbox, an editable cell,
+          the actions menu or any other control is that control's click and
+          must never also navigate. Keyboard and screen-reader users get a
+          real link on the opposition name rather than this handler. */}
+      <tr
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("button, a, input, select, textarea, [role='menu'], [role='menuitem']")) return
+          router.push(detailHref)
+        }}
+        className="cursor-pointer border-b border-ink/6 last:border-0 hover:bg-ink/[0.02]"
+      >
+        <td className="px-2 py-3">
+          <PlannerRowSelect fixtureId={row.id} label={plannerLabel} />
+        </td>
+        {/* WHEN -- ONE COLUMN, NOT TWO.
+            A date and a kick-off are one answer to one question, and giving
+            each its own primary column spent a fifth of the table's width
+            saying it twice. The date leads; the kick-off sits under it in
+            secondary type. Both remain individually editable in place. */}
+        <td className="px-2 py-1.5 whitespace-nowrap">
+          <PlannerCell
+            fixtureId={row.id}
+            field="kickoffDate"
+            type="date"
+            savedValue={row.kickoffDate}
+            label={`Date, ${plannerLabel}`}
+            dateStyle={grouped ? "short" : "medium"}
+          />
+          <PlannerCell
+            fixtureId={row.id}
+            field="kickoffTime"
+            type="time"
+            savedValue={row.kickoffTime}
+            label={`Kick off time, ${plannerLabel}`}
+            tone="secondary"
+          />
+        </td>
+        {/* CODE, MEET AND SOURCE ARE NOT EVERYDAY CLUB INFORMATION.
+            A Union club does not need to be told "Union" on every row of its
+            own fixture list; meet time is secondary detail that belongs with
+            the fixture, not in prime horizontal space; and source is
+            provenance for an administrator, not a question a fixture
+            secretary asks on a Tuesday. All three stay fully available in
+            fixture detail and in the row editor below, and Site Admin --
+            which genuinely spans codes and import sources -- keeps them. */}
+        {!clubScoped && <td className="px-3 py-1.5 text-ink/60">{RUGBY_CODE_LABEL[row.rugbyCode] ?? row.rugbyCode}</td>}
+        {!clubScoped && (
+          <td className="px-2 py-1.5">
+            <PlannerCell fixtureId={row.id} field="meetTime" type="time" savedValue={row.meetTime} label={`Meet time, ${plannerLabel}`} />
+          </td>
+        )}
+
+        {/* OUR TEAM -- the fixture's owning side, which is what the database
+            actually models (owning_team_id + home_away; home_team_id and
+            away_team_id are generated FROM those two). Showing Home and Away
+            as two columns made a secretary read both to find their own side
+            on every row, and put the answer in a different column depending
+            on where the match was played. */}
+        <td className="px-3 py-1.5">
+          <div className="flex items-center gap-2.5">
+            <ClubAvatar logoUrl={owningClubLogoUrl} name={row.owningClubName} size="xs" />
+            <div className="min-w-0">
+              <p className="truncate font-medium text-ink">{row.owningTeamName}</p>
+              {/* The club name under every one of our own teams, on a page
+                  that is already scoped to that club, is the same word
+                  repeated down the screen. Site Admin genuinely spans clubs
+                  and keeps it. */}
+              {!clubScoped && <p className="truncate text-xs text-ink-muted">{row.owningClubName}</p>}
+            </div>
+          </div>
+        </td>
+
+        {/* HOME / AWAY -- always a word, never colour alone. */}
+        <td className="px-3 py-1.5">
+          <HomeAwayBadge value={row.homeAway} />
+        </td>
+
+        {/* OPPOSITION -- one column whichever side they played on. An
+            opponent who is not an Ovalball tenant is named from the Club
+            Directory or from the fixture's own opposition text; it is a
+            legitimate fixture, not an error, so it is not dressed as one. */}
+        <td className="px-3 py-1.5">
+          {opponentClubResolved ? (
             <div className="flex items-center gap-2.5">
-              <ClubAvatar logoUrl={row.homeClubLogoUrl} name={row.homeClubName} size="xs" />
-              <div>
-                <p className="font-medium text-ink">{row.homeClubName}</p>
-                <p className="text-xs text-ink-muted">{row.homeTeamName}</p>
+              <ClubAvatar logoUrl={opponentClubLogoUrl} name={opponentClubName} size="xs" />
+              <div className="min-w-0">
+                <Link
+                  href={detailHref}
+                  className="block truncate font-medium text-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-pitch-400"
+                >
+                  {opponentClubName}
+                  <span className="sr-only"> — open this fixture</span>
+                </Link>
+                {opponentTeamName && <p className="truncate text-xs text-ink-muted">{opponentTeamName}</p>}
               </div>
             </div>
           ) : (
-            <p className="text-sm text-amber-700">
-              <span className="font-medium">Unresolved opponent:</span> {row.homeClubName}
-            </p>
-          )}
-        </td>
-        <td className="px-4 py-3">
-          {row.awayClubResolved ? (
-            <div className="flex items-center gap-2.5">
-              <ClubAvatar logoUrl={row.awayClubLogoUrl} name={row.awayClubName} size="xs" />
-              <div>
-                <p className="font-medium text-ink">{row.awayClubName}</p>
-                <p className="text-xs text-ink-muted">{row.awayTeamName}</p>
-              </div>
+            /* The opponent's NAME is the information. Where they are
+               recorded is provenance, and a full second line shouting
+               "Not on Ovalball" under every external club made the
+               provenance louder than the club. It is now a quiet mark
+               beside the name, with the full phrase available to a screen
+               reader and on hover. */
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Link
+                href={detailHref}
+                className="truncate text-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-pitch-400"
+              >
+                {opponentClubName || row.rawOppositionText}
+                <span className="sr-only"> — open this fixture</span>
+              </Link>
+              <span
+                title="Not on Ovalball"
+                className="shrink-0 rounded border border-ink/15 px-1 text-[10px] leading-4 text-ink-subtle"
+              >
+                EXT
+                <span className="sr-only"> — this club is not on Ovalball</span>
+              </span>
             </div>
-          ) : (
-            <p className="text-sm text-amber-700">
-              <span className="font-medium">Unresolved opponent:</span> {row.awayClubName}
-            </p>
           )}
         </td>
-        <td className="px-4 py-3 text-ink/60">
+        <td className="px-3 py-1.5 text-ink/60">
           {row.pitchName || row.pitchAllocation ? (
             <>
               <p className="text-ink">{row.pitchName ?? row.pitchAllocation}</p>
@@ -229,7 +372,7 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
             <span className="text-ink-muted">&mdash;</span>
           )}
         </td>
-        <td className="px-4 py-3 text-ink/60">
+        <td className="px-3 py-1.5 text-ink/60">
           {row.homeScore !== null && row.awayScore !== null ? (
             <>
               <span className="font-medium text-ink">
@@ -243,50 +386,61 @@ export function FixtureTableRow({ row }: { row: AdminFixtureRow }) {
             <span className="text-ink-muted">&mdash;</span>
           )}
         </td>
-        <td className="px-4 py-3">
-          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${FIXTURE_STATUS_BADGE_CLASS[row.status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/8 text-ink-muted"}`}>{row.status}</span>
+        <td className="px-3 py-1.5">
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${FIXTURE_STATUS_BADGE_CLASS[row.status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/8 text-ink-muted"}`}>{row.status}</span>
         </td>
-        <td className="px-4 py-3 text-ink-muted">{SOURCE_LABEL[row.source] ?? row.source}</td>
-        <td className="px-4 py-3 text-right">
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={handleToggleOpen}
-              aria-expanded={open}
-              aria-label={`Quick edit ${row.homeTeamName} vs ${row.awayTeamName}`}
-              className="inline-flex items-center gap-1 text-sm font-medium text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
-            >
-              <Pencil className="size-3.5" />
-              Edit
-            </button>
-            {/* The SAME row.id, opened on the one shared Match Centre. There is
-                no admin copy of a fixture and no admin Match Centre: this is
-                the fixture everybody sees, reached from the record being
-                managed. */}
-            <Link
-              href={`/fixtures/${row.id}`}
-              onClick={guardNavigate}
-              aria-label={`Open Match Centre for ${row.homeTeamName} versus ${row.awayTeamName}`}
-              className="inline-flex items-center gap-1 text-sm font-medium text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
-            >
-              <Trophy className="size-3.5" aria-hidden="true" />
-              Match Centre
-            </Link>
-            <Link
-              href={`/admin/fixtures/${row.id}`}
-              onClick={guardNavigate}
-              className="inline-flex items-center gap-1 text-sm font-medium text-forest-800 outline-none hover:text-forest-950 focus-visible:ring-2 focus-visible:ring-pitch-400"
-            >
-              View
-              <ChevronRight className="size-3.5" />
-            </Link>
+        {!clubScoped && <td className="px-3 py-1.5 text-ink-muted">{SOURCE_LABEL[row.source] ?? row.source}</td>}
+        {/* ONE CONTROL, NOT FOUR.
+            Duplicate / Edit / Match Centre / View rendered side by side on
+            every row cost more horizontal space than the opposition column
+            and repeated twenty-four words down a screen whose subject is
+            fixtures. They are the same four actions, in a menu, with the
+            row itself opening the fixture. */}
+        <td className="px-2 py-1.5 text-right">
+          <div className="flex items-center justify-end gap-1">
+            {duplicateError && (
+              <span role="alert" className="text-xs text-destructive-text">
+                {duplicateError}
+              </span>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type="button"
+                    aria-label={`Actions for ${plannerLabel}`}
+                    className="inline-flex size-8 items-center justify-center rounded-md text-ink-muted outline-none hover:bg-ink/[0.06] hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+                  >
+                    <MoreHorizontal className="size-4" aria-hidden="true" />
+                  </button>
+                }
+              />
+              <DropdownMenuContent align="end" className="min-w-52">
+                <DropdownMenuLinkItem href={`/fixtures/${row.id}`}>
+                  <Trophy className="size-4" aria-hidden="true" />
+                  Open Match Centre
+                </DropdownMenuLinkItem>
+                <DropdownMenuLinkItem href={detailHref}>
+                  <ChevronRight className="size-4" aria-hidden="true" />
+                  View Fixture
+                </DropdownMenuLinkItem>
+                <DropdownMenuItem onClick={handleToggleOpen}>
+                  <Pencil className="size-4" aria-hidden="true" />
+                  {open ? "Close Editor" : "Edit Fixture"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDuplicate} disabled={duplicating}>
+                  <Copy className="size-4" aria-hidden="true" />
+                  {duplicating ? "Duplicating…" : "Duplicate"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </td>
       </tr>
 
       {open && (
         <tr className="border-b border-ink/6 bg-ink/[0.015]">
-          <td colSpan={10} className="px-4 py-4">
+          <td colSpan={columnCount} className="px-4 py-4">
             {loading ? (
               <p className="text-sm text-ink-muted">Loading editable fields&hellip;</p>
             ) : (

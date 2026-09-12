@@ -292,8 +292,11 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
         </div>
         {activeContext.kind === "club" && canManageClubFixturesAnywhere(ctx) && (
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <Button className="h-10" variant="outline" nativeButton={false} render={<Link href="/fixtures/import" />}>
-              Import fixtures
+            {/* Straight to the planner. /fixtures/import redirects there
+                anyway, and sending somebody through a redirect to reach the
+                surface they asked for is a hop with nothing in it. */}
+            <Button className="h-10" variant="outline" nativeButton={false} render={<Link href="/fixtures/planner" />}>
+              Import Fixtures
             </Button>
             <ExportClubFixturesButton />
             {myTeams.length > 0 && (

@@ -6,17 +6,23 @@ import { useEffect, useState } from "react"
 import { ALL_FIXTURE_STATUSES, FIXTURE_STATUS_LABEL } from "@/lib/fixtures/status"
 
 import { SOURCE_LABEL } from "./format"
-import type { AdminFixtureQuery, CompetitionFilterOption } from "./types"
+import type { AdminFixtureQuery, CompetitionFilterOption, SeasonFilterOption, TeamFilterOption } from "./types"
 
 export function FixtureFilters({
   query,
   competitionOptions,
   basePath,
   showCodeFilter = true,
+  seasonOptions = [],
+  teamOptions = [],
 }: {
   query: AdminFixtureQuery
   competitionOptions: CompetitionFilterOption[]
   basePath: string
+  /** Seasons that actually have fixtures -- never the whole register. */
+  seasonOptions?: SeasonFilterOption[]
+  /** Only supplied on a club-scoped surface: "which of OUR teams" is not a question Site Admin's global view can ask. */
+  teamOptions?: TeamFilterOption[]
   /** False for a club-scoped surface whose active teams field only one rugby code -- a "Union + League" choice has nothing to offer there. Site Admin's global view always keeps it. */
   showCodeFilter?: boolean
 }) {
@@ -53,8 +59,13 @@ export function FixtureFilters({
   }, [searchValue])
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-ink/10 bg-white p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+    // A TOOLBAR, NOT A FORM. The fixture table is the hero; wrapped in a
+    // white card with generous padding, the filters read as something to
+    // fill in before the real content, and cost about a sixth of the
+    // viewport doing it. The controls are unchanged; the container stops
+    // announcing itself.
+    <div className="flex flex-col gap-2 border-b border-ink/10 pb-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label className="flex-1">
           <span className="sr-only">Search fixtures</span>
           <input
@@ -81,7 +92,7 @@ export function FixtureFilters({
         </label>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         <select
           value={query.date}
           onChange={(e) => updateParams({ date: e.target.value })}
@@ -91,6 +102,46 @@ export function FixtureFilters({
           <option value="all">All dates</option>
           <option value="upcoming">Upcoming</option>
           <option value="past">Past</option>
+        </select>
+        {seasonOptions.length > 0 && (
+          <select
+            value={query.seasonId ?? "all"}
+            onChange={(e) => updateParams({ season: e.target.value === "all" ? null : e.target.value })}
+            aria-label="Season"
+            className="h-9 rounded-full border border-ink/15 bg-white px-3 text-sm text-ink/70 outline-none focus-visible:border-pitch-600"
+          >
+            <option value="all">All seasons</option>
+            {seasonOptions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        )}
+        {teamOptions.length > 0 && (
+          <select
+            value={query.teamId ?? "all"}
+            onChange={(e) => updateParams({ team: e.target.value === "all" ? null : e.target.value })}
+            aria-label="Team"
+            className="h-9 rounded-full border border-ink/15 bg-white px-3 text-sm text-ink/70 outline-none focus-visible:border-pitch-600"
+          >
+            <option value="all">All teams</option>
+            {teamOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        )}
+        <select
+          value={query.homeAway}
+          onChange={(e) => updateParams({ ha: e.target.value })}
+          aria-label="Home or away"
+          className="h-9 rounded-full border border-ink/15 bg-white px-3 text-sm text-ink/70 outline-none focus-visible:border-pitch-600"
+        >
+          <option value="all">Home + Away</option>
+          <option value="Home">Home</option>
+          <option value="Away">Away</option>
         </select>
         <select
           value={query.status}

@@ -26,7 +26,7 @@ import type { AdminFixtureRow } from "./types"
  * correction) inside a bottom Sheet, sized for touch -- never the desktop
  * <table> squeezed onto a small screen.
  */
-export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
+export function MobileFixtureCard({ row, clubScoped = false }: { row: AdminFixtureRow; clubScoped?: boolean }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [pitches, setPitches] = useState<PitchOption[]>([])
@@ -132,8 +132,12 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
       <div className="flex items-start justify-between gap-3 rounded-lg border border-ink/10 bg-white p-4">
         <button type="button" onClick={handleOpen} className="min-w-0 flex-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-pitch-400">
           <p className="text-xs text-ink-muted">
+            {/* The rugby code belongs to a surface that spans codes. On a
+                club's own phone it is the same word on every card, spending
+                the narrowest line in the product to say nothing. */}
             {formatFixtureDate(row.kickoffDate)}
-            {row.kickoffTime && ` · ${row.kickoffTime.slice(0, 5)}`} &middot; {RUGBY_CODE_LABEL[row.rugbyCode] ?? row.rugbyCode}
+            {row.kickoffTime && ` · ${row.kickoffTime.slice(0, 5)}`}
+            {!clubScoped && <> &middot; {RUGBY_CODE_LABEL[row.rugbyCode] ?? row.rugbyCode}</>}
           </p>
           <p className="mt-0.5 font-medium text-ink">
             {row.homeTeamName} ({row.homeClubName}) vs {row.awayTeamName} ({row.awayClubName})
@@ -296,7 +300,7 @@ export function MobileFixtureCard({ row }: { row: AdminFixtureRow }) {
             </div>
 
             <p className="border-t border-ink/10 pt-4 text-xs text-ink-muted">
-              Source: {SOURCE_LABEL[row.source] ?? row.source}. Rugby code and Source aren&apos;t directly editable.{" "}
+              {!clubScoped && `Source: ${SOURCE_LABEL[row.source] ?? row.source}. Rugby code and Source aren't directly editable. `}
               <a href={`/admin/fixtures/${row.id}`} className="font-medium text-forest-800 underline">
                 Open full details
               </a>{" "}

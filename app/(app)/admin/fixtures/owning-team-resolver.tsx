@@ -21,7 +21,6 @@ import { getClubActiveTeams, searchOpponentClubs, type ClubSearchResult, type Ow
  * for that club's own Club Admin to activate the team first.
  */
 export function OwningTeamResolver({
-  selectedClubId,
   selectedClubName,
   selectedTeamId,
   selectedTeamLabel,

@@ -152,7 +152,7 @@ function DeleteFixtureDialog({ fixture, onClose, onDeleted }: { fixture: Fixture
         <p className="font-display text-lg text-destructive-text">Delete this fixture?</p>
         <p className="mt-2 text-sm text-ink/70">
           The fixture against <strong>{fixture.opposition}</strong> on <strong>{dateLabel}</strong> will be removed from normal
-          Calendar and Fixture Management views for everyone, including your own back-office staff.
+          Calendar and Fixture Control Centre views for everyone, including your own back-office staff.
         </p>
         <p className="mt-2 text-sm text-ink/70">
           The record is archived, not deleted -- it stays retrievable in Deleted Calendar Events for authorised administrative

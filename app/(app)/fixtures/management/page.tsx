@@ -11,7 +11,7 @@ import { FixtureManagementView } from "../../admin/fixtures/fixture-management-v
 import { FixtureRequestsSheet } from "../fixture-requests-sheet"
 import { getIncomingFixtureRequestsSummary } from "../incoming-requests-summary"
 
-export const metadata = { title: "Fixture Management" }
+export const metadata = { title: "Fixture Control Centre" }
 
 /**
  * Section 14/25: the Club Admin/Fixtures Secretary Fixture Management
@@ -63,7 +63,7 @@ export default async function ClubFixtureManagementPage({
     <FixtureManagementView
       supabase={supabase}
       searchParams={resolvedParams}
-      scope={{ clubId: myClubId, clubName: myClubName, eyebrow, importHref: "/fixtures/import", basePath: "/fixtures/management" }}
+      scope={{ clubId: myClubId, clubName: myClubName, eyebrow, importHref: "/fixtures/import", plannerHref: "/fixtures/planner", basePath: "/fixtures/management" }}
       headerExtra={<FixtureRequestsSheet incoming={incoming} tournamentInvitations={tournamentInvitations} />}
     />
   )

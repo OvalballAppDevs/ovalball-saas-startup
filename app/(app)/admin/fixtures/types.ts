@@ -9,9 +9,23 @@ export type DateFilter = "all" | "upcoming" | "past"
 export type StatusFilter = "all" | FixtureStatus
 export type CodeFilter = "all" | "union" | "league"
 export type SourceFilter = "all" | "club_created" | "site_admin_manual" | "csv_import" | "competition_import"
+/** A fixture is owned by one side, so Home/Away filters that side -- never a guess from team ordering. */
+export type HomeAwayFilter = "all" | "Home" | "Away"
+
 export type ResultStatusFilter = "all" | "none" | "awaiting_confirmation" | "final" | "disputed" | "amendment_pending" | "external_recorded" | "unverified"
 
 export interface CompetitionFilterOption {
+  id: string
+  label: string
+}
+
+/** Season and team options are the same shape; kept distinct so a caller cannot pass one where the other belongs. */
+export interface SeasonFilterOption {
+  id: string
+  label: string
+}
+
+export interface TeamFilterOption {
   id: string
   label: string
 }
@@ -20,6 +34,8 @@ export interface AdminFixtureRow {
   id: string
   kickoffDate: string
   kickoffTime: string | null
+  /** The time the squad is asked to arrive -- set per fixture, not derived from kick-off. */
+  meetTime: string | null
   homeAway: string
   status: string
   gameType: string | null
@@ -91,6 +107,9 @@ export interface AdminFixtureQuery {
   source: SourceFilter
   resultStatus: ResultStatusFilter
   competitionEditionId: string | null
+  seasonId: string | null
+  teamId: string | null
+  homeAway: HomeAwayFilter
   sort: SortKey
   page: number
   size: PageSize
@@ -114,6 +133,12 @@ export function parseAdminFixtureQuery(searchParams: Record<string, string | str
     source: (get("source") as SourceFilter) ?? "all",
     resultStatus: (get("resultStatus") as ResultStatusFilter) ?? "all",
     competitionEditionId: get("competition") || null,
+    // The three filters a fixture secretary reaches for first and which the
+    // surface previously had no way to express, despite fixtures carrying
+    // season_id, owning_team_id and home_away all along.
+    seasonId: get("season") || null,
+    teamId: get("team") || null,
+    homeAway: (get("ha") as HomeAwayFilter) ?? "all",
     sort: (get("sort") as SortKey) ?? "date-asc",
     page: Math.max(1, Number(get("page")) || 1),
     size: PAGE_SIZES.includes(size as PageSize) ? (size as PageSize) : DEFAULT_PAGE_SIZE,

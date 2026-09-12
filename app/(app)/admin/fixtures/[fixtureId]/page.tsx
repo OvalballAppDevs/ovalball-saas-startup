@@ -347,7 +347,8 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
               messages={(messages ?? []).map((m) => ({
                 id: m.id,
                 senderName: nameById.get(m.sender_user_id) ?? "Unknown",
-                body: m.body,
+                // Nullable since 20270239000000: an uncaptioned image.
+                body: m.body ?? "",
                 createdAt: m.created_at,
                 isSiteAdminMessage: m.is_site_admin_message,
               }))}

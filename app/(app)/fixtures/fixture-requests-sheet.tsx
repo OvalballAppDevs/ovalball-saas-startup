@@ -40,9 +40,12 @@ export function FixtureRequestsSheet({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
+      {/* Outline, not filled. The Control Centre now has one primary action
+          -- Plan Fixtures -- and two filled buttons side by side is two
+          things each claiming to be the thing to do. */}
       <SheetTrigger
         render={
-          <Button type="button" className="h-10">
+          <Button type="button" variant="outline" className="h-10">
             <Inbox className="mr-1.5 size-4" />
             View Fixture Requests{count > 0 ? ` (${count})` : ""}
           </Button>

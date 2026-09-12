@@ -57,6 +57,9 @@ export function ExportClubFixturesButton() {
       source: "all",
       resultStatus: "all",
       competitionEditionId: null,
+    seasonId: null,
+    teamId: null,
+    homeAway: "all" as const,
       sort: "date-asc",
       page: 1,
       size: 100,
@@ -94,7 +97,7 @@ export function ExportClubFixturesButton() {
           <SlidersHorizontal className="size-4" />
         </Button>
         <Button type="button" variant="outline" className="h-10" disabled={exportStatus === "working"} onClick={handleExport}>
-          {exportStatus === "working" ? "Preparing export…" : hasFilters ? "Export filtered" : "Export fixtures"}
+          {exportStatus === "working" ? "Preparing export…" : hasFilters ? "Export Filtered" : "Export Fixtures"}
         </Button>
       </div>
       {exportStatus === "error" && <p className="text-xs text-destructive-text">Export failed. Please try again.</p>}

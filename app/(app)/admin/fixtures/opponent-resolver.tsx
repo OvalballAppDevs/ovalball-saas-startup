@@ -66,7 +66,6 @@ export function OpponentResolver({
   owningTeamId,
   selectedTeam,
   onSelectTeam,
-  selectedDirectoryId,
   onSelectDirectory,
   rawText,
   onRawTextChange,

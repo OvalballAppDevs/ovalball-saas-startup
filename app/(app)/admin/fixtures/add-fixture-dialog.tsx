@@ -35,7 +35,7 @@ export function AddFixtureDialog({
 }: {
   lockedClubId?: string
   lockedClubName?: string
-  /** Controlled-open pair: pass both to let a caller (e.g. Calendar) open this dialog itself, instead of the built-in "+ Add fixture" trigger. */
+  /** Controlled-open pair: pass both to let a caller (e.g. Calendar) open this dialog itself, instead of the built-in "Add a Fixture" trigger. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
   /** Suppress the built-in DialogTrigger button -- used together with the controlled-open pair, so a caller's own "click empty slot" affordance is the only way in. */
@@ -286,7 +286,7 @@ export function AddFixtureDialog({
         if (!next) reset()
       }}
     >
-      {!hideTrigger && <DialogTrigger render={<Button type="button" className="h-10" />}>+ Add fixture</DialogTrigger>}
+      {!hideTrigger && <DialogTrigger render={<Button type="button" variant="outline" className="h-10" />}>Add a Fixture</DialogTrigger>}
       <DialogContent className="max-h-[90vh] w-full max-w-lg overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isTournament ? "Add a tournament" : "Add a fixture"}</DialogTitle>
@@ -415,7 +415,7 @@ export function AddFixtureDialog({
 
           {!isTournament && pendingRequestSent && (
             <p className="rounded-lg border border-forest-800/20 bg-forest-800/5 px-3 py-2 text-sm text-forest-800">
-              Fixture request sent -- the opponent club must accept &amp; create the team before this fixture is confirmed. It will appear in Fixture Management once accepted.
+              Fixture request sent -- the opponent club must accept &amp; create the team before this fixture is confirmed. It will appear in the Fixture Control Centre once accepted.
             </p>
           )}
 

@@ -159,7 +159,7 @@ export function SiteAdminDashboard({
       <DashboardSection
         title="Rugby today"
         description="Physical fixtures playing today, in kickoff order. One confirmed fixture is one row, however many clubs are involved."
-        action={{ href: "/admin/fixtures", label: "Fixture Management" }}
+        action={{ href: "/admin/fixtures", label: "Fixture Control Centre" }}
       >
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
           {fixturesToday.state === "error" ? (

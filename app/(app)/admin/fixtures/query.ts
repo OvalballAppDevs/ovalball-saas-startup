@@ -80,6 +80,14 @@ export function buildAdminFixtureQuery(supabase: SupabaseClient<Database>, query
   if (query.resultStatus !== "all") q = q.eq("result_status", query.resultStatus)
   if (query.competitionEditionId) q = q.eq("competition_edition_id", query.competitionEditionId)
 
+  // Season, owning team and home/away all exist on the fixture itself, so
+  // each is a plain server-side predicate -- never a filter applied to the
+  // current page after the fact, which would silently disagree with the
+  // "N fixtures match" count beside it.
+  if (query.seasonId) q = q.eq("season_id", query.seasonId)
+  if (query.teamId) q = q.eq("owning_team_id", query.teamId)
+  if (query.homeAway !== "all") q = q.eq("home_away", query.homeAway)
+
   switch (query.sort) {
     case "date-desc":
       q = q.order("kickoff_date", { ascending: false })
@@ -107,6 +115,7 @@ export function mapAdminFixtureRow(row: Database["public"]["Views"]["admin_fixtu
     id: row.id ?? "",
     kickoffDate: row.kickoff_date ?? "",
     kickoffTime: row.kickoff_time,
+    meetTime: row.meet_time,
     homeAway: row.home_away ?? "TBD",
     status: row.status ?? "Planned",
     gameType: row.game_type,
@@ -268,4 +277,76 @@ export async function attachClubLogos(supabase: SupabaseClient<Database>, rows: 
       awayClubLogoUrl: (awayClubId && logoByClubId.get(awayClubId)) || null,
     }
   })
+}
+
+/**
+ * WHAT A FIXTURE SECRETARY ACTUALLY CAME HERE FOR.
+ *
+ * The list answers "show me the fixtures". These answer the three
+ * questions that bring somebody to the screen in the first place: what is
+ * happening this week, what is still wrong, and what result has not been
+ * recorded. They are counts across the WHOLE scope, not the current page,
+ * because "three fixtures still have no kick-off time" is only useful if
+ * it means three in the season rather than three on page two.
+ *
+ * Every one of them reuses buildAdminFixtureQuery, so club scope, mirror
+ * handling and RLS visibility are resolved in exactly one place. A count
+ * that scoped itself differently from the list beneath it would be worse
+ * than no count at all.
+ */
+export interface FixtureAttentionCounts {
+  soon: number
+  incomplete: number
+  resultsOutstanding: number
+}
+
+export async function countFixtureAttention(
+  supabase: SupabaseClient<Database>,
+  query: AdminFixtureQuery,
+  clubId?: string,
+): Promise<FixtureAttentionCounts> {
+  const today = new Date().toISOString().slice(0, 10)
+  const inAWeek = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10)
+  // A count must not inherit the person's current filters, or "2 need
+  // attention" quietly means "2 that also match what you happen to be
+  // looking at" and disappears when they change a dropdown.
+  const unfiltered: AdminFixtureQuery = {
+    ...query,
+    q: "",
+    date: "all",
+    status: "all",
+    code: "all",
+    source: "all",
+    resultStatus: "all",
+    competitionEditionId: null,
+    teamId: null,
+    homeAway: "all",
+  }
+
+  const [soon, incomplete, results] = await Promise.all([
+    buildAdminFixtureQuery(supabase, unfiltered, clubId)
+      .gte("kickoff_date", today)
+      .lte("kickoff_date", inAWeek)
+      .neq("status", "Cancelled")
+      .limit(1),
+    // "Incomplete" is deliberately narrow: a fixture with no kick-off time
+    // or one still marked To Be Determined is one a parent cannot plan
+    // around. A missing competition is untidy, not a problem.
+    buildAdminFixtureQuery(supabase, unfiltered, clubId)
+      .gte("kickoff_date", today)
+      .neq("status", "Cancelled")
+      .or("kickoff_time.is.null,status.eq.To Be Determined")
+      .limit(1),
+    buildAdminFixtureQuery(supabase, unfiltered, clubId)
+      .lt("kickoff_date", today)
+      .eq("result_status", "none")
+      .neq("status", "Cancelled")
+      .limit(1),
+  ])
+
+  return {
+    soon: soon.count ?? 0,
+    incomplete: incomplete.count ?? 0,
+    resultsOutstanding: results.count ?? 0,
+  }
 }

@@ -13,7 +13,7 @@ export const ADMIN_PROFILES = [
   {
     value: "fixture_ops",
     label: "Fixture Operations Admin",
-    description: "Fixture Management, CSV imports, conflict review, fixture messages, exports. Cannot manage user permissions or club identity.",
+    description: "Fixture Control Centre, CSV imports, conflict review, fixture messages, exports. Cannot manage user permissions or club identity.",
   },
   {
     value: "club_data",
