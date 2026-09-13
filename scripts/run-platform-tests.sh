@@ -240,6 +240,13 @@ SUITES=(
   # becoming "is never checked".
   season_register_boot_invariants
   pg_cron_portability
+
+  # Production hygiene. Two Hub migrations minted themselves an author on a
+  # test domain in every environment including production, and two finance
+  # functions carried PostgreSQL's default PUBLIC EXECUTE grant. The forward
+  # fixes are 20270301000000 and 20270302000000; this holds both, and in
+  # particular proves the auth.users cleanup guard stays narrow.
+  production_hygiene_scaffold_and_finance
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
