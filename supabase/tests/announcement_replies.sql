@@ -191,12 +191,24 @@ begin
   end if;
 
   -- =================================================================
-  -- 10. ONE ROW, ONE CONVERSATION -- STILL TRUE WITH SIX CONTAINERS
+  -- 10. ONE ROW, ONE CONVERSATION -- STILL TRUE WITH SEVEN CONTAINERS
+  --
+  -- direct_conversation_id is the seventh. It arrived with direct messaging
+  -- after this assertion was written, and because the check works by counting
+  -- non-null containers, a kind it does not know about does not read as "a
+  -- seventh kind" -- it reads as "belongs to NO conversation". Every direct
+  -- message in the store therefore counted as an orphan, and the invariant
+  -- reported itself broken while it was in fact holding.
+  --
+  -- Note conversation_id is deliberately NOT in this list: it is a generic
+  -- pointer carried ALONGSIDE the specific container, so counting it would
+  -- make every message look like it belonged to two conversations at once.
   -- =================================================================
   perform set_config('role', 'postgres', true);
   select count(*) into v_n from public.fixture_messages
   where num_nonnulls(fixture_request_id, fixture_id, club_conversation_id,
-                     team_conversation_id, safeguarding_conversation_id, announcement_id) <> 1;
+                     team_conversation_id, safeguarding_conversation_id,
+                     announcement_id, direct_conversation_id) <> 1;
   if v_n = 0 then
     raise notice 'PASS 10: every message in the store belongs to exactly one conversation';
   else
