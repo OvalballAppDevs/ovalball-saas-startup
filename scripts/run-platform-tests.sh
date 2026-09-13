@@ -231,6 +231,15 @@ SUITES=(
   handover_successor_teams
   player_playing_pathway
   pathway_allocation_safety
+
+  # Release portability. Three migrations used to assert against the season
+  # register and one group used to install pg_cron unconditionally, so neither
+  # could be installed into a database that had no seasons yet or was not the
+  # cluster's cron database. Those migrations now stand aside in exactly those
+  # two cases -- and these two suites are what stops "stands aside" quietly
+  # becoming "is never checked".
+  season_register_boot_invariants
+  pg_cron_portability
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
