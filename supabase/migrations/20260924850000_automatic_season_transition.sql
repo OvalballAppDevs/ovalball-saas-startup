@@ -297,5 +297,30 @@ grant execute on function public.run_season_transition_check() to authenticated;
 -- whoever operates that project -- this migration only ever touches
 -- the local database, consistent with this whole feature's standing
 -- "no remote Supabase" constraint.
-create extension if not exists pg_cron;
-select cron.schedule('process-due-season-transitions', '*/15 * * * *', $$select internal.process_due_season_transitions()$$);
+--
+-- pg_cron can only ever be installed in ONE database per cluster: the one
+-- named by cron.database_name. Any other database -- a disposable release
+-- verification database, a reviewer's scratch copy -- is therefore a place
+-- where "create extension pg_cron" is not merely unnecessary but impossible,
+-- and an unconditional attempt there stops the whole migration tree on a
+-- fact about the cluster rather than anything wrong with the schema.
+--
+-- So: install where cron lives, skip where it cannot, and schedule only if
+-- the extension is actually present. The guard is read from PostgreSQL's own
+-- configuration rather than assumed, and an unset value (pg_cron not loaded
+-- at all) reads as "not here", which is the safe answer. Everything above
+-- this point is unaffected either way -- the function stays callable by hand
+-- through public.run_season_transition_check().
+do $$
+begin
+  if current_database() = nullif(current_setting('cron.database_name', true), '') then
+    execute 'create extension if not exists pg_cron';
+  end if;
+
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('process-due-season-transitions', '*/15 * * * *',
+      $job$select internal.process_due_season_transitions()$job$);
+  else
+    raise notice 'pg_cron is not installed in %; process-due-season-transitions was not scheduled.', current_database();
+  end if;
+end $$;

@@ -198,9 +198,28 @@ grant execute on function public.run_fixture_attendance_invitation_check() to au
 -- -- this is a two-week horizon, and asking a family about the same match more
 -- often than once a day would be a defect even if the ledger made it
 -- harmless.
-create extension if not exists pg_cron;
-select cron.schedule(
-  'send-fixture-attendance-invitations',
-  '0 9 * * *',
-  $$select internal.send_due_fixture_attendance_invitations()$$
-);
+--
+-- pg_cron can only be installed in the single database named by
+-- cron.database_name, so in any other database -- a disposable release
+-- verification copy, a reviewer's scratch database -- the attempt is not
+-- redundant but impossible, and doing it unconditionally stops the whole
+-- migration tree on a property of the cluster rather than a fault in this
+-- schema. Install where cron lives, skip where it cannot, and schedule only
+-- when the extension is genuinely present. The invitation machinery above is
+-- complete either way, and public.run_fixture_attendance_invitation_check()
+-- still runs it on demand.
+do $$
+begin
+  if current_database() = nullif(current_setting('cron.database_name', true), '') then
+    execute 'create extension if not exists pg_cron';
+  end if;
+
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule(
+      'send-fixture-attendance-invitations',
+      '0 9 * * *',
+      $job$select internal.send_due_fixture_attendance_invitations()$job$);
+  else
+    raise notice 'pg_cron is not installed in %; send-fixture-attendance-invitations was not scheduled.', current_database();
+  end if;
+end $$;

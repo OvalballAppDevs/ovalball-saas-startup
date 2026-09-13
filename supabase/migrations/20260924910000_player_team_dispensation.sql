@@ -221,4 +221,18 @@ as $$
     and s.ends_on < current_date;
 $$;
 
-select cron.schedule('expire-due-dispensations', '0 3 * * *', $$select internal.expire_due_dispensations()$$);
+-- Schedule only where pg_cron actually lives. This migration never installed
+-- the extension itself -- it relied on an earlier migration having done so --
+-- which means in a database where pg_cron cannot exist it failed on the
+-- "cron" schema being absent rather than on anything of its own. The
+-- dispensation schema above is complete and correct either way; only the
+-- sweep is deferred, and internal.expire_due_dispensations() remains callable.
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('expire-due-dispensations', '0 3 * * *',
+      $job$select internal.expire_due_dispensations()$job$);
+  else
+    raise notice 'pg_cron is not installed in %; expire-due-dispensations was not scheduled.', current_database();
+  end if;
+end $$;

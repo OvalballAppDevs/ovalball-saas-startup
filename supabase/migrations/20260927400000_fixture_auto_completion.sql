@@ -76,5 +76,23 @@ grant execute on function public.run_fixture_completion_check() to authenticated
 -- project -- this migration only ever touches the local database,
 -- consistent with this whole pass's standing "no remote Supabase"
 -- constraint.
-create extension if not exists pg_cron;
-select cron.schedule('complete-overdue-fixtures', '*/15 * * * *', $$select internal.complete_overdue_fixtures()$$);
+--
+-- pg_cron can only be installed in the one database named by
+-- cron.database_name, so any other database -- a disposable verification
+-- copy, a reviewer's scratch database -- cannot have it, and an
+-- unconditional attempt stops the migration tree there on a property of the
+-- cluster rather than a fault in the schema. Install where cron lives, skip
+-- where it cannot, schedule only if it is really present.
+do $$
+begin
+  if current_database() = nullif(current_setting('cron.database_name', true), '') then
+    execute 'create extension if not exists pg_cron';
+  end if;
+
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('complete-overdue-fixtures', '*/15 * * * *',
+      $job$select internal.complete_overdue_fixtures()$job$);
+  else
+    raise notice 'pg_cron is not installed in %; complete-overdue-fixtures was not scheduled.', current_database();
+  end if;
+end $$;

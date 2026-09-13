@@ -681,14 +681,30 @@ grant execute on function public.run_trial_expiry_check() to authenticated;
 -- Local-only scheduling, exactly as the three existing jobs do it.
 -- Provisioning pg_cron on the remote project is a deployment step for
 -- whoever operates it; this migration only ever touches the local database.
-create extension if not exists pg_cron;
-
+--
+-- pg_cron lives in exactly one database per cluster -- the one named by
+-- cron.database_name -- so in any other database installing it is impossible
+-- rather than merely redundant, and an unconditional attempt halts the whole
+-- migration tree on a fact about the cluster. Install where cron lives, skip
+-- where it cannot, and schedule only when the extension is really there.
 do $$
 begin
-  perform cron.unschedule('process-due-trials');
-exception when others then
-  null;
-end;
-$$;
+  if current_database() = nullif(current_setting('cron.database_name', true), '') then
+    execute 'create extension if not exists pg_cron';
+  end if;
 
-select cron.schedule('process-due-trials', '*/15 * * * *', $$select internal.process_due_trials()$$);
+  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+    raise notice 'pg_cron is not installed in %; process-due-trials was not scheduled.', current_database();
+    return;
+  end if;
+
+  -- Re-running this migration must not fail on a job that is already there.
+  begin
+    perform cron.unschedule('process-due-trials');
+  exception when others then
+    null;
+  end;
+
+  perform cron.schedule('process-due-trials', '*/15 * * * *',
+    $job$select internal.process_due_trials()$job$);
+end $$;
