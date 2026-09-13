@@ -135,11 +135,29 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_recipient, 'role', 'authenticated')::text, true);
 
-  select count(*) into v_n from public.messenger_announcement_deliveries;
+  -- Scoped to THIS announcement. Counting the whole table made the assertion
+  -- depend on the store being globally empty, so any other announcement that
+  -- happened to exist -- one left by a browser run, one another suite created
+  -- -- failed it while the policy was doing exactly the right thing.
+  select count(*) into v_n from public.messenger_announcement_deliveries
+   where announcement_id = v_ann;
   if v_n = 1 then
-    raise notice 'PASS 7: an ordinary recipient can read exactly one delivery -- their own';
+    raise notice 'PASS 7: an ordinary recipient can read exactly one delivery of this announcement -- their own';
   else
-    raise notice 'FAIL 7: an ordinary recipient could read % delivery rows', v_n;
+    raise notice 'FAIL 7: an ordinary recipient could read % delivery rows of this announcement', v_n;
+  end if;
+
+  -- 7a. And the privacy claim itself, made STRONGER rather than narrower by
+  -- the scoping above: whatever else is in the store, every row this person
+  -- can see anywhere is addressed to them. That holds however much data other
+  -- suites or browser runs have left behind -- indeed the more there is, the
+  -- more this proves.
+  select count(*) into v_n from public.messenger_announcement_deliveries
+   where recipient_user_id <> v_recipient;
+  if v_n = 0 then
+    raise notice 'PASS 7a: across the whole store, a recipient sees no delivery addressed to anybody else';
+  else
+    raise notice 'FAIL 7a: a recipient could read % delivery row(s) addressed to other people', v_n;
   end if;
 
   if internal.is_announcement_sender(v_ann) then
@@ -153,11 +171,12 @@ begin
   -- because they were sent it -- which is what 7 and 7b together isolate.
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_colleague, 'role', 'authenticated')::text, true);
-  select count(*) into v_n from public.messenger_announcement_deliveries;
+  select count(*) into v_n from public.messenger_announcement_deliveries
+   where announcement_id = v_ann;
   if v_n = 2 and internal.is_announcement_sender(v_ann) then
     raise notice 'PASS 7c: the audience is visible to the sending side, by authority';
   else
-    raise notice 'FAIL 7c: sending side saw % rows, is_sender=%',
+    raise notice 'FAIL 7c: sending side saw % rows of this announcement, is_sender=%',
       v_n, internal.is_announcement_sender(v_ann);
   end if;
 

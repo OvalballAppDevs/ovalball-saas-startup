@@ -109,11 +109,27 @@ begin
     raise notice 'FAIL 6: the blocked person''s list returned % rows', n;
   end if;
 
-  select count(*) into n from public.user_message_blocks;
+  -- Scoped to the block this test created. Counting the whole table made the
+  -- assertion depend on the block store being globally empty, so a block left
+  -- by a browser run failed it while the policy was correct -- and the person
+  -- "reading" a row was in fact its own author, which is not a leak at all.
+  select count(*) into n from public.user_message_blocks
+   where blocker_user_id = v_a and blocked_user_id = v_b;
   if n = 0 then
     raise notice 'PASS 7: the blocked person cannot read the block row against them';
   else
-    raise notice 'FAIL 7: the blocked person could read % block row(s)', n;
+    raise notice 'FAIL 7: the blocked person could read the block row against them';
+  end if;
+
+  -- 7a. The privacy model stated as an invariant rather than a count, so it
+  -- holds whatever else is in the store: everything this person can see here
+  -- is a block they made themselves. Nobody ever learns they were blocked.
+  select count(*) into n from public.user_message_blocks
+   where blocker_user_id <> v_b;
+  if n = 0 then
+    raise notice 'PASS 7a: across the whole store, a person sees only the blocks they made themselves';
+  else
+    raise notice 'FAIL 7a: % block row(s) authored by other people were readable', n;
   end if;
 
   -- 8. And the resolver is not a directory: a third party who blocks nobody

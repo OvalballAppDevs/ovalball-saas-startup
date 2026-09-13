@@ -42,6 +42,7 @@ declare
   v_minor2 uuid;       -- 15
   v_site_admin uuid;
   v_thread uuid;
+  v_history_before integer;
   v_club uuid;
   n integer;
 begin
@@ -232,7 +233,18 @@ begin
   end;
 
   -- 23-24. POLICY OFF stops NEW sends but keeps the history and the thread.
+  --
+  -- The history is measured as a BEFORE/AFTER difference rather than against a
+  -- fixed number. open_direct_conversation is open-or-get, so on any database
+  -- where these two people have talked before -- a UAT database, a machine
+  -- where the browser suites have run -- v_thread is a real thread that
+  -- already holds real messages, and "n = 1" asserted an empty store rather
+  -- than anything about the policy. What the test actually claims is that
+  -- switching the policy off changes nothing that was already said, and that
+  -- is exactly what a difference of zero says, whatever the thread started
+  -- with.
   perform set_config('role', 'postgres', true);
+  select count(*) into v_history_before from public.fixture_messages where direct_conversation_id = v_thread;
   update public.message_policies set allow_direct_messaging = false where club_id is null;
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_coach, 'role', 'authenticated')::text, true);
@@ -249,9 +261,9 @@ begin
   select count(*) into n from public.fixture_messages where direct_conversation_id = v_thread;
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_coach, 'role', 'authenticated')::text, true);
-  if n = 1 then
-    raise notice 'PASS 24: the existing history survives the policy change';
-  else raise notice 'FAIL 24: history changed when policy did (% rows)', n; end if;
+  if n = v_history_before then
+    raise notice 'PASS 24: the existing history survives the policy change (% row(s), unchanged)', n;
+  else raise notice 'FAIL 24: history changed when policy did (% rows before, % after)', v_history_before, n; end if;
 
   -- 25. Re-enabling makes the SAME thread send-capable; no new conversation.
   perform set_config('role', 'postgres', true);
