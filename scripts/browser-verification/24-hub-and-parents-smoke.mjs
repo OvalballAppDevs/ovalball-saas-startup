@@ -181,7 +181,46 @@ for (const [path, name] of [...HUB.slice(0, 6), ...SAFETY, ["/rugby-hub/safeguar
     return results.violations.map((v) => `${v.id} (${v.nodes.length}): ${v.nodes[0]?.target?.join(" ")}`)
   })
   record(`§AS ${name} is axe-clean at AA`, violations.length === 0, violations.join("; ") || "no violations")
+
+  // LANDMARKS, EXPLICITLY.
+  //
+  // The AA tag set above does NOT cover this: landmark-one-main and
+  // landmark-no-duplicate-main are axe best-practice rules, outside
+  // wcag2a/wcag2aa, so the nested <main> that sat on all 32 Hub routes passed
+  // every AA run while it was there. Asking for the rules by name is the only
+  // way this regression is actually watched.
+  const landmark = await a11y.evaluate(async () => {
+    const results = await window.axe.run(document, {
+      runOnly: { type: "rule", values: ["landmark-one-main", "landmark-no-duplicate-main", "landmark-unique"] },
+    })
+    return {
+      violations: results.violations.map((v) => `${v.id} (${v.nodes.length})`),
+      mains: document.querySelectorAll("main").length,
+    }
+  })
+  record(`§12 ${name} has exactly one main landmark, by axe and by count`,
+    landmark.violations.length === 0 && landmark.mains === 1,
+    `${landmark.mains} <main>; ${landmark.violations.join("; ") || "no landmark violations"}`)
 }
+
+// §12: the target a skip link or a screen reader's landmark menu lands on has
+// to be unambiguous. Ovalball has no explicit skip link, so the mechanism in
+// play is assistive-technology landmark navigation -- which means the thing to
+// prove is that the Hub offers exactly one main region, and that it is the app
+// shell's, shared with every other route rather than owned by the Hub.
+await a11y.goto(`${APP}/rugby-hub`, { waitUntil: "domcontentloaded" })
+await a11y.waitForLoadState("networkidle").catch(() => {})
+const shell = await a11y.evaluate(() => {
+  const mains = [...document.querySelectorAll("main")]
+  return {
+    count: mains.length,
+    cls: mains[0]?.className ?? "",
+    nested: mains.some((m) => mains.some((o) => o !== m && o.contains(m))),
+  }
+})
+record("§12 the one main landmark is the app shell's, not a Hub-owned copy",
+  shell.count === 1 && !shell.nested && /flex-1/.test(shell.cls),
+  `${shell.count} <main>, nested=${shell.nested}, class="${shell.cls}"`)
 
 await browser.close()
 summarise()

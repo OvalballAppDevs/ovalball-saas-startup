@@ -25,8 +25,21 @@ export default async function RugbyHubLayout({ children }: { children: React.Rea
   const cookieTeamId = store.get(RUGBY_HUB_TEAM_COOKIE)?.value
   const activeTeamId = teamOptions.find((t) => t.teamId === cookieTeamId)?.teamId ?? teamOptions[0]?.teamId ?? null
 
+  // A <div>, not a <main>. The app shell at app/(app)/layout.tsx already owns
+  // the page's one main landmark, and this layout renders INSIDE it -- so a
+  // <main> here produced two nested main landmarks on all 32 Hub routes. A
+  // screen reader then offers two "main" regions with no way to tell which is
+  // the page, and "skip to main content" has two candidate targets.
+  //
+  // Purely a semantic correction: the element is a styling container, the
+  // classes are untouched, and <div> and <main> render identically. The fix
+  // deliberately goes this way round -- the global landmark stays in the app
+  // shell where every route shares it, rather than being moved into the Hub.
+  //
+  // scripts/browser-verification/24-hub-and-parents-smoke.mjs asserts the
+  // count is exactly one on every Hub route, at desktop and at 390px.
   return (
-    <main className="min-h-screen bg-chalk">
+    <div className="min-h-screen bg-chalk">
       <div className="border-b border-ink/8 px-4 py-5 md:px-8">
         <div className="mx-auto flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center justify-between gap-4 sm:justify-start">
@@ -70,6 +83,6 @@ export default async function RugbyHubLayout({ children }: { children: React.Rea
           so a second, blunter block here was blocking a destination it
           should never have applied to. */}
       <div className="mx-auto max-w-3xl px-4 pt-10 pb-28 md:px-8 md:pt-14 md:pb-28">{children}</div>
-    </main>
+    </div>
   )
 }
