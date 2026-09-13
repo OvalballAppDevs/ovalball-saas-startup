@@ -100,6 +100,7 @@ $function$;
 do $$
 declare
   v_dir uuid; v_club uuid; v_to uuid; v_team uuid;
+  v_from uuid; v_existing_current uuid;
   v_label text; v_age text; v_proj boolean;
 begin
   -- Prove the branch actually runs now, on a team with no recorded identity
@@ -114,6 +115,37 @@ begin
   insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
   values (v_club,'union','youth','U12','boys','x','projcheck-u12') returning id into v_team;
 
+  -- "Ahead" is a comparison, and it needs something to be ahead OF. The
+  -- projection branch finds the current season by looking for the most recent
+  -- one that has already started; with nothing registered it finds none, takes
+  -- the early return, and reports is_projected = false -- so this check failed
+  -- on a database whose Seasons register simply had not been populated yet,
+  -- while the code under test was behaving correctly.
+  --
+  -- This block already builds the whole scenario it measures, including a
+  -- season, and marks every row is_regression_fixture so nothing canonical is
+  -- implied. Completing that scaffolding with the "before" half is therefore
+  -- in keeping with what it already does, and it keeps the assertion RUNNING
+  -- on a clean boot rather than skipping it.
+  --
+  -- It is created only when no season has already started for this code, so on
+  -- a populated database this is inert: the real current season keeps winning
+  -- the lookup and behaviour is byte-for-byte what it was. That condition is
+  -- the guard that matters -- a fixture season inserted unconditionally could
+  -- outrank a genuine one and quietly change which season the product thinks
+  -- is current.
+  select id into v_existing_current
+  from public.seasons
+  where rugby_code = 'union' and starts_on < current_date
+  order by starts_on desc limit 1;
+
+  if v_existing_current is null then
+    insert into public.seasons (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref, is_regression_fixture, pre_season_starts_on)
+    values ('ProjCheck Current', (current_date - interval '1 month')::date, (current_date + interval '9 months')::date,
+            false, 'union', extract(year from current_date)::int, 'projcheck', true, (current_date - interval '2 months')::date)
+    returning id into v_from;
+  end if;
+
   select i.age_group, i.display_name, i.is_projected into v_age, v_label, v_proj
   from public.get_team_identity_for_season(v_team, v_to) i;
 
@@ -126,6 +158,7 @@ begin
 
   delete from public.teams where id = v_team;
   delete from public.seasons where id = v_to;
+  if v_from is not null then delete from public.seasons where id = v_from; end if;
   delete from public.clubs where id = v_club;
   delete from public.club_directory where id = v_dir;
 end $$;

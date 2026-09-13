@@ -383,8 +383,32 @@ create trigger player_pathway_refreshes_proposals
 do $$
 declare v_union uuid; v_alloc text; v_label text;
 begin
+  -- This one reads the function's own source, not the season register, so it
+  -- holds on any database and runs first, unconditionally.
+  if (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'internal' and p.proname = 'generate_rollover_player_proposals_core') ~ 't\.gender' then
+    raise exception 'The handover still reads a player''s classification from their team.';
+  end if;
+
+  -- The two pathway checks below ask the resolver to place a player in a REAL
+  -- season, so they need a canonical season to ask about. Where the Seasons
+  -- register has not been populated yet there is none, and the resolver
+  -- correctly answers NEEDS_ATTENTION -- which this assertion would otherwise
+  -- read as the pathway logic being broken when it is doing exactly the right
+  -- thing. Inventing a season here to keep the check green would put a second
+  -- answer to "which season is this" into the product, which is the one thing
+  -- the canonical register exists to prevent.
+  --
+  -- So the checks run in full wherever a canonical season exists, and say so
+  -- where the register is empty. Both states are held permanently by
+  -- supabase/tests/season_register_boot_invariants.sql.
   select id into v_union from public.seasons
   where rugby_code = 'union' and not is_regression_fixture order by starts_on limit 1;
+
+  if v_union is null then
+    raise notice 'No canonical Union season is registered yet; the playing-pathway resolution checks in this migration were not evaluated. They are covered permanently by supabase/tests/season_register_boot_invariants.sql.';
+    return;
+  end if;
 
   -- The Ben case: U11, Union, no pathway recorded.
   select allocation_status, canonical_label into v_alloc, v_label
@@ -398,11 +422,6 @@ begin
   from public.resolve_normal_operational_identity('union', v_union, (current_date - interval '13 years')::date, null);
   if v_alloc <> 'CLASSIFICATION_REQUIRED' then
     raise exception 'A missing pathway past the Mixed band did not fail closed (got %).', v_alloc;
-  end if;
-
-  if (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'internal' and p.proname = 'generate_rollover_player_proposals_core') ~ 't\.gender' then
-    raise exception 'The handover still reads a player''s classification from their team.';
   end if;
 end $$;
 

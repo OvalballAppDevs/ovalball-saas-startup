@@ -587,8 +587,10 @@ end;
 $function$;
 
 do $$
-declare v_alloc text; v_reason text; v_top integer;
+declare v_alloc text; v_reason text; v_top integer; v_season uuid;
 begin
+  -- These three read the age-grade catalogue, not the season register, so they
+  -- hold on any database and stay unconditional.
   v_top := internal.highest_youth_age_offered('union', 'boys');
   if v_top <> 18 then raise exception 'Union boys youth pathway should end at U18, got U%', v_top; end if;
   v_top := internal.highest_youth_age_offered('union', 'girls');
@@ -596,10 +598,32 @@ begin
   v_top := internal.highest_youth_age_offered('league', 'boys');
   if v_top <> 19 then raise exception 'League boys youth pathway should end at U19, got U%', v_top; end if;
 
+  -- What follows asks the resolver where a player lands in a REAL season, so
+  -- it needs a canonical season to ask about. A database that has not yet had
+  -- its Seasons register populated has none -- and the correct answer there is
+  -- NEEDS_ATTENTION, which is precisely what the resolver returns and exactly
+  -- what this assertion would then read as a failure.
+  --
+  -- The invariant is not weakened: seasons come only from the canonical
+  -- register, and this migration must not invent one to make itself pass. A
+  -- manufactured season would be a second answer to "which season is this",
+  -- which is the thing the register exists to prevent. So the check runs in
+  -- full wherever a canonical season exists, and stands aside -- loudly --
+  -- where the register is genuinely empty. supabase/tests/season_register_
+  -- boot_invariants.sql holds this to account permanently in both states.
+  select id into v_season
+  from public.seasons
+  where rugby_code = 'union' and not is_regression_fixture
+  order by starts_on desc limit 1;
+
+  if v_season is null then
+    raise notice 'No canonical Union season is registered yet; the holding-resolution checks in this migration were not evaluated. They are covered permanently by supabase/tests/season_register_boot_invariants.sql.';
+    return;
+  end if;
+
   select allocation_status, reason into v_alloc, v_reason
   from public.resolve_normal_operational_identity(
-    'union',
-    (select id from public.seasons where rugby_code = 'union' and not is_regression_fixture order by starts_on desc limit 1),
+    'union', v_season,
     (current_date - interval '18 years 2 months')::date, 'boys');
   if v_alloc <> 'CLUB_HOLDING' then
     raise exception 'A Union player past U18 should resolve to CLUB_HOLDING, got %', v_alloc;
@@ -612,8 +636,7 @@ begin
   -- rather than a grade, and that must also land in holding.
   select allocation_status into v_alloc
   from public.resolve_normal_operational_identity(
-    'union',
-    (select id from public.seasons where rugby_code = 'union' and not is_regression_fixture order by starts_on desc limit 1),
+    'union', v_season,
     (current_date - interval '21 years')::date, 'boys');
   if v_alloc <> 'CLUB_HOLDING' then
     raise exception 'An adult past every youth grade should resolve to CLUB_HOLDING, got %', v_alloc;
