@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { cookies } from "next/headers"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, ChevronRight, Newspaper } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
@@ -68,6 +68,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
     ctx.isSiteAdmin ||
     (await hasCapability(supabase, "team.manage", "team", { clubId: team.club_id, teamId: team.id })) ||
     (await hasCapability(supabase, "club.teams.manage", "club", { clubId: team.club_id }))
+
+  // Team news: the same capability pair the database's publishing adapter
+  // resolves (club.news.manage, or team.news.manage for this team). This
+  // only decides whether to show the entry point.
+  const canPublishTeamNews =
+    (await hasCapability(supabase, "club.news.manage", "club", { clubId: team.club_id })) ||
+    (await hasCapability(supabase, "team.news.manage", "team", { clubId: team.club_id, teamId: team.id }))
 
   // The roster comes from public.team_people, which resolves coaches,
   // parents/guardians and players in one place with one definition of what
@@ -160,6 +167,20 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       </div>
 
       <TeamPeople teamId={team.id} people={people} clubMembers={clubMembers} canManage={canManagePeople} />
+
+      {canPublishTeamNews && team.active && (
+        <Link
+          href={`/teams/${team.id}/news`}
+          className="mt-8 flex items-center gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5 outline-none transition-colors hover:border-ink/20 focus-visible:ring-2 focus-visible:ring-pitch-400"
+        >
+          <Newspaper aria-hidden="true" className="size-5 shrink-0 text-forest-800" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-ink">Team News</span>
+            <span className="block text-xs text-ink-muted">Publish match reports, updates and notices on the club&apos;s public page.</span>
+          </span>
+          <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
+        </Link>
+      )}
 
       {canManage && (
         <TeamLifecycleSection

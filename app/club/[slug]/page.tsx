@@ -1,265 +1,220 @@
-import { notFound } from "next/navigation"
-import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
-import Link from "next/link"
+import type { Metadata } from "next"
 import { cookies } from "next/headers"
+import { notFound } from "next/navigation"
 
-import { ClubAvatar } from "@/components/club/club-avatar"
-import { OvalballLogo } from "@/components/brand/ovalball-logo"
+import { ClubBar, ClubFooter } from "@/components/club-home/club-chrome"
+import { ClubHero, MatchdayStrip } from "@/components/club-home/club-hero"
+import { FixtureRail } from "@/components/club-home/fixture-rail"
+import { AnnouncementBoard, ClubInformation, ResultList, RugbyHubFeature, TeamsSection, WriteFirstArticle } from "@/components/club-home/home-sections"
+import { LeadStory, NewsCard } from "@/components/club-home/news-cards"
+import { ClubThemeScope, EmptyState, SectionHeading } from "@/components/club-home/primitives"
+import { TeamNews } from "@/components/club-home/team-news"
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { resolveClubLogoUrl } from "@/lib/app-context/club-logo"
-import { resolveClubPublicProfile } from "@/lib/app-context/club-public-profile"
 import { canManageClubFixturesAnywhere, getSessionContext } from "@/lib/app-context/session-context"
+import { loadPublicClub, RUGBY_CODE_LABEL } from "@/lib/club-public/club"
+import { londonTodayIso } from "@/lib/club-public/format"
+import { loadClubHome } from "@/lib/club-public/load-club-home"
+import { summarise } from "@/lib/club-content/markup"
+import { clubHomePath } from "@/lib/club-content/vocabulary"
 import { createClient } from "@/lib/supabase/server"
 
 import { CalendarAccessAction } from "./calendar-access-action"
 
-const RUGBY_CODE_LABEL: Record<string, string> = { union: "Rugby Union", league: "Rugby League" }
-const CONTACT_ROLE_LABEL: Record<string, string> = {
-  fixture_secretary: "Fixture Secretary",
-  minis_secretary: "Minis Secretary",
-  general: "General enquiries",
+/**
+ * A CLUB'S HOME ON OVALBALL.
+ *
+ * The public, shareable homepage at /club/{slug}. Every section is a
+ * projection of canonical data, read as the visitor (never a service role):
+ *
+ *   identity    clubs + club_directory, crest via resolveClubLogoUrl
+ *   branding    the HOME kit, through lib/club-theme (no second colour setting)
+ *   news        lib/club-public/articles (PUBLISHED only; visibility by RLS)
+ *   fixtures    public_club_fixtures, the one anonymous fixture projection
+ *   results     public competition results, plus fixture results a signed-in
+ *               viewer's own fixture policy already admits
+ *
+ * What it never shows, whatever its queries could reach: people and roles,
+ * players, meet times, notes, venue instructions, fixture negotiation or
+ * private messages. See lib/club-public/load-club-home.ts for the boundary.
+ */
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const club = await loadPublicClub(slug)
+  if (!club) return { title: "Club Not Found", robots: { index: false } }
+  const description =
+    (club.bio && summarise(club.bio, 160)) ||
+    `News, fixtures, results and teams from ${club.name}${club.place ? `, ${club.place}` : ""}${club.rugbyCode ? ` (${RUGBY_CODE_LABEL[club.rugbyCode]})` : ""}.`
+  const path = clubHomePath(club.slug)
+  return {
+    title: club.name,
+    description,
+    alternates: { canonical: path },
+    openGraph: {
+      type: "website",
+      url: path,
+      title: club.name,
+      description,
+      siteName: "Ovalball",
+      locale: "en_GB",
+      ...(club.crestUrl ? { images: [{ url: club.crestUrl, alt: `${club.name} crest` }] } : {}),
+    },
+    twitter: { card: "summary", title: club.name, description, ...(club.crestUrl ? { images: [club.crestUrl] } : {}) },
+  }
 }
 
-/**
- * Public, unauthenticated-safe -- every field selected below is already
- * publicly readable per existing RLS (clubs_select_active /
- * club_contacts_select / teams_select_active / fixtures_select_all), never
- * a service-role bypass. Deliberately does NOT show people/roles, claims,
- * fixture negotiation detail, private fixture messages, or internal notes
- * -- those stay inside the authenticated app regardless of what this
- * page's own queries could technically reach. Visibility toggles
- * (clubs.show_website/show_home_ground/show_address/show_postcode) are
- * Site-Admin/Club-Admin-controlled opt-in/opt-out settings, defaulting to
- * privacy-conscious.
- */
 export default async function PublicClubPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const supabase = await createClient()
-
-  const { data: club } = await supabase
-    .from("clubs")
-    .select(
-      "id, bio, website, facebook_url, address_display, logo_storage_path, show_website, show_home_ground, show_address, show_postcode, club_directory(name, town, county, nation, home_ground, rugby_code, postcode, logo_storage_path, bio, website, facebook_url)"
-    )
-    .eq("slug", slug)
-    .eq("status", "active")
-    .maybeSingle()
-
+  const club = await loadPublicClub(slug)
   if (!club) notFound()
 
-  // Bio, website and Facebook resolve club-own-then-directory, exactly as
-  // the crest does. A club that has not written its own still shows the
-  // description a Site Admin maintains for it in the directory.
-  const publicProfile = resolveClubPublicProfile(club)
+  const supabase = await createClient()
+  const home = await loadClubHome(supabase, club, londonTodayIso())
 
-  const today = new Date().toISOString().slice(0, 10)
-
-  const [{ data: contacts }, { data: teams }, { data: fixtures }] = await Promise.all([
-    supabase.from("club_contacts").select("role, name, phone, email").eq("club_id", club.id).eq("is_public", true),
-    supabase.from("teams").select("id, display_name, category, age_group").eq("club_id", club.id).eq("active", true).order("category").order("age_group"),
-    // THE PUBLIC PROJECTION, not the canonical table.
-    //
-    // This page is the only anonymous surface in Ovalball that shows fixtures,
-    // and it used to read `fixtures` directly -- which worked because the
-    // table's policy was USING (true) for anon, and was safe only because
-    // this one query remembered to ask for a narrow field list and to filter
-    // by club afterwards. The audit measured what that left exposed: every
-    // fixture on the platform, meet times and coaches' notes included.
-    //
-    // public_club_fixtures is now the boundary. It carries the public columns
-    // only, and its row filter (confirmed, future, unarchived) lives in the
-    // view where a query cannot widen it. The club filter moves into the
-    // query too, so this page asks for its own club's fixtures rather than
-    // fetching everyone's and discarding the rest.
-    supabase
-      .from("public_club_fixtures")
-      .select("id, kickoff_date, kickoff_time, home_away, raw_opposition_text, owning_team_id, season_id, team_display_name")
-      .eq("club_id", club.id)
-      .gte("kickoff_date", today)
-      .order("kickoff_date")
-      .limit(10),
-  ])
-
-  // Every column of a view is nullable to the type generator, even where the
-  // view's own join guarantees it. Narrowed once here rather than asserted at
-  // each use: a row without an id or an owning team could not have satisfied
-  // the view's join, so this filter removes nothing real.
-  const clubFixtures = (fixtures ?? []).filter(
-    (f): f is typeof f & { id: string; owning_team_id: string; kickoff_date: string } =>
-      Boolean(f.id && f.owning_team_id && f.kickoff_date)
-  )
-
-  // Name each fixture's team as it stands in THAT fixture's season, through
-  // the same projection the Calendar and Match Centre use. A public results
-  // page is exactly where a relabelled cohort is most visible: without this a
-  // season handover would rewrite what the club is publicly recorded as having
-  // fielded.
-  const publicFixtureIdentities = await loadTeamIdentitiesForSeason(
-    supabase,
-    clubFixtures.filter((f) => f.season_id).map((f) => ({ teamId: f.owning_team_id, seasonId: f.season_id as string }))
-  )
-  const publicTeamLabel = (f: (typeof clubFixtures)[number]): string =>
-    (f.season_id && publicFixtureIdentities.get(teamIdentityKey(f.owning_team_id, f.season_id))?.displayName) ||
-    f.team_display_name ||
-    "Team"
-
-  const logoUrl = resolveClubLogoUrl(supabase, club)
-
-  const directory = club.club_directory
-
-  // Authenticated-and-authorized-only actions -- never for an anonymous
-  // visitor, a Parent/Player/Coach, or an unrelated Team Admin. Reuses the
-  // same club_partnerships architecture the authenticated Partner Clubs
-  // page already relies on.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Partner-club calendar access: authenticated fixture administrators of a
+  // DIFFERENT club only, acting through the club they have switched into.
+  // Unchanged from the page this replaced; it reuses club_partnerships.
   let calendarAccessStatus: "none" | "pending" | "active" | "revoked" | null = null
-  let viewerClubId: string | null = null
   let messagePartnerLink = false
-  if (user) {
-    const ctx = await getSessionContext(supabase, user)
-    if (canManageClubFixturesAnywhere(ctx)) {
-      const cookieStore = await cookies()
-      const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
-      // No `?? manageableClubId(ctx)` fallback -- the partnership-request
-      // CTA below must reflect the club the viewer is actually acting
-      // through, never whichever club-wide authority happens to be first
-      // in their session.
-      viewerClubId = activeManageableClubId(ctx, activeContext)
-      if (viewerClubId && viewerClubId !== club.id) {
-        const { data: partnership } = await supabase
-          .from("club_partnerships")
-          .select("status")
-          .or(
-            `and(requesting_club_id.eq.${viewerClubId},partner_club_id.eq.${club.id}),and(requesting_club_id.eq.${club.id},partner_club_id.eq.${viewerClubId})`
-          )
-          .neq("status", "revoked")
-          .order("requested_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        calendarAccessStatus = (partnership?.status as "pending" | "active" | undefined) ?? "none"
-        messagePartnerLink = partnership?.status === "active"
+  if (home.viewer.signedIn) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user) {
+      const ctx = await getSessionContext(supabase, user)
+      if (canManageClubFixturesAnywhere(ctx)) {
+        const cookieStore = await cookies()
+        const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
+        const viewerClubId = activeManageableClubId(ctx, activeContext)
+        if (viewerClubId && viewerClubId !== club.id) {
+          const { data: partnership } = await supabase
+            .from("club_partnerships")
+            .select("status")
+            .or(
+              `and(requesting_club_id.eq.${viewerClubId},partner_club_id.eq.${club.id}),and(requesting_club_id.eq.${club.id},partner_club_id.eq.${viewerClubId})`
+            )
+            .neq("status", "revoked")
+            .order("requested_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          calendarAccessStatus = (partnership?.status as "pending" | "active" | undefined) ?? "none"
+          messagePartnerLink = partnership?.status === "active"
+        }
       }
     }
   }
 
+  const manageHref = home.viewer.canManageNews ? "/club/settings/news" : null
+  const pattern = club.theme.pattern
+
   return (
-    <main className="brand-light-scope min-h-screen bg-chalk">
-      <div className="border-b border-ink/8 px-4 py-5 md:px-8">
-        <Link href="/">
-          <OvalballLogo variant="light" />
-        </Link>
-      </div>
+    <ClubThemeScope theme={club.theme}>
+      <a href="#main" className="sr-only z-50 rounded-lg bg-white px-4 py-2 font-semibold text-ink focus:not-sr-only focus:absolute focus:top-2 focus:left-2">
+        Skip to content
+      </a>
+      <ClubBar club={club} onHome manageHref={manageHref} />
+      <main id="main">
+        <ClubHero club={club} />
+        <MatchdayStrip next={home.upcoming[0] ?? null} latest={home.results[0] ?? null} teamCount={home.teamCount} clubSlug={club.slug} />
 
-      <div className="mx-auto max-w-2xl px-4 py-12 md:px-8 md:py-16">
-        <div className="flex items-start gap-5">
-          <ClubAvatar logoUrl={logoUrl} name={directory?.name ?? "Club"} size="lg" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">
-              {directory ? RUGBY_CODE_LABEL[directory.rugby_code] ?? directory.rugby_code : ""}
-            </p>
-            <h1 className="mt-1 font-display text-display-l text-ink">{directory?.name}</h1>
-            <p className="mt-1 text-sm text-ink-muted">
-              {[directory?.town, directory?.county, directory?.nation].filter(Boolean).join(", ")}
-            </p>
-          </div>
-        </div>
+        <AnnouncementBoard announcements={home.announcements} />
 
-        {publicProfile.bio && <p className="mt-8 max-w-xl text-base text-ink/70">{publicProfile.bio}</p>}
-
-        <div className="mt-8 flex flex-wrap gap-4 text-sm">
-          {club.show_website && publicProfile.website && (
-            <a href={publicProfile.website} target="_blank" rel="noopener noreferrer" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
-              Website
-            </a>
-          )}
-          {publicProfile.facebookUrl && (
-            <a href={publicProfile.facebookUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
-              Facebook
-            </a>
-          )}
-        </div>
-
-        {(viewerClubId || calendarAccessStatus) && (
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            {calendarAccessStatus && (
-              <CalendarAccessAction targetClubId={club.id} targetClubName={directory?.name ?? "this club"} status={calendarAccessStatus} />
-            )}
-            {messagePartnerLink && (
-              <Link
-                href={`/partner-clubs/${club.id}`}
-                className="inline-flex h-10 items-center rounded-lg border border-ink/15 bg-white px-4 text-sm font-medium text-ink/70 outline-none hover:border-ink/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
-              >
-                Message club
-              </Link>
+        <section aria-labelledby="news" className="mx-auto max-w-6xl px-4 pt-16 md:px-8 md:pt-20">
+          <SectionHeading
+            id="news"
+            title="Latest News"
+            action={home.totalArticles > 7 ? { href: `/club/${club.slug}/news`, label: "All News" } : undefined}
+          />
+          <div className="mt-6">
+            {home.lead ? (
+              <>
+                <LeadStory article={home.lead} clubSlug={club.slug} pattern={pattern} />
+                {home.latest.length > 0 && (
+                  <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {home.latest.slice(0, 3).map((a) => (
+                      <li key={a.id}>
+                        <NewsCard article={a} clubSlug={club.slug} pattern={pattern} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <EmptyState title="News starts here" action={manageHref ? <WriteFirstArticle href="/club/settings/news/new" /> : undefined}>
+                {manageHref
+                  ? "Nothing has been published yet. Match reports, events and club updates you publish appear here, each with a link you can share."
+                  : "The club has not published any news yet. Fixtures, results and teams below come straight from the club's own records."}
+              </EmptyState>
             )}
           </div>
-        )}
+        </section>
 
-        {(club.show_home_ground && directory?.home_ground) || (club.show_address && club.address_display) || (club.show_postcode && directory?.postcode) ? (
-          <div className="mt-8 rounded-lg border border-ink/10 bg-white p-5">
-            <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Home ground</p>
-            {club.show_home_ground && directory?.home_ground && <p className="mt-1.5 text-sm font-medium text-ink">{directory.home_ground}</p>}
-            {club.show_address && club.address_display && <p className="mt-0.5 text-sm text-ink/60">{club.address_display}</p>}
-            {club.show_postcode && directory?.postcode && <p className="mt-0.5 text-sm text-ink/60">{directory.postcode}</p>}
+        <section aria-labelledby="fixtures" className="mx-auto max-w-6xl px-4 pt-16 md:px-8 md:pt-20">
+          <SectionHeading id="fixtures" title="Fixtures" description="Confirmed upcoming matches for every team at the club." />
+          <div className="mt-6">
+            {home.upcoming.length > 0 ? (
+              <FixtureRail matches={home.upcoming} label={`Upcoming fixtures for ${club.name}`} />
+            ) : (
+              <EmptyState title="No upcoming fixtures published">
+                When the club confirms a fixture it appears here automatically, with the date, the team and the opposition.
+              </EmptyState>
+            )}
           </div>
-        ) : null}
+        </section>
 
-        {teams && teams.length > 0 && (
-          <div className="mt-8">
-            <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Teams</p>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {teams.map((t) => (
-                <li key={t.id} className="rounded-full border border-ink/10 bg-white px-3 py-1.5 text-sm text-ink/75">
-                  {t.display_name}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {clubFixtures.length > 0 && (
-          <div className="mt-8">
-            <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Upcoming fixtures</p>
-            <ul className="mt-3 flex flex-col gap-2">
-              {clubFixtures.map((f) => (
-                <li key={f.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink">
-                      {publicTeamLabel(f)} {f.home_away === "Home" ? "vs" : f.home_away === "Away" ? "at" : "v"} {f.raw_opposition_text}
-                    </p>
-                    <p className="text-xs text-ink-muted">
-                      {formatDate(f.kickoff_date)}
-                      {f.kickoff_time ? ` · ${f.kickoff_time.slice(0, 5)}` : ""}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+        {home.results.length === 0 && home.teamNews.length === 0 ? (
+          // A club early in its life gets one honest sentence here, not two empty boxes.
+          <section aria-labelledby="results" className="mx-auto max-w-6xl px-4 pt-16 md:px-8 md:pt-20">
+            <SectionHeading id="results" title="Results & Team News" />
+            <div className="mt-6">
+              <EmptyState title="The season starts here">
+                Scores appear once matches are played and recorded, and match reports and updates from the club&apos;s teams appear alongside them.
+              </EmptyState>
+            </div>
+          </section>
+        ) : (
+          <div className="mx-auto grid max-w-6xl gap-16 px-4 pt-16 md:px-8 md:pt-20 lg:grid-cols-2 lg:gap-10">
+            <section aria-labelledby="results">
+              <SectionHeading id="results" title="Results" />
+              <div className="mt-6">
+                <ResultList results={home.results} includesMemberView={home.resultsIncludeMemberView} />
+              </div>
+            </section>
+            <section aria-labelledby="team-news">
+              <SectionHeading id="team-news" title="Team News" />
+              <div className="mt-6">
+                <TeamNews articles={home.teamNews} clubSlug={club.slug} pattern={pattern} />
+              </div>
+            </section>
           </div>
         )}
 
-        {contacts && contacts.length > 0 && (
-          <div className="mt-8">
-            <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Contact</p>
-            <ul className="mt-3 flex flex-col gap-2">
-              {contacts.map((c, i) => (
-                <li key={i} className="rounded-lg border border-ink/10 bg-white px-4 py-3">
-                  <p className="text-sm font-medium text-ink">
-                    {c.name} <span className="text-ink-muted">&middot; {CONTACT_ROLE_LABEL[c.role] ?? c.role}</span>
-                  </p>
-                  <p className="mt-0.5 text-sm text-ink/60">{[c.phone, c.email].filter(Boolean).join(" · ")}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </main>
+        <div className="mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-20">
+          <TeamsSection groups={home.teamGroups} />
+        </div>
+
+        <RugbyHubFeature clubName={club.name} signedIn={home.viewer.signedIn} />
+
+        <div className="mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-20">
+          <ClubInformation
+            club={club}
+            contacts={home.contacts}
+            partnerAction={
+              calendarAccessStatus ? (
+                <div className="flex flex-wrap gap-3">
+                  <CalendarAccessAction targetClubId={club.id} targetClubName={club.name} status={calendarAccessStatus} />
+                  {messagePartnerLink && (
+                    <a href={`/partner-clubs/${club.id}`} className="inline-flex h-10 items-center rounded-lg border border-ink/15 bg-white px-4 text-sm font-medium text-ink/70 hover:border-ink/30 hover:text-ink">
+                      Message Club
+                    </a>
+                  )}
+                </div>
+              ) : undefined
+            }
+          />
+        </div>
+      </main>
+      <ClubFooter club={club} />
+    </ClubThemeScope>
   )
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
 }

@@ -1,11 +1,12 @@
 import Link from "next/link"
 
-export type ClubSettingsSection = "overview" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "safeguarding" | "subscriptions" | "ovalballBilling" | "permissions"
+export type ClubSettingsSection = "overview" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "safeguarding" | "subscriptions" | "ovalballBilling" | "permissions" | "news"
 
-const TABS: { key: ClubSettingsSection; href: string; label: string; requires: "any" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "safeguarding" | "subscriptions" | "ovalballBilling" | "permissions" }[] = [
+const TABS: { key: ClubSettingsSection; href: string; label: string; requires: "any" | "profile" | "teams" | "venues" | "rollover" | "pitchAllocation" | "playerMoves" | "guardians" | "safeguarding" | "subscriptions" | "ovalballBilling" | "permissions" | "news" }[] = [
   { key: "overview", href: "/club/settings", label: "Overview", requires: "any" },
   { key: "profile", href: "/club", label: "Club Profile", requires: "profile" },
   { key: "teams", href: "/teams", label: "Teams", requires: "teams" },
+  { key: "news", href: "/club/settings/news", label: "News & Announcements", requires: "news" },
   { key: "venues", href: "/club/venues", label: "Lookup Administration", requires: "venues" },
   { key: "rollover", href: "/club/rollover", label: "Season Handover", requires: "rollover" },
   { key: "pitchAllocation", href: "/club/settings/pitch-allocation", label: "Pitch Allocation", requires: "pitchAllocation" },
@@ -53,6 +54,7 @@ export function ClubSettingsNav({
   canSafeguarding,
   canSubscriptions,
   canOvalballBilling,
+  canNews,
 }: {
   active: ClubSettingsSection
   canProfile: boolean
@@ -66,6 +68,7 @@ export function ClubSettingsNav({
   canSafeguarding?: boolean
   canSubscriptions?: boolean
   canOvalballBilling?: boolean
+  canNews?: boolean
 }) {
   const visible = TABS.filter(
     (t) =>
@@ -80,7 +83,8 @@ export function ClubSettingsNav({
       (t.requires === "permissions" && Boolean(canPermissions)) ||
       (t.requires === "safeguarding" && Boolean(canSafeguarding)) ||
       (t.requires === "subscriptions" && Boolean(canSubscriptions)) ||
-      (t.requires === "ovalballBilling" && Boolean(canOvalballBilling))
+      (t.requires === "ovalballBilling" && Boolean(canOvalballBilling)) ||
+      (t.requires === "news" && Boolean(canNews))
   )
   if (visible.length <= 1) return null
   return (

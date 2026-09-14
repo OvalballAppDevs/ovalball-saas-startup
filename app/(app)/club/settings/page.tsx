@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import Link from "next/link"
-import { Building2, CalendarSync, ChevronRight, MapPin, Users, LayoutGrid, ShieldCheck, CreditCard, Receipt } from "lucide-react"
+import { Building2, CalendarSync, ChevronRight, MapPin, Users, LayoutGrid, ShieldCheck, CreditCard, Receipt, Newspaper } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
@@ -68,10 +68,11 @@ export default async function ClubSettingsHubPage() {
         hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
       ])
     : [false, false, false, false, false, false, false, false, false, false]
+  const canNews = clubId ? await hasCapability(supabase, "club.news.manage", "club", { clubId }) : false
   const canTeams = canProfile || canPitches
   const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
 
-  if (!canProfile && !canTeams && !canVenues && !canRollover && !canPitchAllocation && !canGuardians && !canSubscriptions && !canOvalballBilling)
+  if (!canProfile && !canTeams && !canVenues && !canRollover && !canPitchAllocation && !canGuardians && !canSubscriptions && !canOvalballBilling && !canNews)
     redirect("/dashboard")
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"
@@ -88,6 +89,12 @@ export default async function ClubSettingsHubPage() {
       icon: Users,
       title: "Teams",
       description: "Create teams, manage combined mini-rugby calendars, and open each team's own settings.",
+    },
+    canNews && {
+      href: "/club/settings/news",
+      icon: Newspaper,
+      title: "News & Announcements",
+      description: "Publish club and team news, and short notices, on the club's public page.",
     },
     canVenues && {
       href: "/club/venues",
@@ -144,6 +151,7 @@ export default async function ClubSettingsHubPage() {
         canGuardians={canGuardians}
         canSubscriptions={canSubscriptions}
         canOvalballBilling={canOvalballBilling}
+        canNews={canNews}
       />
 
       <ul className="mt-6 flex flex-col gap-2">

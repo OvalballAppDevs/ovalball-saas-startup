@@ -121,6 +121,14 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-notification-catalogue.mjs"; th
   exit 1
 fi
 
+# Club Digital Home: one theme engine fed by the home kit, one article
+# renderer and no HTML, authority consumed through the capability adapters
+# rather than role strings, and no private fixture fields in a public loader.
+# See the script's own header.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-club-digital-home.mjs"; then
+  exit 1
+fi
+
 CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 
@@ -267,6 +275,9 @@ SUITES=(
   # grant, an unconditional write policy or an anonymous definer function.
   identity_security_containment
   security_perimeter_guard
+
+  # Club Digital Home: club and team news, announcements, Welcome to Ovalball.
+  club_digital_home
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

@@ -45,6 +45,8 @@ export interface ClubSettingsNavCapabilities {
   canSubscriptions: boolean
   canPlatformBillingView: boolean
   canOvalballBilling: boolean
+  /** May publish the club's news and announcements (club.news.manage). */
+  canNews: boolean
 }
 
 const EMPTY: ClubSettingsNavCapabilities = {
@@ -66,6 +68,7 @@ const EMPTY: ClubSettingsNavCapabilities = {
   canSubscriptions: false,
   canPlatformBillingView: false,
   canOvalballBilling: false,
+  canNews: false,
 }
 
 export async function resolveClubSettingsNavCapabilities(
@@ -87,7 +90,8 @@ export async function resolveClubSettingsNavCapabilities(
     canSubscriptionConfigure,
     canSubscriptionViewFinance,
     canPlatformBillingView,
-    canPermissions
+    canPermissions,
+    canNews,
   ] = await Promise.all([
     hasCapability(supabase, "club.edit_profile", "club", { clubId }),
     hasCapability(supabase, "club.pitches.manage", "club", { clubId }),
@@ -102,6 +106,8 @@ export async function resolveClubSettingsNavCapabilities(
     hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
     hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
     hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
+    // Appended last, so it cannot shift any entry above it.
+    hasCapability(supabase, "club.news.manage", "club", { clubId }),
   ])
 
   return {
@@ -129,5 +135,6 @@ export async function resolveClubSettingsNavCapabilities(
     canSubscriptions: canSubscriptionConfigure || canSubscriptionViewFinance,
     canPlatformBillingView,
     canOvalballBilling: canPlatformBillingView,
+    canNews,
   }
 }
