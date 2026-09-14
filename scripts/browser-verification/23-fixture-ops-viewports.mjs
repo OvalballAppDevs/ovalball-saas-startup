@@ -130,8 +130,12 @@ await a11y.keyboard.press("Escape")
 
 await a11y.goto(`${APP}/fixtures/planner`, { waitUntil: "domcontentloaded" })
 await a11y.waitForLoadState("networkidle").catch(() => {})
+// Focus alone no longer opens the list: in a spreadsheet, arrowing down a
+// column must move between cells, and a list that opened on every focus took
+// ArrowDown for itself. Alt+Down opens it, as it does on a native select.
 await a11y.locator('input[aria-label="Our Team, row 1"]').focus()
-await a11y.waitForTimeout(900)
+await a11y.keyboard.press("Alt+ArrowDown")
+await a11y.waitForTimeout(300)
 record("§64 a structured cell announces itself as a combobox with a list",
   (await a11y.locator('input[aria-label="Our Team, row 1"][role="combobox"]').count()) === 1 &&
     (await a11y.locator('ul[role="listbox"]').count()) > 0)

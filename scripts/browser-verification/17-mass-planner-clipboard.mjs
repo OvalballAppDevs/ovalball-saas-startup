@@ -209,7 +209,7 @@ await paste("Date, row 1", block(Array.from({ length: 10 }, (_, i) => fixtureRow
 await waitForCheck()
 
 await page.getByRole("button", { name: /^Create \d+ Fixtures?$/ }).click()
-await page.waitForFunction(() => document.body.innerText.includes("fixtures created") || document.body.innerText.includes("fixture created"), null, { timeout: 120000 })
+await page.waitForFunction(() => /fixtures? booked|requests? sent to Ovalball clubs/.test(document.body.innerText), null, { timeout: 120000 })
 
 const createdCount = Number(sql(`select count(*) from public.fixtures where notes = '${TAG}'`))
 record("the pasted season becomes real fixtures", createdCount === 10, `${createdCount} fixtures`)

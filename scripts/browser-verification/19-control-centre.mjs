@@ -33,14 +33,14 @@ record("§75 the surface is a control centre, not a management table",
   (await page.getByRole("heading", { level: 1 }).innerText()) === "Fixture Control Centre",
   await page.getByRole("heading", { level: 1 }).innerText())
 
-const planLink = page.getByRole("link", { name: "Plan Fixtures" })
-record("§19 Plan Fixtures points at the Mass Fixture Planner",
+const planLink = page.getByRole("link", { name: "Plan Season" })
+record("§19 Plan Season points at the Season Planner",
   (await planLink.count()) === 1 && (await planLink.getAttribute("href")) === "/fixtures/planner",
   (await planLink.getAttribute("href")) ?? "missing")
 
 const importLink = page.getByRole("link", { name: "Import Fixtures" })
-record("§42-§43 Import Fixtures points at the Mass Fixture Planner too",
-  (await importLink.getAttribute("href")) === "/fixtures/planner",
+record("§42-§43 Import Fixtures points at the import wizard, a different job from planning",
+  (await importLink.getAttribute("href")) === "/fixtures/import",
   (await importLink.getAttribute("href")) ?? "missing")
 
 // ---------------------------------------------------------------------

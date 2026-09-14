@@ -30,11 +30,14 @@ const PERSONAS = [
   // club to plan for, so they administer at /admin/fixtures instead. This
   // is the existing platform rule applying, not a planner-specific one.
   { email: "uat.fullsiteadmin@ovalball.test", name: "Full Site Admin", mayPlan: null, mayCreateMany: null },
-  { email: "uat.team.manager@ovalball.test", name: "Team Manager", mayPlan: null, mayCreateMany: null },
-  { email: "uat.team.admin@ovalball.test", name: "Team Admin", mayPlan: null, mayCreateMany: null },
-  { email: "uat.adult.player@ovalball.test", name: "Adult player", mayPlan: false, mayCreateMany: false },
+  // Bulk planning is club administration. A team's own staff create single
+  // fixtures through Request a Fixture and never reach the Planner, however
+  // many teams they run (fixture_bulk_planning_authority.sql).
+  { email: "uat.team.manager@ovalball.test", name: "Team Manager", mayPlan: false, mayCreateMany: false, mayRequestOne: true },
+  { email: "uat.team.admin@ovalball.test", name: "Team Admin", mayPlan: false, mayCreateMany: false, mayRequestOne: true },
+  { email: "uat.adult.player@ovalball.test", name: "Adult player", mayPlan: false, mayCreateMany: false, mayRequestOne: false },
   { email: "uat.player.self@ovalball.test", name: "Self-managing player", mayPlan: false, mayCreateMany: false },
-  { email: "uat.guardian.one@ovalball.test", name: "Guardian", mayPlan: false, mayCreateMany: false },
+  { email: "uat.guardian.one@ovalball.test", name: "Guardian", mayPlan: false, mayCreateMany: false, mayRequestOne: false },
   { email: "uat.unrelated@ovalball.test", name: "Unrelated member of another club", mayPlan: false, mayCreateMany: false },
 ]
 
@@ -87,6 +90,28 @@ for (const persona of PERSONAS) {
   // THE BOUNDARY WITHOUT THE UI. A refused persona asks the server action
   // directly, exactly as a hand-written request would.
   // ---------------------------------------------------------------------
+  // SINGLE FIXTURES ARE TEAM STAFF'S JOB. Refused the bulk tools, a team's
+  // own staff still find Request a Fixture on /fixtures, and it opens for
+  // their own team; a family context never gets it.
+  if (persona.mayRequestOne !== undefined) {
+    await page.goto(`${APP}/fixtures`, { waitUntil: "domcontentloaded" }).catch(() => {})
+    await page.waitForLoadState("networkidle").catch(() => {})
+    const button = page.locator("main").getByText("Request a Fixture", { exact: true })
+    const shown = (await button.count()) > 0
+    record(`${persona.name}: ${persona.mayRequestOne ? "is offered" : "is not offered"} Request a Fixture`, shown === persona.mayRequestOne, page.url())
+    if (persona.mayRequestOne && shown) {
+      await button.first().click()
+      await page.waitForURL(/\/fixtures\/new/, { timeout: 15000 }).catch(() => {})
+      const teams = await page.locator('input[type="checkbox"]').count()
+      record(`${persona.name}: Request a Fixture opens with their own team to choose`, page.url().includes("/fixtures/new") && teams > 0, `${page.url()} -- ${teams} team(s)`)
+    }
+    for (const route of ["/fixtures/import", "/fixtures/competitions", "/fixtures/competitions/new"]) {
+      await page.goto(`${APP}${route}`, { waitUntil: "domcontentloaded" }).catch(() => {})
+      await page.waitForLoadState("networkidle").catch(() => {})
+      record(`${persona.name} is NOT given ${route}`, !page.url().endsWith(route), `sent to ${page.url()}`)
+    }
+  }
+
   if (persona.mayPlan === false) {
     await page.goto(`${APP}/fixtures`, { waitUntil: "domcontentloaded" }).catch(() => {})
     const created = Number(sql(`select count(*) from public.fixtures where notes = '${TAG}-${persona.name}'`))

@@ -50,6 +50,11 @@ const matrix: Row[] = [
   // ---- Match Centre: one fixture, one route --------------------------
   ["fixture_cancelled", { fixture_id: ID }, `/fixtures/${ID}`],
   ["fixture_cancelled_team_folded", { fixture_id: ID }, `/fixtures/${ID}`],
+  ["fixture_details_changed", { fixture_id: ID }, `/fixtures/${ID}`],
+  ["competition_match_verification_requested", { competition_match_id: ID }, `/fixtures/competitions/requests?match=${ID}`],
+  ["competition_match_changed", { competition_match_id: ID }, `/fixtures/competitions/requests?match=${ID}`],
+  ["competition_match_cancelled", { competition_match_id: ID }, `/fixtures/competitions/requests?match=${ID}`],
+  ["competition_match_response", { edition_id: ID }, `/fixtures/competitions/${ID}/issue`],
   ["fixture_attendance_invitation", { fixture_id: ID }, `/fixtures/${ID}`],
   ["fixture_attendance_reminder", { fixture_id: ID }, `/fixtures/${ID}`],
   ["fixture_kickoff_changed", { fixture_id: ID }, `/fixtures/${ID}`],
@@ -148,7 +153,8 @@ test("every notification type lands on the surface that owns it", () => {
 })
 
 test("a fixture notification always reaches Match Centre, never the calendar or the dashboard", () => {
-  const fixtureTypes = matrix.filter(([, , href]) => href.startsWith("/fixtures/"))
+  // /fixtures/competitions/... is the competition family, not Match Centre.
+  const fixtureTypes = matrix.filter(([, , href]) => href.startsWith("/fixtures/") && !href.startsWith("/fixtures/competitions"))
   assert.ok(fixtureTypes.length >= 12, "the fixture block should cover the whole Match Centre family")
   for (const [type] of fixtureTypes) {
     assert.equal(notificationHref(type, { fixture_id: OTHER }), `/fixtures/${OTHER}`)

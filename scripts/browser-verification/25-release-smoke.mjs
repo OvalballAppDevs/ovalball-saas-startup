@@ -109,6 +109,9 @@ record("§23 Mass Planner opens as a working grid",
 // canonical options. This is the path that reaches the database.
 const teamCell = page.locator('input[aria-label="Our Team, row 1"]')
 await teamCell.focus()
+// Focus alone does not open a spreadsheet cell's list (arrowing down a column
+// must move between cells); Alt+Down opens it, as on a native select.
+await page.keyboard.press("Alt+ArrowDown")
 await page.waitForSelector('ul[role="listbox"] li', { timeout: 30000 }).catch(() => {})
 const options = await page.locator('ul[role="listbox"] li').count()
 record("§23 a structured lookup returns canonical options from the database",

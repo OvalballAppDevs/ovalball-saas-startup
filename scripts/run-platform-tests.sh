@@ -43,6 +43,14 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-event-centre-shared.mjs"; then
   exit 1
 fi
 
+# Two fixture authorities on purpose: single-fixture team authority (Calendar,
+# Request a Fixture) and club/site bulk planning authority (Season Planner,
+# Import, Competition Creator). Team staff never reach bulk tools, and opening a
+# planner cell is never a request. See the script's own header.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-fixture-bulk-authority.mjs"; then
+  exit 1
+fi
+
 # Pitch Allocation is one shared scheduling surface, with ONE occupancy
 # calculation. The duplication this guards against had already happened five
 # times over before it was written.
@@ -194,6 +202,11 @@ SUITES=(
   communication_policy_authority
   conversation_channel_authority
   fixture_management_authority
+  fixture_bulk_planning_authority
+  fixture_publish_asks_ovalball_clubs
+  competition_matches
+  competition_creator_conformance
+  fixture_editor_authority
   fixture_staging_fidelity
   notification_mandatory_and_preferences
   hub_content_schema

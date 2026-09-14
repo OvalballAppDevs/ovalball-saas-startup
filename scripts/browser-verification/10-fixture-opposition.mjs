@@ -3,8 +3,11 @@
 // Regression only: this path was built in an earlier slice and has never
 // been observed in a browser. A temporary cross-club fixture is required
 // because the UAT database has no fixture whose opponent is an Ovalball
-// team -- every setup row it creates carries the QA key below and is
-// removed by 11-cleanup.mjs.
+// team. The suite removes everything it creates itself -- the membership it
+// grants (only if it granted it), the fixture, this run's messages, a direct
+// conversation it opened, and the notifications those made -- so it can run
+// alone, in any order, as often as needed, without leaving another suite a
+// Club Admin or a fixture it did not expect.
 
 import { execFileSync } from "node:child_process"
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
@@ -15,6 +18,7 @@ const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim
 
 const COACH = { email: "uat.coach@ovalball.test", name: "Priya Nair" }
 const OPPONENT = { email: "uat.unrelated@ovalball.test", name: "Unrelated Visitor" }
+const RUN_STARTED = sql("select now()::text")
 
 // ---------------------------------------------------------------------
 // SETUP -- the same shape supabase/tests/fixture_opposition_contacts.sql
@@ -46,10 +50,40 @@ const setup = sql(`
            current_date + 7, 'Booked', 'club_created'
     from pair p returning id
   )
-  select (select id from fx)::text || '|' || (select club2 from pair)::text;
+  select (select id from fx)::text || '|' || (select club2 from pair)::text || '|' || (select count(*) from mem)::text;
 `)
-const [fixtureId, opponentClubId] = setup.split("|")
+const [fixtureId, opponentClubId, grantedMembership] = setup.split("|")
+let convId = null
+
+let cleaned = false
+function cleanup() {
+  if (cleaned) return
+  cleaned = true
+  const opp = "(select id from auth.users where email = 'uat.unrelated@ovalball.test')"
+  const me = "(select id from auth.users where email = 'uat.coach@ovalball.test')"
+  sql(`delete from public.message_policies where club_id = '${opponentClubId}' and created_at >= '${RUN_STARTED}'`)
+  if (convId) {
+    sql(`delete from public.fixture_messages where direct_conversation_id = '${convId}' and body like '${QA_KEY}%' and created_at >= '${RUN_STARTED}'`)
+    sql(`delete from public.notifications where created_at >= '${RUN_STARTED}' and user_id in (${opp}, ${me}) and data::text like '%${convId}%'`)
+    sql(`delete from public.direct_conversations d where d.id = '${convId}' and d.created_at >= '${RUN_STARTED}' and not exists (select 1 from public.fixture_messages m where m.direct_conversation_id = d.id)`)
+  }
+  if (fixtureId) {
+    sql(`delete from public.notifications where data->>'fixture_id' = '${fixtureId}'`)
+    sql(`delete from public.fixture_conversation_participants where fixture_id = '${fixtureId}'`)
+    sql(`delete from public.fixture_conversation_subscriptions where fixture_id = '${fixtureId}'`)
+    sql(`delete from public.fixtures where id = '${fixtureId}'`)
+  }
+  if (grantedMembership === "1") sql(`delete from public.club_memberships where user_id = ${opp} and club_id = '${opponentClubId}' and role = 'CLUB_ADMIN' and created_at >= '${RUN_STARTED}'`)
+}
 record("§10 a cross-club fixture with an Ovalball opponent exists", !!fixtureId, fixtureId)
+// Synchronous, so it also runs when the suite fails part-way.
+process.on("exit", () => {
+  try {
+    cleanup()
+  } catch (e) {
+    console.error("cleanup failed:", e)
+  }
+})
 
 const browser = await launch()
 const ctxA = await newContext(browser)
@@ -88,11 +122,12 @@ record("§10 it opens the canonical direct conversation", onThread, a.url().repl
 
 if (!onThread) {
   await browser.close()
+  cleanup()
   process.exit(summarise() ? 0 : 1)
 }
 
 const threadUrl = a.url()
-const convId = threadUrl.split("/").pop()
+convId = threadUrl.split("/").pop()
 
 // ---------------------------------------------------------------------
 // §10 send, and receive live on the other side
@@ -175,4 +210,8 @@ record("§10 restoring the policy restores the SAME conversation",
 
 console.log(`\nFIXTURE_ID=${fixtureId}\nCONVERSATION_ID=${convId}`)
 await browser.close()
+cleanup()
+record("cleanup: the membership, fixture and messages this run created are gone",
+  sql(`select count(*) from public.fixtures where id = '${fixtureId}'`) === "0" &&
+    (grantedMembership !== "1" || sql(`select count(*) from public.club_memberships where user_id = (select id from auth.users where email = 'uat.unrelated@ovalball.test') and club_id = '${opponentClubId}' and created_at >= '${RUN_STARTED}'`) === "0"))
 process.exit(summarise() ? 0 : 1)

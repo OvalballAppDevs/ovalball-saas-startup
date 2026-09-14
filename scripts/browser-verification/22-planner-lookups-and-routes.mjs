@@ -183,7 +183,7 @@ record("§35 and marks which are ours", opts.some((o) => o.includes("Our ground"
 // §61/§66 ROUTES
 // ---------------------------------------------------------------------
 for (const [from, expect, why] of [
-  ["/fixtures/import", "/fixtures/planner", "the legacy club importer renders the planner"],
+  ["/fixtures/import", "/fixtures/import", "the import route is the import wizard, not the planner"],
   ["/fixtures/planner", "/fixtures/planner", "the planner route is the planner"],
 ]) {
   await page.goto(`${APP}${from}`, { waitUntil: "domcontentloaded" })
@@ -193,15 +193,15 @@ for (const [from, expect, why] of [
 
 await page.goto(`${APP}/fixtures/management`, { waitUntil: "domcontentloaded" })
 await page.waitForLoadState("networkidle").catch(() => {})
-await page.getByRole("link", { name: "Plan Fixtures" }).click()
+await page.getByRole("link", { name: "Plan Season" }).click()
 await page.waitForURL(/\/fixtures\/planner/, { timeout: 60000 }).catch(() => {})
-record("§19 clicking Plan Fixtures lands on the Mass Fixture Planner", page.url().includes("/fixtures/planner"), page.url())
+record("§19 clicking Plan Season lands on the Season Planner", page.url().includes("/fixtures/planner"), page.url())
 
 await page.goto(`${APP}/fixtures/management`, { waitUntil: "domcontentloaded" })
 await page.waitForLoadState("networkidle").catch(() => {})
 await page.getByRole("link", { name: "Import Fixtures" }).click()
-await page.waitForURL(/\/fixtures\/planner/, { timeout: 60000 }).catch(() => {})
-record("§43 clicking Import Fixtures lands on the Mass Fixture Planner", page.url().includes("/fixtures/planner"), page.url())
+await page.waitForURL(/\/fixtures\/import/, { timeout: 60000 }).catch(() => {})
+record("§43 clicking Import Fixtures lands on the import wizard, not the planner", page.url().includes("/fixtures/import"), page.url())
 
 // ---------------------------------------------------------------------
 // §53 SITE ADMIN GETS A CLUB CHOOSER, NOT A SILENT REDIRECT
