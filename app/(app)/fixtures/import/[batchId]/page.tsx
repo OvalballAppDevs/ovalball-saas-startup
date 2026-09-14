@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 
+import { StepBar } from "@/components/fixtures/step-bar"
 import { createClient } from "@/lib/supabase/server"
 import { ImportReviewPanel, type ExistingFixtureSummary, type ImportRow } from "@/components/fixtures/import-review-panel"
 import { listCompetitionEditionsForRugbyCode } from "@/lib/fixtures/competitions"
@@ -92,15 +93,30 @@ export default async function ClubImportBatchPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/fixtures" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
+      <Link href="/fixtures/import" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
         <ChevronLeft className="size-4" />
-        Fixtures
+        Import Fixtures
       </Link>
 
       <h1 className="mt-3 font-display text-display-l text-ink">{batch.filename}</h1>
       <p className="mt-1 text-sm text-ink-muted">
         {batch.row_count} rows &middot; {STATE_LABEL[batch.state] ?? batch.state}
       </p>
+
+      <div className="mt-5">
+        <StepBar
+          label="Import steps"
+          current={counts.published > 0 && counts.ready === 0 && counts.conflict === 0 ? "done" : "publish"}
+          steps={[
+            { key: "source", label: "Upload or Paste", done: true },
+            { key: "map", label: "Map Columns", done: true },
+            { key: "preview", label: "Preview", done: true },
+            { key: "validate", label: "Validate", done: true },
+            { key: "stage", label: "Stage", detail: `${batch.row_count} rows`, done: true },
+            { key: "publish", label: "Publish", detail: `${counts.published} published`, done: counts.published > 0 && counts.ready === 0 && counts.conflict === 0 },
+          ]}
+        />
+      </div>
 
       <div className="mt-6">
         <ImportReviewPanel

@@ -8,7 +8,11 @@ import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } f
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
+import { canBulkPlanFixtures } from "@/lib/fixtures/fixture-team-authority"
 import { applyRowCorrection, stageImportBatch, type RowCorrectionInput } from "@/lib/fixtures/import-engine"
+import { IMPORT_ROW_LIMIT } from "@/lib/fixtures/import-mapping"
+import { isBlankRow, toRawRecord, type PlannerDraftRow, type PlannerRowResult } from "@/lib/fixtures/planner-model"
+import { validatePlannerRows } from "@/lib/fixtures/planner-rows"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
@@ -56,6 +60,11 @@ async function resolveImportClubId(): Promise<{ clubId: string } | { error: stri
   if (!(await hasCapability(supabase, "fixture.import", "club", { clubId }))) {
     return { error: "You don't have permission to import fixtures for this club." }
   }
+  // Mass loading is club fixture administration (Club Admin, Fixture
+  // Secretary), the same authority the Season Planner and the staging RLS use.
+  if (!(await canBulkPlanFixtures(supabase, clubId))) {
+    return { error: "Importing fixtures is for club fixture administrators." }
+  }
 
   return { clubId }
 }
@@ -74,6 +83,34 @@ export async function createClubImportBatch(filename: string, rawRows: Record<st
   const result = await stageImportBatch(supabase, user.id, filename, rawRows, resolved.clubId)
   if (result.ok) revalidatePath("/fixtures/import")
   return result
+}
+
+/**
+ * THE WIZARD'S CHECK. Writes nothing: every mapped row is matched against the
+ * same canonical records staging and publishing resolve against, so what the
+ * check shows is what staging will find.
+ */
+export async function validateImportRows(rows: PlannerDraftRow[]): Promise<{ ok: true; rows: PlannerRowResult[] } | { ok: false; error: string }> {
+  const resolved = await resolveImportClubId()
+  if ("error" in resolved) return { ok: false, error: resolved.error }
+  const live = rows.filter((r) => !isBlankRow(r))
+  if (live.length === 0) return { ok: false, error: "There are no rows to check." }
+  if (live.length > IMPORT_ROW_LIMIT) return { ok: false, error: `An import can hold up to ${IMPORT_ROW_LIMIT} rows. Split the file and import it in parts.` }
+  const supabase = await createClient()
+  try {
+    return { ok: true, rows: await validatePlannerRows(supabase, live, resolved.clubId) }
+  } catch (error) {
+    console.error("validateImportRows failed:", error)
+    return { ok: false, error: "Couldn't check those rows just now. Try again in a moment." }
+  }
+}
+
+/** Stages the mapped rows as an import batch. Nothing is published until the batch is reviewed. */
+export async function stageImportRows(filename: string, rows: PlannerDraftRow[]): Promise<CreateBatchResult> {
+  const live = rows.filter((r) => !isBlankRow(r))
+  if (live.length === 0) return { ok: false, error: "There are no rows to stage." }
+  if (live.length > IMPORT_ROW_LIMIT) return { ok: false, error: `An import can hold up to ${IMPORT_ROW_LIMIT} rows. Split the file and import it in parts.` }
+  return createClubImportBatch(filename.trim() || "Pasted fixtures", live.map(toRawRecord))
 }
 
 export async function resolveClubRowConflict(input: ResolveConflictInput): Promise<ActionResult> {
