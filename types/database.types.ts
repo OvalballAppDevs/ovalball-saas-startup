@@ -1187,6 +1187,331 @@ export type Database = {
           },
         ]
       }
+      club_announcements: {
+        Row: {
+          archived_at: string | null
+          body: string | null
+          club_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          link_label: string | null
+          link_url: string | null
+          priority: string
+          published_at: string | null
+          published_by: string | null
+          starts_at: string
+          status: string
+          team_id: string | null
+          title: string
+          updated_at: string
+          updated_by: string | null
+          visibility: string
+        }
+        Insert: {
+          archived_at?: string | null
+          body?: string | null
+          club_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          link_label?: string | null
+          link_url?: string | null
+          priority?: string
+          published_at?: string | null
+          published_by?: string | null
+          starts_at?: string
+          status?: string
+          team_id?: string | null
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          visibility?: string
+        }
+        Update: {
+          archived_at?: string | null
+          body?: string | null
+          club_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          link_label?: string | null
+          link_url?: string | null
+          priority?: string
+          published_at?: string | null
+          published_by?: string | null
+          starts_at?: string
+          status?: string
+          team_id?: string | null
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_announcements_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_announcements_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "club_announcements_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_articles: {
+        Row: {
+          archived_at: string | null
+          body: string
+          category: string
+          club_id: string
+          created_at: string
+          created_by: string | null
+          excerpt: string | null
+          featured: boolean
+          first_published_at: string | null
+          hero_image_alt: string | null
+          hero_image_path: string | null
+          id: string
+          published_at: string | null
+          published_by: string | null
+          slug: string
+          status: string
+          system_key: string | null
+          team_id: string | null
+          title: string
+          updated_at: string
+          updated_by: string | null
+          visibility: string
+        }
+        Insert: {
+          archived_at?: string | null
+          body?: string
+          category?: string
+          club_id: string
+          created_at?: string
+          created_by?: string | null
+          excerpt?: string | null
+          featured?: boolean
+          first_published_at?: string | null
+          hero_image_alt?: string | null
+          hero_image_path?: string | null
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          slug: string
+          status?: string
+          system_key?: string | null
+          team_id?: string | null
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          visibility?: string
+        }
+        Update: {
+          archived_at?: string | null
+          body?: string
+          category?: string
+          club_id?: string
+          created_at?: string
+          created_by?: string | null
+          excerpt?: string | null
+          featured?: boolean
+          first_published_at?: string | null
+          hero_image_alt?: string | null
+          hero_image_path?: string | null
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          slug?: string
+          status?: string
+          system_key?: string | null
+          team_id?: string | null
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_articles_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "club_articles_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_articles_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_articles_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_articles_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "club_articles_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "club_articles_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "club_articles_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_articles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "club_articles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "club_articles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "club_articles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "club_articles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_claims: {
         Row: {
           authority_declaration: string
@@ -22532,6 +22857,40 @@ export type Database = {
       run_fixture_completion_check: { Args: never; Returns: number }
       run_season_transition_check: { Args: never; Returns: undefined }
       run_trial_expiry_check: { Args: never; Returns: number }
+      save_club_announcement: {
+        Args: {
+          p_announcement_id?: string
+          p_body?: string
+          p_club_id?: string
+          p_expires_at?: string
+          p_link_label?: string
+          p_link_url?: string
+          p_priority?: string
+          p_starts_at?: string
+          p_team_id?: string
+          p_title?: string
+          p_visibility?: string
+        }
+        Returns: string
+      }
+      save_club_article: {
+        Args: {
+          p_article_id?: string
+          p_body?: string
+          p_category?: string
+          p_club_id?: string
+          p_excerpt?: string
+          p_hero_image_alt?: string
+          p_hero_image_path?: string
+          p_team_id?: string
+          p_title?: string
+          p_visibility?: string
+        }
+        Returns: {
+          article_id: string
+          article_slug: string
+        }[]
+      }
       save_club_event: {
         Args: {
           p_club_id: string
@@ -22734,6 +23093,18 @@ export type Database = {
           p_team_id: string
           p_user_id: string
         }
+        Returns: string
+      }
+      set_club_announcement_status: {
+        Args: { p_announcement_id: string; p_status: string }
+        Returns: string
+      }
+      set_club_article_featured: {
+        Args: { p_article_id: string; p_featured: boolean }
+        Returns: boolean
+      }
+      set_club_article_status: {
+        Args: { p_article_id: string; p_status: string }
         Returns: string
       }
       set_club_pitch_active: {
