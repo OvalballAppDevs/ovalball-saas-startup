@@ -5364,6 +5364,7 @@ export type Database = {
           normalized_game_type: string | null
           notes: string | null
           published_fixture_id: string | null
+          published_request_id: string | null
           raw: Json
           raw_opposition_text: string | null
           resolved_away_directory_id: string | null
@@ -5375,6 +5376,7 @@ export type Database = {
           resolved_pitch_id: string | null
           resolved_status: string | null
           resolved_venue_id: string | null
+          resolved_venue_text: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           row_number: number
@@ -5396,6 +5398,7 @@ export type Database = {
           normalized_game_type?: string | null
           notes?: string | null
           published_fixture_id?: string | null
+          published_request_id?: string | null
           raw: Json
           raw_opposition_text?: string | null
           resolved_away_directory_id?: string | null
@@ -5407,6 +5410,7 @@ export type Database = {
           resolved_pitch_id?: string | null
           resolved_status?: string | null
           resolved_venue_id?: string | null
+          resolved_venue_text?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           row_number: number
@@ -5428,6 +5432,7 @@ export type Database = {
           normalized_game_type?: string | null
           notes?: string | null
           published_fixture_id?: string | null
+          published_request_id?: string | null
           raw?: Json
           raw_opposition_text?: string | null
           resolved_away_directory_id?: string | null
@@ -5439,6 +5444,7 @@ export type Database = {
           resolved_pitch_id?: string | null
           resolved_status?: string | null
           resolved_venue_id?: string | null
+          resolved_venue_text?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           row_number?: number
@@ -5535,6 +5541,13 @@ export type Database = {
             columns: ["published_fixture_id"]
             isOneToOne: false
             referencedRelation: "public_club_fixtures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_import_rows_published_request_id_fkey"
+            columns: ["published_request_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_requests"
             referencedColumns: ["id"]
           },
           {
@@ -18860,6 +18873,7 @@ export type Database = {
           ok: boolean
         }[]
       }
+      can_bulk_plan_fixtures: { Args: { p_club_id: string }; Returns: boolean }
       can_send_team_conversation: {
         Args: { p_team_id: string }
         Returns: boolean
@@ -21979,6 +21993,12 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      single_fixture_team_ids: {
+        Args: { p_club_id: string }
+        Returns: {
+          team_id: string
+        }[]
+      }
       site_admin_dashboard_commercial: {
         Args: never
         Returns: {

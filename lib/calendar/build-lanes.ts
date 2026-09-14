@@ -4,9 +4,9 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { MyTeam } from "@/lib/app-context/my-teams"
 import { activeManageableClubId, type SwitchableContext } from "@/lib/app-context/active-context"
-import { manageableTeams, type SessionContext } from "@/lib/app-context/session-context"
+import type { SessionContext } from "@/lib/app-context/session-context"
+import { actingTeamIds, singleFixtureTeamIdsAcrossClubs, teamGroupMemberships } from "@/lib/fixtures/fixture-team-authority"
 import { compactTeamLabel, fullTeamLabel } from "@/lib/teams/compact-label"
-import { miniRugbyGroupLabel } from "@/lib/mini-rugby/group-label"
 import type { Database } from "@/types/database.types"
 
 import type { Lane } from "@/app/(app)/calendar/week-board"
@@ -39,21 +39,11 @@ export async function buildCalendarLanes(
   const teamIds = scopedTeams.map((t) => t.id)
   let lanes: Omit<Lane, "primaryTeamId" | "canCreate">[] = []
   const teamToGroup = new Map<string, { id: string; label: string }>()
-  if (teamIds.length > 0) {
-    const { data: groupMemberships } = await supabase
-      .from("scheduling_group_members")
-      .select("team_id, scheduling_groups!inner(id, display_tag, alias, active)")
-      .in("team_id", teamIds)
-      .eq("scheduling_groups.active", true)
-    for (const gm of groupMemberships ?? []) {
-      // Section 15/16: "Mini-Rugby Group", never "Shared" -- and the
-      // club's alias (if set) always follows the structural tag, never
-      // replaces it.
-      if (gm.scheduling_groups) {
-        const g = gm.scheduling_groups
-        teamToGroup.set(gm.team_id, { id: g.id, label: miniRugbyGroupLabel({ displayTag: g.display_tag, alias: g.alias }) })
-      }
-    }
+  // Section 15/16: "Mini-Rugby Group", never "Shared" -- labelled by the one
+  // canonical group label, through the same membership read the Planner uses.
+  for (const [teamId, groups] of await teamGroupMemberships(supabase, teamIds)) {
+    const g = groups[groups.length - 1]
+    if (g) teamToGroup.set(teamId, g)
   }
   const seenGroupIds = new Set<string>()
   for (const t of scopedTeams) {
@@ -94,7 +84,19 @@ export async function buildCalendarLanes(
   // comment on this exact leak (a multi-role account switched into Parent
   // View still saw "+" create affordances on every lane).
   const activeManageableClub = activeManageableClubId(ctx, boardContext)
-  const manageableTeamIds = new Set(manageableTeams(ctx).map((t) => t.teamId))
+  // WHICH TEAMS THIS PERSON MAY CREATE A SINGLE FIXTURE FOR -- read from the
+  // database's single-fixture team authority (public.single_fixture_team_ids),
+  // which is override-aware, rather than re-derived from the session's own
+  // team_permissions. It is deliberately NOT the Season Planner's authority:
+  // bulk planning is club administration.
+  // A Site Admin's platform-wide bypass follows the active context
+  // (actingTeamIds), which also keeps a read-only diagnostic board free of
+  // create affordances.
+  const manageableTeamIds = actingTeamIds(
+    ctx,
+    boardContext,
+    await singleFixtureTeamIdsAcrossClubs(supabase, await teamClubIds(supabase, teamIds)),
+  )
   const hasClubFixtureAuthority = Boolean(activeManageableClub)
   const fullLanes: Lane[] = lanes.map((l) => {
     const primaryTeamId = l.memberTeamIds[0] ?? null
@@ -103,4 +105,11 @@ export async function buildCalendarLanes(
   })
 
   return { fullLanes, teamToGroup, seenGroupIds, groupIds, hasClubFixtureAuthority, manageableTeamIds }
+}
+
+/** The clubs the scoped teams belong to -- usually exactly one. */
+async function teamClubIds(supabase: SupabaseClient<Database>, teamIds: string[]): Promise<string[]> {
+  if (teamIds.length === 0) return []
+  const { data } = await supabase.from("teams").select("club_id").in("id", teamIds)
+  return [...new Set((data ?? []).map((t) => t.club_id).filter((c): c is string => Boolean(c)))]
 }
