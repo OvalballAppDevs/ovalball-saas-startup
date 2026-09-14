@@ -4,15 +4,9 @@ import { Trophy } from "lucide-react"
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { createClient } from "@/lib/supabase/server"
 
-import { AddCompetitionDialog } from "./add-competition-dialog"
 import { CompetitionEditionsPanel } from "./competition-editions-panel"
 import { DeactivateCompetitionButton } from "./deactivate-competition-button"
-
-export interface GeographicArea {
-  id: string
-  name: string
-  nation: string
-}
+import { QuickCreateCompetition } from "./quick-create-competition"
 
 export interface SeasonOption {
   id: string
@@ -52,10 +46,11 @@ export default async function CompetitionsPage() {
   const activeSiteAdmin = await requireActiveSiteAdmin(supabase, user)
   if (!activeSiteAdmin.ok) redirect("/dashboard")
   const ctx = activeSiteAdmin.ctx
+  // The same rule as internal.can_manage_competitions: the capability, or a Full Site Admin.
+  const canManage = ctx.manageCompetitions || ctx.siteAdminRole === "full"
 
-  const [{ data: competitions }, { data: areas }, { data: compAreas }, { data: seasonRows }, { data: editionRows }] = await Promise.all([
+  const [{ data: competitions }, { data: compAreas }, { data: seasonRows }, { data: editionRows }] = await Promise.all([
     supabase.from("competitions").select("id, name, description, rugby_code, is_national, active").order("rugby_code").order("name"),
-    supabase.from("geographic_areas").select("id, name, nation").order("nation").order("sort_order"),
     supabase.from("competition_areas").select("competition_id, geographic_areas(name)"),
     supabase.from("seasons").select("id, name, rugby_code").eq("is_regression_fixture", false).order("starts_on", { ascending: false }),
     supabase.from("competition_editions").select("id, competition_id, active, seasons(id, name)").order("created_at", { ascending: false }),
@@ -98,16 +93,16 @@ export default async function CompetitionsPage() {
         defines the competition itself.
       </p>
 
-      {!ctx.manageCompetitions && (
+      {!canManage && (
         <p className="mt-6 rounded-lg border border-forest-800/20 bg-forest-800/5 px-4 py-3 text-sm text-forest-800">
           You can view the Competition Directory. Adding or deactivating a competition requires the Competition
           management capability &mdash; a Full Site Admin can grant it from Site Admin Management.
         </p>
       )}
 
-      {ctx.manageCompetitions && (
+      {canManage && (
         <div className="mt-8">
-          <AddCompetitionDialog areas={(areas ?? []) as GeographicArea[]} />
+          <QuickCreateCompetition />
         </div>
       )}
 
@@ -121,19 +116,21 @@ export default async function CompetitionsPage() {
               <div className="mt-2 overflow-hidden rounded-lg border border-ink/10 bg-white">
                 <ul className="divide-y divide-ink/5">
                   {rows.map((c) => {
-                    const scope = c.is_national ? "National" : (areaNamesByCompetition.get(c.id) ?? []).join(", ") || "No area set"
+                    const scope = c.is_national ? "National" : (areaNamesByCompetition.get(c.id) ?? []).join(", ")
                     return (
                       <li key={c.id} className="px-4 py-3">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <p className={`truncate text-sm font-medium ${c.active ? "text-ink" : "text-ink-muted line-through"}`}>{c.name}</p>
-                            <p className="truncate text-xs text-ink-muted">
-                              {scope}
-                              {!c.active && " · Deactivated"}
-                            </p>
+                            {(scope || !c.active) && (
+                              <p className="truncate text-xs text-ink-muted">
+                                {scope}
+                                {!c.active && (scope ? ", deactivated" : "Deactivated")}
+                              </p>
+                            )}
                             {c.description && <p className="mt-0.5 truncate text-xs text-ink-muted">{c.description}</p>}
                           </div>
-                          {ctx.manageCompetitions && c.active && <DeactivateCompetitionButton id={c.id} name={c.name} />}
+                          {canManage && c.active && <DeactivateCompetitionButton id={c.id} name={c.name} />}
                         </div>
                         {c.active && (
                           <CompetitionEditionsPanel
@@ -141,7 +138,7 @@ export default async function CompetitionsPage() {
                             competitionRugbyCode={c.rugby_code}
                             editions={editionsByCompetition.get(c.id) ?? []}
                             seasons={seasons}
-                            canManage={ctx.manageCompetitions}
+                            canManage={canManage}
                           />
                         )}
                       </li>

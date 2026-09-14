@@ -20059,6 +20059,7 @@ export type Database = {
           p_name: string
           p_organiser_club_id: string
           p_rugby_code: string
+          p_season_id?: string
         }
         Returns: {
           competition_id: string
@@ -21897,7 +21898,7 @@ export type Database = {
         Returns: undefined
       }
       quick_create_competition: {
-        Args: { p_name: string; p_rugby_code: string }
+        Args: { p_name: string; p_rugby_code: string; p_season_id?: string }
         Returns: {
           competition_id: string
           edition_id: string
@@ -23195,6 +23196,10 @@ export type Database = {
       update_competition_match: {
         Args: { p_match_id: string; p_patch: Json }
         Returns: undefined
+      }
+      update_competition_matches: {
+        Args: { p_edition_id: string; p_patches: Json }
+        Returns: number
       }
       update_competition_metadata: {
         Args: {

@@ -52,6 +52,26 @@ export async function createCompetition(input: CompetitionInput): Promise<Compet
   return { ok: true }
 }
 
+/**
+ * A COMPETITION FROM A NAME AND A CODE. quick_create_competition creates it
+ * and its edition for the code's current canonical season, or says the season
+ * register needs attention; internal.can_manage_competitions is the boundary.
+ */
+export async function quickCreateCompetition(
+  name: string,
+  rugbyCode: "union" | "league",
+): Promise<{ ok: true; editionId: string | null; seasonName: string | null; needsAttention: string | null } | { ok: false; error: string }> {
+  const supabase = await createClient()
+  const guardError = await requireActiveSiteAdminOrError(supabase)
+  if (guardError) return { ok: false, error: guardError }
+  if (!name.trim()) return { ok: false, error: "Give the competition a name." }
+  const { data, error } = await supabase.rpc("quick_create_competition", { p_name: name.trim(), p_rugby_code: rugbyCode })
+  if (error) return { ok: false, error: error.message }
+  const row = data?.[0]
+  revalidatePath("/admin/competitions")
+  return { ok: true, editionId: row?.edition_id ?? null, seasonName: row?.season_name ?? null, needsAttention: row?.needs_attention ?? null }
+}
+
 export async function updateCompetition(id: string, input: Omit<CompetitionInput, "rugbyCode">): Promise<CompetitionActionResult> {
   const supabase = await createClient()
   const guardError = await requireActiveSiteAdminOrError(supabase)

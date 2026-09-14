@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -74,6 +75,11 @@ export function CompetitionEditionsPanel({
         {activeEditions.map((e) => (
           <span key={e.id} className="flex items-center gap-1 rounded-full border border-pitch-600/25 bg-pitch-600/5 py-0.5 pr-1 pl-2.5 text-xs font-medium text-forest-900">
             {e.seasonName}
+            {canManage && (
+              <Link href={`/fixtures/competitions/${e.id}/participants`} className="ml-1 text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                Open in Competition Creator
+              </Link>
+            )}
             {canManage && (
               <button
                 type="button"
