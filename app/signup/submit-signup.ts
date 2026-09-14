@@ -6,6 +6,7 @@ import { hasAllRequiredConsents } from "@/lib/legal/required-consents"
 import { toPublicAuthError } from "@/lib/errors/public-error"
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/auth/turnstile"
 import { createClient } from "@/lib/supabase/server"
+import { issueSignupBinding } from "@/lib/signup/signup-binding"
 import { CURRENT_TERMS_VERSION } from "@/lib/signup/terms"
 import type { SignupFormState } from "@/lib/signup/types"
 import { getSiteUrl } from "@/lib/site-url"
@@ -59,6 +60,9 @@ export async function submitSignup(
   }
 
   const supabase = await createClient()
+  // The payload is written at the callback only for the browser holding
+  // this binding -- see lib/signup/signup-binding.ts.
+  const bindingHash = await issueSignupBinding()
 
   const { error } = await supabase.auth.signInWithOtp({
     email: formState.email,
@@ -71,6 +75,7 @@ export async function submitSignup(
           rugbyCode: formState.rugbyCode,
           club: formState.club,
           termsVersion: CURRENT_TERMS_VERSION,
+          bindingHash,
         },
       },
     },

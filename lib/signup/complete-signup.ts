@@ -6,6 +6,7 @@ import { sendEmailEvent } from "@/lib/email/send"
 import type { Database } from "@/types/database.types"
 import type { ClubSelection, PersonalDetails } from "@/lib/signup/types"
 import { getSiteUrl } from "@/lib/site-url"
+import { clearSignupBinding, signupBindingMatches } from "@/lib/signup/signup-binding"
 import { policyAcknowledgements, termsAgreementVersion } from "@/lib/legal/required-consents"
 
 /**
@@ -29,6 +30,11 @@ import { policyAcknowledgements, termsAgreementVersion } from "@/lib/legal/requi
  * going through a later, unrelated magic-link sign-in) and this is a no-op
  * -- prevents a duplicate profile/claim from a stale metadata payload on a
  * repeat auth callback.
+ *
+ * Binding: user_metadata can be set by whoever starts a signup for an email
+ * address, so the payload is written only for the browser that submitted
+ * it (lib/signup/signup-binding.ts). Any other arrival has no profile
+ * written and is sent through the signup wizard by the callback.
  */
 export async function completeSignupIfNeeded(
   supabase: SupabaseClient<Database>,
@@ -51,7 +57,13 @@ export async function completeSignupIfNeeded(
     return { completed: false }
   }
 
-  return writeSignupRecords(supabase, user, payload)
+  if (!(await signupBindingMatches(user.user_metadata?.ovalballSignupPayload?.bindingHash))) {
+    return { completed: false }
+  }
+
+  const result = await writeSignupRecords(supabase, user, payload)
+  if (result.completed) await clearSignupBinding()
+  return result
 }
 
 export interface SignupRecordsPayload {
