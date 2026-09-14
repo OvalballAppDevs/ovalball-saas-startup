@@ -158,7 +158,7 @@ function RecordReleaseForm({
             id="release-version"
             value={version}
             onChange={(e) => setVersion(e.target.value)}
-            placeholder="0.0.2"
+            placeholder={suggestedVersion || "e.g. 1.0.0"}
           />
         </div>
         <div className="space-y-1.5">

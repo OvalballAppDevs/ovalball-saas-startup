@@ -415,7 +415,7 @@ export default async function GameManagementPage() {
           </div>
         </section>
       </main>
-      <Footer />
+      <Footer releaseVersion={beta.releaseVersion} />
     </>
   )
 }

@@ -231,7 +231,7 @@ export default async function PublicCompetitionPage({
             ))}
         </div>
       </main>
-      <Footer />
+      <Footer releaseVersion={beta.releaseVersion} />
     </>
   )
 }

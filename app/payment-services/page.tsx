@@ -467,7 +467,7 @@ export default async function PaymentServicesPage() {
           </div>
         </section>
       </main>
-      <Footer />
+      <Footer releaseVersion={beta.releaseVersion} />
     </>
   )
 }

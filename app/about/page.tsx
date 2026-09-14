@@ -176,7 +176,7 @@ export default async function AboutPage() {
           </section>
         </div>
       </main>
-      <Footer />
+      <Footer releaseVersion={beta.releaseVersion} />
     </>
   )
 }

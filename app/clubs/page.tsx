@@ -292,7 +292,7 @@ export default async function ClubsPage() {
           </div>
         </section>
       </main>
-      <Footer />
+      <Footer releaseVersion={beta.releaseVersion} />
     </>
   )
 }

@@ -7,7 +7,7 @@ import { describeEmailConfiguration } from "@/lib/email/provider"
 import { AUTH_SESSION_VERSION } from "@/lib/auth/session-version"
 import { getBetaBadgeState, getPlatformMode } from "@/lib/platform/mode"
 import { createClient } from "@/lib/supabase/server"
-import { APP_BUILD_SHA, APP_VERSION } from "@/lib/version"
+import { APP_BUILD_SHA } from "@/lib/version"
 import { BetaBadge } from "@/components/platform/beta-badge"
 
 export const metadata = { title: "System Health" }
@@ -46,7 +46,6 @@ export default async function SystemHealthPage() {
   const inBeta = platformMode.mode === "beta"
 
   const rows = [
-    { label: "Application", value: `v${APP_VERSION}` },
     { label: "Build", value: APP_BUILD_SHA },
     { label: "Environment", value: process.env.NODE_ENV === "production" ? "Production" : "Local / Development" },
     { label: "Auth Session Version", value: String(AUTH_SESSION_VERSION) },

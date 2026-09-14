@@ -2,7 +2,6 @@ import Link from "next/link"
 
 import { OvalballLogo, OvalballWordmark } from "@/components/brand/ovalball-logo"
 import { OvalballMark } from "@/components/brand/ovalball-mark"
-import { APP_VERSION } from "@/lib/version"
 import {
   FOOTER_LEGAL_LINKS,
   FOOTER_OVALBALL_LINKS,
@@ -66,7 +65,12 @@ function FooterBottomGroup({ heading, children }: { heading: string; children: R
   )
 }
 
-export function Footer() {
+export function Footer({
+  releaseVersion = null,
+}: {
+  /** The published release (Site Admin → Release & Platform Mode), from the page's getBetaBadgeState. */
+  releaseVersion?: string | null
+} = {}) {
   return (
     <footer className="relative overflow-hidden border-t border-white/10 bg-forest-950">
       <div className="relative mx-auto max-w-[1440px] px-4 py-16 md:px-8 md:py-20">
@@ -145,9 +149,9 @@ export function Footer() {
         </div>
         {/* Restrained, quiet -- no build metadata, no Git SHA, just enough
             that a curious visitor can tell they're not on a stale cache.
-            Reads from the SAME lib/version.ts as Site Admin's own System
-            Health page, never a second constant. */}
-        <p className="relative mt-3 text-center text-xs text-white/60 sm:text-left">Ovalball v{APP_VERSION}</p>
+            The published release from Site Admin → Release & Platform Mode,
+            the same value the Beta badge shows; hidden when none is published. */}
+        {releaseVersion && <p className="relative mt-3 text-center text-xs text-white/60 sm:text-left">Ovalball v{releaseVersion}</p>}
       </div>
     </footer>
   )

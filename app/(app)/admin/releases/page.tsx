@@ -4,7 +4,8 @@ import { Radio } from "lucide-react"
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
-import { APP_BUILD_SHA, APP_VERSION } from "@/lib/version"
+import { nextReleaseVersion } from "@/lib/platform/release-version"
+import { APP_BUILD_SHA } from "@/lib/version"
 
 import { PlatformModePanel } from "./platform-mode-panel"
 import { ReleasePanel, type ReleaseRow } from "./release-panel"
@@ -95,7 +96,7 @@ export default async function AdminReleasesPage() {
       <ReleasePanel
         releases={releases}
         canManage={canManageReleases}
-        suggestedVersion={APP_VERSION}
+        suggestedVersion={nextReleaseVersion(releases.map((r) => r.version))}
         suggestedBuildSha={APP_BUILD_SHA}
       />
 

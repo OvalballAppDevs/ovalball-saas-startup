@@ -48,14 +48,12 @@ export function SiteAdminDashboard({
   firstName,
   data,
   badgeState,
-  appVersion,
   commercialCards,
   referralIntelligence,
 }: {
   firstName: string | null
   data: SiteAdminDashboardData
   badgeState: BetaBadgeState
-  appVersion: string
   /** null when the viewing Site Admin lacks site.commercial.view -- the whole section then does not render, never a locked placeholder. Inside it, each card carries its own read state. */
   commercialCards: CommercialCardsData | null
   referralIntelligence: ReadState<ReferralIntelligenceData> | null
@@ -94,9 +92,13 @@ export function SiteAdminDashboard({
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap items-center gap-2">
             <BetaBadge state={badgeState} />
-            <span className="inline-block rounded-full bg-ink/5 px-2.5 py-0.5 font-mono text-xs text-ink/60">
-              v{appVersion}
-            </span>
+            {/* The published release from Release & Platform Mode. In Beta the badge
+                already reads "BETA 0.0.3", so the version only stands on its own when Live. */}
+            {badgeState.mode === "live" && badgeState.releaseVersion && (
+              <span className="inline-block rounded-full bg-ink/5 px-2.5 py-0.5 font-mono text-xs text-ink/60">
+                v{badgeState.releaseVersion}
+              </span>
+            )}
           </div>
           <UpdatedAt generatedAt={generatedAt} />
         </div>

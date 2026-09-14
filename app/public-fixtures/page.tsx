@@ -300,7 +300,7 @@ export default async function FixturesPage() {
           </div>
         </section>
       </main>
-      <Footer />
+      <Footer releaseVersion={beta.releaseVersion} />
     </>
   )
 }

@@ -1,13 +1,13 @@
-import packageJson from "../package.json"
-
 /**
- * The application release version -- changes on every ordinary deploy,
- * and never affects whether an existing auth session stays valid (see
- * lib/auth/session-version.ts for that separate, deliberately
- * infrequently-changing concern). Safe to display anywhere (footer,
- * Profile, Site Admin System Health): no secrets, no connection strings,
- * just a package version and a short git SHA captured at build time
- * (next.config.ts).
+ * The build identity -- the short git SHA captured at build time
+ * (next.config.ts). Which code is deployed, for Site Admin System Health and
+ * for recording a release.
+ *
+ * There is deliberately NO product version here. Ovalball's version is the
+ * release a Site Admin publishes in Release & Platform Mode, read through
+ * getBetaBadgeState (lib/platform/mode.ts). package.json's version is npm
+ * metadata; it used to be exported from this file as a version constant and rendered
+ * as the product version, and it drifted to 0.0.1 while the published release
+ * was 0.0.3. supabase/tests/js/release_version.test.mts keeps it from coming back.
  */
-export const APP_VERSION = packageJson.version
 export const APP_BUILD_SHA = process.env.NEXT_PUBLIC_GIT_SHA ?? "unknown"

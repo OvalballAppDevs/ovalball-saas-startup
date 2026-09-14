@@ -25,7 +25,6 @@ import { FamilyAvatar } from "@/components/profile/family-avatar"
 
 import { FamilyPanel } from "./family-panel"
 import { FIXTURE_STATUS_BADGE_CLASS } from "@/lib/fixtures/status"
-import { APP_VERSION } from "@/lib/version"
 
 import { PlayerMovementsLog } from "./player-movements-log"
 import { SiteAdminDashboard } from "./site-admin-dashboard"
@@ -84,7 +83,6 @@ export default async function DashboardPage() {
         firstName={ctx.firstName ?? null}
         data={data}
         badgeState={badgeState}
-        appVersion={APP_VERSION}
         commercialCards={commercialCards}
         referralIntelligence={referralIntelligence}
       />

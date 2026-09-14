@@ -40,7 +40,7 @@ export default async function Page() {
         />
         <PartnerCommunicationSection />
       </main>
-      <Footer />
+      <Footer releaseVersion={beta.releaseVersion} />
     </>
   )
 }

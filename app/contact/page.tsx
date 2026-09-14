@@ -72,7 +72,7 @@ export default async function ContactPage() {
           </p>
         </div>
       </main>
-      <Footer />
+      <Footer releaseVersion={beta.releaseVersion} />
     </>
   )
 }

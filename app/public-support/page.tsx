@@ -34,7 +34,7 @@ export default async function PublicSupportPage() {
           </div>
         </div>
       </main>
-      <Footer />
+      <Footer releaseVersion={beta.releaseVersion} />
     </>
   )
 }
