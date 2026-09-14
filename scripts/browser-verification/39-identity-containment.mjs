@@ -9,7 +9,8 @@
 //
 //   B. THE LEGITIMATE WORK STILL WORKS. The flows the containment rerouted --
 //      account suspension through set_account_status, a person editing their
-//      own profile, staff reading their team's people, family and staff pages
+//      own profile, a Club Admin changing a member's role, staff reading their
+//      team's people, family and staff pages
 //      that used to call result reconciliation inline -- driven through the UI.
 //
 // Every row this suite changes is captured first and restored on any exit.
@@ -41,6 +42,9 @@ const TARGET = "uat.unrelated@ovalball.test"
 const coachId = id(COACH)
 const guardianId = id(GUARDIAN)
 const targetId = id(TARGET)
+// A plain member of the club uat.coach administers, for the People screen.
+const MEMBER = "uat.team.manager@ovalball.test"
+const memberId = id(MEMBER)
 
 // ---------------------------------------------------------------------
 // Captured state, restored on every exit path.
@@ -50,6 +54,7 @@ const before = {
   guardianPhone: sql(`select coalesce(phone_number,'<null>') from public.profiles where id='${guardianId}'`),
   guardianStatus: sql(`select account_status from public.profiles where id='${guardianId}'`),
   coachVersion: sql(`select coalesce(version::text,'<none>') from public.user_session_versions where user_id='${coachId}'`) || "<none>",
+  memberRole: sql(`select cm.role from public.club_memberships cm join public.clubs c on c.id=cm.club_id where cm.user_id='${memberId}' and c.slug='ovalball-uat-rufc'`),
 }
 let restored = false
 function restore() {
@@ -61,6 +66,7 @@ function restore() {
   if (before.coachVersion === "<none>") sql(`delete from public.user_session_versions where user_id='${coachId}'`)
   else sql(`update public.user_session_versions set version=${before.coachVersion} where user_id='${coachId}'`)
   sql(`delete from public.players where surname like '${MARK}%'`)
+  sql(`update public.club_memberships cm set role='${before.memberRole}' from public.clubs c where c.id=cm.club_id and c.slug='ovalball-uat-rufc' and cm.user_id='${memberId}'`)
 }
 process.on("exit", restore)
 for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { restore(); process.exit(1) })
@@ -193,6 +199,23 @@ try {
   record("B4 a coach still sees their own team's players", Boolean(playerName) && teamText.includes(playerName),
     `looked for "${playerName}"`)
 
+  // Club Admin people management runs a direct club_memberships update, which
+  // the containment narrowed to column-level grants. The role change must
+  // still land, and change back.
+  const memberName = sql(`select concat_ws(' ', first_name, surname) from public.profiles where id='${memberId}'`)
+  const memberRole = () => sql(`select cm.role from public.club_memberships cm join public.clubs c on c.id=cm.club_id where cm.user_id='${memberId}' and c.slug='ovalball-uat-rufc'`)
+  await coachPage.goto(`${APP}/people`, { waitUntil: "domcontentloaded" })
+  await coachPage.waitForLoadState("networkidle").catch(() => {})
+  const roleSelect = coachPage.getByLabel(`Club-wide role for ${memberName}`)
+  await roleSelect.selectOption("FIXTURE_SECRETARY")
+  for (let i = 0; i < 30 && memberRole() !== "FIXTURE_SECRETARY"; i++) await coachPage.waitForTimeout(500)
+  const promoted = memberRole()
+  await roleSelect.selectOption(before.memberRole)
+  for (let i = 0; i < 30 && memberRole() !== before.memberRole; i++) await coachPage.waitForTimeout(500)
+  const demoted = memberRole()
+  record("B7 a Club Admin still changes a member's club role on People, and back",
+    promoted === "FIXTURE_SECRETARY" && demoted === before.memberRole, `${before.memberRole} -> ${promoted} -> ${demoted}`)
+
   for (const route of ["/dashboard", "/calendar", "/fixtures"]) {
     const response = await coachPage.goto(`${APP}${route}`, { waitUntil: "domcontentloaded" })
     await coachPage.waitForLoadState("networkidle").catch(() => {})
@@ -217,7 +240,8 @@ try {
   record("cleanup: every changed row is back to its captured value",
     sql(`select account_status from public.profiles where id='${targetId}'`) === before.targetStatus
       && sql(`select coalesce(phone_number,'<null>') from public.profiles where id='${guardianId}'`) === before.guardianPhone
-      && Number(sql(`select count(*) from public.players where surname like '${MARK}%'`)) === 0,
-    "status, phone, session version and probe rows restored")
+      && Number(sql(`select count(*) from public.players where surname like '${MARK}%'`)) === 0
+      && sql(`select cm.role from public.club_memberships cm join public.clubs c on c.id=cm.club_id where cm.user_id='${memberId}' and c.slug='ovalball-uat-rufc'`) === before.memberRole,
+    "status, phone, club role, session version and probe rows restored")
   summarise()
 }
