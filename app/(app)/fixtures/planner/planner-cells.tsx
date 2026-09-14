@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useId, useRef, useState } from "react"
+import { memo } from "react"
 import { ChevronDown } from "lucide-react"
 
+import type { LookupEntry } from "@/lib/fixtures/planner-lookup"
 import type { CellState } from "@/lib/fixtures/planner-model"
 
 /**
@@ -14,8 +15,13 @@ import type { CellState } from "@/lib/fixtures/planner-model"
  * before a fixture exists the value has to land on a canonical record.
  *
  * Both kinds are a real <input>. That is deliberate and load-bearing:
- * paste, tab, arrow keys, screen readers and the browser's own date and
- * time pickers all work because nothing here reimplements a text box.
+ * paste, the clipboard, screen readers and IME composition all work because
+ * nothing here reimplements a text box.
+ *
+ * THE CELLS DO NOT HANDLE KEYS. The grid owns every keystroke -- moving,
+ * extending, editing, choosing from a list -- so a list's arrow keys and the
+ * grid's arrow keys can never both act on one press. A cell only draws what
+ * the grid tells it: whether it is active, editing, selected or open.
  */
 
 export const CELL_TONE: Record<CellState, string> = {
@@ -36,9 +42,6 @@ const CELL_MARK: Partial<Record<CellState, { glyph: string; title: string }>> = 
   error: { glyph: "!", title: "Ovalball could not read this value" },
 }
 
-const BASE_INPUT =
-  "h-8 w-full bg-transparent px-1.5 text-sm text-ink outline-none placeholder:text-ink-subtle/60 focus:bg-pitch-400/10 focus:ring-2 focus:ring-inset focus:ring-pitch-600"
-
 /**
  * Spellcheck OFF across the grid.
  *
@@ -48,175 +51,127 @@ const BASE_INPUT =
  * wrong, a red underline that means "not in the dictionary" is actively
  * misleading -- it is the same signal the grid uses for a real error.
  */
+/** One hidden "Suggested" note the grid renders once, described by every suggested cell. */
+export const SUGGESTED_NOTE_ID = "planner-suggested-note"
+
 const NO_SPELLCHECK = { spellCheck: false, autoCorrect: "off", autoCapitalize: "off" } as const
 
-export interface LookupOption {
-  id: string
-  label: string
-  hint?: string
+function inputClass(editing: boolean, lookup: boolean, suggestion = false): string {
+  return [
+    "h-8 w-full bg-transparent px-1.5 text-sm outline-none placeholder:text-ink-subtle/60",
+    // A suggestion reads as one -- quieter and italic -- until somebody types over it.
+    suggestion ? "italic text-forest-800/80" : "text-ink",
+    lookup ? "pr-6" : "",
+    // Selection mode shows no caret: the cell is selected, not being typed
+    // into, and a blinking caret would say otherwise.
+    editing ? "cursor-text" : "cursor-cell caret-transparent select-none",
+  ].join(" ")
 }
 
-/** A plain free-text or native-picker cell: date, times, notes. */
-export function PlainCell({
-  value,
-  onChange,
-  onPaste,
-  onKeyDown,
-  inputRef,
-  label,
-  placeholder,
-  state,
-}: {
+interface CellProps {
   value: string
-  onChange: (value: string) => void
-  onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
-  inputRef: (el: HTMLInputElement | null) => void
   label: string
   placeholder?: string
   state: CellState
-}) {
+  /** Filled in by Ovalball (a suggested team or ground) and not yet typed over. */
+  suggestion?: boolean
+  active: boolean
+  editing: boolean
+  inputRef: (el: HTMLInputElement | null) => void
+  onChange: (value: string) => void
+}
+
+/** A plain free-text cell: date, times, H/A, notes. */
+export const PlainCell = memo(function PlainCell({ value, label, placeholder, state, suggestion, active, editing, inputRef, onChange }: CellProps) {
   const mark = CELL_MARK[state]
   return (
     <div className={`relative flex items-center ${CELL_TONE[state]}`}>
       <input
         ref={inputRef}
         value={value}
+        tabIndex={active ? 0 : -1}
         onChange={(e) => onChange(e.target.value)}
-        onPaste={onPaste}
-        onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label={label}
+        aria-describedby={suggestion ? SUGGESTED_NOTE_ID : undefined}
         aria-invalid={state === "error" || undefined}
+        title={suggestion ? "Suggested by Ovalball. Type to change it." : undefined}
         {...NO_SPELLCHECK}
-        className={BASE_INPUT}
+        className={inputClass(editing, false, suggestion)}
       />
       {mark && (
-        <span
-          aria-hidden="true"
-          title={mark.title}
-          className="pointer-events-none absolute right-1 text-xs font-semibold text-ink-muted"
-        >
+        <span aria-hidden="true" title={mark.title} className="pointer-events-none absolute right-1 text-xs font-semibold text-ink-muted">
           {mark.glyph}
         </span>
       )}
     </div>
   )
-}
+})
 
 /**
  * A STRUCTURED CELL.
  *
  * Types like a text box, resolves like a dropdown. The chevron is not
  * decoration -- §38 -- it is how somebody knows this column has answers
- * before they discover autocomplete by accident.
- *
- * The list opens on focus rather than only on click, so a person arriving
- * by Tab gets the same help as one arriving by mouse, and the options are
- * a real listbox so a screen reader announces how many there are.
+ * before they discover autocomplete by accident. The options are a real
+ * listbox with an active descendant, so a screen reader announces both how
+ * many there are and which one Enter will choose.
  */
-export function LookupCell({
+export const LookupCell = memo(function LookupCell({
   value,
-  onChange,
-  onCommit,
-  onPaste,
-  onKeyDown,
-  inputRef,
   label,
   placeholder,
   state,
+  suggestion,
+  active,
+  editing,
+  inputRef,
+  onChange,
+  listId,
+  open,
+  dropUp,
+  alignEnd,
   options,
   loading,
-  onQuery,
   emptyHint,
-}: {
-  value: string
-  onChange: (value: string) => void
-  /** Called when a real option is chosen, so the row can remember its id. */
-  onCommit: (option: LookupOption) => void
-  onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
-  inputRef: (el: HTMLInputElement | null) => void
-  label: string
-  placeholder?: string
-  state: CellState
-  options: LookupOption[]
-  loading?: boolean
-  /** Asks the owner to fetch options for this text. Debounced by the owner. */
-  onQuery: (query: string) => void
+  highlight,
+  onHighlight,
+  onChoose,
+}: CellProps & {
+  listId: string
+  open: boolean
+  dropUp: boolean
+  /** Near the grid's right edge the list opens leftwards, so it is not clipped by the scroller. */
+  alignEnd?: boolean
+  options: LookupEntry[]
+  loading: boolean
   emptyHint?: string
+  highlight: number
+  onHighlight: (index: number) => void
+  onChoose: (option: LookupEntry) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(0)
-  const listId = useId()
-  const wrapRef = useRef<HTMLDivElement | null>(null)
   const mark = CELL_MARK[state]
-
-  useEffect(() => {
-    if (!open) return
-    function onDocDown(e: MouseEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener("mousedown", onDocDown)
-    return () => document.removeEventListener("mousedown", onDocDown)
-  }, [open])
-
-  function choose(option: LookupOption) {
-    onChange(option.label)
-    onCommit(option)
-    setOpen(false)
-  }
+  const activeOption = open && options[highlight] ? `${listId}-o${highlight}` : undefined
 
   return (
-    <div ref={wrapRef} className={`relative flex items-center ${CELL_TONE[state]}`}>
+    <div className={`relative flex items-center ${CELL_TONE[state]}`}>
       <input
         ref={inputRef}
         value={value}
+        tabIndex={active ? 0 : -1}
         role="combobox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         aria-autocomplete="list"
-        onChange={(e) => {
-          onChange(e.target.value)
-          onQuery(e.target.value)
-          setOpen(true)
-          setHighlight(0)
-        }}
-        onFocus={() => {
-          onQuery(value)
-          setOpen(true)
-        }}
-        onPaste={onPaste}
-        onKeyDown={(e) => {
-          if (open && options.length > 0) {
-            if (e.key === "ArrowDown") {
-              e.preventDefault()
-              setHighlight((h) => Math.min(h + 1, options.length - 1))
-              return
-            }
-            if (e.key === "ArrowUp") {
-              e.preventDefault()
-              setHighlight((h) => Math.max(h - 1, 0))
-              return
-            }
-            if (e.key === "Enter") {
-              e.preventDefault()
-              choose(options[highlight])
-              return
-            }
-          }
-          if (e.key === "Escape" && open) {
-            e.preventDefault()
-            setOpen(false)
-            return
-          }
-          onKeyDown(e)
-        }}
+        aria-activedescendant={activeOption}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={label}
+        aria-describedby={suggestion ? SUGGESTED_NOTE_ID : undefined}
         aria-invalid={state === "error" || undefined}
+        title={suggestion ? "Suggested by Ovalball. Type or choose to change it." : undefined}
         {...NO_SPELLCHECK}
-        className={`${BASE_INPUT} pr-6`}
+        className={inputClass(editing, true, suggestion)}
       />
 
       {/* The dropdown indicator, and -- where the cell needs attention --
@@ -235,36 +190,39 @@ export function LookupCell({
           id={listId}
           role="listbox"
           aria-label={`${label} options`}
-          className="absolute top-full left-0 z-30 mt-0.5 max-h-64 min-w-64 overflow-auto rounded-lg border border-ink/15 bg-white py-1 shadow-lg"
+          // mousedown, not click, and never taking focus: the input keeps it,
+          // so the grid keeps receiving keys while the list is open.
+          onMouseDown={(e) => e.preventDefault()}
+          className={`absolute ${alignEnd ? "right-0" : "left-0"} z-40 max-h-64 min-w-64 overflow-auto rounded-lg border border-ink/15 bg-white py-1 shadow-lg ${
+            dropUp ? "bottom-full mb-0.5" : "top-full mt-0.5"
+          }`}
         >
-          {loading && <li className="px-3 py-2 text-xs text-ink-muted">Searching&hellip;</li>}
+          {loading && <li className="px-3 py-2 text-xs text-ink-muted">Loading&hellip;</li>}
           {!loading && options.length === 0 && (
-            <li className="px-3 py-2 text-xs text-ink-muted">
-              {emptyHint ?? "No match. Anything typed here stays for review until it does."}
-            </li>
+            <li className="px-3 py-2 text-xs text-ink-muted">{emptyHint ?? "No match. Anything typed here stays for review until it does."}</li>
           )}
           {options.map((option, index) => (
-            <li key={option.id} role="option" aria-selected={index === highlight}>
-              <button
-                type="button"
-                // mousedown, not click: the input's blur would close the list
-                // before a click ever landed.
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  choose(option)
-                }}
-                onMouseEnter={() => setHighlight(index)}
-                className={`flex w-full items-baseline justify-between gap-3 px-3 py-1.5 text-left text-sm ${
-                  index === highlight ? "bg-pitch-600/10 text-ink" : "text-ink"
-                }`}
-              >
-                <span className="truncate">{option.label}</span>
-                {option.hint && <span className="shrink-0 text-xs text-ink-muted">{option.hint}</span>}
-              </button>
+            <li
+              key={option.id}
+              id={`${listId}-o${index}`}
+              role="option"
+              aria-selected={index === highlight}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onChoose(option)
+              }}
+              onMouseEnter={() => onHighlight(index)}
+              className={`flex cursor-pointer items-baseline justify-between gap-3 px-3 py-1.5 text-left text-sm text-ink ${
+                index === highlight ? "bg-pitch-600/10" : ""
+              }`}
+            >
+              <span className="truncate">{option.label}</span>
+              {option.hint && <span className="shrink-0 text-xs text-ink-muted">{option.hint}</span>}
             </li>
           ))}
         </ul>
       )}
     </div>
   )
-}
+})

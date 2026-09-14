@@ -127,6 +127,10 @@ export interface ImportRowMatchResult {
   /** "Home" | "Away" | null -- null means the source did not say, which publishes as Home. */
   homeAway: string | null
   meetTime: string | null
+  /** An away ground recorded for an opponent not on Ovalball (Club Directory home ground), or the ground proposed to an Ovalball host. */
+  resolvedVenueText: string | null
+  /** Away against an Ovalball team: the host's pitch proposed with the ground. */
+  resolvedPitchText: string | null
 }
 
 /**
@@ -244,7 +248,12 @@ export async function matchAndValidateImportRow(
     errors.push(`"${homeAwayCol}" is not Home or Away -- needs review.`)
   }
   const meetTime = readColumn(raw, "meet_time", "meet") || null
-  const carried = { homeAway, meetTime }
+  const carried: { homeAway: "Home" | "Away" | null; meetTime: string | null; resolvedVenueText: string | null; resolvedPitchText: string | null } = {
+    homeAway,
+    meetTime,
+    resolvedVenueText: null,
+    resolvedPitchText: null,
+  }
   const { status: resolvedStatus, homeScore: resolvedHomeScore, awayScore: resolvedAwayScore, errors: statusScoreErrors } = parseStatusAndScore(raw)
 
   // An explicit fixture_id column names an EXISTING fixture to update --
@@ -467,6 +476,19 @@ export async function matchAndValidateImportRow(
     )
     if (directoryMatches && directoryMatches.length === 1) {
       resolvedAwayDirectoryId = directoryMatches[0].id
+      // AN OVALBALL CLUB IS ASKED, NEVER BOOKED. A fixture against one is a
+      // request to one of their teams, so a row naming the club without a
+      // team they run cannot be recorded against the club directly.
+      const { data: tenant } = await memo(cache, `tenantClub|${resolvedAwayDirectoryId}`, () =>
+        supabase.from("clubs").select("id").eq("directory_id", resolvedAwayDirectoryId as string).eq("status", "active").maybeSingle()
+      )
+      if (tenant) {
+        errors.push(
+          awayTeam
+            ? `${directoryMatches[0].name} is on Ovalball, but "${awayTeam}" is not one of their teams. Choose one of their teams so they can be asked.`
+            : `${directoryMatches[0].name} is on Ovalball, so they are asked rather than booked. Choose which of their teams this fixture is against.`,
+        )
+      }
     } else if (directoryMatches && directoryMatches.length > 1) {
       errors.push(`Opponent club "${awayClub}" matched more than one directory entry -- needs review.`)
     } else {
@@ -523,8 +545,53 @@ export async function matchAndValidateImportRow(
     venueIdCol,
     venueName,
     restrictHomeClubId,
-    cache
+    cache,
+    fixtureDate
   )
+
+  // AN AWAY GROUND IS THE OTHER CLUB'S. A venue that is not one of our grounds
+  // is not an error on an away row when it is genuinely theirs. An Ovalball
+  // opponent is asked, so the ground is PROPOSED to them on the request and
+  // becomes the fixture's ground when they accept (never dropped). A club not
+  // on Ovalball has its home ground recorded in the Club Directory, which
+  // travels with the fixture as that recorded ground. Anything else is still
+  // refused -- a venue is never invented from what was typed.
+  const notOurVenue = linkErrors.findIndex((e) => e.startsWith(`Venue "${venueName}" could not be found for your club`))
+  // The host's pitch, like its ground, is proposed to an Ovalball opponent rather than looked up among ours.
+  const notOurPitch = linkErrors.findIndex((e) => e.startsWith(`Pitch "${pitchName}" could not be found for your club`))
+  if (notOurPitch >= 0 && homeAway === "Away" && resolvedAwayTeamId) {
+    linkErrors.splice(notOurPitch, 1)
+    carried.resolvedPitchText = pitchName.trim().slice(0, 200) || null
+  }
+  if (notOurVenue >= 0 && homeAway === "Away") {
+    if (resolvedAwayTeamId) {
+      linkErrors.splice(linkErrors.findIndex((e) => e.startsWith(`Venue "${venueName}" could not be found for your club`)), 1)
+      carried.resolvedVenueText = venueName.trim().slice(0, 200) || null
+    } else if (resolvedAwayDirectoryId) {
+      const { data: ground } = await memo(cache, `directoryGround|${resolvedAwayDirectoryId}`, () =>
+        supabase.from("club_directory").select("home_ground").eq("id", resolvedAwayDirectoryId as string).maybeSingle()
+      )
+      // An Ovalball club's own default ground is its recorded ground too.
+      const { data: tenantGround } = await memo(cache, `tenantGround|${resolvedAwayDirectoryId}`, () =>
+        supabase
+          .from("venues")
+          .select("name, clubs!inner(directory_id, status)")
+          .eq("clubs.directory_id", resolvedAwayDirectoryId as string)
+          .eq("clubs.status", "active")
+          .eq("is_default_home", true)
+          .eq("active", true)
+          .limit(1)
+          .maybeSingle()
+      )
+      const recorded = [tenantGround?.name?.trim(), ground?.home_ground?.trim()].find(
+        (g): g is string => Boolean(g) && g!.toLowerCase() === venueName.trim().toLowerCase(),
+      )
+      if (recorded) {
+        linkErrors.splice(notOurVenue, 1)
+        carried.resolvedVenueText = recorded
+      }
+    }
+  }
   errors.push(...linkErrors)
 
   if (sourceReference) {
@@ -669,7 +736,8 @@ async function resolveCompetitionAndPitchAndVenue(
   venueIdCol: string,
   venueName: string,
   clubId: string | undefined,
-  cache?: LookupCache
+  cache?: LookupCache,
+  fixtureDate?: string | null
 ): Promise<{ competitionEditionId: string | null; pitchId: string | null; venueId: string | null; errors: string[] }> {
   const errors: string[] = []
   let competitionEditionId: string | null = null
@@ -689,15 +757,30 @@ async function resolveCompetitionAndPitchAndVenue(
     }
   } else if (competitionLabel) {
     const [namePart] = competitionLabel.split("·").map((s) => s.trim())
+    // `!inner`: without it PostgREST filters only the EMBEDDED competition, so
+    // every active edition came back (with competitions: null) and a unique
+    // name was reported as matching "more than one active edition".
     const { data } = await memo(cache, `editionLabel|${namePart || competitionLabel}`, () =>
       supabase
         .from("competition_editions")
-        .select("id, rugby_code, active, competitions(name), seasons(name)")
+        .select("id, rugby_code, active, competitions!inner(name), seasons(name, starts_on, ends_on, pre_season_starts_on)")
         .eq("active", true)
         .ilike("competitions.name", namePart || competitionLabel)
-        .limit(5)
+        .limit(10)
     )
-    const matches = (data ?? []).filter((row) => (rugbyCode ? row.rugby_code === rugbyCode : true))
+    const byCode = (data ?? []).filter((row) => (rugbyCode ? row.rugby_code === rugbyCode : true))
+    // A competition runs every season, so its name alone names several
+    // editions. The fixture's own date picks the edition whose canonical season
+    // contains it; nothing is guessed when the date does not decide.
+    const inSeason = fixtureDate
+      ? byCode.filter((row) => {
+          const season = row.seasons
+          if (!season) return false
+          const start = season.pre_season_starts_on ?? season.starts_on
+          return fixtureDate >= start && fixtureDate <= season.ends_on
+        })
+      : []
+    const matches = byCode.length > 1 && inSeason.length === 1 ? inSeason : byCode
     if (matches.length === 1) {
       competitionEditionId = matches[0].id
     } else if (matches.length > 1) {
@@ -752,6 +835,21 @@ async function resolveCompetitionAndPitchAndVenue(
       errors.push(`Venue "${venueName}" matched more than one venue -- needs review.`)
     } else {
       errors.push(`Venue "${venueName}" could not be found for your club -- needs review.`)
+    }
+  }
+
+  // A PITCH IS AT A VENUE. Both resolving on their own is not enough: "Pitch
+  // 2" is a real pitch and "Towneley Park" is a real venue, and a fixture
+  // naming both sends a team to a pitch that is not at the ground they were
+  // told. Checked here, in the one engine, so a typed row, a pasted row, a
+  // filled row and an uploaded file all get the same answer.
+  if (pitchId && venueId) {
+    const { data: pitchVenue } = await memo(cache, `pitchVenue|${pitchId}`, () =>
+      supabase.from("club_pitches").select("venue_id").eq("id", pitchId as string).maybeSingle()
+    )
+    if (pitchVenue?.venue_id && pitchVenue.venue_id !== venueId) {
+      errors.push(`Pitch "${pitchName || pitchIdCol}" is not at venue "${venueName || venueIdCol}" -- needs review.`)
+      pitchId = null
     }
   }
 
@@ -939,6 +1037,8 @@ export async function stageImportBatch(
         matchedFixtureId: null,
         homeAway: null,
         meetTime: null,
+        resolvedVenueText: null,
+        resolvedPitchText: null,
       }
     }
     if (result.status !== "ready") hasNeedsReview = true
@@ -955,6 +1055,8 @@ export async function stageImportBatch(
       resolved_competition_edition_id: result.resolvedCompetitionEditionId,
       resolved_pitch_id: result.resolvedPitchId,
       resolved_venue_id: result.resolvedVenueId,
+      resolved_venue_text: result.resolvedVenueText,
+      resolved_pitch_text: result.resolvedPitchText,
       resolved_status: result.resolvedStatus,
       resolved_home_score: result.resolvedHomeScore,
       resolved_away_score: result.resolvedAwayScore,

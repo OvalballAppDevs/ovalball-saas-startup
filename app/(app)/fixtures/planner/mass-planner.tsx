@@ -1,10 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react"
 import Link from "next/link"
 import {
   AlertTriangle,
-  ArrowDown,
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
@@ -18,26 +17,25 @@ import {
 } from "lucide-react"
 
 import { parseCsv } from "@/lib/fixtures/parse-csv"
+import { applyPlannerDefaults, suggestTeamForRow, type SuggestableField } from "@/lib/fixtures/planner-defaults"
+import { pushUndo, type UndoEntry } from "@/lib/fixtures/planner-grid"
 import {
-  PLANNER_FIELDS,
-  applyGridPaste,
   blankRow,
   blankRows,
   fixtureDayRows,
   isBlankRow,
-  isGridPaste,
-  parseClipboardGrid,
   rowsFromRecords,
   summariseResults,
-  type CellState,
+  PLANNER_FIELDS,
   type PlannerDraftRow,
   type PlannerField,
   type PlannerRowResult,
 } from "@/lib/fixtures/planner-model"
+import type { PlannableTeam } from "@/lib/fixtures/fixture-team-authority"
 
 import { createPlannerFixtures, validatePlanner, type PlannerCreateOutcome } from "./actions"
-import { listOppositionTeams, listPitches, searchOppositionClubs, searchVenues } from "./lookup-actions"
-import { LookupCell, PlainCell, type LookupOption } from "./planner-cells"
+import { COLUMNS, PlannerGrid, STATUS_WORD, type GridBulkOptions } from "./planner-grid"
+import { LOOKUP_BY_FIELD, usePlannerLookups, type PlannerPitch, type PlannerVenue } from "./use-planner-lookups"
 
 /**
  * THE MASS FIXTURE PLANNER.
@@ -45,59 +43,18 @@ import { LookupCell, PlainCell, type LookupOption } from "./planner-cells"
  * A fixture secretary already has the season. It is in a spreadsheet, and
  * the fastest thing they can do with it is select it and press Ctrl+C. So
  * this surface IS a spreadsheet: the grid owns the page, the rows are
- * numbered, the cells have borders, and the only chrome is one line of
- * toolbar. Anything that is not the grid is a step back towards the
- * spreadsheet they came from.
+ * numbered, the cells have borders, ranges select and fill and copy the way
+ * Excel's do, and the only chrome is one line of toolbar. Anything that is
+ * not the grid is a step back towards the spreadsheet they came from.
  *
  * It is deliberately NOT a spreadsheet where that matters. Every
- * structured column resolves against canonical records -- our teams, the
- * Club Directory, real competition editions, real venues and pitches --
- * so what leaves here is a fixture rather than a row of text resembling
- * one.
+ * structured column resolves against canonical records -- the teams this
+ * person may plan for, the Club Directory, real competition editions, real
+ * venues and pitches -- so what leaves here is a fixture rather than a row
+ * of text resembling one.
  */
 
 const STARTING_ROWS = 25
-
-type LookupKind = "team" | "oppositionClub" | "oppositionTeam" | "competition" | "venue" | "pitch" | null
-
-interface Column {
-  field: PlannerField
-  label: string
-  width: string
-  hint?: string
-  lookup: LookupKind
-}
-
-/** The creation grid carries what data entry needs -- Meet and Pitch included. */
-const COLUMNS: Column[] = [
-  { field: "date", label: "Date", width: "w-[7.5rem]", hint: "14/08/27", lookup: null },
-  { field: "kickoff", label: "Kick Off", width: "w-[5.5rem]", hint: "11:00", lookup: null },
-  { field: "meet", label: "Meet", width: "w-[5.5rem]", hint: "10:15", lookup: null },
-  { field: "homeAway", label: "H/A", width: "w-[5rem]", hint: "H", lookup: null },
-  { field: "ourTeam", label: "Our Team", width: "w-52", lookup: "team" },
-  { field: "oppositionClub", label: "Opposition Club", width: "w-56", lookup: "oppositionClub" },
-  { field: "oppositionTeam", label: "Opposition Team", width: "w-44", lookup: "oppositionTeam" },
-  { field: "competition", label: "Competition", width: "w-44", lookup: "competition" },
-  { field: "venue", label: "Venue", width: "w-48", lookup: "venue" },
-  { field: "pitch", label: "Pitch", width: "w-36", lookup: "pitch" },
-  { field: "notes", label: "Notes", width: "w-44", lookup: null },
-]
-
-const STATUS_RAIL: Record<PlannerRowResult["status"], string> = {
-  blank: "bg-transparent",
-  ready: "bg-pitch-600",
-  review: "bg-amber-500",
-  conflict: "bg-sky-500",
-  invalid: "bg-destructive",
-}
-
-const STATUS_WORD: Record<PlannerRowResult["status"], string> = {
-  blank: "",
-  ready: "Ready",
-  review: "Needs a look",
-  conflict: "Clash",
-  invalid: "Not readable",
-}
 
 /**
  * The template is generated FROM the grid's own columns.
@@ -109,7 +66,7 @@ const STATUS_WORD: Record<PlannerRowResult["status"], string> = {
  * shorthand the parser genuinely accepts.
  */
 function downloadTemplate() {
-  const example = ["14/08/2027", "11:00", "10:15", "H", "Under 12 Boys", "Rossendale RUFC", "", "", "", "", ""]
+  const example = ["14/08/2027", "11:00", "10:15", "H", "Under 12 Boys", "Rossendale RUFC", "", "", "", "", "", "Friendly"]
   const csv = [COLUMNS.map((c) => c.label).join(","), example.join(",")].join("\r\n") + "\r\n"
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }))
   const link = document.createElement("a")
@@ -121,45 +78,84 @@ function downloadTemplate() {
   URL.revokeObjectURL(url)
 }
 
-/** What a row has resolved to, so dependent lookups can narrow themselves. */
-const EMPTY_RESOLUTION: RowResolution = {
-  oppositionDirectoryId: null,
-  oppositionTenantClubId: null,
-  venueId: null,
-}
-
-interface RowResolution {
-  oppositionDirectoryId: string | null
-  oppositionTenantClubId: string | null
-  venueId: string | null
+/** A row whose text changed is a row whose old verdict no longer applies. */
+function changedKeys(before: PlannerDraftRow[], after: PlannerDraftRow[]): Set<string> {
+  const byKey = new Map(before.map((r) => [r.key, r]))
+  const changed = new Set<string>()
+  const present = new Set<string>()
+  for (const r of after) {
+    present.add(r.key)
+    const old = byKey.get(r.key)
+    if (!old || old === r) continue
+    if (PLANNER_FIELDS.some((f) => old[f] !== r[f])) changed.add(r.key)
+  }
+  for (const r of before) if (!present.has(r.key)) changed.add(r.key)
+  return changed
 }
 
 export function MassFixturePlanner({
   clubId,
   clubName,
   canCreateMany,
-  teamOptions,
-  venueOptions,
+  teams,
+  venues,
+  pitches,
   competitionOptions,
+  ourGround = null,
 }: {
   clubId: string
   clubName: string
   canCreateMany: boolean
-  teamOptions: string[]
-  venueOptions: string[]
+  teams: PlannableTeam[]
+  venues: PlannerVenue[]
+  pitches: PlannerPitch[]
   competitionOptions: string[]
+  ourGround?: { venue: string; pitch: string | null } | null
 }) {
   const [rows, setRows] = useState<PlannerDraftRow[]>(() => blankRows(STARTING_ROWS))
   const [results, setResults] = useState<Record<string, PlannerRowResult>>({})
-  const [resolutions, setResolutions] = useState<Record<string, RowResolution>>({})
-  const [undoRows, setUndoRows] = useState<PlannerDraftRow[] | null>(null)
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [fixtureDayOpen, setFixtureDayOpen] = useState(false)
   const [outcomes, setOutcomes] = useState<PlannerCreateOutcome[] | null>(null)
   const [checking, startChecking] = useTransition()
   const [creating, startCreating] = useTransition()
-  const cellRefs = useRef(new Map<string, HTMLInputElement>())
+  const rowsRef = useRef(rows)
+  useLayoutEffect(() => {
+    rowsRef.current = rows
+  })
+
+  const lookups = usePlannerLookups({ clubId, teams, venues, pitches, competitions: competitionOptions, ourGround })
+  const { oppositionFor, defaultsContext, ensureOppositionTeams } = lookups
+  // Which cells hold a suggestion nobody has typed over, per row. The ref is
+  // the working copy; the state is what the grid draws.
+  const suggestionsRef = useRef<Record<string, Set<SuggestableField>>>({})
+  const [suggestionMarks, setSuggestionMarks] = useState<Record<string, string>>({})
+  const publishSuggestions = useCallback(() => {
+    setSuggestionMarks(
+      Object.fromEntries(
+        Object.entries(suggestionsRef.current)
+          .filter(([, marks]) => marks.size > 0)
+          .map(([key, marks]) => [key, [...marks].join(",")]),
+      ),
+    )
+  }, [])
+  const dropSuggestions = useCallback(
+    (keys: Iterable<string>) => {
+      let any = false
+      for (const k of keys) {
+        if (suggestionsRef.current[k]) {
+          delete suggestionsRef.current[k]
+          any = true
+        }
+      }
+      if (any) publishSuggestions()
+    },
+    [publishSuggestions],
+  )
+  const teamLabels = useMemo(() => teams.map((t) => t.label), [teams])
+  const venueNames = useMemo(() => venues.map((v) => v.name), [venues])
 
   const filled = useMemo(() => rows.filter((r) => !isBlankRow(r)), [rows])
   const resultList = useMemo(
@@ -170,21 +166,59 @@ export function MassFixturePlanner({
   const checked = resultList.length > 0
   const massBlocked = !canCreateMany && filled.length > 1
 
+  const forget = useCallback((keys: Iterable<string>) => {
+    const list = [...keys]
+    if (list.length === 0) return
+    setResults((current) => {
+      if (!list.some((k) => current[k])) return current
+      const next = { ...current }
+      for (const k of list) delete next[k]
+      return next
+    })
+    setOutcomes(null)
+  }, [])
+
   /**
    * A CHANGED ROW IS AN UNCHECKED ROW. Keeping the old verdict against text
    * somebody has just retyped would show a tick beside a value nothing has
    * looked at -- the most dangerous thing a validation display can do.
    */
-  const setCell = useCallback((rowIndex: number, rowKey: string, field: PlannerField, value: string) => {
-    setRows((current) => current.map((r, i) => (i === rowIndex ? { ...r, [field]: value } : r)))
-    setResults((current) => {
-      if (!current[rowKey]) return current
-      const next = { ...current }
-      delete next[rowKey]
-      return next
-    })
-    setOutcomes(null)
-  }, [])
+  const setCell = useCallback(
+    (rowIndex: number, field: PlannerField, value: string) => {
+      const before = rowsRef.current[rowIndex]
+      if (!before) return
+      const key = before.key
+      const after = { ...before, [field]: value }
+
+      // SUGGESTIONS, from one person's edit to one cell (never a paste). The
+      // opposition club is compared by the club it names, so retyping a name
+      // letter by letter is not a change of opponent at every keystroke.
+      const named = (r: PlannerDraftRow) => oppositionFor(r)?.name ?? ""
+      const project = (r: PlannerDraftRow) => ({ ...r, oppositionClub: named(r) })
+      const defaults = applyPlannerDefaults(project(before), project(after), suggestionsRef.current[key] ?? new Set(), defaultsContext(after))
+      const next = { ...defaults.row, oppositionClub: after.oppositionClub }
+      suggestionsRef.current[key] = defaults.suggested
+
+      setRows((current) => current.map((r) => (r.key === key ? next : r)))
+      publishSuggestions()
+      forget([key])
+
+      const club = oppositionFor(after)
+      if (defaults.awaitingTeams && club?.tenantClubId) {
+        void ensureOppositionTeams(club.tenantClubId).then(() => {
+          const now = rowsRef.current.find((r) => r.key === key)
+          if (!now || named(now) !== club.name) return
+          const t = suggestTeamForRow(now, suggestionsRef.current[key] ?? new Set(), defaultsContext(now))
+          if (t.row === now) return
+          suggestionsRef.current[key] = t.suggested
+          setRows((current) => current.map((r) => (r.key === key ? t.row : r)))
+          publishSuggestions()
+          forget([key])
+        })
+      }
+    },
+    [forget, oppositionFor, defaultsContext, ensureOppositionTeams, publishSuggestions],
+  )
 
   const check = useCallback((subject: PlannerDraftRow[], scopeClubId: string) => {
     setError(null)
@@ -195,80 +229,53 @@ export function MassFixturePlanner({
         return
       }
       setResults(Object.fromEntries(response.rows.map((r) => [r.key, r])))
-      // The server's resolution is authoritative; adopt it so dependent
-      // lookups -- their teams, their ground, that ground's pitches --
-      // narrow from what actually matched rather than from what was typed.
-      setResolutions((current) => {
-        const next = { ...current }
-        for (const r of response.rows) {
-          next[r.key] = {
-            oppositionDirectoryId: r.resolvedOppositionDirectoryId,
-            oppositionTenantClubId: next[r.key]?.oppositionTenantClubId ?? null,
-            venueId: r.resolvedVenueId,
-          }
-        }
-        return next
-      })
     })
   }, [])
 
   /**
-   * THE LOAD-BEARING KEYSTROKE.
-   *
-   * A block from a spreadsheet arrives as tab-separated cells and
-   * newline-separated rows. It is written from the cell that has focus, the
-   * grid grows to fit it, and the whole thing is matched immediately --
-   * somebody who has just pasted a season wants to know what happened to
-   * it, not to go and find a button.
+   * EVERY BULK CHANGE IS ONE UNDOABLE STEP. Paste, fill, clear and delete all
+   * arrive here with the grid as it will be; the grid as it was goes on the
+   * undo stack, so a fifty-row fill is undone by one Undo, not fifty.
    */
-  const handlePaste = useCallback(
-    (event: React.ClipboardEvent<HTMLInputElement>, rowIndex: number, fieldIndex: number) => {
-      const text = event.clipboardData.getData("text/plain")
-      if (!text || !isGridPaste(text)) return
-      event.preventDefault()
-      const next = applyGridPaste(rows, rowIndex, fieldIndex, parseClipboardGrid(text))
-      setUndoRows(rows)
+  const applyBulk = useCallback(
+    (label: string, next: PlannerDraftRow[], options: GridBulkOptions = {}) => {
+      const before = rowsRef.current
+      setUndoStack((stack) => pushUndo(stack, label, before))
       setRows(next)
-      setResults({})
-      setOutcomes(null)
-      setNotice(null)
-      check(next, clubId)
+      // A pasted, filled or cleared value is somebody's data, not a suggestion.
+      dropSuggestions(changedKeys(before, next))
+      if (options.check) {
+        setResults({})
+        setOutcomes(null)
+        setNotice(options.notice ?? null)
+        check(next, clubId)
+      } else {
+        forget(changedKeys(before, next))
+        if (options.notice) setNotice(options.notice)
+      }
     },
-    [rows, check, clubId],
+    [check, clubId, forget, dropSuggestions],
   )
 
-  /** Arrow keys and Enter move between cells the way a spreadsheet does. */
-  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, fieldIndex: number) => {
-    const input = event.currentTarget
-    let target: [number, number] | null = null
-    if (event.key === "ArrowDown" || event.key === "Enter") target = [rowIndex + 1, fieldIndex]
-    else if (event.key === "ArrowUp") target = [rowIndex - 1, fieldIndex]
-    else if (event.key === "ArrowLeft" && input.selectionStart === 0) target = [rowIndex, fieldIndex - 1]
-    else if (event.key === "ArrowRight" && input.selectionStart === input.value.length) target = [rowIndex, fieldIndex + 1]
-    if (!target) return
-    const field = PLANNER_FIELDS[target[1]]
-    if (!field) return
-    const next = cellRefs.current.get(`${target[0]}:${field}`)
-    if (!next) return
-    event.preventDefault()
-    next.focus()
-    next.select()
-  }, [])
+  const undo = useCallback(() => {
+    const last = undoStack[undoStack.length - 1]
+    if (!last) return
+    dropSuggestions(changedKeys(rowsRef.current, last.rows))
+    setRows(last.rows)
+    setUndoStack(undoStack.slice(0, -1))
+    setResults({})
+    setOutcomes(null)
+  }, [undoStack, dropSuggestions])
 
   const loadRows = useCallback(
     (incoming: PlannerDraftRow[], note?: string) => {
       if (incoming.length === 0) return
-      setUndoRows(rows)
-      const keep = rows.filter((r) => !isBlankRow(r))
+      const keep = rowsRef.current.filter((r) => !isBlankRow(r))
       const next = [...keep, ...incoming]
       const padded = next.length >= STARTING_ROWS ? next : [...next, ...blankRows(STARTING_ROWS - next.length)]
-      setRows(padded)
-      setResults({})
-      setOutcomes(null)
-      setNotice(note ?? null)
-      check(padded, clubId)
+      applyBulk("Import", padded, { check: true, notice: note })
     },
-    [rows, check, clubId],
+    [applyBulk],
   )
 
   const readFile = useCallback(
@@ -296,16 +303,19 @@ export function MassFixturePlanner({
   )
 
   /** Copies the first value in a column down every started row below it. */
-  const fillDown = useCallback((field: PlannerField) => {
-    setRows((current) => {
+  const fillColumn = useCallback(
+    (field: PlannerField) => {
+      const current = rowsRef.current
       const source = current.find((r) => r[field])?.[field]
-      if (!source) return current
+      if (!source) return
       const lastFilled = current.reduce((acc, r, i) => (isBlankRow(r) ? acc : i), 0)
-      return current.map((r, i) => (i <= lastFilled && !r[field] && !isBlankRow(r) ? { ...r, [field]: source } : r))
-    })
-    setResults({})
-    setOutcomes(null)
-  }, [])
+      applyBulk(
+        "Fill",
+        current.map((r, i) => (i <= lastFilled && !r[field] && !isBlankRow(r) ? { ...r, [field]: source } : r)),
+      )
+    },
+    [applyBulk],
+  )
 
   const create = useCallback(() => {
     setError(null)
@@ -323,6 +333,9 @@ export function MassFixturePlanner({
         const kept = current.filter((r) => isBlankRow(r) || failedKeys.has(r.key))
         return kept.length >= STARTING_ROWS ? kept : [...kept, ...blankRows(STARTING_ROWS - kept.length)]
       })
+      // Undoing back past a creation would put created fixtures back in the
+      // grid as drafts, one Create away from being created twice.
+      setUndoStack([])
       setResults({})
     })
   }, [filled, clubId])
@@ -336,10 +349,12 @@ export function MassFixturePlanner({
   )
 
   const focusRow = useCallback((index: number) => {
-    const input = cellRefs.current.get(`${index}:date`)
+    const input = document.querySelector<HTMLInputElement>(`input[aria-label="Date, row ${index + 1}"]`)
     input?.focus()
     input?.scrollIntoView({ block: "center", behavior: "smooth" })
   }, [])
+
+  const lastUndo = undoStack[undoStack.length - 1]
 
   return (
     <div className="flex flex-col gap-2">
@@ -365,16 +380,10 @@ export function MassFixturePlanner({
           creating={creating}
           tally={tally}
           filledCount={filled.length}
-          canUndo={Boolean(undoRows)}
+          undoLabel={lastUndo?.label ?? null}
           blocked={massBlocked}
           onCheck={() => check(rows, clubId)}
-          onUndo={() => {
-            if (!undoRows) return
-            setRows(undoRows)
-            setUndoRows(null)
-            setResults({})
-            setOutcomes(null)
-          }}
+          onUndo={undo}
           onCreate={create}
           onAddRows={() => setRows((current) => [...current, ...blankRows(10)])}
           onClearBlank={() => setRows((current) => [...current.filter((r) => !isBlankRow(r)), ...blankRows(10)])}
@@ -410,8 +419,8 @@ export function MassFixturePlanner({
       {outcomes && <CreationReport outcomes={outcomes} />}
       {fixtureDayOpen && (
         <FixtureDayPanel
-          teamOptions={teamOptions}
-          venueOptions={venueOptions}
+          teamOptions={teamLabels}
+          venueOptions={venueNames}
           onGenerate={(generated) => {
             loadRows(generated, `${generated.length} rows added for that fixture day. Edit anything before creating.`)
             setFixtureDayOpen(false)
@@ -421,110 +430,21 @@ export function MassFixturePlanner({
       )}
       {attentionRows.length > 0 && <ValidationSummary items={attentionRows} onGo={focusRow} />}
 
-      {/* THE WORKSPACE.
-          `relative` is load-bearing: without a positioned ancestor an
-          absolutely-positioned sr-only label escapes this scroll container
-          and drags the whole page sideways. */}
-      <div className="relative hidden max-h-[calc(100dvh-13rem)] min-h-[30rem] overflow-auto rounded-lg border border-ink/20 bg-white md:block">
-        <table className="w-full border-separate border-spacing-0 text-sm">
-          <caption className="sr-only">
-            Fixture planner grid, {rows.length} rows. Paste a block copied from a spreadsheet into any cell to fill
-            several rows and columns at once. Structured columns offer canonical options as you type.
-          </caption>
-          <thead>
-            <tr>
-              <th
-                scope="col"
-                className="sticky top-0 z-20 w-10 border-r border-b border-ink/20 bg-chalk px-1 py-1.5 text-right text-xs font-medium text-ink-subtle"
-              >
-                <span className="sr-only">Row number</span>#
-              </th>
-              {COLUMNS.map((col) => (
-                <th
-                  key={col.field}
-                  scope="col"
-                  className={`group/head sticky top-0 z-10 border-r border-b border-ink/20 bg-chalk px-1.5 py-1.5 text-left text-xs font-medium whitespace-nowrap text-ink ${col.width}`}
-                >
-                  <span className="flex items-center justify-between gap-1">
-                    {col.label}
-                    <button
-                      type="button"
-                      onClick={() => fillDown(col.field)}
-                      title={`Fill ${col.label} down`}
-                      className="rounded p-0.5 text-ink-subtle opacity-0 outline-none group-hover/head:opacity-100 hover:bg-ink/[0.08] hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-pitch-400"
-                    >
-                      <ArrowDown className="size-3" aria-hidden="true" />
-                      <span className="sr-only">Fill {col.label} down the column</span>
-                    </button>
-                  </span>
-                </th>
-              ))}
-              <th scope="col" className="sticky top-0 z-10 w-8 border-b border-ink/20 bg-chalk px-0 py-1.5">
-                <span className="sr-only">Remove row</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, rowIndex) => {
-              const result = results[row.key]
-              const status = result?.status ?? "blank"
-              return (
-                <tr key={row.key} className="group">
-                  <td className="relative border-r border-b border-ink/12 bg-chalk/50 px-1 text-right align-middle text-xs tabular-nums text-ink-subtle">
-                    <span className={`absolute inset-y-0 left-0 w-[3px] ${STATUS_RAIL[status]}`} aria-hidden="true" />
-                    {rowIndex + 1}
-                    {status !== "blank" && <span className="sr-only"> — {STATUS_WORD[status]}</span>}
-                  </td>
-                  {COLUMNS.map((col, fieldIndex) => (
-                    <td key={col.field} className={`border-r border-b border-ink/12 p-0 ${col.width}`}>
-                      <PlannerGridCell
-                        column={col}
-                        rowIndex={rowIndex}
-                        row={row}
-                        clubId={clubId}
-                        state={result?.cells?.[col.field] ?? "empty"}
-                        teamOptions={teamOptions}
-                        competitionOptions={competitionOptions}
-                        resolution={resolutions[row.key]}
-                        onChange={(value) => setCell(rowIndex, row.key, col.field, value)}
-                        onResolve={(patch) =>
-                          setResolutions((current) => ({
-                            ...current,
-                            [row.key]: {
-                              ...EMPTY_RESOLUTION,
-                              ...current[row.key],
-                              ...patch,
-                            },
-                          }))
-                        }
-                        onPaste={(e) => handlePaste(e, rowIndex, fieldIndex)}
-                        onKeyDown={(e) => handleKeyDown(e, rowIndex, fieldIndex)}
-                        inputRef={(el) => {
-                          const key = `${rowIndex}:${col.field}`
-                          if (el) cellRefs.current.set(key, el)
-                          else cellRefs.current.delete(key)
-                        }}
-                      />
-                    </td>
-                  ))}
-                  <td className="border-b border-ink/12 p-0 text-center">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRows((current) => (current.length <= 1 ? [blankRow()] : current.filter((_, i) => i !== rowIndex)))
-                      }
-                      className="rounded p-1 text-ink-subtle/0 outline-none group-hover:text-ink-subtle hover:!text-destructive-text focus-visible:text-ink-subtle focus-visible:ring-2 focus-visible:ring-pitch-400"
-                    >
-                      <Trash2 className="size-3.5" aria-hidden="true" />
-                      <span className="sr-only">Remove row {rowIndex + 1}</span>
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      <PlannerGrid
+        rows={rows}
+        results={results}
+        minimumRows={STARTING_ROWS}
+        answer={lookups.answer}
+        remember={lookups.remember}
+        pitchCompatible={lookups.pitchCompatible}
+        undoLabel={lastUndo?.label ?? null}
+        onCellChange={setCell}
+        onBulk={applyBulk}
+        onUndo={undo}
+        onNotice={setNotice}
+        onFillColumn={fillColumn}
+        suggestions={suggestionMarks}
+      />
 
       <MobilePlanner
         rows={rows}
@@ -534,12 +454,12 @@ export function MassFixturePlanner({
       />
 
       <datalist id="planner-teams">
-        {teamOptions.map((t) => (
+        {teamLabels.map((t) => (
           <option key={t} value={t} />
         ))}
       </datalist>
       <datalist id="planner-venues">
-        {venueOptions.map((v) => (
+        {venueNames.map((v) => (
           <option key={v} value={v} />
         ))}
       </datalist>
@@ -549,154 +469,6 @@ export function MassFixturePlanner({
         ))}
       </datalist>
     </div>
-  )
-}
-
-/**
- * One cell, routed to the right editor for its column.
- *
- * The lookups fetch on demand and are debounced here rather than in the
- * cell, because a cell should not have to know that some of its options
- * come from the server and some are already in the browser.
- */
-function PlannerGridCell({
-  column,
-  rowIndex,
-  row,
-  clubId,
-  state,
-  teamOptions,
-  competitionOptions,
-  resolution,
-  onChange,
-  onResolve,
-  onPaste,
-  onKeyDown,
-  inputRef,
-}: {
-  column: Column
-  rowIndex: number
-  row: PlannerDraftRow
-  clubId: string
-  state: CellState
-  teamOptions: string[]
-  competitionOptions: string[]
-  resolution?: RowResolution
-  onChange: (value: string) => void
-  onResolve: (patch: Partial<RowResolution>) => void
-  onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
-  inputRef: (el: HTMLInputElement | null) => void
-}) {
-  const [options, setOptions] = useState<LookupOption[]>([])
-  const [loading, setLoading] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const value = row[column.field]
-
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current)
-    },
-    [],
-  )
-
-  const runQuery = useCallback(
-    (query: string) => {
-      if (timer.current) clearTimeout(timer.current)
-
-      // Local lists answer instantly; there is nothing to wait for.
-      if (column.lookup === "team" || column.lookup === "competition") {
-        const source = column.lookup === "team" ? teamOptions : competitionOptions
-        const q = query.trim().toLowerCase()
-        setOptions(source.filter((o) => !q || o.toLowerCase().includes(q)).slice(0, 40).map((o) => ({ id: o, label: o })))
-        return
-      }
-
-      // Loading goes true HERE, not inside the debounce. Otherwise the
-      // cell spends the debounce window telling somebody who is still
-      // typing that there is no match, then starts looking -- a flash of
-      // "no match" is worse than a moment of "searching".
-      setLoading(true)
-      timer.current = setTimeout(async () => {
-        try {
-          if (column.lookup === "oppositionClub") {
-            const clubs = await searchOppositionClubs(query, clubId)
-            setOptions(
-              clubs.map((c) => ({
-                id: c.id,
-                label: c.name,
-                hint: c.kind === "ovalball" ? "On Ovalball" : "Club Directory",
-              })),
-            )
-          } else if (column.lookup === "oppositionTeam") {
-            setOptions(
-              resolution?.oppositionTenantClubId ? await listOppositionTeams(resolution.oppositionTenantClubId, clubId) : [],
-            )
-          } else if (column.lookup === "venue") {
-            setOptions(await searchVenues(query, row.homeAway, resolution?.oppositionDirectoryId ?? null, clubId))
-          } else if (column.lookup === "pitch") {
-            setOptions(await listPitches(resolution?.venueId ?? null, clubId))
-          }
-        } finally {
-          setLoading(false)
-        }
-      }, 180)
-    },
-    [column.lookup, teamOptions, competitionOptions, clubId, resolution, row.homeAway],
-  )
-
-  const label = `${column.label}, row ${rowIndex + 1}`
-
-  if (!column.lookup) {
-    return (
-      <PlainCell
-        value={value}
-        onChange={onChange}
-        onPaste={onPaste}
-        onKeyDown={onKeyDown}
-        inputRef={inputRef}
-        label={label}
-        placeholder={rowIndex === 0 ? column.hint : undefined}
-        state={state}
-      />
-    )
-  }
-
-  return (
-    <LookupCell
-      value={value}
-      onChange={onChange}
-      onCommit={(option) => {
-        // Remembering WHICH record was chosen is what lets the next cell
-        // narrow itself -- their teams, their ground, that ground's pitches.
-        if (column.lookup === "oppositionClub") {
-          onResolve({
-            oppositionDirectoryId: option.id,
-            oppositionTenantClubId: option.hint === "On Ovalball" ? option.id : null,
-          })
-        } else if (column.lookup === "venue") {
-          onResolve({ venueId: option.id })
-        }
-      }}
-      onPaste={onPaste}
-      onKeyDown={onKeyDown}
-      inputRef={inputRef}
-      label={label}
-      placeholder={rowIndex === 0 ? column.hint : undefined}
-      state={state}
-      options={options}
-      loading={loading}
-      onQuery={runQuery}
-      emptyHint={
-        column.lookup === "oppositionTeam"
-          ? "Pick an Ovalball opposition club first, or leave this blank for an external opponent."
-          : column.lookup === "pitch"
-            ? "Pick a venue first to see its pitches."
-            : column.lookup === "oppositionClub"
-              ? "Keep typing — opponents come from Ovalball clubs and the Club Directory."
-              : undefined
-      }
-    />
   )
 }
 
@@ -711,7 +483,7 @@ function PlannerToolbar({
   creating,
   tally,
   filledCount,
-  canUndo,
+  undoLabel,
   blocked,
   onCheck,
   onUndo,
@@ -727,7 +499,8 @@ function PlannerToolbar({
   creating: boolean
   tally: { ready: number; attention: number; requests: number }
   filledCount: number
-  canUndo: boolean
+  /** The last bulk change, named -- "Paste", "Fill", "Clear", "Delete Rows" -- or null when there is none. */
+  undoLabel: string | null
   blocked: boolean
   onCheck: () => void
   onUndo: () => void
@@ -804,10 +577,10 @@ function PlannerToolbar({
         <Eraser className="size-4" aria-hidden="true" />
         Clear Blank Rows
       </button>
-      {canUndo && (
+      {undoLabel && (
         <button type="button" onClick={onUndo} className={ghost}>
           <Undo2 className="size-4" aria-hidden="true" />
-          Undo Paste
+          Undo {undoLabel}
         </button>
       )}
 
@@ -999,16 +772,24 @@ function ValidationSummary({
 
 /** What actually happened, per row, including the rows that did not make it. */
 function CreationReport({ outcomes }: { outcomes: PlannerCreateOutcome[] }) {
-  const created = outcomes.filter((o) => o.created)
-  const requested = created.filter((o) => o.requested).length
+  // A request is not a fixture yet: the other club has to accept it. The report
+  // says which is which, because "created" would be a claim the data does not make.
+  const done = outcomes.filter((o) => o.created)
+  const requested = done.filter((o) => o.requested).length
+  const booked = done.length - requested
   const failed = outcomes.filter((o) => !o.created)
+  const headline = [
+    booked > 0 ? `${booked} fixture${booked === 1 ? "" : "s"} booked` : null,
+    requested > 0 ? `${requested} request${requested === 1 ? "" : "s"} sent to Ovalball clubs to confirm` : null,
+  ]
+    .filter(Boolean)
+    .join(", ")
 
   return (
     <section aria-live="polite" className="rounded-lg border border-pitch-600/30 bg-pitch-600/[0.06] px-3 py-2.5">
       <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
         <CheckCircle2 className="size-4 text-forest-800" aria-hidden="true" />
-        {created.length} fixture{created.length === 1 ? "" : "s"} created
-        {requested > 0 && `, ${requested} sent to the opposition as a request`}
+        {headline || "Nothing was created"}
       </h2>
       {failed.length > 0 ? (
         <>
@@ -1024,11 +805,16 @@ function CreationReport({ outcomes }: { outcomes: PlannerCreateOutcome[] }) {
         </>
       ) : (
         <p className="mt-1 text-sm text-ink-muted">
-          Everything went in. They are on the{" "}
-          <Link href="/fixtures/management" className="font-medium text-forest-800 underline underline-offset-2">
-            Fixture Control Centre
-          </Link>{" "}
-          and the Calendar now.
+          {booked > 0 && (
+            <>
+              Booked fixtures are on the{" "}
+              <Link href="/fixtures/management" className="font-medium text-forest-800 underline underline-offset-2">
+                Fixture Control Centre
+              </Link>{" "}
+              and the Calendar now.{" "}
+            </>
+          )}
+          {requested > 0 && "Requested fixtures join them when the other club accepts."}
         </p>
       )}
     </section>
@@ -1052,7 +838,7 @@ function MobilePlanner({
 }: {
   rows: PlannerDraftRow[]
   results: Record<string, PlannerRowResult>
-  onChange: (rowIndex: number, rowKey: string, field: PlannerField, value: string) => void
+  onChange: (rowIndex: number, field: PlannerField, value: string) => void
   onRemove: (rowIndex: number) => void
 }) {
   const firstBlank = rows.findIndex((r) => isBlankRow(r))
@@ -1098,14 +884,14 @@ function MobilePlanner({
                   {col.label}
                   <input
                     value={row[col.field]}
-                    onChange={(e) => onChange(index, row.key, col.field, e.target.value)}
+                    onChange={(e) => onChange(index, col.field, e.target.value)}
                     placeholder={col.hint}
                     list={
-                      col.lookup === "team"
+                      LOOKUP_BY_FIELD[col.field] === "team"
                         ? "planner-teams"
-                        : col.lookup === "venue"
+                        : LOOKUP_BY_FIELD[col.field] === "venue"
                           ? "planner-venues"
-                          : col.lookup === "competition"
+                          : LOOKUP_BY_FIELD[col.field] === "competition"
                             ? "planner-competitions"
                             : undefined
                     }

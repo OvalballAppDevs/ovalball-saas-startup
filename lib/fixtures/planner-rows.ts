@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
 
+import { parseFixtureType } from "./fixture-type"
 import { matchAndValidateImportRow, type ImportRowMatchResult, type LookupCache } from "./import-engine"
 import {
   isBlankRow,
@@ -89,6 +90,15 @@ export async function validatePlannerRows(
       }
     }
 
+    if (!row.fixtureType) {
+      cells.fixtureType = "empty"
+    } else if (!parseFixtureType(row.fixtureType)) {
+      cells.fixtureType = "error"
+      errors.push(`Type "${row.fixtureType}" is not Friendly, League, Cup or Other.`)
+    } else {
+      cells.fixtureType = "valid"
+    }
+
     if (!row.homeAway) {
       cells.homeAway = "empty"
     } else if (!normaliseHomeAway(row.homeAway)) {
@@ -127,11 +137,14 @@ export async function validatePlannerRows(
           : "empty"
     cells.oppositionTeam = match.resolvedAwayTeamId ? "valid" : row.oppositionTeam ? "review" : "empty"
     cells.competition = match.resolvedCompetitionEditionId ? "valid" : row.competition ? "review" : "empty"
-    cells.venue = match.resolvedVenueId ? "valid" : row.venue ? "review" : "empty"
-    cells.pitch = match.resolvedPitchId ? "valid" : row.pitch ? "review" : "empty"
+    // An away ground that is genuinely the opponent's (their recorded ground,
+    // or an Ovalball club that sets its own venue on accepting) is understood.
+    const awayGroundUnderstood = Boolean(row.venue) && match.homeAway === "Away" && (Boolean(match.resolvedVenueText) || Boolean(match.resolvedAwayTeamId))
+    cells.venue = match.resolvedVenueId || awayGroundUnderstood ? "valid" : row.venue ? "review" : "empty"
+    cells.pitch = match.resolvedPitchId || (Boolean(row.pitch) && match.homeAway === "Away" && Boolean(match.resolvedPitchText)) ? "valid" : row.pitch ? "review" : "empty"
 
     const allErrors = [...new Set([...errors, ...match.errors])]
-    const unreadable = cells.date === "error" || cells.kickoff === "error" || cells.meet === "error" || cells.homeAway === "error"
+    const unreadable = cells.date === "error" || cells.kickoff === "error" || cells.meet === "error" || cells.homeAway === "error" || cells.fixtureType === "error"
 
     const status =
       allErrors.length === 0

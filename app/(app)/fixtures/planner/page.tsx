@@ -1,15 +1,14 @@
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { cookies } from "next/headers"
 import { ArrowRight } from "lucide-react"
 
-import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
+import { plannerClubCandidates } from "@/lib/fixtures/fixture-team-authority"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
-import { fullTeamLabel } from "@/lib/teams/compact-label"
 
 import { MassFixturePlanner } from "./mass-planner"
+import { resolvePlannerScope } from "./planner-scope"
 
 export const metadata = { title: "Mass Fixture Planner" }
 
@@ -22,11 +21,11 @@ export const metadata = { title: "Mass Fixture Planner" }
  * at once, in the shape they already have it in, and then tell them
  * exactly what Ovalball understood before anything is created.
  *
- * Everything this page needs to OFFER -- the club's real teams, its real
- * venues, the competitions it actually plays in -- is read here, server
- * side, from canonical records. The grid never invents an option, and a
- * value typed or pasted into it is matched against these same records on
- * the server before it becomes a fixture.
+ * Everything this page needs to OFFER -- the teams this person may plan for,
+ * the club's real venues and pitches, the competitions it actually plays in --
+ * is read here, server side, from canonical records. The grid never invents an
+ * option, and a value typed, pasted or filled into it is matched against these
+ * same records on the server before it becomes a fixture.
  */
 export default async function MassFixturePlannerPage({
   searchParams,
@@ -39,78 +38,71 @@ export default async function MassFixturePlannerPage({
   } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const ctx = await getSessionContext(supabase, user)
-  const cookieStore = await cookies()
-  const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const { club: requestedClubId } = await searchParams
 
-  // A SITE ADMIN PLANS FOR A CLUB, HAVING CHOSEN ONE.
+  // CLUB ADMINISTRATION, NOT TEAM STAFF.
   //
-  // The planner is club-scoped by construction: it resolves teams, venues
-  // and competitions for one club and hands the engine that club's id. An
-  // account whose active context is not a club has simply not said which
-  // club it means -- which was previously answered with a silent redirect
-  // to /fixtures, so "Plan Fixtures" appeared to do nothing.
-  //
-  // The fix is to ASK, not to widen anything. The chooser lists only clubs
-  // this account may genuinely manage fixtures for; the chosen club is then
-  // put through the SAME capability checks as any other route into this
-  // page, and every read below is scoped to it. A Site Admin does not
-  // become a member of the club and no predicate is relaxed -- they are
-  // still a Site Admin, acting under the Site Admin bypass the capability
-  // engine already grants, on a club they named.
-  const activeClub = activeManageableClubId(ctx, activeContext)
-  const clubId = activeClub ?? requestedClubId ?? null
+  // The Season Planner is bulk fixture planning, which belongs to club-scope
+  // fixture administrators and Site Admins. A club context plans its club;
+  // anybody else names a club (the chooser, or a Site Admin) and is put through
+  // the same bulk authority check the staging tables enforce. A Coach, Team
+  // Manager or Team Admin creates single fixtures through Request a Fixture.
+  const scope = await resolvePlannerScope(requestedClubId)
 
-  if (!clubId) {
-    const choices = await plannerClubChoices(supabase, ctx)
+  if (!scope) {
+    const ctx = await getSessionContext(supabase, user)
+    const choices = ctx.isSiteAdmin ? await activeClubChoices(supabase) : plannerClubCandidates(ctx)
     // NOTHING TO CHOOSE IS NOT A CHOICE.
     //
     // The chooser exists for somebody who may plan for several clubs and
     // has not said which. Showing it to a guardian or a player -- who may
     // plan for none -- put a page headed "Mass Fixture Planner" in front of
-    // somebody who will never use one, which is worse than the redirect it
-    // replaced even though it offers them nothing. They go where they went
-    // before.
-    if (choices.length === 0) redirect("/fixtures")
-    if (choices.length === 1) redirect(`/fixtures/planner?club=${choices[0].id}`)
-    return <PlannerClubChooser choices={choices} />
+    // somebody who will never use one. They go where they went before. A
+    // club that was named and refused is not offered again as a choice.
+    const offered = choices.filter((c) => c.id !== requestedClubId)
+    if (requestedClubId || offered.length === 0) redirect("/fixtures")
+    if (offered.length === 1) redirect(`/fixtures/planner?club=${offered[0].id}`)
+    return <PlannerClubChooser choices={offered} />
   }
 
-  // The capability check is the boundary, and it runs for the named club
-  // whether that club came from the active context or from the chooser.
-  if (!(await hasCapability(supabase, "fixture.create", "club", { clubId }))) redirect("/fixtures")
+  const { universe } = scope
+  const clubId = universe.clubId
+  // The active club context plans its own club. A different club named in the
+  // address is not what is shown, so the address should not say it is.
+  if (requestedClubId && requestedClubId !== clubId) redirect("/fixtures/planner")
   // Not a gate on reaching the page -- a person who may create one fixture
   // may plan one here. It decides whether the page offers mass creation at
   // all, so the limit is stated up front rather than discovered on submit.
   const canCreateMany = await hasCapability(supabase, "fixture.import", "club", { clubId })
 
-  const [{ data: teamRows }, { data: venueRows }, { data: editionRows }, { data: clubRow }] = await Promise.all([
+  const { data: clubRow } = await supabase.from("clubs").select("club_directory(name, rugby_code)").eq("id", clubId).maybeSingle()
+  const rugbyCode = clubRow?.club_directory?.rugby_code ?? null
+
+  const [{ data: venueRows }, { data: pitchRows }, { data: editionRows }] = await Promise.all([
+    supabase.from("venues").select("id, name, is_default_home").eq("club_id", clubId).eq("active", true).order("name"),
     supabase
-      .from("teams")
-      .select("id, rugby_code, category, age_group, gender, squad_designation")
+      .from("club_pitches")
+      .select("id, display_name, venue_id")
       .eq("club_id", clubId)
       .eq("active", true)
-      .order("category")
-      .order("age_group"),
-    supabase.from("venues").select("name").eq("club_id", clubId).eq("active", true).order("name"),
-    supabase
-      .from("competition_editions")
-      .select("id, competitions(name), seasons(name)")
-      .eq("active", true)
-      .limit(200),
-    supabase.from("clubs").select("club_directory(name)").eq("id", clubId).maybeSingle(),
+      .order("sort_order"),
+    // Union and League are isolated in the query: a club is offered its own code's competitions only.
+    rugbyCode
+      ? supabase
+          .from("competition_editions")
+          .select("id, competitions(name), seasons(name)")
+          .eq("active", true)
+          .eq("rugby_code", rugbyCode)
+          .limit(200)
+      : Promise.resolve({ data: [] as { id: string; competitions: { name: string } | null; seasons: { name: string } | null }[] }),
   ])
 
-  const teamOptions = (teamRows ?? []).map((t) =>
-    fullTeamLabel({
-      category: t.category,
-      ageGroup: t.age_group,
-      gender: t.gender,
-      squadDesignation: t.squad_designation,
-      rugbyCode: t.rugby_code,
-    }),
-  )
+  // Our primary ground, for a Home row's suggested venue: the default ground,
+  // or the only one; its pitch only when it has exactly one.
+  const activeVenues = venueRows ?? []
+  const primary = activeVenues.filter((v) => v.is_default_home).length === 1 ? activeVenues.find((v) => v.is_default_home) : activeVenues.length === 1 ? activeVenues[0] : undefined
+  const primaryPitches = primary ? (pitchRows ?? []).filter((p) => p.venue_id === primary.id) : []
+  const ourGround = primary ? { venue: primary.name, pitch: primaryPitches.length === 1 ? primaryPitches[0].display_name : null } : null
 
   return (
     <div className="w-full px-3 py-3 md:px-4 md:py-4">
@@ -118,8 +110,10 @@ export default async function MassFixturePlannerPage({
         clubId={clubId}
         clubName={clubRow?.club_directory?.name ?? "your club"}
         canCreateMany={canCreateMany}
-        teamOptions={teamOptions}
-        venueOptions={(venueRows ?? []).map((v) => v.name)}
+        teams={universe.teams}
+        venues={(venueRows ?? []).map((v) => ({ id: v.id, name: v.name }))}
+        ourGround={ourGround}
+        pitches={(pitchRows ?? []).map((p) => ({ id: p.id, name: p.display_name, venueId: p.venue_id }))}
         competitionOptions={[
           ...new Set(
             (editionRows ?? [])
@@ -133,34 +127,14 @@ export default async function MassFixturePlannerPage({
 }
 
 /**
- * The clubs this account may genuinely plan fixtures for.
- *
- * Two sources, deliberately not merged into one query: a Site Admin may
- * plan for any activated club, because the capability engine already
- * grants them that authority everywhere; anyone else may plan only where
- * they hold club-wide fixture authority through their own membership.
- * Neither branch invents access -- the hasCapability check on the chosen
- * club is what actually decides, and this list only determines what is
- * worth offering.
+ * A Site Admin may plan for any activated club, because the capability engine
+ * already grants them that authority everywhere. The universe check on the
+ * chosen club is still what decides.
  */
-async function plannerClubChoices(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  ctx: Awaited<ReturnType<typeof getSessionContext>>,
-): Promise<{ id: string; name: string }[]> {
-  if (ctx.isSiteAdmin) {
-    const { data } = await supabase
-      .from("clubs")
-      .select("id, club_directory(name)")
-      .eq("status", "active")
-      .limit(300)
-    return (data ?? [])
-      .map((c) => ({ id: c.id, name: c.club_directory?.name ?? "Unnamed club" }))
-      .sort((a, b) => a.name.localeCompare(b.name))
-  }
-
-  return ctx.clubMemberships
-    .filter((m) => m.role === "CLUB_ADMIN" || m.role === "FIXTURE_SECRETARY")
-    .map((m) => ({ id: m.clubId, name: m.clubName ?? "Your club" }))
+async function activeClubChoices(supabase: Awaited<ReturnType<typeof createClient>>): Promise<{ id: string; name: string }[]> {
+  const { data } = await supabase.from("clubs").select("id, club_directory(name)").eq("status", "active").limit(300)
+  return (data ?? [])
+    .map((c) => ({ id: c.id, name: c.club_directory?.name ?? "Unnamed club" }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 

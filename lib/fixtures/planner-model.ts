@@ -13,6 +13,7 @@
  * pipeline.
  */
 
+import { parseFixtureType } from "./fixture-type"
 import { normaliseHeader } from "./header-vocabulary"
 
 export interface PlannerDraftRow {
@@ -29,6 +30,8 @@ export interface PlannerDraftRow {
   venue: string
   pitch: string
   notes: string
+  /** Friendly, League, Cup or Other. Last, so a paste laid out for the older columns still lands where it did. */
+  fixtureType: string
 }
 
 /** The editable fields, in the order the grid shows them. */
@@ -44,6 +47,7 @@ export const PLANNER_FIELDS = [
   "venue",
   "pitch",
   "notes",
+  "fixtureType",
 ] as const
 
 export type PlannerField = (typeof PLANNER_FIELDS)[number]
@@ -85,6 +89,7 @@ export function blankRow(): PlannerDraftRow {
     venue: "",
     pitch: "",
     notes: "",
+    fixtureType: "",
   }
 }
 
@@ -193,6 +198,8 @@ export function toRawRecord(row: PlannerDraftRow): Record<string, string> {
     venue_name: row.venue,
     pitch_name: row.pitch,
     notes: row.notes,
+    // The stored classification for a person's word ("league" -> League Fixture). An unrecognised word is the Type cell's error, not the engine's.
+    game_type: parseFixtureType(row.fixtureType) ?? "",
   }
 }
 
@@ -311,6 +318,14 @@ const FIELD_BY_HEADER: Record<string, PlannerField> = {
   venuename: "venue",
   pitchname: "pitch",
   notes: "notes",
+  type: "fixtureType",
+  fixturetype: "fixtureType",
+  gametype: "fixtureType",
+}
+
+/** The planner column a file's header means, if it means one. */
+export function plannerFieldForHeader(header: string): PlannerField | null {
+  return FIELD_BY_HEADER[normaliseHeader(header)] ?? null
 }
 
 /**
