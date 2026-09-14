@@ -88,6 +88,33 @@ export interface EmailProvider {
   send(email: OutboundEmail, sender: SenderIdentity): Promise<ProviderResult>
 }
 
+/**
+ * Removes credentials from provider text before it is stored or returned.
+ *
+ * A provider failure message can quote the request that failed. When the
+ * configured API key once contained a line break, the runtime's header
+ * validation error repeated the whole Authorization value, and that message
+ * was written to email_deliveries.error_message. Anything headed for the
+ * delivery ledger or a caller passes through here: every known secret is
+ * removed wherever it appears (including its individual lines), then the
+ * authorisation scheme's value and any long token-shaped run.
+ */
+export function redactCredentials(text: string, secrets: ReadonlyArray<string | null | undefined> = []): string {
+  let out = text
+  const fragments = secrets
+    .flatMap((secret) => (secret ? [secret, ...secret.split(/[\r\n]+/)] : []))
+    .map((fragment) => fragment.trim())
+    .filter((fragment) => fragment.length >= 8)
+    .sort((a, b) => b.length - a.length)
+  for (const fragment of fragments) {
+    out = out.split(fragment).join("[redacted]")
+  }
+  return out
+    .replace(/Zoho-enczapikey[\s:=]+[^\s"',;]+/gi, "Zoho-enczapikey [redacted]")
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/g, "$1 [redacted]")
+    .replace(/[A-Za-z0-9+/_=-]{40,}/g, "[redacted]")
+}
+
 const logOnlyProvider: EmailProvider = {
   name: "log-only",
   delivers: false,
@@ -208,7 +235,7 @@ function zeptoMailProvider(apiKey: string, endpoint: string): EmailProvider {
           } catch {
             // Non-JSON error body; the status code stands.
           }
-          return { ok: false, errorCode: code, errorMessage: raw.slice(0, 500) }
+          return { ok: false, errorCode: code, errorMessage: redactCredentials(raw, [apiKey]).slice(0, 500) }
         }
 
         // ZeptoMail's documented success body is
@@ -224,7 +251,7 @@ function zeptoMailProvider(apiKey: string, endpoint: string): EmailProvider {
         return {
           ok: false,
           errorCode: "provider_unreachable",
-          errorMessage: error instanceof Error ? error.message : String(error),
+          errorMessage: redactCredentials(error instanceof Error ? error.message : String(error), [apiKey]).slice(0, 500),
         }
       }
     },

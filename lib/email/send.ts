@@ -7,7 +7,7 @@ import type { Database } from "@/types/database.types"
 
 import { emailEventDefinition, type EmailEventKey } from "./catalogue"
 import type { EmailTemplateContent } from "./contracts"
-import { getSenderIdentity, selectEmailProvider } from "./provider"
+import { getSenderIdentity, redactCredentials, selectEmailProvider } from "./provider"
 import { resolveRecipients, type RecipientRef } from "./recipients"
 import { resolveTemplateContent } from "./resolve-content"
 import { renderEmail, type EmailEventData } from "./templates"
@@ -340,7 +340,9 @@ async function recordResult(
     // so an explicit "no value" is passed as undefined rather than null.
     p_provider_reference: providerReference ?? undefined,
     p_error_code: errorCode ?? undefined,
-    p_error_message: errorMessage ?? undefined,
+    // Redacted again here, whatever the provider did: the ledger is readable
+    // by administrators and must never hold a credential.
+    p_error_message: errorMessage ? redactCredentials(errorMessage, [process.env.ZEPTOMAIL_API_KEY]) : undefined,
     p_suppression_reason: suppressionReason ?? undefined,
   })
   // The mail may genuinely have gone out; losing the RECORD of it is an
