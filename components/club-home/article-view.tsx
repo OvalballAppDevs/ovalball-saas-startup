@@ -104,4 +104,3 @@ export function ArticleView({
     </article>
   )
 }
-
