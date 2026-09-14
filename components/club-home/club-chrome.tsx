@@ -18,7 +18,7 @@ import { FOCUS_HERO, FOCUS_LIGHT } from "./primitives"
  * never stretched. No crest at all shows the club's home shirt, which is the
  * next most recognisable thing a club owns.
  */
-export function CrestPlate({ club, size }: { club: PublicClub; size: "sm" | "xl" }) {
+export function CrestPlate({ club, size }: { club: Pick<PublicClub, "name" | "crestUrl" | "homeKit">; size: "sm" | "md" | "xl" }) {
   const fallback = club.homeKit ? (
     <RugbyKit kit={club.homeKit} clubName={club.name} className="size-full" />
   ) : undefined
@@ -26,11 +26,11 @@ export function CrestPlate({ club, size }: { club: PublicClub; size: "sm" | "xl"
     <span
       className={cn(
         "grid shrink-0 place-items-center bg-white shadow-sm",
-        size === "xl" ? "size-28 rounded-3xl p-3 md:size-40 md:p-4" : "size-9 rounded-lg p-1"
+        size === "xl" ? "size-28 rounded-3xl p-3 md:size-40 md:p-4" : size === "md" ? "size-16 rounded-2xl p-2 md:size-20" : "size-9 rounded-lg p-1"
       )}
       style={{ boxShadow: `0 0 0 1px var(--club-plate-border)` }}
     >
-      <ClubAvatar logoUrl={club.crestUrl} name={club.name} size={size === "xl" ? "xl" : "sm"} plain fallback={fallback} className={size === "sm" ? "size-7" : ""} />
+      <ClubAvatar logoUrl={club.crestUrl} name={club.name} size={size === "xl" ? "xl" : size === "md" ? "md" : "sm"} plain fallback={fallback} className={size === "sm" ? "size-7" : size === "md" ? "md:size-16" : ""} />
     </span>
   )
 }

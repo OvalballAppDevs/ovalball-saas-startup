@@ -204,3 +204,33 @@ test("fixture results use the owning team's score, and one game appears once", (
   assert.deepEqual(merged.map((r) => r.date), ["2026-09-06", "2026-08-30"])
   assert.equal(mergeResults([competition], [sameGame, friendly], 1).length, 1)
 })
+
+// ---------------------------------------------------------------------------
+// The club desk (the club home inside the dashboard)
+// ---------------------------------------------------------------------------
+
+import { deskManageHref, distinctClubIds, splitDeskNotices } from "@/lib/club-public/desk"
+import type { ClubAnnouncement } from "@/lib/club-public/announcements"
+
+const notice = (id: string, priority: ClubAnnouncement["priority"]): ClubAnnouncement => ({
+  id, title: id, body: null, priority, priorityLabel: priority, teamName: null, expiresAt: null, link: null, membersOnly: false,
+})
+
+test("desk: urgent notices are pinned above the viewer's work, and every notice appears exactly once", () => {
+  const all = [notice("a", "URGENT"), notice("b", "IMPORTANT"), notice("c", "NORMAL"), notice("d", "URGENT")]
+  const { pinned, rail } = splitDeskNotices(all)
+  assert.deepEqual(pinned.map((n) => n.id), ["a", "d"])
+  assert.deepEqual(rail.map((n) => n.id), ["b", "c"])
+  assert.equal(pinned.length + rail.length, all.length)
+})
+
+test("desk: a family view lists each of its clubs once, in the order children appear", () => {
+  assert.deepEqual(distinctClubIds([{ clubId: "x" }, { clubId: "y" }, { clubId: "x" }, { clubId: null }, { clubId: "" }]), ["x", "y"])
+})
+
+test("desk: Manage News goes to the club console for club authority, the team console for team authority, and nowhere otherwise", () => {
+  assert.equal(deskManageHref({ club: true, team: true }, "t1"), "/club/settings/news")
+  assert.equal(deskManageHref({ club: false, team: true }, "t1"), "/teams/t1/news")
+  assert.equal(deskManageHref({ club: false, team: true }, null), null)
+  assert.equal(deskManageHref({ club: false, team: false }, "t1"), null)
+})

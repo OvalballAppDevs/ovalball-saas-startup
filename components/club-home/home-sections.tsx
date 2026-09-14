@@ -6,7 +6,8 @@ import { RugbyKit, describeKit } from "@/components/club/rugby-kit"
 import { HUB_GROUPS } from "@/components/rugby-hub/nav/hub-nav-groups"
 import type { PublicClub } from "@/lib/club-public/club"
 import { shortMatchDate } from "@/lib/club-public/format"
-import type { ClubAnnouncement, ClubTeamGroup } from "@/lib/club-public/load-club-home"
+import type { ClubAnnouncement } from "@/lib/club-public/announcements"
+import type { ClubTeamGroup } from "@/lib/club-public/load-club-home"
 import { OUTCOME_WORD, type ClubResult } from "@/lib/club-public/matches"
 import { cn } from "@/lib/utils"
 
@@ -29,50 +30,60 @@ export function AnnouncementBoard({ announcements }: { announcements: ClubAnnoun
         Announcements
       </h2>
       <ul className="grid gap-3">
-        {announcements.map((a) => {
-          const long = (a.body?.length ?? 0) > 160
-          return (
-            <li
-              key={a.id}
-              className={cn(
-                "rounded-2xl border bg-white px-5 py-4",
-                a.priority === "URGENT" ? "border-2 border-(--club-solid)" : a.priority === "IMPORTANT" ? "border-(--club-solid)" : "border-ink/10"
-              )}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <Megaphone aria-hidden="true" className="size-4 text-(--club-ink)" />
-                <Tag tone={a.priority === "NORMAL" ? "neutral" : "strong"}>{a.priorityLabel}</Tag>
-                {a.teamName && <Tag>{a.teamName}</Tag>}
-                {a.membersOnly && <Tag>Members</Tag>}
-              </div>
-              <p className="mt-2 font-semibold text-ink">{a.title}</p>
-              {a.body && !long && <p className="mt-1 text-sm leading-relaxed text-ink/75">{a.body}</p>}
-              {a.body && long && (
-                <details className="group mt-1">
-                  <summary className={cn(FOCUS_LIGHT, "cursor-pointer rounded-sm text-sm font-semibold text-(--club-ink)")}>Read the full notice</summary>
-                  <p className="mt-2 text-sm leading-relaxed text-ink/75">{a.body}</p>
-                </details>
-              )}
-              {a.link && (
-                <a
-                  href={a.link.href}
-                  {...(a.link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  className={cn(TEXT_LINK, "mt-2 inline-flex items-center gap-1 text-sm")}
-                >
-                  {a.link.label}
-                  {a.link.external && (
-                    <>
-                      <ArrowUpRight aria-hidden="true" className="size-3.5" />
-                      <span className="sr-only">(opens in a new tab)</span>
-                    </>
-                  )}
-                </a>
-              )}
-            </li>
-          )
-        })}
+        {announcements.map((a) => (
+          <li key={a.id}>
+            <AnnouncementItem announcement={a} />
+          </li>
+        ))}
       </ul>
     </section>
+  )
+}
+
+/**
+ * One notice. Shared by the public board and the signed-in club desk, so a
+ * notice reads the same wherever someone meets it.
+ */
+export function AnnouncementItem({ announcement: a, compact = false }: { announcement: ClubAnnouncement; compact?: boolean }) {
+  const long = (a.body?.length ?? 0) > (compact ? 90 : 160)
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border bg-white",
+        compact ? "px-4 py-3" : "px-5 py-4",
+        a.priority === "URGENT" ? "border-2 border-(--club-solid)" : a.priority === "IMPORTANT" ? "border-(--club-solid)" : "border-ink/10"
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Megaphone aria-hidden="true" className={cn("size-4", a.priority === "URGENT" ? "text-destructive-text" : "text-(--club-ink)")} />
+        <Tag tone={a.priority === "NORMAL" ? "neutral" : "strong"}>{a.priorityLabel}</Tag>
+        {a.teamName && <Tag>{a.teamName}</Tag>}
+        {a.membersOnly && <Tag>Members</Tag>}
+      </div>
+      <p className={cn("mt-2 font-semibold text-ink", compact && "text-sm")}>{a.title}</p>
+      {a.body && !long && <p className="mt-1 text-sm leading-relaxed text-ink/75">{a.body}</p>}
+      {a.body && long && (
+        <details className="group mt-1">
+          <summary className={cn(FOCUS_LIGHT, "cursor-pointer rounded-sm text-sm font-semibold text-(--club-ink)")}>Read the full notice</summary>
+          <p className="mt-2 text-sm leading-relaxed text-ink/75">{a.body}</p>
+        </details>
+      )}
+      {a.link && (
+        <a
+          href={a.link.href}
+          {...(a.link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+          className={cn(TEXT_LINK, "mt-2 inline-flex items-center gap-1 text-sm")}
+        >
+          {a.link.label}
+          {a.link.external && (
+            <>
+              <ArrowUpRight aria-hidden="true" className="size-3.5" />
+              <span className="sr-only">(opens in a new tab)</span>
+            </>
+          )}
+        </a>
+      )}
+    </div>
   )
 }
 

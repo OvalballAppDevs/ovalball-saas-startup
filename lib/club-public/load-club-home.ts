@@ -3,12 +3,12 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
-import { priorityLabel } from "@/lib/club-content/vocabulary"
 import { groupKeyFor, DIRECTORY_GROUPS, type DirectoryGroupKey } from "@/lib/teams/directory-taxonomy"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import type { Database } from "@/types/database.types"
 
+import { listLiveAnnouncements, type ClubAnnouncement } from "./announcements"
 import { getLeadArticle, listPublishedArticles, type ArticleCard } from "./articles"
 import type { PublicClub } from "./club"
 import {
@@ -40,17 +40,6 @@ import {
  * contacts beyond those the club marked public, who wrote any content.
  */
 
-export interface ClubAnnouncement {
-  id: string
-  title: string
-  body: string | null
-  priority: "NORMAL" | "IMPORTANT" | "URGENT"
-  priorityLabel: string
-  teamName: string | null
-  expiresAt: string | null
-  link: { label: string; href: string; external: boolean } | null
-  membersOnly: boolean
-}
 
 export interface ClubTeamGroup {
   key: DirectoryGroupKey
@@ -74,10 +63,7 @@ export interface ClubHome {
   viewer: { signedIn: boolean; canManageNews: boolean }
 }
 
-const PRIORITY_RANK = { URGENT: 0, IMPORTANT: 1, NORMAL: 2 } as const
-
 export async function loadClubHome(supabase: SupabaseClient<Database>, club: PublicClub, todayIso: string): Promise<ClubHome> {
-  const nowIso = new Date().toISOString()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -87,7 +73,7 @@ export async function loadClubHome(supabase: SupabaseClient<Database>, club: Pub
     lead,
     latestPage,
     teamNewsPage,
-    { data: announcementRows },
+    announcements,
     { data: teamRows },
     { data: fixtureRows },
     { data: participantRows },
@@ -99,15 +85,7 @@ export async function loadClubHome(supabase: SupabaseClient<Database>, club: Pub
     // story is never shown twice on one page.
     listPublishedArticles(supabase, club, { limit: 7, scope: "club" }),
     listPublishedArticles(supabase, club, { limit: 12, scope: "teams" }),
-    supabase
-      .from("club_announcements")
-      .select("id, title, body, priority, visibility, expires_at, link_label, link_url, teams(display_name)")
-      .eq("club_id", club.id)
-      .eq("status", "PUBLISHED")
-      .lte("starts_at", nowIso)
-      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
-      .order("starts_at", { ascending: false })
-      .limit(6),
+    listLiveAnnouncements(supabase, club.id, 6),
     supabase
       .from("teams")
       .select("id, display_name, category, age_group, gender, squad_designation, rugby_code")
@@ -298,23 +276,6 @@ export async function loadClubHome(supabase: SupabaseClient<Database>, club: Pub
     grouped.set(key, [...(grouped.get(key) ?? []), { id: t.id, name: t.display_name, nextMatch: nextByTeam.get(t.id) ?? null }])
   }
   const teamGroups = DIRECTORY_GROUPS.filter((g) => grouped.has(g.key)).map((g) => ({ key: g.key, title: g.title, teams: grouped.get(g.key)! }))
-
-  const announcements: ClubAnnouncement[] = (announcementRows ?? [])
-    .map((a) => {
-      const external = a.link_url ? /^https:\/\//.test(a.link_url) : false
-      return {
-        id: a.id,
-        title: a.title,
-        body: a.body,
-        priority: a.priority as ClubAnnouncement["priority"],
-        priorityLabel: priorityLabel(a.priority),
-        teamName: a.teams?.display_name ?? null,
-        expiresAt: a.expires_at,
-        link: a.link_label && a.link_url ? { label: a.link_label, href: a.link_url, external } : null,
-        membersOnly: a.visibility === "MEMBERS",
-      }
-    })
-    .sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority])
 
   const leadStory = lead ?? latestPage.articles[0] ?? null
   const latest = latestPage.articles.filter((a) => a.id !== leadStory?.id).slice(0, 6)

@@ -59,12 +59,13 @@ const CLUBS = [
 const slugOf = (c) => `uat-home-${c.key}-${TAG}`
 
 function seed() {
-  const users = ["admin", "coach", "member", "otheradmin"]
+  const users = ["admin", "coach", "member", "otheradmin", "parent", "family", "player", "multiclub", "siteadmin"]
   sql(`
 do $$
 declare
   v_id uuid; v_club uuid; v_dir uuid; v_ms uuid;
   v_admin uuid; v_coach uuid; v_member uuid; v_other uuid;
+  v_parent uuid; v_family uuid; v_player uuid; v_multiclub uuid; v_siteadmin uuid; v_saffron uuid; v_child uuid;
 begin
   ${users
     .map(
@@ -99,9 +100,28 @@ begin
   insert into public.team_permissions (membership_id, team_id, permission)
     select v_ms, t.id, 'coach' from public.teams t where t.club_id = v_club and t.age_group = 'U12';
 
-  select id into v_club from public.clubs where slug = '${slugOf(CLUBS[1])}';
-  insert into public.teams (club_id, category, age_group, gender, rugby_code, active) values (v_club, 'youth', 'U12', 'boys', 'union', true);
-  insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_other, 'CLUB_ADMIN', 'active');
+  -- A parent of one Under 12, an adult with their own player profile, and a member of two clubs.
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Uat', 'Clubhome Child ${TAG}', current_date - interval '11 years', 'MALE') returning id into v_child;
+  insert into public.player_team_memberships (player_id, team_id, status) select v_child, t.id, 'active' from public.teams t where t.club_id = v_club and t.age_group = 'U12';
+  insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_parent, v_child, 'guardian', 'active');
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id) values ('Uat', 'Clubhome Player ${TAG}', current_date - interval '15 years', 'MALE', v_player) returning id into v_child;
+  insert into public.player_team_memberships (player_id, team_id, status) select v_child, t.id, 'active' from public.teams t where t.club_id = v_club and t.age_group = 'U16';
+  insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_multiclub, 'BASIC_USER', 'active');
+  -- read_only, deliberately: a Full Site Admin cannot be removed while it is the last one
+  -- (internal.prevent_last_full_admin_lockout), and this suite must clean up in an empty database too.
+  insert into public.site_admins (user_id, status, admin_role) values (v_siteadmin, 'active', 'read_only');
+
+  select id into v_saffron from public.clubs where slug = '${slugOf(CLUBS[1])}';
+  insert into public.teams (club_id, category, age_group, gender, rugby_code, active) values (v_saffron, 'youth', 'U12', 'boys', 'union', true);
+  insert into public.club_memberships (club_id, user_id, role, status) values (v_saffron, v_other, 'CLUB_ADMIN', 'active'), (v_saffron, v_multiclub, 'BASIC_USER', 'active');
+
+  -- A family with one child at each of two clubs: "All Children" spans clubs.
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Uat', 'Clubhome Harbour Kid ${TAG}', current_date - interval '11 years', 'MALE') returning id into v_child;
+  insert into public.player_team_memberships (player_id, team_id, status) select v_child, t.id, 'active' from public.teams t where t.club_id = v_club and t.age_group = 'U12';
+  insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_family, v_child, 'guardian', 'active');
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Uat', 'Clubhome Saffron Kid ${TAG}', current_date - interval '11 years', 'MALE') returning id into v_child;
+  insert into public.player_team_memberships (player_id, team_id, status) select v_child, t.id, 'active' from public.teams t where t.club_id = v_saffron and t.age_group = 'U12';
+  insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_family, v_child, 'guardian', 'active');
 
   select id into v_club from public.clubs where slug = '${slugOf(CLUBS[2])}';
   insert into public.teams (club_id, category, age_group, gender, rugby_code, active) values (v_club, 'youth', 'U15', 'boys', 'union', true);
@@ -126,7 +146,11 @@ insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kic
 insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source)
 values ('${team(blackwater, "U15")}', 'Home', 'Moorside RFC', current_date + 6, '11:30', 'Booked', 'club_created');
 insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source, home_score, away_score, result_status)
-values ('${u12}', 'Away', 'Friendly Rivals RFC ${TAG}', current_date - 6, '10:30', 'Completed', 'club_created', 27, 12, 'final');`)
+values ('${u12}', 'Away', 'Friendly Rivals RFC ${TAG}', current_date - 6, '10:30', 'Completed', 'club_created', 27, 12, 'final');
+insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source, event_type)
+values ('${u12}', 'Not Applicable', 'Half Term ${TAG}', current_date + 1, null, 'Annual Holiday', 'club_created', 'holiday');
+insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source, cancellation_reason)
+values ('${u12}', 'Home', 'Called Off RFC ${TAG}', current_date + 2, '10:30', 'Cancelled', 'club_created', 'Waterlogged pitch');`)
 
   // A public competition result for the club's Under 16s.
   const season = one(`select id from seasons where rugby_code='union' and current_date between coalesce(pre_season_starts_on, starts_on) and ends_on order by starts_on limit 1`)
@@ -272,6 +296,11 @@ begin
       or record_id = any(v_clubs));
   delete from public.club_articles where club_id = any(v_clubs);
   delete from public.club_announcements where club_id = any(v_clubs);
+  delete from public.audit_log where record_id in (select p.id from public.players p where p.surname like 'Clubhome % ${TAG}' or p.surname = 'Clubhome Child ${TAG}' or p.surname = 'Clubhome Player ${TAG}');
+  delete from public.guardians where player_id in (select id from public.players where surname like 'Clubhome %${TAG}');
+  delete from public.player_team_memberships where player_id in (select id from public.players where surname like 'Clubhome %${TAG}');
+  delete from public.players where surname like 'Clubhome %${TAG}';
+  delete from public.site_admins where user_id in (select id from auth.users where email like 'uat.clubhome.%.${TAG}@ovalball.test');
   delete from public.team_permissions where team_id in (select id from public.teams where club_id = any(v_clubs));
   delete from public.club_memberships where club_id = any(v_clubs);
   delete from public.club_kits where club_id = any(v_clubs);
@@ -306,6 +335,32 @@ function watchErrors(page) {
   })
   page.on("pageerror", (e) => errors.push(String(e).slice(0, 160)))
   return errors
+}
+
+
+/** The club desk on /dashboard: what it shows, where, and that the dashboard's own work is still there. */
+async function readDesk(page) {
+  return page.evaluate(() => {
+    const main = document.querySelector("main") ?? document.body
+    const header = main.querySelector("header")
+    const aside = main.querySelector("aside")
+    // textContent, not innerText: innerText applies CSS text-transform, so an
+    // uppercase-styled heading would read "THIS WEEK" and never match its source.
+    const text = (el) => (el ? el.textContent.replace(/\s+/g, " ") : "")
+    const pos = (needle) => text(main).indexOf(needle)
+    return {
+      h1: text(main.querySelector("h1")),
+      headerBg: header ? getComputedStyle(header).backgroundColor : null,
+      headerText: text(header),
+      asideText: text(aside),
+      mainText: text(main),
+      urgentBeforeWeek: pos("Pitches Closed Saturday") > -1 && pos("Pitches Closed Saturday") < pos("This Week"),
+      weekBeforeRail: pos("This Week") > -1 && pos("This Week") < pos("Club Notices"),
+      urgentInRail: text(aside).includes("Pitches Closed Saturday"),
+      manageHref: aside?.querySelector('a[href$="/news"]:not([href^="/club/uat"])')?.getAttribute("href") ?? null,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    }
+  })
 }
 
 async function overflow(page) {
@@ -457,6 +512,58 @@ try {
     const ctx = await newContext(browser, { width: 1280, height: 900 })
     const page = await ctx.newPage()
     await signIn(page, email("admin"))
+
+    // The club desk on the dashboard.
+    const deskErrors = watchErrors(page)
+    await page.goto(`${APP}/dashboard`, { waitUntil: "networkidle" })
+    const desk = await readDesk(page)
+    await page.screenshot({ path: path.join(SHOTS, "dashboard-admin-1280.png"), fullPage: true })
+    record("dashboard: the Club Admin's dashboard wears the club's home kit and names the club", desk.h1.includes("Harbour Vale RUFC") && desk.headerBg === hex(CLUBS[0].primary), `${desk.h1} ${desk.headerBg}`)
+    record("dashboard: the dashboard's own work is still there -- This Week lists the club's fixtures", desk.mainText.includes("This Week") && desk.mainText.includes("Northgate RFC"))
+    record("dashboard: an urgent club notice is pinned above the viewer's work, and not repeated in the rail", desk.urgentBeforeWeek && !desk.urgentInRail)
+    record("dashboard: the club rail carries notices, news, the Rugby Hub and the club page", desk.asideText.includes("Club Notices") && desk.asideText.includes(`Members AGM Tuesday ${TAG}`) && desk.asideText.includes("Club News") && desk.asideText.includes("Explore the Rugby Hub") && desk.asideText.includes("View Club Page"))
+    record("dashboard: Manage News takes a Club Admin to the club's console", desk.manageHref === "/club/settings/news", String(desk.manageHref))
+    const chip = page.getByRole("link", { name: /Your Next Match/ })
+    const chipText = (await chip.count()) ? await chip.innerText() : ""
+    record("dashboard: Your Next Match skips a holiday block and a cancelled fixture", chipText.includes("Northgate RFC") && !chipText.includes("Half Term") && !chipText.includes("Called Off"), chipText.replace(/\s+/g, " "))
+    const holidayRow = page.locator("main li", { hasText: `Half Term ${TAG}` })
+    record("dashboard: a holiday block in This Week is shown, but is not a link to a Match Centre it does not have", (await holidayRow.count()) === 1 && (await holidayRow.locator("a").count()) === 0)
+    await chip.click()
+    await page.waitForURL(/\/fixtures\/[0-9a-f-]{36}/, { timeout: 30000 })
+    await page.waitForLoadState("networkidle").catch(() => {})
+    await page.screenshot({ path: path.join(SHOTS, "dashboard-next-match-centre.png"), fullPage: true })
+    // Identity, not page text: Match Centre names the opponent from its canonical
+    // opponent link, so free-text opposition is not a reliable thing to look for.
+    const expectedFixture = one(`select id from fixtures where owning_team_id='${seeded.u12}' and raw_opposition_text='Northgate RFC'`)
+    const openedFixture = new URL(page.url()).pathname.split("/").pop()
+    record("dashboard: Your Next Match opens that exact fixture's Match Centre", openedFixture === expectedFixture, `opened ${openedFixture}, expected ${expectedFixture}`)
+    await page.goto(`${APP}/dashboard`, { waitUntil: "networkidle" })
+    await page.getByRole("link", { name: /View Club Page/ }).click()
+    await page.waitForURL(new RegExp(`/club/${harbourSlug}$`), { timeout: 30000 })
+    record("dashboard: View Club Page opens the club's canonical public page", (await page.locator("h1").innerText()).includes("Harbour Vale RUFC"), page.url())
+    record("dashboard: the dashboard does not overflow at desktop width", desk.overflow <= 0, `overflow=${desk.overflow}`)
+    const ownDeskErrors = deskErrors.filter((e) => !/Encountered a script tag/.test(e))
+    record("dashboard: the club desk renders with no console errors of its own", ownDeskErrors.length === 0, ownDeskErrors.join(" | "))
+    {
+      const mobile = await newContext(browser, { width: 390, height: 844 })
+      const m = await mobile.newPage()
+      await signIn(m, email("admin"))
+      await m.goto(`${APP}/dashboard`, { waitUntil: "networkidle" })
+      const small = await readDesk(m)
+      await m.screenshot({ path: path.join(SHOTS, "dashboard-admin-390.png"), fullPage: true })
+      record("dashboard @390px: urgent notice, then the viewer's week, then the club rail, with no overflow", small.urgentBeforeWeek && small.weekBeforeRail && small.overflow <= 0, `overflow=${small.overflow}`)
+      const contained = await m.evaluate(() => {
+        const plate = document.querySelector("main header span.grid")
+        const mark = plate?.querySelector("img, svg")
+        if (!plate || !mark) return null
+        const p = plate.getBoundingClientRect()
+        const r = mark.getBoundingClientRect()
+        return r.left >= p.left - 0.5 && r.right <= p.right + 0.5 && r.top >= p.top - 0.5 && r.bottom <= p.bottom + 0.5
+      })
+      record("dashboard @390px: the crest stays inside its plate", contained === true, String(contained))
+      await mobile.close()
+    }
+
     await page.goto(`${APP}/club/settings/news`, { waitUntil: "networkidle" })
     const list = await page.locator("main").innerText()
     record("Club Admin: News & Announcements lists every article in scope, drafts and team news included", list.includes(`Unpublished Draft ${TAG}`) && list.includes("Under 14 Girls Reach County Final") && list.includes("Written by Ovalball"))
@@ -542,6 +649,11 @@ try {
     const ctx = await newContext(browser, { width: 390, height: 844 })
     const page = await ctx.newPage()
     await signIn(page, email("coach"))
+    await page.goto(`${APP}/dashboard`, { waitUntil: "networkidle" })
+    const coachDesk = await readDesk(page)
+    await page.screenshot({ path: path.join(SHOTS, "dashboard-coach-390.png"), fullPage: true })
+    record("dashboard: a coach's dashboard is their club's desk, naming their team", coachDesk.h1.includes("Harbour Vale RUFC") && coachDesk.headerText.includes("Under 12 Boys"), coachDesk.headerText.replace(/\s+/g, " ").slice(0, 120))
+    record("dashboard: Manage News takes a coach to their own team's news", coachDesk.manageHref === `/teams/${seeded.u12}/news`, String(coachDesk.manageHref))
     await page.goto(`${APP}/teams/${seeded.u12}`, { waitUntil: "networkidle" })
     record("coach: the team page offers Team News", (await page.getByRole("link", { name: /Team News/ }).count()) === 1)
     await page.goto(`${APP}/teams/${seeded.u12}/news/new`, { waitUntil: "networkidle" })
@@ -580,6 +692,11 @@ try {
     const ctx = await newContext(browser, { width: 1280, height: 900 })
     const page = await ctx.newPage()
     await signIn(page, email("member"))
+    await page.goto(`${APP}/dashboard`, { waitUntil: "networkidle" })
+    const memberDesk = await readDesk(page)
+    record("dashboard: a member sees the club's members-only notices and news in the rail", memberDesk.asideText.includes(`Members AGM Tuesday ${TAG}`) && memberDesk.asideText.includes("Members Evening Details"), memberDesk.asideText.slice(0, 300))
+    record("dashboard: an ordinary member gets no Manage News, and keeps the dashboard's own guidance", memberDesk.manageHref === null && memberDesk.mainText.includes("No team assigned yet"))
+    record("dashboard: a member's desk names their club and them as a member, never 'Ovalball'", memberDesk.h1.includes("Harbour Vale RUFC") && memberDesk.headerText.includes("Member") && !memberDesk.headerText.includes("Ovalball"), memberDesk.headerText.slice(0, 120))
     await page.goto(home, { waitUntil: "networkidle" })
     const text = await page.locator("main").innerText()
     record("member: members-only news and notices appear for a club member", text.includes("Members Evening Details") && text.includes(`Members AGM Tuesday ${TAG}`))
@@ -591,6 +708,40 @@ try {
     await page.goto(`${APP}/club/settings/news`, { waitUntil: "networkidle" })
     record("member: the publishing console is not available", !/\/club\/settings\/news$/.test(new URL(page.url()).pathname), page.url())
     await ctx.close()
+  }
+
+  // ------------------------------------------- parent, player, family, multi-club, Site Admin
+  {
+    const roleCheck = async (who, width = 1280) => {
+      const ctx = await newContext(browser, { width, height: 900 })
+      const page = await ctx.newPage()
+      await signIn(page, email(who))
+      await page.goto(`${APP}/dashboard`, { waitUntil: "networkidle" })
+      const d = await readDesk(page)
+      const facts = await page.evaluate(() => ({
+        deskRail: Boolean(document.querySelector('aside[aria-label="Club news and notices"]')),
+        yourClubs: document.querySelector('aside[aria-label="Your clubs"]')?.textContent ?? "",
+        h1: document.querySelector("main h1")?.textContent ?? "",
+      }))
+      await page.screenshot({ path: path.join(SHOTS, `dashboard-${who}-${width}.png`), fullPage: true })
+      await ctx.close()
+      return { ...d, ...facts }
+    }
+
+    const parent = await roleCheck("parent", 390)
+    record("dashboard: a parent keeps the children panel and gets their club's desk", parent.deskRail && parent.h1.includes("Harbour Vale RUFC") && /coming up|your children/i.test(parent.mainText) && parent.overflow <= 0, parent.mainText.slice(0, 160))
+
+    const player = await roleCheck("player")
+    record("dashboard: a player gets their club's desk with the club rail", player.deskRail && player.h1.includes("Harbour Vale RUFC"), player.headerText.slice(0, 120))
+
+    const family = await roleCheck("family")
+    record("dashboard: All Children spans two clubs, so it lists Your Clubs instead of one club's branding", !family.deskRail && family.yourClubs.includes("Harbour Vale RUFC") && family.yourClubs.includes("Saffron Hill RFC") && !family.h1.includes("Harbour Vale RUFC"), `${family.h1} | ${family.yourClubs.slice(0, 120)}`)
+
+    const multi = await roleCheck("multiclub")
+    record("dashboard: a member of two clubs gets Your Clubs, not an arbitrary club's desk", !multi.deskRail && multi.yourClubs.includes("Harbour Vale RUFC") && multi.yourClubs.includes("Saffron Hill RFC"), multi.yourClubs.slice(0, 120))
+
+    const admin = await roleCheck("siteadmin")
+    record("dashboard: Site Admin keeps its own Platform dashboard, with no club desk", admin.h1.includes("Platform") && !admin.deskRail && !admin.yourClubs, admin.h1)
   }
 
   // ---------------------------------------------------------- another club
