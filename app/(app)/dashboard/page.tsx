@@ -8,7 +8,6 @@ import { ACTIVE_CONTEXT_COOKIE, isFamilyFacingContext, resolveActiveContext, typ
 import { buildNavItems } from "@/lib/app-context/build-nav-items"
 import { getDashboardData, type FixtureRow, type PendingRequestRow } from "@/lib/app-context/dashboard-data"
 import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
-import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { getCommercialCardsData, getReferralIntelligenceData } from "@/lib/app-context/commercial-intelligence-data"
@@ -43,7 +42,6 @@ export default async function DashboardPage() {
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  await reconcileOverdueFixtureResults(supabase)
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
 

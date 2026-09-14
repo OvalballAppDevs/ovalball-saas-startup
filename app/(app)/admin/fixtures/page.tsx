@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
 
-import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { createClient } from "@/lib/supabase/server"
 
@@ -26,7 +25,6 @@ export default async function AdminFixturesPage({
   // Club Admin must not reach this page while operating as Burnley.
   const activeSiteAdmin = await requireActiveSiteAdmin(supabase, user)
   if (!activeSiteAdmin.ok) redirect("/dashboard")
-  await reconcileOverdueFixtureResults(supabase)
 
   const resolvedParams = await searchParams
 

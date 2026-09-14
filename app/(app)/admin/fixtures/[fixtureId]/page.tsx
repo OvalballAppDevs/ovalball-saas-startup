@@ -5,7 +5,6 @@ import { ChevronLeft, ShieldCheck, Trophy } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext } from "@/lib/app-context/active-context"
 import { ClubAvatar } from "@/components/club/club-avatar"
-import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -33,7 +32,6 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  await reconcileOverdueFixtureResults(supabase)
 
   const { data: overview } = await supabase.from("admin_fixture_overview").select("*").eq("id", fixtureId).maybeSingle()
   if (!overview) notFound()

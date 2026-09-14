@@ -7,7 +7,6 @@ import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, isFamilyFacingContext, r
 import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
 import { getTeamsForActiveContext } from "@/lib/app-context/my-teams"
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
 import { resolveCalendarSeasonContext, clampIsoToRange } from "@/lib/calendar/season-context"
 import { buildCalendarLanes } from "@/lib/calendar/build-lanes"
 import { extendLanesWithReferencedGroups, loadOpponentGroupLabels, resolveMyFixtureSide } from "@/lib/calendar/resolve-entry-participant"
@@ -119,7 +118,6 @@ export default async function CalendarPage({
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  await reconcileOverdueFixtureResults(supabase)
 
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)

@@ -3,7 +3,6 @@ import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getTeamsForActiveContext } from "@/lib/app-context/my-teams"
-import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
 import { canManageClubFixturesAnywhere, getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -47,7 +46,6 @@ export default async function ClubFixtureManagementPage({
   const myClubId = activeManageableClubId(ctx, activeContext)
   if (!myClubId) redirect("/fixtures")
 
-  await reconcileOverdueFixtureResults(supabase)
   const resolvedParams = await searchParams
 
   const membership = ctx.clubMemberships.find((m) => m.clubId === myClubId)

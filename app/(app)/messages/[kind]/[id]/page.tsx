@@ -3,7 +3,6 @@ import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
-import { reconcileOverdueFixtureResults } from "@/lib/app-context/reconcile-results"
 import { resolveParticipantIdentities } from "@/lib/app-context/resolve-identities"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
@@ -107,8 +106,6 @@ export default async function ConversationThreadPage({
 
   let header: ThreadHeader | null = null
   let resultingFixtureId: string | null = null
-
-  if (kind === "fixture") await reconcileOverdueFixtureResults(supabase)
 
   if (kind === "request") {
     const { data: r } = await supabase
