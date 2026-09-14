@@ -140,19 +140,29 @@ begin
     raise exception 'FAIL 8 (D): % attendance row(s) readable anonymously', v_n;
   end if;
 
-  select count(*) into v_n from public.player_team_memberships where team_id = v_team;
-  if v_n = 0 then
-    raise notice 'PASS 9 (D): the squad/participant list is NOT public';
-  else
-    raise exception 'FAIL 9 (D): % roster row(s) readable anonymously', v_n;
-  end if;
+  -- Anonymous callers hold no privilege on children's records at all, which
+  -- is stronger than "returns no rows"; both outcomes pass.
+  begin
+    select count(*) into v_n from public.player_team_memberships where team_id = v_team;
+    if v_n = 0 then
+      raise notice 'PASS 9 (D): the squad/participant list is NOT public';
+    else
+      raise exception 'FAIL 9 (D): % roster row(s) readable anonymously', v_n;
+    end if;
+  exception when insufficient_privilege then
+    raise notice 'PASS 9 (D): the squad/participant list is not even readable anonymously';
+  end;
 
-  select count(*) into v_n from public.players where id = v_child;
-  if v_n = 0 then
-    raise notice 'PASS 10 (D): player records are NOT public';
-  else
-    raise exception 'FAIL 10 (D): % player row(s) readable anonymously', v_n;
-  end if;
+  begin
+    select count(*) into v_n from public.players where id = v_child;
+    if v_n = 0 then
+      raise notice 'PASS 10 (D): player records are NOT public';
+    else
+      raise exception 'FAIL 10 (D): % player row(s) readable anonymously', v_n;
+    end if;
+  exception when insufficient_privilege then
+    raise notice 'PASS 10 (D): player records are not even readable anonymously';
+  end;
 
   -- The conversation is guarded so tightly that anon cannot even EXECUTE the
   -- policy's own helper -- a stronger guarantee than "returns no rows", so

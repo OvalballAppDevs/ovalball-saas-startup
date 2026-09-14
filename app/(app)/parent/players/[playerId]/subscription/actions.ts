@@ -6,6 +6,7 @@ import { activateMembership } from "@/lib/payments/gocardless/activate-membershi
 import { createBillingRequestWithFlow } from "@/lib/payments/gocardless/billing_requests"
 import { cancelMembership } from "@/lib/payments/gocardless/cancel-membership"
 import { getAppBaseUrl } from "@/lib/payments/gocardless/env"
+import { merchantTokenForPayerSubscription } from "@/lib/payments/gocardless/merchant-token"
 import { createClient } from "@/lib/supabase/server"
 
 export type StartEnrolmentResult = { ok: true; authorisationUrl: string } | { ok: false; error: string }
@@ -36,8 +37,8 @@ export async function startSubscriptionEnrolment(playerId: string, programmeId: 
     payerSubscriptionId = claimedId
   }
 
-  const { data: tokenRow, error: tokenError } = await supabase.rpc("get_gocardless_token_for_payer_subscription", { p_payer_subscription_id: payerSubscriptionId }).maybeSingle()
-  if (tokenError || !tokenRow) {
+  const tokenRow = payerSubscriptionId ? await merchantTokenForPayerSubscription(payerSubscriptionId, user.id) : null
+  if (!tokenRow) {
     return { ok: false, error: "This club's GoCardless connection is not ready yet. Please try again later or contact the club." }
   }
 
@@ -95,7 +96,7 @@ export async function activateMembershipAction(playerId: string): Promise<Activa
     return { ok: false, error: "No reconciled Direct Debit mandate found yet for this player." }
   }
 
-  const { data: tokenRow } = await supabase.rpc("get_gocardless_token_for_payer_subscription", { p_payer_subscription_id: payerRow.id }).maybeSingle()
+  const tokenRow = await merchantTokenForPayerSubscription(payerRow.id, user.id)
   if (!tokenRow) {
     return { ok: false, error: "This club's GoCardless connection is not ready yet." }
   }
@@ -147,7 +148,7 @@ export async function cancelOwnMembershipAction(playerId: string, reason: string
   const { data: programmeRow } = await supabase.from("club_subscription_programmes").select("club_id").eq("id", payerRow.programme_id).maybeSingle()
   if (!programmeRow) return { ok: false, error: "Programme not found." }
 
-  const { data: tokenRow } = await supabase.rpc("get_gocardless_token_for_payer_subscription", { p_payer_subscription_id: payerRow.id }).maybeSingle()
+  const tokenRow = await merchantTokenForPayerSubscription(payerRow.id, user.id)
   if (!tokenRow) return { ok: false, error: "This club's GoCardless connection is not ready yet." }
 
   const result = await cancelMembership({

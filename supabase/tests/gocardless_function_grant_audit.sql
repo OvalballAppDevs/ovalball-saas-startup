@@ -35,8 +35,6 @@ declare
     'get_active_subscription_impact',
     'get_enrolment_eligibility',
     'get_gocardless_connection_status',
-    'get_gocardless_token_for_club_admin_action',
-    'get_gocardless_token_for_payer_subscription',
     'record_billing_request',
     'set_obligation_exemption',
     'set_responsible_payer',
@@ -55,6 +53,9 @@ declare
   -- The trusted system/webhook path -- neither anon NOR authenticated
   -- should be able to call these; service_role only.
   v_service_role_only text[] := array[
+    -- The merchant token is read only by server code, never by a session.
+    'get_gocardless_token_for_club_admin_action',
+    'get_gocardless_token_for_payer_subscription',
     'record_gocardless_event',
     'mark_gocardless_event_processed',
     'confirm_gocardless_refund',

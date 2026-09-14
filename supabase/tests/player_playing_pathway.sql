@@ -208,10 +208,16 @@ begin
   insert into public.profiles (id, first_name, surname, email) values (v_outsider,'O','S','pw-outsider@ovalball-test.invalid');
 
   perform set_config('request.jwt.claims', json_build_object('sub',v_outsider,'role','authenticated')::text, true);
-  perform set_config('role','authenticated', true);
-  update public.players set playing_pathway = 'FEMALE' where id = v_player;
-  get diagnostics v_n = row_count;
-  perform set_config('role','postgres', true);
+  -- Browser roles hold no direct write on players at all; a refused
+  -- statement and a statement that reaches no row are both the protection.
+  begin
+    perform set_config('role','authenticated', true);
+    update public.players set playing_pathway = 'FEMALE' where id = v_player;
+    get diagnostics v_n = row_count;
+    perform set_config('role','postgres', true);
+  exception when insufficient_privilege then
+    v_n := 0;
+  end;
 
   if v_n = 0 and (select playing_pathway from public.players where id = v_player) = 'MALE' then
     raise notice 'PASS 17 (I/J): someone with no relationship to this player cannot change their pathway -- the write reaches nothing';

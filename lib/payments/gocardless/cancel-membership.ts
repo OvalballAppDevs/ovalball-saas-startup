@@ -19,9 +19,9 @@ export type CancelMembershipResult = { ok: true } | { ok: false; error: string }
  *
  * Ordering is deliberate and matches the "never mark cancelled locally
  * unless the provider genuinely cancelled it" requirement:
- *   1. authorize (the caller already did this before reaching here, via
- *      get_gocardless_token_for_club_admin_action's own capability check
- *      -- this function never runs without a real granted token)
+ *   1. authorize (the caller already did this before reaching here, and
+ *      the merchant token helper re-checks the same authority in the
+ *      database -- this function never runs without a real granted token)
  *   2. if a real, still-active provider Subscription exists: call
  *      GoCardless's real cancel action (idempotent via a deterministic
  *      key -- a retried/ambiguous-timeout call is always safe)

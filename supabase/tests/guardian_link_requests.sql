@@ -294,9 +294,20 @@ begin
     raise exception 'FAIL 23 (G): pending additional guardian already has access';
   end if;
 
-  -- The existing guardian is a legitimate approver for their own child.
+  -- The guardian who proposed another adult cannot approve that proposal:
+  -- adding an adult to a child is the club's safeguarding decision.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_existing_guardian::text,'role','authenticated')::text, true);
+  begin
+    perform public.approve_guardian_link_request(v_req);
+    raise exception 'FAIL 23b (G): a guardian approved their own additional-guardian request';
+  exception when insufficient_privilege then
+    raise notice 'PASS 23b (G): a guardian cannot approve their own additional-guardian request';
+  end;
+  reset role;
+
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_clubadmin::text,'role','authenticated')::text, true);
   select * into v_r from public.approve_guardian_link_request(v_req);
   reset role;
 

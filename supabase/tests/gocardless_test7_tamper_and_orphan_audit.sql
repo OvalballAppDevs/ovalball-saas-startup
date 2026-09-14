@@ -141,7 +141,7 @@ declare
   v_row record;
 begin
   begin
-    select * into v_row from public.get_gocardless_token_for_club_admin_action((select v::uuid from t_t7_state where k = 'club_id'));
+    select * into v_row from public.get_gocardless_token_for_club_admin_action((select v::uuid from t_t7_state where k = 'club_id'), auth.uid());
     if v_row is null then v_denied := true; end if;
   exception when others then
     v_denied := true;
@@ -154,7 +154,7 @@ begin
 
   v_denied := false;
   begin
-    select * into v_row from public.get_gocardless_token_for_payer_subscription((select v::uuid from t_t7_state where k = 'payer_id'));
+    select * into v_row from public.get_gocardless_token_for_payer_subscription((select v::uuid from t_t7_state where k = 'payer_id'), auth.uid());
     if v_row is null then v_denied := true; end if;
   exception when others then
     v_denied := true;

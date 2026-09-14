@@ -260,6 +260,13 @@ SUITES=(
   # fixes are 20270301000000 and 20270302000000; this holds both, and in
   # particular proves the auth.users cleanup guard stays narrow.
   production_hygiene_scaffold_and_finance
+
+  # Identity and authorisation containment. Each check runs a direct attack as
+  # the real database role -- anonymous, a member, staff, a parent, the server
+  # -- and the perimeter guard stops a later migration quietly reopening a
+  # grant, an unconditional write policy or an anonymous definer function.
+  identity_security_containment
+  security_perimeter_guard
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

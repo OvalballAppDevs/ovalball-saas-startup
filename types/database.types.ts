@@ -20697,14 +20697,14 @@ export type Database = {
         }[]
       }
       get_gocardless_token_for_club_admin_action: {
-        Args: { p_club_id: string }
+        Args: { p_actor_user_id: string; p_club_id: string }
         Returns: {
           access_token: string
           environment: string
         }[]
       }
       get_gocardless_token_for_payer_subscription: {
-        Args: { p_payer_subscription_id: string }
+        Args: { p_actor_user_id: string; p_payer_subscription_id: string }
         Returns: {
           access_token: string
           club_id: string
@@ -22719,6 +22719,10 @@ export type Database = {
           player_count: number
           recipient_count: number
         }[]
+      }
+      set_account_status: {
+        Args: { p_status: string; p_user_id: string }
+        Returns: undefined
       }
       set_capability_override: {
         Args: {

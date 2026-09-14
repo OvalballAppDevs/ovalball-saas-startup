@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react"
 
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { formatMinorUnits } from "@/lib/payments/domain/money"
+import { merchantTokenForPayerSubscription } from "@/lib/payments/gocardless/merchant-token"
 import { reconcileGoCardlessBillingRequest } from "@/lib/payments/gocardless/reconcile"
 import { createClient } from "@/lib/supabase/server"
 
@@ -141,10 +142,10 @@ export async function SubscriptionView({ playerId, isSelf = false }: { playerId:
     // this billing request (no local mandate yet, or GoCardless hasn't
     // confirmed "fulfilled" locally), re-fetch provider truth now,
     // server-side, using a token scoped to THIS payer subscription
-    // (get_gocardless_token_for_payer_subscription itself proves the
+    // (get_gocardless_token_for_payer_subscription re-checks that the
     // current user owns it -- never a client-supplied club/programme pair).
     if (!existingMandate || billingRequest.status !== "fulfilled") {
-      const { data: tokenRow } = await supabase.rpc("get_gocardless_token_for_payer_subscription", { p_payer_subscription_id: payerRow!.id }).maybeSingle()
+      const tokenRow = await merchantTokenForPayerSubscription(payerRow!.id, user.id)
       if (tokenRow) {
         try {
           await reconcileGoCardlessBillingRequest({

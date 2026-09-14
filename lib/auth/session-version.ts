@@ -18,5 +18,10 @@
  * ?reason=updated. A user with no stored row yet (existing sessions from
  * before this mechanism shipped) is treated as compatible and silently
  * backfilled, not force-logged-out.
+ *
+ * The database holds the same number in internal.auth_session_version() and
+ * refuses to store a version above it, so a session cannot declare itself
+ * newer than the server. Bump both together, in one change;
+ * supabase/tests/js/auth_session_version_sync.test.mts fails if they differ.
  */
 export const AUTH_SESSION_VERSION = 1

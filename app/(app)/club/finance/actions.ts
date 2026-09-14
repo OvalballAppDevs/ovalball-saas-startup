@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { cancelMembership } from "@/lib/payments/gocardless/cancel-membership"
+import { merchantTokenForClubPaymentAction } from "@/lib/payments/gocardless/merchant-token"
 import { retryGoCardlessPayment, createGoCardlessRefund } from "@/lib/payments/gocardless/payments"
 import { createClient } from "@/lib/supabase/server"
 
@@ -50,8 +51,8 @@ export async function retryFailedPayment(clubId: string, gocardlessPaymentDbId: 
   if (!payment) return { ok: false, error: "Payment not found." }
   if (payment.status !== "failed") return { ok: false, error: "Only a failed payment can be retried." }
 
-  const { data: tokenRow, error: tokenError } = await auth.supabase.rpc("get_gocardless_token_for_club_admin_action", { p_club_id: clubId }).maybeSingle()
-  if (tokenError || !tokenRow) return { ok: false, error: "GoCardless connection not available." }
+  const tokenRow = await merchantTokenForClubPaymentAction(clubId, auth.userId)
+  if (!tokenRow) return { ok: false, error: "GoCardless connection not available." }
 
   try {
     await retryGoCardlessPayment({ environment: tokenRow.environment as "sandbox" | "production", accessToken: tokenRow.access_token, gcPaymentId: payment.gc_payment_id })
@@ -74,8 +75,8 @@ export async function issueRefund(clubId: string, gocardlessPaymentDbId: string,
   const { data: refundId, error: recordError } = await auth.supabase.rpc("record_payment_refund", { p_payment_id: payment.id, p_amount_minor: amountMinor, p_reason: reason })
   if (recordError) return { ok: false, error: recordError.message }
 
-  const { data: tokenRow, error: tokenError } = await auth.supabase.rpc("get_gocardless_token_for_club_admin_action", { p_club_id: clubId }).maybeSingle()
-  if (tokenError || !tokenRow) return { ok: false, error: "Refund recorded locally, but GoCardless connection is not available to submit it. Contact support." }
+  const tokenRow = await merchantTokenForClubPaymentAction(clubId, auth.userId)
+  if (!tokenRow) return { ok: false, error: "Refund recorded locally, but GoCardless connection is not available to submit it. Contact support." }
 
   try {
     await createGoCardlessRefund({
@@ -124,8 +125,8 @@ export async function cancelMembershipAction(payerSubscriptionId: string, reason
     return { ok: true }
   }
 
-  const { data: tokenRow, error: tokenError } = await supabase.rpc("get_gocardless_token_for_club_admin_action", { p_club_id: programmeRow.club_id }).maybeSingle()
-  if (tokenError || !tokenRow) return { ok: false, error: "GoCardless connection not available." }
+  const tokenRow = await merchantTokenForClubPaymentAction(programmeRow.club_id, user.id)
+  if (!tokenRow) return { ok: false, error: "GoCardless connection not available." }
 
   const result = await cancelMembership({
     supabase,

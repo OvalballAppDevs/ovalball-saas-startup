@@ -40,21 +40,23 @@ declare
   v_n int;
   v_missing text;
   v_job text;
-  -- The five jobs the repository schedules, and the function each one calls.
-  -- If a sixth is ever added, it belongs in this list.
+  -- The jobs the repository schedules, and the function each one calls.
+  -- If another is ever added, it belongs in this list.
   v_jobs text[] := array[
     'process-due-season-transitions',
     'complete-overdue-fixtures',
     'process-due-trials',
     'expire-due-dispensations',
-    'send-fixture-attendance-invitations'
+    'send-fixture-attendance-invitations',
+    'reconcile-overdue-fixture-results'
   ];
   v_functions text[] := array[
     'internal.process_due_season_transitions',
     'internal.complete_overdue_fixtures',
     'internal.process_due_trials',
     'internal.expire_due_dispensations',
-    'internal.send_due_fixture_attendance_invitations'
+    'internal.send_due_fixture_attendance_invitations',
+    'public.reconcile_overdue_fixture_results'
   ];
 begin
   v_cron_db := nullif(current_setting('cron.database_name', true), '');

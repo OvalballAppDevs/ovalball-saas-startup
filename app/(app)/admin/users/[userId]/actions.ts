@@ -76,6 +76,10 @@ export async function getPersonalDetails(userId: string): Promise<PersonalDetail
  * try will fail exactly as if they had no membership at all. A Site Admin
  * cannot suspend their own account (the same self-lockout guard as
  * revokeSiteAdmin).
+ *
+ * The change goes through set_account_status(), which repeats the profile
+ * and self-change checks in the database: account_status is not writable by
+ * any browser role, so a suspended user cannot reactivate themselves.
  */
 export async function suspendUser(targetUserId: string): Promise<ActionResult> {
   const supabase = await createClient()
@@ -86,7 +90,7 @@ export async function suspendUser(targetUserId: string): Promise<ActionResult> {
     return { ok: false, error: "You cannot suspend your own account." }
   }
 
-  const { error } = await supabase.from("profiles").update({ account_status: "suspended" }).eq("id", targetUserId)
+  const { error } = await supabase.rpc("set_account_status", { p_user_id: targetUserId, p_status: "suspended" })
 
   if (error) {
     console.error("suspendUser failed:", error)
@@ -102,7 +106,11 @@ export async function reactivateUser(targetUserId: string): Promise<ActionResult
   const auth = await requireSiteAdmin(supabase, ['full', 'user_access'])
   if (!auth.ok) return { ok: false, error: auth.error }
 
-  const { error } = await supabase.from("profiles").update({ account_status: "active" }).eq("id", targetUserId)
+  if (auth.user.id === targetUserId) {
+    return { ok: false, error: "You cannot change the status of your own account." }
+  }
+
+  const { error } = await supabase.rpc("set_account_status", { p_user_id: targetUserId, p_status: "active" })
 
   if (error) {
     console.error("reactivateUser failed:", error)
