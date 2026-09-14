@@ -1,5 +1,5 @@
-// OPTIONAL vs MANDATORY NOTIFICATIONS, AND THE EMAIL CHANNEL
-// (brief §4, §5, §8, §9).
+// OPTIONAL vs MANDATORY NOTIFICATIONS IN THE PRODUCT
+// (brief §4, §5).
 //
 // Every preference is changed through the real settings UI, every event is
 // triggered through the real product path, and every assertion is scoped to
@@ -7,14 +7,19 @@
 // global count.
 //
 // The pairing that matters: `fixture_updates` is an optional topic whose
-// `fixture_cancelled` type carries mandatory_override, while its
-// `match_cancelled` EMAIL is classified OPTIONAL_OPERATIONAL. So switching
-// the topic off must still deliver the cancellation in the product, and
-// switching the email off must still stop the email. One cancellation
-// proves both halves.
+// `fixture_cancelled` type carries mandatory_override, so switching the
+// topic off must still deliver the cancellation in the product.
+//
+// The email half (§8, §9: `match_cancelled` is OPTIONAL_OPERATIONAL, so
+// switching the email off must stop it and switching it on must send it) is
+// proved in 13-email-channel.mjs, on a person the event actually emails. It
+// used to be asserted here against the Club Admin's mailbox, but
+// `match_cancelled` goes to the fixture's participant families
+// (public.fixture_notification_recipients), never to a Club Admin, so "no
+// email while off" proved nothing and "email once on" could never pass.
 
 import { execFileSync } from "node:child_process"
-import { launch, newContext, signIn, APP, MAILPIT, record, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
@@ -24,6 +29,73 @@ const ACTOR = { email: "uat.team.admin@ovalball.test" }                  // canc
 const SENDER = { email: "uat.guardian.one@ovalball.test", name: "Marcus Bell" }
 
 const rId = sql(`select id from auth.users where email = '${R.email}';`)
+
+// ---------------------------------------------------------------------
+// ISOLATION. This suite switches the recipient's notification preferences
+// off and back on through the settings UI. Those rows are shared UAT state:
+// an earlier version restored them only on its happy path, crashed on
+// fixtures it expected somebody else to have created, and left uat.coach's
+// Fixture updates switched off for every later run. So the exact rows are
+// captured before anything happens and put back on ANY exit -- success, a
+// failed assertion, a thrown error or a signal -- and the fixtures the
+// suite cancels are its own, created here and removed afterwards.
+// ---------------------------------------------------------------------
+const TAG = Date.now().toString(36).slice(-6).toUpperCase()
+const TOUCHED_TOPICS = ["messages", "fixture_updates"]
+const preferenceRows = () =>
+  sql(`select coalesce(json_agg(row_to_json(p) order by p.topic_key)::text, '[]') from public.notification_preferences p
+       where p.user_id = '${rId}' and p.topic_key in (${TOUCHED_TOPICS.map((t) => `'${t}'`).join(", ")});`)
+const ORIGINAL_PREFERENCES = preferenceRows()
+
+const TEAM = sql(`select tp.team_id from public.team_permissions tp
+  join public.club_memberships cm on cm.id = tp.membership_id
+  where cm.user_id = (select id from auth.users where email = '${ACTOR.email}') and tp.permission = 'team_admin' limit 1;`)
+const opponent = (name) => `QA-NOTIF Opponent ${name} ${TAG}`
+function teardown() {
+  const mine = `select id from public.fixtures where notes = 'qa-notif-${TAG}'`
+  const steps = [
+    // Preferences first: they are the state other suites read.
+    `begin;
+     delete from public.notification_preferences where user_id = '${rId}' and topic_key in (${TOUCHED_TOPICS.map((t) => `'${t}'`).join(", ")});
+     insert into public.notification_preferences select * from json_populate_recordset(null::public.notification_preferences, '${ORIGINAL_PREFERENCES}'::json);
+     commit;`,
+    `delete from public.notifications where data ->> 'fixture_id' in (select id::text from (${mine}) f)`,
+    `delete from public.email_deliveries d using (${mine}) f where d.event_key = 'match_cancelled' and d.idempotency_key like 'match_cancelled:' || f.id || '%'`,
+    `delete from public.fixture_messages where fixture_id in (${mine}) or body like 'QA-NOTIF optional ${TAG}%'`,
+    `delete from public.player_fixture_attendance where fixture_id in (${mine})`,
+    `delete from public.fixture_conversation_participants where fixture_id in (${mine})`,
+    `delete from public.fixture_conversation_subscriptions where fixture_id in (${mine})`,
+    `delete from public.fixtures where notes = 'qa-notif-${TAG}'`,
+  ]
+  for (const step of steps) {
+    try {
+      sql(step)
+    } catch (e) {
+      console.error("teardown step failed:", String(e).slice(0, 300))
+    }
+  }
+}
+let tornDown = false
+// A write already in flight when the run is stopped can land after the first
+// restore, so the exit path restores, waits, and restores again.
+const pauseSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+process.on("exit", () => {
+  if (tornDown) return
+  tornDown = true
+  try {
+    teardown()
+    pauseSync(3000)
+    teardown()
+  } catch (e) {
+    console.error("teardown failed:", e)
+  }
+})
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(130))
+
+for (const [name, days] of [["Two", 22]]) {
+  sql(`insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source, notes, game_type)
+       values ('${TEAM}', 'Home', '${opponent(name)}', current_date + ${days}, '10:30', 'Booked', 'club_created', 'qa-notif-${TAG}', 'Friendly');`)
+}
 
 /** Notifications of one type for ONE person since a recorded moment. */
 function notificationsSince(type, isoTime) {
@@ -39,14 +111,6 @@ function dbNow() {
   return sql("select now()::text;")
 }
 
-async function mailSince(toAddress, sinceMs) {
-  const res = await fetch(
-    `${MAILPIT}/api/v1/search?query=${encodeURIComponent("to:" + toAddress)}&limit=30`,
-  )
-  if (!res.ok) return []
-  const { messages = [] } = await res.json()
-  return messages.filter((m) => new Date(m.Created).getTime() >= sinceMs)
-}
 
 const browser = await launch()
 const ctxR = await newContext(browser)
@@ -54,12 +118,33 @@ const r = await ctxR.newPage()
 await signIn(r, R.email)
 
 /** Set one preference switch through the settings UI and confirm it stuck. */
+// The switch is optimistic: aria-checked flips before the server action has
+// written anything. A preference counts as set only once the stored row says
+// so -- otherwise a write still in flight can land after the teardown has put
+// the original back, and leave the row changed after all. No row means the
+// product default, which is on for both channels.
+const PREFERENCE_COLUMN = {
+  "Messages in app": ["messages", "in_app_enabled"],
+  "Fixture updates in app": ["fixture_updates", "in_app_enabled"],
+  "Fixture updates by email": ["fixture_updates", "email_enabled"],
+}
+async function storedAs(label, on) {
+  const [topic, column] = PREFERENCE_COLUMN[label]
+  for (let i = 0; i < 30; i++) {
+    const stored = sql(`select coalesce((select ${column}::text from public.notification_preferences
+      where user_id = '${rId}' and topic_key = '${topic}'), 'true');`)
+    if (stored === String(on)) return true
+    await new Promise((res) => setTimeout(res, 500))
+  }
+  return false
+}
+
 async function setPreference(label, on) {
   await r.goto(`${APP}/account`, { waitUntil: "domcontentloaded" })
   await r.waitForLoadState("networkidle").catch(() => {})
   const sw = r.getByRole("switch", { name: label })
   const now = (await sw.getAttribute("aria-checked")) === "true"
-  if (now === on) return true
+  if (now === on) return storedAs(label, on)
   await sw.click()
   try {
     await r.waitForFunction(
@@ -69,10 +154,10 @@ async function setPreference(label, on) {
       [label, on],
       { timeout: 15000 },
     )
-    return true
   } catch {
     return false
   }
+  return storedAs(label, on)
 }
 
 // =====================================================================
@@ -94,7 +179,7 @@ if (await cand.count()) await cand.click()
 else await s.getByRole("link", { name: new RegExp(R.name, "i") }).first().click()
 await s.waitForURL(/\/messages\/direct\/[0-9a-f-]{36}/, { timeout: 20000 })
 
-const optionalMsg = `QA-NOTIF optional ${Date.now()}`
+const optionalMsg = `QA-NOTIF optional ${TAG} ${Date.now()}`
 await s.locator('textarea[aria-label="Message"]').evaluate((el) => el.focus())
 await s.keyboard.type(optionalMsg)
 await s.getByRole("button", { name: "Send message" }).click()
@@ -118,11 +203,12 @@ record("§4 the message itself still exists -- only the notification was decline
 record("§4 'Messages in app' restored", await setPreference("Messages in app", true))
 
 // =====================================================================
-// §5 + §8 A MANDATORY CANCELLATION ARRIVES ANYWAY, AND ITS OPTIONAL
-//          EMAIL DOES NOT
+// §5 A MANDATORY CANCELLATION ARRIVES ANYWAY
 // =====================================================================
 record("§5 'Fixture updates in app' switched off", await setPreference("Fixture updates in app", false))
-record("§8 'Fixture updates by email' switched off", await setPreference("Fixture updates by email", false))
+// Proves the teardown on a failure path: with this set, the run dies here,
+// with the preference switched off, and must still leave it as it found it.
+if (process.env.QA_ISOLATION_PROOF_THROW) throw new Error("QA_ISOLATION_PROOF_THROW: failing on purpose after switching preferences off")
 
 const ctxA = await newContext(browser)
 const actor = await ctxA.newPage()
@@ -152,9 +238,8 @@ async function cancelFixtureViaUI(opponentText, reason) {
   return sql(`select status from public.fixtures where raw_opposition_text = '${opponentText}';`)
 }
 
-const mailBase1 = Date.now()
 const t1 = dbNow()
-const status1 = await cancelFixtureViaUI("QA-NOTIF Opponent Two", "QA-NOTIF mandatory delivery check")
+const status1 = await cancelFixtureViaUI(opponent("Two"), "QA-NOTIF mandatory delivery check")
 record("§5 the fixture is cancelled through the product UI", status1 === "Cancelled", status1)
 
 const mandatoryNotifs = notificationsSince("fixture_cancelled", t1)
@@ -166,48 +251,16 @@ const destination = sql(
    where user_id = '${rId}' and type = 'fixture_cancelled' and created_at > '${t1}' limit 1;`,
 )
 const expectedFixture = sql(
-  "select id from public.fixtures where raw_opposition_text = 'QA-NOTIF Opponent Two';",
+  `select id from public.fixtures where raw_opposition_text = '${opponent("Two")}';`,
 )
 record("§5 the notification points at the fixture that was cancelled",
   destination === expectedFixture, `${destination}`)
 
-const mailAfterOff = await mailSince(R.email, mailBase1)
-const cancelMailOff = mailAfterOff.filter((m) => !/sign-in link/i.test(m.Subject || ""))
-record("§8 no optional cancellation email is sent while email is off",
-  cancelMailOff.length === 0,
-  cancelMailOff.map((m) => m.Subject).join(", ") || "none",
-)
-
-// =====================================================================
-// §9 THE SAME EVENT, EMAIL SWITCHED BACK ON
-// =====================================================================
-record("§9 'Fixture updates by email' switched on", await setPreference("Fixture updates by email", true))
-
-const mailBase2 = Date.now()
-const t2 = dbNow()
-const status2 = await cancelFixtureViaUI("QA-NOTIF Opponent Three", "QA-NOTIF email delivery check")
-record("§9 the second fixture is cancelled through the product UI", status2 === "Cancelled", status2)
-
-// Observable condition with a timeout -- never a fixed sleep as the proof.
-let cancelMailOn = []
-for (let i = 0; i < 30 && cancelMailOn.length === 0; i++) {
-  await new Promise((res) => setTimeout(res, 1000))
-  cancelMailOn = (await mailSince(R.email, mailBase2)).filter(
-    (m) => !/sign-in link/i.test(m.Subject || ""),
-  )
-}
-record("§9 the optional email IS delivered once the channel is on",
-  cancelMailOn.length > 0,
-  cancelMailOn.map((m) => `${m.Created} "${m.Subject}"`).join(" | ") || "no email within 30s",
-)
-
-// The in-app half is unaffected by the email switch.
-const mandatoryNotifs2 = notificationsSince("fixture_cancelled", t2)
-record("§9 the in-app mandatory notification is independent of the email channel",
-  mandatoryNotifs2 >= 1, `${mandatoryNotifs2} fixture_cancelled row(s)`)
-
-// Restore the recipient's preferences to the UAT baseline.
-record("§9 'Fixture updates in app' restored", await setPreference("Fixture updates in app", true))
+record("§5 'Fixture updates in app' switched back on", await setPreference("Fixture updates in app", true))
 
 await browser.close()
+teardown()
+tornDown = true
+record("isolation: the recipient's preference rows are exactly as they were before the run", preferenceRows() === ORIGINAL_PREFERENCES)
+record("isolation: this run's fixtures are gone", sql(`select count(*) from public.fixtures where notes = 'qa-notif-${TAG}'`) === "0")
 process.exit(summarise() ? 0 : 1)

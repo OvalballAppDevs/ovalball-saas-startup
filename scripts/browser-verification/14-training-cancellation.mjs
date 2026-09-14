@@ -64,6 +64,38 @@ const recipientEmail = sql(`
 record("§6 a real training-cancellation recipient was identified",
   /@/.test(recipientEmail), recipientEmail || "(none)")
 
+// ISOLATION. The recipient's "Calendar and training updates" row is shared
+// UAT state, switched off below through the settings UI. Capture it exactly
+// and put it back on ANY exit, not only when every step before the restore
+// succeeds.
+const recipientId = sql(`select id from auth.users where email = '${recipientEmail}';`)
+const preferenceRow = () =>
+  sql(`select coalesce(json_agg(row_to_json(p))::text, '[]') from public.notification_preferences p
+       where p.user_id = '${recipientId}' and p.topic_key = 'calendar_training_updates';`)
+const ORIGINAL_PREFERENCE = preferenceRow()
+function restorePreference() {
+  sql(`begin;
+    delete from public.notification_preferences where user_id = '${recipientId}' and topic_key = 'calendar_training_updates';
+    insert into public.notification_preferences select * from json_populate_recordset(null::public.notification_preferences, '${ORIGINAL_PREFERENCE}'::json);
+    commit;`)
+}
+let restored = false
+// A write already in flight when the run is stopped can land after the first
+// restore, so the exit path restores, waits, and restores again.
+const pauseSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+process.on("exit", () => {
+  if (restored) return
+  restored = true
+  try {
+    restorePreference()
+    pauseSync(3000)
+    restorePreference()
+  } catch (e) {
+    console.error("preference restore failed:", e)
+  }
+})
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(130))
+
 const ctxR = await newContext(browser)
 const r = await ctxR.newPage()
 await signIn(r, recipientEmail)
@@ -165,8 +197,11 @@ await r.waitForLoadState("networkidle").catch(() => {})
 const sw2 = r.getByRole("switch", { name: label })
 if ((await sw2.getAttribute("aria-checked")) !== "true") await sw2.click()
 await r.waitForTimeout(2500)
-record("§6 the preference is restored",
+record("§6 the preference is switched back on in the settings UI",
   (await sw2.getAttribute("aria-checked")) === "true")
 
 await browser.close()
+restorePreference()
+restored = true
+record("isolation: the recipient's preference row is exactly as it was before the run", preferenceRow() === ORIGINAL_PREFERENCE)
 process.exit(summarise() ? 0 : 1)
