@@ -4077,53 +4077,868 @@ export type Database = {
           },
         ]
       }
+      competition_group_members: {
+        Row: {
+          group_id: string
+          participant_id: string
+          position: number
+          stage_id: string
+        }
+        Insert: {
+          group_id: string
+          participant_id: string
+          position?: number
+          stage_id: string
+        }
+        Update: {
+          group_id?: string
+          participant_id?: string
+          position?: number
+          stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "competition_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_group_members_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "competition_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_group_members_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "competition_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_groups: {
+        Row: {
+          id: string
+          name: string
+          sort_order: number
+          stage_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          sort_order?: number
+          stage_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          sort_order?: number
+          stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_groups_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "competition_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_match_fixtures: {
+        Row: {
+          created_at: string
+          fixture_id: string
+          match_id: string
+        }
+        Insert: {
+          created_at?: string
+          fixture_id: string
+          match_id: string
+        }
+        Update: {
+          created_at?: string
+          fixture_id?: string
+          match_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_match_fixtures_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: true
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_match_fixtures_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: true
+            referencedRelation: "fixture_season_identity"
+            referencedColumns: ["fixture_id"]
+          },
+          {
+            foreignKeyName: "competition_match_fixtures_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: true
+            referencedRelation: "fixtures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_match_fixtures_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: true
+            referencedRelation: "public_club_fixtures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_match_fixtures_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "competition_matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_match_verifications: {
+        Row: {
+          club_id: string
+          created_at: string
+          id: string
+          match_id: string
+          message: string | null
+          participant_id: string
+          proposed_date: string | null
+          proposed_kickoff_time: string | null
+          proposed_pitch_id: string | null
+          proposed_venue_id: string | null
+          responded_at: string | null
+          responded_by: string | null
+          status: string
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          club_id: string
+          created_at?: string
+          id?: string
+          match_id: string
+          message?: string | null
+          participant_id: string
+          proposed_date?: string | null
+          proposed_kickoff_time?: string | null
+          proposed_pitch_id?: string | null
+          proposed_venue_id?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          club_id?: string
+          created_at?: string
+          id?: string
+          match_id?: string
+          message?: string | null
+          participant_id?: string
+          proposed_date?: string | null
+          proposed_kickoff_time?: string | null
+          proposed_pitch_id?: string | null
+          proposed_venue_id?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_match_verifications_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "competition_matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "competition_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_proposed_pitch_id_fkey"
+            columns: ["proposed_pitch_id"]
+            isOneToOne: false
+            referencedRelation: "club_pitches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_proposed_venue_id_fkey"
+            columns: ["proposed_venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "competition_match_verifications_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_matches: {
+        Row: {
+          away_participant_id: string | null
+          away_score: number | null
+          away_source: Json | null
+          bracket_slot: number | null
+          created_at: string
+          created_by: string | null
+          edition_id: string
+          group_id: string | null
+          home_participant_id: string | null
+          home_score: number | null
+          home_source: Json | null
+          id: string
+          is_public: boolean
+          kickoff_time: string | null
+          match_date: string | null
+          notes: string | null
+          pitch_id: string | null
+          result_source: string | null
+          round_number: number | null
+          stage_id: string
+          status: string
+          sync_error: string | null
+          updated_at: string
+          updated_by: string | null
+          venue_id: string | null
+          venue_text: string | null
+          verification_state: string
+          winner_participant_id: string | null
+        }
+        Insert: {
+          away_participant_id?: string | null
+          away_score?: number | null
+          away_source?: Json | null
+          bracket_slot?: number | null
+          created_at?: string
+          created_by?: string | null
+          edition_id: string
+          group_id?: string | null
+          home_participant_id?: string | null
+          home_score?: number | null
+          home_source?: Json | null
+          id?: string
+          is_public?: boolean
+          kickoff_time?: string | null
+          match_date?: string | null
+          notes?: string | null
+          pitch_id?: string | null
+          result_source?: string | null
+          round_number?: number | null
+          stage_id: string
+          status?: string
+          sync_error?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string | null
+          venue_text?: string | null
+          verification_state?: string
+          winner_participant_id?: string | null
+        }
+        Update: {
+          away_participant_id?: string | null
+          away_score?: number | null
+          away_source?: Json | null
+          bracket_slot?: number | null
+          created_at?: string
+          created_by?: string | null
+          edition_id?: string
+          group_id?: string | null
+          home_participant_id?: string | null
+          home_score?: number | null
+          home_source?: Json | null
+          id?: string
+          is_public?: boolean
+          kickoff_time?: string | null
+          match_date?: string | null
+          notes?: string | null
+          pitch_id?: string | null
+          result_source?: string | null
+          round_number?: number | null
+          stage_id?: string
+          status?: string
+          sync_error?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string | null
+          venue_text?: string | null
+          verification_state?: string
+          winner_participant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_matches_away_participant_id_fkey"
+            columns: ["away_participant_id"]
+            isOneToOne: false
+            referencedRelation: "competition_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_matches_edition_id_fkey"
+            columns: ["edition_id"]
+            isOneToOne: false
+            referencedRelation: "competition_editions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_matches_edition_id_fkey"
+            columns: ["edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
+          },
+          {
+            foreignKeyName: "competition_matches_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "competition_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_matches_home_participant_id_fkey"
+            columns: ["home_participant_id"]
+            isOneToOne: false
+            referencedRelation: "competition_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_matches_pitch_id_fkey"
+            columns: ["pitch_id"]
+            isOneToOne: false
+            referencedRelation: "club_pitches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_matches_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "competition_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_matches_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_matches_winner_participant_id_fkey"
+            columns: ["winner_participant_id"]
+            isOneToOne: false
+            referencedRelation: "competition_participants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_participants: {
+        Row: {
+          canonical_team_type_id: string | null
+          club_directory_id: string
+          club_id: string | null
+          created_at: string
+          created_by: string | null
+          edition_id: string
+          id: string
+          seed: number | null
+          slot: number
+          squad_label: string | null
+          status: string
+          team_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          canonical_team_type_id?: string | null
+          club_directory_id: string
+          club_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          edition_id: string
+          id?: string
+          seed?: number | null
+          slot: number
+          squad_label?: string | null
+          status?: string
+          team_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          canonical_team_type_id?: string | null
+          club_directory_id?: string
+          club_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          edition_id?: string
+          id?: string
+          seed?: number | null
+          slot?: number
+          squad_label?: string | null
+          status?: string
+          team_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_participants_canonical_team_type_id_fkey"
+            columns: ["canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_participants_canonical_team_type_id_fkey"
+            columns: ["canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["directory_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_directory_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "club_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_participants_edition_id_fkey"
+            columns: ["edition_id"]
+            isOneToOne: false
+            referencedRelation: "competition_editions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_participants_edition_id_fkey"
+            columns: ["edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "competition_participants_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_rounds: {
+        Row: {
+          id: string
+          name: string | null
+          round_date: string | null
+          round_number: number
+          stage_id: string
+        }
+        Insert: {
+          id?: string
+          name?: string | null
+          round_date?: string | null
+          round_number: number
+          stage_id: string
+        }
+        Update: {
+          id?: string
+          name?: string | null
+          round_date?: string | null
+          round_number?: number
+          stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_rounds_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "competition_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_stages: {
+        Row: {
+          created_at: string
+          edition_id: string
+          id: string
+          kind: string
+          name: string
+          settings: Json
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          edition_id: string
+          id?: string
+          kind: string
+          name: string
+          settings?: Json
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          edition_id?: string
+          id?: string
+          kind?: string
+          name?: string
+          settings?: Json
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_stages_edition_id_fkey"
+            columns: ["edition_id"]
+            isOneToOne: false
+            referencedRelation: "competition_editions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_stages_edition_id_fkey"
+            columns: ["edition_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_competition_edition_usage"
+            referencedColumns: ["competition_edition_id"]
+          },
+        ]
+      }
       competitions: {
         Row: {
           active: boolean
+          canonical_team_type_id: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          format: string | null
           id: string
           is_national: boolean
           level: string | null
           name: string
           normalized_key: string
+          organiser_club_id: string | null
+          organiser_name: string | null
           rugby_code: string
           slug: string
+          team_count: number | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           active?: boolean
+          canonical_team_type_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          format?: string | null
           id?: string
           is_national?: boolean
           level?: string | null
           name: string
           normalized_key: string
+          organiser_club_id?: string | null
+          organiser_name?: string | null
           rugby_code: string
           slug: string
+          team_count?: number | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           active?: boolean
+          canonical_team_type_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          format?: string | null
           id?: string
           is_national?: boolean
           level?: string | null
           name?: string
           normalized_key?: string
+          organiser_club_id?: string | null
+          organiser_name?: string | null
           rugby_code?: string
           slug?: string
+          team_count?: number | null
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "competitions_canonical_team_type_id_fkey"
+            columns: ["canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitions_canonical_team_type_id_fkey"
+            columns: ["canonical_team_type_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_team_types_by_code"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitions_organiser_club_id_fkey"
+            columns: ["organiser_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "competitions_organiser_club_id_fkey"
+            columns: ["organiser_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "competitions_organiser_club_id_fkey"
+            columns: ["organiser_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "competitions_organiser_club_id_fkey"
+            columns: ["organiser_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "competitions_organiser_club_id_fkey"
+            columns: ["organiser_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "competitions_organiser_club_id_fkey"
+            columns: ["organiser_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "competitions_organiser_club_id_fkey"
+            columns: ["organiser_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "competitions_organiser_club_id_fkey"
+            columns: ["organiser_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       constituent_bodies: {
         Row: {
@@ -18874,6 +19689,10 @@ export type Database = {
         }[]
       }
       can_bulk_plan_fixtures: { Args: { p_club_id: string }; Returns: boolean }
+      can_organise_competition: {
+        Args: { p_competition_id: string }
+        Returns: boolean
+      }
       can_send_team_conversation: {
         Args: { p_team_id: string }
         Returns: boolean
@@ -18889,6 +19708,10 @@ export type Database = {
       cancel_club_platform_subscription: {
         Args: { p_club_id: string; p_reason?: string }
         Returns: boolean
+      }
+      cancel_competition_match: {
+        Args: { p_match_id: string; p_reason?: string; p_status: string }
+        Returns: undefined
       }
       cancel_fixture: {
         Args: { p_fixture_id: string; p_reason: string }
@@ -19187,6 +20010,20 @@ export type Database = {
         }
         Returns: string
       }
+      create_club_competition: {
+        Args: {
+          p_name: string
+          p_organiser_club_id: string
+          p_rugby_code: string
+        }
+        Returns: {
+          competition_id: string
+          edition_id: string
+          needs_attention: string
+          season_id: string
+          season_name: string
+        }[]
+      }
       create_club_pitch: {
         Args: {
           p_club_id: string
@@ -19479,6 +20316,10 @@ export type Database = {
       }
       delete_club_document: {
         Args: { p_document_id: string }
+        Returns: undefined
+      }
+      delete_competition_draft_match: {
+        Args: { p_match_id: string }
         Returns: undefined
       }
       delete_fixture: { Args: { p_fixture_id: string }; Returns: undefined }
@@ -20387,6 +21228,10 @@ export type Database = {
         }
         Returns: string
       }
+      issue_competition_matches: {
+        Args: { p_edition_id: string; p_match_ids?: string[] }
+        Returns: Json
+      }
       leave_fixture_conversation: {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
         Returns: undefined
@@ -21006,6 +21851,16 @@ export type Database = {
         Args: { p_route_id: string }
         Returns: undefined
       }
+      quick_create_competition: {
+        Args: { p_name: string; p_rugby_code: string }
+        Returns: {
+          competition_id: string
+          edition_id: string
+          needs_attention: string
+          season_id: string
+          season_name: string
+        }[]
+      }
       reactivate_club: { Args: { p_club_id: string }; Returns: undefined }
       reactivate_missing_target_team: {
         Args: { p_request_id: string }
@@ -21070,6 +21925,15 @@ export type Database = {
           p_payer_subscription_id: string
         }
         Returns: string
+      }
+      record_competition_match_result: {
+        Args: {
+          p_away_score: number
+          p_home_score: number
+          p_match_id: string
+          p_winner_participant_id?: string
+        }
+        Returns: undefined
       }
       record_directory_verification_result: {
         Args: {
@@ -21300,6 +22164,15 @@ export type Database = {
         Args: { p_club_id: string; p_pitch_ids: string[] }
         Returns: undefined
       }
+      replace_competition_draft_matches: {
+        Args: {
+          p_group_id?: string
+          p_matches: Json
+          p_round_number?: number
+          p_stage_id: string
+        }
+        Returns: Json
+      }
       reply_to_announcement: {
         Args: { p_announcement_id: string; p_body: string }
         Returns: string
@@ -21494,6 +22367,18 @@ export type Database = {
         Args: { p_flag_id: string }
         Returns: undefined
       }
+      respond_competition_match: {
+        Args: {
+          p_message?: string
+          p_proposed_date?: string
+          p_proposed_kickoff_time?: string
+          p_proposed_pitch_id?: string
+          p_proposed_venue_id?: string
+          p_response: string
+          p_verification_id: string
+        }
+        Returns: undefined
+      }
       respond_to_attendance: {
         Args: { p_fixture_id: string; p_player_id: string; p_status: string }
         Returns: undefined
@@ -21626,6 +22511,26 @@ export type Database = {
           p_starts_on: string
           p_team_ids?: string[]
           p_venue_id?: string
+        }
+        Returns: string
+      }
+      save_competition_participants: {
+        Args: { p_edition_id: string; p_entries: Json }
+        Returns: undefined
+      }
+      save_competition_rounds: {
+        Args: { p_rounds: Json; p_stage_id: string }
+        Returns: undefined
+      }
+      save_competition_stage: {
+        Args: {
+          p_edition_id: string
+          p_groups: Json
+          p_kind: string
+          p_name: string
+          p_settings: Json
+          p_sort_order: number
+          p_stage_id: string
         }
         Returns: string
       }
@@ -22239,6 +23144,20 @@ export type Database = {
           p_id: string
           p_is_national: boolean
           p_name: string
+        }
+        Returns: undefined
+      }
+      update_competition_match: {
+        Args: { p_match_id: string; p_patch: Json }
+        Returns: undefined
+      }
+      update_competition_metadata: {
+        Args: {
+          p_canonical_team_type_id: string
+          p_competition_id: string
+          p_format: string
+          p_organiser_name: string
+          p_team_count?: number
         }
         Returns: undefined
       }
