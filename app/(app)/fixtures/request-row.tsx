@@ -14,6 +14,13 @@ export interface RequestRowData {
   opponentText: string
   proposedDate: string
   venuePreference: string
+  /** Away requests: the ground at the host club this fixture is proposed at. Accepting books it there. */
+  proposedGround?: string | null
+  /** Incoming only: the club and team that sent the request, e.g. "Under 12 Boys, Burnley RFC". */
+  requester?: string | null
+  proposedPitch?: string | null
+  /** Incoming only, when it is not a single team of ours: the Mini-Rugby Group or team identity being asked. */
+  ourSide?: string | null
   /** Set only for a request made against one of my club's shared mini-rugby
    * calendars rather than one specific team -- see schedulingGroupMembers. */
   schedulingGroupTag?: string | null
@@ -61,6 +68,17 @@ export interface RequestRowData {
  * boundary regardless -- this only stops the app from ever OFFERING the
  * control to someone it already knows can't use it.
  */
+/**
+ * HOME OR AWAY, SAID FROM THE READER'S SIDE. venue_preference is the sender's
+ * truth -- "away" means the sender travels -- so the club receiving the request
+ * reads it the other way round. The stored value never changes; only the words.
+ */
+export function sideForReader(venuePreference: string, direction: "outgoing" | "incoming"): string {
+  const p = venuePreference.trim().toLowerCase()
+  const mine = direction === "outgoing" ? p : p === "home" ? "away" : p === "away" ? "home" : p
+  return mine === "home" ? "Home" : mine === "away" ? "Away" : "Home or Away to agree"
+}
+
 export function RequestRow({ request, canManage }: { request: RequestRowData; canManage: boolean }) {
   const [status, setStatus] = useState<"idle" | "working" | "done" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
@@ -95,13 +113,20 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
     }
   }
 
-  const date = request.proposedDate ? new Date(request.proposedDate + "T00:00:00") : null
-  const dateLabel = date?.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) ?? "TBC"
+  // Built from parts: the server's and the browser's locale data punctuate
+  // "Sat, 21 Nov" differently, and a label that differs breaks hydration.
+  const dateLabel = request.proposedDate
+    ? (() => {
+        const parts = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).formatToParts(new Date(`${request.proposedDate}T00:00:00Z`))
+        const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? ""
+        return `${part("weekday")} ${part("day")} ${part("month")}`
+      })()
+    : "TBC"
 
   if (status === "done") {
     return (
       <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink-muted">
-        {request.teamDisplayName} vs {request.opponentText} &mdash; updated.
+        {request.direction === "incoming" && request.requester ? `${request.ourSide ?? request.teamDisplayName} v ${request.requester}` : `${request.teamDisplayName} vs ${request.opponentText}`} &mdash; updated.
       </li>
     )
   }
@@ -121,11 +146,25 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink">
-          {request.teamDisplayName} <span className="text-ink-muted">vs</span> {request.opponentText}
+          {request.direction === "incoming" && request.requester ? (
+            <>
+              {request.ourSide ?? request.teamDisplayName} <span className="text-ink-muted">v</span> {request.requester}
+            </>
+          ) : (
+            <>
+              {request.teamDisplayName} <span className="text-ink-muted">vs</span> {request.opponentText}
+            </>
+          )}
         </p>
         <p className="text-xs text-ink-muted">
-          {dateLabel} · {request.venuePreference}
+          {dateLabel} · {sideForReader(request.venuePreference, request.direction)}
         </p>
+        {request.proposedGround && (
+          <p className="text-xs text-ink-muted">
+            At {request.proposedGround}
+            {request.proposedPitch ? `, ${request.proposedPitch}` : ""}
+          </p>
+        )}
         {isGroupRequest && (
           <p className="mt-1 text-xs text-forest-800">
             Fixture request for: {request.schedulingGroupTag} Mini-Rugby Group &mdash; select the real team below before accepting.

@@ -200,7 +200,7 @@ export function FixtureFilters({
             value={query.competitionEditionId ?? "all"}
             onChange={(e) => updateParams({ competition: e.target.value === "all" ? null : e.target.value })}
             aria-label="Competition"
-            className="h-9 rounded-full border border-ink/15 bg-white px-3 text-sm text-ink/70 outline-none focus-visible:border-pitch-600"
+            className="h-9 max-w-full truncate rounded-full border border-ink/15 bg-white px-3 text-sm text-ink/70 outline-none focus-visible:border-pitch-600"
           >
             <option value="all">Any competition</option>
             {competitionOptions.map((c) => (

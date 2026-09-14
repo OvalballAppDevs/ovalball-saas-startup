@@ -75,7 +75,7 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
     const { data: outgoing } = await supabase
       .from("fixture_requests")
       .select(
-        "id, venue_preference, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text, opponent_club_id)"
+        "id, venue_preference, proposed_ground, proposed_pitch, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text, opponent_club_id)"
       )
       .in("requesting_team_id", teamIds)
       .eq("status", "sent")
@@ -89,6 +89,8 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
           opponentText: r.fixture_request_groups?.raw_opponent_text ?? "",
           proposedDate: r.fixture_request_groups?.proposed_date ?? "",
           venuePreference: r.venue_preference,
+          proposedGround: r.proposed_ground,
+          proposedPitch: r.proposed_pitch,
         })
       } else {
         nonOvalball.push({
@@ -104,7 +106,7 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
     const { data: incoming } = await supabase
       .from("fixture_requests")
       .select(
-        "id, venue_preference, teams!fixture_requests_target_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)"
+        "id, venue_preference, proposed_ground, proposed_pitch, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), teams!fixture_requests_target_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)"
       )
       .in("target_team_id", teamIds)
       .eq("status", "sent")
@@ -114,9 +116,12 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
         id: r.id,
         direction: "incoming",
         teamDisplayName: r.teams?.display_name ?? "Team",
+        requester: [r.requester?.display_name, r.requester?.clubs?.club_directory?.name].filter(Boolean).join(", ") || null,
         opponentText: r.fixture_request_groups?.raw_opponent_text ?? "",
         proposedDate: r.fixture_request_groups?.proposed_date ?? "",
         venuePreference: r.venue_preference,
+        proposedGround: r.proposed_ground,
+        proposedPitch: r.proposed_pitch,
       })
     }
   }
@@ -183,7 +188,7 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
       const { data: groupRequests } = await supabase
         .from("fixture_requests")
         .select(
-          "id, venue_preference, target_scheduling_group_id, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)"
+          "id, venue_preference, proposed_ground, proposed_pitch, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), target_scheduling_group_id, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)"
         )
         .in("target_scheduling_group_id", myGroupIds)
         .eq("status", "sent")
@@ -199,9 +204,13 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
           id: r.id,
           direction: "incoming",
           teamDisplayName: r.teams?.display_name ?? "Team",
+          requester: [r.requester?.display_name, r.requester?.clubs?.club_directory?.name].filter(Boolean).join(", ") || null,
           opponentText: r.fixture_request_groups?.raw_opponent_text ?? "",
           proposedDate: r.fixture_request_groups?.proposed_date ?? "",
           venuePreference: r.venue_preference,
+          proposedGround: r.proposed_ground,
+          proposedPitch: r.proposed_pitch,
+          ourSide: groupTag ? `${groupTag} Mini-Rugby Group` : null,
           schedulingGroupTag: groupTag,
           schedulingGroupMembers: (members ?? []).flatMap((m) => (m.teams ? [{ id: m.teams.id, name: m.teams.display_name, ageGroup: m.teams.age_group }] : [])),
         })
@@ -220,7 +229,7 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
     const { data: namedIdentityRequests } = await supabase
       .from("fixture_requests")
       .select(
-        "id, venue_preference, target_team_age_group, target_team_gender, target_team_squad_designation, created_by, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups!inner(proposed_date, raw_opponent_text, opponent_club_id)"
+        "id, venue_preference, proposed_ground, proposed_pitch, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), target_team_age_group, target_team_gender, target_team_squad_designation, created_by, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups!inner(proposed_date, raw_opponent_text, opponent_club_id)"
       )
       .is("target_team_id", null)
       .not("target_team_age_group", "is", null)
@@ -250,9 +259,13 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
         id: r.id,
         direction: "incoming",
         teamDisplayName: r.teams?.display_name ?? "Team",
+        requester: [r.requester?.display_name, r.requester?.clubs?.club_directory?.name].filter(Boolean).join(", ") || null,
         opponentText: r.fixture_request_groups.raw_opponent_text ?? "",
         proposedDate: r.fixture_request_groups.proposed_date ?? "",
         venuePreference: r.venue_preference,
+        proposedGround: r.proposed_ground,
+        proposedPitch: r.proposed_pitch,
+        ourSide: identityLabel,
         namedTeamIdentity: identityLabel,
         namedTeamResolution: (resolved?.resolution ?? null) as RequestRowData["namedTeamResolution"],
         namedTeamExistingId: resolved?.existing_team_id ?? null,
@@ -290,22 +303,32 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
             Two-way requests with other Ovalball clubs &mdash; sent, received, and awaiting a response.
           </p>
         </div>
-        {activeContext.kind === "club" && canManageClubFixturesAnywhere(ctx) && (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            {/* Straight to the planner. /fixtures/import redirects there
-                anyway, and sending somebody through a redirect to reach the
-                surface they asked for is a hop with nothing in it. */}
-            <Button className="h-10" variant="outline" nativeButton={false} render={<Link href="/fixtures/planner" />}>
-              Import Fixtures
-            </Button>
-            <ExportClubFixturesButton />
-            {myTeams.length > 0 && (
-              <Button className="h-10" nativeButton={false} render={<Link href="/fixtures/new" />}>
-                Request a fixture
-              </Button>
-            )}
-          </div>
-        )}
+        {(() => {
+          const clubWide = activeContext.kind === "club" && canManageClubFixturesAnywhere(ctx)
+          // A team's own staff create single fixtures for their team, so they
+          // get Request a Fixture too; importing and exporting stay club-wide.
+          const mayRequest = (clubWide || activeContext.kind === "team") && myTeams.length > 0
+          if (!clubWide && !mayRequest) return null
+          return (
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              {clubWide && (
+                <>
+                  {/* Import Fixtures is its own job (a file, mapped and checked),
+                      not the Season Planner. */}
+                  <Button className="h-10" variant="outline" nativeButton={false} render={<Link href="/fixtures/import" />}>
+                    Import Fixtures
+                  </Button>
+                  <ExportClubFixturesButton />
+                </>
+              )}
+              {mayRequest && (
+                <Button className="h-10" nativeButton={false} render={<Link href="/fixtures/new" />}>
+                  Request a Fixture
+                </Button>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {requests.length > 0 && (

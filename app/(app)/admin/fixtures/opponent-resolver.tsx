@@ -178,9 +178,8 @@ export function OpponentResolver({
     setResolving(false)
     setMatches(result.matches)
     setAllClubTeams(result.allClubTeams)
-    if (result.matches.length === 1) {
-      onSelectTeam(result.matches[0])
-    }
+    const preselect = result.matches.find((t) => t.teamId === result.preselectTeamId)
+    if (preselect) onSelectTeam(preselect)
   }
 
   function reset() {

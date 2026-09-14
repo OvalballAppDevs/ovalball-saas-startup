@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -11,8 +11,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 
 import { listCompetitionEditionsForRugbyCode, type CompetitionEditionOption } from "@/lib/fixtures/competitions"
 
+import { defaultVenue } from "@/lib/fixtures/venue-defaults"
+
 import { createFixture, getClubVenuesAndPitches, getRequestingTeamIdentity, type PitchWithVenueOption, type TeamSearchResult, type VenueOption } from "./actions"
-import { GAME_TYPE_OPTIONS, STATUS_OPTIONS } from "./types"
+import { FIXTURE_TYPE_OPTIONS } from "@/lib/fixtures/fixture-type"
+
+import { STATUS_OPTIONS } from "./types"
 import { OpponentResolver } from "./opponent-resolver"
 import { OwningTeamResolver } from "./owning-team-resolver"
 import { createTournamentWithOppositionAction } from "./tournament-fixture-actions"
@@ -67,7 +71,8 @@ export function AddFixtureDialog({
   const [oppositionText, setOppositionText] = useState("")
   const [kickoffDate, setKickoffDate] = useState(initialDate ?? "")
   const [kickoffTime, setKickoffTime] = useState("")
-  const [gameType, setGameType] = useState<string>("")
+  // Friendly is a fixture type, and the default -- never a competition called "Friendly".
+  const [gameType, setGameType] = useState<string>("Friendly")
   const [status, setStatus] = useState<string>("Planned")
   const [notes, setNotes] = useState("")
   const [creating, setCreating] = useState(false)
@@ -124,15 +129,28 @@ export function AddFixtureDialog({
   // but stays deliberately overridable (Section 6) -- venueTouched tracks
   // whether the user has deliberately changed it, so a later homeClub
   // change (e.g. switching Home/Away) doesn't clobber their choice.
+  // THE OVERRIDE RULE (lib/fixtures/venue-defaults.ts): a venue somebody chose
+  // stays chosen, except when Home/Away or the home club changes -- then the
+  // ground belongs to a different club and the default applies again.
+  const venueBasis = useRef<string | null>(null)
   useEffect(() => {
     const homeClub = isTournament ? homeClubId : homeAway === "Home" ? homeClubId : awayTeam?.clubId ?? null
+    const basis = `${homeAway}|${homeClub ?? ""}`
+    const material = venueBasis.current !== null && venueBasis.current !== basis
+    venueBasis.current = basis
     const venuesPromise = homeClub ? getClubVenuesAndPitches(homeClub) : Promise.resolve({ venues: [], pitches: [] })
     venuesPromise.then(({ venues: v, pitches: p }) => {
       setVenues(v)
       setAllPitches(p)
-      if (!venueTouched) {
-        const defaultVenue = v.find((x) => x.isDefaultHome)
-        setVenueId(defaultVenue?.id ?? "")
+      if (!venueTouched || material) {
+        if (material) setVenueTouched(false)
+        const d = defaultVenue(
+          "Home",
+          { venues: v.map((x) => ({ id: x.id, name: x.name, isDefaultHome: x.isDefaultHome, active: true })), pitches: p.map((x) => ({ id: x.id, name: x.displayName, venueId: x.venueId, active: true })) },
+          null,
+        )
+        setVenueId(d.venueId ?? "")
+        setPitchId(d.pitchId ?? "")
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- venueTouched intentionally excluded: re-running this effect when it flips would immediately re-fetch and could race the user's own selection.
@@ -415,7 +433,7 @@ export function AddFixtureDialog({
 
           {!isTournament && pendingRequestSent && (
             <p className="rounded-lg border border-forest-800/20 bg-forest-800/5 px-3 py-2 text-sm text-forest-800">
-              Fixture request sent -- the opponent club must accept &amp; create the team before this fixture is confirmed. It will appear in the Fixture Control Centre once accepted.
+              Fixture request sent. The other club is on Ovalball, so they confirm it before it is booked. It appears in the Fixture Control Centre once they accept.
             </p>
           )}
 
@@ -446,7 +464,7 @@ export function AddFixtureDialog({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="game-type" className="text-ink/80">
-                    Game Type
+                    Fixture Type
                   </Label>
                   <select
                     id="game-type"
@@ -454,10 +472,9 @@ export function AddFixtureDialog({
                     onChange={(e) => setGameType(e.target.value)}
                     className="mt-1.5 h-10 w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
                   >
-                    <option value="">Not set</option>
-                    {GAME_TYPE_OPTIONS.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
+                    {FIXTURE_TYPE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
                       </option>
                     ))}
                   </select>

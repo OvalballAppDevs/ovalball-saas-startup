@@ -73,6 +73,7 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "fixture_attendance_reminder":
     case "fixture_cancelled":
     case "fixture_cancelled_team_folded":
+    case "fixture_details_changed":
     case "fixture_kickoff_changed":
     case "fixture_kickoff_change_proposed":
     case "fixture_kickoff_change_declined":
@@ -102,6 +103,21 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "tournament_venue_changed":
     case "team_created_from_tournament_invitation":
       return tournamentId ? `/tournaments/${tournamentId}` : "/calendar"
+
+    // ---- Competition matches --------------------------------------------
+    // A club is asked to confirm, and told of changes, in its competition
+    // requests; the organiser reads an answer on the competition's Issue step.
+    // Both routes re-check authority on arrival.
+    case "competition_match_verification_requested":
+    case "competition_match_changed":
+    case "competition_match_cancelled": {
+      const matchId = str(data.competition_match_id)
+      return matchId ? `/fixtures/competitions/requests?match=${matchId}` : "/fixtures/competitions/requests"
+    }
+    case "competition_match_response": {
+      const editionId = str(data.edition_id)
+      return editionId ? `/fixtures/competitions/${editionId}/issue` : "/fixtures/competitions"
+    }
 
     // ---- Fixture requests -----------------------------------------------
     case "fixture_request_received":

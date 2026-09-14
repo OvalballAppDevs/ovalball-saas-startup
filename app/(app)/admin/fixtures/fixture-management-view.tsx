@@ -1,7 +1,8 @@
 import Link from "next/link"
-import { AlertTriangle, CalendarClock, ClipboardList, ShieldCheck, Table2, Upload } from "lucide-react"
+import { AlertTriangle, CalendarClock, ClipboardList, ShieldCheck, Table2, Trophy, Upload } from "lucide-react"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { FixtureEditorProvider } from "@/components/fixtures/fixture-editor-provider"
 import type { Database } from "@/types/database.types"
 
 import { ExportClubFixturesButton } from "../../fixtures/export-button"
@@ -117,9 +118,6 @@ export async function FixtureManagementView({
   // A club's own Control Centre drops the columns that only mean something
   // across clubs and codes. Site Admin keeps every one of them.
   const clubScoped = Boolean(scope.clubId)
-  // select + when + team + H/A + opposition + venue + result + status + actions,
-  // plus code/meet/source only where they are shown.
-  const columnCount = 9 + (clubScoped ? 0 : 3)
 
   const showCodeFilter = scope.clubId
     ? new Set((codeResult.data ?? []).map((r) => r.rugby_code)).size > 1
@@ -143,18 +141,27 @@ export async function FixtureManagementView({
         <div className="flex flex-wrap items-center gap-2.5">
           {headerExtra}
           {scope.clubId ? <ExportClubFixturesButton /> : <ExportFixturesButton query={query} />}
-          {/* IMPORT FIXTURES IS THE PLANNER.
-              A club labelled control that says "Import" must land on the
-              grid, not on a separate upload page -- the file goes into the
-              same cells a paste does. Site Admin keeps its own global
-              staging surface, which genuinely spans clubs. */}
+          {/* PLAN SEASON AND IMPORT FIXTURES ARE DIFFERENT JOBS.
+              Planning is typing a season into a grid; importing is bringing
+              a file somebody else made, choosing what its columns mean, and
+              checking every row before anything is staged. Each control goes
+              to its own job. Site Admin keeps its global staging surface. */}
           <Link
-            href={scope.plannerHref ?? scope.importHref}
+            href={scope.importHref}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 text-sm font-medium text-ink/70 outline-none hover:border-ink/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <Upload className="size-4" />
             Import Fixtures
           </Link>
+          {scope.plannerHref && (
+            <Link
+              href="/fixtures/competitions"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 text-sm font-medium text-ink/70 outline-none hover:border-ink/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
+            >
+              <Trophy className="size-4" aria-hidden="true" />
+              Competitions
+            </Link>
+          )}
           <AddFixtureDialog lockedClubId={scope.clubId} lockedClubName={scope.clubName} />
           {/* THE MASS CASE IS THE PRIMARY ACTION. Arranging one fixture is
               the exception; a season arrives in a block, and burying that
@@ -167,7 +174,7 @@ export async function FixtureManagementView({
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-forest-800 px-4 text-sm font-medium text-white outline-none hover:bg-forest-900 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-offset-2"
             >
               <Table2 className="size-4" aria-hidden="true" />
-              Plan Fixtures
+              Plan Season
             </Link>
           )}
         </div>
@@ -193,6 +200,7 @@ export async function FixtureManagementView({
       )}
 
       <PlannerStateProvider>
+      <FixtureEditorProvider detailBasePath="/admin/fixtures">
       <PlannerToolbar rowLabels={Object.fromEntries(rows.map((r) => [r.id, `${r.owningTeamName} v ${r.opponentClubName ?? r.rawOppositionText}`]))} />
 
       <p className="mt-4 text-sm text-ink-muted">
@@ -270,7 +278,6 @@ export async function FixtureManagementView({
                 key={row.id}
                 row={row}
                 clubScoped={clubScoped}
-                columnCount={columnCount}
               />
             ))}
           </tbody>
@@ -294,6 +301,7 @@ export async function FixtureManagementView({
       <div className="mt-6">
         <Pagination query={query} totalPages={totalPages} total={total} basePath={scope.basePath} />
       </div>
+      </FixtureEditorProvider>
       </PlannerStateProvider>
     </div>
   )

@@ -33,8 +33,6 @@ import { TrainingSessionDetail } from "./training-session-detail"
 function MobileFixtureSheet({
   entry,
   laneLabel,
-  competitions,
-  pitches,
   editing,
   onEdit,
   onSaved,
@@ -43,8 +41,6 @@ function MobileFixtureSheet({
 }: {
   entry: WeekEntry
   laneLabel: string
-  competitions: CompetitionOption[]
-  pitches: TournamentPitchOption[]
   editing: boolean
   onEdit: () => void
   onSaved: () => void
@@ -159,22 +155,7 @@ function MobileFixtureSheet({
         )}
         {editing && entry.kind === "fixture" && entry.owningTeamId && (
           <FixtureEditPanel
-            fixture={{
-              id: entry.id,
-              owningTeamId: entry.owningTeamId,
-              owningTeamName: laneLabel,
-              opponentTeamId: entry.opponentTeamId,
-              opponentDirectoryId: entry.opponentDirectoryId,
-              oppositionText: entry.opposition,
-              kickoffDate: entry.date,
-              kickoffTime: entry.time,
-              status: entry.status,
-              competitionEditionId: entry.competitionEditionId,
-              pitchId: entry.pitchId,
-              notes: entry.notes,
-            }}
-            competitions={competitions}
-            pitches={pitches}
+            fixtureId={entry.id}
             onSaved={onSaved}
             onCancel={onCancelEdit}
           />
@@ -324,8 +305,6 @@ export function MobileAgenda({
             <MobileFixtureSheet
               entry={selected}
               laneLabel={laneLabel(selected.laneId)}
-              competitions={competitions}
-              pitches={pitches}
               editing={editing}
               onEdit={() => setEditing(true)}
               onSaved={() => {

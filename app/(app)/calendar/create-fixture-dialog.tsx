@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 
 import { createFixture } from "../admin/fixtures/actions"
 import { createFixtureRequest } from "../fixtures/new/actions"
-import { GAME_TYPE_OPTIONS } from "../admin/fixtures/types"
+import { FIXTURE_TYPE_OPTIONS } from "@/lib/fixtures/fixture-type"
 import { getRequestingTeamIdentity, type TeamSearchResult } from "./fixture-actions"
 import { OpponentPicker } from "./opponent-picker"
 
@@ -286,9 +286,9 @@ export function CreateFixtureDialog({
                   onChange={(e) => handleGameTypeChange(e.target.value)}
                   className="mt-1.5 h-10 w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
                 >
-                  {GAME_TYPE_OPTIONS.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
+                  {FIXTURE_TYPE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
                     </option>
                   ))}
                   <option value="Tournament">Tournament&hellip;</option>

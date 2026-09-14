@@ -1,9 +1,6 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
-
-import { dateWithinAnySeason, type SeasonRow } from "@/lib/calendar/season-window"
-import { teamsCanPlayFixture } from "@/lib/fixtures/eligibility"
+import { suggestOppositionTeam } from "@/lib/fixtures/opposition-match"
 import { createClient } from "@/lib/supabase/server"
 
 export interface TeamSearchResult {
@@ -21,8 +18,11 @@ export interface TeamSearchResult {
 }
 
 export interface OpponentMatchResult {
+  /** Eligible teams, best match first. */
   matches: TeamSearchResult[]
   allClubTeams: TeamSearchResult[]
+  /** Set only when exactly one strong match exists -- the one a picker may choose for the person. */
+  preselectTeamId: string | null
 }
 
 export interface RequestingTeamIdentity {
@@ -56,11 +56,24 @@ export async function getRequestingTeamIdentity(teamId: string): Promise<Request
  * public-read; only the resulting fixture WRITE is permission-checked, by
  * fixture_request_groups/fixture_requests RLS at insert time).
  */
+/** The shared ranked matching (lib/fixtures/opposition-match.ts) over a picker's team results. */
+function rankOpponentMatches(
+  owning: { rugby_code: string; category: string; age_group: string | null; gender: string | null; squad_designation: string | null },
+  teams: TeamSearchResult[],
+): { matches: TeamSearchResult[]; preselectTeamId: string | null } {
+  const byId = new Map(teams.map((t) => [t.teamId, t]))
+  const suggestion = suggestOppositionTeam(
+    { id: "ours", label: "", rugbyCode: owning.rugby_code, category: owning.category, ageGroup: owning.age_group, gender: owning.gender, squadDesignation: owning.squad_designation },
+    teams.map((t) => ({ id: t.teamId, label: t.teamName, rugbyCode: t.rugbyCode ?? owning.rugby_code, category: t.category, ageGroup: t.ageGroup, gender: t.gender, squadDesignation: t.squadDesignation })),
+  )
+  return { matches: suggestion.ranked.map((r) => byId.get(r.team.id)!), preselectTeamId: suggestion.preselect?.id ?? null }
+}
+
 export async function findMatchingOpponentTeamsForClub(owningTeamId: string, opponentClubId: string): Promise<OpponentMatchResult> {
   const supabase = await createClient()
 
-  const { data: owningTeam } = await supabase.from("teams").select("rugby_code, category, age_group, gender").eq("id", owningTeamId).maybeSingle()
-  if (!owningTeam) return { matches: [], allClubTeams: [] }
+  const { data: owningTeam } = await supabase.from("teams").select("rugby_code, category, age_group, gender, squad_designation").eq("id", owningTeamId).maybeSingle()
+  if (!owningTeam) return { matches: [], allClubTeams: [], preselectTeamId: null }
 
   const { data: clubTeams } = await supabase
     .from("teams")
@@ -83,127 +96,12 @@ export async function findMatchingOpponentTeamsForClub(owningTeamId: string, opp
   })
 
   const allClubTeams = (clubTeams ?? []).map(toResult)
-  const owningFields = { rugbyCode: owningTeam.rugby_code, category: owningTeam.category, ageGroup: owningTeam.age_group, teamNumber: null, gender: owningTeam.gender }
-  const matches = (clubTeams ?? [])
-    .filter((t) => teamsCanPlayFixture(owningFields, { rugbyCode: t.rugby_code, category: t.category, ageGroup: t.age_group, teamNumber: null, gender: t.gender }))
-    .map(toResult)
-  return { matches, allClubTeams }
+  return { ...rankOpponentMatches(owningTeam, allClubTeams), allClubTeams }
 }
 
 export type FixtureActionResult = { ok: true } | { ok: false; error: string }
 
-export interface UpdateCalendarFixtureInput {
-  fixtureId: string
-  kickoffDate: string
-  kickoffTime: string | null
-  status: string
-  competitionEditionId: string | null
-  pitchId: string | null
-  notes: string | null
-}
-
-/**
- * Pre-Season/Main-Season date-boundary addendum, Section 7: re-derives
- * the fixture's own club + rugby_code (never trusts a client-supplied
- * season/range) and rejects a kickoffDate that falls within NONE of that
- * club's configured seasons. Permissive when the club has no season data
- * at all (nothing to violate) -- only fails closed once real season rows
- * exist and disagree with the submitted date. Same shared resolver
- * Calendar's own navigation bounds itself to, never a second copy.
- */
-async function validateFixtureDateAgainstClubSeasons(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  fixtureId: string,
-  kickoffDate: string
-): Promise<string | null> {
-  const { data: fixture } = await supabase.from("fixtures").select("owning_team_id").eq("id", fixtureId).maybeSingle()
-  if (!fixture) return null
-  const { data: team } = await supabase.from("teams").select("club_id, rugby_code").eq("id", fixture.owning_team_id).maybeSingle()
-  if (!team) return null
-
-  const { data: seasonRows } = await supabase
-    .from("seasons")
-    .select("id, name, season_ref, rugby_code, pre_season_starts_on, starts_on, ends_on")
-    .eq("rugby_code", team.rugby_code)
-    .eq("is_regression_fixture", false)
-  if (!seasonRows || seasonRows.length === 0) return null
-
-  const seasons: SeasonRow[] = seasonRows.map((s) => ({
-    id: s.id,
-    name: s.name,
-    seasonRef: s.season_ref,
-    rugbyCode: s.rugby_code,
-    preSeasonStartsOn: s.pre_season_starts_on,
-    startsOn: s.starts_on,
-    endsOn: s.ends_on,
-  }))
-  if (!dateWithinAnySeason(seasons, kickoffDate)) {
-    return "That date falls outside every configured season (Pre-Season through Main Season End) for this fixture's club. Choose a date within a real season window."
-  }
-  return null
-}
-
-/**
- * Plain field update -- date/kickoff/status/competition/pitch/notes --
- * relying entirely on fixtures_update_scoped RLS (either side's team
- * manager, matching the Master Fixture Registry consolidation's widened
- * policy) exactly like the Site Admin fixture-detail edit path does; this
- * action performs no authorization check of its own. Home/Away and
- * opposition changes route through the dedicated swap_fixture_home_away /
- * update_fixture_opposition RPCs instead (see below) -- not this plain path.
- */
-export async function updateCalendarFixture(input: UpdateCalendarFixtureInput): Promise<FixtureActionResult> {
-  const supabase = await createClient()
-  // Calendar Fixture Lifecycle hardening: "Cancelled" is no longer settable
-  // through this plain field-update path -- cancel_fixture() (required
-  // reason, mirror sync, notification) is the only safe route now. The UI
-  // dropdown already stopped offering it; this rejects a direct/raw call.
-  if (input.status === "Cancelled") {
-    return { ok: false, error: "Use Cancel Fixture to cancel this fixture -- it requires a reason and keeps both clubs' records in sync." }
-  }
-  const dateError = await validateFixtureDateAgainstClubSeasons(supabase, input.fixtureId, input.kickoffDate)
-  if (dateError) return { ok: false, error: dateError }
-  const { error } = await supabase
-    .from("fixtures")
-    .update({
-      kickoff_date: input.kickoffDate,
-      kickoff_time: input.kickoffTime,
-      status: input.status,
-      competition_edition_id: input.competitionEditionId,
-      pitch_id: input.pitchId,
-      notes: input.notes,
-    })
-    .eq("id", input.fixtureId)
-  if (error) return { ok: false, error: error.message }
-  revalidatePath("/calendar")
-  revalidatePath("/calendar/agenda")
-  return { ok: true }
-}
-
-export async function updateCalendarFixtureOpposition(input: {
-  fixtureId: string
-  opponentTeamId: string | null
-  opponentDirectoryId: string | null
-  rawOppositionText: string
-}): Promise<FixtureActionResult> {
-  const supabase = await createClient()
-  const { error } = await supabase.rpc("update_fixture_opposition", {
-    p_fixture_id: input.fixtureId,
-    p_opponent_team_id: input.opponentTeamId as unknown as string,
-    p_opponent_directory_id: input.opponentDirectoryId as unknown as string,
-    p_raw_opposition_text: input.rawOppositionText,
-  })
-  if (error) return { ok: false, error: error.message }
-  revalidatePath("/calendar")
-  revalidatePath("/calendar/agenda")
-  return { ok: true }
-}
-
-export async function swapCalendarFixtureHomeAway(fixtureId: string): Promise<FixtureActionResult> {
-  const supabase = await createClient()
-  const { error } = await supabase.rpc("swap_fixture_home_away", { p_fixture_id: fixtureId })
-  if (error) return { ok: false, error: error.message }
-  revalidatePath("/calendar")
-  revalidatePath("/calendar/agenda")
-  return { ok: true }
-}
+// Editing a fixture from Calendar goes through the one fixture editor
+// (app/(app)/fixtures/editor/actions.ts). The plain table update, the
+// opposition and the swap actions that used to live here were a second
+// writer with its own field rules, and have gone.

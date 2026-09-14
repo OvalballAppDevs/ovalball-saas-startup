@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { listCompetitionEditionsForRugbyCode, type CompetitionEditionOption } from "@/lib/fixtures/competitions"
+import { FIXTURE_TYPE_OPTIONS } from "@/lib/fixtures/fixture-type"
 
 import { updateFixture, updateFixtureCompetition, type TeamSearchResult } from "../actions"
-import { GAME_TYPE_OPTIONS, STATUS_OPTIONS } from "../types"
+import { STATUS_OPTIONS } from "../types"
 
 export interface EditFixtureInitial {
   fixtureId: string
@@ -73,12 +74,10 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
       updateFixture({
         fixtureId: form.fixtureId,
         homeAway: form.homeAway,
-        rawOppositionText: form.rawOppositionText,
         kickoffDate: form.kickoffDate,
         kickoffTime: form.kickoffTime || null,
         gameType: form.gameType || null,
         status: form.status,
-        venueId: null,
         notes: form.notes,
       }),
       form.competitionEditionId !== savedForm.competitionEditionId
@@ -157,8 +156,9 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
             onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
             className="mt-1.5 h-10 w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
           >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
+            {/* Cancelling tells the other side and the players why, so it is Cancel Fixture's job, not a status pick. */}
+            {STATUS_OPTIONS.filter((s) => s !== "Cancelled" || savedForm.status === "Cancelled").map((s) => (
+              <option key={s} value={s} disabled={s === "Cancelled"}>
                 {s}
               </option>
             ))}
@@ -169,7 +169,7 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="edit-game-type" className="text-ink/80">
-            Game Type
+            Fixture Type
           </Label>
           <select
             id="edit-game-type"
@@ -178,9 +178,9 @@ export function EditFixtureForm({ initial }: { initial: EditFixtureInitial }) {
             className="mt-1.5 h-10 w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
           >
             <option value="">Not set</option>
-            {GAME_TYPE_OPTIONS.map((g) => (
-              <option key={g} value={g}>
-                {g}
+            {FIXTURE_TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>

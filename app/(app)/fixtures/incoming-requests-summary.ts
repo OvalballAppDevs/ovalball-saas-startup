@@ -26,7 +26,7 @@ export async function getIncomingFixtureRequestsSummary(
   if (teamIds.length > 0) {
     const { data: ordinary } = await supabase
       .from("fixture_requests")
-      .select("id, venue_preference, teams!fixture_requests_target_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)")
+      .select("id, venue_preference, proposed_ground, proposed_pitch, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), teams!fixture_requests_target_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)")
       .in("target_team_id", teamIds)
       .eq("status", "sent")
     for (const r of ordinary ?? []) {
@@ -34,9 +34,12 @@ export async function getIncomingFixtureRequestsSummary(
         id: r.id,
         direction: "incoming",
         teamDisplayName: r.teams?.display_name ?? "Team",
+        requester: [r.requester?.display_name, r.requester?.clubs?.club_directory?.name].filter(Boolean).join(", ") || null,
         opponentText: r.fixture_request_groups?.raw_opponent_text ?? "",
         proposedDate: r.fixture_request_groups?.proposed_date ?? "",
         venuePreference: r.venue_preference,
+        proposedGround: r.proposed_ground,
+        proposedPitch: r.proposed_pitch,
       })
     }
   }
@@ -45,7 +48,7 @@ export async function getIncomingFixtureRequestsSummary(
     const { data: namedIdentityRequests } = await supabase
       .from("fixture_requests")
       .select(
-        "id, venue_preference, target_team_age_group, target_team_gender, target_team_squad_designation, created_by, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups!inner(proposed_date, raw_opponent_text, opponent_club_id)"
+        "id, venue_preference, proposed_ground, proposed_pitch, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), target_team_age_group, target_team_gender, target_team_squad_designation, created_by, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups!inner(proposed_date, raw_opponent_text, opponent_club_id)"
       )
       .is("target_team_id", null)
       .not("target_team_age_group", "is", null)
@@ -65,9 +68,13 @@ export async function getIncomingFixtureRequestsSummary(
         id: r.id,
         direction: "incoming",
         teamDisplayName: r.teams?.display_name ?? "Team",
+        requester: [r.requester?.display_name, r.requester?.clubs?.club_directory?.name].filter(Boolean).join(", ") || null,
         opponentText: r.fixture_request_groups.raw_opponent_text ?? "",
         proposedDate: r.fixture_request_groups.proposed_date ?? "",
         venuePreference: r.venue_preference,
+        proposedGround: r.proposed_ground,
+        proposedPitch: r.proposed_pitch,
+        ourSide: identityLabel,
         namedTeamIdentity: identityLabel,
         namedTeamResolution: (resolved?.resolution ?? null) as RequestRowData["namedTeamResolution"],
         namedTeamExistingId: resolved?.existing_team_id ?? null,
@@ -91,7 +98,7 @@ export async function getIncomingFixtureRequestsSummary(
       const { data: groupRequests } = await supabase
         .from("fixture_requests")
         .select(
-          "id, venue_preference, target_scheduling_group_id, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)"
+          "id, venue_preference, proposed_ground, proposed_pitch, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), target_scheduling_group_id, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)"
         )
         .in("target_scheduling_group_id", myGroupIds)
         .eq("status", "sent")
@@ -107,9 +114,13 @@ export async function getIncomingFixtureRequestsSummary(
           id: r.id,
           direction: "incoming",
           teamDisplayName: r.teams?.display_name ?? "Team",
+          requester: [r.requester?.display_name, r.requester?.clubs?.club_directory?.name].filter(Boolean).join(", ") || null,
           opponentText: r.fixture_request_groups?.raw_opponent_text ?? "",
           proposedDate: r.fixture_request_groups?.proposed_date ?? "",
           venuePreference: r.venue_preference,
+          proposedGround: r.proposed_ground,
+          proposedPitch: r.proposed_pitch,
+          ourSide: groupTag ? `${groupTag} Mini-Rugby Group` : null,
           schedulingGroupTag: groupTag,
           schedulingGroupMembers: (members ?? []).flatMap((m) => (m.teams ? [{ id: m.teams.id, name: m.teams.display_name, ageGroup: m.teams.age_group }] : [])),
         })

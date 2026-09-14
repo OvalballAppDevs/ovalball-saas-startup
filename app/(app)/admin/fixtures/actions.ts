@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 
+import { saveFixture } from "@/app/(app)/fixtures/editor/actions"
 import { createClient } from "@/lib/supabase/server"
 import { toPublicSubmissionError } from "@/lib/errors/public-error"
-import { teamsCanPlayFixture } from "@/lib/fixtures/eligibility"
+import { suggestOppositionTeam } from "@/lib/fixtures/opposition-match"
 import { buildFixtureCsv } from "@/lib/fixtures/csv-export"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
 
@@ -145,8 +146,11 @@ export async function searchOpponentClubs(query: string): Promise<ClubSearchResu
 }
 
 export interface OpponentMatchResult {
+  /** Eligible teams, best match first. */
   matches: TeamSearchResult[]
   allClubTeams: TeamSearchResult[]
+  /** Set only when exactly one strong match exists -- the one a picker may choose for the person. */
+  preselectTeamId: string | null
 }
 
 /**
@@ -162,17 +166,30 @@ export interface OpponentMatchResult {
  * text; 1 match -> caller auto-selects it; >1 -> caller must ask the user
  * to choose from `matches`.
  */
+/** The shared ranked matching (lib/fixtures/opposition-match.ts) over a picker's team results. */
+function rankOpponentMatches(
+  owning: { rugby_code: string; category: string; age_group: string | null; gender: string | null; squad_designation: string | null },
+  teams: TeamSearchResult[],
+): { matches: TeamSearchResult[]; preselectTeamId: string | null } {
+  const byId = new Map(teams.map((t) => [t.teamId, t]))
+  const suggestion = suggestOppositionTeam(
+    { id: "ours", label: "", rugbyCode: owning.rugby_code, category: owning.category, ageGroup: owning.age_group, gender: owning.gender, squadDesignation: owning.squad_designation },
+    teams.map((t) => ({ id: t.teamId, label: t.teamName, rugbyCode: t.rugbyCode ?? owning.rugby_code, category: t.category, ageGroup: t.ageGroup, gender: t.gender, squadDesignation: t.squadDesignation })),
+  )
+  return { matches: suggestion.ranked.map((r) => byId.get(r.team.id)!), preselectTeamId: suggestion.preselect?.id ?? null }
+}
+
 export async function findMatchingOpponentTeams(owningTeamId: string, opponentClubId: string): Promise<OpponentMatchResult> {
   const supabase = await createClient()
   const auth = await requireAuthenticated(supabase)
-  if (!auth.ok) return { matches: [], allClubTeams: [] }
+  if (!auth.ok) return { matches: [], allClubTeams: [], preselectTeamId: null }
 
   const { data: owningTeam } = await supabase
     .from("teams")
-    .select("rugby_code, category, age_group, team_number, gender")
+    .select("rugby_code, category, age_group, team_number, gender, squad_designation")
     .eq("id", owningTeamId)
     .maybeSingle()
-  if (!owningTeam) return { matches: [], allClubTeams: [] }
+  if (!owningTeam) return { matches: [], allClubTeams: [], preselectTeamId: null }
 
   const cols = "id, display_name, rugby_code, category, age_group, team_number, squad_designation, gender, club_id, clubs!inner(club_directory!inner(name, town))"
   const { data: clubTeams } = await supabase.from("teams").select(cols).eq("club_id", opponentClubId).eq("active", true).order("display_name")
@@ -197,17 +214,11 @@ export async function findMatchingOpponentTeams(owningTeamId: string, opponentCl
 
   const allClubTeams = (clubTeams ?? []).map(toResult).filter((t): t is TeamSearchResult => t !== null)
 
-  // Eligibility-aware: only ever suggests/auto-selects a team the owning
-  // side could actually play (same rule internal.teams_can_play_fixture
-  // enforces at save time -- see lib/fixtures/eligibility.ts). Never
-  // offers a U13 team for a U12 fixture, or a Men's team for a Women's
-  // fixture, even as a manual option.
-  const owningFields = { rugbyCode: owningTeam.rugby_code, category: owningTeam.category, ageGroup: owningTeam.age_group, teamNumber: owningTeam.team_number, gender: owningTeam.gender }
-  const matches = allClubTeams.filter((t) =>
-    teamsCanPlayFixture(owningFields, { rugbyCode: t.rugbyCode, category: t.category, ageGroup: t.ageGroup, teamNumber: t.teamNumber, gender: t.gender })
-  )
-
-  return { matches, allClubTeams }
+  // Eligibility-aware and pathway-aware: only ever suggests a team the owning
+  // side could actually play (internal.teams_can_play_fixture's own rule) on
+  // the same pathway, best match first, and names one to preselect only when
+  // exactly one is a strong match.
+  return { ...rankOpponentMatches(owningTeam, allClubTeams), allClubTeams }
 }
 
 export interface PitchOption {
@@ -346,52 +357,62 @@ export async function createFixture(input: CreateFixtureInput): Promise<FixtureR
   if (!input.kickoffDate) return { ok: false, error: "A kickoff date is required to publish a scheduled fixture." }
   if (!input.rawOppositionText.trim()) return { ok: false, error: "An opponent (resolved team, or raw text) is required." }
 
-  // Central Fixture Participant Resolution, section 9/52: a structured
-  // identity on a CLAIMED opponent club (missing or reactivatable team)
-  // must route through the same fixture_requests -> recipient-accepts
-  // flow as a club-initiated request, never a direct unilateral insert --
-  // only the wording differs (derived from created_by being a Site Admin,
-  // never hardcoded). An ALREADY-ACTIVE opponent team, or an unclaimed
-  // club, keeps the existing direct-insert path below unchanged.
-  if (!input.opponentTeamId && input.targetTeamAgeGroup && input.opponentDirectoryId) {
-    const { data: opponentClub } = await supabase.from("clubs").select("id").eq("directory_id", input.opponentDirectoryId).eq("status", "active").maybeSingle()
-    if (opponentClub) {
-      const { data: owningTeam } = await supabase.from("teams").select("club_id").eq("id", input.owningTeamId).single()
-      if (!owningTeam) return { ok: false, error: "Owning team not found." }
+  // AN OVALBALL OPPONENT IS ASKED, NEVER BOOKED. Whether the opponent is a
+  // real team or a claimed club still to name one (Central Fixture
+  // Participant Resolution's structured identity), the fixture goes through
+  // the same fixture_requests -> recipient-accepts flow as Request a Fixture,
+  // the Season Planner and import. Only an external or unclaimed club is
+  // recorded directly, because nobody on the other side can answer.
+  let opponentClub: { id: string; directoryId: string | null } | null = null
+  if (input.opponentTeamId) {
+    const { data: t } = await supabase.from("teams").select("club_id, clubs(directory_id, status)").eq("id", input.opponentTeamId).maybeSingle()
+    if (t?.clubs?.status === "active") opponentClub = { id: t.club_id, directoryId: t.clubs.directory_id }
+  } else if (input.opponentDirectoryId) {
+    const { data: c } = await supabase.from("clubs").select("id").eq("directory_id", input.opponentDirectoryId).eq("status", "active").maybeSingle()
+    if (c) opponentClub = { id: c.id, directoryId: input.opponentDirectoryId }
+  }
+  if (opponentClub) {
+    const { data: owningTeam } = await supabase.from("teams").select("club_id").eq("id", input.owningTeamId).single()
+    if (!owningTeam) return { ok: false, error: "Owning team not found." }
 
-      const venuePreference = input.homeAway === "Home" ? "home" : input.homeAway === "Away" ? "away" : "either"
-      const { data: group, error: groupError } = await supabase
-        .from("fixture_request_groups")
-        .insert({
-          requesting_club_id: owningTeam.club_id,
-          opponent_club_id: opponentClub.id,
-          raw_opponent_text: input.rawOppositionText.trim(),
-          proposed_date: input.kickoffDate,
-          notes: input.notes.trim() || null,
-          game_type: input.gameType,
-          competition_edition_id: input.competitionEditionId ?? null,
-          created_by: auth.user.id,
-        })
-        .select("id")
-        .single()
-      if (groupError || !group) return { ok: false, error: groupError?.message ?? toPublicSubmissionError() }
-
-      const { error: requestError } = await supabase.from("fixture_requests").insert({
-        group_id: group.id,
-        requesting_team_id: input.owningTeamId,
-        venue_preference: venuePreference,
-        preferred_kickoff_time: input.kickoffTime || null,
-        pitch_id: input.pitchId ?? null,
-        target_team_age_group: input.targetTeamAgeGroup,
-        target_team_gender: input.targetTeamGender ?? null,
-        target_team_squad_designation: input.targetTeamSquadDesignation ?? null,
+    const venuePreference = input.homeAway === "Home" ? "home" : input.homeAway === "Away" ? "away" : "either"
+    const { data: group, error: groupError } = await supabase
+      .from("fixture_request_groups")
+      .insert({
+        requesting_club_id: owningTeam.club_id,
+        opponent_club_id: opponentClub.id,
+        opponent_directory_id: opponentClub.directoryId,
+        raw_opponent_text: input.rawOppositionText.trim(),
+        proposed_date: input.kickoffDate,
+        notes: input.notes.trim() || null,
+        game_type: input.gameType,
+        competition_edition_id: input.competitionEditionId ?? null,
         created_by: auth.user.id,
       })
-      if (requestError) return { ok: false, error: requestError.message }
+      .select("id")
+      .single()
+    if (groupError || !group) return { ok: false, error: groupError?.message ?? toPublicSubmissionError() }
 
-      revalidatePath("/admin/fixtures")
-      return { ok: true, fixtureId: null, pendingRequest: true }
-    }
+    const hosting = venuePreference === "home"
+    const { error: requestError } = await supabase.from("fixture_requests").insert({
+      group_id: group.id,
+      requesting_team_id: input.owningTeamId,
+      target_team_id: input.opponentTeamId ?? null,
+      venue_preference: venuePreference,
+      preferred_kickoff_time: input.kickoffTime || null,
+      // Our pitch and venue mean something only when we are hosting.
+      pitch_id: hosting ? (input.pitchId ?? null) : null,
+      venue_id: hosting ? (input.venueId ?? null) : null,
+      target_team_age_group: input.opponentTeamId ? null : (input.targetTeamAgeGroup ?? null),
+      target_team_gender: input.opponentTeamId ? null : (input.targetTeamGender ?? null),
+      target_team_squad_designation: input.opponentTeamId ? null : (input.targetTeamSquadDesignation ?? null),
+      created_by: auth.user.id,
+    })
+    if (requestError) return { ok: false, error: requestError.message }
+
+    revalidatePath("/admin/fixtures")
+    revalidatePath("/fixtures/management")
+    return { ok: true, fixtureId: null, pendingRequest: true }
   }
 
   const { data, error } = await supabase
@@ -427,40 +448,29 @@ export async function createFixture(input: CreateFixtureInput): Promise<FixtureR
 export interface EditFixtureInput {
   fixtureId: string
   homeAway: "Home" | "Away" | "TBD" | "Not Applicable"
-  rawOppositionText: string
   kickoffDate: string
   kickoffTime: string | null
   gameType: string | null
   status: string
-  venueId: string | null
   notes: string
 }
 
+/**
+ * Fixture detail's edit form. It saves through the one fixture editor
+ * service, so it writes only what changed, each through its canonical
+ * writer: saving a date no longer blanks the venue, and a Fixture Secretary
+ * is no longer refused by a direct table update the editor would allow.
+ */
 export async function updateFixture(input: EditFixtureInput): Promise<ActionResult> {
-  const supabase = await createClient()
-  // fixtures_update_scoped's RLS (internal.can_manage_fixture_side) is the
-  // real boundary -- see createFixture's comment above.
-  const auth = await requireAuthenticated(supabase)
-  if (!auth.ok) return { ok: false, error: auth.error }
-
-  const { error } = await supabase
-    .from("fixtures")
-    .update({
-      home_away: input.homeAway,
-      raw_opposition_text: input.rawOppositionText.trim(),
-      kickoff_date: input.kickoffDate,
-      kickoff_time: input.kickoffTime || null,
-      game_type: input.gameType,
-      status: input.status,
-      venue_id: input.venueId,
-      notes: input.notes.trim() || null,
-    })
-    .eq("id", input.fixtureId)
-
-  if (error) {
-    console.error("updateFixture failed:", error)
-    return { ok: false, error: toPublicSubmissionError() }
-  }
+  const result = await saveFixture(input.fixtureId, {
+    homeAway: input.homeAway,
+    kickoffDate: input.kickoffDate,
+    kickoffTime: input.kickoffTime || null,
+    gameType: input.gameType,
+    status: input.status,
+    notes: input.notes,
+  })
+  if (!result.ok) return { ok: false, error: result.errors.map((e) => e.message).join(" ") || toPublicSubmissionError() }
   revalidatePath("/admin/fixtures")
   revalidatePath(`/admin/fixtures/${input.fixtureId}`)
   return { ok: true }

@@ -503,22 +503,7 @@ export function WeekBoard({
                 )}
                 {editing && selected.kind === "fixture" && selected.owningTeamId && (
                   <FixtureEditPanel
-                    fixture={{
-                      id: selected.id,
-                      owningTeamId: selected.owningTeamId,
-                      owningTeamName: lanes.find((l) => l.id === selected.laneId)?.label ?? "Your team",
-                      opponentTeamId: selected.opponentTeamId,
-                      opponentDirectoryId: selected.opponentDirectoryId,
-                      oppositionText: selected.opposition,
-                      kickoffDate: selected.date,
-                      kickoffTime: selected.time,
-                      status: selected.status,
-                      competitionEditionId: selected.competitionEditionId,
-                      pitchId: selected.pitchId,
-                      notes: selected.notes,
-                    }}
-                    competitions={competitions}
-                    pitches={pitches}
+                    fixtureId={selected.id}
                     onSaved={() => {
                       setEditing(false)
                       setSelected(null)

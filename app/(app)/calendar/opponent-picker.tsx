@@ -86,7 +86,8 @@ export function OpponentPicker({
     const result = await findMatchingOpponentTeamsForClub(owningTeamId, club.clubId)
     setResolving(false)
     setMatches(result.matches)
-    if (result.matches.length === 1) onSelectTeam(result.matches[0])
+    const preselect = result.matches.find((t) => t.teamId === result.preselectTeamId)
+    if (preselect) onSelectTeam(preselect)
   }
 
   function reset() {

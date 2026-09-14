@@ -363,22 +363,7 @@ export function MonthView({
                 )}
                 {editing && selectedEntry.kind === "fixture" && selectedEntry.owningTeamId && (
                   <FixtureEditPanel
-                    fixture={{
-                      id: selectedEntry.id,
-                      owningTeamId: selectedEntry.owningTeamId,
-                      owningTeamName: laneLabel(selectedEntry.laneId) || "Your team",
-                      opponentTeamId: selectedEntry.opponentTeamId,
-                      opponentDirectoryId: selectedEntry.opponentDirectoryId,
-                      oppositionText: selectedEntry.opposition,
-                      kickoffDate: selectedEntry.date,
-                      kickoffTime: selectedEntry.time,
-                      status: selectedEntry.status,
-                      competitionEditionId: selectedEntry.competitionEditionId,
-                      pitchId: selectedEntry.pitchId,
-                      notes: selectedEntry.notes,
-                    }}
-                    competitions={competitions}
-                    pitches={pitches}
+                    fixtureId={selectedEntry.id}
                     onSaved={() => {
                       setEditing(false)
                       setSelectedEntry(null)
