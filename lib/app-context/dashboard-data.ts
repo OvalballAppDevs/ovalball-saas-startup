@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
 import type { Database } from "@/types/database.types"
+import { loadStaffPlayers } from "@/lib/players/staff-players"
 
 import { isFamilyFacingContext } from "./active-context"
 import type { SwitchableContext } from "./active-context"
@@ -171,15 +172,16 @@ export async function getDashboardData(
   if (activeContext.kind === "club" && hasClubFixtureAuthority) {
     const { data: movements } = await supabase
       .from("fixture_player_call_up")
-      .select("id, decided_at, players(first_name, surname), source_team:source_team_id(display_name), target_team:target_team_id(display_name)")
+      .select("id, decided_at, player_id, source_team:source_team_id(display_name), target_team:target_team_id(display_name)")
       .in("source_team_id", myTeamIds)
       .eq("status", "approved")
       .order("decided_at", { ascending: false })
       .limit(5)
 
+    const movementPlayers = await loadStaffPlayers(supabase, (movements ?? []).map((m) => m.player_id))
     recentPlayerMovements = (movements ?? []).map((m) => ({
       id: m.id,
-      playerName: m.players ? `${m.players.first_name} ${m.players.surname}` : "Unknown player",
+      playerName: movementPlayers.get(m.player_id)?.displayName || "Unknown player",
       fromTeamName: m.source_team?.display_name ?? "Unknown team",
       toTeamName: m.target_team?.display_name ?? "Unknown team",
       date: m.decided_at ?? "",

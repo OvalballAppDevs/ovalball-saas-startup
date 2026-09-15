@@ -2,6 +2,7 @@
 
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
+import { loadStaffPlayers } from "@/lib/players/staff-players"
 
 export type ExportPlayerMovementsResult = { ok: true; csv: string } | { ok: false; error: string }
 
@@ -28,14 +29,15 @@ export async function exportPlayerMovementsCsv(clubId: string): Promise<ExportPl
   const { data: rows } = await supabase
     .from("fixture_player_call_up")
     .select(
-      "id, status, created_at, decided_at, eligibility_rule_reference, players(first_name, surname), source_team:source_team_id(display_name), target_team:target_team_id(display_name), fixtures(kickoff_date, raw_opposition_text), player_team_dispensation:eligibility_requirement_id(status, governing_body_reference)"
+      "id, status, created_at, decided_at, eligibility_rule_reference, player_id, source_team:source_team_id(display_name), target_team:target_team_id(display_name), fixtures(kickoff_date, raw_opposition_text), player_team_dispensation:eligibility_requirement_id(status, governing_body_reference)"
     )
     .or(`source_team_id.in.(${teamIds.join(",")}),target_team_id.in.(${teamIds.join(",")})`)
     .order("created_at", { ascending: false })
 
   const header = "player,source_team,target_team,fixture_date,opponent,request_date,status,eligibility_status,eligibility_reference\n"
+  const exportPlayers = await loadStaffPlayers(supabase, (rows ?? []).map((r) => r.player_id))
   const lines = (rows ?? []).map((r) => {
-    const player = r.players ? `${r.players.first_name} ${r.players.surname}` : "Unknown player"
+    const player = exportPlayers.get(r.player_id)?.displayName || "Unknown player"
     const fields = [
       player,
       r.source_team?.display_name ?? "",

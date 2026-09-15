@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 
-import { getSessionContext } from "@/lib/app-context/session-context"
+import { hasPlayerCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 
 import { PermissionRow, type PermissionRowData } from "./permission-row"
@@ -25,8 +25,6 @@ export default async function PlayerAccessPage({ params }: { params: Promise<{ p
   } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const ctx = await getSessionContext(supabase, user)
-
   const [{ data: player }, { data: summary, error: summaryError }] = await Promise.all([
     supabase.from("players").select("id, first_name, surname").eq("id", playerId).maybeSingle(),
     supabase.rpc("get_player_permission_summary", { p_player_id: playerId }),
@@ -34,12 +32,10 @@ export default async function PlayerAccessPage({ params }: { params: Promise<{ p
 
   if (!player || summaryError || !summary) notFound()
 
-  // Only an ACTIVE guardian of this exact player may change anything here
-  // -- re-derived directly, never assumed from the session's currently-
-  // active context (this page is reachable from any context via a direct
-  // link, e.g. the Dashboard's own "Manage access" link for a specific child).
-  const isGuardian = ctx.guardianRelationships.some((g) => g.playerId === playerId) || ctx.isSiteAdmin
-  const canEdit = ctx.guardianRelationships.some((g) => g.playerId === playerId)
+  // Only this child's own guardian changes anything here (Phase 2 J.6 family.permission.manage, never an
+  // administrator): the same canonical answer setPlayerPermission refuses with, for this exact player, whatever
+  // context the session is in and whether or not the child has a team place yet.
+  const canEdit = await hasPlayerCapability(supabase, "family.permission.manage", playerId)
 
   const permissions: PermissionRowData[] = summary.map((row) => ({
     key: row.permission_key,
@@ -85,7 +81,7 @@ export default async function PlayerAccessPage({ params }: { params: Promise<{ p
         )}
       </ul>
 
-      {!isGuardian && <p className="mt-6 text-xs text-ink-muted">Only {player.first_name}&apos;s guardian can change these settings.</p>}
+      {!canEdit && <p className="mt-6 text-xs text-ink-muted">Only {player.first_name}&apos;s guardian can change these settings.</p>}
 
       <div className="mt-8 border-t border-ink/10 pt-6">
         <Link href={`/parent/players/${playerId}/subscription`} className="text-sm font-medium text-forest-800 underline underline-offset-4 hover:text-forest-950">

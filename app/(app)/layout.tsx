@@ -153,7 +153,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   }
 
   const personName = [profile?.first_name, profile?.surname].filter(Boolean).join(" ")
-  const personAvatarUrl = resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path)
+  const personAvatarUrl = await resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path)
 
   const primaryWithBadges = primary.map((item) =>
     item.href === "/admin/support" && newSupportTicketCount > 0 ? { ...item, badge: newSupportTicketCount } : item

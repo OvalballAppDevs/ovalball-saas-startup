@@ -7,6 +7,7 @@ import { getSessionContext } from "@/lib/app-context/session-context"
 import { computeDashboardMetrics, isObligationOverdue } from "@/lib/payments/domain/dashboard-metrics"
 import { formatMinorUnits } from "@/lib/payments/domain/money"
 import { createClient } from "@/lib/supabase/server"
+import { loadStaffPlayers } from "@/lib/players/staff-players"
 
 import { AttentionPanel } from "./attention-panel"
 import { ExportButton } from "./export-button"
@@ -56,7 +57,7 @@ export default async function ClubFinanceDashboardPage({ searchParams }: { searc
     supabase
       .from("membership_obligations")
       .select(
-        "id, amount_due_minor, due_date, status, resolved_reason, player_id, players(first_name, surname), payer_subscription_id, player_subscription_payers(payer_user_id), gocardless_payment_id, is_prorated, membership_effective_date"
+        "id, amount_due_minor, due_date, status, resolved_reason, player_id, payer_subscription_id, player_subscription_payers(payer_user_id), gocardless_payment_id, is_prorated, membership_effective_date"
       )
       .eq("club_id", clubId)
       .eq("billing_period", billingPeriod),
@@ -89,8 +90,9 @@ export default async function ClubFinanceDashboardPage({ searchParams }: { searc
   const { data: actionRequiredRaw } = await supabase.rpc("get_finance_action_required", { p_club_id: clubId })
   const relationshipReasons = (actionRequiredRaw ?? []).filter((r) => r.reason !== "PAYMENT_FAILED" && r.reason !== "PAYMENT_RETRY_REQUIRES_ATTENTION")
   const relationshipPlayerIds = [...new Set(relationshipReasons.map((r) => r.player_id))]
-  const { data: relationshipPlayers } = relationshipPlayerIds.length > 0 ? await supabase.from("players").select("id, first_name, surname").in("id", relationshipPlayerIds) : { data: [] }
-  const relationshipPlayerNameById = new Map((relationshipPlayers ?? []).map((p) => [p.id, `${p.first_name} ${p.surname}`]))
+  // Staff read player names through the staff projection (Identity/Auth Slice 4a, Phase 2 J.6).
+  const financePlayers = await loadStaffPlayers(supabase, [...relationshipPlayerIds, ...obligations.map((o) => o.player_id)])
+  const relationshipPlayerNameById = new Map(Array.from(financePlayers.values()).map((p) => [p.id, p.displayName]))
   const relationshipReviewItems: RelationshipReviewItem[] = relationshipReasons.map((r) => ({
     payerSubscriptionId: r.payer_subscription_id,
     playerName: relationshipPlayerNameById.get(r.player_id) ?? "Unknown player",
@@ -100,7 +102,7 @@ export default async function ClubFinanceDashboardPage({ searchParams }: { searc
   const rows = obligations.map((o) => ({
     obligationId: o.id,
     payerSubscriptionId: o.payer_subscription_id,
-    playerName: o.players ? `${o.players.first_name} ${o.players.surname}` : "Unknown",
+    playerName: financePlayers.get(o.player_id)?.displayName || "Unknown",
     amountMinor: o.amount_due_minor,
     dueDate: o.due_date,
     status: isObligationOverdue(o.status, o.due_date) ? "OVERDUE" : o.status,

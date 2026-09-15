@@ -41,7 +41,7 @@ export default async function AccountPage() {
   // two-word name from a two-word placeholder, and would render "YP").
   // An empty string here correctly falls through to UserAvatar's own "?".
   const avatarSeed = [profile?.first_name, profile?.surname].filter(Boolean).join(" ") || ctx.firstName || ""
-  const avatarUrl = resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path)
+  const avatarUrl = await resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path)
 
   const [{ data: topicRows }, { data: preferenceRows }] = await Promise.all([
     // notification_topic_channels, not notification_topics: channel readiness

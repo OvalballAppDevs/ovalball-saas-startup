@@ -6,6 +6,7 @@ import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } f
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
 import { createClient } from "@/lib/supabase/server"
+import { loadStaffPlayers } from "@/lib/players/staff-players"
 
 import { ClubSettingsNav } from "../settings/club-settings-nav"
 import { resolveClubSettingsNavCapabilities } from "../settings/resolve-nav-capabilities"
@@ -153,16 +154,17 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
   const [{ data: graduationRows }, { data: activeTeams }] = await Promise.all([
     supabase
       .from("player_graduation_queue")
-      .select("id, players(first_name, surname), teams!player_graduation_queue_source_team_id_fkey(display_name)")
+      .select("id, player_id, teams!player_graduation_queue_source_team_id_fkey(display_name)")
       .eq("club_id", club.id)
       .eq("status", "pending_placement")
       .order("created_at"),
     supabase.from("teams").select("id, display_name").eq("club_id", club.id).eq("active", true).order("display_name"),
   ])
 
+  const graduationPlayers = await loadStaffPlayers(supabase, (graduationRows ?? []).map((r) => r.player_id))
   const graduationQueueRows: GraduationQueueRow[] = (graduationRows ?? []).map((r) => ({
     id: r.id,
-    playerName: r.players ? `${r.players.first_name} ${r.players.surname}` : "Unknown player",
+    playerName: graduationPlayers.get(r.player_id)?.displayName || "Unknown player",
     previousTeamName: r.teams?.display_name ?? "Unknown team",
   }))
   const graduationTargetTeams: GraduationTargetTeamOption[] = (activeTeams ?? []).map((t) => ({ id: t.id, displayName: t.display_name }))
@@ -231,7 +233,7 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
     ? await supabase
         .from("age_grade_rollover_player_proposals")
         .select(
-          "id, player_id, proposed_team_id, selected_team_id, planned_team_id, selected_at, review_state, allocation_status, movement_requirement, regulatory_age_label, reason, placement_applied_at, normal_canonical_team_type_id, players(first_name, surname), current_team:teams!age_grade_rollover_player_proposals_current_team_id_fkey(display_name), proposed_team:teams!age_grade_rollover_player_proposals_proposed_team_id_fkey(display_name), selected_team:teams!age_grade_rollover_player_proposals_selected_team_id_fkey(display_name)"
+          "id, player_id, proposed_team_id, selected_team_id, planned_team_id, selected_at, review_state, allocation_status, movement_requirement, regulatory_age_label, reason, placement_applied_at, normal_canonical_team_type_id, current_team:teams!age_grade_rollover_player_proposals_current_team_id_fkey(display_name), proposed_team:teams!age_grade_rollover_player_proposals_proposed_team_id_fkey(display_name), selected_team:teams!age_grade_rollover_player_proposals_selected_team_id_fkey(display_name)"
         )
         .eq("rollover_id", currentRollover.id)
     : { data: null }
@@ -259,11 +261,12 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
     )
   }
 
+  const proposalPlayers = await loadStaffPlayers(supabase, (playerProposalRows ?? []).map((p) => p.player_id))
   const playerProposals: PlayerProposalRow[] = (playerProposalRows ?? [])
     .map((p) => ({
       proposalId: p.id,
       playerId: p.player_id,
-      playerName: [p.players?.first_name, p.players?.surname].filter(Boolean).join(" ") || "Player",
+      playerName: proposalPlayers.get(p.player_id)?.displayName || "Player",
       currentTeamName: p.current_team?.display_name ?? "Unknown team",
       normalPlacementName: nextSeasonLabel(p.proposed_team_id, p.proposed_team?.display_name ?? null),
       selectedPlacementName: nextSeasonLabel(p.selected_team_id, p.selected_team?.display_name ?? null),

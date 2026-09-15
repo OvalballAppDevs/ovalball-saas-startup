@@ -112,6 +112,8 @@ const matrix: Row[] = [
   ["add_child_declined", {}, "/parent/children"],
   ["club_join_approved", {}, "/parent/children"],
   ["player_information_requested", {}, "/parent/children"],
+  ["guardian_relationship_changed", {}, "/parent/children"],
+  ["guardian_relationship_changed", { confidential: true }, "/club/settings/safeguarding"],
 
   // ---- Season transition ------------------------------------------------
   ["season_transition_warning", {}, "/club/rollover"],

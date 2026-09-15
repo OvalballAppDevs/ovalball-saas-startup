@@ -6,12 +6,14 @@ import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
+import { requireCapability } from "@/lib/auth/require-capability"
 
 export type RemoveGuardianResult = { ok: true; orphaned: boolean } | { ok: false; error: string }
 
 /**
- * Club Admin only (remove_guardian_relationship's own boundary is
- * club.guardians.manage -- never granted to Team staff). A reason is
+ * Club level only (remove_guardian_relationship's own boundary is
+ * family.relationship.remove at a club where the child holds an ACTIVE
+ * place -- never granted to team staff). A reason is
  * mandatory server-side too; this never lets the UI skip it. `orphaned`
  * tells the caller whether this removal left the player with zero active
  * guardians, so the UI can surface a high-impact safeguarding warning --
@@ -43,6 +45,9 @@ export async function sendReplacementGuardianInvite(
   email: string
 ): Promise<ReplacementInviteResult> {
   const supabase = await createClient()
+  const { data: scopeTeam } = await supabase.from("teams").select("club_id").eq("id", teamId).maybeSingle()
+  const allowed = await requireCapability(supabase, "family.relationship.approve", "club", { clubId: scopeTeam?.club_id ?? "" })
+  if (!allowed.ok) return allowed
   const { data, error } = await supabase
     .rpc("send_replacement_guardian_invitation", { p_player_id: playerId, p_team_id: teamId, p_invited_email: email.trim() })
     .single()

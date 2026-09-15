@@ -20419,6 +20419,22 @@ export type Database = {
           },
         ]
       }
+      player_staff_view: {
+        Row: {
+          account_avatar_path: string | null
+          active: boolean | null
+          age_grade: string | null
+          avatar_storage_path: string | null
+          first_name: string | null
+          has_date_of_birth: boolean | null
+          has_login: boolean | null
+          has_playing_pathway: boolean | null
+          id: string | null
+          is_adult: boolean | null
+          surname: string | null
+        }
+        Relationships: []
+      }
       public_club_fixtures: {
         Row: {
           club_id: string | null
@@ -22169,6 +22185,21 @@ export type Database = {
         Returns: {
           availability: string
           fixture_date: string
+        }[]
+      }
+      get_person_family_relationships: {
+        Args: { p_user_id: string }
+        Returns: {
+          child_first_name: string
+          child_surname: string
+          confidential: boolean
+          created_at: string
+          guardian_id: string
+          player_id: string
+          relationship_type: string
+          state: string
+          suspended_at: string
+          suspension_reason: string
         }[]
       }
       get_player_account_invitation_preview: {
@@ -24623,7 +24654,12 @@ export type Database = {
         Returns: undefined
       }
       transition_guardian_relationship: {
-        Args: { p_guardian_id: string; p_reason?: string; p_to_state: string }
+        Args: {
+          p_confidential?: boolean
+          p_guardian_id: string
+          p_reason?: string
+          p_to_state: string
+        }
         Returns: undefined
       }
       transition_role_assignment: {

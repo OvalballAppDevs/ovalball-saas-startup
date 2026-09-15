@@ -13,7 +13,8 @@ export interface DuplicateReviewData {
   submittedName: string
   submittedDob: string | null
   matchedName: string
-  matchedDob: string | null
+  /** The existing player's age grade; their date of birth stays with their family (Phase 2 J.6). */
+  matchedAgeGrade: string | null
 }
 
 /**
@@ -63,7 +64,7 @@ export function DuplicateReviewRow({ review }: { review: DuplicateReviewData }) 
         <div>
           <p className="text-xs text-ink-muted uppercase">Matches existing player</p>
           <p className="text-sm font-medium text-ink">{review.matchedName}</p>
-          <p className="text-xs text-ink-muted">{review.matchedDob ?? "No date of birth on record"}</p>
+          <p className="text-xs text-ink-muted">{review.matchedAgeGrade ?? "No date of birth on record"}</p>
         </div>
       </div>
       {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}

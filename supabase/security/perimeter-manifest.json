@@ -3470,6 +3470,17 @@
       },
       "reason": "Identity/Auth Slice 3 read-only projection: the canonical capabilities of the bundle each access group maps to. Site Admin Permission Management reads it."
     },
+    "player_staff_view": {
+      "classification": "PRIVATE",
+      "security_invoker": true,
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all"
+      },
+      "reason": "Identity/Auth Slice 4a (Phase 2 J.6, U; decision D-4a-1): players as staff see them inside internal.player_staff_rows(): an ACTIVE place to player.profile.view or the named-player operation keys (call-up, dispensation request, graduation placement, handover preparation), a PENDING place or pending club join request to team.roster.manage / team.join_request.review, all to site.users.view; names, age grade, adult flag and picture paths only -- no date of birth, login id, recorded gender, contacts or guardians."
+    },
     "public_club_fixtures": {
       "classification": "PUBLIC_PROJECTION",
       "security_invoker": false,
@@ -4803,6 +4814,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/partner-clubs/[clubId]/actions.ts"
+        ]
+      },
+      {
+        "signature": "get_person_family_relationships(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/[userId]/page.tsx"
         ]
       },
       {
@@ -6598,9 +6616,11 @@
         ]
       },
       {
-        "signature": "transition_guardian_relationship(uuid, text, text)",
-        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
-        "consumers": []
+        "signature": "transition_guardian_relationship(uuid, text, text, boolean)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/[userId]/family-actions.ts"
+        ]
       },
       {
         "signature": "transition_role_assignment(uuid, text, text, boolean)",
@@ -6975,6 +6995,8 @@
       }
     ],
     "authenticated_internal": [
+      "account_avatar_owner(text)",
+      "administered_guardian_player_ids()",
       "advance_competition_knockout(uuid)",
       "age_fixture_band(text)",
       "allocation_presentation(uuid, text)",
@@ -6998,12 +7020,15 @@
       "can_access_support_attachment_path(text, boolean)",
       "can_address_club_audience(uuid)",
       "can_address_team_audience(uuid)",
+      "can_administer_player_guardians(uuid)",
       "can_answer_competition_match(uuid, uuid)",
+      "can_any(text[], text, uuid, uuid)",
       "can_bulk_plan_fixtures(uuid)",
       "can_club(text, uuid)",
       "can_create_team_fixture(uuid, uuid)",
       "can_decide_guardian_link_request(uuid)",
       "can_edit_fixture_details(uuid)",
+      "can_edit_player_avatar(uuid)",
       "can_fixture(text, uuid)",
       "can_manage_club_event(uuid)",
       "can_manage_club_fixtures(uuid)",
@@ -7024,6 +7049,8 @@
       "can_organise_competition(uuid)",
       "can_organise_edition(uuid)",
       "can_player(text, uuid)",
+      "can_player_as_family(text, uuid)",
+      "can_player_at_club_or_team(text, uuid, boolean)",
       "can_review_club_access(uuid)",
       "can_run_directory_verification()",
       "can_send_safeguarding_conversation(uuid)",
@@ -7031,6 +7058,7 @@
       "can_submit_fixture_result(uuid)",
       "can_team(text, uuid)",
       "can_training(text, uuid)",
+      "can_view_account_avatar(uuid)",
       "can_view_announcement_reply(uuid, uuid)",
       "can_view_direct_conversation(uuid)",
       "can_view_document_library(uuid, uuid)",
@@ -7123,7 +7151,10 @@
       "platform_playing_group_player_ids()",
       "player_avatar_path_player_id(text)",
       "player_effective_age(uuid, date)",
+      "player_is_adult(uuid)",
       "player_recipient_exclusions(uuid[])",
+      "player_scopes(uuid)",
+      "player_staff_rows()",
       "process_due_season_transitions()",
       "project_competition_match(uuid)",
       "project_team_identity(text, text, integer)",
@@ -7654,7 +7685,7 @@
       "touch_last_active()",
       "training_communication_counts(uuid)",
       "transition_club_membership(uuid, text, text, boolean)",
-      "transition_guardian_relationship(uuid, text, text)",
+      "transition_guardian_relationship(uuid, text, text, boolean)",
       "transition_role_assignment(uuid, text, text, boolean)",
       "unblock_user(uuid)",
       "undo_rollover_team_decision(uuid)",
@@ -7962,8 +7993,8 @@
   "storage": {
     "buckets": {
       "avatars": {
-        "public": true,
-        "reason": "Personal avatars (known exception: minors with logins; privatise in Slice 4)."
+        "public": false,
+        "reason": "Account pictures (Identity/Auth Slice 4a, Phase 2 Z-12): private, served by signed URL; adults visible to signed-in people, a minor's only to the minor, their ACTIVE guardians and staff holding player.profile.view (internal.can_view_account_avatar)."
       },
       "club-logos": {
         "public": true,

@@ -5,6 +5,7 @@ import { Users } from "lucide-react"
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
+import { loadStaffPlayers } from "@/lib/players/staff-players"
 
 import { ClubSettingsNav } from "../settings/club-settings-nav"
 import { resolveClubSettingsNavCapabilities } from "../settings/resolve-nav-capabilities"
@@ -43,7 +44,7 @@ export default async function PlayerMovesPage() {
     supabase.from("teams").select("id, display_name, category, age_group, gender").eq("club_id", activeClub).eq("active", true).order("display_name"),
     supabase
       .from("player_team_memberships")
-      .select("player_id, team_id, players(first_name, surname), teams(display_name, category, age_group, gender)")
+      .select("player_id, team_id, teams(display_name, category, age_group, gender)")
       .eq("status", "active")
       .is("ended_at", null)
       .in("team_id", (await supabase.from("teams").select("id").eq("club_id", activeClub)).data?.map((t) => t.id) ?? []),
@@ -78,9 +79,10 @@ export default async function PlayerMovesPage() {
     kickoffDate: f.kickoff_date,
     opponentLabel: f.raw_opposition_text,
   }))
+  const memberPlayers = await loadStaffPlayers(supabase, (memberships ?? []).map((m) => m.player_id))
   const playerOptions: CallUpPlayerOption[] = (memberships ?? []).map((m) => ({
     playerId: m.player_id,
-    playerName: m.players ? `${m.players.first_name} ${m.players.surname}` : "Unknown player",
+    playerName: memberPlayers.get(m.player_id)?.displayName || "Unknown player",
     currentTeamId: m.team_id,
     currentTeamName: m.teams?.display_name ?? "Unknown team",
     category: m.teams?.category ?? "youth",
@@ -93,7 +95,7 @@ export default async function PlayerMovesPage() {
       ? supabase
           .from("fixture_player_call_up")
           .select(
-            "id, status, eligibility_rule_reference, source_team_id, players(first_name, surname), source_team:source_team_id(display_name), target_team:target_team_id(display_name), fixtures(kickoff_date, raw_opposition_text)"
+            "id, status, eligibility_rule_reference, source_team_id, player_id, source_team:source_team_id(display_name), target_team:target_team_id(display_name), fixtures(kickoff_date, raw_opposition_text)"
           )
           .or(`source_team_id.in.(${(teams ?? []).map((t) => t.id).join(",") || "00000000-0000-0000-0000-000000000000"}),target_team_id.in.(${(teams ?? []).map((t) => t.id).join(",") || "00000000-0000-0000-0000-000000000000"})`)
           .order("created_at", { ascending: false })
@@ -102,7 +104,7 @@ export default async function PlayerMovesPage() {
       ? supabase
           .from("player_team_dispensation")
           .select(
-            "id, status, eligibility_rule_reference, governing_body_reference, source_team_id, players(first_name, surname), source_team:source_team_id(display_name), target_team:target_team_id(display_name), seasons(name)"
+            "id, status, eligibility_rule_reference, governing_body_reference, source_team_id, player_id, source_team:source_team_id(display_name), target_team:target_team_id(display_name), seasons(name)"
           )
           .or(`source_team_id.in.(${(teams ?? []).map((t) => t.id).join(",") || "00000000-0000-0000-0000-000000000000"}),target_team_id.in.(${(teams ?? []).map((t) => t.id).join(",") || "00000000-0000-0000-0000-000000000000"})`)
           .order("created_at", { ascending: false })
@@ -110,9 +112,10 @@ export default async function PlayerMovesPage() {
   ])
 
   const clubTeamIds = new Set((teams ?? []).map((t) => t.id))
+  const movementPlayers = await loadStaffPlayers(supabase, [...(callUpRows ?? []), ...(dispensationRows ?? [])].map((r) => r.player_id))
   const callUps: CallUpRow[] = (callUpRows ?? []).map((r) => ({
     id: r.id,
-    playerName: r.players ? `${r.players.first_name} ${r.players.surname}` : "Unknown player",
+    playerName: movementPlayers.get(r.player_id)?.displayName || "Unknown player",
     sourceTeamId: r.source_team_id,
     sourceTeamName: r.source_team?.display_name ?? "Unknown team",
     targetTeamName: r.target_team?.display_name ?? "Unknown team",
@@ -126,7 +129,7 @@ export default async function PlayerMovesPage() {
 
   const dispensations: DispensationRow[] = (dispensationRows ?? []).map((r) => ({
     id: r.id,
-    playerName: r.players ? `${r.players.first_name} ${r.players.surname}` : "Unknown player",
+    playerName: movementPlayers.get(r.player_id)?.displayName || "Unknown player",
     sourceTeamId: r.source_team_id,
     sourceTeamName: r.source_team?.display_name ?? "Unknown team",
     targetTeamName: r.target_team?.display_name ?? "Unknown team",

@@ -3,7 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { cache } from "react"
 
-import { hasCapability, type CapabilityScopeType } from "@/lib/permissions/has-capability"
+import { hasCapability, hasPlayerCapability, hasSelfCapability, type CapabilityScopeType } from "@/lib/permissions/has-capability"
 import type { Database } from "@/types/database.types"
 
 type Client = SupabaseClient<Database>
@@ -26,6 +26,16 @@ export async function requireCapability(
   return (await hasCapability(supabase, capabilityKey, scopeType, scope)) ? { ok: true } : { ok: false, error: NOT_AUTHORISED }
 }
 
+/** Early refusal for an action about one player, as the player themselves or an ACTIVE guardian (J.6 SE / LC). */
+export async function requirePlayerCapability(supabase: Client, capabilityKey: string, playerId: string): Promise<CapabilityCheck> {
+  return (await hasPlayerCapability(supabase, capabilityKey, playerId)) ? { ok: true } : { ok: false, error: NOT_AUTHORISED }
+}
+
+/** Early refusal for a self-scope action that names no player (for example family.child.add). */
+export async function requireSelfCapability(supabase: Client, capabilityKey: string): Promise<CapabilityCheck> {
+  return (await hasSelfCapability(supabase, capabilityKey)) ? { ok: true } : { ok: false, error: NOT_AUTHORISED }
+}
+
 /**
  * The site capabilities the signed-in person holds right now: their Site Admin
  * profile's bundle plus any add-on grants (Phase 2 R, SA-4). Site Admin
@@ -42,6 +52,21 @@ export const mySiteCapabilities = cache(async (supabase: Client): Promise<Set<st
 
 export async function requireSiteCapability(supabase: Client, capabilityKey: string): Promise<CapabilityCheck> {
   return (await mySiteCapabilities(supabase)).has(capabilityKey) ? { ok: true } : { ok: false, error: NOT_AUTHORISED }
+}
+
+/**
+ * Recording a player's missing gender (Phase 2 J.6 player.profile.edit_protected, set-once rule): the player
+ * themselves or an ACTIVE guardian of this child, or Ovalball through site.users.identity.correct. The Player Details
+ * page decides whether to OFFER the form with this, and setPlayerGender refuses early with the same answer;
+ * set_player_playing_pathway decides. No team place is involved: family authority derives from the child.
+ */
+export async function mayRecordPlayerGender(supabase: Client, playerId: string): Promise<boolean> {
+  if (await hasPlayerCapability(supabase, "player.profile.edit_protected", playerId)) return true
+  return (await mySiteCapabilities(supabase)).has("site.users.identity.correct")
+}
+
+export async function requireMayRecordPlayerGender(supabase: Client, playerId: string): Promise<CapabilityCheck> {
+  return (await mayRecordPlayerGender(supabase, playerId)) ? { ok: true } : { ok: false, error: NOT_AUTHORISED }
 }
 
 export interface AccessExplanation {

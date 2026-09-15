@@ -67,7 +67,7 @@ export default async function GuardianRequestsPage() {
                     {r.kind === "ADDITIONAL_GUARDIAN" ? (r.invited_email ?? r.requester_name) : r.requester_name}
                   </dd>
                 </div>
-                {r.kind === "FIRST_CHILD" && (
+                {r.kind !== "ADDITIONAL_GUARDIAN" && (
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <dt className="text-sm text-ink-muted">Date of birth given</dt>
                     <dd className="font-mono text-sm text-ink">{r.submitted_date_of_birth}</dd>
@@ -80,7 +80,9 @@ export default async function GuardianRequestsPage() {
                 <div className="flex items-center justify-between px-4 py-2.5">
                   <dt className="text-sm text-ink-muted">Existing player</dt>
                   <dd className="text-sm text-ink">
-                    {r.matched_player_id ? (
+                    {r.kind === "SELF_ADDED_CHILD" ? (
+                      <span className="text-ink-subtle">Added by this parent — waiting for you to confirm the relationship</span>
+                    ) : r.matched_player_id ? (
                       <>
                         {r.matched_player_name}
                         {r.matched_team_name ? ` · ${r.matched_team_name}` : ""}
@@ -93,9 +95,11 @@ export default async function GuardianRequestsPage() {
               </dl>
 
               <p className="mt-3 text-sm text-ink-muted">
-                {r.matched_player_id
-                  ? "Approving links this adult to the existing player. No duplicate record is created."
-                  : "Only approve if you can confirm this person is responsible for this child."}
+                {r.kind === "SELF_ADDED_CHILD"
+                  ? "Approving confirms this adult is responsible for the child they added. Until then they cannot see the player."
+                  : r.matched_player_id
+                    ? "Approving links this adult to the existing player. No duplicate record is created."
+                    : "Only approve if you can confirm this person is responsible for this child."}
               </p>
 
               {r.kind === "ADDITIONAL_GUARDIAN" && r.subject_response !== "ACCEPTED" ? (

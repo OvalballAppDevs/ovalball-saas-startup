@@ -5,11 +5,11 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { KitConfig } from "@/components/club/rugby-kit"
 import { effectiveTeamIdsForFixtureSide } from "@/lib/mini-rugby/effective-teams"
 import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
+import { loadStaffPlayers } from "@/lib/players/staff-players"
 import type { Database } from "@/types/database.types"
 
 import { resolveClubLogoUrl } from "./club-logo"
-import { resolvePersonalAvatarUrl } from "./personal-avatar"
-import { resolvePlayerAgeState } from "@/lib/players/age-state"
+import { resolvePersonalAvatarUrls } from "./personal-avatar"
 
 /**
  * Match Centre real data resolver (Phase 1 of the Side Project 3 -> Main
@@ -334,13 +334,16 @@ export async function getMatchCentreContext(
   if (canViewParticipants && allTeamIds.length > 0) {
     const { data: roster } = await supabase
       .from("player_team_memberships")
-      .select("player_id, team_id, players(id, first_name, surname, user_id, date_of_birth, avatar_storage_path)")
+      .select("player_id, team_id")
       .in("team_id", allTeamIds)
       .eq("status", "active")
 
     const rosterPlayerIds = (roster ?? []).map((r) => r.player_id)
 
-    const [{ data: attendanceRows }, { data: callUpRows }] = await Promise.all([
+    // Staff see roster players through the staff projection (Identity/Auth Slice 4a, Phase 2 J.6): names and an
+    // adult flag, never a date of birth or login id. A player this viewer may not see simply has no row.
+    const [staffPlayers, { data: attendanceRows }, { data: callUpRows }] = await Promise.all([
+      loadStaffPlayers(supabase, rosterPlayerIds),
       rosterPlayerIds.length > 0
         ? supabase.from("player_fixture_attendance").select("player_id, status").eq("fixture_id", fixtureId).in("player_id", rosterPlayerIds)
         : Promise.resolve({ data: [] }),
@@ -354,57 +357,46 @@ export async function getMatchCentreContext(
     //
     // Two distinct sources, and the difference matters for safeguarding:
     //
-    //   players.avatar_storage_path  -- the PLAYER's own picture, added in
-    //     Phase 2B, in a PRIVATE bucket. Authorization is not re-implemented
-    //     here: minting a signed URL goes through that bucket's own storage
-    //     policies (guardian of this child, the player themselves, or a Club
-    //     Admin holding club.guardians.manage), so a coach reading this
-    //     roster simply gets null and renders initials. The signed-URL call
-    //     IS the check.
+    //   players.avatar_storage_path  -- the PLAYER's own picture, in a PRIVATE
+    //     bucket. Authorization is not re-implemented here: minting a signed URL
+    //     goes through that bucket's own storage policies (guardian of this
+    //     child, the player themselves, or the club's guardian authority), so a
+    //     coach reading this roster simply gets null and renders initials. The
+    //     signed-URL call IS the check.
     //
-    //   profiles.avatar_storage_path -- the ADULT ACCOUNT's picture, in the
-    //     PUBLIC avatars bucket. Used only for players who are genuinely
-    //     adults, never as a stand-in for a child's photo: publishing a
-    //     minor's public-bucket profile image to everyone who can read a
-    //     squad list is precisely the exposure the private bucket exists to
-    //     prevent, and it is not made acceptable by the child having their
-    //     own login.
+    //   the ADULT ACCOUNT's picture (profiles.avatar_storage_path, private
+    //     `avatars` bucket) -- offered by the staff projection only for players
+    //     who are adults, never as a stand-in for a child's photo, and signed
+    //     under that bucket's own policy.
     //
-    // A guardian's avatar is never a candidate for either -- the only user
-    // id consulted is the player's own.
-    const playerOwnedAvatars = (roster ?? [])
-      .map((r) => r.players)
-      .filter((p): p is NonNullable<typeof p> => Boolean(p?.avatar_storage_path))
+    // A guardian's avatar is never a candidate for either -- the only account
+    // consulted is the player's own.
     const signedByPlayerId = new Map<string, string>()
-    for (const p of playerOwnedAvatars) {
-      const { data } = await supabase.storage.from("player-avatars").createSignedUrl(p.avatar_storage_path!, 3600)
+    for (const p of staffPlayers.values()) {
+      if (!p.avatarStoragePath) continue
+      const { data } = await supabase.storage.from("player-avatars").createSignedUrl(p.avatarStoragePath, 3600)
       if (data?.signedUrl) signedByPlayerId.set(p.id, data.signedUrl)
     }
-
-    const adultUserIds = (roster ?? [])
-      .filter((r) => r.players?.user_id && resolvePlayerAgeState(r.players.date_of_birth, []) === "adult")
-      .map((r) => r.players!.user_id)
-      .filter((x): x is string => !!x)
-    const { data: profiles } =
-      adultUserIds.length > 0 ? await supabase.from("profiles").select("id, avatar_storage_path").in("id", adultUserIds) : { data: [] }
-    const profileByUserId = new Map((profiles ?? []).map((p) => [p.id, p.avatar_storage_path]))
+    const adultAccountAvatars = await resolvePersonalAvatarUrls(
+      supabase,
+      Array.from(staffPlayers.values()).filter((p) => p.isAdult).map((p) => p.accountAvatarPath)
+    )
 
     for (const r of roster ?? []) {
-      const p = r.players
+      const p = staffPlayers.get(r.player_id)
       if (!p) continue
       const response = attendanceByPlayer.get(p.id) ?? null
       const callUpRow = callUpByPlayer.get(p.id)
-      const isAdultPlayer = resolvePlayerAgeState(p.date_of_birth, []) === "adult"
-      const profilePath = isAdultPlayer && p.user_id ? profileByUserId.get(p.user_id) : null
-      const avatarUrl = signedByPlayerId.get(p.id) ?? (profilePath ? resolvePersonalAvatarUrl(supabase, profilePath) : null)
+      const profilePath = p.isAdult ? p.accountAvatarPath : null
+      const avatarUrl = signedByPlayerId.get(p.id) ?? (profilePath ? (adultAccountAvatars.get(profilePath) ?? null) : null)
 
       participants.push({
         playerId: p.id,
-        displayName: `${p.first_name} ${p.surname}`,
+        displayName: p.displayName,
         teamId: r.team_id,
         avatarState: avatarUrl ? "PHOTO_ALLOWED" : "INITIALS_ONLY",
         avatarUrl,
-        initials: initialsFromName(p.first_name, p.surname),
+        initials: initialsFromName(p.firstName, p.surname),
         response,
         callUp: callUpRow ? { sourceTeamId: callUpRow.source_team_id, targetTeamId: callUpRow.target_team_id, status: callUpRow.status as CallUpMarker["status"] } : null,
       })

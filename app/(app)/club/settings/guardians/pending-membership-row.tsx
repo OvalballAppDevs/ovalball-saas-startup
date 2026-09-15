@@ -10,7 +10,8 @@ import { approvePendingTeamMembership, rejectPendingTeamMembership } from "./act
 export interface PendingMembershipData {
   id: string
   playerName: string
-  playerDob: string | null
+  /** The age grade the database resolved; staff never see a child's date of birth (Phase 2 J.6). */
+  playerAgeGrade: string | null
   teamLabel: string
   guardianName: string
 }
@@ -67,7 +68,7 @@ export function PendingMembershipRow({ request }: { request: PendingMembershipDa
       <p className="text-xs font-medium text-ink-muted">{request.teamLabel}</p>
       <p className="mt-1 text-sm font-medium text-ink">{request.playerName}</p>
       <p className="text-xs text-ink-muted">
-        {request.playerDob ?? "No date of birth given"} · Added by {request.guardianName}
+        {request.playerAgeGrade ?? "No date of birth given"} · Added by {request.guardianName}
       </p>
       {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
       <div className="mt-3 flex flex-wrap gap-2">

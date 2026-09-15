@@ -19,6 +19,12 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-one-team-catalogue.mjs"; then
   exit 1
 fi
 
+# Identity/Auth Slice 4 (Phase 2 AA.5): authority role literals stay within their shrink list outside
+# lib/auth/**, and a browser-session client writes a table only where the perimeter manifest lists it.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-authority-guards.mjs"; then
+  exit 1
+fi
+
 # The content standard: one spelling per destination, protected acronyms, and
 # Title Case on navigation labels and page metadata. Deliberately not a lint
 # rule over English prose -- see CLAUDE.md.
@@ -316,6 +322,10 @@ SUITES=(
   capability_override_ceilings
   capability_adapters
   capability_attack_matrix
+  family_authority_matrix
+  family_isolation_matrix
+  cross_club_isolation_matrix
+  authority_helper_retirement
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

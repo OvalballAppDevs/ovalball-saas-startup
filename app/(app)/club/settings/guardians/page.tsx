@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { resolvePlayerAgeState } from "@/lib/players/age-state"
+import { loadStaffPlayers, staffPlayerAgeState } from "@/lib/players/staff-players"
 import { createClient } from "@/lib/supabase/server"
 import { compactTeamLabel } from "@/lib/teams/compact-label"
 
@@ -23,7 +23,7 @@ export const metadata = { title: "Parents & Guardians | Club Settings" }
  * Club Settings, never on a per-team page -- Team staff (Coach/Manager/
  * Team Admin) can invite a Guardian and see their own team's roster, but
  * removing a Guardian or resolving a duplicate match is Club-Admin-only
- * authority, matching this page's own club.guardians.manage gate.
+ * authority, matching this page's own gate (family.relationship.approve at club).
  */
 export default async function ClubGuardiansPage() {
   const supabase = await createClient()
@@ -55,13 +55,13 @@ export default async function ClubGuardiansPage() {
   const [{ data: aliasRows }, { data: memberships }, guardianDirectoryResults, { data: duplicateReviews }, { data: pendingMemberships }] = await Promise.all([
     teamIds.length > 0 ? supabase.from("team_aliases").select("team_id, alias").in("team_id", teamIds) : Promise.resolve({ data: [] }),
     teamIds.length > 0
-      ? supabase.from("player_team_memberships").select("player_id, team_id, players(id, first_name, surname, date_of_birth)").in("team_id", teamIds).eq("status", "active")
+      ? supabase.from("player_team_memberships").select("player_id, team_id").in("team_id", teamIds).eq("status", "active")
       : Promise.resolve({ data: [] }),
     Promise.all(teamIds.map((teamId) => supabase.rpc("get_team_guardian_directory", { p_team_id: teamId }))),
     teamIds.length > 0
       ? supabase
           .from("player_duplicate_reviews")
-          .select("id, team_id, submitted_first_name, submitted_surname, submitted_date_of_birth, matched_player_id, players!player_duplicate_reviews_matched_player_id_fkey(first_name, surname, date_of_birth)")
+          .select("id, team_id, submitted_first_name, submitted_surname, submitted_date_of_birth, matched_player_id")
           .in("team_id", teamIds)
           .eq("status", "pending")
       : Promise.resolve({ data: [] }),
@@ -70,8 +70,15 @@ export default async function ClubGuardiansPage() {
     // (this is "is this really a new roster member", not "is this an
     // existing player").
     teamIds.length > 0
-      ? supabase.from("player_team_memberships").select("id, player_id, team_id, players(first_name, surname, date_of_birth)").in("team_id", teamIds).eq("status", "pending")
+      ? supabase.from("player_team_memberships").select("id, player_id, team_id").in("team_id", teamIds).eq("status", "pending")
       : Promise.resolve({ data: [] }),
+  ])
+
+  // Staff read players through the staff projection: names and an age grade, never a date of birth (Phase 2 J.6).
+  const staffPlayers = await loadStaffPlayers(supabase, [
+    ...(memberships ?? []).map((m) => m.player_id),
+    ...(duplicateReviews ?? []).map((r) => r.matched_player_id),
+    ...(pendingMemberships ?? []).map((m) => m.player_id),
   ])
 
   const aliasByTeamId = new Map((aliasRows ?? []).map((a) => [a.team_id, a.alias]))
@@ -96,16 +103,17 @@ export default async function ClubGuardiansPage() {
   }
 
   const players: PlayerGuardianData[] = (memberships ?? [])
-    .filter((m) => m.players)
+    .filter((m) => staffPlayers.has(m.player_id))
     .map((m) => {
       const team = teamById.get(m.team_id)
-      const ageState = resolvePlayerAgeState(m.players!.date_of_birth, team ? [{ category: team.category as "senior" | "youth" | "colts", ageGroup: team.age_group }] : [])
+      const player = staffPlayers.get(m.player_id)!
+      const ageState = staffPlayerAgeState(player, team ? [{ category: team.category as "senior" | "youth" | "colts", ageGroup: team.age_group }] : [])
       return {
-        playerId: m.players!.id,
-        playerName: `${m.players!.first_name} ${m.players!.surname}`,
+        playerId: player.id,
+        playerName: player.displayName,
         teamId: m.team_id,
         teamLabel: teamLabel(m.team_id),
-        guardians: guardiansByPlayerId.get(m.players!.id) ?? [],
+        guardians: guardiansByPlayerId.get(player.id) ?? [],
         // "Orphaned minor -> fail closed, flag GUARDIAN REQUIRED" is
         // specifically about MINORS -- a confirmed adult (or a player on
         // a senior/Senior-Colts team with unknown DOB, never safety-
@@ -122,14 +130,15 @@ export default async function ClubGuardiansPage() {
     teamLabel: teamLabel(r.team_id),
     submittedName: `${r.submitted_first_name} ${r.submitted_surname}`,
     submittedDob: r.submitted_date_of_birth,
-    matchedName: r.players ? `${r.players.first_name} ${r.players.surname}` : "Unknown",
-    matchedDob: r.players?.date_of_birth ?? null,
+    matchedName: staffPlayers.get(r.matched_player_id)?.displayName || "Unknown",
+    matchedAgeGrade: staffPlayers.get(r.matched_player_id)?.ageGrade ?? null,
   }))
 
   const pendingPlayerIds = (pendingMemberships ?? []).map((m) => m.player_id)
   const guardianNameByPlayerId = new Map<string, string>()
   if (pendingPlayerIds.length > 0) {
-    const { data: pendingGuardianLinks } = await supabase.from("guardians").select("player_id, guardian_user_id").in("player_id", pendingPlayerIds).eq("status", "active")
+    // a child a parent added waits for approval with its relationship PENDING_APPROVAL (Phase 2 N.1)
+    const { data: pendingGuardianLinks } = await supabase.from("guardians").select("player_id, guardian_user_id").in("player_id", pendingPlayerIds).in("state", ["ACTIVE", "PENDING_APPROVAL"])
     const guardianUserIds = (pendingGuardianLinks ?? []).map((g) => g.guardian_user_id)
     const { data: guardianProfiles } = guardianUserIds.length > 0 ? await supabase.from("profiles").select("id, first_name, surname").in("id", guardianUserIds) : { data: [] }
     const profileById = new Map((guardianProfiles ?? []).map((p) => [p.id, [p.first_name, p.surname].filter(Boolean).join(" ")]))
@@ -139,11 +148,11 @@ export default async function ClubGuardiansPage() {
   }
 
   const pendingRequests: PendingMembershipData[] = (pendingMemberships ?? [])
-    .filter((m) => m.players)
+    .filter((m) => staffPlayers.has(m.player_id))
     .map((m) => ({
       id: m.id,
-      playerName: `${m.players!.first_name} ${m.players!.surname}`,
-      playerDob: m.players!.date_of_birth,
+      playerName: staffPlayers.get(m.player_id)!.displayName,
+      playerAgeGrade: staffPlayers.get(m.player_id)!.ageGrade,
       teamLabel: teamLabel(m.team_id),
       guardianName: guardianNameByPlayerId.get(m.player_id) ?? "A parent",
     }))

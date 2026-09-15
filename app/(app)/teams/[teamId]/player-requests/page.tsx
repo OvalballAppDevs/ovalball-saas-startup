@@ -5,6 +5,7 @@ import { ChevronLeft, ArrowRightLeft } from "lucide-react"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
+import { loadStaffPlayers } from "@/lib/players/staff-players"
 
 import { CallUpPanel, type CallUpFixtureOption, type CallUpPlayerOption, type CallUpRow, type CallUpTeamOption } from "../../../club/player-moves/call-up-panel"
 
@@ -39,7 +40,7 @@ export default async function TeamPlayerRequestsPage({ params }: { params: Promi
   const [{ data: memberships }, { data: fixtureRows }] = await Promise.all([
     supabase
       .from("player_team_memberships")
-      .select("player_id, team_id, players(first_name, surname), teams(display_name, category, age_group, gender)")
+      .select("player_id, team_id, teams(display_name, category, age_group, gender)")
       .eq("status", "active")
       .is("ended_at", null)
       .in("team_id", (await supabase.from("teams").select("id").eq("club_id", team.club_id)).data?.map((t) => t.id) ?? []),
@@ -59,9 +60,10 @@ export default async function TeamPlayerRequestsPage({ params }: { params: Promi
     kickoffDate: f.kickoff_date,
     opponentLabel: f.raw_opposition_text,
   }))
+  const memberPlayers = await loadStaffPlayers(supabase, (memberships ?? []).map((m) => m.player_id))
   const playerOptions: CallUpPlayerOption[] = (memberships ?? []).map((m) => ({
     playerId: m.player_id,
-    playerName: m.players ? `${m.players.first_name} ${m.players.surname}` : "Unknown player",
+    playerName: memberPlayers.get(m.player_id)?.displayName || "Unknown player",
     currentTeamId: m.team_id,
     currentTeamName: m.teams?.display_name ?? "Unknown team",
     category: m.teams?.category ?? "youth",
@@ -72,14 +74,15 @@ export default async function TeamPlayerRequestsPage({ params }: { params: Promi
   const { data: callUpRows } = await supabase
     .from("fixture_player_call_up")
     .select(
-      "id, status, eligibility_rule_reference, source_team_id, players(first_name, surname), source_team:source_team_id(display_name), target_team:target_team_id(display_name), fixtures(kickoff_date, raw_opposition_text)"
+      "id, status, eligibility_rule_reference, source_team_id, player_id, source_team:source_team_id(display_name), target_team:target_team_id(display_name), fixtures(kickoff_date, raw_opposition_text)"
     )
     .or(`source_team_id.eq.${team.id},target_team_id.eq.${team.id}`)
     .order("created_at", { ascending: false })
 
+  const callUpPlayers = await loadStaffPlayers(supabase, (callUpRows ?? []).map((r) => r.player_id))
   const callUps: CallUpRow[] = (callUpRows ?? []).map((r) => ({
     id: r.id,
-    playerName: r.players ? `${r.players.first_name} ${r.players.surname}` : "Unknown player",
+    playerName: callUpPlayers.get(r.player_id)?.displayName || "Unknown player",
     sourceTeamId: r.source_team_id,
     sourceTeamName: r.source_team?.display_name ?? "Unknown team",
     targetTeamName: r.target_team?.display_name ?? "Unknown team",

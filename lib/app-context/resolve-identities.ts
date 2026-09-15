@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
 
-import { resolvePersonalAvatarUrl } from "./personal-avatar"
+import { resolvePersonalAvatarUrls } from "./personal-avatar"
 
 export interface ParticipantIdentity {
   name: string
@@ -69,7 +69,8 @@ export async function resolveParticipantIdentities(
   const nameById = new Map(
     (profiles ?? []).map((p) => [p.user_id, [p.first_name, p.surname].filter(Boolean).join(" ") || "Ovalball user"])
   )
-  const avatarUrlById = new Map((profiles ?? []).map((p) => [p.user_id, resolvePersonalAvatarUrl(supabase, p.avatar_storage_path)]))
+  const signedAvatars = await resolvePersonalAvatarUrls(supabase, (profiles ?? []).map((p) => p.avatar_storage_path))
+  const avatarUrlById = new Map((profiles ?? []).map((p) => [p.user_id, p.avatar_storage_path ? (signedAvatars.get(p.avatar_storage_path) ?? null) : null]))
 
   const result = new Map<string, ParticipantIdentity>()
 

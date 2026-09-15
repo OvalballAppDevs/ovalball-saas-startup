@@ -77,11 +77,35 @@ export async function resolveClubSettingsNavCapabilities(
 ): Promise<ClubSettingsNavCapabilities> {
   if (!clubId) return EMPTY
 
-  const [
+  // Each answer is named beside its own check. A positional destructure of this list once drifted by one entry
+  // when a check was inserted, which silently handed every later tab the previous tab's answer (the Guardians &
+  // Players gate read the player-dispensations answer). Named pairs cannot drift.
+  const checks = {
+    canProfile: "club.edit_profile",
+    canPitchesManage: "club.pitches.manage",
+    canVenues: "club.venues.manage",
+    canRollover: "club.season_rollover.manage",
+    canPermissions: "club.capabilities.manage",
+    canFixtureEdit: "fixture.edit",
+    canFixtureCallups: "manage_fixture_callups",
+    canPlayerDispensations: "manage_player_dispensations",
+    // Identity/Auth Slice 4a: guardian administration at club level is family.relationship.approve (Phase 2 J.6)
+    canGuardians: "family.relationship.approve",
+    canSafeguarding: "club.safeguarding.view",
+    canSubscriptionConfigure: "club.subscription.configure",
+    canSubscriptionViewFinance: "club.subscription.view_finance",
+    canPlatformBillingView: "club.platform_billing.view",
+    canNews: "club.news.manage",
+  } as const
+  const entries = Object.entries(checks) as [keyof typeof checks, string][]
+  const answers = await Promise.all(entries.map(([, key]) => hasCapability(supabase, key, "club", { clubId })))
+  const answer = Object.fromEntries(entries.map(([name], i) => [name, answers[i]])) as Record<keyof typeof checks, boolean>
+  const {
     canProfile,
     canPitchesManage,
     canVenues,
     canRollover,
+    canPermissions,
     canFixtureEdit,
     canFixtureCallups,
     canPlayerDispensations,
@@ -90,25 +114,8 @@ export async function resolveClubSettingsNavCapabilities(
     canSubscriptionConfigure,
     canSubscriptionViewFinance,
     canPlatformBillingView,
-    canPermissions,
     canNews,
-  ] = await Promise.all([
-    hasCapability(supabase, "club.edit_profile", "club", { clubId }),
-    hasCapability(supabase, "club.pitches.manage", "club", { clubId }),
-    hasCapability(supabase, "club.venues.manage", "club", { clubId }),
-    hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
-    hasCapability(supabase, "club.capabilities.manage", "club", { clubId }),
-    hasCapability(supabase, "fixture.edit", "club", { clubId }),
-    hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
-    hasCapability(supabase, "manage_player_dispensations", "club", { clubId }),
-    hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
-    hasCapability(supabase, "club.safeguarding.view", "club", { clubId }),
-    hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
-    hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
-    hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
-    // Appended last, so it cannot shift any entry above it.
-    hasCapability(supabase, "club.news.manage", "club", { clubId }),
-  ])
+  } = answer
 
   return {
     canPermissions,

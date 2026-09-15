@@ -13,7 +13,7 @@ import { getFixtureForecast } from "@/lib/weather/fixture-forecast"
 
 import { CommunicationPanel } from "./communication-panel"
 import { getMatchCentreContext } from "@/lib/app-context/match-centre-data"
-import { resolvePersonalAvatarUrl } from "@/lib/app-context/personal-avatar"
+import { resolvePersonalAvatarUrls } from "@/lib/app-context/personal-avatar"
 import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -120,6 +120,7 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
         ? await supabase.rpc("get_conversation_participant_names", { p_user_ids: senderIds, p_club_ids: conversationClubIds })
         : { data: [] as { user_id: string; first_name: string | null; surname: string | null; avatar_storage_path: string | null }[] }
     const senderById = new Map((senderProfiles ?? []).map((p) => [p.user_id, p]))
+    const senderAvatars = await resolvePersonalAvatarUrls(supabase, (senderProfiles ?? []).map((p) => p.avatar_storage_path))
 
     messages = (rows ?? []).map((m) => {
       const sender = senderById.get(m.sender_user_id)
@@ -133,10 +134,10 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
         createdAt: m.created_at,
         senderName: name.length > 0 ? name : "Someone",
         senderUserId: m.sender_user_id,
-        // The ADULT account's own picture, from the public avatars bucket.
-        // A player's photo lives in a private bucket and is deliberately not
-        // reachable from here: a message thread is not a roster.
-        senderAvatarUrl: resolvePersonalAvatarUrl(supabase, sender?.avatar_storage_path),
+        // The account's own picture, signed under the private avatars bucket's policy (a minor's is not offered
+        // to people outside their family and staff). A player's photo lives in its own bucket and is deliberately
+        // not reachable from here: a message thread is not a roster.
+        senderAvatarUrl: sender?.avatar_storage_path ? (senderAvatars.get(sender.avatar_storage_path) ?? null) : null,
         senderInitials: `${first[0] ?? ""}${surname[0] ?? ""}`.toUpperCase() || "?",
         isOwn: m.sender_user_id === user.id,
         reported: m.reported_at !== null,

@@ -159,6 +159,10 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "club_join_approved":
     case "player_information_requested":
       return "/parent/children"
+    // A child's other guardians are told when a guardian is added, removed or put on hold. A confidential
+    // hold is told only to the club's Safeguarding Officers, whose place for it is the club's safeguarding page.
+    case "guardian_relationship_changed":
+      return data.confidential === true ? "/club/settings/safeguarding" : "/parent/children"
 
     // ---- Season transition ----------------------------------------------
     case "season_transition_warning":

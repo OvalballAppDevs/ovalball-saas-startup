@@ -47,7 +47,7 @@ export async function getPublicHeaderIdentity(): Promise<PublicHeaderIdentity | 
     .eq("id", user.id)
     .maybeSingle()
 
-  const avatarUrl = resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path)
+  const avatarUrl = await resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path)
 
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)

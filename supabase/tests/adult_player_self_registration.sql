@@ -406,7 +406,17 @@ begin
   insert into public.profiles (id, first_name, surname, email) values (v_minor_u,'Minor','Player','minor@ovalball-test.invalid');
   perform set_config('request.jwt.claims', json_build_object('sub', v_minor_u,'role','authenticated')::text, true);
 
-  v_minor := public.create_own_player_profile('Minor','Player', v_dob_minor, 'MALE');
+  -- Self-registration is for adults (Phase 2 J.6 player.self_register, age gate): a 14-year-old is refused,
+  -- so the young player this section needs is created the way a club or guardian flow would create one.
+  begin
+    perform public.create_own_player_profile('Minor','Player', v_dob_minor, 'MALE');
+    raise notice 'FAIL 32a (J): a 14-year-old registered themselves as a player';
+  exception when check_violation then
+    raise notice 'PASS 32a (J): self-registration refuses a player under 18';
+  end;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id, created_by)
+  values ('Minor', 'Player', v_dob_minor, 'MALE', v_minor_u, v_minor_u)
+  returning id into v_minor;
 
   insert into public.teams (club_id, rugby_code, category, age_group, gender)
   values (v_uclub,'union','youth','U14','boys') returning id into v_u14;

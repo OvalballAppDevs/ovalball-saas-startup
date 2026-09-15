@@ -175,7 +175,8 @@ export async function uploadAvatar(formData: FormData): Promise<UploadAvatarResu
   // optimistic state) until a hard reload breaks the stale layout cache.
   revalidatePath("/", "layout")
 
-  return { ok: true, url: supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl }
+  const { data: signed } = await supabase.storage.from("avatars").createSignedUrl(path, 60 * 60)
+  return { ok: true, url: signed?.signedUrl ?? "" }
 }
 
 export async function removeAvatar(): Promise<UpdateProfileResult> {

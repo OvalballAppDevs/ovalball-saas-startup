@@ -6,6 +6,7 @@ import { sendEmailEvent } from "@/lib/email/send"
 import { toPublicAddChildError, toPublicGuardianRequestError, toPublicPlayerAccountInviteError } from "@/lib/errors/public-error"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
+import { requirePlayerCapability, requireSelfCapability } from "@/lib/auth/require-capability"
 
 export type AddChildResult =
   | { ok: true; result: "created_pending_team" | "created_needs_club_review" | "under_review" | "already_linked"; playerId: string | null; ageGrade: string; schoolYear: number | null }
@@ -33,6 +34,8 @@ export async function addChild(
   playingPathway: string
 ): Promise<AddChildResult> {
   const supabase = await createClient()
+  const allowed = await requireSelfCapability(supabase, "family.child.add")
+  if (!allowed.ok) return allowed
   const { data, error } = await supabase
     .rpc("add_child_for_guardian", { p_first_name: firstName, p_surname: surname, p_date_of_birth: dateOfBirth, p_club_id: clubId, p_rugby_code: rugbyCode, p_playing_pathway: playingPathway })
     .single()
@@ -145,6 +148,8 @@ export type InvitePlayerAccountResult = { ok: true } | { ok: false; error: strin
 
 export async function invitePlayerAccount(playerId: string, playerFirstName: string, email: string): Promise<InvitePlayerAccountResult> {
   const supabase = await createClient()
+  const allowed = await requirePlayerCapability(supabase, "player.account.invite", playerId)
+  if (!allowed.ok) return allowed
   const { data: invitationId, error } = await supabase.rpc("invite_player_account", { p_player_id: playerId, p_email: email })
   if (error || !invitationId) {
     if (error) console.error("invite_player_account failed:", error)
@@ -202,6 +207,8 @@ export async function requestChildLink(
   playingPathway: string
 ): Promise<RequestChildLinkResult> {
   const supabase = await createClient()
+  const allowed = await requireSelfCapability(supabase, "family.relationship.request")
+  if (!allowed.ok) return allowed
   const { data, error } = await supabase
     .rpc("request_child_link", {
       p_first_name: firstName,
@@ -244,8 +251,8 @@ export type AddGuardianResult =
 /**
  * Proposes a second adult for a child this guardian already holds. Uses the
  * same controlled model as the first-child path: a PENDING request that
- * grants nothing, approved by an existing guardian or an authorized Club
- * Admin.
+ * grants nothing, which the added adult must accept and the club then
+ * approves (family.relationship.approve at club level, Phase 2 N.1).
  *
  * If the person already has an Ovalball account the request attaches to it,
  * so we never create a second person record for somebody who is already
@@ -254,6 +261,8 @@ export type AddGuardianResult =
  */
 export async function addAnotherGuardian(playerId: string, email: string): Promise<AddGuardianResult> {
   const supabase = await createClient()
+  const allowed = await requirePlayerCapability(supabase, "family.relationship.request", playerId)
+  if (!allowed.ok) return allowed
   const { data, error } = await supabase.rpc("request_additional_guardian", { p_player_id: playerId, p_email: email }).single()
   if (error || !data) {
     if (error) console.error("request_additional_guardian failed:", error)
@@ -269,6 +278,8 @@ export async function addAnotherGuardian(playerId: string, email: string): Promi
  */
 export async function respondToGuardianRequest(requestId: string, response: "ACCEPT" | "DECLINE"): Promise<CancelRequestResult> {
   const supabase = await createClient()
+  const allowed = await requireSelfCapability(supabase, "family.relationship.request")
+  if (!allowed.ok) return allowed
   const { error } = await supabase.rpc("respond_to_additional_guardian_request", { p_request_id: requestId, p_response: response })
   if (error) {
     console.error("respond_to_additional_guardian_request failed:", error)
@@ -292,6 +303,8 @@ export type SetAvatarResult = { ok: true } | { ok: false; error: string }
  */
 export async function setChildAvatar(playerId: string, file: File): Promise<SetAvatarResult> {
   const supabase = await createClient()
+  const allowed = await requirePlayerCapability(supabase, "player.profile.edit", playerId)
+  if (!allowed.ok) return allowed
   if (!file || file.size === 0) return { ok: false, error: "Choose a picture to upload." }
   if (file.size > 5 * 1024 * 1024) return { ok: false, error: "That picture is larger than 5MB. Please choose a smaller one." }
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : file.type === "image/jpeg" ? "jpg" : null
@@ -314,6 +327,8 @@ export async function setChildAvatar(playerId: string, file: File): Promise<SetA
 
 export async function removeChildAvatar(playerId: string): Promise<SetAvatarResult> {
   const supabase = await createClient()
+  const allowed = await requirePlayerCapability(supabase, "player.profile.edit", playerId)
+  if (!allowed.ok) return allowed
   // The RPC treats an empty string as "no picture" (it nullifies blanks),
   // which keeps the generated non-null parameter type honest.
   const { error } = await supabase.rpc("set_player_avatar", { p_player_id: playerId, p_storage_path: "" })

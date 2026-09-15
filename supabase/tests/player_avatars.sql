@@ -65,12 +65,13 @@ begin
     raise exception 'FAIL 1 (A): player avatars are in a public bucket (public=%)', v_public;
   end if;
 
-  -- The adult bucket is public; that difference is the whole point.
+  -- Account pictures are private too since Identity/Auth Slice 4a (Phase 2 Z-12): a minor with a login is not
+  -- published through their account picture any more than through their player photo.
   select b.public into v_public from storage.buckets b where b.id = 'avatars';
-  if v_public is true then
-    raise notice 'PASS 2 (A): the adult avatars bucket is still public -- a child''s is deliberately not';
+  if v_public is false then
+    raise notice 'PASS 2 (A): the account avatars bucket is private -- pictures are served by signed URL';
   else
-    raise notice 'NOTE (A): the adult avatars bucket is no longer public; nothing here depends on that';
+    raise exception 'FAIL 2 (A): the account avatars bucket is public (Phase 2 Z-12)';
   end if;
 
   -- =================================================================

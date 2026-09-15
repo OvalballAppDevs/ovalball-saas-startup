@@ -103,6 +103,16 @@ const OUTCOME_COPY: Record<string, { title: string; body: (team: string) => stri
     title: "Already On Your Account",
     body: () => "This player is already linked to your account.",
   },
+  // A child a parent adds waits for the club to confirm the relationship (Identity/Auth Slice 4a, Phase 2 N.1).
+  // The database reports it as under_review with the new player's id, which keeps an older build working.
+  awaiting_club_approval: {
+    title: "Waiting for Your Club",
+    body: () => "The club has been asked to confirm that you are this player's parent or guardian. You will see the player here once they have.",
+  },
+}
+
+function outcomeCopyKey(outcome: { result: string; playerId: string | null }): string {
+  return outcome.result === "under_review" && outcome.playerId ? "awaiting_club_approval" : outcome.result
 }
 
 /**
@@ -234,8 +244,8 @@ export function AddChildForm({ clubId: presetClubId, rugbyCode: presetRugbyCode 
                 </div>
               ) : child.outcome && child.outcome.ok ? (
                 <div className="mt-3 rounded-lg bg-forest-50 px-4 py-3">
-                  <p className="text-sm font-medium text-ink">{OUTCOME_COPY[child.outcome.result].title}</p>
-                  <p className="mt-0.5 text-sm text-ink/60">{OUTCOME_COPY[child.outcome.result].body(teamName)}</p>
+                  <p className="text-sm font-medium text-ink">{OUTCOME_COPY[outcomeCopyKey(child.outcome)].title}</p>
+                  <p className="mt-0.5 text-sm text-ink/60">{OUTCOME_COPY[outcomeCopyKey(child.outcome)].body(teamName)}</p>
                 </div>
               ) : null
             ) : child.stage === "confirm" && child.allocation ? (

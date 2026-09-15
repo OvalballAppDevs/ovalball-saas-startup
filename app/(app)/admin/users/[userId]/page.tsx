@@ -3,11 +3,13 @@ import Link from "next/link"
 import { ChevronLeft, ShieldCheck } from "lucide-react"
 
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
+import { mySiteCapabilities } from "@/lib/auth/require-capability"
 import { createClient } from "@/lib/supabase/server"
 
 import { AuditLog } from "../../clubs/[directoryId]/audit-log"
 import { mapAdminUserRow } from "../query"
 import { AccountStatusControl } from "./account-status-control"
+import { FamilyRelationshipsPanel, type FamilyRelationshipRow } from "./family-relationships-panel"
 import { MembershipCard } from "./membership-card"
 import { PersonalDetailsPanel } from "./personal-details-panel"
 import { SiteAdminControl } from "./site-admin-control"
@@ -43,6 +45,21 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
     .in("table_name", ["profiles", "site_admins", "club_memberships"])
     .order("changed_at", { ascending: false })
     .limit(20)
+
+  // Family relationships (Phase 2 AN-7): shown only to a Site Admin holding site.family.manage.
+  const canManageFamily = (await mySiteCapabilities(supabase)).has("site.family.manage")
+  let familyRows: FamilyRelationshipRow[] = []
+  if (canManageFamily) {
+    const { data: relationships } = await supabase.rpc("get_person_family_relationships", { p_user_id: userId })
+    familyRows = (relationships ?? []).map((r) => ({
+      guardianId: r.guardian_id,
+      childName: `${r.child_first_name} ${r.child_surname}`,
+      relationshipType: r.relationship_type,
+      state: r.state as FamilyRelationshipRow["state"],
+      confidential: r.confidential,
+      holdReason: r.suspension_reason,
+    }))
+  }
 
   const changedByIds = [...new Set((auditRows ?? []).map((r) => r.changed_by).filter((id): id is string => Boolean(id)))]
   const { data: changedByProfiles } =
@@ -120,6 +137,18 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             )}
           </div>
         </section>
+
+        {canManageFamily && (
+          <section>
+            <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Family Relationships</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Children this person is a parent or guardian of. A hold stops everything the relationship allows until it is lifted.
+            </p>
+            <div className="mt-3">
+              <FamilyRelationshipsPanel userId={person.userId} rows={familyRows} />
+            </div>
+          </section>
+        )}
 
         {person.pendingRequests.length > 0 && (
           <section>

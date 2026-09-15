@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/server"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
+import { loadStaffPlayers } from "@/lib/players/staff-players"
 
 import { JoinRequestList, type JoinRequestRow, type PlaceableTeam } from "./join-request-list"
 
@@ -33,7 +34,7 @@ export default async function JoinRequestsPage() {
   // club's, as a manager. Nothing is filtered in the browser.
   const { data: rows } = await supabase
     .from("player_club_join_requests")
-    .select("id, player_id, club_id, resolved_category, status, created_at, players(first_name, surname), clubs(club_directory(name))")
+    .select("id, player_id, club_id, resolved_category, status, created_at, clubs(club_directory(name))")
     .eq("status", "pending")
     .order("created_at")
 
@@ -62,9 +63,10 @@ export default async function JoinRequestsPage() {
   }
   for (const [k, v] of teamsByClub) teamsByClub.set(k, v.sort((a, b) => a.label.localeCompare(b.label)))
 
+  const requestPlayers = await loadStaffPlayers(supabase, (rows ?? []).map((r) => r.player_id))
   const requests: JoinRequestRow[] = (rows ?? []).map((r) => ({
     id: r.id,
-    playerName: r.players ? `${r.players.first_name} ${r.players.surname}` : "Unknown player",
+    playerName: requestPlayers.get(r.player_id)?.displayName || "Unknown player",
     clubId: r.club_id,
     clubName: (r.clubs?.club_directory as unknown as { name: string } | null)?.name ?? "This club",
     resolvedCategory: r.resolved_category,

@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 
-import { getSessionContext } from "@/lib/app-context/session-context"
+import { mayRecordPlayerGender } from "@/lib/auth/require-capability"
 import { createClient } from "@/lib/supabase/server"
 
 import { GenderForm } from "./gender-form"
@@ -21,7 +21,10 @@ export const metadata = { title: "Playing Details" }
  * authority over protected identity information, which it must not.
  *
  * The server is the authority either way: set_player_playing_pathway refuses a
- * caller it does not recognise regardless of what this page renders.
+ * caller it does not recognise regardless of what this page renders. Whether to
+ * OFFER the form is the same canonical answer the action refuses with
+ * (mayRecordPlayerGender), so a guardian whose child has no team place yet is
+ * offered it exactly as the database allows (Identity/Auth Slice 4a, J.6).
  *
  * ONCE RECORDED, IT STAYS. The form appears only while the value is missing.
  * A player's gender decides their age grade and their pathway and is checked
@@ -38,8 +41,6 @@ export default async function PlayerDetailsPage({ params }: { params: Promise<{ 
   } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const ctx = await getSessionContext(supabase, user)
-
   const { data: player } = await supabase
     .from("players")
     .select("id, first_name, surname, playing_pathway, user_id")
@@ -48,11 +49,8 @@ export default async function PlayerDetailsPage({ params }: { params: Promise<{ 
 
   if (!player) notFound()
 
-  const isGuardian = ctx.guardianRelationships.some((g) => g.playerId === playerId)
-  const isSelf = player.user_id === user.id
   // Completing a missing value, never changing a recorded one.
-  const mayComplete = isGuardian || isSelf || ctx.siteAdminRole === "full"
-  const canEdit = mayComplete && player.playing_pathway === null
+  const canEdit = player.playing_pathway === null && (await mayRecordPlayerGender(supabase, player.id))
 
   const firstName = player.first_name
   const pathway = (player.playing_pathway ?? null) as "MALE" | "FEMALE" | null

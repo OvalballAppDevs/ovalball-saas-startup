@@ -18,11 +18,18 @@ type Client = SupabaseClient<Database>
  * that asks twenty questions about one club makes one round trip.
  */
 const myCapabilitiesAt = cache(
-  async (supabase: Client, scopeType: CapabilityScopeType, clubId: string | null, teamId: string | null): Promise<Map<string, boolean>> => {
+  async (
+    supabase: Client,
+    scopeType: CapabilityScopeType | "self" | "child",
+    clubId: string | null,
+    teamId: string | null,
+    playerId: string | null = null,
+  ): Promise<Map<string, boolean>> => {
     const { data, error } = await supabase.rpc("my_capabilities", {
       p_scope_type: scopeType,
       p_club_id: clubId ?? undefined,
       p_team_id: teamId ?? undefined,
+      p_player_id: playerId ?? undefined,
     })
     if (error) {
       console.error("my_capabilities RPC failed:", error)
@@ -53,4 +60,23 @@ export async function hasCapability(
     scopeType === "team" ? (scope.teamId ?? null) : null,
   )
   return answers.get(capabilityKey) === true
+}
+
+/**
+ * The same question about one player (Identity/Auth Slice 4a, Phase 2 J.6 SE / LC): true when the signed-in person
+ * holds the key for that player as the player themselves or as one of their ACTIVE guardians. Club and team staff
+ * authority over a player is asked at the player's club or team through hasCapability instead.
+ */
+export async function hasPlayerCapability(supabase: Client, capabilityKey: string, playerId: string | null | undefined): Promise<boolean> {
+  if (!playerId) return false
+  const [asGuardian, asSelf] = await Promise.all([
+    myCapabilitiesAt(supabase, "child", null, null, playerId),
+    myCapabilitiesAt(supabase, "self", null, null, playerId),
+  ])
+  return asGuardian.get(capabilityKey) === true || asSelf.get(capabilityKey) === true
+}
+
+/** A self-scope key that is not about a particular player (for example family.child.add). */
+export async function hasSelfCapability(supabase: Client, capabilityKey: string): Promise<boolean> {
+  return (await myCapabilitiesAt(supabase, "self", null, null, null)).get(capabilityKey) === true
 }
