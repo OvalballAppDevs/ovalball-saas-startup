@@ -1,6 +1,7 @@
 import Link from "next/link"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
+import { hasCompletedProfile } from "@/lib/identity/profile-setup"
 import { createClient } from "@/lib/supabase/server"
 import { profileLabel } from "@/app/(app)/admin/site-admins/profiles"
 
@@ -26,8 +27,7 @@ export default async function SiteAdminInvitePage({ params }: { params: Promise<
 
   let hasProfile = false
   if (user) {
-    const { data: profile } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle()
-    hasProfile = !!profile
+    hasProfile = await hasCompletedProfile(supabase, user.id)
   }
 
   return (

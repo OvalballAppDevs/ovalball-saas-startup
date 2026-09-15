@@ -1,6 +1,7 @@
 import Link from "next/link"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
+import { hasCompletedProfile } from "@/lib/identity/profile-setup"
 import { createClient } from "@/lib/supabase/server"
 import { CompleteProfileForm } from "@/app/invite/site-admin/[token]/complete-profile-form"
 
@@ -28,8 +29,7 @@ export default async function SafeguardingOfficerInvitePage({ params }: { params
 
   let hasProfile = false
   if (user) {
-    const { data: profile } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle()
-    hasProfile = !!profile
+    hasProfile = await hasCompletedProfile(supabase, user.id)
   }
 
   return (

@@ -1,5 +1,6 @@
 "use server"
 
+import { hasCompletedProfile } from "@/lib/identity/profile-setup"
 import { hasAllRequiredConsents } from "@/lib/legal/required-consents"
 import { createClient } from "@/lib/supabase/server"
 import { CURRENT_TERMS_VERSION } from "@/lib/signup/terms"
@@ -54,12 +55,7 @@ export async function completeAuthenticatedSignup(
 
   // Already onboarded -- treat as success rather than an error so a repeat
   // submission (double click, back button, retried request) is idempotent.
-  const { data: existingProfile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle()
-  if (existingProfile) {
+  if (await hasCompletedProfile(supabase, user.id)) {
     return { ok: true }
   }
 

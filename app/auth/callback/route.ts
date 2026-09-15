@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { AUTH_SESSION_VERSION } from "@/lib/auth/session-version"
 import { safeNextPath } from "@/lib/auth/safe-next"
 import { createClient } from "@/lib/supabase/server"
+import { hasCompletedProfile } from "@/lib/identity/profile-setup"
 import { completeSignupIfNeeded } from "@/lib/signup/complete-signup"
 
 // Exchanges the `code` param from a Supabase Auth redirect (OAuth, magic
@@ -42,12 +43,7 @@ export async function GET(request: Request) {
         // user signing in with a newly linked provider has a profile, so
         // this never fires for them.
         if (!result.completed) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("id", user.id)
-            .maybeSingle()
-          if (!profile) {
+          if (!(await hasCompletedProfile(supabase, user.id))) {
             return NextResponse.redirect(`${origin}/signup`)
           }
         }

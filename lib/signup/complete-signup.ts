@@ -7,6 +7,7 @@ import type { Database } from "@/types/database.types"
 import type { ClubSelection, PersonalDetails } from "@/lib/signup/types"
 import { getSiteUrl } from "@/lib/site-url"
 import { clearSignupBinding, signupBindingMatches } from "@/lib/signup/signup-binding"
+import { hasCompletedProfile } from "@/lib/identity/profile-setup"
 import { policyAcknowledgements, termsAgreementVersion } from "@/lib/legal/required-consents"
 
 /**
@@ -40,13 +41,7 @@ export async function completeSignupIfNeeded(
   supabase: SupabaseClient<Database>,
   user: User
 ): Promise<{ completed: boolean; error?: string }> {
-  const { data: existingProfile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  if (existingProfile) {
+  if (await hasCompletedProfile(supabase, user.id)) {
     return { completed: false }
   }
 
