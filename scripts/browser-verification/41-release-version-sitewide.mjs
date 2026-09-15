@@ -58,6 +58,9 @@ function cleanup() {
 do $$
 declare v_user uuid := (select id from auth.users where email = '${EMAIL}');
 begin
+  -- audit_log is append-only; a local test operator session may remove its
+  -- own disposable history only through the maintenance setting.
+  perform set_config('ovalball.maintenance', 'on', true);
   delete from public.audit_log where table_name = 'platform_releases' and record_id in (select id from public.platform_releases where version in ('${VERSION_A}', '${VERSION_B}'));
   delete from public.platform_releases where version in ('${VERSION_A}', '${VERSION_B}');
   delete from public.site_admins where user_id = v_user;

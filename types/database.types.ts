@@ -877,32 +877,65 @@ export type Database = {
       audit_log: {
         Row: {
           action: string
+          actor_user_id: string | null
           after: Json | null
           before: Json | null
           changed_at: string
           changed_by: string | null
+          effective_person_id: string | null
           id: string
+          impersonation_session_id: string | null
           record_id: string | null
+          redacted: boolean
+          request_id: string | null
           table_name: string
         }
         Insert: {
           action: string
+          actor_user_id?: string | null
           after?: Json | null
           before?: Json | null
           changed_at?: string
           changed_by?: string | null
+          effective_person_id?: string | null
           id?: string
+          impersonation_session_id?: string | null
           record_id?: string | null
+          redacted?: boolean
+          request_id?: string | null
           table_name: string
         }
         Update: {
           action?: string
+          actor_user_id?: string | null
           after?: Json | null
           before?: Json | null
           changed_at?: string
           changed_by?: string | null
+          effective_person_id?: string | null
           id?: string
+          impersonation_session_id?: string | null
           record_id?: string | null
+          redacted?: boolean
+          request_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
+      audit_redaction_rules: {
+        Row: {
+          column_name: string
+          mode: string
+          table_name: string
+        }
+        Insert: {
+          column_name: string
+          mode: string
+          table_name: string
+        }
+        Update: {
+          column_name?: string
+          mode?: string
           table_name?: string
         }
         Relationships: []
@@ -14400,6 +14433,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_state: string
           account_status: string
           address_line_1: string | null
           address_line_2: string | null
@@ -14408,6 +14442,7 @@ export type Database = {
           country: string | null
           county: string | null
           created_at: string
+          created_source: string
           date_of_birth: string | null
           email: string | null
           first_name: string
@@ -14415,11 +14450,16 @@ export type Database = {
           last_active_at: string | null
           phone_number: string | null
           postcode: string | null
+          setup_state: string
+          state_changed_at: string | null
+          state_changed_by: string | null
+          state_reason: string | null
           surname: string
           town: string | null
           updated_at: string
         }
         Insert: {
+          account_state?: string
           account_status?: string
           address_line_1?: string | null
           address_line_2?: string | null
@@ -14428,6 +14468,7 @@ export type Database = {
           country?: string | null
           county?: string | null
           created_at?: string
+          created_source?: string
           date_of_birth?: string | null
           email?: string | null
           first_name: string
@@ -14435,11 +14476,16 @@ export type Database = {
           last_active_at?: string | null
           phone_number?: string | null
           postcode?: string | null
+          setup_state?: string
+          state_changed_at?: string | null
+          state_changed_by?: string | null
+          state_reason?: string | null
           surname: string
           town?: string | null
           updated_at?: string
         }
         Update: {
+          account_state?: string
           account_status?: string
           address_line_1?: string | null
           address_line_2?: string | null
@@ -14448,6 +14494,7 @@ export type Database = {
           country?: string | null
           county?: string | null
           created_at?: string
+          created_source?: string
           date_of_birth?: string | null
           email?: string | null
           first_name?: string
@@ -14455,6 +14502,10 @@ export type Database = {
           last_active_at?: string | null
           phone_number?: string | null
           postcode?: string | null
+          setup_state?: string
+          state_changed_at?: string | null
+          state_changed_by?: string | null
+          state_reason?: string | null
           surname?: string
           town?: string | null
           updated_at?: string
@@ -15865,6 +15916,101 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      security_event_types: {
+        Row: {
+          category: string
+          club_visible: boolean
+          event_type: string
+          requires_reason: boolean
+          severity: string
+          subject_visible: boolean
+        }
+        Insert: {
+          category: string
+          club_visible?: boolean
+          event_type: string
+          requires_reason?: boolean
+          severity: string
+          subject_visible?: boolean
+        }
+        Update: {
+          category?: string
+          club_visible?: boolean
+          event_type?: string
+          requires_reason?: boolean
+          severity?: string
+          subject_visible?: boolean
+        }
+        Relationships: []
+      }
+      security_events: {
+        Row: {
+          aal: string | null
+          actor_user_id: string | null
+          club_id: string | null
+          effective_person_id: string | null
+          event_type: string
+          id: number
+          impersonation_session_id: string | null
+          ip_hash: string | null
+          metadata: Json
+          occurred_at: string
+          outcome: string
+          player_id: string | null
+          reason: string | null
+          request_id: string | null
+          subject_user_id: string | null
+          team_id: string | null
+          user_agent_hash: string | null
+        }
+        Insert: {
+          aal?: string | null
+          actor_user_id?: string | null
+          club_id?: string | null
+          effective_person_id?: string | null
+          event_type: string
+          id?: never
+          impersonation_session_id?: string | null
+          ip_hash?: string | null
+          metadata?: Json
+          occurred_at?: string
+          outcome?: string
+          player_id?: string | null
+          reason?: string | null
+          request_id?: string | null
+          subject_user_id?: string | null
+          team_id?: string | null
+          user_agent_hash?: string | null
+        }
+        Update: {
+          aal?: string | null
+          actor_user_id?: string | null
+          club_id?: string | null
+          effective_person_id?: string | null
+          event_type?: string
+          id?: never
+          impersonation_session_id?: string | null
+          ip_hash?: string | null
+          metadata?: Json
+          occurred_at?: string
+          outcome?: string
+          player_id?: string | null
+          reason?: string | null
+          request_id?: string | null
+          subject_user_id?: string | null
+          team_id?: string | null
+          user_agent_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_events_event_type_fkey"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "security_event_types"
+            referencedColumns: ["event_type"]
+          },
+        ]
       }
       site_admin_diagnostic_sessions: {
         Row: {

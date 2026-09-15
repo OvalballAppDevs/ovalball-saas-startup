@@ -161,13 +161,11 @@ begin
 
   -- F. Same person can legitimately hold another Club role -- give the
   -- accepted officer a second, independent role at a DIFFERENT club.
-  -- club_memberships is Site-Admin-insert-only at the RLS layer (ordinary
-  -- role grants happen through accept_invitation()'s own SECURITY DEFINER
-  -- path in real product use) -- inserting as the real Site Admin persona
-  -- here exercises the same real boundary, not a bypass of it.
+  -- Browser roles hold no direct INSERT on club_memberships (Slice 1
+  -- perimeter; role grants happen through checked SECURITY DEFINER paths), so
+  -- the second role is seeded by the backend. What this asserts is that one
+  -- person can hold both.
   reset role;
-  set local role authenticated;
-  perform set_config('request.jwt.claims', json_build_object('sub', v_site_admin::text, 'role', 'authenticated')::text, true);
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_b, v_officer_user, 'FIXTURE_SECRETARY', 'active');
   if exists (select 1 from public.club_memberships where club_id = v_club_b and user_id = v_officer_user and role = 'FIXTURE_SECRETARY') then
     raise notice 'PASS F: the same person legitimately holds an independent role (Fixture Secretary) at a different club, alongside being Club A''s Safeguarding Officer';

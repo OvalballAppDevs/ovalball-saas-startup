@@ -160,15 +160,21 @@ begin
   end if;
 
   -- ---------- 7. but a signed-out visitor reads no club's money ----------
-  perform set_config('role', 'anon', true);
-  select
-      (select count(*) from public.platform_trials)
-    + (select count(*) from public.platform_club_subscriptions)
-    + (select count(*) from public.platform_payments)
-    + (select count(*) from public.platform_credits)
-    + (select count(*) from public.platform_referrals)
-  into v_count;
-  perform set_config('role', 'postgres', true);
+  -- Since the Slice 1 perimeter anon holds no privilege on these tables, so
+  -- the read is refused outright; refused and no rows are both the protection.
+  begin
+    perform set_config('role', 'anon', true);
+    select
+        (select count(*) from public.platform_trials)
+      + (select count(*) from public.platform_club_subscriptions)
+      + (select count(*) from public.platform_payments)
+      + (select count(*) from public.platform_credits)
+      + (select count(*) from public.platform_referrals)
+    into v_count;
+    perform set_config('role', 'postgres', true);
+  exception when insufficient_privilege then
+    v_count := 0;
+  end;
 
   if v_count = 0 then
     raise notice 'PASS 7: a signed-out visitor sees no club''s commercial data';

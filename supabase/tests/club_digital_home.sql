@@ -37,6 +37,11 @@ begin
   perform set_config('request.jwt.claims', '', true);
 end $$;
 
+-- Functions created by postgres carry no PUBLIC EXECUTE since the Slice 1
+-- perimeter; these session helpers are called after switching role.
+grant execute on function pg_temp.act(text, uuid) to public;
+grant execute on function pg_temp.act_postgres() to public;
+
 do $$
 declare
   v_tag text := substr(gen_random_uuid()::text, 1, 8);

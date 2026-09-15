@@ -126,14 +126,24 @@ begin
   -- columns only. This assertion is deliberately positive -- it fails if the
   -- base table is ever handed back to anon.
   set local role anon;
-  select count(*) into v_n from public.fixtures where id = v_fixture;
+  -- Since the Slice 1 perimeter anon holds no privilege on these tables at
+  -- all, which is stronger than "returns no rows"; both outcomes pass.
+  begin
+    select count(*) into v_n from public.fixtures where id = v_fixture;
+  exception when insufficient_privilege then
+    v_n := 0;
+  end;
   if v_n = 0 then
     raise notice 'PASS 7 (D): the canonical fixture is invisible to an anonymous caller';
   else
     raise exception 'FAIL 7 (D): the canonical fixtures table is readable anonymously again (% rows)', v_n;
   end if;
 
-  select count(*) into v_n from public.player_fixture_attendance where fixture_id = v_fixture;
+  begin
+    select count(*) into v_n from public.player_fixture_attendance where fixture_id = v_fixture;
+  exception when insufficient_privilege then
+    v_n := 0;
+  end;
   if v_n = 0 then
     raise notice 'PASS 8 (D): attendance is NOT public, even though the fixture is';
   else

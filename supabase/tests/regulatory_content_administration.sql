@@ -188,7 +188,12 @@ begin
   reset role; set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_regulatory_admin::text, 'role', 'authenticated')::text, true);
   select create_regulatory_source('rca-src-' || gen_random_uuid()::text, (select id from regulatory_authorities where code='RFU'), 'union', 'Test Source', 'REGULATION', 'PRIMARY_REGULATION', 'https://example.test', current_date) into v_source_id;
+  -- Review state is set by the backend here: browser roles hold no direct
+  -- write on regulatory_sources (Slice 1 perimeter).
+  reset role;
   update regulatory_sources set review_state = 'VERIFIED_CURRENT' where id = v_source_id;
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_regulatory_admin::text, 'role', 'authenticated')::text, true);
   if v_source_id is not null then raise notice 'PASS H: a Site Admin with manage_regulatory_content can create a regulatory source'; else raise notice 'FAIL H'; end if;
 
   select create_regulatory_fact('rca-fact-' || gen_random_uuid()::text, 'PLAYER_COUNT', 'RULES', 'union', 'INTEGER', p_value_integer := 11) into v_fact_id;

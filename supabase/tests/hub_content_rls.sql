@@ -130,13 +130,22 @@ begin
   end if;
   raise notice 'PASS (G2): view_hub_content does not imply write -- manage_hub_content is a separate, ungranted capability here';
 
-  -- ============ H. Full Site Admin: can manage ============
+  -- ============ H. Hub content is not written through the API ============
+  -- Rugby Hub content is authored through migrations; no application surface
+  -- writes it. Since the Slice 1 perimeter no browser role holds a write
+  -- privilege on it, so even a Full Site Admin's session cannot change it
+  -- directly -- an admin authoring surface will get an explicit, checked path.
   perform set_config('request.jwt.claims', json_build_object('sub', v_full_admin, 'role','authenticated')::text, true);
-  update public.hub_content_items set title = 'Updated by Full Site Admin' where id = v_draft_id;
-  if (select title from public.hub_content_items where id = v_draft_id) <> 'Updated by Full Site Admin' then
-    raise exception 'FAIL (H): Full Site Admin could not update a draft content item';
+  v_raised := false;
+  begin
+    update public.hub_content_items set title = 'Updated by Full Site Admin' where id = v_draft_id;
+  exception when insufficient_privilege then
+    v_raised := true;
+  end;
+  if not v_raised then
+    raise exception 'FAIL (H): a browser session wrote Rugby Hub content directly';
   end if;
-  raise notice 'PASS (H): Full Site Admin can manage general Rugby Hub content';
+  raise notice 'PASS (H): Rugby Hub content cannot be written through the API, even by a Full Site Admin session';
 
   -- ============ I. App-supplied context never substitutes for a real grant ============
   -- Simulates a forged claim asserting an admin-sounding role that is not
@@ -147,7 +156,11 @@ begin
   -- the title is unchanged afterwards, checked as Full Site Admin (who can
   -- see it) to be sure "unchanged" isn't itself an RLS-filtered illusion.
   perform set_config('request.jwt.claims', json_build_object('sub', v_ordinary, 'role','authenticated', 'app_role','FULL_SITE_ADMIN')::text, true);
-  update public.hub_content_items set title = 'Forged claim should not work' where id = v_draft_id;
+  begin
+    update public.hub_content_items set title = 'Forged claim should not work' where id = v_draft_id;
+  exception when insufficient_privilege then
+    null;
+  end;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_full_admin, 'role','authenticated')::text, true);
   if (select title from public.hub_content_items where id = v_draft_id) = 'Forged claim should not work' then

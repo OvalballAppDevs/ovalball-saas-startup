@@ -351,7 +351,13 @@ end if;
 
 perform set_config('role','anon',true);
 perform set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
-select count(*) into v_n from public.club_events;
+-- anon holds no privilege on club_events (Slice 1 perimeter): refused or no
+-- rows are both the protection.
+begin
+  select count(*) into v_n from public.club_events;
+exception when insufficient_privilege then
+  v_n := 0;
+end;
 if v_n = 0 then
   raise notice 'PASS 21 (G): anonymous readers see no club events at all';
 else

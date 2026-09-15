@@ -280,6 +280,9 @@ async function cleanup() {
 do $$
 declare v_clubs uuid[] := array(select id from public.clubs where slug like 'uat-home-%-${TAG}');
 begin
+  -- audit_log is append-only; a local test operator session may remove its
+  -- own disposable history only through the maintenance setting.
+  perform set_config('ovalball.maintenance', 'on', true);
   delete from public.competition_matches where edition_id in (select e.id from public.competition_editions e join public.competitions c on c.id = e.competition_id where c.slug = 'uat-home-cup-${TAG}');
   delete from public.competition_stages where edition_id in (select e.id from public.competition_editions e join public.competitions c on c.id = e.competition_id where c.slug = 'uat-home-cup-${TAG}');
   delete from public.competition_participants where edition_id in (select e.id from public.competition_editions e join public.competitions c on c.id = e.competition_id where c.slug = 'uat-home-cup-${TAG}');

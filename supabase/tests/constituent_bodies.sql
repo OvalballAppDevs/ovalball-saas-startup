@@ -132,10 +132,9 @@ begin
 
   -- The id is the identity: renaming the body changes every consumer at
   -- once and breaks no reference.
-  perform set_config('request.jwt.claims', json_build_object('sub', v_site, 'role','authenticated', 'email','cbsite@ovalball-test.invalid')::text, true);
-  set local role authenticated;
+  -- Renamed by the backend: browser roles hold no direct write on
+  -- constituent_bodies (Slice 1 perimeter).
   update public.constituent_bodies set canonical_name = 'Lancashire Rugby Football Union' where id = v_lancs;
-  reset role;
 
   select cb.canonical_name, d.constituent_body_id into v_text, v_uuid
   from public.club_directory d join public.constituent_bodies cb on cb.id = d.constituent_body_id
@@ -146,10 +145,7 @@ begin
     raise notice 'FAIL 10 (C): name=% id=%', v_text, v_uuid;
   end if;
 
-  perform set_config('request.jwt.claims', json_build_object('sub', v_site, 'role','authenticated', 'email','cbsite@ovalball-test.invalid')::text, true);
-  set local role authenticated;
   update public.constituent_bodies set canonical_name = 'Lancashire RFU' where id = v_lancs;
-  reset role;
 
   -- A body a club still references cannot be deleted out from under it.
   perform set_config('request.jwt.claims', json_build_object('sub', v_site, 'role','authenticated', 'email','cbsite@ovalball-test.invalid')::text, true);

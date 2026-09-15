@@ -92,9 +92,16 @@ begin
 
   -- And an anonymous reader certainly cannot.
   perform set_config('request.jwt.claims', null, true);
-  set local role anon;
-  update public.club_directory set bio = 'Rewritten anonymously.' where id = v_dir_unclaimed;
-  reset role;
+  -- anon holds no write privilege on club_directory at all (Slice 1
+  -- perimeter); a refused statement and a statement reaching no row are both
+  -- the protection.
+  begin
+    set local role anon;
+    update public.club_directory set bio = 'Rewritten anonymously.' where id = v_dir_unclaimed;
+    reset role;
+  exception when insufficient_privilege then
+    null;
+  end;
   select bio into v_text from public.club_directory where id = v_dir_unclaimed;
   if v_text = 'A recognised club that has not claimed its Ovalball page.' then
     raise notice 'PASS 5 (B): an anonymous writer cannot change directory profile text';

@@ -278,6 +278,16 @@ SUITES=(
 
   # Club Digital Home: club and team news, announcements, Welcome to Ovalball.
   club_digital_home
+
+  # Identity/Auth Slice 1: every auth identity has exactly one profile, and the
+  # database/API perimeter is explicit. The matching drift guard is
+  # js/perimeter_manifest.test.mts, which compares the live grants with
+  # supabase/security/perimeter-manifest.json.
+  identity_foundation_and_perimeter
+  # audit_log and security_events are append-only, server-attributed and
+  # redacted; identity changes emit their security events.
+  audit_immutability
+  security_events_no_secrets
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

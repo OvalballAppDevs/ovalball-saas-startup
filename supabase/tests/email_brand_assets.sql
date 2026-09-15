@@ -220,9 +220,13 @@ begin
 
   -- The function is the ONLY thing that got public: the row itself, with who
   -- changed the logo and when, stays Site Admin's business.
-  set local role anon;
-  select count(*) into v_anon_row from public.email_brand_settings;
-  reset role;
+  begin
+    set local role anon;
+    select count(*) into v_anon_row from public.email_brand_settings;
+    reset role;
+  exception when insufficient_privilege then
+    v_anon_row := 0;
+  end;
 
   if v_anon_row = 0 then
     raise notice 'PASS 15 (H): the settings row itself is still not readable without a session';
