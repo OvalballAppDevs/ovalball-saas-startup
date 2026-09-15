@@ -172,6 +172,11 @@ const SAFE_GUARDIAN_REQUEST_ERROR_PREFIXES = [
   "This request has already been decided.",
   "You have submitted several requests recently.",
   "This person needs to accept their invitation and sign in",
+  "The person asked to be a guardian has not accepted yet.",
+  "You have already answered this request.",
+  "You are already a guardian of this child.",
+  "This request is no longer available.",
+  "This relationship is on hold, so the request cannot be approved.",
 ]
 
 export function toPublicGuardianRequestError(error: RawErrorLike): string {

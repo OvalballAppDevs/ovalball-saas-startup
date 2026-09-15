@@ -336,7 +336,7 @@ export async function getConnectedUsers(clubId: string): Promise<ConnectedUser[]
   const teamPermsByMembership = new Map<string, ConnectedUser["teamRoles"]>()
   for (const tp of teamPerms ?? []) {
     const team = tp.teams as unknown as { id: string; display_name: string } | null
-    if (!team) continue
+    if (!team || !tp.membership_id || !tp.permission) continue
     const list = teamPermsByMembership.get(tp.membership_id) ?? []
     list.push({ teamId: team.id, teamName: team.display_name, permission: tp.permission })
     teamPermsByMembership.set(tp.membership_id, list)
@@ -365,23 +365,22 @@ export interface UpdateRoleTitleInput {
 }
 
 /**
- * Descriptive-only edit -- never touches club_memberships.role (the
- * Ovalball permission). RLS (club_memberships_update_scoped:
- * is_site_admin() or is_club_admin(club_id)) is the real boundary.
+ * Descriptive-only edit: a title such as Chair or Secretary is never
+ * authority. set_membership_governance_title is the boundary.
  */
 export async function updateMembershipRoleTitle(input: UpdateRoleTitleInput): Promise<ActionResult> {
   const supabase = await createClient()
-  const auth = await requireSiteAdmin(supabase, ['full', 'user_access'])
+  const auth = await requireSiteAdmin(supabase, ["full"])
   if (!auth.ok) return { ok: false, error: auth.error }
 
-  const { error } = await supabase
-    .from("club_memberships")
-    .update({ club_role_title: input.clubRoleTitle.trim() || null })
-    .eq("id", input.membershipId)
+  const { error } = await supabase.rpc("set_membership_governance_title", {
+    p_membership_id: input.membershipId,
+    p_title: input.clubRoleTitle.trim(),
+  })
 
   if (error) {
     console.error("updateMembershipRoleTitle failed:", error)
-    return { ok: false, error: toPublicSubmissionError() }
+    return { ok: false, error: error.message }
   }
   revalidatePath(`/admin/clubs/${input.directoryId}`)
   return { ok: true }
@@ -390,54 +389,63 @@ export async function updateMembershipRoleTitle(input: UpdateRoleTitleInput): Pr
 export interface RevokeMembershipInput {
   membershipId: string
   directoryId: string
+  reason: string
 }
 
 /**
- * Sets club_memberships.status = 'revoked' -- never a delete (the row
- * stays as history), and never touches .role, so this can't be repurposed
- * to promote/demote. Deliberately does not exist as a "make anyone admin"
- * counterpart; granting/promoting access from Club Management is out of
- * scope for this slice.
+ * Removes the person from the club: the membership becomes REVOKED history
+ * (never deleted, never switched back on) and its roles end with it. A Site
+ * Admin gives a reason, and the club is never left without a Club Admin.
  */
 export async function revokeMembership(input: RevokeMembershipInput): Promise<ActionResult> {
   const supabase = await createClient()
-  const auth = await requireSiteAdmin(supabase, ['full', 'user_access'])
+  const auth = await requireSiteAdmin(supabase, ["full"])
   if (!auth.ok) return { ok: false, error: auth.error }
 
-  const { error } = await supabase
-    .from("club_memberships")
-    .update({ status: "revoked" })
-    .eq("id", input.membershipId)
+  const { error } = await supabase.rpc("transition_club_membership", {
+    p_membership_id: input.membershipId,
+    p_to_state: "REVOKED",
+    p_reason: input.reason,
+  })
 
   if (error) {
     console.error("revokeMembership failed:", error)
-    return { ok: false, error: toPublicSubmissionError() }
+    return { ok: false, error: error.message }
   }
   revalidatePath(`/admin/clubs/${input.directoryId}`)
   revalidatePath("/admin/users")
   return { ok: true }
 }
 
+export interface ReadmitMembershipInput {
+  clubId: string
+  userId: string
+  directoryId: string
+  reason: string
+}
+
 /**
- * The reverse of revokeMembership -- restores the membership's status to
- * active without touching .role or club_role_title, so a previously
- * revoked Club Admin comes back as a Club Admin, not silently downgraded.
+ * A removed membership is never switched back on. Re-admitting the person
+ * creates a new membership, as a Member, with its own history; any role they
+ * need is given again deliberately.
  */
-export async function reactivateMembership(input: RevokeMembershipInput): Promise<ActionResult> {
+export async function reactivateMembership(input: ReadmitMembershipInput): Promise<ActionResult> {
   const supabase = await createClient()
-  const auth = await requireSiteAdmin(supabase, ['full', 'user_access'])
+  const auth = await requireSiteAdmin(supabase, ["full"])
   if (!auth.ok) return { ok: false, error: auth.error }
 
-  const { error } = await supabase
-    .from("club_memberships")
-    .update({ status: "active" })
-    .eq("id", input.membershipId)
+  const { error } = await supabase.rpc("grant_club_membership", {
+    p_club_id: input.clubId,
+    p_user_id: input.userId,
+    p_reason: input.reason,
+  })
 
   if (error) {
     console.error("reactivateMembership failed:", error)
-    return { ok: false, error: toPublicSubmissionError() }
+    return { ok: false, error: error.message }
   }
   revalidatePath(`/admin/clubs/${input.directoryId}`)
+  revalidatePath(`/admin/users/${input.userId}`)
   revalidatePath("/admin/users")
   return { ok: true }
 }
@@ -455,77 +463,30 @@ export interface ChangeAccessInput {
   clubGroupId: string
   /** One optional team-scope permission_groups.id per team; null/omitted clears that team's assignment. */
   teamAssignments: TeamGroupAssignment[]
+  reason: string
 }
 
 /**
- * The one path for changing what an existing member can do. Reads the
- * chosen permission_groups row(s) and writes their real, already-
- * implemented mapping (club_memberships.role / team_permissions.
- * permission) -- Permission Management's groups are the only source for
- * "what access level does this correspond to", so there is no hard-coded
- * duplicate dropdown logic here, matching the brief's own requirement.
- * assigned_group_id is set purely for traceability (Permission
- * Management's assigned-user counts); it never gates anything on its own.
- * Never touches site_admins -- granting Site Admin is a deliberately
- * separate, extra-friction action (see admin/users/[userId]/actions.ts)
- * so this form can never be used to create a Site Admin, by construction.
+ * The one path for changing what an existing member can do from Site Admin.
+ * change_membership_access_profile reads the chosen Permission Management
+ * groups and applies their club and team roles in one transaction, with the
+ * reason, never leaving the club without a Club Admin. It never touches
+ * site_admins -- granting Site Admin is a deliberately separate action.
  */
 export async function changeAccessProfile(input: ChangeAccessInput): Promise<ActionResult> {
   const supabase = await createClient()
-  const auth = await requireSiteAdmin(supabase, ['full', 'user_access'])
+  const auth = await requireSiteAdmin(supabase, ["full"])
   if (!auth.ok) return { ok: false, error: auth.error }
 
-  const { data: clubGroup, error: clubGroupError } = await supabase
-    .from("permission_groups")
-    .select("id, scope_type, maps_to_role")
-    .eq("id", input.clubGroupId)
-    .eq("scope_type", "club")
-    .maybeSingle()
-  if (clubGroupError || !clubGroup || !clubGroup.maps_to_role) {
-    return { ok: false, error: "That club-wide access group could not be found." }
-  }
-
-  const { error: roleError } = await supabase
-    .from("club_memberships")
-    .update({ role: clubGroup.maps_to_role, assigned_group_id: clubGroup.id })
-    .eq("id", input.membershipId)
-  if (roleError) {
-    console.error("changeAccessProfile role update failed:", roleError)
-    return { ok: false, error: toPublicSubmissionError() }
-  }
-
-  const { error: deleteError } = await supabase.from("team_permissions").delete().eq("membership_id", input.membershipId)
-  if (deleteError) {
-    console.error("changeAccessProfile team_permissions clear failed:", deleteError)
-    return { ok: false, error: toPublicSubmissionError() }
-  }
-
-  const teamGroupIds = input.teamAssignments.map((t) => t.groupId).filter((id): id is string => Boolean(id))
-  if (teamGroupIds.length > 0) {
-    const { data: teamGroups, error: teamGroupError } = await supabase
-      .from("permission_groups")
-      .select("id, maps_to_team_permission")
-      .in("id", teamGroupIds)
-      .eq("scope_type", "team")
-    if (teamGroupError || !teamGroups) {
-      return { ok: false, error: "One of the selected team access groups could not be found." }
-    }
-    const permissionByGroupId = new Map(teamGroups.map((g) => [g.id, g.maps_to_team_permission]))
-    const rows = input.teamAssignments
-      .filter((t) => t.groupId && permissionByGroupId.get(t.groupId) && permissionByGroupId.get(t.groupId) !== "view_only")
-      .map((t) => ({
-        membership_id: input.membershipId,
-        team_id: t.teamId,
-        permission: permissionByGroupId.get(t.groupId!)!,
-        assigned_group_id: t.groupId,
-      }))
-    if (rows.length > 0) {
-      const { error: insertError } = await supabase.from("team_permissions").insert(rows)
-      if (insertError) {
-        console.error("changeAccessProfile team_permissions insert failed:", insertError)
-        return { ok: false, error: toPublicSubmissionError() }
-      }
-    }
+  const { error } = await supabase.rpc("change_membership_access_profile", {
+    p_membership_id: input.membershipId,
+    p_club_group_id: input.clubGroupId,
+    p_team_assignments: input.teamAssignments.map((t) => ({ team_id: t.teamId, group_id: t.groupId })),
+    p_reason: input.reason,
+  })
+  if (error) {
+    console.error("changeAccessProfile failed:", error)
+    return { ok: false, error: error.message }
   }
 
   revalidatePath(`/admin/clubs/${input.directoryId}`)
@@ -568,6 +529,7 @@ export async function getClubTeams(clubId: string): Promise<ClubTeamSummary[]> {
 
   const countByTeam = new Map<string, number>()
   for (const row of counts ?? []) {
+    if (!row.team_id) continue
     countByTeam.set(row.team_id, (countByTeam.get(row.team_id) ?? 0) + 1)
   }
 

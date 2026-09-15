@@ -292,6 +292,17 @@ SUITES=(
   # that fixture's season, through a public projection scoped to public
   # fixtures, without widening teams.
   public_team_season_identity
+  # Identity/Auth Slice 2: canonical memberships, roles, family relationships
+  # and team places are state machines with provenance; every transition is a
+  # checked function with its event, and nothing removed comes back. The race
+  # outcomes are js/membership_races.test.mts.
+  membership_state_machine
+  role_assignment_state_machine
+  role_assignment_ceilings
+  minor_prohibitions
+  family_relationship_state_machine
+  guardian_additional_requires_acceptance
+  backfill_verification
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

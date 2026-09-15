@@ -98,8 +98,14 @@ export default async function GuardianRequestsPage() {
                   : "Only approve if you can confirm this person is responsible for this child."}
               </p>
 
+              {r.kind === "ADDITIONAL_GUARDIAN" && r.subject_response !== "ACCEPTED" ? (
+                <p className="mt-3 text-sm text-ink-muted">
+                  Waiting for {r.invited_email ?? "the other adult"} to accept. You can approve once they have; you can reject now.
+                </p>
+              ) : null}
+
               <div className="mt-3">
-                <DecisionControls requestId={r.request_id} />
+                <DecisionControls requestId={r.request_id} canApprove={r.kind !== "ADDITIONAL_GUARDIAN" || r.subject_response === "ACCEPTED"} />
               </div>
             </li>
           ))}

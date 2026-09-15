@@ -6,7 +6,11 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TEAM_PERMISSION_OPTIONS as TEAM_PERMISSIONS } from "@/lib/permissions/role-labels"
+import { TEAM_PERMISSION_OPTIONS } from "@/lib/permissions/role-labels"
+
+// View Only never gave any team access and is not a team role; a parent or
+// player reaches a team through their child or their own place in it.
+const TEAM_PERMISSIONS = TEAM_PERMISSION_OPTIONS.filter((option) => option.value !== "view_only")
 
 import { createInvitation } from "./actions"
 

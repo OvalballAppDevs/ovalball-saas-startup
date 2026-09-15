@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { addAnotherGuardian, cancelChildLinkRequest, removeChildAvatar, setChildAvatar } from "./actions"
+import { addAnotherGuardian, cancelChildLinkRequest, removeChildAvatar, respondToGuardianRequest, setChildAvatar } from "./actions"
 
 /**
  * Per-child controls: a picture, and inviting another parent or guardian.
@@ -168,5 +168,33 @@ export function WithdrawRequestButton({ requestId }: { requestId: string }) {
     >
       {pending ? "Withdrawing…" : "Withdraw"}
     </button>
+  )
+}
+
+/** Accept or decline being recognised as another guardian of a child. */
+export function RespondToGuardianRequest({ requestId }: { requestId: string }) {
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  function respond(response: "ACCEPT" | "DECLINE") {
+    setError(null)
+    start(async () => {
+      const result = await respondToGuardianRequest(requestId, response)
+      if (!result.ok) setError(result.error)
+      else router.refresh()
+    })
+  }
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <Button type="button" className="h-9" disabled={pending} onClick={() => respond("ACCEPT")}>
+          Accept
+        </Button>
+        <Button type="button" variant="ghost" className="h-9" disabled={pending} onClick={() => respond("DECLINE")}>
+          Decline
+        </Button>
+      </div>
+      {error && <p className="text-sm text-destructive-text">{error}</p>}
+    </div>
   )
 }

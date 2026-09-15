@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 import { UserAvatar } from "@/components/profile/user-avatar"
 
 import { AddChildForm } from "./add-child-form"
-import { AddGuardianControl, ChildAvatarControl, WithdrawRequestButton } from "./child-controls"
+import { AddGuardianControl, ChildAvatarControl, RespondToGuardianRequest, WithdrawRequestButton } from "./child-controls"
 import { InviteLoginButton } from "./invite-login-button"
 
 interface ChildRow {
@@ -189,12 +189,20 @@ export default async function ParentChildrenPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-amber-900">{r.child_label ?? "Your request"}</p>
                     <p className="mt-0.5 text-sm text-amber-900/80">
-                      {r.kind === "ADDITIONAL_GUARDIAN"
-                        ? `Waiting for this guardian relationship to be approved at ${r.club_name}.`
-                        : `We've received your request and need to verify the relationship. ${r.club_name} will be in touch.`}
+                      {r.kind !== "ADDITIONAL_GUARDIAN"
+                        ? `We've received your request and need to verify the relationship. ${r.club_name} will be in touch.`
+                        : r.awaiting_my_answer
+                          ? `You have been asked to be recognised as a guardian of this child at ${r.club_name}. Nothing is shared with you unless you accept and the club approves.`
+                          : r.subject_response === "ACCEPTED"
+                            ? `Accepted. Waiting for this guardian relationship to be approved at ${r.club_name}.`
+                            : `Waiting for the other adult to accept, then for ${r.club_name} to approve.`}
                     </p>
                   </div>
-                  <WithdrawRequestButton requestId={r.request_id} />
+                  {r.awaiting_my_answer ? (
+                    <RespondToGuardianRequest requestId={r.request_id} />
+                  ) : r.requested_by_me ? (
+                    <WithdrawRequestButton requestId={r.request_id} />
+                  ) : null}
                 </div>
               </li>
             ))}

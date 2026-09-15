@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getPendingStatus } from "@/lib/signup/pending-status"
 
 import { AddChildForm } from "@/app/(app)/parent/children/add-child-form"
+import { RespondToGuardianRequest } from "@/app/(app)/parent/children/child-controls"
 
 const LOCKED_AREAS = [
   { icon: CalendarDays, label: "Fixtures" },
@@ -159,11 +160,19 @@ export default async function WelcomePage() {
                 <ul className="mt-3 flex flex-col gap-2">
                   {myRequests.map((r) => (
                     <li key={r.request_id} className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3.5">
-                      <p className="text-sm font-medium text-amber-900">{r.child_label ?? "Your request"}</p>
-                      <p className="mt-0.5 text-sm text-amber-900/80">
-                        We&rsquo;ve received your request and need to verify the relationship. {r.club_name} will be in touch. Nothing is shared with
-                        you until then.
-                      </p>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-amber-900">{r.child_label ?? "Your request"}</p>
+                          <p className="mt-0.5 text-sm text-amber-900/80">
+                            {r.awaiting_my_answer
+                              ? `You have been asked to be recognised as a guardian of this child at ${r.club_name}. Nothing is shared with you unless you accept and the club approves.`
+                              : r.kind === "ADDITIONAL_GUARDIAN" && r.subject_response === "ACCEPTED" && !r.requested_by_me
+                                ? `Accepted. Waiting for this guardian relationship to be approved at ${r.club_name}. Nothing is shared with you until then.`
+                                : `We’ve received your request and need to verify the relationship. ${r.club_name} will be in touch. Nothing is shared with you until then.`}
+                          </p>
+                        </div>
+                        {r.awaiting_my_answer && <RespondToGuardianRequest requestId={r.request_id} />}
+                      </div>
                     </li>
                   ))}
                 </ul>

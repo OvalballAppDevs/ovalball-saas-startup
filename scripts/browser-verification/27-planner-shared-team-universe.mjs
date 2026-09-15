@@ -47,7 +47,14 @@ if (createdU7) {
 const u8 = sql(`select id from public.teams where club_id='${clubId}' and active and age_group='U8' and squad_designation is null limit 1`)
 const groupId = ids(`insert into public.scheduling_groups (club_id, display_tag, season_id, active, alias) values ('${clubId}', 'U7/U8', '${seasonId}', true, null) returning id`)[0]
 sql(`insert into public.scheduling_group_members (group_id, team_id) values ('${groupId}', '${u7}'), ('${groupId}', '${u8}')`)
-const seededPermissions = ids(`insert into public.team_permissions (membership_id, team_id, permission) values ('${membershipId}', '${u7}', 'manager'), ('${membershipId}', '${u8}', 'manager') on conflict (membership_id, team_id) do nothing returning id`)
+// Team roles are role assignments (Identity/Auth Slice 2); a team the manager
+// already runs is left as it is, and only the roles this run adds are removed.
+const seededPermissions = ids(`insert into public.role_assignments (user_id, club_id, team_id, membership_id, role_key, state, source)
+  select cm.user_id, cm.club_id, t.id, cm.id, 'TEAM_MANAGER', 'ACTIVE', 'CLUB_ADMIN_ASSIGNMENT'
+  from public.club_memberships cm cross join public.teams t
+  where cm.id = '${membershipId}' and t.id in ('${u7}', '${u8}')
+    and not exists (select 1 from public.role_assignments x where x.membership_id = cm.id and x.team_id = t.id and x.state in ('ACTIVE', 'SUSPENDED'))
+  returning id`)
 
 const labelOf = (id) => sql(`select display_name from public.teams where id='${id}'`)
 const U7 = labelOf(u7)
@@ -203,7 +210,7 @@ for (const b of new Set([...batches, ...managerBatches])) sql(`delete from publi
 sql(`delete from public.fixture_source_refs where fixture_id in (select id from public.fixtures where notes='${TAG}')`)
 sql(`delete from public.fixtures where notes='${TAG}'`)
 for (const b of new Set([...batches, ...managerBatches])) sql(`delete from public.fixture_import_batches where id='${b}'`)
-for (const id of seededPermissions) sql(`delete from public.team_permissions where id='${id}'`)
+for (const id of seededPermissions) sql(`delete from public.role_assignments where id='${id}'`)
 sql(`delete from public.scheduling_group_members where group_id='${groupId}'`)
 sql(`delete from public.scheduling_groups where id='${groupId}'`)
 if (createdU7) sql(`delete from public.teams where id='${u7}'`)

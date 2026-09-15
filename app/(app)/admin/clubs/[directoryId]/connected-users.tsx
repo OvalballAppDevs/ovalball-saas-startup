@@ -7,6 +7,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { clubRoleLabel, teamPermissionLabel } from "@/lib/permissions/role-labels"
 
+import { ReasonField } from "../../reason-field"
+
 import { reactivateMembership, revokeMembership, updateMembershipRoleTitle, type ConnectedUser } from "./actions"
 
 /**
@@ -18,9 +20,12 @@ import { reactivateMembership, revokeMembership, updateMembershipRoleTitle, type
  * status='revoked', never a delete, never touches .role) but never
  * granted/promoted from here -- that stays out of scope for this slice.
  */
-export function ConnectedUsers({ directoryId, users }: { directoryId: string; users: ConnectedUser[] }) {
+export function ConnectedUsers({ clubId, directoryId, users }: { clubId: string; directoryId: string; users: ConnectedUser[] }) {
   const active = users.filter((u) => u.status === "active")
   const revoked = users.filter((u) => u.status === "revoked")
+  // A removed membership stays as history; someone already re-admitted is
+  // not offered re-admission again from their old row.
+  const activeUserIds = new Set(active.map((u) => u.userId))
 
   if (users.length === 0) {
     return <p className="text-sm text-ink-muted">No one is connected to this club yet.</p>
@@ -29,7 +34,7 @@ export function ConnectedUsers({ directoryId, users }: { directoryId: string; us
   return (
     <div className="flex flex-col gap-3">
       {active.map((user) => (
-        <UserCard key={user.membershipId} directoryId={directoryId} user={user} />
+        <UserCard key={user.membershipId} clubId={clubId} directoryId={directoryId} user={user} canReadmit={false} />
       ))}
       {revoked.length > 0 && (
         <details className="mt-2">
@@ -38,7 +43,7 @@ export function ConnectedUsers({ directoryId, users }: { directoryId: string; us
           </summary>
           <div className="mt-3 flex flex-col gap-3">
             {revoked.map((user) => (
-              <UserCard key={user.membershipId} directoryId={directoryId} user={user} />
+              <UserCard key={user.membershipId} clubId={clubId} directoryId={directoryId} user={user} canReadmit={!activeUserIds.has(user.userId)} />
             ))}
           </div>
         </details>
@@ -47,13 +52,16 @@ export function ConnectedUsers({ directoryId, users }: { directoryId: string; us
   )
 }
 
-function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedUser }) {
+function UserCard({ clubId, directoryId, user, canReadmit }: { clubId: string; directoryId: string; user: ConnectedUser; canReadmit: boolean }) {
   const [roleTitle, setRoleTitle] = useState(user.clubRoleTitle ?? "")
   const [editingTitle, setEditingTitle] = useState(false)
   const [savingTitle, setSavingTitle] = useState(false)
   const [revoking, setRevoking] = useState(false)
   const [reactivating, setReactivating] = useState(false)
   const [confirmingRevoke, setConfirmingRevoke] = useState(false)
+  const [confirmingReadmit, setConfirmingReadmit] = useState(false)
+  const [readmitted, setReadmitted] = useState(false)
+  const [reason, setReason] = useState("")
   const [revoked, setRevoked] = useState(user.status === "revoked")
   const [error, setError] = useState<string | null>(null)
 
@@ -72,7 +80,7 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
   async function handleRevoke() {
     setRevoking(true)
     setError(null)
-    const result = await revokeMembership({ membershipId: user.membershipId, directoryId })
+    const result = await revokeMembership({ membershipId: user.membershipId, directoryId, reason })
     setRevoking(false)
     if (result.ok) {
       setRevoked(true)
@@ -84,10 +92,12 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
   async function handleReactivate() {
     setReactivating(true)
     setError(null)
-    const result = await reactivateMembership({ membershipId: user.membershipId, directoryId })
+    const result = await reactivateMembership({ clubId, userId: user.userId, directoryId, reason })
     setReactivating(false)
     if (result.ok) {
-      setRevoked(false)
+      setReadmitted(true)
+      setConfirmingReadmit(false)
+      setReason("")
     } else {
       setError(result.error)
     }
@@ -111,9 +121,9 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
           </Button>
         )}
         {!revoked && confirmingRevoke && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-ink-muted">Revoke {user.name.split(" ")[0]}&apos;s access?</span>
-            <Button type="button" variant="destructive" className="h-8" disabled={revoking} onClick={handleRevoke}>
+          <div className="flex flex-wrap items-end gap-2">
+            <ReasonField id={`revoke-reason-${user.membershipId}`} value={reason} onChange={setReason} label={`Reason for Revoking ${user.name.split(" ")[0]}'s Access`} />
+            <Button type="button" variant="destructive" className="h-8" disabled={revoking || reason.trim().length === 0} onClick={handleRevoke}>
               {revoking ? "Revoking…" : "Confirm"}
             </Button>
             <Button type="button" variant="ghost" className="h-8" disabled={revoking} onClick={() => setConfirmingRevoke(false)}>
@@ -122,11 +132,25 @@ function UserCard({ directoryId, user }: { directoryId: string; user: ConnectedU
           </div>
         )}
         {revoked && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-end gap-2">
             <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink-muted">Revoked</span>
-            <Button type="button" variant="outline" className="h-8" disabled={reactivating} onClick={handleReactivate}>
-              {reactivating ? "Working…" : "Reactivate"}
-            </Button>
+            {readmitted ? (
+              <span className="text-xs text-ink-muted">Re-admitted as a new membership</span>
+            ) : canReadmit && !confirmingReadmit ? (
+              <Button type="button" variant="outline" className="h-8" onClick={() => setConfirmingReadmit(true)}>
+                Re-admit
+              </Button>
+            ) : canReadmit ? (
+              <>
+                <ReasonField id={`readmit-reason-${user.membershipId}`} value={reason} onChange={setReason} label="Reason for Re-admitting" />
+                <Button type="button" variant="outline" className="h-8" disabled={reactivating || reason.trim().length === 0} onClick={handleReactivate}>
+                  {reactivating ? "Working…" : "Re-admit as Member"}
+                </Button>
+                <Button type="button" variant="ghost" className="h-8" disabled={reactivating} onClick={() => setConfirmingReadmit(false)}>
+                  Cancel
+                </Button>
+              </>
+            ) : null}
           </div>
         )}
       </div>

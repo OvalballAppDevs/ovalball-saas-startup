@@ -292,7 +292,7 @@ export default async function AdminClubDetailPage({
                   },
                   {
                     name: "Users & roles" as const,
-                    content: <ConnectedUsers directoryId={directory.id} users={connectedUsers} />,
+                    content: <ConnectedUsers clubId={club.id} directoryId={directory.id} users={connectedUsers} />,
                   },
                   {
                     name: "Teams" as const,

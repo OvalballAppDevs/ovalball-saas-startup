@@ -608,7 +608,7 @@ begin
   exception when others then null;
   end;
   if (select status from public.guardian_link_requests where id = v_req) = 'PENDING'
-     and not exists (select 1 from public.guardians where guardian_user_id = v_parent2 and player_id = v_p1) then
+     and not exists (select 1 from public.guardians where guardian_user_id = v_parent2 and player_id = v_p1 and state <> 'PENDING_APPROVAL') then
     raise notice 'PASS H6: a guardian cannot approve their own request to add another guardian';
   else
     raise notice 'FAIL H6: a guardian approved their own additional-guardian request';
@@ -616,6 +616,10 @@ begin
 
   v_err := null;
   begin
+    -- The added adult accepts first (Slice 2, R11).
+    perform pg_temp.act('authenticated', v_parent2);
+    perform public.respond_to_additional_guardian_request(v_req, 'ACCEPT');
+    perform pg_temp.act_postgres();
     perform pg_temp.act('authenticated', v_club_admin);
     perform public.approve_guardian_link_request(v_req);
     perform pg_temp.act_postgres();
@@ -696,12 +700,12 @@ begin
     perform pg_temp.act_postgres();
   exception when others then get stacked diagnostics v_err = message_text;
   end;
-  if (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin) = 'BASIC_USER|active'
+  if (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin and state in ('PENDING', 'ACTIVE', 'SUSPENDED')) = 'BASIC_USER|active'
      and not exists (select 1 from public.team_permissions tp join public.club_memberships cm on cm.id = tp.membership_id where cm.user_id = v_revoked_admin) then
     raise notice 'PASS I1: approving a join request for a revoked admin makes them a member, not an admin with old team authority';
   else
     raise notice 'FAIL I1: a revoked admin came back through a join request with old authority (% / err %)',
-      (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin), v_err;
+      (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin and state in ('PENDING', 'ACTIVE', 'SUSPENDED')), v_err;
   end if;
 
   v_err := null;
@@ -711,11 +715,11 @@ begin
     perform pg_temp.act_postgres();
   exception when others then get stacked diagnostics v_err = message_text;
   end;
-  if (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin2) = 'BASIC_USER|active' then
+  if (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin2 and state in ('PENDING', 'ACTIVE', 'SUSPENDED')) = 'BASIC_USER|active' then
     raise notice 'PASS I2: accepting a member invitation after revocation does not restore Club Admin';
   else
     raise notice 'FAIL I2: a revoked Club Admin was restored by a member invitation (% / err %)',
-      (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin2), v_err;
+      (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin2 and state in ('PENDING', 'ACTIVE', 'SUSPENDED')), v_err;
   end if;
 
   v_err := null;
@@ -761,7 +765,7 @@ begin
 
   begin
     perform pg_temp.act('authenticated', v_club_admin);
-    update public.club_memberships set role = 'FIXTURE_SECRETARY' where club_id = v_club_a and user_id = v_member;
+    perform public.set_primary_club_role((select id from public.club_memberships where club_id = v_club_a and user_id = v_member and state = 'ACTIVE'), 'FIXTURE_SECRETARY');
     perform pg_temp.act_postgres();
   exception when others then null;
   end;
@@ -772,24 +776,37 @@ begin
   end if;
 
   update public.club_memberships set status = 'revoked' where club_id = v_club_a and user_id = v_suspended;
+  -- A removed membership is history (Slice 2): nobody switches it back on by
+  -- editing the row, not a Club Admin and not a Site Admin. Re-admission by a
+  -- Full Site Admin is a new membership row.
   begin
     perform pg_temp.act('authenticated', v_club_admin);
     update public.club_memberships set status = 'active' where club_id = v_club_a and user_id = v_suspended;
     perform pg_temp.act_postgres();
   exception when others then null;
   end;
-  v_text := (select status from public.club_memberships where club_id = v_club_a and user_id = v_suspended);
+  v_text := (select status from public.club_memberships where club_id = v_club_a and user_id = v_suspended and state = 'REVOKED');
   begin
     perform pg_temp.act('authenticated', v_site_access);
     update public.club_memberships set status = 'active' where club_id = v_club_a and user_id = v_suspended;
     perform pg_temp.act_postgres();
   exception when others then null;
   end;
-  if v_text = 'revoked' and (select status from public.club_memberships where club_id = v_club_a and user_id = v_suspended) = 'active' then
-    raise notice 'PASS I8: a Club Admin cannot revive a revoked membership by editing the row, and a Site Admin still can';
+  v_err := null;
+  begin
+    perform pg_temp.act('authenticated', v_site_full);
+    perform public.grant_club_membership(v_club_a, v_suspended, 'ISC re-admission');
+    perform pg_temp.act_postgres();
+  exception when others then get stacked diagnostics v_err = message_text;
+  end;
+  if v_text = 'revoked'
+     and not exists (select 1 from public.club_memberships where club_id = v_club_a and user_id = v_suspended and state = 'REVOKED' and status <> 'revoked')
+     and (select count(*) from public.club_memberships where club_id = v_club_a and user_id = v_suspended and state = 'REVOKED') = 1 then
+    raise notice 'PASS I8: nobody revives a revoked membership by editing the row, and re-admission never reopens the old row (re-admission: %)',
+      coalesce(v_err, (select state from public.club_memberships where club_id = v_club_a and user_id = v_suspended and state <> 'REVOKED'));
   else
-    raise notice 'FAIL I8: revoked membership revival is wrong (club admin left it %, Site Admin left it %)', v_text,
-      (select status from public.club_memberships where club_id = v_club_a and user_id = v_suspended);
+    raise notice 'FAIL I8: revoked membership revival is wrong (club admin left it %, rows %)', v_text,
+      (select string_agg(state, ',') from public.club_memberships where club_id = v_club_a and user_id = v_suspended);
   end if;
 
   begin

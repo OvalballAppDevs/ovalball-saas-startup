@@ -15,7 +15,7 @@ import { approveGuardianLinkRequest, rejectGuardianLinkRequest } from "./actions
  * adult can see a specific child, and the whole point of the request model
  * is that a person looks at the evidence one case at a time.
  */
-export function DecisionControls({ requestId }: { requestId: string }) {
+export function DecisionControls({ requestId, canApprove = true }: { requestId: string; canApprove?: boolean }) {
   const router = useRouter()
   const [busy, setBusy] = useState<"approve" | "reject" | null>(null)
   const [rejecting, setRejecting] = useState(false)
@@ -48,7 +48,7 @@ export function DecisionControls({ requestId }: { requestId: string }) {
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" className="h-9" disabled={busy !== null} onClick={() => void run("approve")}>
+          <Button type="button" className="h-9" disabled={busy !== null || !canApprove} onClick={() => void run("approve")}>
             {busy === "approve" ? "Approving…" : "Approve"}
           </Button>
           <Button type="button" variant="outline" className="h-9" onClick={() => setRejecting(true)}>

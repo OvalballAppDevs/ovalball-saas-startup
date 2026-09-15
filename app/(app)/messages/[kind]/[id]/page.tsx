@@ -487,7 +487,7 @@ export default async function ConversationThreadPage({
     participants.push({
       userId: membership.user_id,
       name: "",
-      roleLabel: teamPermissionLabel(row.permission),
+      roleLabel: teamPermissionLabel(row.permission ?? ""),
       clubId: membership.club_id,
       clubName: membership.clubs?.club_directory?.name ?? "Ovalball",
     })

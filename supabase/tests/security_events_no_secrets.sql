@@ -334,8 +334,18 @@ begin
   if not has_function_privilege('anon', 'internal.emit_security_event(text, uuid, text, text, jsonb, uuid, uuid, uuid)', 'EXECUTE')
      and not has_function_privilege('authenticated', 'internal.emit_security_event(text, uuid, text, text, jsonb, uuid, uuid, uuid)', 'EXECUTE')
      and not has_function_privilege('service_role', 'internal.emit_security_event(text, uuid, text, text, jsonb, uuid, uuid, uuid)', 'EXECUTE')
-     and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosrc ~* 'emit_security_event') then
-    raise notice 'PASS V6: the event writer is not executable by any API role and no public RPC wraps it';
+     -- Slice 2 transition RPCs record their own fixed events in the same
+     -- transaction as the change. None of them lets the caller choose the
+     -- event, its actor or its subject, and no other public function may call
+     -- the writer.
+     and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                     where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
+                       and p.proname not in ('transition_club_membership', 'decide_club_join_request', 'respond_to_additional_guardian_request',
+                                             'approve_guardian_link_request', 'reject_guardian_link_request', 'move_player_team_membership'))
+     and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                     where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
+                       and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then
+    raise notice 'PASS V6: the event writer is not executable by any API role and no public RPC lets a caller choose an event';
   else
     raise notice 'FAIL V6: the event writer is reachable through the API';
   end if;

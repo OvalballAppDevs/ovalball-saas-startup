@@ -3,6 +3,7 @@
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
   const [saving, setSaving] = useState(false)
   const [removed, setRemoved] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
+  const [removalReason, setRemovalReason] = useState("")
   const [error, setError] = useState<string | null>(null)
 
   async function handleRoleChange(role: PersonRowData["clubRole"]) {
@@ -49,7 +51,7 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
   async function handleRemove() {
     setSaving(true)
     setError(null)
-    const result = await revokeMembership(person.membershipId)
+    const result = await revokeMembership(person.membershipId, removalReason)
     setSaving(false)
     setConfirmingRemove(false)
     if (result.ok) setRemoved(true)
@@ -99,11 +101,23 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
                 <DialogHeader>
                   <DialogTitle>Remove {person.name} from the club?</DialogTitle>
                   <DialogDescription>
-                    They lose club-wide and team access immediately. This can be undone by inviting them again.
+                    They lose club-wide and team access immediately. Their membership is kept as history; to bring them back, invite them
+                    again and they join as a new member.
                   </DialogDescription>
                 </DialogHeader>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`removal-reason-${person.membershipId}`}>Reason for Removal</Label>
+                  <input
+                    id={`removal-reason-${person.membershipId}`}
+                    value={removalReason}
+                    onChange={(e) => setRemovalReason(e.target.value)}
+                    maxLength={500}
+                    className="h-9 rounded-lg border border-ink/15 bg-white px-2.5 text-sm text-ink outline-none focus-visible:border-pitch-600"
+                  />
+                  <p className="text-xs text-ink-muted">Kept in the club&apos;s records.</p>
+                </div>
                 <DialogFooter showCloseButton>
-                  <Button variant="destructive" className="h-9" disabled={saving} onClick={handleRemove}>
+                  <Button variant="destructive" className="h-9" disabled={saving || removalReason.trim().length === 0} onClick={handleRemove}>
                     {saving ? "Removing…" : "Remove Access"}
                   </Button>
                 </DialogFooter>

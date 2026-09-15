@@ -99,47 +99,64 @@ export async function revokeInvitation(invitationId: string): Promise<{ ok: bool
 export type MembershipActionResult = { ok: true } | { ok: false; error: string }
 
 /**
- * club_memberships_update_scoped (is_site_admin() or is_club_admin(club_id))
- * is the real boundary -- a plain UPDATE, not a new function, since
- * changing an EXISTING member's club-wide role needs no atomic multi-table
- * write the way approving a claim does.
+ * set_primary_club_role is the boundary: it checks the caller is this club's
+ * Club Admin (or a Full Site Admin), never leaves the club without a Club
+ * Admin, and records the change as role assignments with a security event.
  */
 export async function updateMembershipRole(
   membershipId: string,
   role: "BASIC_USER" | "CLUB_ADMIN" | "FIXTURE_SECRETARY"
 ): Promise<MembershipActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.from("club_memberships").update({ role }).eq("id", membershipId)
+  const { error } = await supabase.rpc("set_primary_club_role", { p_membership_id: membershipId, p_role: role })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/people")
   return { ok: true }
 }
 
 /**
- * Revokes club-wide access (status -> revoked), never a hard delete -- the
- * row (and its audit_log history) survives, matching how teams are
- * archived rather than deleted. Their team_permissions rows are left
- * as-is; team_permissions_select/insert/update all already require the
- * membership's own status to be checked by the caller where it matters
- * (can_manage_team joins through an active club_memberships row), so a
- * revoked membership's stale team grants stop being effective without
- * needing to be separately deleted here.
+ * Removes someone from the club: the membership becomes REVOKED history
+ * (never deleted, never switched back on) and every role it held ends with
+ * it. transition_club_membership requires the reason and refuses to remove
+ * the club's last Club Admin.
  */
-export async function revokeMembership(membershipId: string): Promise<MembershipActionResult> {
+export async function revokeMembership(membershipId: string, reason: string): Promise<MembershipActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.from("club_memberships").update({ status: "revoked" }).eq("id", membershipId)
+  const { error } = await supabase.rpc("transition_club_membership", {
+    p_membership_id: membershipId,
+    p_to_state: "REVOKED",
+    p_reason: reason,
+  })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/people")
   return { ok: true }
 }
 
-/**
- * team_permissions_delete_scoped (added this pass -- see
- * 20260831150000_team_permissions_delete.sql) is the real boundary.
- */
+/** Ends a person's Coach, Team Manager and Team Admin roles on one team. */
 export async function removeTeamAssignment(teamPermissionId: string): Promise<MembershipActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.from("team_permissions").delete().eq("id", teamPermissionId)
+  const { error } = await supabase.rpc("remove_team_access", { p_team_permission_id: teamPermissionId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/people")
+  return { ok: true }
+}
+
+/**
+ * Approves or declines a request to join the club. decide_club_join_request
+ * checks the caller's authority, refuses a request that has already been
+ * decided, and requires a reason to decline.
+ */
+export async function decideJoinRequest(
+  requestId: string,
+  decision: "APPROVE" | "DECLINE",
+  reason: string
+): Promise<MembershipActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("decide_club_join_request", {
+    p_request_id: requestId,
+    p_decision: decision,
+    p_reason: reason.trim() || undefined,
+  })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/people")
   return { ok: true }

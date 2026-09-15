@@ -102,7 +102,9 @@ export function mapAdminUserRow(row: Database["public"]["Views"]["admin_user_ove
     hasTeamAdmin: row.has_team_admin ?? false,
     hasPendingRequest: row.has_pending_request ?? false,
     accountStatus: (row.account_status as "active" | "suspended") ?? "active",
-    memberships: (row.memberships as unknown as MembershipSummary[]) ?? [],
+    // Open requests to join are listed as pending requests; a membership card
+    // is a membership that was granted, whether still active or now history.
+    memberships: ((row.memberships as unknown as MembershipSummary[]) ?? []).filter((m) => m.status === "active" || m.status === "revoked"),
     pendingRequests: (row.pending_requests as unknown as PendingRequestSummary[]) ?? [],
   }
 }

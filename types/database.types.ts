@@ -34,6 +34,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_review_items: {
+        Row: {
+          assignment_id: string | null
+          club_id: string | null
+          created_at: string
+          detail: Json
+          id: string
+          kind: string
+          membership_id: string | null
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          state: string
+          team_id: string | null
+          user_id: string
+        }
+        Insert: {
+          assignment_id?: string | null
+          club_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind: string
+          membership_id?: string | null
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          state?: string
+          team_id?: string | null
+          user_id: string
+        }
+        Update: {
+          assignment_id?: string | null
+          club_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          membership_id?: string | null
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          state?: string
+          team_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       age_grade_rollover_group_flags: {
         Row: {
           created_at: string
@@ -2722,6 +2770,8 @@ export type Database = {
       }
       club_memberships: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           assigned_group_id: string | null
           authority_restored_at: string | null
           authority_restored_by: string | null
@@ -2731,14 +2781,30 @@ export type Database = {
           club_role_title: string | null
           created_at: string
           created_by: string | null
+          governance_title: string | null
+          granted_at: string | null
+          granted_by: string | null
           id: string
+          reason: string | null
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
           role: string
+          source: string
+          source_invitation_id: string | null
+          source_request_id: string | null
+          state: string
           status: string
+          suspended_at: string | null
+          suspended_by: string | null
+          suspended_level: string | null
           updated_at: string
           updated_by: string | null
           user_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           assigned_group_id?: string | null
           authority_restored_at?: string | null
           authority_restored_by?: string | null
@@ -2748,14 +2814,30 @@ export type Database = {
           club_role_title?: string | null
           created_at?: string
           created_by?: string | null
+          governance_title?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
           id?: string
+          reason?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           role?: string
+          source: string
+          source_invitation_id?: string | null
+          source_request_id?: string | null
+          state?: string
           status?: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspended_level?: string | null
           updated_at?: string
           updated_by?: string | null
           user_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           assigned_group_id?: string | null
           authority_restored_at?: string | null
           authority_restored_by?: string | null
@@ -2765,9 +2847,23 @@ export type Database = {
           club_role_title?: string | null
           created_at?: string
           created_by?: string | null
+          governance_title?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
           id?: string
+          reason?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           role?: string
+          source?: string
+          source_invitation_id?: string | null
+          source_request_id?: string | null
+          state?: string
           status?: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspended_level?: string | null
           updated_at?: string
           updated_by?: string | null
           user_id?: string
@@ -9627,10 +9723,13 @@ export type Database = {
           invited_email: string | null
           kind: string
           matched_player_id: string | null
+          relationship_id: string | null
           requested_by_user_id: string | null
           resolved_player_id: string | null
           rugby_code: string | null
           status: string
+          subject_responded_at: string | null
+          subject_response: string | null
           subject_user_id: string | null
           submitted_date_of_birth: string | null
           submitted_first_name: string | null
@@ -9651,10 +9750,13 @@ export type Database = {
           invited_email?: string | null
           kind: string
           matched_player_id?: string | null
+          relationship_id?: string | null
           requested_by_user_id?: string | null
           resolved_player_id?: string | null
           rugby_code?: string | null
           status?: string
+          subject_responded_at?: string | null
+          subject_response?: string | null
           subject_user_id?: string | null
           submitted_date_of_birth?: string | null
           submitted_first_name?: string | null
@@ -9675,10 +9777,13 @@ export type Database = {
           invited_email?: string | null
           kind?: string
           matched_player_id?: string | null
+          relationship_id?: string | null
           requested_by_user_id?: string | null
           resolved_player_id?: string | null
           rugby_code?: string | null
           status?: string
+          subject_responded_at?: string | null
+          subject_response?: string | null
           subject_user_id?: string | null
           submitted_date_of_birth?: string | null
           submitted_first_name?: string | null
@@ -9750,6 +9855,13 @@ export type Database = {
             columns: ["matched_player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_link_requests_relationship_id_fkey"
+            columns: ["relationship_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
             referencedColumns: ["id"]
           },
           {
@@ -9853,37 +9965,82 @@ export type Database = {
       }
       guardians: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
+          confidential: boolean
           created_at: string
           created_by: string | null
           guardian_user_id: string
           id: string
           player_id: string
+          reason: string | null
           relationship_type: string
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          source: string
+          source_invitation_id: string | null
+          source_request_id: string | null
+          state: string
           status: string
+          suspended_at: string | null
+          suspended_by: string | null
+          suspension_reason: string | null
           updated_at: string
           updated_by: string | null
+          verification_state: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          confidential?: boolean
           created_at?: string
           created_by?: string | null
           guardian_user_id: string
           id?: string
           player_id: string
+          reason?: string | null
           relationship_type?: string
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          source?: string
+          source_invitation_id?: string | null
+          source_request_id?: string | null
+          state?: string
           status?: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           updated_at?: string
           updated_by?: string | null
+          verification_state?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          confidential?: boolean
           created_at?: string
           created_by?: string | null
           guardian_user_id?: string
           id?: string
           player_id?: string
+          reason?: string | null
           relationship_type?: string
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          source?: string
+          source_invitation_id?: string | null
+          source_request_id?: string | null
+          state?: string
           status?: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           updated_at?: string
           updated_by?: string | null
+          verification_state?: string
         }
         Relationships: [
           {
@@ -14276,36 +14433,60 @@ export type Database = {
       }
       player_team_memberships: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
           created_by: string | null
+          end_reason: string | null
           ended_at: string | null
+          ended_by: string | null
+          granted_by: string | null
           id: string
           joined_at: string
           player_id: string
+          reason: string | null
+          source: string
+          state: string
           status: string
           team_id: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           created_by?: string | null
+          end_reason?: string | null
           ended_at?: string | null
+          ended_by?: string | null
+          granted_by?: string | null
           id?: string
           joined_at?: string
           player_id: string
+          reason?: string | null
+          source?: string
+          state?: string
           status?: string
           team_id: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           created_by?: string | null
+          end_reason?: string | null
           ended_at?: string | null
+          ended_by?: string | null
+          granted_by?: string | null
           id?: string
           joined_at?: string
           player_id?: string
+          reason?: string | null
+          source?: string
+          state?: string
           status?: string
           team_id?: string
           updated_at?: string
@@ -15543,6 +15724,210 @@ export type Database = {
           },
         ]
       }
+      role_assignments: {
+        Row: {
+          attributes: Json
+          base_assignment_id: string | null
+          club_id: string
+          confirmation_state: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          membership_id: string
+          reason: string | null
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          role_key: string
+          source: string
+          source_invitation_id: string | null
+          state: string
+          suspended_at: string | null
+          suspended_by: string | null
+          suspended_level: string | null
+          team_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attributes?: Json
+          base_assignment_id?: string | null
+          club_id: string
+          confirmation_state?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          membership_id: string
+          reason?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          role_key: string
+          source: string
+          source_invitation_id?: string | null
+          state: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspended_level?: string | null
+          team_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attributes?: Json
+          base_assignment_id?: string | null
+          club_id?: string
+          confirmation_state?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          membership_id?: string
+          reason?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          role_key?: string
+          source?: string
+          source_invitation_id?: string | null
+          state?: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspended_level?: string | null
+          team_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_assignments_base_assignment_id_fkey"
+            columns: ["base_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "role_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_assignments_base_assignment_id_fkey"
+            columns: ["base_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "team_permissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_assignments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_assignments_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "club_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_assignments_role_key_fkey"
+            columns: ["role_key"]
+            isOneToOne: false
+            referencedRelation: "role_definitions"
+            referencedColumns: ["role_key"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_capability_defaults: {
         Row: {
           capability_key: string
@@ -15568,6 +15953,39 @@ export type Database = {
             referencedColumns: ["key"]
           },
         ]
+      }
+      role_definitions: {
+        Row: {
+          assignable_by: string[]
+          bundle_key: string
+          label: string
+          minor_prohibited: boolean
+          requires_base_role: string[] | null
+          role_key: string
+          scope: string
+          visible: boolean
+        }
+        Insert: {
+          assignable_by: string[]
+          bundle_key: string
+          label: string
+          minor_prohibited?: boolean
+          requires_base_role?: string[] | null
+          role_key: string
+          scope: string
+          visible?: boolean
+        }
+        Update: {
+          assignable_by?: string[]
+          bundle_key?: string
+          label?: string
+          minor_prohibited?: boolean
+          requires_base_role?: string[] | null
+          role_key?: string
+          scope?: string
+          visible?: boolean
+        }
+        Relationships: []
       }
       scheduling_group_members: {
         Row: {
@@ -16698,7 +17116,7 @@ export type Database = {
           },
         ]
       }
-      team_permissions: {
+      team_permissions_legacy: {
         Row: {
           assigned_group_id: string | null
           created_at: string
@@ -19911,6 +20329,61 @@ export type Database = {
           },
         ]
       }
+      team_permissions: {
+        Row: {
+          assigned_group_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          membership_id: string | null
+          permission: string | null
+          team_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_assignments_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "club_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "role_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_result_stats: {
         Row: {
           drawn: number | null
@@ -20166,6 +20639,15 @@ export type Database = {
         Args: { p_fixture_id: string; p_target_team_id: string }
         Returns: string
       }
+      assign_role: {
+        Args: {
+          p_membership_id: string
+          p_reason?: string
+          p_role_key: string
+          p_team_id?: string
+        }
+        Returns: string
+      }
       attach_platform_subscription_provider: {
         Args: {
           p_billing_request_id?: string
@@ -20242,6 +20724,15 @@ export type Database = {
       }
       cancel_training_session: {
         Args: { p_reason?: string; p_session_id: string }
+        Returns: undefined
+      }
+      change_membership_access_profile: {
+        Args: {
+          p_club_group_id: string
+          p_membership_id: string
+          p_reason: string
+          p_team_assignments: Json
+        }
         Returns: undefined
       }
       check_incoming_request_target: {
@@ -20807,6 +21298,10 @@ export type Database = {
       deactivate_training_plan: {
         Args: { p_plan_id: string; p_reason?: string }
         Returns: undefined
+      }
+      decide_club_join_request: {
+        Args: { p_decision: string; p_reason?: string; p_request_id: string }
+        Returns: string
       }
       decide_player_call_up: {
         Args: { p_action: string; p_call_up_id: string; p_reason?: string }
@@ -21654,6 +22149,10 @@ export type Database = {
         }[]
       }
       graduate_team: { Args: { p_team_id: string }; Returns: number }
+      grant_club_membership: {
+        Args: { p_club_id: string; p_reason: string; p_user_id: string }
+        Returns: string
+      }
       guardian_link_requests_for_approval: {
         Args: { p_club_id?: string }
         Returns: {
@@ -21669,6 +22168,7 @@ export type Database = {
           requester_email: string
           requester_name: string
           status: string
+          subject_response: string
           submitted_date_of_birth: string
           submitted_first_name: string
           submitted_surname: string
@@ -21891,6 +22391,17 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      list_pending_club_join_requests: {
+        Args: { p_club_id: string }
+        Returns: {
+          created_at: string
+          first_name: string
+          request_id: string
+          requested_role: string
+          requesting_user_id: string
+          surname: string
+        }[]
+      }
       list_restorable_fixtures: {
         Args: { p_team_id: string }
         Returns: {
@@ -22011,6 +22522,14 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
+      move_player_team_membership: {
+        Args: {
+          p_membership_id: string
+          p_reason?: string
+          p_target_team_id: string
+        }
+        Returns: string
+      }
       my_announcements: {
         Args: { p_limit?: number }
         Returns: {
@@ -22070,6 +22589,7 @@ export type Database = {
       my_guardian_link_requests: {
         Args: never
         Returns: {
+          awaiting_my_answer: boolean
           child_label: string
           club_id: string
           club_name: string
@@ -22077,7 +22597,9 @@ export type Database = {
           decided_at: string
           kind: string
           request_id: string
+          requested_by_me: boolean
           status: string
+          subject_response: string
         }[]
       }
       my_player_context: {
@@ -22669,6 +23191,10 @@ export type Database = {
         Args: { p_reason?: string; p_team_id: string }
         Returns: string
       }
+      remove_team_access: {
+        Args: { p_reason?: string; p_team_permission_id: string }
+        Returns: undefined
+      }
       remove_tournament_opponent: {
         Args: { p_opponent_id: string }
         Returns: undefined
@@ -22903,6 +23429,10 @@ export type Database = {
           p_verification_id: string
         }
         Returns: undefined
+      }
+      respond_to_additional_guardian_request: {
+        Args: { p_request_id: string; p_response: string }
+        Returns: string
       }
       respond_to_attendance: {
         Args: { p_fixture_id: string; p_player_id: string; p_status: string }
@@ -23306,6 +23836,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_membership_governance_title: {
+        Args: { p_membership_id: string; p_title: string }
+        Returns: undefined
+      }
       set_notification_preference: {
         Args: {
           p_email_enabled?: boolean
@@ -23346,6 +23880,10 @@ export type Database = {
           resolved: boolean
           review_state: string
         }[]
+      }
+      set_primary_club_role: {
+        Args: { p_membership_id: string; p_reason?: string; p_role: string }
+        Returns: undefined
       }
       set_responsible_payer: {
         Args: {
@@ -23428,6 +23966,15 @@ export type Database = {
           p_amount_minor: number
           p_effective_from: string
           p_programme_id: string
+        }
+        Returns: string
+      }
+      set_team_access: {
+        Args: {
+          p_membership_id: string
+          p_permission: string
+          p_reason?: string
+          p_team_id: string
         }
         Returns: string
       }
@@ -23686,6 +24233,28 @@ export type Database = {
           team_count: number
           team_recipients: number
         }[]
+      }
+      transition_club_membership: {
+        Args: {
+          p_allow_no_club_admin?: boolean
+          p_membership_id: string
+          p_reason?: string
+          p_to_state: string
+        }
+        Returns: undefined
+      }
+      transition_guardian_relationship: {
+        Args: { p_guardian_id: string; p_reason?: string; p_to_state: string }
+        Returns: undefined
+      }
+      transition_role_assignment: {
+        Args: {
+          p_allow_no_club_admin?: boolean
+          p_assignment_id: string
+          p_reason?: string
+          p_to_state: string
+        }
+        Returns: undefined
       }
       unblock_user: { Args: { p_user_id: string }; Returns: undefined }
       undo_rollover_team_decision: {

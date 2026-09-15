@@ -56,7 +56,6 @@ const PERMISSION_OPTIONS = [
   { value: "team_admin", label: "Team Admin" },
   { value: "coach", label: "Coach" },
   { value: "manager", label: "Manager" },
-  { value: "view_only", label: "Parent or player access" },
 ] as const
 
 type TabKey = "coach" | "guardian" | "player" | "requests"

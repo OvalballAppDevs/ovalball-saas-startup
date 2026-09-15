@@ -263,6 +263,21 @@ export async function addAnotherGuardian(playerId: string, email: string): Promi
   return { ok: true, status: data.status === "ALREADY_LINKED" ? "ALREADY_LINKED" : "PENDING" }
 }
 
+/**
+ * The adult asked to be another guardian answers for themselves. The club can
+ * approve only after they accept; declining ends the request.
+ */
+export async function respondToGuardianRequest(requestId: string, response: "ACCEPT" | "DECLINE"): Promise<CancelRequestResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("respond_to_additional_guardian_request", { p_request_id: requestId, p_response: response })
+  if (error) {
+    console.error("respond_to_additional_guardian_request failed:", error)
+    return { ok: false, error: toPublicGuardianRequestError(error) }
+  }
+  revalidatePath("/parent/children")
+  return { ok: true }
+}
+
 // ---------------------------------------------------------------------------
 // A child's own picture
 // ---------------------------------------------------------------------------

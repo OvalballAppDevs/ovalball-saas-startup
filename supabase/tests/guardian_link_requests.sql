@@ -287,7 +287,10 @@ begin
   end if;
   reset role;
 
-  select count(*) into v_n from public.guardians where guardian_user_id = v_second_parent and player_id = v_known_player;
+  -- The request opens a relationship awaiting approval (Slice 2), which
+  -- confers nothing: only an ACTIVE relationship gives family access.
+  select count(*) into v_n from public.guardians where guardian_user_id = v_second_parent and player_id = v_known_player
+    and (state <> 'PENDING_APPROVAL' or status = 'active');
   if v_n = 0 then
     raise notice 'PASS 23 (G): the proposed guardian has NO access while pending';
   else
@@ -306,7 +309,17 @@ begin
   end;
   reset role;
 
+  -- The club cannot approve until the added adult has accepted (R11).
   set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_clubadmin::text,'role','authenticated')::text, true);
+  begin
+    perform public.approve_guardian_link_request(v_req);
+    raise exception 'FAIL 23c (G): the club approved an additional guardian who had not accepted';
+  exception when check_violation then
+    raise notice 'PASS 23c (G): the club cannot approve before the added adult accepts';
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_second_parent::text,'role','authenticated')::text, true);
+  perform public.respond_to_additional_guardian_request(v_req, 'ACCEPT');
   perform set_config('request.jwt.claims', json_build_object('sub', v_clubadmin::text,'role','authenticated')::text, true);
   select * into v_r from public.approve_guardian_link_request(v_req);
   reset role;

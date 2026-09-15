@@ -8,7 +8,8 @@ import { resolveClubLogoUrl } from "./club-logo"
 import { resolvePlayerAgeState, type PlayerAgeState } from "@/lib/players/age-state"
 
 export type ClubRole = Database["public"]["Tables"]["club_memberships"]["Row"]["role"]
-export type TeamPermissionValue = Database["public"]["Tables"]["team_permissions"]["Row"]["permission"]
+/** The legacy single team permission the app's gates still speak, derived from a person's ACTIVE team roles. */
+export type TeamPermissionValue = string
 
 export interface ClubMembershipContext {
   clubId: string
@@ -121,7 +122,7 @@ export async function getSessionContext(
   supabase: SupabaseClient<Database>,
   user: User
 ): Promise<SessionContext> {
-  const [{ data: profile }, { data: siteAdminRow }, { data: memberships }, { data: teamPerms }, { data: guardianRows }, { data: ownPlayerRow }] =
+  const [{ data: profile }, { data: siteAdminRow }, { data: memberships }, { data: roleRows }, { data: guardianRows }, { data: ownPlayerRow }] =
     await Promise.all([
       supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
       supabase.from("site_admins").select("id, admin_role, diagnostic_club_access, manage_team_catalogue, manage_competitions, manage_fixture_support, manage_global_lookups, manage_system, view_commercial").eq("user_id", user.id).eq("status", "active").maybeSingle(),
@@ -130,13 +131,16 @@ export async function getSessionContext(
         .select("club_id, role, clubs(slug, logo_storage_path, club_directory(name, logo_storage_path))")
         .eq("user_id", user.id)
         .eq("status", "active"),
+      // Roles, not the membership's legacy columns: only an ACTIVE role on an
+      // ACTIVE membership counts, so a role suspended (by a Site Admin when a
+      // club is deactivated, by the club, or pending a review) no longer
+      // puts its screens in front of someone the database would refuse.
       supabase
-        .from("team_permissions")
-        .select(
-          "team_id, permission, teams(display_name, club_id, clubs(club_directory(name))), club_memberships!inner(user_id, status)"
-        )
-        .eq("club_memberships.user_id", user.id)
-        .eq("club_memberships.status", "active"),
+        .from("role_assignments")
+        .select("club_id, team_id, role_key, teams(display_name, club_id, clubs(club_directory(name))), club_memberships!inner(state)")
+        .eq("user_id", user.id)
+        .eq("state", "ACTIVE")
+        .eq("club_memberships.state", "ACTIVE"),
       // Guardian relationships are Guardian -> Player, never Guardian ->
       // Team (Relationship Registry §12) -- team scope is resolved below,
       // one query per player set, purely from player_team_memberships.
@@ -200,20 +204,44 @@ export async function getSessionContext(
         }))
     : []
 
-  const clubMemberships: ClubMembershipContext[] = (memberships ?? []).map((m) => ({
-    clubId: m.club_id,
-    clubName: m.clubs?.club_directory?.name ?? "Club",
-    clubSlug: m.clubs?.slug ?? "",
-    clubLogoUrl: resolveClubLogoUrl(supabase, m.clubs),
-    role: m.role,
-  }))
+  const activeClubRoles = new Map<string, Set<string>>()
+  for (const r of roleRows ?? []) {
+    if (r.team_id) continue
+    const set = activeClubRoles.get(r.club_id) ?? new Set<string>()
+    set.add(r.role_key)
+    activeClubRoles.set(r.club_id, set)
+  }
+  const clubMemberships: ClubMembershipContext[] = (memberships ?? []).map((m) => {
+    const held = activeClubRoles.get(m.club_id)
+    return {
+      clubId: m.club_id,
+      clubName: m.clubs?.club_directory?.name ?? "Club",
+      clubSlug: m.clubs?.slug ?? "",
+      clubLogoUrl: resolveClubLogoUrl(supabase, m.clubs),
+      role: held?.has("CLUB_ADMIN") ? "CLUB_ADMIN" : held?.has("FIXTURES_SECRETARY") ? "FIXTURE_SECRETARY" : "BASIC_USER",
+    }
+  })
 
-  const teamPermissions: TeamPermissionContext[] = (teamPerms ?? []).map((tp) => ({
-    teamId: tp.team_id,
-    teamDisplayName: tp.teams?.display_name ?? "Team",
-    clubId: tp.teams?.club_id ?? "",
-    clubName: tp.teams?.clubs?.club_directory?.name ?? "Club",
-    permission: tp.permission,
+  // One legacy permission per team, as the team_permissions view projects it:
+  // Team Administration over Team Manager over Coach.
+  const TEAM_ROLE_RANK: Record<string, [number, TeamPermissionValue]> = {
+    TEAM_ADMINISTRATION: [1, "team_admin"],
+    TEAM_MANAGER: [2, "manager"],
+    COACH: [3, "coach"],
+  }
+  const bestByTeam = new Map<string, { rank: number; row: NonNullable<typeof roleRows>[number] }>()
+  for (const r of roleRows ?? []) {
+    const rank = r.team_id ? TEAM_ROLE_RANK[r.role_key] : undefined
+    if (!r.team_id || !rank) continue
+    const current = bestByTeam.get(r.team_id)
+    if (!current || rank[0] < current.rank) bestByTeam.set(r.team_id, { rank: rank[0], row: r })
+  }
+  const teamPermissions: TeamPermissionContext[] = Array.from(bestByTeam.values()).map(({ row }) => ({
+    teamId: row.team_id!,
+    teamDisplayName: row.teams?.display_name ?? "Team",
+    clubId: row.teams?.club_id ?? row.club_id,
+    clubName: row.teams?.clubs?.club_directory?.name ?? "Club",
+    permission: TEAM_ROLE_RANK[row.role_key][1],
   }))
 
   return {

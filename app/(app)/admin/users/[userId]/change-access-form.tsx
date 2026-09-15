@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 
+import { ReasonField } from "../../reason-field"
+
 import { changeAccessProfile, getClubTeams, type ClubTeamSummary, type TeamGroupAssignment } from "../../clubs/[directoryId]/actions"
 import { getPermissionGroups } from "../../permissions/actions"
 import type { PermissionGroup } from "../../permissions/types"
@@ -89,6 +91,7 @@ export function ChangeAccessForm({
   const [clubGroupId, setClubGroupId] = useState<string>("")
   const [assignments, setAssignments] = useState<TeamGroupAssignment[]>([])
   const [applying, setApplying] = useState(false)
+  const [reason, setReason] = useState("")
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -126,7 +129,7 @@ export function ChangeAccessForm({
   async function handleApply() {
     setApplying(true)
     setError(null)
-    const result = await changeAccessProfile({ membershipId, directoryId, userId, clubGroupId, teamAssignments: assignments })
+    const result = await changeAccessProfile({ membershipId, directoryId, userId, clubGroupId, teamAssignments: assignments, reason })
     setApplying(false)
     if (result.ok) onDone()
     else setError(result.error)
@@ -207,10 +210,14 @@ export function ChangeAccessForm({
         </ul>
       </div>
 
+      <div className="max-w-sm">
+        <ReasonField id={`access-reason-${membershipId}`} value={reason} onChange={setReason} label="Reason for Change" />
+      </div>
+
       {error && <p className="text-sm text-destructive-text">{error}</p>}
 
       <div className="flex items-center gap-3">
-        <Button type="button" className="h-9" disabled={applying || !clubGroupId} onClick={handleApply}>
+        <Button type="button" className="h-9" disabled={applying || !clubGroupId || reason.trim().length === 0} onClick={handleApply}>
           {applying ? "Applying…" : "Apply Changes"}
         </Button>
         <Button type="button" variant="ghost" className="h-9" disabled={applying} onClick={onDone}>

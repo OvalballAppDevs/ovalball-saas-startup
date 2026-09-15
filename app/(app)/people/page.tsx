@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server"
 import { teamPermissionLabel } from "@/lib/permissions/role-labels"
 
 import { InviteForm } from "./invite-form"
+import { JoinRequestRow } from "./join-request-row"
 import { PendingInvitationRow } from "./pending-invitation-row"
 import { PersonRow, type PersonRowData } from "./person-row"
 
@@ -52,7 +53,7 @@ export default async function PeoplePage() {
   const clubId = activeClubAdminMembership.clubId
   const clubName = activeClubAdminMembership.clubName
 
-  const [{ data: memberships }, { data: teams }, { data: invitations }] = await Promise.all([
+  const [{ data: memberships }, { data: teams }, { data: invitations }, { data: joinRequests }] = await Promise.all([
     supabase.from("club_memberships").select("id, user_id, role").eq("club_id", clubId).eq("status", "active"),
     supabase.from("teams").select("id, display_name").eq("club_id", clubId).eq("active", true),
     supabase
@@ -61,6 +62,7 @@ export default async function PeoplePage() {
       .eq("club_id", clubId)
       .eq("status", "pending")
       .order("created_at", { ascending: false }),
+    supabase.rpc("list_pending_club_join_requests", { p_club_id: clubId }),
   ])
 
   const membershipIds = (memberships ?? []).map((m) => m.id)
@@ -74,6 +76,7 @@ export default async function PeoplePage() {
 
   const teamRolesByMembership = new Map<string, { teamName: string; permission: string }[]>()
   for (const tp of teamPerms ?? []) {
+    if (!tp.membership_id || !tp.permission) continue
     const list = teamRolesByMembership.get(tp.membership_id) ?? []
     list.push({ teamName: tp.teams?.display_name ?? "Team", permission: teamPermissionLabel(tp.permission) })
     teamRolesByMembership.set(tp.membership_id, list)
@@ -115,6 +118,28 @@ export default async function PeoplePage() {
       >
         Guardian requests awaiting approval
       </Link>
+
+      {joinRequests && joinRequests.length > 0 && (
+        <section className="mt-8" aria-labelledby="join-requests-heading">
+          <h2 id="join-requests-heading" className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
+            Join Requests
+          </h2>
+          <p className="mt-1 text-sm text-ink-muted">People who have asked to join {clubName}. Approving makes them a member; it gives no other role.</p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {joinRequests.map((r) => (
+              <JoinRequestRow
+                key={r.request_id}
+                request={{
+                  id: r.request_id,
+                  name: [r.first_name, r.surname].filter(Boolean).join(" ") || "Unknown",
+                  requestedRole: r.requested_role,
+                  createdAt: r.created_at,
+                }}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-8">
         {people.length === 0 ? (

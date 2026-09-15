@@ -108,7 +108,15 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                 No club memberships.
               </p>
             ) : (
-              person.memberships.map((m) => <MembershipCard key={m.membershipId} userId={person.userId} userName={person.name} membership={m} />)
+              person.memberships.map((m) => (
+                <MembershipCard
+                  key={m.membershipId}
+                  userId={person.userId}
+                  userName={person.name}
+                  membership={m}
+                  canReadmit={!person.memberships.some((other) => other.clubId === m.clubId && other.status === "active")}
+                />
+              ))
             )}
           </div>
         </section>

@@ -139,11 +139,15 @@ select status into v_status from public.team_people(v_team) where row_id = v_ptm
 if v_status = 'archived' then raise notice 'PASS 11 (C): the roster shows them as archived, still present';
 else raise notice 'FAIL 11 (C): archived player reads as %', coalesce(v_status,'absent'); end if;
 
--- Restoring puts them back.
+-- Restoring puts them back, as a new place in the team: the archived place
+-- stays as the history of the one that ended (Slice 2).
 perform public.restore_player_team_membership(v_ptm);
-select status into v_status from public.player_team_memberships where id = v_ptm;
-if v_status = 'active' then raise notice 'PASS 12 (C): an archived player can be restored';
-else raise notice 'FAIL 12 (C): restore left status %', v_status; end if;
+if (select state from public.player_team_memberships where id = v_ptm) = 'ENDED'
+   and exists (select 1 from public.player_team_memberships
+               where player_id = v_player and team_id = v_team and state = 'ACTIVE' and source = 'TEAM_READMISSION' and id <> v_ptm) then
+  raise notice 'PASS 12 (C): an archived player can be restored, as a new place beside the ended one';
+else raise notice 'FAIL 12 (C): restore did not add a new place (old row %)', (select state from public.player_team_memberships where id = v_ptm); end if;
+select id into v_ptm from public.player_team_memberships where player_id = v_player and team_id = v_team and state = 'ACTIVE';
 
 -- A request is not a place in the team, so it cannot be archived.
 begin

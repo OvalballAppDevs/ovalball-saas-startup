@@ -83,45 +83,35 @@ export async function requestFixtureRestoration(teamId: string, fixtureId: strin
 }
 
 /**
- * Assigns (or re-assigns) an existing club member to this team with a
- * chosen permission -- upsert on (membership_id, team_id), so picking a
- * different permission for someone already on the team just changes it
- * rather than erroring or duplicating. team_permissions_insert_scoped /
- * update_scoped (is_site_admin() or is_club_admin) are the real boundary;
- * this never creates a new person/account, only a relationship between two
- * that already exist.
+ * Assigns (or re-assigns) an existing club member to this team. A different
+ * choice for someone already on the team replaces what they had rather than
+ * adding to it. set_team_access is the boundary (this club's Club Admin or a
+ * Full Site Admin); it never creates a person, only gives an existing member
+ * a team role.
  */
 export type AssignTeamMemberResult = { ok: true; teamPermissionId: string } | { ok: false; error: string }
 
 export async function assignTeamMember(
   teamId: string,
   membershipId: string,
-  permission: "team_admin" | "coach" | "manager" | "view_only"
+  permission: "team_admin" | "coach" | "manager"
 ): Promise<AssignTeamMemberResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not signed in." }
-
-  const { data, error } = await supabase
-    .from("team_permissions")
-    .upsert(
-      { membership_id: membershipId, team_id: teamId, permission, created_by: user.id },
-      { onConflict: "membership_id,team_id" }
-    )
-    .select("id")
-    .single()
+  const { data, error } = await supabase.rpc("set_team_access", {
+    p_membership_id: membershipId,
+    p_team_id: teamId,
+    p_permission: permission,
+  })
   if (error || !data) return { ok: false, error: error?.message ?? "Could not assign." }
   revalidatePath(`/teams/${teamId}`)
   revalidatePath("/people")
-  return { ok: true, teamPermissionId: data.id }
+  return { ok: true, teamPermissionId: data }
 }
 
-/** team_permissions_delete_scoped (added this pass) is the real boundary. */
+/** remove_team_access is the boundary: it ends the person's roles on this team. */
 export async function removeTeamMember(teamId: string, teamPermissionId: string): Promise<TeamActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.from("team_permissions").delete().eq("id", teamPermissionId)
+  const { error } = await supabase.rpc("remove_team_access", { p_team_permission_id: teamPermissionId })
   if (error) return { ok: false, error: error.message }
   revalidatePath(`/teams/${teamId}`)
   revalidatePath("/people")

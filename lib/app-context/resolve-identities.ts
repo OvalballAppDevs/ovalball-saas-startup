@@ -94,7 +94,7 @@ export async function resolveParticipantIdentities(
       const team = teams.find((t) => t.id === teamPerm.team_id)
       result.set(userId, {
         name,
-        roleLabel: TEAM_PERMISSION_LABEL[teamPerm.permission] ?? teamPerm.permission,
+        roleLabel: (teamPerm.permission && TEAM_PERMISSION_LABEL[teamPerm.permission]) || (teamPerm.permission ?? ""),
         clubName: team?.clubName ?? "Ovalball",
         clubId: team?.clubId ?? null,
         avatarUrl,

@@ -19,6 +19,16 @@
     "reason": "Every sequence is consumed by SECURITY DEFINER functions."
   },
   "tables": {
+    "access_review_items": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Identity/Auth Slice 2 Site Admin review queue for legacy access that could not be mapped with certainty. RLS: Full Site Admins only. No browser write."
+      }
+    },
     "age_grade_rollover_group_flags": {
       "classification": "PRIVATE",
       "anon": {
@@ -450,21 +460,38 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "update": [
+        "select": [
+          "id",
+          "club_id",
+          "user_id",
           "role",
           "status",
+          "created_by",
           "updated_by",
+          "created_at",
           "updated_at",
           "club_role_title",
-          "assigned_group_id"
+          "assigned_group_id",
+          "authority_suspended",
+          "authority_suspended_at",
+          "authority_restored_at",
+          "authority_restored_by",
+          "state",
+          "source",
+          "granted_by",
+          "granted_at",
+          "approved_by",
+          "approved_at",
+          "suspended_level",
+          "suspended_by",
+          "suspended_at",
+          "revoked_by",
+          "revoked_at",
+          "source_invitation_id",
+          "source_request_id",
+          "governance_title"
         ],
-        "write_consumers": [
-          "app/(app)/admin/clubs/[directoryId]/actions.ts",
-          "app/(app)/people/actions.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns. Identity/Auth Slice 2: free-text reasons (reason, revocation_reason) are not readable; no browser write -- memberships change only through transition RPCs (the Phase 0 column UPDATE grant is removed)."
       }
     },
     "club_message_blocks": {
@@ -1348,7 +1375,9 @@
           "decision_note",
           "expires_at",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "subject_response",
+          "subject_responded_at"
         ],
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
@@ -1369,8 +1398,26 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select": [
+          "id",
+          "guardian_user_id",
+          "player_id",
+          "relationship_type",
+          "status",
+          "created_by",
+          "created_at",
+          "updated_by",
+          "updated_at",
+          "state",
+          "source",
+          "approved_by",
+          "approved_at",
+          "verification_state",
+          "revoked_at",
+          "source_request_id",
+          "source_invitation_id"
+        ],
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns. Identity/Auth Slice 2: reasons, the hold's author, time and confidentiality are not readable, so a guardian never reads why a relationship was put on hold."
       }
     },
     "heritage_entries": {
@@ -2427,8 +2474,25 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select": [
+          "id",
+          "player_id",
+          "team_id",
+          "status",
+          "joined_at",
+          "ended_at",
+          "created_by",
+          "created_at",
+          "updated_by",
+          "updated_at",
+          "state",
+          "source",
+          "granted_by",
+          "approved_by",
+          "approved_at",
+          "ended_by"
+        ],
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns. Identity/Auth Slice 2: free-text reasons (reason, end_reason) are not readable."
       }
     },
     "players": {
@@ -2750,6 +2814,40 @@
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
+    "role_assignments": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": [
+          "id",
+          "user_id",
+          "club_id",
+          "team_id",
+          "membership_id",
+          "role_key",
+          "base_assignment_id",
+          "state",
+          "source",
+          "granted_by",
+          "granted_at",
+          "attributes",
+          "suspended_level",
+          "suspended_by",
+          "suspended_at",
+          "revoked_by",
+          "revoked_at",
+          "confirmation_state",
+          "confirmed_by",
+          "confirmed_at",
+          "source_invitation_id",
+          "created_at",
+          "updated_at"
+        ],
+        "select_reason": "Identity/Auth Slice 2 canonical club and team roles. RLS: the person, their club's Club Admin, and a Full Site Admin (Slice 1 stand-in; no internal.is_site_admin() policy). Free-text reasons are not readable. No browser write: assign_role, transition_role_assignment and the other transition RPCs only."
+      }
+    },
     "role_capability_defaults": {
       "classification": "PRIVATE",
       "anon": {
@@ -2758,6 +2856,16 @@
       "authenticated": {
         "select": "none",
         "select_reason": "Secret or internal table; server/RPC only."
+      }
+    },
+    "role_definitions": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Identity/Auth Slice 2 role catalogue (Phase 2 I); read by every signed-in person; changed only by migration."
       }
     },
     "scheduling_group_members": {
@@ -2937,22 +3045,14 @@
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
-    "team_permissions": {
+    "team_permissions_legacy": {
       "classification": "PRIVATE",
       "anon": {
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "insert": "all",
-        "update": "all",
-        "delete": "all",
-        "write_consumers": [
-          "app/(app)/admin/clubs/[directoryId]/actions.ts",
-          "app/(app)/teams/[teamId]/actions.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select": "none",
+        "select_reason": "Archive of team permissions before Identity/Auth Slice 2 (backfilled into role_assignments). No API access; dropped in Slice 10."
       }
     },
     "team_season_identity": {
@@ -3346,6 +3446,17 @@
       },
       "reason": "Shared calendar membership."
     },
+    "team_permissions": {
+      "classification": "PRIVATE",
+      "security_invoker": true,
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all"
+      },
+      "reason": "Identity/Auth Slice 2 compatibility view: one legacy permission per membership and team, projected from ACTIVE team role assignments (and roles suspended with a club's deactivation). Read by legacy readers until Slice 4; writes only by trusted backend sessions through its INSTEAD OF trigger."
+    },
     "team_result_stats": {
       "classification": "MEMBER_PROJECTION",
       "security_invoker": true,
@@ -3658,6 +3769,11 @@
         ]
       },
       {
+        "signature": "assign_role(uuid, text, uuid, text)",
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": []
+      },
+      {
         "signature": "audience_unreachable(text, uuid, jsonb, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -3757,6 +3873,13 @@
         "consumers": [
           "app/(app)/calendar/actions.ts",
           "app/(app)/calendar/training-session-actions.ts"
+        ]
+      },
+      {
+        "signature": "change_membership_access_profile(uuid, uuid, jsonb, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/clubs/[directoryId]/actions.ts"
         ]
       },
       {
@@ -4181,6 +4304,13 @@
         "consumers": [
           "app/(app)/calendar/training-session-actions.ts",
           "app/(app)/club/training/actions.ts"
+        ]
+      },
+      {
+        "signature": "decide_club_join_request(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/people/actions.ts"
         ]
       },
       {
@@ -4772,6 +4902,13 @@
         "consumers": []
       },
       {
+        "signature": "grant_club_membership(uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/clubs/[directoryId]/actions.ts"
+        ]
+      },
+      {
         "signature": "guardian_link_requests_for_approval(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4894,6 +5031,13 @@
         "consumers": []
       },
       {
+        "signature": "list_pending_club_join_requests(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/people/page.tsx"
+        ]
+      },
+      {
         "signature": "list_restorable_fixtures(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4937,6 +5081,11 @@
       },
       {
         "signature": "moderator_delete_message(uuid)",
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": []
+      },
+      {
+        "signature": "move_player_team_membership(uuid, uuid, text)",
         "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
         "consumers": []
       },
@@ -5388,6 +5537,14 @@
         ]
       },
       {
+        "signature": "remove_team_access(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/people/actions.ts",
+          "app/(app)/teams/[teamId]/actions.ts"
+        ]
+      },
+      {
         "signature": "remove_tournament_opponent(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5598,6 +5755,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/fixtures/competitions/actions.ts"
+        ]
+      },
+      {
+        "signature": "respond_to_additional_guardian_request(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/parent/children/actions.ts"
         ]
       },
       {
@@ -5976,6 +6140,13 @@
         ]
       },
       {
+        "signature": "set_membership_governance_title(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/clubs/[directoryId]/actions.ts"
+        ]
+      },
+      {
         "signature": "set_notification_preference(text, boolean, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6020,6 +6191,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/parent/players/[playerId]/details/actions.ts"
+        ]
+      },
+      {
+        "signature": "set_primary_club_role(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/people/actions.ts"
         ]
       },
       {
@@ -6124,6 +6302,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/club/settings/subscriptions/actions.ts"
+        ]
+      },
+      {
+        "signature": "set_team_access(uuid, uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/teams/[teamId]/actions.ts"
         ]
       },
       {
@@ -6318,6 +6503,24 @@
         "consumers": [
           "app/(app)/training/[sessionId]/page.tsx"
         ]
+      },
+      {
+        "signature": "transition_club_membership(uuid, text, text, boolean)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/people/actions.ts",
+          "app/(app)/admin/clubs/[directoryId]/actions.ts"
+        ]
+      },
+      {
+        "signature": "transition_guardian_relationship(uuid, text, text)",
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": []
+      },
+      {
+        "signature": "transition_role_assignment(uuid, text, text, boolean)",
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": []
       },
       {
         "signature": "unblock_user(uuid)",
@@ -6917,6 +7120,7 @@
       "archive_player_team_membership(uuid)",
       "archive_season(uuid, boolean)",
       "ask_opponent_to_confirm_team(uuid, uuid)",
+      "assign_role(uuid, text, uuid, text)",
       "attach_platform_subscription_provider(uuid, text, text, text, text, text, text)",
       "audience_unreachable(text, uuid, jsonb, boolean)",
       "block_user(uuid)",
@@ -6933,6 +7137,7 @@
       "cancel_guardian_link_request(uuid)",
       "cancel_tournament(uuid, text)",
       "cancel_training_session(uuid, text)",
+      "change_membership_access_profile(uuid, uuid, jsonb, text)",
       "check_incoming_request_target(uuid)",
       "check_tournament_participant_target(uuid)",
       "claim_club_referral(uuid)",
@@ -6999,6 +7204,7 @@
       "deactivate_competition_edition(uuid)",
       "deactivate_safeguarding_officer(uuid)",
       "deactivate_training_plan(uuid, text)",
+      "decide_club_join_request(uuid, text, text)",
       "decide_player_call_up(uuid, text, text)",
       "decide_player_dispensation(uuid, text, boolean, text, text)",
       "decline_player_club_join_request(uuid, text)",
@@ -7093,6 +7299,7 @@
       "get_training_register(uuid)",
       "get_training_session_card(uuid)",
       "graduate_team(uuid)",
+      "grant_club_membership(uuid, uuid, text)",
       "guardian_link_requests_for_approval(uuid)",
       "handover_apply_blockers(uuid)",
       "handover_audit(uuid)",
@@ -7113,6 +7320,7 @@
       "list_addable_club_members(uuid, uuid)",
       "list_directory_verification_runs(integer)",
       "list_fixtures_since_deactivation(uuid)",
+      "list_pending_club_join_requests(uuid)",
       "list_restorable_fixtures(uuid)",
       "list_suspended_club_memberships(uuid)",
       "mark_announcement_read(uuid)",
@@ -7122,6 +7330,7 @@
       "mark_message_report_reviewed(uuid)",
       "mark_platform_provider_event_processed(uuid, text)",
       "moderator_delete_message(uuid)",
+      "move_player_team_membership(uuid, uuid, text)",
       "my_announcements(integer)",
       "my_bell_notifications(integer)",
       "my_blocked_users()",
@@ -7198,6 +7407,7 @@
       "remove_fixture_conversation_participant(uuid, uuid, uuid)",
       "remove_guardian_relationship(uuid, text)",
       "remove_setup_team(uuid, text)",
+      "remove_team_access(uuid, text)",
       "remove_tournament_opponent(uuid)",
       "remove_tournament_participant(uuid)",
       "remove_tournament_team_entry(uuid)",
@@ -7230,6 +7440,7 @@
       "resolve_regulatory_conflict(uuid, text)",
       "resolve_rollover_group_flag(uuid)",
       "respond_competition_match(uuid, text, text, date, time without time zone, uuid, uuid)",
+      "respond_to_additional_guardian_request(uuid, text)",
       "respond_to_attendance(uuid, uuid, text)",
       "respond_to_club_conversation(uuid, boolean)",
       "respond_to_club_partnership(uuid, boolean)",
@@ -7286,6 +7497,7 @@
       "set_email_event_active(text, boolean, integer)",
       "set_fixture_conversation_mute(uuid, uuid, boolean)",
       "set_guardian_player_permission(uuid, text, boolean)",
+      "set_membership_governance_title(uuid, text)",
       "set_notification_preference(text, boolean, boolean)",
       "set_obligation_exemption(uuid, text, text)",
       "set_platform_mode(text, text, uuid)",
@@ -7293,6 +7505,7 @@
       "set_platform_scheduling_defaults(integer, integer)",
       "set_player_avatar(uuid, text)",
       "set_player_playing_pathway(uuid, text)",
+      "set_primary_club_role(uuid, text, text)",
       "set_responsible_payer(uuid, uuid, uuid, text, text)",
       "set_rollover_player_placement(uuid, uuid)",
       "set_rollover_player_planned_placement(uuid, uuid)",
@@ -7310,6 +7523,7 @@
       "set_site_admin_team_catalogue_capability(uuid, boolean)",
       "set_source_review_state(uuid, text, text)",
       "set_subscription_price(uuid, integer, date)",
+      "set_team_access(uuid, uuid, text, text)",
       "set_team_alias(uuid, text)",
       "set_team_conversation_active(uuid, boolean)",
       "set_updated_at()",
@@ -7342,6 +7556,9 @@
       "team_playing_group_summary(uuid)",
       "touch_last_active()",
       "training_communication_counts(uuid)",
+      "transition_club_membership(uuid, text, text, boolean)",
+      "transition_guardian_relationship(uuid, text, text)",
+      "transition_role_assignment(uuid, text, text, boolean)",
       "unblock_user(uuid)",
       "undo_rollover_team_decision(uuid)",
       "unplan_handover_team(uuid)",

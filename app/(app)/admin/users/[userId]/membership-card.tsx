@@ -5,6 +5,8 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 
+import { ReasonField } from "../../reason-field"
+
 import { clubRoleLabel, teamPermissionLabel } from "@/lib/permissions/role-labels"
 
 import { reactivateMembership, revokeMembership, updateMembershipRoleTitle } from "../../clubs/[directoryId]/actions"
@@ -12,7 +14,7 @@ import type { MembershipSummary } from "../types"
 import { ChangeAccessForm } from "./change-access-form"
 
 /** One club relationship, with its own Ovalball role, real-world title, team scope, and actions -- deliberately kept as separate cards rather than one flattened list, since a person can have several distinct club relationships (per the brief's "connected clubs" requirement). */
-export function MembershipCard({ userId, userName, membership }: { userId: string; userName: string; membership: MembershipSummary }) {
+export function MembershipCard({ userId, userName, membership, canReadmit }: { userId: string; userName: string; membership: MembershipSummary; canReadmit: boolean }) {
   const [roleTitle, setRoleTitle] = useState(membership.clubRoleTitle ?? "")
   const [editingTitle, setEditingTitle] = useState(false)
   const [savingTitle, setSavingTitle] = useState(false)
@@ -20,6 +22,9 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
   const [status, setStatus] = useState(membership.status)
   const [changingAccess, setChangingAccess] = useState(false)
   const [confirmingRevoke, setConfirmingRevoke] = useState(false)
+  const [confirmingReadmit, setConfirmingReadmit] = useState(false)
+  const [reason, setReason] = useState("")
+  const [readmitted, setReadmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function saveTitle() {
@@ -34,11 +39,12 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
   async function handleRevoke() {
     setWorking(true)
     setError(null)
-    const result = await revokeMembership({ membershipId: membership.membershipId, directoryId: membership.directoryId })
+    const result = await revokeMembership({ membershipId: membership.membershipId, directoryId: membership.directoryId, reason })
     setWorking(false)
     if (result.ok) {
       setStatus("revoked")
       setConfirmingRevoke(false)
+      setReason("")
     } else {
       setError(result.error)
     }
@@ -47,10 +53,13 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
   async function handleReactivate() {
     setWorking(true)
     setError(null)
-    const result = await reactivateMembership({ membershipId: membership.membershipId, directoryId: membership.directoryId })
+    const result = await reactivateMembership({ clubId: membership.clubId, userId, directoryId: membership.directoryId, reason })
     setWorking(false)
-    if (result.ok) setStatus("active")
-    else setError(result.error)
+    if (result.ok) {
+      setConfirmingReadmit(false)
+      setReason("")
+      setReadmitted(true)
+    } else setError(result.error)
   }
 
   return (
@@ -65,13 +74,27 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
           </Link>
           <p className="mt-0.5 text-xs text-ink-muted">{clubRoleLabel(membership.role)}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {status === "revoked" ? (
             <>
               <span className="rounded-full bg-ink/8 px-2.5 py-1 text-xs font-medium text-ink-muted">Revoked</span>
-              <Button type="button" variant="outline" className="h-8" disabled={working} onClick={handleReactivate}>
-                {working ? "Working…" : "Reactivate"}
-              </Button>
+              {readmitted ? (
+                <span className="text-xs text-ink-muted">Re-admitted as a new membership</span>
+              ) : !canReadmit ? null : !confirmingReadmit ? (
+                <Button type="button" variant="outline" className="h-8" onClick={() => setConfirmingReadmit(true)}>
+                  Re-admit
+                </Button>
+              ) : (
+                <>
+                  <ReasonField id={`readmit-reason-${membership.membershipId}`} value={reason} onChange={setReason} label="Reason for Re-admitting" />
+                  <Button type="button" variant="outline" className="h-8 self-end" disabled={working || reason.trim().length === 0} onClick={handleReactivate}>
+                    {working ? "Working…" : "Re-admit as Member"}
+                  </Button>
+                  <Button type="button" variant="ghost" className="h-8 self-end" disabled={working} onClick={() => setConfirmingReadmit(false)}>
+                    Cancel
+                  </Button>
+                </>
+              )}
             </>
           ) : (
             <>
@@ -84,10 +107,11 @@ export function MembershipCard({ userId, userName, membership }: { userId: strin
                 </Button>
               ) : (
                 <>
-                  <Button type="button" variant="destructive" className="h-8" disabled={working} onClick={handleRevoke}>
+                  <ReasonField id={`revoke-reason-${membership.membershipId}`} value={reason} onChange={setReason} label="Reason for Revoking" />
+                  <Button type="button" variant="destructive" className="h-8 self-end" disabled={working || reason.trim().length === 0} onClick={handleRevoke}>
                     {working ? "Revoking…" : "Confirm Revoke"}
                   </Button>
-                  <Button type="button" variant="ghost" className="h-8" disabled={working} onClick={() => setConfirmingRevoke(false)}>
+                  <Button type="button" variant="ghost" className="h-8 self-end" disabled={working} onClick={() => setConfirmingRevoke(false)}>
                     Cancel
                   </Button>
                 </>
