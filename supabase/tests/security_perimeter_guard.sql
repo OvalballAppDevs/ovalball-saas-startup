@@ -6,8 +6,9 @@
 --   P1. No NEW SECURITY DEFINER function in public becomes executable by
 --       anon. The inventory below is the Identity/Auth Slice 1 perimeter
 --       (down from 238 at Phase 0 containment): genuine public entry points
---       only. It may only shrink; supabase/security/perimeter-manifest.json
---       is the full contract.
+--       only. It grows only by a reviewed decision recorded in
+--       supabase/security/perimeter-manifest.json, the full contract (the
+--       Slice 1 forward-fix added the public season team names projection).
 --   P2. The functions the containment narrowed stay narrowed.
 --   P3. No write policy anywhere in public accepts a row unconditionally.
 --   P4. Views that run with their owner's rights are not readable by anon,
@@ -31,6 +32,9 @@ declare
     'get_guardian_invitation_preview(text)',
     'get_invitation_preview(text)',
     'get_player_account_invitation_preview(text)',
+    -- Identity/Auth Slice 1 forward-fix: season team names for the public
+    -- Club Digital Home, scoped to public_club_fixtures pairs.
+    'get_public_team_season_names(jsonb)',
     'get_safeguarding_officer_invitation_preview(text)',
     'get_site_admin_invitation_preview(text)',
     'platform_public_state()',

@@ -288,6 +288,10 @@ SUITES=(
   # redacted; identity changes emit their security events.
   audit_immutability
   security_events_no_secrets
+  # The signed-out Club Digital Home names each fixture's team as it is in
+  # that fixture's season, through a public projection scoped to public
+  # fixtures, without widening teams.
+  public_team_season_identity
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

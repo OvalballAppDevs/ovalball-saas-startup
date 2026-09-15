@@ -3386,6 +3386,17 @@
         "consumer": "app/player-invite/[token]/page.tsx"
       },
       {
+        "signature": "get_public_team_season_names(jsonb)",
+        "reason": "Signed-out Club Digital Home labels each upcoming public fixture with the team's identity in that fixture's season. A deliberate public projection instead of widening teams: SECURITY DEFINER, search_path empty, input is (team_id, season_id) pairs only (at most 100), output is team_id, season_id, display_name only, and only for pairs that already appear in public_club_fixtures. Names resolve through the canonical get_team_identity_for_season. Executable by anon only; signed-in pages keep get_team_identities_for_season_batch.",
+        "consumer": "lib/club-public/load-club-home.ts (via loadPublicTeamSeasonNames in lib/mini-rugby/team-identity.server.ts)",
+        "returns": [
+          "team_id uuid",
+          "season_id uuid",
+          "display_name text"
+        ],
+        "security_boundary": "public_club_fixtures pairs only; no teams, team_season_identity or seasons columns beyond the season display name"
+      },
+      {
         "signature": "get_safeguarding_officer_invitation_preview(text)",
         "reason": "Safeguarding officer invitation landing page before sign-in.",
         "consumer": "app/invite/safeguarding-officer/[token]/page.tsx"

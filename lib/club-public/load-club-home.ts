@@ -2,7 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
+import { loadPublicTeamSeasonNames, loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
 import { groupKeyFor, DIRECTORY_GROUPS, type DirectoryGroupKey } from "@/lib/teams/directory-taxonomy"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
 import { hasCapability } from "@/lib/permissions/has-capability"
@@ -198,16 +198,19 @@ export async function loadClubHome(supabase: SupabaseClient<Database>, club: Pub
     })
   }
 
-  // Season-true team names, in one batch, for every fixture on the page.
-  const identities = await loadTeamIdentitiesForSeason(
-    supabase,
-    [...publicFixtures, ...viewerResults]
-      .filter((f) => f.season_id && f.owning_team_id)
-      .map((f) => ({ teamId: f.owning_team_id as string, seasonId: f.season_id as string }))
-  )
+  // Season-true team names, in one batch, for every fixture on the page. A
+  // signed-out visitor reads them through the public projection, which only
+  // answers for public fixtures; a signed-in viewer's own results need the
+  // full resolver their session is allowed to run.
+  const identityPairs = [...publicFixtures, ...viewerResults]
+    .filter((f) => f.season_id && f.owning_team_id)
+    .map((f) => ({ teamId: f.owning_team_id as string, seasonId: f.season_id as string }))
+  const seasonNames = user
+    ? new Map([...(await loadTeamIdentitiesForSeason(supabase, identityPairs))].map(([key, identity]) => [key, identity.displayName]))
+    : await loadPublicTeamSeasonNames(supabase, identityPairs)
   const teamById = new Map(teams.map((t) => [t.id, t]))
   const labelFor = (teamId: string, seasonId: string | null, fallback: string | null) =>
-    (seasonId && identities.get(teamIdentityKey(teamId, seasonId))?.displayName) || teamById.get(teamId)?.display_name || fallback || "Team"
+    (seasonId && seasonNames.get(teamIdentityKey(teamId, seasonId))) || teamById.get(teamId)?.display_name || fallback || "Team"
 
   const viewerFixtureById = new Map(viewerFixtures.map((f) => [f.id, f]))
   const upcomingAll: ClubUpcomingMatch[] = publicFixtures.map((f) => {

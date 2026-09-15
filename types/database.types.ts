@@ -21338,6 +21338,14 @@ export type Database = {
           permission_key: string
         }[]
       }
+      get_public_team_season_names: {
+        Args: { p_pairs: Json }
+        Returns: {
+          display_name: string
+          season_id: string
+          team_id: string
+        }[]
+      }
       get_regulatory_fact_search_context: {
         Args: { p_fact_ids: string[] }
         Returns: {

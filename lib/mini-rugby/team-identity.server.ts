@@ -57,6 +57,32 @@ export async function loadTeamIdentitiesForSeason(
   return result
 }
 
+/**
+ * The public counterpart for signed-out pages: a team's display name in each
+ * fixture's season, keyed by "<teamId>:<seasonId>". It goes through
+ * get_public_team_season_names, which answers only for (team, season) pairs
+ * that appear in public_club_fixtures and returns nothing but the name, so
+ * an anonymous visitor never needs to read teams or the broad resolver.
+ * Signed-in pages use loadTeamIdentitiesForSeason.
+ */
+export async function loadPublicTeamSeasonNames(
+  supabase: SupabaseClient<Database>,
+  pairs: { teamId: string; seasonId: string }[],
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>()
+  const unique = [...new Map(pairs.map((p) => [`${p.teamId}:${p.seasonId}`, p])).values()]
+  if (unique.length === 0) return result
+
+  const { data } = await supabase.rpc("get_public_team_season_names", {
+    p_pairs: unique.map((p) => ({ team_id: p.teamId, season_id: p.seasonId })),
+  })
+
+  for (const row of data ?? []) {
+    result.set(`${row.team_id}:${row.season_id}`, row.display_name)
+  }
+  return result
+}
+
 export function teamIdentityKey(teamId: string, seasonId: string): string {
   return `${teamId}:${seasonId}`
 }
