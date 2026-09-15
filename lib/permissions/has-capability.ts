@@ -1,37 +1,56 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { cache } from "react"
 
 import type { Database } from "@/types/database.types"
 
 export type CapabilityScopeType = "site" | "club" | "team"
 
+type Client = SupabaseClient<Database>
+
 /**
- * The one server-side entry point to the canonical scoped capability
- * engine (Master Architecture Pass, "Canonical Scoped Capability Engine").
- * Calls the SAME `internal.has_capability()` primitive every rewired RLS
- * policy uses -- via the thin `public.has_capability` RPC wrapper, since
- * the `internal` schema is never exposed to PostgREST. Never re-derive
- * capability logic in a page or component; call this instead.
+ * Every answer the signed-in person holds at one scope, from the ONE canonical
+ * resolver (internal.capability_decision) through public.my_capabilities.
+ * Canonical keys and the legacy keys the app still names are both present, so a
+ * caller asking "club.edit_profile" and one asking "club.profile.edit" get the
+ * same decision.
  *
- * This is a UI/UX and defense-in-depth convenience, not the authorization
- * boundary itself -- RLS enforces the real boundary independently on
- * every write this engine covers, so a stale or tampered client call
- * here can hide a control but never grant the mutation behind it.
+ * Cached per request (React cache keys on the client and the scope), so a page
+ * that asks twenty questions about one club makes one round trip.
+ */
+const myCapabilitiesAt = cache(
+  async (supabase: Client, scopeType: CapabilityScopeType, clubId: string | null, teamId: string | null): Promise<Map<string, boolean>> => {
+    const { data, error } = await supabase.rpc("my_capabilities", {
+      p_scope_type: scopeType,
+      p_club_id: clubId ?? undefined,
+      p_team_id: teamId ?? undefined,
+    })
+    if (error) {
+      console.error("my_capabilities RPC failed:", error)
+      return new Map()
+    }
+    return new Map((data ?? []).map((row) => [row.capability_key, row.allowed === true]))
+  },
+)
+
+/**
+ * The one server-side question "may this person do this, here?" for the
+ * interface. It decides what to SHOW. The database decides what HAPPENS: every
+ * policy and RPC re-checks through the same resolver, so a stale or tampered
+ * call here can hide a control but never grant the action behind it.
  */
 export async function hasCapability(
-  supabase: SupabaseClient<Database>,
+  supabase: Client,
   capabilityKey: string,
   scopeType: CapabilityScopeType,
-  scope: { clubId?: string | null; teamId?: string | null } = {}
+  scope: { clubId?: string | null; teamId?: string | null } = {},
 ): Promise<boolean> {
-  const { data, error } = await supabase.rpc("has_capability", {
-    p_capability_key: capabilityKey,
-    p_scope_type: scopeType,
-    p_club_id: scope.clubId ?? undefined,
-    p_team_id: scope.teamId ?? undefined,
-  })
-  if (error) {
-    console.error("hasCapability RPC failed:", error)
-    return false
-  }
-  return data === true
+  if (scopeType === "club" && !scope.clubId) return false
+  if (scopeType === "team" && (!scope.clubId || !scope.teamId)) return false
+  const answers = await myCapabilitiesAt(
+    supabase,
+    scopeType,
+    scopeType === "site" ? null : (scope.clubId ?? null),
+    scopeType === "team" ? (scope.teamId ?? null) : null,
+  )
+  return answers.get(capabilityKey) === true
 }

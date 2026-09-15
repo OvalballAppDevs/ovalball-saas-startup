@@ -39,9 +39,11 @@ begin
          (v_club_admin, 'clubadm@ovalball-test.invalid',  '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated'),
          (v_outsider,   'outsider@ovalball-test.invalid', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
 
+  -- Slice 3 (R, SA-2): the commercial viewer is a Fixture Operations admin with the commercial view add-on;
+  -- a Read Only admin cannot carry add-ons.
   insert into public.site_admins (user_id, admin_role, status, view_commercial)
   values (v_owner, 'full', 'active', false),
-         (v_viewer, 'read_only', 'active', true);
+         (v_viewer, 'fixture_ops', 'active', true);
 
   insert into public.club_directory (name, rugby_code, country, nation, source, verification_status, normalized_key)
   values ('Trial Test Club A', 'union', 'England', 'England', 'manual', 'verified', 'trial-test-club-a')

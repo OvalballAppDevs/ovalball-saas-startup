@@ -277,37 +277,36 @@ export function buildNavItems(
   }
 
   if (inSiteAdminContext) {
-    items.push({ href: "/admin/claims", label: "Claims" })
-    items.push({ href: "/admin/documents", label: "Documents" })
-    items.push({ href: "/admin/clubs", label: "Club Management" })
-    items.push({ href: "/admin/users", label: "User Management" })
-    items.push({ href: "/admin/permissions", label: "Permission Management" })
-    items.push({ href: "/admin/fixtures", label: "Fixture Control Centre" })
-    items.push({ href: "/admin/messages", label: "Message Management" })
-    items.push({ href: "/admin/seasons", label: "Seasons" })
-    items.push({ href: "/admin/team-directory", label: "Team Directory" })
-    items.push({ href: "/admin/competitions", label: "Competitions" })
-    items.push({ href: "/admin/lookups", label: "Lookup Administration" })
-    // Readable by every Site Admin -- what the platform currently reserves
-    // around a fixture is operational context. The page itself renders the
-    // controls read-only for anyone but a Full Site Admin, and the setter
-    // re-checks that server-side.
-    items.push({ href: "/admin/scheduling-defaults", label: "Pitch Allocation Defaults" })
-    items.push({ href: "/admin/support", label: "Support Tickets" })
-    items.push({ href: "/admin/site-admins", label: "Site Admin Management" })
-    items.push({ href: "/admin/system-health", label: "System Health" })
-    items.push({ href: "/admin/email", label: "Email Configuration" })
-
-    // Release & platform mode is readable by every Site Admin: knowing
-    // whether Ovalball is charging clubs is operational context, not a
-    // privilege, and the page itself renders read-only without the
-    // site.system.* capability. Commercial is different -- it is money
-    // across every club -- so the link only appears for a Full Site Admin
-    // or someone explicitly granted commercial visibility, matching the
-    // capability the page re-checks server-side.
-    items.push({ href: "/admin/releases", label: "Release & Platform Mode" })
-    if (ctx.siteAdminRole === "full" || ctx.viewCommercial) {
-      items.push({ href: "/admin/commercial", label: "Commercial" })
+    // Phase 2 SA-4: Site Admin navigation renders from the database's site capabilities
+    // (ctx.siteCapabilities, public.my_site_capabilities). A section whose entry needs no
+    // particular capability is readable by every active Site Admin; its controls and the
+    // actions behind them re-check server-side.
+    const holds = (key: string) => ctx.siteCapabilities.includes(key)
+    const siteSections: { href: string; label: string; needs?: string[] }[] = [
+      { href: "/admin/claims", label: "Claims", needs: ["site.claims.review"] },
+      { href: "/admin/documents", label: "Documents", needs: ["site.clubs.view"] },
+      { href: "/admin/clubs", label: "Club Management", needs: ["site.clubs.view"] },
+      { href: "/admin/users", label: "User Management", needs: ["site.users.view"] },
+      { href: "/admin/permissions", label: "Permission Management", needs: ["site.users.view"] },
+      { href: "/admin/fixtures", label: "Fixture Control Centre", needs: ["site.fixtures.view", "site.fixtures.support"] },
+      { href: "/admin/messages", label: "Message Management", needs: ["site.messages.moderate"] },
+      { href: "/admin/seasons", label: "Seasons" },
+      { href: "/admin/team-directory", label: "Team Directory" },
+      { href: "/admin/competitions", label: "Competitions" },
+      { href: "/admin/lookups", label: "Lookup Administration" },
+      // What the platform reserves around a fixture is operational context; the setter re-checks server-side.
+      { href: "/admin/scheduling-defaults", label: "Pitch Allocation Defaults" },
+      { href: "/admin/support", label: "Support Tickets", needs: ["site.support.view"] },
+      { href: "/admin/site-admins", label: "Site Admin Management", needs: ["site.users.view"] },
+      { href: "/admin/system-health", label: "System Health" },
+      { href: "/admin/email", label: "Email Configuration", needs: ["site.email.manage", "site.email.deliveries.view"] },
+      // Whether Ovalball is charging clubs is operational context; changing it needs site.system.*.
+      { href: "/admin/releases", label: "Release & Platform Mode" },
+      // Money across every club: only with commercial visibility.
+      { href: "/admin/commercial", label: "Commercial", needs: ["site.commercial.view"] },
+    ]
+    for (const section of siteSections) {
+      if (!section.needs || section.needs.some(holds)) items.push({ href: section.href, label: section.label })
     }
   }
 

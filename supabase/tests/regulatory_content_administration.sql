@@ -52,7 +52,8 @@ begin
     (v_regulatory_admin, 'rca-regadmin-' || v_regulatory_admin::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
 
   insert into site_admins (user_id, status, admin_role) values (v_site_admin, 'active', 'full');
-  insert into site_admins (user_id, status, admin_role, view_regulatory_content, manage_regulatory_content) values (v_regulatory_admin, 'active', 'read_only', true, true);
+  -- Slice 3 (R, SA-1/SA-2): regulatory management is the Content profile; Read Only cannot hold it.
+  insert into site_admins (user_id, status, admin_role) values (v_regulatory_admin, 'active', 'content');
 
   select id into v_directory from club_directory cd where cd.rugby_code='union' and not exists (select 1 from clubs c where c.directory_id = cd.id) order by cd.id limit 1;
   insert into clubs (id, directory_id, slug, status) values (gen_random_uuid(), v_directory, 'rca-test-club-' || gen_random_uuid()::text, 'active') returning id into v_club;

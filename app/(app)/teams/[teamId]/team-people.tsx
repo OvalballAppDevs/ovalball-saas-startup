@@ -84,11 +84,14 @@ export function TeamPeople({
   people,
   clubMembers,
   canManage,
+  canAssignTeamAdmin,
 }: {
   teamId: string
   people: TeamPersonRow[]
   clubMembers: ClubMemberOption[]
   canManage: boolean
+  /** Team Admin is given by the club (or Ovalball); a Team Admin gives Coach and Team Manager only. */
+  canAssignTeamAdmin: boolean
 }) {
   const [rows, setRows] = useState(people)
   const [tab, setTab] = useState<TabKey>("coach")
@@ -306,7 +309,7 @@ export function TeamPeople({
               aria-label="Role in this team"
               className="h-10 rounded-lg border border-ink/15 bg-white px-3 text-sm outline-none focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
-              {PERMISSION_OPTIONS.map((p) => (
+              {PERMISSION_OPTIONS.filter((p) => canAssignTeamAdmin || p.value !== "team_admin").map((p) => (
                 <option key={p.value} value={p.value}>
                   {p.label}
                 </option>

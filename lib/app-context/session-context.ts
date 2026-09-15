@@ -27,7 +27,7 @@ export interface TeamPermissionContext {
   permission: TeamPermissionValue
 }
 
-export type SiteAdminRole = "full" | "fixture_ops" | "club_data" | "user_access" | "message_moderator" | "read_only"
+export type SiteAdminRole = "full" | "fixture_ops" | "club_data" | "user_access" | "message_moderator" | "read_only" | "content"
 
 /**
  * One (guardian, player, active team) triple -- the canonical Parent
@@ -70,6 +70,12 @@ export interface SessionContext {
   isSiteAdmin: boolean
   /** The active Site Admin profile, or null when isSiteAdmin is false. Global authority, never inferred from club membership. */
   siteAdminRole: SiteAdminRole | null
+  /**
+   * The site capabilities this Site Admin holds now (Identity/Auth Slice 3, Phase 2 R, SA-4): the profile's
+   * bundle plus add-on grants, from public.my_site_capabilities. Site Admin navigation renders from this.
+   * The booleans below are derived from it and kept for existing screens. Empty when isSiteAdmin is false.
+   */
+  siteCapabilities: string[]
   /** Whether this Site Admin has been granted the diagnostic club-viewing capability (see lib/app-context/diagnostic-access.ts). Always false when isSiteAdmin is false. */
   diagnosticClubAccess: boolean
   /** Whether this Site Admin has been granted the Team Directory management capability (manage_team_catalogue) -- a genuine per-person grant, never implied by any Site Admin profile including Full. Always false when isSiteAdmin is false. */
@@ -125,7 +131,7 @@ export async function getSessionContext(
   const [{ data: profile }, { data: siteAdminRow }, { data: memberships }, { data: roleRows }, { data: guardianRows }, { data: ownPlayerRow }] =
     await Promise.all([
       supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
-      supabase.from("site_admins").select("id, admin_role, diagnostic_club_access, manage_team_catalogue, manage_competitions, manage_fixture_support, manage_global_lookups, manage_system, view_commercial").eq("user_id", user.id).eq("status", "active").maybeSingle(),
+      supabase.from("site_admins").select("id, admin_role").eq("user_id", user.id).eq("status", "active").maybeSingle(),
       supabase
         .from("club_memberships")
         .select("club_id, role, clubs(slug, logo_storage_path, club_directory(name, logo_storage_path))")
@@ -244,18 +250,28 @@ export async function getSessionContext(
     permission: TEAM_ROLE_RANK[row.role_key][1],
   }))
 
+  // One answer for site authority: the database's site capabilities, never the legacy switches.
+  let siteCapabilities: string[] = []
+  if (siteAdminRow) {
+    const { data: siteRows, error: siteError } = await supabase.rpc("my_site_capabilities")
+    if (siteError) console.error("my_site_capabilities failed:", siteError)
+    siteCapabilities = ((siteRows ?? []) as string[]).slice().sort()
+  }
+  const holds = (key: string) => siteCapabilities.includes(key)
+
   return {
     user,
     firstName: profile?.first_name ?? null,
     isSiteAdmin: Boolean(siteAdminRow),
     siteAdminRole: (siteAdminRow?.admin_role as SiteAdminRole | undefined) ?? null,
-    diagnosticClubAccess: siteAdminRow?.diagnostic_club_access ?? false,
-    manageTeamCatalogue: siteAdminRow?.manage_team_catalogue ?? false,
-    manageCompetitions: siteAdminRow?.manage_competitions ?? false,
-    manageFixtureSupport: siteAdminRow?.manage_fixture_support ?? false,
-    manageGlobalLookups: siteAdminRow?.manage_global_lookups ?? false,
-    manageSystem: siteAdminRow?.manage_system ?? false,
-    viewCommercial: siteAdminRow?.view_commercial ?? false,
+    siteCapabilities,
+    diagnosticClubAccess: holds("site.support.view_club"),
+    manageTeamCatalogue: holds("site.team_catalogue.manage"),
+    manageCompetitions: holds("site.competitions.manage"),
+    manageFixtureSupport: holds("site.fixtures.support"),
+    manageGlobalLookups: holds("site.lookups.manage"),
+    manageSystem: holds("site.system.release.manage"),
+    viewCommercial: holds("site.commercial.view"),
     clubMemberships,
     teamPermissions,
     guardianRelationships,

@@ -39,6 +39,7 @@ function baseCtx(overrides: Partial<SessionContext>): SessionContext {
     firstName: "Test",
     isSiteAdmin: false,
     siteAdminRole: null,
+    siteCapabilities: [],
     diagnosticClubAccess: false,
     manageTeamCatalogue: false,
     manageCompetitions: false,

@@ -32,7 +32,8 @@ begin
     (v_ordinary, 'Ordinary', 'User', 'hrl-ordinary-' || v_ordinary::text || '@ovalball.test');
 
   insert into public.site_admins (user_id, status, admin_role) values (v_full_admin, 'active', 'full');
-  insert into public.site_admins (user_id, status, admin_role, view_hub_content) values (v_narrow_view, 'active', 'read_only', true);
+  -- Slice 3 (R): Read Only holds site.hub.view through its profile; it carries no add-on switches (SA-2).
+  insert into public.site_admins (user_id, status, admin_role) values (v_narrow_view, 'active', 'read_only');
 
   -- Seed a draft and a published item AS the postgres role (bypasses RLS,
   -- as the platform's own service/seed operations do).

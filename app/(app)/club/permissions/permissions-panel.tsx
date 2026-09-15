@@ -3,13 +3,18 @@
 import { useState, useTransition } from "react"
 
 import { clearClubCapability, setClubCapability } from "./actions"
+import { GROUPS } from "./groups"
 
 export interface MemberCapability {
   capabilityKey: string
   effective: boolean
-  /** "role" | "granted" | "denied" | "none" -- where the answer came from. */
+  /** "role" | "granted" | "denied" | "restricted" | "none" -- where the answer came from. */
   source: string
   overrideId: string | null
+  /** The level an explicit decision was made at: "CLUB", "TEAM" or "SITE" (Ovalball). */
+  overrideLevel: string | null
+  /** Whether the person viewing may change this answer (the database decides; this only shows it). */
+  editable: boolean
 }
 
 export interface ClubMember {
@@ -25,7 +30,7 @@ export interface ClubMember {
  * NO RAW CAPABILITY KEYS. A club administrator is deciding whether a
  * particular coach may cancel a match; `fixture.cancel` is how the database
  * writes that down, not how the decision is described to the person making
- * it. The groups below match how the work is actually divided at a club --
+ * it. The groups (./groups.ts) match how the work is actually divided at a club --
  * fixtures, training, the calendar -- rather than the shape of the
  * capability catalogue.
  *
@@ -39,43 +44,19 @@ export interface ClubMember {
  * Tournament group because Ovalball has no tournament capability today --
  * inventing a switch that maps to nothing would be worse than its absence.
  */
-const GROUPS: { title: string; blurb: string; items: { key: string; label: string; description: string }[] }[] = [
-  {
-    title: "Fixture Operations",
-    blurb: "Arranging and maintaining the club's matches.",
-    items: [
-      { key: "fixture.view", label: "View Fixtures", description: "See the club's fixture list." },
-      { key: "fixture.create", label: "Create Fixtures", description: "Arrange a new match." },
-      { key: "fixture.edit", label: "Edit Fixtures", description: "Change a date, kick-off, venue or opposition." },
-      { key: "fixture.cancel", label: "Cancel Fixtures", description: "Call a match off, with a reason." },
-      { key: "fixture.manage_requests", label: "Manage Fixture Requests", description: "Accept or decline requests from other clubs." },
-      { key: "fixture.bulk_edit", label: "Bulk Edit Fixtures", description: "Change many fixtures in one action." },
-      { key: "fixture.import", label: "Import Fixtures", description: "Upload a season's fixtures from a file." },
-    ],
-  },
-  {
-    title: "Training Operations",
-    blurb: "Running the club's training sessions.",
-    items: [
-      { key: "club.training.manage", label: "Manage Club Training", description: "Schedule and change training across the club." },
-      { key: "team.training.manage", label: "Manage Team Training", description: "Schedule and change training for a team." },
-    ],
-  },
-  {
-    title: "Calendar and Events",
-    blurb: "What appears on the club's calendar.",
-    items: [
-      { key: "calendar.view", label: "View Calendar", description: "See the club's calendar." },
-      { key: "calendar.manage", label: "Manage Calendar", description: "Create and change club events." },
-    ],
-  },
-]
 
 const SOURCE_LABEL: Record<string, string> = {
   role: "From their role",
   granted: "Granted",
   denied: "Withheld",
+  restricted: "Restricted by Ovalball",
   none: "Not from their role",
+}
+
+function lockReason(state: MemberCapability): string | null {
+  if (state.editable) return null
+  if (state.overrideLevel === "SITE") return "Ovalball decided this, so it can only be changed by Ovalball."
+  return "You cannot change this permission."
 }
 
 export function ClubPermissionsPanel({ clubId, members }: { clubId: string; members: ClubMember[] }) {
@@ -159,8 +140,12 @@ export function ClubPermissionsPanel({ clubId, members }: { clubId: string; memb
                               <span className="mt-1 block text-[11px] text-ink-subtle">
                                 {state!.effective ? "Allowed" : "Not allowed"} · {SOURCE_LABEL[state!.source] ?? state!.source}
                               </span>
+                              {lockReason(state!) && (
+                                <span className="mt-0.5 block text-[11px] text-ink-subtle">{lockReason(state!)}</span>
+                              )}
                             </span>
 
+                            {state!.editable && (
                             <span className="flex shrink-0 items-center gap-1.5">
                               <button
                                 type="button"
@@ -199,6 +184,7 @@ export function ClubPermissionsPanel({ clubId, members }: { clubId: string; memb
                                 </button>
                               )}
                             </span>
+                            )}
                           </li>
                         ))}
                       </ul>

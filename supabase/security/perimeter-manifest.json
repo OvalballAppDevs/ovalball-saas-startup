@@ -99,6 +99,16 @@
         "select_reason": "Audit redaction configuration; read only by internal.audit_log_facts. Changed only by migration."
       }
     },
+    "bundle_capabilities": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Identity/Auth Slice 3 bundle composition (Phase 2 Y.6). Read by every signed-in person (Club Permissions provenance); changed only by migration."
+      }
+    },
     "canonical_team_types": {
       "classification": "PUBLIC",
       "anon": {
@@ -132,6 +142,26 @@
       "authenticated": {
         "select": "all",
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      }
+    },
+    "capability_bundles": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Identity/Auth Slice 3 bundle catalogue (Phase 2 Y.6): club/team roles, relationships, Site Admin profiles. Read by every signed-in person; changed only by migration."
+      }
+    },
+    "capability_key_map": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Identity/Auth Slice 3 legacy key to canonical key map (Phase 2 J.15). Read by every signed-in person; changed only by migration."
       }
     },
     "capability_overrides": {
@@ -2154,20 +2184,14 @@
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
-    "permission_group_capabilities": {
+    "permission_group_capabilities_legacy": {
       "classification": "PRIVATE",
       "anon": {
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "insert": "all",
-        "delete": "all",
-        "write_consumers": [
-          "app/(app)/admin/permissions/actions.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select": "none",
+        "select_reason": "Identity/Auth Slice 3 archive of the unenforced access-group capability lists. Server only; dropped in Slice 10."
       }
     },
     "permission_groups": {
@@ -2177,13 +2201,7 @@
       },
       "authenticated": {
         "select": "all",
-        "insert": "all",
-        "update": "all",
-        "write_consumers": [
-          "app/(app)/admin/permissions/actions.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Fixed access groups naming the role bundle each maps to. Read-only from Slice 3 (bundles are edited through the permission catalogue)."
       }
     },
     "pitch_allocation_proposal_items": {
@@ -2848,14 +2866,14 @@
         "select_reason": "Identity/Auth Slice 2 canonical club and team roles. RLS: the person, their club's Club Admin, and a Full Site Admin (Slice 1 stand-in; no internal.is_site_admin() policy). Free-text reasons are not readable. No browser write: assign_role, transition_role_assignment and the other transition RPCs only."
       }
     },
-    "role_capability_defaults": {
+    "role_capability_defaults_legacy": {
       "classification": "PRIVATE",
       "anon": {
         "select": "none"
       },
       "authenticated": {
         "select": "none",
-        "select_reason": "Secret or internal table; server/RPC only."
+        "select_reason": "Identity/Auth Slice 3 archive of the pre-bundle role defaults (parity evidence for bundle_legacy_parity). Server only; dropped in Slice 10."
       }
     },
     "role_definitions": {
@@ -2954,6 +2972,16 @@
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
+    "site_admin_grant_requests": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Identity/Auth Slice 3 two-admin Site Admin grant requests (Phase 2 Y.11). RLS: site.users.view. No browser write; RPCs in Slice 7."
+      }
+    },
     "site_admin_invitations": {
       "classification": "PRIVATE",
       "anon": {
@@ -2983,6 +3011,16 @@
         ],
         "write_reason": "Direct application write; RLS write policies decide which rows.",
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      }
+    },
+    "site_capability_grants": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Identity/Auth Slice 3 Site Admin add-on grants (Phase 2 Y.11). RLS: the admin's own rows, or site.users.view. No browser write."
       }
     },
     "support_ticket_attachments": {
@@ -3250,7 +3288,7 @@
           "id",
           "name"
         ],
-        "reason": "Only the venue name, for the public competition schedule (competition_matches \u2192 venues(name)). Addresses, directions, coordinates and all other venue fields are not public.",
+        "reason": "Only the venue name, for the public competition schedule (competition_matches → venues(name)). Addresses, directions, coordinates and all other venue fields are not public.",
         "consumers": [
           "app/competitions/[slug]/page.tsx"
         ]
@@ -3421,6 +3459,17 @@
       },
       "reason": "Notification preference catalogue for Account settings. Converted to security invoker; no anonymous consumer."
     },
+    "permission_group_capabilities": {
+      "classification": "PRIVATE",
+      "security_invoker": true,
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all"
+      },
+      "reason": "Identity/Auth Slice 3 read-only projection: the canonical capabilities of the bundle each access group maps to. Site Admin Permission Management reads it."
+    },
     "public_club_fixtures": {
       "classification": "PUBLIC_PROJECTION",
       "security_invoker": false,
@@ -3434,6 +3483,17 @@
         "select": "all"
       },
       "reason": "The intentionally narrow public fixture projection (owner-rights view; 9 columns; Booked, future, unarchived; no score, note, meet time, changing room or venue)."
+    },
+    "role_capability_defaults": {
+      "classification": "PRIVATE",
+      "security_invoker": true,
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none"
+      },
+      "reason": "Identity/Auth Slice 3 read-only projection of bundle_capabilities in legacy keys. Server only; dropped in Slice 10."
     },
     "scheduling_group_membership": {
       "classification": "MEMBER_PROJECTION",
@@ -4000,7 +4060,7 @@
         ]
       },
       {
-        "signature": "club_member_capabilities(uuid)",
+        "signature": "club_member_capabilities(uuid, text[])",
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/club/permissions/page.tsx"
@@ -4465,6 +4525,14 @@
         "consumers": [
           "app/(app)/diagnostic-actions.ts"
         ]
+      },
+      {
+        "signature": "explain_access(uuid, text, text, uuid, uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/auth/require-capability.ts"
+        ],
+        "reason": "Phase 2 AC explanation engine; self always, others only with people.access.explain at scope or site.users.view."
       },
       {
         "signature": "export_finance_rows(uuid, date)",
@@ -5112,6 +5180,14 @@
         ]
       },
       {
+        "signature": "my_capabilities(text, uuid, uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/permissions/has-capability.ts"
+        ],
+        "reason": "Phase 2 AA.1: the caller's own capability answers at one scope, for UI rendering."
+      },
+      {
         "signature": "my_direct_conversations(integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5149,6 +5225,15 @@
           "app/(app)/messages/layout.tsx",
           "app/(app)/messages/new/announcement/page.tsx"
         ]
+      },
+      {
+        "signature": "my_site_capabilities()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/auth/require-capability.ts",
+          "app/(app)/layout.tsx"
+        ],
+        "reason": "Phase 2 SA-4: Site Admin navigation renders from the database's site capabilities."
       },
       {
         "signature": "my_unread_counts()",
@@ -5840,7 +5925,7 @@
         "consumers": []
       },
       {
-        "signature": "revoke_capability_override(uuid)",
+        "signature": "revoke_capability_override(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/admin/safeguarding/actions.ts",
@@ -6062,7 +6147,7 @@
         ]
       },
       {
-        "signature": "set_capability_override(uuid, text, text, uuid, uuid, text, text)",
+        "signature": "set_capability_override(uuid, text, text, uuid, uuid, text, text, timestamp with time zone)",
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/admin/safeguarding/actions.ts",
@@ -6901,6 +6986,7 @@
       "auth_session_version()",
       "calculate_first_month_proration(date, integer)",
       "caller_fixture_club_id(uuid)",
+      "can(text, text, uuid, uuid, uuid)",
       "can_access_any_conversation(uuid, uuid, uuid)",
       "can_access_conversation(uuid)",
       "can_access_document_storage_path(text, boolean)",
@@ -6914,9 +7000,11 @@
       "can_address_team_audience(uuid)",
       "can_answer_competition_match(uuid, uuid)",
       "can_bulk_plan_fixtures(uuid)",
+      "can_club(text, uuid)",
       "can_create_team_fixture(uuid, uuid)",
       "can_decide_guardian_link_request(uuid)",
       "can_edit_fixture_details(uuid)",
+      "can_fixture(text, uuid)",
       "can_manage_club_event(uuid)",
       "can_manage_club_fixtures(uuid)",
       "can_manage_club_fixtures_or_any_team(uuid)",
@@ -6935,11 +7023,14 @@
       "can_manage_training(uuid, uuid)",
       "can_organise_competition(uuid)",
       "can_organise_edition(uuid)",
+      "can_player(text, uuid)",
       "can_review_club_access(uuid)",
       "can_run_directory_verification()",
       "can_send_safeguarding_conversation(uuid)",
       "can_send_team_conversation(uuid)",
       "can_submit_fixture_result(uuid)",
+      "can_team(text, uuid)",
+      "can_training(text, uuid)",
       "can_view_announcement_reply(uuid, uuid)",
       "can_view_direct_conversation(uuid)",
       "can_view_document_library(uuid, uuid)",
@@ -6967,6 +7058,7 @@
       "direct_messaging_allowed_for_club(uuid)",
       "direct_messaging_allowed_for_pair(uuid, uuid)",
       "edition_season_for_code(text)",
+      "effective_person()",
       "effective_training_session_status(text, date, time without time zone)",
       "expand_scheduling_group(uuid)",
       "expire_due_dispensations()",
@@ -6988,6 +7080,7 @@
       "handover_apply_blockers_core(uuid)",
       "has_capability(text, text, uuid, uuid)",
       "has_club_role_capability(uuid, text)",
+      "has_site_capability(text)",
       "has_site_role_capability(text)",
       "has_team_role_capability(uuid, uuid, text)",
       "highest_youth_age_offered(text, text)",
@@ -7066,6 +7159,7 @@
       "rollover_team_target_identity(uuid, uuid)",
       "season_phase(uuid, date)",
       "sender_identity_label(text, uuid, uuid)",
+      "session_ok()",
       "should_deliver_notification(uuid, text, text)",
       "site_admin_role(uuid)",
       "site_admin_support_level(uuid)",
@@ -7155,7 +7249,7 @@
       "club_credit_balance_pence(uuid)",
       "club_entitlements(uuid)",
       "club_has_entitlement(uuid, text)",
-      "club_member_capabilities(uuid)",
+      "club_member_capabilities(uuid, text[])",
       "club_platform_billing_state(uuid)",
       "club_platform_next_collection(uuid)",
       "club_playing_group_recipients(uuid)",
@@ -7233,6 +7327,7 @@
       "enforce_team_rugby_code()",
       "enter_diagnostic_club(uuid)",
       "exit_diagnostic_club(uuid)",
+      "explain_access(uuid, text, text, uuid, uuid, uuid)",
       "export_finance_rows(uuid, date)",
       "extend_club_trial(uuid, integer, text)",
       "fail_directory_verification_run(uuid, text)",
@@ -7334,11 +7429,13 @@
       "my_announcements(integer)",
       "my_bell_notifications(integer)",
       "my_blocked_users()",
+      "my_capabilities(text, uuid, uuid, uuid)",
       "my_direct_conversations(integer)",
       "my_direct_message_candidates()",
       "my_guardian_link_requests()",
       "my_player_context()",
       "my_sender_identities()",
+      "my_site_capabilities()",
       "my_unread_counts()",
       "my_unread_message_counts()",
       "nominate_safeguarding_officer(uuid, text, text, text)",
@@ -7452,7 +7549,7 @@
       "restore_fixture(uuid)",
       "restore_player_team_membership(uuid)",
       "resume_club_trial(uuid)",
-      "revoke_capability_override(uuid)",
+      "revoke_capability_override(uuid, text)",
       "revoke_club_partnership(uuid)",
       "revoke_player_dispensation(uuid, text)",
       "revoke_safeguarding_officer_invitation(uuid)",
@@ -7485,7 +7582,7 @@
       "send_support_reply(uuid, text)",
       "send_training_communication(uuid, text, text)",
       "set_account_status(uuid, text)",
-      "set_capability_override(uuid, text, text, uuid, uuid, text, text)",
+      "set_capability_override(uuid, text, text, uuid, uuid, text, text, timestamp with time zone)",
       "set_club_announcement_status(uuid, text)",
       "set_club_article_featured(uuid, boolean)",
       "set_club_article_status(uuid, text)",
@@ -7900,9 +7997,10 @@
     "anon_write_policies": "none may admit anonymous callers without an authority helper"
   },
   "known_legacy_bypasses": [
-    "internal.is_site_admin() in RLS and definer functions (Phase 1: 140 policies) \u2014 retire in Slice 7 with explicit site capabilities.",
-    "admin_club_overview row gate uses internal.is_site_admin() \u2014 replace with site.clubs.view in Slice 7.",
-    "authenticated reads every club_directory column (notes, official_email) because Site Admin pages select * as authenticated \u2014 column-restrict when Site Admin reads move to site-capability RPCs (Slice 7)."
+    "internal.is_site_admin() in RLS and definer functions (Phase 1: 140 policies) — retire in Slice 7 with explicit site capabilities.",
+    "admin_club_overview row gate uses internal.is_site_admin() — replace with site.clubs.view in Slice 7.",
+    "authenticated reads every club_directory column (notes, official_email) because Site Admin pages select * as authenticated — column-restrict when Site Admin reads move to site-capability RPCs (Slice 7).",
+    "Identity/Auth Slice 3 removed the Site Admin club/team bypass from internal.has_capability; Site Admin authority is site capabilities (K rule 7). Remaining is_site_admin() RLS/function references retire in Slice 7."
   ],
   "append_only_history": {
     "reason": "Phase 2 Y.14/Y.15 and AO B1: audit and security history is append-only. No application role writes either store directly; every append comes from a trusted database function or trigger owned by postgres, and attribution is derived from the request JWT.",

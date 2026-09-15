@@ -34,7 +34,7 @@ export type TeamPermissionValue = "team_admin" | "coach" | "manager" | "view_onl
  *
  * A page needing a plural form (e.g. teams/[teamId]/team-people.tsx's
  * "Coaches"/"Managers" group headers) or extra explanatory hint text
- * (e.g. admin/permissions/group-form.tsx's role-mapping hints) may still
+ * (e.g. a page's own role-mapping hints) may still
  * add that ON TOP of these labels -- that's legitimate page-specific
  * framing, not a second source of truth for what the value itself is
  * CALLED.

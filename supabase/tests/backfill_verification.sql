@@ -77,6 +77,33 @@ select pg_temp.zero((select count(*) from (select player_id, team_id from public
 select pg_temp.zero((select count(*) from public.role_assignments ra join public.role_definitions rd on rd.role_key = ra.role_key and rd.minor_prohibited
   where ra.state = 'ACTIVE' and internal.person_is_minor(ra.user_id)), 'D1: no minor holds an ACTIVE staff role');
 
+-- F. Identity/Auth Slice 3 (Phase 2 AF): capabilities, overrides, Site Admin profiles
+select pg_temp.zero((select count(*) from public.capabilities where status = 'ACTIVE' and (domain is null or grant_level is null or aal is null)), 'F1: every active capability carries its catalogue metadata');
+select pg_temp.zero((select count(*) from public.capabilities c where c.status = 'ACTIVE' and c.key not like 'site.%' and c.grant_level <> 'S'
+  and c.valid_scopes <> array['public']::text[] and not exists (select 1 from public.bundle_capabilities b where b.capability_key = c.key)), 'F2: every active non-site key has a default bundle');
+select pg_temp.zero((select count(*) from public.capability_overrides where granted_level is null), 'F3: every override records the level it was decided at');
+select pg_temp.zero((select count(*) from public.capability_overrides o join public.capability_key_map m on m.legacy_key = o.capability_key and m.legacy_scope = o.scope_type
+  where m.capability_key <> o.capability_key), 'F4: no override is stored under a legacy key');
+select pg_temp.zero((select count(*) from public.site_admins where profile_key is null or profile_key is distinct from internal.site_profile_for_admin_role(admin_role)), 'F5: every Site Admin has a profile, equal to its legacy role');
+select pg_temp.zero((select count(*) from public.site_admins sa where sa.status = 'active' and sa.profile_key not in ('SITE_FULL', 'SITE_RO') and (
+    (sa.diagnostic_club_access <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.support.view_club'))
+ or (sa.manage_team_catalogue <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.team_catalogue.manage'))
+ or (sa.manage_competitions <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.competitions.manage'))
+ or (sa.manage_fixture_support <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.fixtures.support'))
+ or (sa.manage_global_lookups <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.lookups.manage'))
+ or (sa.manage_permissions <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.permissions.manage'))
+ or (sa.manage_seasons <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.seasons.manage'))
+ or (sa.view_commercial <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.commercial.view'))
+ or (sa.manage_hub_content <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.hub.manage'))
+ or (sa.manage_regulatory_content <> exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null and g.capability_key = 'site.regulatory.manage')))),
+ 'F6: for every add-on-capable Site Admin the legacy switches equal the add-on grants');
+select pg_temp.zero((select count(*) from public.site_admins sa where sa.profile_key = 'SITE_RO' and (sa.diagnostic_club_access or sa.manage_team_catalogue
+  or sa.manage_competitions or sa.manage_fixture_support or sa.manage_global_lookups or sa.manage_permissions or sa.manage_seasons or sa.manage_system
+  or sa.view_commercial or sa.view_regulatory_content or sa.manage_regulatory_content or sa.view_hub_content or sa.manage_hub_content
+  or exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null))), 'F7: no Read Only Site Admin carries an add-on');
+select pg_temp.zero((select count(*) from (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
+  except select scope_type, role_key, capability_key from public.role_capability_defaults) x) - 11, 'F8: legacy role defaults lost only the 11 intended removals (bundle_legacy_parity names them)');
+
 -- E. Compatibility for legacy inserts (rolled back)
 do $$
 declare

@@ -1,39 +1,7 @@
-"use client"
-
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-
-import { Button } from "@/components/ui/button"
-
-import { deletePermissionGroup, setGroupActive } from "./actions"
 import { CATEGORY_LABEL, type Capability, type PermissionGroup } from "./types"
-import { GroupForm } from "./group-form"
 
 export function GroupCard({ group, capabilities }: { group: PermissionGroup; capabilities: Capability[] }) {
-  const router = useRouter()
-  const [working, setWorking] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
   const capByKey = new Map(capabilities.map((c) => [c.key, c]))
-
-  async function toggleActive() {
-    setWorking(true)
-    setError(null)
-    const result = await setGroupActive(group.id, !group.isActive)
-    setWorking(false)
-    if (result.ok) router.refresh()
-    else setError(result.error)
-  }
-
-  async function handleDelete() {
-    setWorking(true)
-    setError(null)
-    const result = await deletePermissionGroup(group.id)
-    setWorking(false)
-    if (result.ok) router.refresh()
-    else setError(result.error)
-  }
 
   return (
     <div className={`rounded-lg border border-ink/10 bg-white p-4 ${!group.isActive ? "opacity-60" : ""}`}>
@@ -49,27 +17,6 @@ export function GroupCard({ group, capabilities }: { group: PermissionGroup; cap
             Grants: {group.mapsToRole ?? group.mapsToTeamPermission} &middot; assigned to {group.assignedCount} {group.assignedCount === 1 ? "person" : "people"}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <GroupForm capabilities={capabilities} editing={group} triggerLabel="Edit" triggerVariant="outline" triggerClassName="h-8" />
-          <Button type="button" variant="ghost" className="h-8" disabled={working} onClick={toggleActive}>
-            {group.isActive ? "Deactivate" : "Reactivate"}
-          </Button>
-          {!group.isSystem &&
-            (!confirmingDelete ? (
-              <Button type="button" variant="ghost" className="h-8 text-destructive-text hover:bg-destructive/10" onClick={() => setConfirmingDelete(true)}>
-                Delete
-              </Button>
-            ) : (
-              <>
-                <Button type="button" variant="destructive" className="h-8" disabled={working} onClick={handleDelete}>
-                  Confirm
-                </Button>
-                <Button type="button" variant="ghost" className="h-8" disabled={working} onClick={() => setConfirmingDelete(false)}>
-                  Cancel
-                </Button>
-              </>
-            ))}
-        </div>
       </div>
 
       {group.capabilityKeys.length > 0 && (
@@ -77,15 +24,13 @@ export function GroupCard({ group, capabilities }: { group: PermissionGroup; cap
           {group.capabilityKeys.map((key) => {
             const cap = capByKey.get(key)
             return (
-              <span key={key} className="rounded-full bg-ink/[0.04] px-2.5 py-1 text-xs text-ink/60" title={cap ? CATEGORY_LABEL[cap.category] : undefined}>
+              <span key={key} className="rounded-full bg-ink/[0.04] px-2.5 py-1 text-xs text-ink/60" title={cap ? (CATEGORY_LABEL[cap.category] ?? cap.category) : undefined}>
                 {cap?.label ?? key}
               </span>
             )
           })}
         </div>
       )}
-
-      {error && <p className="mt-2 text-sm text-destructive-text">{error}</p>}
     </div>
   )
 }

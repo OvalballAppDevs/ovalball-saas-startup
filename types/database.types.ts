@@ -988,6 +988,42 @@ export type Database = {
         }
         Relationships: []
       }
+      bundle_capabilities: {
+        Row: {
+          bundle_key: string
+          capability_key: string
+          created_at: string
+          scope_type: string
+        }
+        Insert: {
+          bundle_key: string
+          capability_key: string
+          created_at?: string
+          scope_type: string
+        }
+        Update: {
+          bundle_key?: string
+          capability_key?: string
+          created_at?: string
+          scope_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundle_capabilities_bundle_key_fkey"
+            columns: ["bundle_key"]
+            isOneToOne: false
+            referencedRelation: "capability_bundles"
+            referencedColumns: ["bundle_key"]
+          },
+          {
+            foreignKeyName: "bundle_capabilities_capability_key_fkey"
+            columns: ["capability_key"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       canonical_team_types: {
         Row: {
           age_group: string | null
@@ -1041,27 +1077,152 @@ export type Database = {
       }
       capabilities: {
         Row: {
-          applicable_scopes: string[]
+          aal: string
+          action: string | null
+          applicable_scopes: string[] | null
           category: string
+          db_enforcement: string | null
+          delegable: boolean
           description: string | null
+          design_section: string | null
+          domain: string
+          grant_level: string
+          impersonation_blocked: boolean
+          inherits_to_team: boolean
           key: string
+          label: string
+          legacy_key: string | null
+          migration_action: string | null
+          minor_prohibited: boolean
+          resource: string
+          revoke_level: string
+          safeguarding_sensitive: boolean
+          server_enforcement: string | null
+          site_addon_allowed: boolean
+          site_master_equivalent: string | null
+          status: string
+          valid_scopes: string[]
+        }
+        Insert: {
+          aal: string
+          action?: string | null
+          applicable_scopes?: string[] | null
+          category: string
+          db_enforcement?: string | null
+          delegable?: boolean
+          description?: string | null
+          design_section?: string | null
+          domain: string
+          grant_level: string
+          impersonation_blocked?: boolean
+          inherits_to_team?: boolean
+          key: string
+          label: string
+          legacy_key?: string | null
+          migration_action?: string | null
+          minor_prohibited?: boolean
+          resource: string
+          revoke_level: string
+          safeguarding_sensitive?: boolean
+          server_enforcement?: string | null
+          site_addon_allowed?: boolean
+          site_master_equivalent?: string | null
+          status?: string
+          valid_scopes: string[]
+        }
+        Update: {
+          aal?: string
+          action?: string | null
+          applicable_scopes?: string[] | null
+          category?: string
+          db_enforcement?: string | null
+          delegable?: boolean
+          description?: string | null
+          design_section?: string | null
+          domain?: string
+          grant_level?: string
+          impersonation_blocked?: boolean
+          inherits_to_team?: boolean
+          key?: string
+          label?: string
+          legacy_key?: string | null
+          migration_action?: string | null
+          minor_prohibited?: boolean
+          resource?: string
+          revoke_level?: string
+          safeguarding_sensitive?: boolean
+          server_enforcement?: string | null
+          site_addon_allowed?: boolean
+          site_master_equivalent?: string | null
+          status?: string
+          valid_scopes?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capabilities_site_master_equivalent_fkey"
+            columns: ["site_master_equivalent"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      capability_bundles: {
+        Row: {
+          bundle_key: string
+          created_at: string
+          kind: string
           label: string
         }
         Insert: {
-          applicable_scopes?: string[]
-          category: string
-          description?: string | null
-          key: string
+          bundle_key: string
+          created_at?: string
+          kind: string
           label: string
         }
         Update: {
-          applicable_scopes?: string[]
-          category?: string
-          description?: string | null
-          key?: string
+          bundle_key?: string
+          created_at?: string
+          kind?: string
           label?: string
         }
         Relationships: []
+      }
+      capability_key_map: {
+        Row: {
+          capability_key: string
+          evaluated_scope: string
+          legacy_key: string
+          legacy_scope: string
+        }
+        Insert: {
+          capability_key: string
+          evaluated_scope: string
+          legacy_key: string
+          legacy_scope: string
+        }
+        Update: {
+          capability_key?: string
+          evaluated_scope?: string
+          legacy_key?: string
+          legacy_scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capability_key_map_capability_key_fkey"
+            columns: ["capability_key"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "capability_key_map_legacy_key_fkey"
+            columns: ["legacy_key"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       capability_overrides: {
         Row: {
@@ -1069,12 +1230,16 @@ export type Database = {
           club_id: string | null
           created_at: string
           effect: string
+          expires_at: string | null
           granted_at: string
           granted_by: string
+          granted_level: string
           id: string
           reason: string | null
+          revocation_reason: string | null
           revoked_at: string | null
           revoked_by: string | null
+          revoked_level: string | null
           scope_type: string
           status: string
           team_id: string | null
@@ -1086,12 +1251,16 @@ export type Database = {
           club_id?: string | null
           created_at?: string
           effect: string
+          expires_at?: string | null
           granted_at?: string
           granted_by: string
+          granted_level: string
           id?: string
           reason?: string | null
+          revocation_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
+          revoked_level?: string | null
           scope_type: string
           status?: string
           team_id?: string | null
@@ -1103,12 +1272,16 @@ export type Database = {
           club_id?: string | null
           created_at?: string
           effect?: string
+          expires_at?: string | null
           granted_at?: string
           granted_by?: string
+          granted_level?: string
           id?: string
           reason?: string | null
+          revocation_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
+          revoked_level?: string | null
           scope_type?: string
           status?: string
           team_id?: string | null
@@ -2869,6 +3042,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "club_memberships_assigned_group_id_fkey"
+            columns: ["assigned_group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_group_capabilities"
+            referencedColumns: ["group_id"]
+          },
           {
             foreignKeyName: "club_memberships_assigned_group_id_fkey"
             columns: ["assigned_group_id"]
@@ -12268,7 +12448,7 @@ export type Database = {
           },
         ]
       }
-      permission_group_capabilities: {
+      permission_group_capabilities_legacy: {
         Row: {
           capability_key: string
           group_id: string
@@ -12288,6 +12468,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "capabilities"
             referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "permission_group_capabilities_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_group_capabilities"
+            referencedColumns: ["group_id"]
           },
           {
             foreignKeyName: "permission_group_capabilities_group_id_fkey"
@@ -15928,7 +16115,7 @@ export type Database = {
           },
         ]
       }
-      role_capability_defaults: {
+      role_capability_defaults_legacy: {
         Row: {
           capability_key: string
           role_key: string
@@ -15985,7 +16172,15 @@ export type Database = {
           scope?: string
           visible?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "role_definitions_bundle_key_fkey"
+            columns: ["bundle_key"]
+            isOneToOne: false
+            referencedRelation: "capability_bundles"
+            referencedColumns: ["bundle_key"]
+          },
+        ]
       }
       scheduling_group_members: {
         Row: {
@@ -16511,6 +16706,56 @@ export type Database = {
           },
         ]
       }
+      site_admin_grant_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          expires_at: string
+          id: string
+          profile_key: string
+          reason: string
+          requested_by: string
+          state: string
+          target_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          expires_at?: string
+          id?: string
+          profile_key: string
+          reason: string
+          requested_by: string
+          state?: string
+          target_user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          expires_at?: string
+          id?: string
+          profile_key?: string
+          reason?: string
+          requested_by?: string
+          state?: string
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_admin_grant_requests_profile_key_fkey"
+            columns: ["profile_key"]
+            isOneToOne: false
+            referencedRelation: "capability_bundles"
+            referencedColumns: ["bundle_key"]
+          },
+        ]
+      }
       site_admin_invitations: {
         Row: {
           accepted_at: string | null
@@ -16576,6 +16821,7 @@ export type Database = {
           manage_seasons: boolean
           manage_system: boolean
           manage_team_catalogue: boolean
+          profile_key: string
           revoked_at: string | null
           revoked_by: string | null
           status: string
@@ -16601,6 +16847,7 @@ export type Database = {
           manage_seasons?: boolean
           manage_system?: boolean
           manage_team_catalogue?: boolean
+          profile_key: string
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
@@ -16626,6 +16873,7 @@ export type Database = {
           manage_seasons?: boolean
           manage_system?: boolean
           manage_team_catalogue?: boolean
+          profile_key?: string
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
@@ -16635,7 +16883,62 @@ export type Database = {
           view_hub_content?: boolean
           view_regulatory_content?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "site_admins_profile_key_fkey"
+            columns: ["profile_key"]
+            isOneToOne: false
+            referencedRelation: "capability_bundles"
+            referencedColumns: ["bundle_key"]
+          },
+        ]
+      }
+      site_capability_grants: {
+        Row: {
+          capability_key: string
+          created_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          reason: string | null
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          user_id: string
+        }
+        Insert: {
+          capability_key: string
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          user_id: string
+        }
+        Update: {
+          capability_key?: string
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_capability_grants_capability_key_fkey"
+            columns: ["capability_key"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       support_ticket_attachments: {
         Row: {
@@ -17145,6 +17448,13 @@ export type Database = {
           team_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "team_permissions_assigned_group_id_fkey"
+            columns: ["assigned_group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_group_capabilities"
+            referencedColumns: ["group_id"]
+          },
           {
             foreignKeyName: "team_permissions_assigned_group_id_fkey"
             columns: ["assigned_group_id"]
@@ -20094,6 +20404,21 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_group_capabilities: {
+        Row: {
+          capability_key: string | null
+          group_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundle_capabilities_capability_key_fkey"
+            columns: ["capability_key"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       public_club_fixtures: {
         Row: {
           club_id: string | null
@@ -20204,6 +20529,22 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clubs"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_capability_defaults: {
+        Row: {
+          capability_key: string | null
+          role_key: string | null
+          scope_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capability_key_map_legacy_key_fkey"
+            columns: ["capability_key"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
           },
         ]
       }
@@ -20838,11 +21179,15 @@ export type Database = {
         Returns: boolean
       }
       club_member_capabilities: {
-        Args: { p_club_id: string }
+        Args: { p_capability_keys?: string[]; p_club_id: string }
         Returns: {
           capability_key: string
+          decisive_rule: string
+          editable: boolean
           effective: boolean
           override_id: string
+          override_level: string
+          reason_code: string
           source: string
           user_id: string
         }[]
@@ -21418,6 +21763,23 @@ export type Database = {
       exit_diagnostic_club: {
         Args: { p_session_id: string }
         Returns: undefined
+      }
+      explain_access: {
+        Args: {
+          p_capability_key: string
+          p_club_id?: string
+          p_player_id?: string
+          p_scope_type: string
+          p_subject: string
+          p_team_id?: string
+        }
+        Returns: {
+          allowed: boolean
+          decisive_rule: string
+          decisive_source: Json
+          reason_code: string
+          trail: Json
+        }[]
       }
       export_finance_rows: {
         Args: { p_billing_period: string; p_club_id: string }
@@ -22565,6 +22927,21 @@ export type Database = {
           user_id: string
         }[]
       }
+      my_capabilities: {
+        Args: {
+          p_club_id?: string
+          p_player_id?: string
+          p_scope_type: string
+          p_team_id?: string
+        }
+        Returns: {
+          allowed: boolean
+          canonical_key: string
+          capability_key: string
+          decisive_rule: string
+          reason_code: string
+        }[]
+      }
       my_direct_conversations: {
         Args: { p_limit?: number }
         Returns: {
@@ -22630,6 +23007,7 @@ export type Database = {
           label: string
         }[]
       }
+      my_site_capabilities: { Args: never; Returns: string[] }
       my_unread_counts: {
         Args: never
         Returns: {
@@ -23481,7 +23859,7 @@ export type Database = {
       }
       resume_club_trial: { Args: { p_club_id: string }; Returns: boolean }
       revoke_capability_override: {
-        Args: { p_override_id: string }
+        Args: { p_override_id: string; p_reason?: string }
         Returns: undefined
       }
       revoke_club_partnership: {
@@ -23772,6 +24150,7 @@ export type Database = {
           p_capability_key: string
           p_club_id: string
           p_effect: string
+          p_expires_at?: string
           p_reason?: string
           p_scope_type: string
           p_team_id: string

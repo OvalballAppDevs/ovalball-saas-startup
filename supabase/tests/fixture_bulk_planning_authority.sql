@@ -288,7 +288,8 @@ begin
   -- =================================================================
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_site::text, 'role', 'authenticated')::text, true);
-  perform public.set_capability_override(v_secretary, 'fixture.create', 'club', v_club, null, 'deny', 'fixture_bulk_planning_authority suite');
+  -- Slice 3: bulk planning is its own capability (fixture.planner.use), never fixture.create.
+  perform public.set_capability_override(v_secretary, 'fixture.planner.use', 'club', v_club, null, 'deny', 'fixture_bulk_planning_authority suite');
   perform set_config('request.jwt.claims', json_build_object('sub', v_secretary::text, 'role', 'authenticated')::text, true);
   v_bool := public.can_bulk_plan_fixtures(v_club);
   begin
@@ -300,7 +301,7 @@ begin
   end;
   reset role;
   if not v_bool then
-    raise notice 'PASS D: a club''s deny on fixture.create removes bulk authority from the screen check and the staging boundary alike';
+    raise notice 'PASS D: a deny on fixture.planner.use removes bulk authority from the screen check and the staging boundary alike';
   else
     raise notice 'FAIL D: a denied Fixture Secretary still has bulk authority';
   end if;

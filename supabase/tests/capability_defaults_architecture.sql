@@ -1,10 +1,12 @@
--- Canonical capability architecture.
+-- Canonical capability architecture (Identity/Auth Slice 3).
 --
 -- Three layers, deliberately distinct:
 --
---   public.capabilities              -- the capability EXISTS
---   public.role_capability_defaults  -- a role gets it BY DEFAULT
---   public.capability_overrides      -- a PERSON is granted or denied it
+--   public.capabilities                              -- the capability EXISTS
+--   public.capability_bundles / bundle_capabilities  -- a role or relationship holds it BY DEFAULT
+--   public.capability_overrides                      -- a PERSON is allowed or withheld it
+--
+-- public.role_capability_defaults survives only as a read-only projection of the bundles.
 --
 -- The assertions below prove the layers stay separate, that the precedence
 -- between them is the documented one, and -- the point of this whole pass --
@@ -53,9 +55,9 @@ begin
   -- A. The three layers exist and are distinct
   -- =================================================================
   select count(*) into v_count from information_schema.tables
-  where table_schema='public' and table_name in ('capabilities','role_capability_defaults','capability_overrides');
+  where table_schema='public' and table_type = 'BASE TABLE' and table_name in ('capabilities','bundle_capabilities','capability_overrides');
   if v_count = 3 then
-    raise notice 'PASS 1 (A): catalogue, role defaults and overrides are three separate tables';
+    raise notice 'PASS 1 (A): catalogue, bundle composition and overrides are three separate tables';
   else
     raise notice 'FAIL 1 (A): only % of the three layers exist', v_count;
   end if;
@@ -64,7 +66,7 @@ begin
   -- never a role. Presence of a row means allowed, and that is the whole
   -- vocabulary.
   select count(*) into v_count from information_schema.columns
-  where table_schema='public' and table_name='role_capability_defaults'
+  where table_schema='public' and table_name='bundle_capabilities'
     and column_name in ('effect','allowed','default_allowed','deny');
   if v_count = 0 then
     raise notice 'PASS 2 (A): role defaults are presence-only -- no deny concept at role level';
@@ -115,22 +117,24 @@ begin
   -- =================================================================
   -- A new domain adds its own capability and its own default. Nothing it
   -- writes mentions any other domain. Every other domain must be untouched.
-  select count(*) into v_before from public.role_capability_defaults
-  where scope_type = 'club' and role_key = 'CLUB_ADMIN';
+  select count(*) into v_before from public.bundle_capabilities
+  where scope_type = 'club' and bundle_key = 'CA';
 
-  insert into public.capabilities (key, label, description, category, applicable_scopes)
-  values ('club.newdomain.manage', 'New Domain', 'A future feature adding its own capability.', 'club', array['club']);
+  insert into public.capabilities (key, domain, resource, action, label, description, category, valid_scopes,
+                                   grant_level, revoke_level, aal)
+  values ('club.newdomain.manage', 'club', 'newdomain', 'manage', 'New Domain', 'A future feature adding its own capability.',
+          'club', array['club'], 'C', 'C', 'A2');
 
-  insert into public.role_capability_defaults (scope_type, role_key, capability_key)
-  values ('club', 'CLUB_ADMIN', 'club.newdomain.manage');
+  insert into public.bundle_capabilities (bundle_key, capability_key, scope_type)
+  values ('CA', 'club.newdomain.manage', 'club');
 
-  select count(*) into v_after from public.role_capability_defaults
-  where scope_type = 'club' and role_key = 'CLUB_ADMIN';
+  select count(*) into v_after from public.bundle_capabilities
+  where scope_type = 'club' and bundle_key = 'CA';
 
   if v_after = v_before + 1 then
-    raise notice 'PASS 4 (C): adding a domain adds exactly one default and removes none';
+    raise notice 'PASS 4 (C): adding a domain adds exactly one bundle entry and removes none';
   else
-    raise notice 'FAIL 4 (C): CLUB_ADMIN defaults went from % to %', v_before, v_after;
+    raise notice 'FAIL 4 (C): Club Admin bundle went from % to %', v_before, v_after;
   end if;
 
   -- The capabilities the R-0 incident destroyed are specifically still here
@@ -162,8 +166,8 @@ begin
   -- D. Defaults must name real catalogue entries
   -- =================================================================
   begin
-    insert into public.role_capability_defaults (scope_type, role_key, capability_key)
-    values ('club', 'CLUB_ADMIN', 'club.does.not.exist');
+    insert into public.bundle_capabilities (bundle_key, capability_key, scope_type)
+    values ('CA', 'club.does.not.exist', 'club');
     raise notice 'FAIL 7 (D): a default was created for an uncatalogued capability';
   exception when others then
     raise notice 'PASS 7 (D): a default must reference a real catalogue entry';
@@ -172,8 +176,8 @@ begin
   -- And an unknown role key is refused, so a typo cannot create a silently
   -- dead role nobody notices.
   begin
-    insert into public.role_capability_defaults (scope_type, role_key, capability_key)
-    values ('club', 'CLUB_ADMINN', 'club.edit_profile');
+    insert into public.bundle_capabilities (bundle_key, capability_key, scope_type)
+    values ('CLUB_ADMINN', 'club.profile.edit', 'club');
     raise notice 'FAIL 8 (D): an unknown role key was accepted';
   exception when others then
     raise notice 'PASS 8 (D): an unknown role key is refused';
@@ -241,7 +245,8 @@ begin
     raise notice 'FAIL 13 (F): a single deny removed unrelated capabilities';
   end if;
 
-  -- Deny beats Site Admin too -- the strongest rule in the chain.
+  -- A Site Admin has no club authority by being Site Admin (K.3, P25); a deny still applies to any
+  -- club authority the same person holds.
   perform set_config('request.jwt.claims', null, true);
   insert into public.capability_overrides (user_id, capability_key, scope_type, club_id, effect, status, granted_by)
   values (v_site, 'club.edit_profile', 'club', v_club, 'deny', 'active', v_site);
@@ -291,7 +296,7 @@ begin
   -- =================================================================
   select count(*) into v_count
   from information_schema.role_table_grants
-  where table_schema = 'public' and table_name = 'role_capability_defaults'
+  where table_schema = 'public' and table_name in ('bundle_capabilities', 'capability_bundles', 'capabilities', 'role_capability_defaults')
     and grantee in ('anon', 'authenticated')
     and privilege_type in ('INSERT', 'UPDATE', 'DELETE');
   if v_count = 0 then
@@ -300,7 +305,7 @@ begin
     raise notice 'FAIL 18 (H): % write grants exist for ordinary roles', v_count;
   end if;
 
-  select relrowsecurity into v_ok from pg_class where oid = 'public.role_capability_defaults'::regclass;
+  select relrowsecurity into v_ok from pg_class where oid = 'public.bundle_capabilities'::regclass;
   if v_ok then
     raise notice 'PASS 19 (H): row level security is enabled on role defaults';
   else
@@ -312,8 +317,8 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
   set local role authenticated;
   begin
-    insert into public.role_capability_defaults (scope_type, role_key, capability_key)
-    values ('club', 'CLUB_MEMBER', 'club.platform_billing.manage');
+    insert into public.bundle_capabilities (bundle_key, capability_key, scope_type)
+    values ('MB', 'finance.platform_billing.manage', 'club');
     raise notice 'FAIL 20 (H): a Club Admin granted a capability to every member on the platform';
   exception when others then
     raise notice 'PASS 20 (H): a Club Admin cannot write role defaults';
@@ -323,15 +328,15 @@ begin
   -- =================================================================
   -- I. The site scope is deliberately NOT in this table
   -- =================================================================
-  -- Site capabilities map to per-user boolean columns on site_admins, which
-  -- is per-person grant data rather than a role default. If someone later
-  -- moves them in here, that is a design change and should be a deliberate
-  -- one -- so it is asserted rather than left implicit.
-  select count(*) into v_count from public.role_capability_defaults where scope_type = 'site';
-  if v_count = 0 then
-    raise notice 'PASS 21 (I): site capabilities stay per-user on site_admins, not role defaults';
+  -- Site capabilities live only in Site Admin profile bundles (plus per-admin add-on grants), never in a
+  -- club or team role's bundle, and the legacy projection shows no site rows.
+  select count(*) into v_count from public.bundle_capabilities b join public.capability_bundles cb on cb.bundle_key = b.bundle_key
+  where (b.capability_key like 'site.%') <> (cb.kind = 'SITE_PROFILE' and b.scope_type = 'site')
+    and b.capability_key <> 'safeguarding.officer.confirm';
+  if v_count = 0 and not exists (select 1 from public.role_capability_defaults where scope_type = 'site') then
+    raise notice 'PASS 21 (I): site capabilities stay in Site Admin profiles, not role bundles';
   else
-    raise notice 'FAIL 21 (I): % site rows appeared in role defaults', v_count;
+    raise notice 'FAIL 21 (I): % site capability rows sit outside Site Admin profiles', v_count;
   end if;
 end;
 $$;

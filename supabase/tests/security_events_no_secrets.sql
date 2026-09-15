@@ -334,14 +334,16 @@ begin
   if not has_function_privilege('anon', 'internal.emit_security_event(text, uuid, text, text, jsonb, uuid, uuid, uuid)', 'EXECUTE')
      and not has_function_privilege('authenticated', 'internal.emit_security_event(text, uuid, text, text, jsonb, uuid, uuid, uuid)', 'EXECUTE')
      and not has_function_privilege('service_role', 'internal.emit_security_event(text, uuid, text, text, jsonb, uuid, uuid, uuid)', 'EXECUTE')
-     -- Slice 2 transition RPCs record their own fixed events in the same
+     -- Slice 2 and 3 transition RPCs record their own fixed events in the same
      -- transaction as the change. None of them lets the caller choose the
      -- event, its actor or its subject, and no other public function may call
      -- the writer.
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and p.proname not in ('transition_club_membership', 'decide_club_join_request', 'respond_to_additional_guardian_request',
-                                             'approve_guardian_link_request', 'reject_guardian_link_request', 'move_player_team_membership'))
+                                             'approve_guardian_link_request', 'reject_guardian_link_request', 'move_player_team_membership',
+                                             -- Slice 3: permission decisions record override.granted / override.revoked
+                                             'set_capability_override', 'revoke_capability_override'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

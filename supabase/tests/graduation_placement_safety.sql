@@ -22,7 +22,8 @@ begin
 insert into auth.users (id, email, instance_id, aud, role)
 values (v_admin,'grad2@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated');
 insert into public.profiles (id, first_name, surname, email) values (v_admin,'G','R','grad2@ovalball-test.invalid');
-insert into public.site_admins (user_id, status, admin_role) values (v_admin,'active','full');
+-- Identity/Auth Slice 3: placing a graduating player is club authority (team.graduation.place). A Site Admin
+-- without a club role no longer reaches it through the removed club bypass, so the actor is the club's admin.
 perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
 
 insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
@@ -31,6 +32,7 @@ insert into public.clubs (directory_id, slug, status) values (v_dir,'grad2-'||su
 
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U18','boys','x','h1') returning id into v_u18;
+insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin, 'CLUB_ADMIN', 'active');
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U14','boys','x','h2') returning id into v_u14;
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)

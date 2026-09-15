@@ -1,10 +1,11 @@
 -- ROLE ASSIGNMENT CEILINGS (Identity/Auth Slice 2, Phase 2 M.2 / I).
 --
--- Who may give which role, until Slice 3's capability resolution:
+-- Who may give which role:
 --
 --   A. A Club Admin gives club and team roles in their own club, never on
 --      another club's or an archived team, and never Safeguarding Officer.
---   B. A Fixtures Secretary, a Team Admin and a plain member give nothing.
+--   B. A Fixtures Secretary and a plain member give nothing; Team Administration gives
+--      Coach and Team Manager on its own team only (Slice 3).
 --   C. Only a Full Site Admin acts at site level, always with a reason, and
 --      never for themselves.
 --   D. No browser write reaches role_assignments, the team_permissions view
@@ -155,15 +156,46 @@ begin
   perform pg_temp.act_postgres();
   perform pg_temp.check(v_text = '42501', 'B2: a Fixtures Secretary cannot make themselves Club Admin (' || v_text || ')');
 
+  -- Identity/Auth Slice 3 (Phase 2 I, J.3 people.role.assign_team): Team Administration gives and
+  -- removes Coach and Team Manager on its own team, and nothing else.
   perform pg_temp.act('authenticated', v_ta);
   v_text := pg_temp.try(format('select public.assign_role(%L, ''COACH'', %L, null)', v_ms_member, v_team));
   perform pg_temp.act_postgres();
-  perform pg_temp.check(v_text = '42501', 'B3: a Team Admin gains no role-assignment authority in this slice (' || v_text || ')');
+  perform pg_temp.check(v_text = 'OK' and exists (select 1 from public.role_assignments where membership_id = v_ms_member and team_id = v_team
+                          and role_key = 'COACH' and state = 'ACTIVE' and source = 'TEAM_ADMIN_ASSIGNMENT'),
+    'B3: a Team Admin gives Coach on their own team, recorded as a Team Admin assignment (' || v_text || ')');
 
   perform pg_temp.act('authenticated', v_ta);
-  v_text := pg_temp.try(format('select public.set_team_access(%L, %L, ''coach'', null)', v_ms_member, v_team));
+  v_text := pg_temp.try(format('select public.assign_role(%L, ''COACH'', %L, null)', v_ms_member, v_team_b));
   perform pg_temp.act_postgres();
-  perform pg_temp.check(v_text = '42501', 'B4: not through the legacy adapter either (' || v_text || ')');
+  perform pg_temp.check(v_text = '42501', 'B3a: not on another club''s team (' || v_text || ')');
+
+  perform pg_temp.act('authenticated', v_ta);
+  v_text := pg_temp.try(format('select public.assign_role(%L, ''TEAM_ADMINISTRATION'', %L, null)', v_ms_member, v_team));
+  perform pg_temp.act_postgres();
+  perform pg_temp.check(v_text = '42501', 'B3b: never Team Administration itself (' || v_text || ')');
+
+  perform pg_temp.act('authenticated', v_ta);
+  v_text := pg_temp.try(format('select public.assign_role(%L, ''FIXTURES_SECRETARY'', null, null)', v_ms_member));
+  perform pg_temp.act_postgres();
+  perform pg_temp.check(v_text = '42501', 'B3c: never a club role (' || v_text || ')');
+
+  perform pg_temp.act('authenticated', v_ta);
+  v_text := pg_temp.try(format('select public.set_team_access(%L, %L, ''manager'', null)', v_ms_member, v_team));
+  perform pg_temp.act_postgres();
+  perform pg_temp.check(v_text = 'OK', 'B4: the same through the team page adapter (' || v_text || ')');
+
+  perform pg_temp.act('authenticated', v_ta);
+  v_text := pg_temp.try(format('select public.set_team_access(%L, %L, ''team_admin'', null)', v_ms_member, v_team));
+  perform pg_temp.act_postgres();
+  perform pg_temp.check(v_text = '42501', 'B4a: the adapter refuses Team Admin from a Team Admin (' || v_text || ')');
+
+  perform pg_temp.act('authenticated', v_ta);
+  v_text := pg_temp.try(format('select public.set_team_access(%L, %L, ''coach'', null)', v_ms_ta, v_team));
+  perform pg_temp.act_postgres();
+  perform pg_temp.check(v_text = '42501' and exists (select 1 from public.role_assignments where membership_id = v_ms_ta and team_id = v_team
+                          and role_key = 'TEAM_ADMINISTRATION' and state = 'ACTIVE'),
+    'B4b: a Team Admin cannot change their own team role (' || v_text || ')');
 
   -- (v_member became Club Admin in A1; v_ta holds only a team role.)
   perform pg_temp.act('authenticated', v_ta);

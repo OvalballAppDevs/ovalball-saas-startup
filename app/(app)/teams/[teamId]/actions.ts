@@ -85,8 +85,9 @@ export async function requestFixtureRestoration(teamId: string, fixtureId: strin
 /**
  * Assigns (or re-assigns) an existing club member to this team. A different
  * choice for someone already on the team replaces what they had rather than
- * adding to it. set_team_access is the boundary (this club's Club Admin or a
- * Full Site Admin); it never creates a person, only gives an existing member
+ * adding to it. set_team_access is the boundary (this club's Club Admin, a
+ * Full Site Admin, or -- for Coach and Team Manager only -- this team's Team
+ * Administration); it never creates a person, only gives an existing member
  * a team role.
  */
 export type AssignTeamMemberResult = { ok: true; teamPermissionId: string } | { ok: false; error: string }

@@ -2,13 +2,15 @@
 
 import { useState } from "react"
 
-import { setSafeguardingCapability, type SafeguardingCapabilityKey } from "./actions"
+import { setSafeguardingCapability } from "./actions"
+import type { SafeguardingCapabilityKey } from "./capabilities"
 
 /**
- * Every control here is one real capability key, granted through the
- * canonical Scoped Capability Engine as a per-person `capability_overrides`
- * row. There is no second set of UI-only booleans, and no friendly label
- * that quietly means two capabilities.
+ * Every control here is one real capability key. Each is held through the
+ * Safeguarding Officer role; switching one off records a Site-level withhold
+ * (a per-person `capability_overrides` row) and switching it on removes it.
+ * There is no second set of UI-only booleans, and no friendly label that
+ * quietly means two capabilities.
  *
  * `connected` records whether anything in Main actually READS the
  * capability yet. Dispensations do: request/decide/revoke_player_dispensation

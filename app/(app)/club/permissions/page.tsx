@@ -7,6 +7,7 @@ import { getSessionContext } from "@/lib/app-context/session-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 
+import { GROUPS } from "./groups"
 import { ClubPermissionsPanel, type ClubMember } from "./permissions-panel"
 
 export const metadata = { title: "Club Permissions" }
@@ -37,7 +38,7 @@ export default async function ClubPermissionsPage() {
   const clubId = activeManageableClubId(ctx, activeContext)
   if (!clubId) redirect("/dashboard")
 
-  if (!(await hasCapability(supabase, "club.capabilities.manage", "club", { clubId }))) {
+  if (!(await hasCapability(supabase, "people.capability.manage", "club", { clubId }))) {
     redirect("/club")
   }
 
@@ -46,35 +47,57 @@ export default async function ClubPermissionsPage() {
   // generated type inference outright ("type instantiation is excessively
   // deep"). Three small sequential reads on an administrative screen is the
   // cheaper trade.
-  const { data: rows } = await supabase.rpc("club_member_capabilities", { p_club_id: clubId })
-  // The embedded profile join is what tips the generated types over, so the
-  // two reads are kept separate and joined here.
-  const { data: memberRows } = await supabase
-    .from("club_memberships")
-    .select("user_id, role")
+  // Every answer, with the rule and level it came from, from the one resolver -- only for the
+  // capabilities this screen offers.
+  const { data: rows } = await supabase.rpc("club_member_capabilities", {
+    p_club_id: clubId,
+    p_capability_keys: GROUPS.flatMap((g) => g.items.map((i) => i.key)),
+  })
+  // Club roles from the canonical role assignments (club_memberships.role is compatibility only).
+  const { data: roleRows } = await supabase
+    .from("role_assignments")
+    .select("user_id, role_key, role_definitions(label)")
     .eq("club_id", clubId)
-    .eq("status", "active")
+    .is("team_id", null)
+    .eq("state", "ACTIVE")
 
-  const memberIds = (memberRows ?? []).map((m) => m.user_id)
-  const { data: profileRows } = memberIds.length
-    ? await supabase.from("profiles").select("id, first_name, surname").in("id", memberIds)
-    : { data: [] as { id: string; first_name: string; surname: string }[] }
-  const nameById = new Map((profileRows ?? []).map((p) => [p.id, [p.first_name, p.surname].filter(Boolean).join(" ")]))
+  const roleLabelByUser = new Map<string, string>()
+  for (const r of roleRows ?? []) {
+    const label = r.role_definitions?.label ?? r.role_key
+    const existing = roleLabelByUser.get(r.user_id)
+    // A club role outranks the plain Member role when someone holds both.
+    if (!existing || existing === "Member") roleLabelByUser.set(r.user_id, label)
+  }
+
+  const memberIds = [...new Set(((rows ?? []) as { user_id: string }[]).map((r) => r.user_id))]
+  // Names through the club's member directory, which a Club Admin may read; a direct profiles read only
+  // returns the viewer's own row, so every other person would show as "Club member".
+  const { data: directoryRows } = memberIds.length
+    ? await supabase.rpc("get_club_member_directory", { p_club_id: clubId })
+    : { data: [] as { user_id: string; first_name: string | null; surname: string | null }[] }
+  const nameById = new Map((directoryRows ?? []).map((p) => [p.user_id, [p.first_name, p.surname].filter(Boolean).join(" ")]))
   const { data: club } = await supabase.from("clubs").select("club_directory(name)").eq("id", clubId).maybeSingle()
 
   const byUser = new Map<string, ClubMember["capabilities"]>()
-  for (const r of (rows ?? []) as { user_id: string; capability_key: string; effective: boolean; source: string; override_id: string | null }[]) {
+  for (const r of rows ?? []) {
     const list = byUser.get(r.user_id) ?? []
-    list.push({ capabilityKey: r.capability_key, effective: r.effective, source: r.source, overrideId: r.override_id })
+    list.push({
+      capabilityKey: r.capability_key,
+      effective: r.effective,
+      source: r.source,
+      overrideId: r.override_id,
+      overrideLevel: r.override_level,
+      editable: r.editable === true,
+    })
     byUser.set(r.user_id, list)
   }
 
-  const members: ClubMember[] = (memberRows ?? [])
-    .map((m) => ({
-      userId: m.user_id,
-      name: nameById.get(m.user_id) || "Club member",
-      roleLabel: ROLE_LABEL[m.role] ?? m.role,
-      capabilities: byUser.get(m.user_id) ?? [],
+  const members: ClubMember[] = memberIds
+    .map((userId) => ({
+      userId,
+      name: nameById.get(userId) || "Club member",
+      roleLabel: roleLabelByUser.get(userId) ?? "Club member",
+      capabilities: byUser.get(userId) ?? [],
     }))
     .filter((m) => m.capabilities.length > 0)
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -99,10 +122,4 @@ export default async function ClubPermissionsPage() {
       <ClubPermissionsPanel clubId={clubId} members={members} />
     </div>
   )
-}
-
-const ROLE_LABEL: Record<string, string> = {
-  CLUB_ADMIN: "Club Admin",
-  FIXTURE_SECRETARY: "Fixture Secretary",
-  BASIC_USER: "Club member",
 }

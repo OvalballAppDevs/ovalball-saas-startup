@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 
 import { requireSiteAdmin } from "../require-site-admin"
 import { OfficerCapabilityRow, type OfficerCapabilityData } from "./officer-capability-row"
-import type { SafeguardingCapabilityKey } from "./actions"
+import { CANONICAL_SAFEGUARDING_KEY, type SafeguardingCapabilityKey } from "./capabilities"
 
 export const metadata = { title: "Safeguarding" }
 
@@ -18,9 +18,9 @@ const CAPABILITY_KEYS: SafeguardingCapabilityKey[] = [
 /**
  * Site Admin surface for Safeguarding Officer capability control (spec
  * section 10/12): sees every ACTIVE, accepted officer across every club,
- * and toggles exactly the four Safeguarding-Officer-specific capabilities
- * -- reusing the existing set_capability_override/revoke_capability_
- * override RPCs directly (see ./actions.ts), never a bespoke grant path.
+ * and shows exactly the four Safeguarding-Officer-specific capabilities
+ * the role holds, withholding one through the canonical
+ * set_capability_override/revoke_capability_override RPCs (see ./actions.ts).
  * A Club Admin cannot reach this page at all (requireSiteAdmin) and
  * cannot use it to grant an unrelated platform capability (actions.ts
  * restricts the capability key allowlist).
@@ -45,18 +45,19 @@ export default async function SafeguardingCapabilityAdminPage() {
           .select("user_id, club_id, capability_key")
           .in("user_id", userIds)
           .eq("scope_type", "club")
-          .eq("effect", "grant")
+          .eq("effect", "deny")
           .eq("status", "active")
-          .in("capability_key", CAPABILITY_KEYS)
+          .in("capability_key", Object.values(CANONICAL_SAFEGUARDING_KEY))
       : { data: [] }
 
   const officers: OfficerCapabilityData[] = (officerRows ?? [])
     .filter((o): o is typeof o & { user_id: string } => !!o.user_id)
     .map((o) => {
-      const granted = Object.fromEntries(CAPABILITY_KEYS.map((key) => [key, false])) as Record<SafeguardingCapabilityKey, boolean>
-      for (const row of overrideRows ?? []) {
-        if (row.user_id === o.user_id && row.club_id === o.club_id) {
-          granted[row.capability_key as SafeguardingCapabilityKey] = true
+      // Held through the Safeguarding Officer role unless Ovalball has withheld it.
+      const granted = Object.fromEntries(CAPABILITY_KEYS.map((key) => [key, true])) as Record<SafeguardingCapabilityKey, boolean>
+      for (const key of CAPABILITY_KEYS) {
+        if ((overrideRows ?? []).some((row) => row.user_id === o.user_id && row.club_id === o.club_id && row.capability_key === CANONICAL_SAFEGUARDING_KEY[key])) {
+          granted[key] = false
         }
       }
       const clubName = (o.clubs as unknown as { club_directory: { name: string } | null } | null)?.club_directory?.name ?? "Unknown club"
@@ -75,8 +76,8 @@ export default async function SafeguardingCapabilityAdminPage() {
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Site Admin</p>
       <h1 className="mt-2 font-display text-display-l text-ink">Safeguarding Officer Capabilities</h1>
       <p className="mt-2 max-w-md text-sm text-ink-muted">
-        Every active, accepted Safeguarding Officer across the platform. Dispensation and transfer safeguarding visibility/
-        notifications are never granted by default &mdash; enable them individually here.
+        Every active, accepted Safeguarding Officer across the platform. Dispensation and transfer safeguarding visibility
+        and notifications come with the Safeguarding Officer role. Switch one off here only when an officer should not have it.
       </p>
 
       {officers.length === 0 ? (

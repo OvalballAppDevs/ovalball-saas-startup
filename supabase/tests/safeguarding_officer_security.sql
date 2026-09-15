@@ -238,13 +238,16 @@ begin
     raise notice 'FAIL 18 (E): officer authority leaked across clubs';
   end if;
 
-  -- The per-officer capabilities are NOT automatic -- they are granted
-  -- individually by a Site Admin through the override layer.
-  if not internal.has_capability('club.dispensation.view', 'club', v_club_a)
-     and not internal.has_capability('club.dispensation.notify', 'club', v_club_a) then
-    raise notice 'PASS 19 (E): dispensation capabilities are not automatic on acceptance';
+  -- Identity/Auth Slice 3 (Phase 2 J.12): dispensation view and notification
+  -- are the Safeguarding Officer bundle's defaults, held while the officer's
+  -- role is ACTIVE, rather than per-officer Site Admin grants. They stay
+  -- within the officer's own club (18) and end with the role.
+  if internal.has_capability('club.dispensation.view', 'club', v_club_a)
+     and internal.has_capability('club.dispensation.notify', 'club', v_club_a)
+     and not internal.has_capability('club.dispensation.view', 'club', v_club_b) then
+    raise notice 'PASS 19 (E): dispensation capabilities come with the accepted officer role, at that club only';
   else
-    raise notice 'FAIL 19 (E): acceptance auto-granted dispensation capabilities';
+    raise notice 'FAIL 19 (E): the accepted officer does not hold the bundle''s dispensation capabilities';
   end if;
 
   -- =================================================================
@@ -365,13 +368,14 @@ begin
   -- J. Dispensation notification authority
   -- =================================================================
   -- The notifier resolves recipients from capability, not from the officer
-  -- row alone, so an officer without the notify capability gets nothing.
+  -- row alone, so an officer without the notify capability (a withheld one)
+  -- gets nothing. Since Slice 3 it asks the canonical resolver.
   select count(*) into v_count
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'internal' and p.proname = 'notify_club_safeguarding_officers'
-    and p.prosrc like '%capability_overrides%';
+    and p.prosrc like '%capability_decision%';
   if v_count = 1 then
-    raise notice 'PASS 30 (J): dispensation notification is gated on an explicit capability grant';
+    raise notice 'PASS 30 (J): dispensation notification is gated on the officer''s resolved capability';
   else
     raise notice 'FAIL 30 (J): the notifier does not consult the capability layer';
   end if;

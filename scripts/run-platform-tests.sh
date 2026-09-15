@@ -303,6 +303,19 @@ SUITES=(
   family_relationship_state_machine
   guardian_additional_requires_acceptance
   backfill_verification
+  # Identity/Auth Slice 3: one capability catalogue, one resolver with the
+  # Phase 2 K precedence, explicit Site Admin profiles, levelled allows and
+  # withholds, and the adapters over them. The concurrent R19 outcome is
+  # js/capability_override_races.test.mts.
+  capability_catalogue_integrity
+  capability_precedence_truth_table
+  explain_access_matches_enforcement
+  bundle_legacy_parity
+  site_admin_profile_matrix
+  capability_scope_isolation
+  capability_override_ceilings
+  capability_adapters
+  capability_attack_matrix
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

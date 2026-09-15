@@ -172,9 +172,11 @@ record("withholding Import Fixtures is stated on the screen, before any work is 
   deniedBody.includes("needs the Import Fixtures permission") || !deniedBody.includes("Create"),
   deniedBody.includes("needs the Import Fixtures permission") ? "the limit is named up front" : "no mass control offered")
 
-// Restore: the override is this script's, and it does not outlive it.
-sql(`delete from public.capability_overrides where user_id='${coachId}' and capability_key='fixture.import'
-  and reason='planner persona matrix'`)
+// Restore: the override is this script's, and it does not outlive it. The
+// database stores it under the canonical key (fixture.import.run), whatever
+// key it was written with, so it is found by this run's reason, not its key.
+sql(`delete from public.capability_overrides where user_id='${coachId}'
+  and capability_key in ('fixture.import', 'fixture.import.run') and reason='planner persona matrix'`)
 record("QA cleanup removed only this run's own override",
   Number(sql(`select count(*) from public.capability_overrides where reason='planner persona matrix'`)) === 0)
 

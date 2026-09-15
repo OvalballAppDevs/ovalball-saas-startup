@@ -6,13 +6,16 @@ import { createClient } from "@/lib/supabase/server"
 
 import { getCapabilities, getPermissionGroups } from "./actions"
 import { GroupCard } from "./group-card"
-import { GroupForm } from "./group-form"
 
 export const metadata = { title: "Permissions" }
 
 const SCOPE_LABEL: Record<string, string> = { club: "Club-wide groups", team: "Team-scoped groups", global: "Global" }
 
-/** Site Admin only. Groups are a configuration/documentation layer over the real, already-implemented club_memberships.role / team_permissions.permission enforcement -- see actions.ts and the migration comment for the full reasoning. */
+/**
+ * Site Admin only. Since Identity/Auth Slice 3 each access group is a fixed name for a role bundle, and the
+ * capabilities shown are that bundle's, read from the one canonical catalogue (bundle_capabilities). Bundles
+ * change only through a reviewed release, so nothing here is editable.
+ */
 export default async function AdminPermissionsPage() {
   const supabase = await createClient()
   const {
@@ -46,12 +49,10 @@ export default async function AdminPermissionsPage() {
         <div>
           <h1 className="font-display text-display-l text-ink">Permission Management</h1>
           <p className="mt-2 max-w-xl text-sm text-ink-muted">
-            Named, documented bundles of what a person can do. Each group still resolves to one of the product&apos;s
-            real, already-implemented access levels &mdash; combining existing capabilities into a new group never
-            requires a code change; a genuinely new access level always does.
+            Each access group names a role, and lists what that role can do from Ovalball&apos;s capability catalogue.
+            Roles change only through a reviewed release, so these groups are read-only.
           </p>
         </div>
-        <GroupForm capabilities={capabilities} triggerLabel="+ New permission group" />
       </div>
 
       <div className="mt-8 flex flex-col gap-8">

@@ -4,30 +4,16 @@ import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
 import { requireSiteAdmin } from "../require-site-admin"
+import { CANONICAL_SAFEGUARDING_KEY, SAFEGUARDING_GRANTABLE_CAPABILITIES, type SafeguardingCapabilityKey } from "./capabilities"
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
 
-const SAFEGUARDING_GRANTABLE_CAPABILITIES = [
-  "club.dispensation.view",
-  "club.dispensation.notify",
-  "club.transfer.safeguarding_view",
-  "club.transfer.safeguarding_notify",
-] as const
-
-export type SafeguardingCapabilityKey = (typeof SAFEGUARDING_GRANTABLE_CAPABILITIES)[number]
-
 /**
- * Reuses the EXISTING, generic set_capability_override/revoke_capability_
- * override RPCs directly -- no new grant/revoke RPC was built for
- * Safeguarding Officer capabilities (spec section 10/13). Restricted here
- * to exactly the four capability keys this feature defines, so this
- * server action itself cannot be used to grant an arbitrary, unrelated
- * platform capability through the Safeguarding Officer UI (spec section
- * 9's own "do not implement Safeguarding Officer can view/edit
- * everything" and section 10's "map to real capabilities" instruction) --
- * though the real, unconditional boundary is set_capability_override's
- * own Site-Admin-only authorization check, which applies identically no
- * matter which capability key is named.
+ * Since Identity/Auth Slice 3 these four capabilities come with the Safeguarding Officer role (Phase 2
+ * J.12: a bundle default instead of a per-officer grant). What Ovalball decides here is the exception:
+ * switching one OFF records a Site-level withhold through the canonical set_capability_override, and
+ * switching it back ON removes that withhold, returning the officer to what their role gives. The RPCs
+ * decide the authority themselves; this action only narrows which keys the screen may name.
  */
 export async function setSafeguardingCapability(
   targetUserId: string,
@@ -43,19 +29,15 @@ export async function setSafeguardingCapability(
     return { ok: false, error: "Not a Safeguarding Officer capability." }
   }
 
-  if (enabled) {
-    // p_team_id has no SQL-level default (unlike p_reason), so it must be
-    // passed explicitly -- the generated RPC arg type is stricter than the
-    // real column nullability here (a known imprecision in the generated
-    // types, not a real constraint), hence the cast.
+  if (!enabled) {
     const { error } = await supabase.rpc("set_capability_override", {
       p_user_id: targetUserId,
       p_capability_key: capabilityKey,
       p_scope_type: "club",
       p_club_id: clubId,
       p_team_id: null as unknown as string,
-      p_effect: "grant",
-      p_reason: "Safeguarding Officer capability grant",
+      p_effect: "deny",
+      p_reason: "Withheld by Ovalball from the Safeguarding Officer role",
     })
     if (error) return { ok: false, error: error.message }
   } else {
@@ -63,15 +45,18 @@ export async function setSafeguardingCapability(
       .from("capability_overrides")
       .select("id")
       .eq("user_id", targetUserId)
-      .eq("capability_key", capabilityKey)
+      .eq("capability_key", CANONICAL_SAFEGUARDING_KEY[capabilityKey])
       .eq("scope_type", "club")
       .eq("club_id", clubId)
-      .eq("effect", "grant")
+      .eq("effect", "deny")
       .eq("status", "active")
       .maybeSingle()
     if (lookupError) return { ok: false, error: lookupError.message }
     if (overrideRow) {
-      const { error } = await supabase.rpc("revoke_capability_override", { p_override_id: overrideRow.id })
+      const { error } = await supabase.rpc("revoke_capability_override", {
+        p_override_id: overrideRow.id,
+        p_reason: "Restored to the Safeguarding Officer role default",
+      })
       if (error) return { ok: false, error: error.message }
     }
   }

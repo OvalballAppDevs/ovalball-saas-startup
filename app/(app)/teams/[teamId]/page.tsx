@@ -64,6 +64,12 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   // club-wide decisions; keeping a team's own roster straight is the team's,
   // and this asks the exact question internal.team_people_authority asks, so
   // the buttons on screen and the writes behind them can never disagree.
+  // Team Admin itself is club authority (a Club Admin, or Ovalball's site.team_roles.manage); Team
+  // Administration holders assign Coach and Team Manager only. The database refuses the rest regardless.
+  const canAssignTeamAdmin =
+    ctx.siteCapabilities.includes("site.team_roles.manage") ||
+    (await hasCapability(supabase, "people.role.assign_club", "club", { clubId: team.club_id }))
+
   const canManagePeople =
     ctx.isSiteAdmin ||
     (await hasCapability(supabase, "team.manage", "team", { clubId: team.club_id, teamId: team.id })) ||
@@ -166,7 +172,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         )}
       </div>
 
-      <TeamPeople teamId={team.id} people={people} clubMembers={clubMembers} canManage={canManagePeople} />
+      <TeamPeople
+        teamId={team.id}
+        people={people}
+        clubMembers={clubMembers}
+        canManage={canManagePeople}
+        canAssignTeamAdmin={canAssignTeamAdmin}
+      />
 
       {canPublishTeamNews && team.active && (
         <Link
