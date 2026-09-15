@@ -45,15 +45,18 @@ begin
   from (select 0) _
   cross join lateral (
     select
-      (select count(*)::int from public.profiles) as registered_users,
+      -- Every identity has a profile from creation; a registered user is a
+      -- completed one.
+      (select count(*)::int from public.profiles where setup_state = 'COMPLETE') as registered_users,
       (select count(distinct g.guardian_user_id)::int from public.guardians g where g.status='active') as registered_parents,
       (select count(*)::int from public.players) as registered_players,
       (select count(*)::int from public.clubs) as registered_clubs
   ) b;
 
-  -- profiles, not auth.users, is the canonical person record. Inserted
-  -- explicitly here because the metric deliberately excludes an auth row
-  -- that never completed signup -- asserted directly at assertion 14b.
+  -- profiles, not auth.users, is the canonical person record. The identity
+  -- trigger has already created a pending profile for each auth row; these
+  -- inserts complete them, and the metric counts only completed profiles --
+  -- an identity that never completed signup is asserted at 14b.
   insert into public.profiles (id, first_name, surname, email) values
     (v_full,    'Dash','Full',    'dashfull@ovalball-test.invalid'),
     (v_ops,     'Dash','Ops',     'dashops@ovalball-test.invalid'),
