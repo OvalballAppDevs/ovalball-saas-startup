@@ -190,8 +190,12 @@ export type ReportMessageResult = { ok: true; reference: string | null } | { ok:
 export async function reportMessage(messageId: string, reason: string): Promise<ReportMessageResult> {
   const supabase = await createClient()
 
-  // 1. The safety check and the report stamp, unchanged.
-  const { error } = await supabase.rpc("report_fixture_message", { p_message_id: messageId, p_reason: reason })
+  // 1. The report itself. Slice 4F: report_message records ONE ROW PER REPORT in
+  //    public.message_reports and routes it to the club's Safeguarding Officer queue as well as to
+  //    Ovalball moderation (Phase 2 section T). The old report_fixture_message stamped four columns
+  //    on the message row, so a second person reporting the same message silently overwrote the
+  //    first person's reason and identity.
+  const { error } = await supabase.rpc("report_message", { p_message_id: messageId, p_reason: reason })
   if (error) return { ok: false, error: error.message }
 
   // 2. The canonical evidence, re-read server-side. Access was proven by the

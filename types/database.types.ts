@@ -12176,6 +12176,112 @@ export type Database = {
           },
         ]
       }
+      message_reports: {
+        Row: {
+          club_id: string | null
+          created_at: string
+          id: string
+          message_id: string
+          reason: string
+          reported_by: string
+          resolved_at: string | null
+          resolved_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          club_id?: string | null
+          created_at?: string
+          id?: string
+          message_id: string
+          reason: string
+          reported_by: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          club_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string
+          reason?: string
+          reported_by?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reports_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "message_reports_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "message_reports_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "message_reports_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "message_reports_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "message_reports_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "message_reports_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "message_reports_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reports_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messenger_announcement_deliveries: {
         Row: {
           announcement_id: string
@@ -21367,6 +21473,20 @@ export type Database = {
           user_id: string
         }[]
       }
+      club_message_reports: {
+        Args: { p_club_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          message_body: string
+          message_deleted_at: string
+          message_id: string
+          message_sent_at: string
+          reason: string
+          reporter_name: string
+          status: string
+        }[]
+      }
       club_platform_billing_state: {
         Args: { p_club_id: string }
         Returns: {
@@ -23820,6 +23940,10 @@ export type Database = {
       report_fixture_message: {
         Args: { p_message_id: string; p_reason: string }
         Returns: undefined
+      }
+      report_message: {
+        Args: { p_message_id: string; p_reason: string }
+        Returns: string
       }
       request_additional_guardian: {
         Args: { p_email: string; p_player_id: string }

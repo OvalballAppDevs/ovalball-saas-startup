@@ -61,7 +61,10 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
   const supportLevel = supportAccessLevel(ctx)
   const supportThreads = supportLevel === "none" ? [] : await getSupportConversationsForAdmin(supabase)
 
-  const canRevealContent = ctx.siteAdminRole === "full" || ctx.siteAdminRole === "message_moderator"
+  // Slice 4F: site.messages.moderate, the canonical key J.10 line 521 renames the
+  // "message_moderator" role literal onto. The database gates the same reveal on the same
+  // capability, so the page and the RPC can no longer disagree.
+  const canRevealContent = ctx.siteCapabilities.includes("site.messages.moderate")
   const canEditGlobalPolicy = ctx.siteAdminRole === "full"
 
   const filters: MessageFilters = {

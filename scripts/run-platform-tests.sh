@@ -223,6 +223,7 @@ SUITES=(
   fixture_editor_authority
   competition_authority_matrix
   venue_training_authority_matrix
+  messaging_authority_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences
   hub_content_schema

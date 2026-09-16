@@ -1234,3 +1234,187 @@ with the held-back migration kept in an isolated stage directory so only the exp
 
 4f–4i are not started. Next in order is 4f (Messaging and notifications). 4g stays banked under
 D-S4-2. Slice 5 is not started.
+
+---
+
+# 4F ARCHAEOLOGY AND EXACT OWNERSHIP MAP (recorded at ledger 494)
+
+AA.3 row 4f retires **`staffs_team`, `is_messaging_staff`, Site Admin conversation read**, with the
+matrix `messaging_authority_matrix.sql`, and carries **T "Reports"**. Design J.10 lines 511-523 holds
+the thirteen keys; all thirteen already exist ACTIVE with exactly the bundles J.10 specifies, so 4F
+adds no capability and changes no bundle.
+
+## The three named legacy items, measured
+
+| item | found |
+|---|---|
+| `staffs_team` | **0 policies, 3 bodies** — `internal.may_direct_message`, `public.fixture_opposition_contacts`, `public.my_direct_message_candidates`. All three are messaging. |
+| `is_messaging_staff` | **0 / 0** already. Nothing to retire; the slice asserts it stays zero. |
+| Site Admin conversation read | 3 policies carry `is_site_admin()`: `team_conversations_select_scoped`, `club_message_blocks_select_staff`, and `club_safeguarding_officer_conversations_select`. |
+
+## 4F-OWNED FOOTPRINT
+
+| object | current authority | canonical capability | scope | why 4F |
+|---|---|---|---|---|
+| `internal.can_access_fixture_conversation` | `is_site_admin()` + `can_manage_team` + `can_manage_club_fixtures` | `messaging.fixture_conversation.participate` | club, team | J.10, "Site Admin blanket read removed" |
+| `internal.can_view_team_conversation` | same + family branch | `messaging.team_conversation.view` | team, child | J.10 |
+| `internal.can_send_team_conversation` | same | `messaging.team_conversation.send` | team, child | J.10 |
+| `internal.can_access_conversation`, `can_access_any_conversation` | same | the conversation keys | | J.10 |
+| `internal.may_send_as` | `has_capability('team.community.manage')` | `messaging.announcement.send_club` / `send_team` | club, team | J.10 SPLIT |
+| `set_team_conversation_active`, `team_conversation_state`, `team_conversations_write_scoped` | `team.community.manage` | the same SPLIT targets | club, team | messaging; the adapter already names them |
+| `internal.may_direct_message`, `fixture_opposition_contacts`, `my_direct_message_candidates` | **`staffs_team`** | `messaging.direct.send` logic without the raw helper | self | AA.3 row 4f |
+| `update_club_message_policy` | `is_club_admin` | `messaging.policy.manage` | club | J.10 |
+| `update_global_message_policy` | `is_full_site_admin` | `site.messages.policy.manage` | site | J.10 |
+| `block_user_from_club_messages`, `lift_club_message_block`, `club_message_blocks_select_staff` | `has_capability('fixture.edit')` + `is_site_admin()` | `messaging.block.manage` | club | J.10 |
+| `start_or_get_club_conversation`, `respond_to_club_conversation` | `can_manage_club_fixtures` + `is_site_admin()` | `messaging.club_conversation.manage` | club | J.10 |
+| `admin_get_message_thread_content`, `moderator_delete_message` | **`'message_moderator'` role literal** + `is_full_site_admin` | `site.messages.moderate` | site | J.10 RENAME |
+| `report_fixture_message` | overwrites the stamp on the message row | `messaging.report.submit`, one row per report | self | **T "Reports"** |
+| *(new)* `club_message_reports` | does not exist | `messaging.moderation.club_review` | club | J.10 |
+
+## NOT 4F — named so it is not mistaken for an oversight
+
+| object | why not 4F | owner |
+|---|---|---|
+| `club_safeguarding_officer_conversations_select` | a safeguarding thread, not a messaging conversation; section T's "Site Admin access" is `site.safeguarding.review`, a NEW 4G key | **4G (D-S4-2)** |
+| SO appointment, confirmation, PENDING_CONFIRMATION, deactivation transfer | section T's Appointment and Lifecycle | **4G (D-S4-2)** |
+| `fixture.fixture.edit` itself | 4C's key; only the *messaging* borrow of its deprecated alias moves | 4C |
+| family branches inside the conversation gates | "a guardian of a player on this team" is 4A's question | 4A |
+
+## The 4G seam, and why no 4G work is pulled forward
+T "Reports" routes to the club SO queue (`messaging.moderation.club_review`, bundle **SO**). That
+needs an SO to exist as a *role*, not an SO appointment *flow* — and Slice 2 already models one:
+`public.role_assignments` carries a `confirmation_state` column and the constraint
+`(role_key = 'SAFEGUARDING_OFFICER') = (confirmation_state is not null)`. The role, the bundle and
+the capability are all seeded. 4F therefore routes reports to whoever holds the capability and
+builds no nomination, no confirmation and no invitation. D-S4-2 is untouched.
+
+## §9 unknown-age check for 4F
+Does 4F make unknown-age staff authority or staff-role onboarding more reachable? **No.** It grants
+no role, changes no membership transition and adds no onboarding path. The follow-up carries forward
+unchanged.
+
+# 4F IMPLEMENTATION AND VERIFICATION (recorded at ledger 495)
+
+## Migrations, and why there are three
+
+| stage | file | role |
+|---|---|---|
+| expand | `20270367000000_messaging_authority_canonical.sql` | the gates and the RPCs move to the canonical decision; `internal.team_messaging_staff` arrives; `staffs_team` is dropped once its last caller is gone |
+| section T | `20270368000000_message_reports_canonical.sql` | `public.message_reports`, its partial unique index, `internal.message_report_club`, the backfill, the row policy, `report_message`, `club_message_reports` |
+| contract | `20270369000000_messaging_policies_canonical.sql` | the three messaging policies, `is_messaging_staff` dropped, the `team.community.manage` adapter rows deleted, the read policy's first term guarded, `report_fixture_message` turned into a delegate |
+
+The split is not cosmetic. Dropping `staffs_team` in the same statement that rewrites its callers
+would leave a window in which the helper is gone and the replacement is not yet installed, and the
+adapter rows cannot be deleted until nothing asks the legacy key. Each stage was dry-run and applied
+on its own in the rehearsal, and each was verified before the next was attempted.
+
+## The intended changes
+
+| # | change | contract |
+|---|---|---|
+| 1 | the Fixtures Secretary may no longer block someone from a club's conversations; the Safeguarding Officer now may | J.10 line 518 — blocking is moderation, not fixtures |
+| 2 | the Site Admin blanket conversation read is gone; a site answer arrives through `site.messages.moderate` | J.10 lines 511-512 |
+| 3 | a report is its own row and never overwrites another person's | section T "Reports" |
+| 4 | site message-policy authority is the named `site.messages.policy.manage` rather than a role string | J.10 line 522 |
+| 5 | speaking in a club's name stops asking 4C's fixture-planning gate | J.10 line 514 |
+| 6 | the site branches of `may_send_as` and of both audience helpers ask `site.support.act_in_club` | J.10 lines 514-515 |
+| 7 | `site.messages.moderate` no longer reaches direct, safeguarding or announcement threads | J.10 line 511, completed |
+
+## Seven defects the gates found, none of them from reading the diff
+
+| # | defect | found by |
+|---|---|---|
+| A | reporting a message **overwrote** the previous report — the four columns on the message row were the whole record | archaeology against section T |
+| B | `internal.is_messaging_staff` existed with a raw-role body although AA.3 recorded it as 0/0. **0/0 describes references, not existence** | the slice's own assertion |
+| C | `may_send_as` kept `is_full_site_admin()` in the two branches J.10 gives a recorded site master | the retirement ledger, once 4F was added to it |
+| D | both audience helpers opened with a bare `is_site_admin()`, so **any** site-admin profile could post in any club's or team's name and read that audience | MA-K, reaching `may_send_as` rather than testing it directly |
+| E | the rewrite silently dropped the explicit `fixture_conversation_participants` branch, which would have locked every named participant out of the thread they were added to | the performance work, putting the old body beside the new one |
+| F | `can_access_fixture_conversation` answered a question with **no subject** affirmatively, and because it is the read policy's first term that "yes" reached team, direct and safeguarding rows | `EXPLAIN (ANALYZE)` |
+| G | Match Centre's own `reportMessage` still named the old RPC, so half the product kept the overwrite | the compatibility proof, not the test suite |
+
+Defect D is the one worth remembering: canonicalising `may_send_as` alone would have moved the
+blanket bypass one function further away and left it reachable. The assertion that caught it asks
+through the gate a person actually meets, not through the function being changed.
+
+## Performance
+
+`EXPLAIN (ANALYZE)` on a 300-message team conversation, against the same rows and a warm cache, with
+the pre-4F function bodies restored in-transaction for a like-for-like comparison:
+
+| read | pre-4F | 4F | |
+|---|---|---|---|
+| fixture threads, 600 messages across 30 fixtures | ~385 ms | **~228 ms** | 41% faster |
+| one team conversation, 300 messages | ~65 ms | **~69 ms** | within noise |
+| `team_conversations` | — | 0.6 ms | |
+| `club_message_blocks`, 50 rows | — | 3.8 ms | |
+
+The team read was 169 ms before the read policy's first term was guarded. Postgres cannot inline a
+SECURITY DEFINER function, so an unguarded call in a policy runs once per row whatever the planner
+would prefer; every other term in that policy already tested its own column first, and the first one
+now does too.
+
+## Mutation testing
+
+Twelve mutants, **twelve killed, no survivors** — over two rounds, because the first round mattered:
+
+- **M5** survived: nothing exercised `internal.team_messaging_staff`, the headline replacement in AA.3 row 4f. MA-J was written because of it.
+- **M9** survived: every persona who could speak as a team also held `team.attendance.view`, so the announcement clause beside it was never the deciding one. MA-K16 adds a person who holds the announcement capability and nothing else.
+- **M11** survived: the assertion meant to prove the sender-identity **trigger** used a persona the **row policy** already refused, so it proved RLS and called it the trigger. MA-K14 now writes as the Coach, who passes the policy.
+
+M11 also exposed a hole in the harness rather than the code: the restore step re-applied only this
+slice's migrations, so a mutant aimed at an object an earlier slice defines stayed live in the
+database and the next mutant was measured against a half-broken schema.
+
+## The gates
+
+| gate | result |
+|---|---|
+| `messaging_authority_matrix.sql` | **114 assertions**, MA-A … MA-M |
+| `messaging_authority_races.test.mts` | 4 passed, three times |
+| browser suite 56 | 26/26 |
+| shared harness, suite 51 | extended with N10a/b (blocking, both intended changes) and N11a/b (two reporters, two rows); 25/25 |
+| full banking battery | **4052 passed, 0 failed across 203 suites** |
+| clean empty-database rebuild | 462 migrations from empty; 13 suites, 714 assertions, 0 failures; perimeter manifest 11/11 |
+| production-shaped rehearsal | 459 → 462, one migration at a time, each dry-run first; **3/3 legacy reports backfilled with reason, reporter and status verbatim** |
+| compatibility matrix | 7/7 |
+| browser UAT | suites 51-56, three sequential passes, 124/124 each |
+
+The rehearsal's only data delta was `audit` +2 — the two `team.community.manage` adapter rows being
+deleted, audited by the trigger that audits every catalogue change. No row of user data moved.
+
+## Release ordering, DERIVED
+
+The new build requires `report_message`, `club_message_reports` and `message_reports`, and this slice
+creates all three; a build deployed before them fails on the first report. The previous build calls
+`report_fixture_message`, which is therefore **kept** — but as a delegate, so a report made in the
+window between the migration and the deploy is a proper section T row rather than an overwrite.
+
+**Migrations first, then push.** Not assumed: C1-C7 measure both directions.
+
+## Retirement, after 4F
+
+`staffs_team` and `is_messaging_staff` are at **0 policies, 0 bodies, and both are dropped** — a
+zero-caller raw-role helper is still a hazard, because the next person needing that answer may find
+it before they find the canonical one.
+
+| helper | policies | bodies |
+|---|---|---|
+| `has_capability` | 90 | 99 |
+| `is_site_admin` | 113 | 125 |
+| `is_full_site_admin` | 15 | 39 |
+| `is_club_admin` | 23 | 20 |
+| `can_manage_club_fixtures` | 12 | 27 |
+| `can_manage_team` | 1 | 15 |
+
+PG-15 **128** (was 130), PG-16 **124** (was 135).
+
+## Carried, deliberately, and named so it is not mistaken for an oversight
+
+| carried | why | owner |
+|---|---|---|
+| `may_send_as`'s **platform** branch still asks `is_full_site_admin()` | "may you speak as Ovalball itself" has no row in J.10 and no key in the catalogue; borrowing `site.messages.policy.manage` would give the check a meaning the catalogue does not give it, and minting a key is outside AA.3 row 4f | Slice 7 |
+| `can_address_club_audience` still asks `is_club_admin`; `can_address_team_audience` still asks `team.attendance.view` | club-level questions, not the bypass; changing them would change who inside a club may broadcast, on no contract from J.10 | 4H |
+| `club_safeguarding_officer_conversations_select` | a safeguarding thread, not a messaging conversation | 4G (D-S4-2) |
+
+`authority_helper_retirement` pins the first of these by name and asserts the count is **exactly
+one**, so neither of the branches that were canonicalised can quietly revert to the role string.

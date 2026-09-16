@@ -30,9 +30,13 @@ export async function reportMessage(fixtureId: string, messageId: string, reason
   if (trimmed.length === 0) return { ok: false, error: "Say briefly what the problem is." }
   if (trimmed.length > 500) return { ok: false, error: "That's too long — a sentence or two is enough." }
 
-  const { error } = await supabase.rpc("report_fixture_message", { p_message_id: messageId, p_reason: trimmed })
+  // Slice 4F section T: report_message, not report_fixture_message. The old RPC stamped four
+  // columns onto the message row, so a second person reporting the same message replaced the
+  // first person's report. Match Centre and Messenger are two doors onto the same conversation,
+  // so they have to report through the same one.
+  const { error } = await supabase.rpc("report_message", { p_message_id: messageId, p_reason: trimmed })
   if (error) {
-    console.error("report_fixture_message failed:", error.message)
+    console.error("report_message failed:", error.message)
     return { ok: false, error: "We couldn't report that message. Please try again." }
   }
   revalidatePath(`/fixtures/${fixtureId}`)

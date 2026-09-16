@@ -516,6 +516,80 @@ try {
       leaked.length ? `reached: ${leaked.join(", ")}` : "all redirected")
   }
 
+  // N10. Blocking someone from a club's conversations (Slice 4F: messaging.block.manage).
+  //
+  // J.10 line 518 makes blocking Club Admin and Safeguarding Officer, and deliberately NOT the
+  // Fixtures Secretary -- blocking is moderation, not fixtures. That is one of 4F's two intended
+  // changes to who may do something, so it is checked here at the RPC, which is where the boundary
+  // actually is: the Messenger hides the control, but a hidden control has never refused anybody.
+  // Each person sends the real request from their own signed-in session, and the verdict is the
+  // block row in the database rather than what any page said.
+  // -------------------------------------------------------------------------
+  {
+    const blockAs = async (key, target) => {
+      const token = await accessTokenOf(sessions[key].context)
+      const res = await fetch(`${API}/rest/v1/rpc/block_user_from_club_messages`, {
+        method: "POST",
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_club_id: ids.club, p_user_id: people[target].id, p_reason: `slice4f replay ${TAG}` }),
+      })
+      return res.ok
+    }
+    const blocked = (target) =>
+      one(`select count(*) from public.club_message_blocks where club_id = '${ids.club}' and blocked_user_id = '${people[target].id}' and lifted_at is null`) !== "0"
+
+    const leaked = []
+    for (const key of ["secretary", "manager", "teamAdmin", "coach", "volunteer", "parent"]) {
+      await blockAs(key, "otherParent")
+      if (blocked("otherParent")) leaked.push(people[key]?.label ?? key)
+      sql(`delete from public.club_message_blocks where club_id = '${ids.club}' and blocked_user_id = '${people.otherParent.id}'`)
+    }
+    record("N10a INTENDED CHANGE: the Fixtures Secretary can no longer block, and nor can team staff or a parent",
+      leaked.length === 0, leaked.length ? `blocked anyway: ${leaked.join(", ")}` : "every replay refused")
+
+    const allowed = []
+    for (const key of ["admin", "safeguarding"]) {
+      await blockAs(key, "otherParent")
+      if (blocked("otherParent")) allowed.push(people[key]?.label ?? key)
+      sql(`delete from public.club_message_blocks where club_id = '${ids.club}' and blocked_user_id = '${people.otherParent.id}'`)
+    }
+    record("N10b INTENDED CHANGE: the Club Admin still can, and so now can the Safeguarding Officer",
+      allowed.length === 2, `landed: ${allowed.join(", ") || "none"}`)
+  }
+
+  // N11. Reporting a message (Slice 4F section T: one row per report, never an overwrite).
+  //
+  // The defect this closed is invisible from a single report: the old shape wrote four columns onto
+  // the message row, so a second person reporting the same message replaced the first person's
+  // report -- and the case that needs a second report most is the one where the first was not acted
+  // on. Two different people report the same message from their own sessions, and both reports have
+  // to survive as their own rows.
+  // -------------------------------------------------------------------------
+  {
+    const reportAs = async (key, messageId, reason) => {
+      const token = await accessTokenOf(sessions[key].context)
+      const res = await fetch(`${API}/rest/v1/rpc/report_message`, {
+        method: "POST",
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_message_id: messageId, p_reason: reason }),
+      })
+      return res.ok
+    }
+    const fixtureId = one(`select id from public.fixtures where owning_team_id = '${ids.team}' and raw_opposition_text = 'Slice4C External RFC' limit 1`)
+    const conversationId = one(`select conversation_id from public.fixtures where id = '${fixtureId}'`)
+    const messageId = one(`insert into public.fixture_messages (fixture_id, conversation_id, sender_user_id, body, kind)
+      values ('${fixtureId}', '${conversationId}', '${people.admin.id}', 'slice4f reportable ${TAG}', 'message') returning id`)
+    const first = await reportAs("coach", messageId, `first report ${TAG}`)
+    const second = await reportAs("manager", messageId, `second report ${TAG}`)
+    const rows = one(`select count(*) from public.message_reports where message_id = '${messageId}'`)
+    record("N11a two people reporting the same message leave two reports, not one overwriting the other",
+      first && second && rows === "2", `accepted=${first}/${second} rows=${rows}`)
+    const reporters = one(`select count(distinct reported_by) from public.message_reports where message_id = '${messageId}'`)
+    record("N11b and each report still names the person who made it", reporters === "2", `distinct reporters: ${reporters}`)
+    sql(`delete from public.message_reports where message_id = '${messageId}'`)
+    sql(`delete from public.fixture_messages where id = '${messageId}'`)
+  }
+
   record("I1 no server error on any page or replay", serverProblems.length === 0, serverProblems.slice(0, 5).join(" | "))
 } finally {
   for (const s of Object.values(sessions)) await s.context.close().catch(() => {})

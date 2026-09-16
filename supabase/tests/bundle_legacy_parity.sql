@@ -5,8 +5,8 @@
 -- out below, row by row, so an accidental loss cannot hide among them.
 --
 --   BP1  the archive of the old defaults is intact (139 rows)
---   BP2  every archived default is in the bundle projection, or is one of the 27 intended removals
---   BP3  the intended removals are exactly those 27
+--   BP2  every archived default is in the bundle projection, or is one of the 31 intended removals
+--   BP3  the intended removals are exactly those 31
 --   BP4  behaviour: a real person holding each legacy role passes has_capability for every retained default
 --   BP5  behaviour: and fails for each intended removal
 --   BP6  the retained additions beyond the J bundles (legacy authority kept) are exactly the three recorded
@@ -169,7 +169,15 @@ insert into intended_removals values
   ('club', 'FIXTURE_SECRETARY', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view'),
   ('team', 'CLUB_ADMIN', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view'),
   ('team', 'TEAM_MANAGER', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view'),
-  ('team', 'TEAM_STAFF', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view');
+  ('team', 'TEAM_STAFF', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view'),
+  -- Slice 4F (AA.3 row 4f) retires the legacy team.community.manage key. Design J.10 lines 514-515
+  -- SPLIT it into messaging.announcement.send_club at club scope and messaging.announcement.send_team
+  -- at team scope, and the adapter already mapped it to exactly those two, so no holder loses the
+  -- ability to speak to their club or their team -- only the legacy key goes.
+  ('club', 'CLUB_ADMIN', 'team.community.manage', 'AA.3 4f: SPLIT into messaging.announcement.send_club'),
+  ('team', 'CLUB_ADMIN', 'team.community.manage', 'AA.3 4f: SPLIT into messaging.announcement.send_team'),
+  ('team', 'TEAM_MANAGER', 'team.community.manage', 'AA.3 4f: SPLIT into messaging.announcement.send_team'),
+  ('team', 'TEAM_STAFF', 'team.community.manage', 'AA.3 4f: SPLIT into messaging.announcement.send_team');
 
 do $body$
 declare
@@ -188,11 +196,11 @@ begin
   select count(*) into v_n from (
     select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
     except select scope_type, role_key, capability_key from public.role_capability_defaults) x;
-  perform pg_temp.check(v_n = 27 and not exists (
+  perform pg_temp.check(v_n = 31 and not exists (
       select scope_type, role_key, capability_key from intended_removals
       except (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
               except select scope_type, role_key, capability_key from public.role_capability_defaults)),
-    'BP3: the intended removals are exactly the 27 listed (' || v_n || ')');
+    'BP3: the intended removals are exactly the 31 listed (' || v_n || ')');
 
   -- Behaviour, through the enforcement entry point, for a real holder of each legacy role.
   v_club := pg_temp.club('Parity'); v_team := pg_temp.team(v_club);

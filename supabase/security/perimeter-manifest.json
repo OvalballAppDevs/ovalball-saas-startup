@@ -2109,6 +2109,21 @@
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
+    "message_reports": {
+      "classification": "SAFEGUARDING_SENSITIVE",
+      "anon": {
+        "select": "none",
+        "reason": "A report may name a child's conversation and always names a reporter. Nothing about it is public."
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS: the reporter, the club's Safeguarding Officer queue (messaging.moderation.club_review) and Ovalball moderation (site.messages.moderate). A Club Admin is deliberately excluded -- section T routes reports to the SO, and a report may be about a Club Admin.",
+        "insert": "none",
+        "update": "none",
+        "delete": "none",
+        "write_reason": "No browser role writes a report. public.report_message is the only entry point, so section T's 'each report is its own row' cannot be bypassed by writing the table directly."
+      }
+    },
     "messenger_announcement_deliveries": {
       "classification": "PRIVATE",
       "anon": {
@@ -4087,6 +4102,11 @@
         ]
       },
       {
+        "signature": "club_message_reports(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "Slice 4F (J.10 line 520): the club Safeguarding Officer's message-report queue, gated on messaging.moderation.club_review with Ovalball moderation also admitted."
+      },
+      {
         "signature": "club_platform_billing_state(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5719,6 +5739,11 @@
         ]
       },
       {
+        "signature": "report_message(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "Slice 4F (section T): messaging.report.submit. Records one row per report and routes it to the club SO queue and Ovalball moderation. Replaces the overwrite-in-place stamp on the message row."
+      },
+      {
         "signature": "request_additional_guardian(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7142,7 +7167,6 @@
       "is_club_fixture_administrator(uuid)",
       "is_full_site_admin()",
       "is_message_blocked(uuid, uuid)",
-      "is_messaging_staff(uuid)",
       "is_own_linked_player(uuid)",
       "is_site_admin()",
       "may_address_player(uuid)",
@@ -7212,7 +7236,6 @@
       "should_deliver_notification(uuid, text, text)",
       "site_admin_role(uuid)",
       "site_admin_support_level(uuid)",
-      "staffs_team(uuid, uuid)",
       "sync_competition_match_fixtures(uuid)",
       "team_people_authority(uuid)",
       "team_playing_group_player_ids(uuid)",

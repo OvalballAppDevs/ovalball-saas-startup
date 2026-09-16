@@ -33,26 +33,28 @@ $$;
 -- HR1 / HR2 --------------------------------------------------------------------------------------------------
 do $$
 declare
-  -- helper, policy ceiling, function-body ceiling (after Slice 4E)
+  -- helper, policy ceiling, function-body ceiling (after Slice 4F)
   v_ceilings constant text[][] := array[
-    ['has_capability', '92', '104'],
-    ['is_site_admin', '115', '136'],
-    ['is_full_site_admin', '15', '46'],
-    ['is_club_admin', '23', '21'],
-    ['can_manage_club_fixtures', '13', '35'],
+    ['has_capability', '90', '99'],
+    ['is_site_admin', '113', '125'],
+    ['is_full_site_admin', '15', '39'],
+    ['is_club_admin', '23', '20'],
+    ['can_manage_club_fixtures', '12', '27'],
     ['can_manage_club_fixtures_or_any_team', '2', '0'],
     ['can_manage_fixture_side', '2', '6'],
-    ['can_manage_team', '2', '19'],
+    ['can_manage_team', '1', '15'],
     ['can_organise_competition', '0', '2'],
     ['can_organise_edition', '0', '1'],
     ['can_manage_document_library', '6', '2'],
-    ['staffs_team', '0', '3'],
-    ['is_messaging_staff', '0', '0'],
     ['is_active_player_guardian', '7', '14'],
     ['is_own_linked_player', '9', '9']
   ];
   -- retired to zero by: 4a
-  v_retired constant text[] := array['can_manage_player', 'may_complete_player_profile'];
+  v_retired constant text[] := array['can_manage_player', 'may_complete_player_profile',
+  -- retired to zero by: 4f. Both are also dropped outright -- a zero-caller raw-role helper is still a
+  -- hazard, because the next person needing the answer may find it before they find the canonical one.
+  -- messaging_authority_matrix MA-A asserts their non-existence; this only guards the reference count.
+                                     'staffs_team', 'is_messaging_staff'];
   v_helper text;
   i int;
   v_p int; v_f int;
@@ -142,6 +144,23 @@ declare
   ];
   v_4c_tables constant text[] := array['fixtures', 'fixture_requests', 'fixture_request_groups',
                                         'fixture_result_submissions', 'fixture_player_call_up'];
+  -- Slice 4f (messaging and notifications). The gates that decide who may open, read, write, moderate
+  -- or report a conversation, and the tables they decide over. The family branches inside
+  -- can_view_team_conversation / can_send_team_conversation still ask Slice 4a's helpers, because
+  -- "a player on this team, or their active guardian" is a family question 4a owns.
+  v_4f_functions constant text[] := array[
+    'internal.can_access_fixture_conversation', 'internal.can_view_team_conversation',
+    'internal.can_send_team_conversation', 'internal.can_access_conversation',
+    'internal.can_access_any_conversation', 'internal.may_send_as', 'internal.may_direct_message',
+    'internal.team_messaging_staff', 'internal.message_report_club',
+    'public.report_message', 'public.club_message_reports', 'public.block_user_from_club_messages',
+    'public.lift_club_message_block', 'public.update_club_message_policy', 'public.update_global_message_policy',
+    'public.start_or_get_club_conversation', 'public.respond_to_club_conversation',
+    'public.moderator_delete_message', 'public.admin_get_message_thread_content'
+  ];
+  v_4f_tables constant text[] := array['team_conversations', 'club_message_blocks', 'message_policies',
+                                        'message_reports', 'fixture_messages'];
+  v_legacy_4f constant text := '\m(is_site_admin|is_full_site_admin|is_club_admin|has_capability|can_manage_team|can_manage_club_fixtures|staffs_team|is_messaging_staff)\(';
   v_legacy constant text := '\m(can_manage_player|may_complete_player_profile|is_site_admin|is_full_site_admin|is_club_admin|has_capability|is_active_player_guardian|is_own_linked_player|can_manage_team|can_manage_club_fixtures|can_manage_club_fixtures_or_any_team)\(';
   v_legacy_4b constant text := '\m(can_manage_team|is_site_admin|is_full_site_admin|is_club_admin|has_capability|can_manage_club_fixtures|can_manage_club_fixtures_or_any_team|can_manage_player|may_complete_player_profile)\(';
   -- 4c owns the fixture helpers. can_manage_fixture_side and can_manage_club_fixtures_or_any_team are
@@ -372,6 +391,82 @@ begin
     raise notice 'FAIL HR3 4e: the M-2 closure or the public venue projection is broken';
   end if;
 
+  -- Slice 4f -----------------------------------------------------------------------------------------------
+  -- internal.may_send_as is excluded here and asserted separately below. It is the one 4f function
+  -- with a legacy call left in it, and the exclusion is what keeps that fact visible rather than
+  -- quietly widening v_legacy_4f for everybody.
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) = any (v_4f_functions)
+    and n.nspname || '.' || f.proname <> 'internal.may_send_as'
+    and f.prosrc ~ v_legacy_4f;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4f functions: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4f functions still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- THE SINGLE PERMITTED RESIDUE, pinned so it cannot grow. "May you speak as Ovalball itself" has
+  -- no row in J.10 and no key in the catalogue, and AA.3 puts site-side is_site_admin removal in
+  -- Slice 7; that one branch therefore waits. The other two site branches DO have a recorded site
+  -- master (site.support.act_in_club, J.10 lines 514-515) and were canonicalised in 4f. Asserting
+  -- the count is exactly one is what stops either of them quietly reverting to the role string.
+  select coalesce(array_agg(x order by x), '{}') into v_bad
+  from (
+    select case
+             when (select count(*) from regexp_matches(f.prosrc, '\mis_full_site_admin\(', 'g')) <> 1
+               then 'is_full_site_admin appears ' ||
+                    (select count(*) from regexp_matches(f.prosrc, '\mis_full_site_admin\(', 'g'))::text ||
+                    ' times, expected exactly 1 (the platform branch)'
+           end as x
+    from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+    where n.nspname = 'internal' and f.proname = 'may_send_as'
+    union all
+    select case
+             when f.prosrc ~ '\m(is_site_admin|is_club_admin|has_capability|can_manage_team|can_manage_club_fixtures|staffs_team|is_messaging_staff)\('
+               then 'may_send_as calls a legacy helper other than the permitted is_full_site_admin'
+           end
+    from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+    where n.nspname = 'internal' and f.proname = 'may_send_as'
+    union all
+    select case
+             when f.prosrc !~ 'site\.support\.act_in_club'
+               then 'may_send_as no longer asks the J.10 site master site.support.act_in_club'
+           end
+    from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+    where n.nspname = 'internal' and f.proname = 'may_send_as'
+  ) q
+  where x is not null;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4f may_send_as: exactly one permitted is_full_site_admin branch (platform), the rest canonical';
+  else
+    raise notice 'FAIL HR3 4f may_send_as: %', array_to_string(v_bad, '; ');
+  end if;
+
+  if (select count(*) filter (where n.nspname || '.' || f.proname = any (v_4f_functions)) from pg_proc f join pg_namespace n on n.oid = f.pronamespace)
+     = cardinality(v_4f_functions) then
+    raise notice 'PASS HR3 every 4f function in the ledger exists (the list is not stale)';
+  else
+    raise notice 'FAIL HR3 the 4f function list names a function that no longer exists';
+  end if;
+
+  select coalesce(array_agg(tablename || '.' || policyname order by 1), '{}') into v_bad
+  from pg_policies
+  where schemaname = 'public' and tablename = any (v_4f_tables)
+    and (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ v_legacy_4f;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4f table policies: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4f table policies still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- AA.3 row 4f retires the team.community.manage adapter rows: retired, not merely unused.
+  if not exists (select 1 from public.capability_key_map where legacy_key = 'team.community.manage') then
+    raise notice 'PASS HR3 4f: the team.community.manage adapter rows are gone';
+  else
+    raise notice 'FAIL HR3 4f: a team.community.manage legacy adapter row is back';
+  end if;
+
   -- The legacy team.view key is retired, not merely unused (Slice 4B, AA.3 row 4b).
   if not exists (select 1 from public.capability_key_map where legacy_key = 'team.view') then
     raise notice 'PASS HR3 4b: the legacy team.view adapter row is gone';
@@ -424,8 +519,8 @@ end $$;
 -- PG-15 / PG-16 ----------------------------------------------------------------------------------------------
 do $$
 declare
-  v_pg15_ceiling constant int := 130;  -- after Slice 4E (4d: 130, 4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
-  v_pg16_ceiling constant int := 135;  -- after Slice 4E (4d: 143, 4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
+  v_pg15_ceiling constant int := 128;  -- after Slice 4F (4e: 130, 4d: 130, 4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
+  v_pg16_ceiling constant int := 124;  -- after Slice 4F (4e: 135, 4d: 143, 4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
   v int;
 begin
   select count(*) into v from pg_policies p

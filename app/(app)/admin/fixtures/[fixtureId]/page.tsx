@@ -174,7 +174,8 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
   // unchanged; a club genuinely involved in this fixture also sees their
   // own conversation content -- they're a real participant, not a support
   // agent, and the existing message-send/post authorization is unaffected.
-  const canSeeMessageContent = (activeIsSiteAdmin && (ctx.siteAdminRole === "full" || ctx.siteAdminRole === "message_moderator")) || isInvolvedClub
+  // Slice 4F: site.messages.moderate rather than the role literal (J.10 line 521).
+  const canSeeMessageContent = ctx.siteCapabilities.includes("site.messages.moderate") || isInvolvedClub
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
