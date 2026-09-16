@@ -729,3 +729,62 @@ been applied to production, so production will only ever see the final signature
 Protected logos verified untouched immediately before staging: `Ovalball Square Logo.png`
 `be2bef0c978869aaa73e474cd5abdf5aec1fff6c`, `Overball Logo Low Res.png`
 `bdd3224871f0561d971f93f519764f0502092504`. Both remain untracked and are not staged.
+
+---
+
+# 4C — PRODUCTION RELEASE (ledger 484)
+
+Commit `be4c52b`, fast-forward `774ab9b..be4c52b`, pushed to `main`. Twenty-two files; the two
+protected logos remained untracked and unstaged throughout, SHA-1s unchanged.
+
+## The three stages, as executed
+
+**Stage A — 12:5x UTC.** `20270361000000` was moved out of `supabase/migrations/` so that
+`supabase db push --linked` could apply only the expand set, then moved back immediately afterwards.
+Applied: `20270358000000`, `20270359000000`, `20270360000000`. The application then running was the
+4B build, which still direct-inserts and still held INSERT, so it was unaffected.
+
+**Stage B.** `git push origin main` → Vercel. The deployment was confirmed live before proceeding,
+not assumed: the prerendered `/login` response changed `etag`
+`4c7fee48…` → `4c9af1c8…`, its `age` reset from 9732 to 0, and the content-hashed chunk set changed
+`d005086b…` → `fa7d9607…`. Detected 120 s after the push. Both `ovalball.co.uk` and
+`www.ovalball.co.uk` returned 200 afterwards.
+
+**Stage C.** `supabase db push --linked` applied `20270361000000`. This is the migration that revokes
+INSERT, and it ends with a DO block that raises if `authenticated` still holds the privilege. It
+completed without error, so **that assertion passed inside production** — which is the point of
+writing the check into the migration rather than only into a test.
+
+## Production state after release
+`supabase migration list --linked`: **454 rows, 454 applied remotely, remote tip `20270361000000`,
+none pending.** All four 4C migrations report APPLIED. No migration reported an error at any stage.
+
+## What is verified in production, and what is not
+
+**Verified in production:** the full migration chain applied in the intended order; the revoke
+assertion passed there; the deployment is live on both domains and serving.
+
+**NOT OBSERVABLE ON CURRENT PRODUCTION DATA:** every per-persona authority distinction — the three
+intended changes, the refusals, the request routing. Observing them needs signed-in identities
+holding particular roles at particular clubs, and production has one club with one active membership.
+Creating identities to make them observable is prohibited, and would be the wrong trade regardless:
+it would put fabricated people in a real club's records to improve a report. Those distinctions are
+proven instead on the local and clean-boot databases, where the suites seed their own deterministic
+people — 3761 assertions across 197 suites, and 9 green browser runs against real authenticated
+sessions.
+
+## Zero schema drift, confirmed after release
+`supabase db diff --linked` replays the full 454-migration tree into a shadow database and compares
+it with the live remote schema. It reports **"No schema changes found"**.
+
+This is worth recording separately from the ledger check, because the two prove different things. The
+migration list says *which migrations ran*. The diff says the schema they produced is **exactly** the
+schema every one of the 3761 assertions and the clean boot were run against — the same function
+bodies, the same policy expressions, the same grants. It rules out a partially-applied object, and it
+rules out any hand-edited difference between what was tested and what is serving.
+
+## Verdict
+**IDENTITY/AUTH SLICE 4C — PRODUCTION VERIFIED.**
+
+4d–4i are not started. Next in order is 4d (Training). 4g stays banked under decision D-S4-2 and is
+not to be implemented ahead of its turn. Slice 5 is not started.

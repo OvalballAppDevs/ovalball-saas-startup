@@ -30,9 +30,13 @@ Released and production verified on 16 September 2026, commit `774ab9b`.
 
 ## Slice 4C — Fixtures
 
+Released and production verified on 16 September 2026, commit `be4c52b`.
+Production at 454 migrations, tip `20270361000000`, zero schema drift.
+
 | Document | What it is |
 |---|---|
 | `SLICE_4C_IMPLEMENTATION_REPORT.md` | Implementation report for sub-slice 4c, including the direct-insert bypass it closes, its three intended changes and its stated limits |
+| `SLICE_4C_PRODUCTION_RELEASE_REPORT.md` | The production release itself — the three staged steps and the verdict **IDENTITY/AUTH SLICE 4C — PRODUCTION VERIFIED** |
 | `SLICE_4_PROGRAMME_LEDGER.md` | The running programme ledger — scope authority, archaeology, corrections and every checkpoint from 4C onwards. Unlike the slice reports, this one is appended to rather than frozen |
 
 ## Programme state
