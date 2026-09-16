@@ -1,5 +1,20 @@
 # DECISION REQUIRED before Slice 5 — unverifiable age
 
+> **RESOLVED — Option B approved.** Recorded as **D-S5-1** in
+> `IDENTITY_AUTH_DECISION_RECORD.md`, which is now the authority. This document is kept as the
+> record of what was weighed: the four options, their consequences, and the recommendation the owner
+> was choosing between. It is not re-written to match the outcome.
+>
+> The approved decision adds two things beyond Option B as described below: invitation redemption is
+> named explicitly as in scope, and the gate must sit at the **canonical write/transition boundary**
+> so alternate REST, RPC and server-action paths cannot bypass it. The Safeguarding Officer path
+> reuses 4G's existing state machine rather than a second one, preserving D-S4-2.
+>
+> **Slice 5 is not started.**
+
+---
+
+
 This is a restatement for the human review boundary, not a new finding and not a proposal that has
 been implemented. The full technical record is `SECURITY_FOLLOW_UP_unverifiable_age.md`, raised in
 Slice 4B and carried unchanged through 4C–4I and the final closure pass. **Nothing here has been

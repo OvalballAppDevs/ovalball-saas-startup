@@ -1,10 +1,26 @@
-# CROSS-SLICE SECURITY FOLLOW-UP — OWNER TO BE DETERMINED
+# CROSS-SLICE SECURITY FOLLOW-UP — OWNER ASSIGNED: SLICE 5
+
+> **DECIDED.** The product owner approved **Option B** at the Slice 4 closure boundary. It is
+> recorded as **D-S5-1** in `IDENTITY_AUTH_DECISION_RECORD.md`, and the options it was chosen from
+> are in `DECISION_REQUIRED_unknown_age_before_slice_5.md`.
+>
+> In short: gate the sensitive write and transition paths so an identity whose age is unknown or
+> unverified cannot cross a minor-prohibited or safeguarding-sensitive authority boundary. Do not
+> redefine `internal.person_is_minor`, do not make Date of Birth mandatory at signup, do not
+> retroactively revoke anyone, and surface existing affected identities as `NEEDS_ATTENTION`.
+> Invitation redemption is explicitly in scope. **Slice 5 is not started.**
+>
+> Everything below is the original technical record, unchanged. It is what the decision was made
+> from, and the constraints it lists — especially the D-S4-4 warning and the rehearsal requirement —
+> are carried into D-S5-1 verbatim.
+
+---
 
 **Unverifiable age does not trigger the minor prohibition.**
 
 Raised during Identity/Auth Slice 4B (teams and roster). Slice 4B neither introduced
-this nor fixed it. Phase 2 assigns no slice to it, so it is deliberately **not** given an
-arbitrary future owner here.
+this nor fixed it. Phase 2 assigned no slice to it, which is why it was carried without an
+arbitrary owner through 4C–4I; **Slice 5 is now its assigned owner by decision D-S5-1.**
 
 ## Exact current semantics
 

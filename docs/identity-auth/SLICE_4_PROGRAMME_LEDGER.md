@@ -2005,3 +2005,46 @@ battery **4405 passed, 0 failed**. Clean empty rebuild: **474 migrations from em
 **Slice 4 is complete.** No item Phase 2 assigns to Slice 4 remains unfinished.
 `SLICE_4_CLOSURE_AUDIT.md` lists everything still standing with the later owner Phase 2 or a prior
 slice assigned it. **Slice 5 is not started.**
+
+---
+
+# D-S5-1 — unknown age does not establish adulthood (approved at the Slice 4 boundary)
+
+The unverifiable-age finding raised at Slice 4B, carried unchanged through 4C–4I and surfaced in the
+final closure audit, has been **decided**. The product owner approved **Option B**.
+
+The decision, its seven constraints and the Safeguarding Officer path it preserves are recorded in
+`IDENTITY_AUTH_DECISION_RECORD.md`, which is now the authority and the first place to look for any
+locked decision by number. `SECURITY_FOLLOW_UP_unverifiable_age.md` keeps the technical record and
+now names Slice 5 as its owner; `DECISION_REQUIRED_unknown_age_before_slice_5.md` keeps the four
+options as the record of what was weighed.
+
+## What Slice 5 inherits
+
+An identity whose age is unknown or unverified must not cross a minor-prohibited or
+safeguarding-sensitive authority boundary. The gate belongs at the **canonical write and transition
+boundary**, so that alternate REST, RPC and server-action paths cannot go round it — the same
+principle every Slice 4 sub-slice applied when it moved a gate out of a role string and into
+`internal.can`.
+
+Four things it must NOT do, each protecting something that already exists:
+
+* not redefine `internal.person_is_minor` — D-S4-4 reads it for account-picture visibility;
+* not make Date of Birth mandatory at signup — Phase 2 ID-5 stands;
+* not retroactively revoke anyone — existing holders keep working and surface as `NEEDS_ATTENTION`;
+* not build a second Safeguarding Officer state machine — D-S4-2 stands, and Slice 5 calls into 4G's.
+
+The Safeguarding Officer path becomes: email-bound invitation → authenticated matching identity →
+**adult eligibility established** → legitimate ACTIVE club membership → the existing 4G
+PENDING_CONFIRMATION seam → zero Safeguarding Officer authority → AN-6 Ovalball confirmation →
+ACTIVE. Everything from the membership check onwards is already built and production-verified; Slice 5
+adds the front of that sequence and the eligibility gate, and reuses the rest.
+
+## The tripwire
+
+`supabase/tests/roster_authority_matrix.sql` **RA7** pins today's behaviour deliberately. When those
+assertions change, D-S5-1 is being implemented — and constraint 7 applies: rehearse against
+production-shaped data and name exactly which existing identities change state, before any later
+move of the guarantee into the resolver itself.
+
+**Recorded, not implemented. Slice 5 is not started.**
