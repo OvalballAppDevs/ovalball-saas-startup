@@ -325,6 +325,7 @@ SUITES=(
   family_authority_matrix
   family_isolation_matrix
   cross_club_isolation_matrix
+  roster_authority_matrix
   authority_helper_retirement
 )
 

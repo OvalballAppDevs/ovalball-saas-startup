@@ -2,7 +2,8 @@
 --
 --   CI1  the Phase 2 catalogue: 182 designed keys (180 active, the two "RETIRE club key -> site" retired),
 --        plus the two Club Home keys and the two safeguarding keys held at legacy parity until Slice 4g
---   CI2  all 73 pre-Slice 3 keys are accounted for: canonical in place, or retired with a resolution
+--   CI2  all 73 pre-Slice 3 keys are accounted for: canonical in place, retired with a resolution, or
+--        deliberately retired by a later slice (team.view, Slice 4B)
 --   CI3  every legacy key resolves to an active key valid at the scope it is evaluated at
 --   CI4  every active key has its metadata, and no active key is orphaned (in a bundle, or override-only by design)
 --   CI5  names describe actions: domain.resource.action, no vague "admin"/"manage everything" keys
@@ -164,7 +165,9 @@ begin
     'site.seasons.manage','site.system.beta.manage','site.system.release.manage','site.team_catalogue.manage','team.attendance.view',
     'team.community.manage','team.guardians.invite','team.manage','team.news.manage','team.roster.manage','team.training.manage','team.view')
     and (c.status = 'ACTIVE' or exists (select 1 from public.capability_key_map m where m.legacy_key = c.key));
-  perform pg_temp.check(v_n = 73, 'CI2: all 73 pre-Slice 3 keys are canonical or resolvable (' || v_n || ')');
+  -- 72, not 73: Slice 4B retired team.view (AA.3 row 4b). It is DEPRECATED with no adapter row, so a
+  -- stale caller is refused at rule 1 rather than silently answered. The rest stay resolvable until Slice 10.
+  perform pg_temp.check(v_n = 72, 'CI2: 72 of the 73 pre-Slice 3 keys are canonical or resolvable; team.view retired in 4B (' || v_n || ')');
 
   select string_agg(m.legacy_key || '@' || m.legacy_scope, ', ') into v_list
   from public.capability_key_map m join public.capabilities c on c.key = m.capability_key

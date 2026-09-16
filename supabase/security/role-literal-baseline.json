@@ -47,7 +47,7 @@
     "app/(app)/people/pending-invitation-row.tsx": 2,
     "app/(app)/people/person-row.tsx": 2,
     "app/(app)/teams/[teamId]/actions.ts": 1,
-    "app/(app)/teams/[teamId]/page.tsx": 4,
+    "app/(app)/teams/[teamId]/page.tsx": 2,
     "app/(app)/teams/[teamId]/player-requests/page.tsx": 1,
     "app/(app)/teams/[teamId]/team-people.tsx": 2,
     "app/invite/[token]/page.tsx": 1,

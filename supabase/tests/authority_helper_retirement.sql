@@ -33,16 +33,16 @@ $$;
 -- HR1 / HR2 --------------------------------------------------------------------------------------------------
 do $$
 declare
-  -- helper, policy ceiling, function-body ceiling (after Slice 4a)
+  -- helper, policy ceiling, function-body ceiling (after Slice 4B)
   v_ceilings constant text[][] := array[
     ['has_capability', '98', '125'],
-    ['is_site_admin', '125', '160'],
+    ['is_site_admin', '125', '158'],
     ['is_full_site_admin', '15', '46'],
     ['is_club_admin', '23', '25'],
     ['can_manage_club_fixtures', '20', '57'],
     ['can_manage_club_fixtures_or_any_team', '2', '0'],
     ['can_manage_fixture_side', '3', '6'],
-    ['can_manage_team', '9', '29'],
+    ['can_manage_team', '7', '28'],
     ['can_organise_competition', '0', '2'],
     ['can_organise_edition', '8', '1'],
     ['can_manage_document_library', '6', '2'],
@@ -101,7 +101,13 @@ declare
   ];
   v_4a_tables constant text[] := array['players', 'guardians', 'guardian_link_requests', 'guardian_player_permissions',
                                         'player_account_invitations', 'player_duplicate_reviews', 'guardian_invitations'];
+  -- Slice 4b (teams and roster). The gates that decide a roster, and the tables they decide over.
+  v_4b_functions constant text[] := array[
+    'internal.team_people_authority', 'internal.may_resolve_join_request', 'internal.regulatory_context_for_team'
+  ];
+  v_4b_tables constant text[] := array['player_team_memberships', 'team_season_identity'];
   v_legacy constant text := '\m(can_manage_player|may_complete_player_profile|is_site_admin|is_full_site_admin|is_club_admin|has_capability|is_active_player_guardian|is_own_linked_player|can_manage_team|can_manage_club_fixtures|can_manage_club_fixtures_or_any_team)\(';
+  v_legacy_4b constant text := '\m(can_manage_team|is_site_admin|is_full_site_admin|is_club_admin|has_capability|can_manage_club_fixtures|can_manage_club_fixtures_or_any_team|can_manage_player|may_complete_player_profile)\(';
   v_bad text[];
 begin
   select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
@@ -128,6 +134,46 @@ begin
     raise notice 'PASS HR3 every 4a function in the ledger exists (the list is not stale)';
   else
     raise notice 'FAIL HR3 the 4a function list names a function that no longer exists';
+  end if;
+
+  -- Slice 4b -----------------------------------------------------------------------------------------------
+  -- 4b owns the team and roster helpers. It does NOT own is_own_linked_player or
+  -- is_active_player_guardian: those are Slice 4a family helpers, still live under their own HR1 ceilings
+  -- (9/9 and 7/14) and assigned to a later slice. They appear in a roster policy because a player reads
+  -- their own place and a guardian reads their child's, which is family authority answering a family
+  -- question. Rewriting them here would be reaching into 4a's domain rather than migrating 4b's, so the
+  -- 4b check asserts freedom from the helpers 4b is responsible for.
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) = any (v_4b_functions) and f.prosrc ~ v_legacy_4b;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4b functions: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4b functions still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  if (select count(*) filter (where n.nspname || '.' || f.proname = any (v_4b_functions)) from pg_proc f join pg_namespace n on n.oid = f.pronamespace)
+     = cardinality(v_4b_functions) then
+    raise notice 'PASS HR3 every 4b function in the ledger exists (the list is not stale)';
+  else
+    raise notice 'FAIL HR3 the 4b function list names a function that no longer exists';
+  end if;
+
+  select coalesce(array_agg(tablename || '.' || policyname order by 1), '{}') into v_bad
+  from pg_policies
+  where schemaname = 'public' and tablename = any (v_4b_tables)
+    and (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ v_legacy_4b;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4b table policies: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4b table policies still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- The legacy team.view key is retired, not merely unused (Slice 4B, AA.3 row 4b).
+  if not exists (select 1 from public.capability_key_map where legacy_key = 'team.view') then
+    raise notice 'PASS HR3 4b: the legacy team.view adapter row is gone';
+  else
+    raise notice 'FAIL HR3 4b: the legacy team.view adapter row is back';
   end if;
 
   select coalesce(array_agg(tablename || '.' || policyname order by 1), '{}') into v_bad
@@ -175,8 +221,8 @@ end $$;
 -- PG-15 / PG-16 ----------------------------------------------------------------------------------------------
 do $$
 declare
-  v_pg15_ceiling constant int := 140;  -- after Slice 4a (Slice 3: 149); reaches 0 at Slice 7
-  v_pg16_ceiling constant int := 159;  -- after Slice 4a (Slice 3: 162)
+  v_pg15_ceiling constant int := 138;  -- after Slice 4B (4a: 140, Slice 3: 149); reaches 0 at Slice 7
+  v_pg16_ceiling constant int := 157;  -- after Slice 4B (4a: 159, Slice 3: 162)
   v int;
 begin
   select count(*) into v from pg_policies p

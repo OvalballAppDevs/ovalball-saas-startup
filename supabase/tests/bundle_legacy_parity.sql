@@ -5,8 +5,8 @@
 -- out below, row by row, so an accidental loss cannot hide among them.
 --
 --   BP1  the archive of the old defaults is intact (139 rows)
---   BP2  every archived default is in the bundle projection, or is one of the 11 intended removals
---   BP3  the intended removals are exactly those 11
+--   BP2  every archived default is in the bundle projection, or is one of the 17 intended removals
+--   BP3  the intended removals are exactly those 17
 --   BP4  behaviour: a real person holding each legacy role passes has_capability for every retained default
 --   BP5  behaviour: and fails for each intended removal
 --   BP6  the retained additions beyond the J bundles (legacy authority kept) are exactly the three recorded
@@ -146,7 +146,16 @@ insert into intended_removals values
   ('team', 'TEAM_MEMBER', 'team.view', 'J.15: TEAM_MEMBER dropped'),
   ('team', 'TEAM_STAFF', 'approve_fixture_callups', 'AF: call-up approval is club-only'),
   ('team', 'TEAM_STAFF', 'approve_player_dispensations', 'AF: team dispensation approval defaults removed for coaches'),
-  ('team', 'TEAM_STAFF', 'fixture.bulk_edit', 'AF: bulk edit is club-only');
+  ('team', 'TEAM_STAFF', 'fixture.bulk_edit', 'AF: bulk edit is club-only'),
+  -- Slice 4B (AA.3 row 4b) retires the legacy team.view key. Its replacement team.team.view is held by
+  -- every one of these bundles, so nobody loses sight of a team; what goes is the legacy key itself and
+  -- the roster implication it used to carry for the Fixtures Secretary (AI #70).
+  ('club', 'CLUB_ADMIN', 'team.view', 'AA.3 4b: retired in favour of team.team.view'),
+  ('club', 'FIXTURE_SECRETARY', 'team.view', 'AA.3 4b: retired; FS keeps team.team.view and gains no roster (AI #70)'),
+  ('club', 'CLUB_MEMBER', 'team.view', 'AA.3 4b: retired in favour of team.team.view'),
+  ('team', 'CLUB_ADMIN', 'team.view', 'AA.3 4b: retired in favour of team.team.view'),
+  ('team', 'TEAM_STAFF', 'team.view', 'AA.3 4b: retired in favour of team.team.view'),
+  ('team', 'TEAM_MANAGER', 'team.view', 'AA.3 4b: retired in favour of team.team.view');
 
 do $body$
 declare
@@ -165,11 +174,11 @@ begin
   select count(*) into v_n from (
     select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
     except select scope_type, role_key, capability_key from public.role_capability_defaults) x;
-  perform pg_temp.check(v_n = 11 and not exists (
+  perform pg_temp.check(v_n = 17 and not exists (
       select scope_type, role_key, capability_key from intended_removals
       except (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
               except select scope_type, role_key, capability_key from public.role_capability_defaults)),
-    'BP3: the intended removals are exactly the 11 listed (' || v_n || ')');
+    'BP3: the intended removals are exactly the 17 listed (' || v_n || ')');
 
   -- Behaviour, through the enforcement entry point, for a real holder of each legacy role.
   v_club := pg_temp.club('Parity'); v_team := pg_temp.team(v_club);

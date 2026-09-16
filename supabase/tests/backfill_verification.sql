@@ -102,7 +102,7 @@ select pg_temp.zero((select count(*) from public.site_admins sa where sa.profile
   or sa.view_commercial or sa.view_regulatory_content or sa.manage_regulatory_content or sa.view_hub_content or sa.manage_hub_content
   or exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null))), 'F7: no Read Only Site Admin carries an add-on');
 select pg_temp.zero((select count(*) from (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
-  except select scope_type, role_key, capability_key from public.role_capability_defaults) x) - 11, 'F8: legacy role defaults lost only the 11 intended removals (bundle_legacy_parity names them)');
+  except select scope_type, role_key, capability_key from public.role_capability_defaults) x) - 17, 'F8: legacy role defaults lost only the 17 intended removals (bundle_legacy_parity names them)');
 
 -- E. Compatibility for legacy inserts (rolled back)
 do $$

@@ -53,9 +53,9 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   // multi-role account switched into an unrelated club still cannot browse
   // this team -- see app/(app)/people/page.tsx for that leak class.
   const canView =
-    ctx.isSiteAdmin ||
+    ctx.siteCapabilities.includes("site.clubs.view") ||
     (activeClub === team.club_id &&
-      (await hasCapability(supabase, "team.view", "team", { clubId: team.club_id, teamId: team.id })))
+      (await hasCapability(supabase, "team.team.view", "team", { clubId: team.club_id, teamId: team.id })))
   if (!canView) redirect("/teams")
 
   const canManage = ctx.isSiteAdmin || activeManageableClubId(ctx, activeContext) === team.club_id
@@ -70,10 +70,16 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
     ctx.siteCapabilities.includes("site.team_roles.manage") ||
     (await hasCapability(supabase, "people.role.assign_club", "club", { clubId: team.club_id }))
 
+  // The controls behind this flag are ROSTER controls (Archive, Restore, Approve, Decline), and the writes
+  // behind them are refused by internal.team_people_authority, which asks team.roster.manage at the team's
+  // scope or inherited from the club. So this asks exactly that, at both scopes, and the buttons on screen
+  // cannot disagree with the writes behind them. team.team.manage is the wrong question here: it is team
+  // settings (Club Admin and Team Administration), and it would hide the roster from a Team Manager who is
+  // allowed to change it, while also not inheriting to a Club Admin who holds it club-wide.
   const canManagePeople =
-    ctx.isSiteAdmin ||
-    (await hasCapability(supabase, "team.manage", "team", { clubId: team.club_id, teamId: team.id })) ||
-    (await hasCapability(supabase, "club.teams.manage", "club", { clubId: team.club_id }))
+    ctx.siteCapabilities.includes("site.team_roles.manage") ||
+    (await hasCapability(supabase, "team.roster.manage", "team", { clubId: team.club_id, teamId: team.id })) ||
+    (await hasCapability(supabase, "team.roster.manage", "club", { clubId: team.club_id }))
 
   // Team news: the same capability pair the database's publishing adapter
   // resolves (club.news.manage, or team.news.manage for this team). This

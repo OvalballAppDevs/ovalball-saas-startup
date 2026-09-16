@@ -3288,7 +3288,7 @@
           "id",
           "name"
         ],
-        "reason": "Only the venue name, for the public competition schedule (competition_matches → venues(name)). Addresses, directions, coordinates and all other venue fields are not public.",
+        "reason": "Only the venue name, for the public competition schedule (competition_matches \u2192 venues(name)). Addresses, directions, coordinates and all other venue fields are not public.",
         "consumers": [
           "app/competitions/[slug]/page.tsx"
         ]
@@ -8028,9 +8028,9 @@
     "anon_write_policies": "none may admit anonymous callers without an authority helper"
   },
   "known_legacy_bypasses": [
-    "internal.is_site_admin() in RLS and definer functions (Phase 1: 140 policies) — retire in Slice 7 with explicit site capabilities.",
-    "admin_club_overview row gate uses internal.is_site_admin() — replace with site.clubs.view in Slice 7.",
-    "authenticated reads every club_directory column (notes, official_email) because Site Admin pages select * as authenticated — column-restrict when Site Admin reads move to site-capability RPCs (Slice 7).",
+    "internal.is_site_admin() in RLS and definer functions (Phase 1: 140 policies) \u2014 retire in Slice 7 with explicit site capabilities.",
+    "admin_club_overview row gate uses internal.is_site_admin() \u2014 replace with site.clubs.view in Slice 7.",
+    "authenticated reads every club_directory column (notes, official_email) because Site Admin pages select * as authenticated \u2014 column-restrict when Site Admin reads move to site-capability RPCs (Slice 7).",
     "Identity/Auth Slice 3 removed the Site Admin club/team bypass from internal.has_capability; Site Admin authority is site capabilities (K rule 7). Remaining is_site_admin() RLS/function references retire in Slice 7."
   ],
   "append_only_history": {

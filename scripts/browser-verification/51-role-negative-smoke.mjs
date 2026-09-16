@@ -47,6 +47,10 @@ const people = {
   parent: { label: "Parent", email: `${PREFIX}.parent.${TAG}@ovalball.test`, first: "Pat", surname: `Parent ${TAG}` },
   partner: { label: "Co-guardian", email: `${PREFIX}.partner.${TAG}@ovalball.test`, first: "Robin", surname: `Partner ${TAG}` },
   otherParent: { label: "Parent B", email: `${PREFIX}.otherparent.${TAG}@ovalball.test`, first: "Blair", surname: `Otherparent ${TAG}` },
+  // Slice 4B roster distinctions: Team Administration, staff of a DIFFERENT team, staff of a DIFFERENT club.
+  teamAdmin: { label: "Team Administration", email: `${PREFIX}.teamadmin.${TAG}@ovalball.test`, first: "Taylor", surname: `Teamadmin ${TAG}` },
+  otherTeamCoach: { label: "Coach of another team", email: `${PREFIX}.otherteamcoach.${TAG}@ovalball.test`, first: "Jo", surname: `Otherteamcoach ${TAG}` },
+  farAdmin: { label: "Club Admin at another club", email: `${PREFIX}.faradmin.${TAG}@ovalball.test`, first: "Frankie", surname: `Faradmin ${TAG}` },
 }
 
 async function createIdentity(person) {
@@ -67,6 +71,7 @@ function cleanupTag(tag) {
 do $$
 declare
   v_club uuid := (select id from public.clubs where slug = 'uat-slice4neg-${tag}');
+  v_far uuid := (select id from public.clubs where slug = 'uat-slice4negfar-${tag}');
   v_people uuid[] := array(select id from auth.users where email like '${PREFIX}.%.${tag}@ovalball.test');
   v_players uuid[] := array(select id from public.players where surname like '% ${tag}');
   v_records uuid[];
@@ -80,20 +85,25 @@ begin
     || array(select id from public.guardian_link_requests where club_id = v_club or requested_by_user_id = any(v_people))
     || array(select id from public.guardian_player_permissions where player_id = any(v_players))
     || array(select id from public.player_team_memberships where player_id = any(v_players))
-    || array(select id from public.club_directory where normalized_key = 'uat-slice4neg-${tag}');
+    || array(select id from public.teams where club_id = v_far)
+    || array(select id from public.club_memberships where club_id = v_far)
+    || array(select id from public.role_assignments where club_id = v_far)
+    || coalesce(array[v_far], '{}')
+    || array(select id from public.club_directory where normalized_key in ('uat-slice4neg-${tag}', 'uat-slice4negfar-${tag}'));
   delete from public.notifications where user_id = any(v_people);
   delete from public.guardian_player_permissions where player_id = any(v_players);
   delete from public.guardian_link_requests where club_id = v_club or requested_by_user_id = any(v_people);
   delete from public.guardians where player_id = any(v_players);
   delete from public.player_team_memberships where player_id = any(v_players);
   delete from public.players where id = any(v_players);
-  delete from public.role_assignments where club_id = v_club;
-  delete from public.club_memberships where club_id = v_club;
+  delete from public.role_assignments where club_id in (v_club, v_far);
+  delete from public.club_memberships where club_id in (v_club, v_far);
   delete from public.club_setup_state where club_id = v_club;
-  delete from public.teams where club_id = v_club;
-  delete from public.clubs where id = v_club;
-  delete from public.club_directory where normalized_key = 'uat-slice4neg-${tag}';
-  delete from public.security_events where subject_user_id = any(v_people) or actor_user_id = any(v_people) or club_id = v_club or player_id = any(v_players)
+  delete from public.club_setup_state where club_id = v_far;
+  delete from public.teams where club_id in (v_club, v_far);
+  delete from public.clubs where id in (v_club, v_far);
+  delete from public.club_directory where normalized_key in ('uat-slice4neg-${tag}', 'uat-slice4negfar-${tag}');
+  delete from public.security_events where subject_user_id = any(v_people) or actor_user_id = any(v_people) or club_id in (v_club, v_far) or player_id = any(v_players)
     or metadata ->> 'membership_id' in (select unnest(v_records)::text) or metadata ->> 'relationship_id' in (select unnest(v_records)::text);
   delete from public.audit_log where changed_by = any(v_people) or actor_user_id = any(v_people) or record_id = any(v_records);
   delete from public.profiles where id = any(v_people);
@@ -110,7 +120,7 @@ function cleanup() {
       fs.unlinkSync(path.join(os.tmpdir(), "ovalball-uat-sessions", `${person.email.replace(/[^a-z0-9.@-]/gi, "_")}.json`))
     } catch {}
   }
-  const left = one(`select (select count(*) from public.clubs where slug = 'uat-slice4neg-${TAG}') + (select count(*) from auth.users where email like '${PREFIX}.%.${TAG}@ovalball.test')
+  const left = one(`select (select count(*) from public.clubs where slug in ('uat-slice4neg-${TAG}', 'uat-slice4negfar-${TAG}')) + (select count(*) from auth.users where email like '${PREFIX}.%.${TAG}@ovalball.test')
     + (select count(*) from public.players where surname like '% ${TAG}')
     + (select count(*) from public.notifications n join auth.users u on u.id = n.user_id where u.email like '${PREFIX}.%.${TAG}@ovalball.test')`)
   const cacheDir = path.join(os.tmpdir(), "ovalball-uat-sessions")
@@ -249,6 +259,24 @@ sql(`insert into public.player_team_memberships (player_id, team_id, status) val
 insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values
   ('${people.parent.id}', '${ids.charlie}', 'parent', 'active'), ('${people.partner.id}', '${ids.charlie}', 'parent', 'active'),
   ('${people.parent.id}', '${ids.dana}', 'parent', 'active'), ('${people.otherParent.id}', '${ids.olly}', 'parent', 'active');`)
+// Slice 4B: a second team in the same club and a second club entirely, so "wrong team" and "wrong club"
+// are real places a person holds authority, not just absent rows.
+ids.team2 = one(`insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
+  values ('${ids.club}', 'Under 14 Boys', 'uat-slice4neg-u14-${TAG}', 'youth', 'U14', 'boys', 'union', true) returning id`)
+ids.farDirectory = one(`insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('Slice Four Negative Far RUFC ${TAG}', 'Testham', 'Testshire', 'union', 'United Kingdom', 'England', true, 'unverified', 'site_admin_manual', 'uat-slice4negfar-${TAG}') returning id`)
+ids.farClub = one(`insert into public.clubs (directory_id, slug, status) values ('${ids.farDirectory}', 'uat-slice4negfar-${TAG}', 'active') returning id`)
+ids.farTeam = one(`insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
+  values ('${ids.farClub}', 'Under 12 Boys', 'uat-slice4negfar-u12-${TAG}', 'youth', 'U12', 'boys', 'union', true) returning id`)
+sql(`insert into public.club_memberships (club_id, user_id, role, status) values
+  ('${ids.club}', '${people.teamAdmin.id}', 'BASIC_USER', 'active'),
+  ('${ids.club}', '${people.otherTeamCoach.id}', 'BASIC_USER', 'active'),
+  ('${ids.farClub}', '${people.farAdmin.id}', 'CLUB_ADMIN', 'active');
+insert into public.team_permissions (membership_id, team_id, permission)
+  select id, '${ids.team}', 'team_admin' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.teamAdmin.id}';
+insert into public.team_permissions (membership_id, team_id, permission)
+  select id, '${ids.team2}', 'coach' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.otherTeamCoach.id}';`)
+
 ids.parentOnCharlie = one(`select id from public.guardians where guardian_user_id = '${people.parent.id}' and player_id = '${ids.charlie}'`)
 ids.partnerOnCharlie = one(`select id from public.guardians where guardian_user_id = '${people.partner.id}' and player_id = '${ids.charlie}'`)
 
@@ -365,6 +393,36 @@ try {
       authorised: "site",
       state: `select state from public.guardians where id = '${ids.parentOnCharlie}'`,
       changed: (v) => v === "SUSPENDED",
+    })
+  }
+
+  // -------------------------------------------------------------------------
+  // N6. Archiving a player's place in a team (Slice 4B: team.roster.manage).
+  //
+  // Captured from the Team Manager, who holds team.roster.manage at THIS team, and replayed from everyone
+  // else who might plausibly think they hold it: the Coach of the same team (who may read a roster and not
+  // change it), the Coach of ANOTHER team in the same club, the Club Admin of ANOTHER club, the Fixtures
+  // Secretary (AI #70), the Safeguarding Officer, a Volunteer, an ordinary member and the family. Each
+  // refusal is judged on the row's state, not on what the page draws.
+  // -------------------------------------------------------------------------
+  {
+    const { page } = sessions.manager
+    await open(page, `/teams/${ids.team}`)
+    // Team People opens on Coaches; the roster is behind the Players tab.
+    const landed = page.url()
+    const buttons = (await page.locator("button").allTextContents()).map((t) => t.trim()).filter(Boolean)
+    record("N6c the Team Manager reaches the team page and sees the roster tab", /\/teams\/[0-9a-f-]{36}/.test(landed),
+      `url=${landed} buttons=${buttons.slice(0, 10).join("/") || "(none)"}`)
+    // the tab labels carry their counts ("Players2"), so filter on the text rather than the whole name
+    await page.locator("button").filter({ hasText: /^Players/ }).first().click({ timeout: 20000 })
+    const row = page.locator("li", { hasText: "Charlie" }).first()
+    await row.getByRole("button", { name: "Archive" }).waitFor({ timeout: 30000 })
+    const captured = await captureAction(page, () => row.getByRole("button", { name: "Archive" }).click())
+    await negativeSmoke("N6", "archiving a player's place in a team", captured, {
+      refused: ["coach", "otherTeamCoach", "farAdmin", "secretary", "safeguarding", "volunteer", "parent", "partner", "otherParent"],
+      authorised: "manager",
+      state: `select state from public.player_team_memberships where player_id = '${ids.charlie}' and team_id = '${ids.team}'`,
+      changed: (v) => v === "ENDED",
     })
   }
 
