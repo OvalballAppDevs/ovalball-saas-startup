@@ -138,6 +138,27 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_officer_user::text, 'role', 'authenticated', 'email', 'sg-officer-' || v_officer_user::text || '@ovalball.test')::text, true);
   perform public.accept_safeguarding_officer_invitation(v_token2);
 
+  -- SLICE 4G / AN-6. Acceptance now produces a nomination awaiting Ovalball, not an officer. The
+  -- happy path this suite documents therefore has one more step in it, and the step is the point.
+  if exists (select 1 from public.role_assignments
+             where club_id = v_club_a and user_id = v_officer_user and role_key = 'SAFEGUARDING_OFFICER'
+               and state = 'ACTIVE' and confirmation_state = 'PENDING_CONFIRMATION') then
+    raise notice 'PASS AN-6a: acceptance produces a nomination awaiting confirmation, not an appointment';
+  else
+    raise exception 'FAIL AN-6a: acceptance did not land in PENDING_CONFIRMATION';
+  end if;
+  reset role;
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_site_admin::text, 'role', 'authenticated')::text, true);
+  perform public.confirm_safeguarding_officer(
+    (select id from public.role_assignments where club_id = v_club_a and user_id = v_officer_user
+       and role_key = 'SAFEGUARDING_OFFICER' and state = 'ACTIVE'),
+    'foundation suite: confirming the appointment');
+  raise notice 'PASS AN-6b: a Site Admin holding safeguarding.officer.confirm completes the appointment';
+  reset role;
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_officer_user::text, 'role', 'authenticated', 'email', 'sg-officer-' || v_officer_user::text || '@ovalball.test')::text, true);
+
   select * into v_row from public.club_safeguarding_officers where id = v_officer_id;
   if v_row.status = 'active' and v_row.user_id = v_officer_user then
     raise notice 'PASS D/B: accepting the invitation activates the assignment and binds it to the real profiles/auth.users id -- no separate safeguarding_officer_user identity exists anywhere';

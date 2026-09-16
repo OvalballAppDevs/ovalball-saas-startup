@@ -16337,6 +16337,97 @@ export type Database = {
           },
         ]
       }
+      safeguarding_thread_reviews: {
+        Row: {
+          club_id: string
+          conversation_id: string
+          id: string
+          reason: string
+          reviewed_at: string
+          reviewed_by: string
+        }
+        Insert: {
+          club_id: string
+          conversation_id: string
+          id?: string
+          reason: string
+          reviewed_at?: string
+          reviewed_by: string
+        }
+        Update: {
+          club_id?: string
+          conversation_id?: string
+          id?: string
+          reason?: string
+          reviewed_at?: string
+          reviewed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safeguarding_thread_reviews_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "safeguarding_thread_reviews_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "safeguarding_thread_reviews_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "safeguarding_thread_reviews_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "safeguarding_thread_reviews_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "safeguarding_thread_reviews_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "safeguarding_thread_reviews_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "safeguarding_thread_reviews_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "safeguarding_thread_reviews_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "club_safeguarding_officer_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheduling_group_members: {
         Row: {
           group_id: string
@@ -21540,6 +21631,15 @@ export type Database = {
           status: string
         }[]
       }
+      club_safeguarding_contact: {
+        Args: { p_club_id: string }
+        Returns: {
+          contact_email: string
+          contact_name: string
+          officer_type: string
+          reachable_on_ovalball: boolean
+        }[]
+      }
       club_setup_requirements: {
         Args: { p_club_id: string }
         Returns: {
@@ -21617,6 +21717,10 @@ export type Database = {
           p_proposal_id: string
           p_squad_designation?: string
         }
+        Returns: undefined
+      }
+      confirm_safeguarding_officer: {
+        Args: { p_assignment_id: string; p_reason: string }
         Returns: undefined
       }
       copy_regulatory_content_set_to_season: {
@@ -23357,6 +23461,15 @@ export type Database = {
           unread: number
         }[]
       }
+      nominate_club_safeguarding_officer: {
+        Args: {
+          p_club_id: string
+          p_officer_type: string
+          p_reason?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       nominate_safeguarding_officer: {
         Args: {
           p_club_id: string
@@ -23400,6 +23513,18 @@ export type Database = {
       pause_club_trial: {
         Args: { p_club_id: string; p_reason?: string }
         Returns: boolean
+      }
+      pending_safeguarding_nominations: {
+        Args: never
+        Returns: {
+          also_club_admin: boolean
+          assignment_id: string
+          club_id: string
+          club_name: string
+          nominated_at: string
+          officer_type: string
+          person_name: string
+        }[]
       }
       place_graduating_player: {
         Args: { p_queue_id: string; p_target_team_id: string }
@@ -24813,6 +24938,15 @@ export type Database = {
           growth_monthly: Json
         }[]
       }
+      site_safeguarding_review: {
+        Args: { p_conversation_id: string; p_reason: string }
+        Returns: {
+          body: string
+          created_at: string
+          message_id: string
+          sender_user_id: string
+        }[]
+      }
       soft_delete_own_message: {
         Args: { p_message_id: string }
         Returns: undefined
@@ -24840,6 +24974,13 @@ export type Database = {
           p_first_message: string
           p_officer_id: string
         }
+        Returns: {
+          conversation_id: string
+          is_new: boolean
+        }[]
+      }
+      start_safeguarding_conversation: {
+        Args: { p_club_id: string; p_first_message: string }
         Returns: {
           conversation_id: string
           is_new: boolean
@@ -25173,6 +25314,16 @@ export type Database = {
       verify_regulatory_reporting_route: {
         Args: { p_route_id: string }
         Returns: undefined
+      }
+      welfare_member_view: {
+        Args: { p_player_id: string; p_reason: string }
+        Returns: {
+          guardian_contact: string
+          guardian_name: string
+          guardian_state: string
+          player_name: string
+          team_name: string
+        }[]
       }
       withdraw_announcement: {
         Args: { p_announcement_id: string }

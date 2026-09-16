@@ -3312,6 +3312,16 @@
         "write_reason": "Direct application write; RLS write policies decide which rows.",
         "select_reason": "Row access decided by RLS: venue.venue.view at the owning club (Slice 4E, J.9 line 499). Before 4E venues_select was `true`, so every signed-in person read every club's venues in full."
       }
+    },
+    "safeguarding_thread_reviews": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Identity/Auth Slice 4G (AN-9, AI #68/#69). One row each time Ovalball opens a club safeguarding thread through public.site_safeguarding_review, carrying the reason. RLS: the reviewer, the club's CONFIRMED ACTIVE Safeguarding Officers, and holders of site.safeguarding.review. Deliberately NOT the Club Admin -- a review may concern them. No browser write: the RPC is the only writer."
+      }
     }
   },
   "views": {
@@ -4138,6 +4148,11 @@
         ]
       },
       {
+        "signature": "club_safeguarding_contact(uuid)",
+        "reason": "Slice 4G (J.12 line 542): the club's safeguarding contact card -- name, role and contact route -- for anyone holding safeguarding.contact.view, which now includes parents and players of 13 and over.",
+        "consumer": "app/(app)/rugby-hub/safeguarding/contact/page.tsx"
+      },
+      {
         "signature": "club_setup_requirements(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4192,6 +4207,11 @@
         "consumers": [
           "app/(app)/club/rollover/actions.ts"
         ]
+      },
+      {
+        "signature": "confirm_safeguarding_officer(uuid, text)",
+        "reason": "AN-6 (Slice 4G): a Site Admin holding safeguarding.officer.confirm turns a PENDING_CONFIRMATION nomination into a real Safeguarding Officer. Reason required, no self-confirmation, no raw site-admin role check.",
+        "consumer": "app/(app)/admin/safeguarding/actions.ts"
       },
       {
         "signature": "correct_club_rugby_code(uuid, text, text)",
@@ -5302,6 +5322,11 @@
         ]
       },
       {
+        "signature": "nominate_club_safeguarding_officer(uuid, uuid, text, text)",
+        "reason": "Slice 4G (D-S4-2): a Club Admin nominates an EXISTING ACTIVE member of their own club. Lands in PENDING_CONFIRMATION, which grants nothing. A non-member gets the INVITATION_REQUIRED outcome; Slice 5 supplies that path.",
+        "consumer": "app/(app)/club/settings/safeguarding/actions.ts"
+      },
+      {
         "signature": "nominate_safeguarding_officer(uuid, text, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5326,6 +5351,11 @@
         "signature": "pause_club_trial(uuid, text)",
         "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
         "consumers": []
+      },
+      {
+        "signature": "pending_safeguarding_nominations()",
+        "reason": "AN-6 (Slice 4G): the queue of Safeguarding Officer nominations awaiting Ovalball, for whoever holds safeguarding.officer.confirm. Gated inside the function; returns nothing to anybody else. Exists so the Site Admin page does not filter role_assignments by role-key literals.",
+        "consumer": "app/(app)/admin/safeguarding/page.tsx"
       },
       {
         "signature": "place_graduating_player(uuid, uuid)",
@@ -6537,6 +6567,11 @@
         ]
       },
       {
+        "signature": "site_safeguarding_review(uuid, text)",
+        "reason": "AN-9 / AI #68-69 (Slice 4G): the only route by which Ovalball reads a club safeguarding thread. site.safeguarding.review, a required reason, one event, and a review row the club's officers can see.",
+        "consumer": "app/(app)/admin/safeguarding/actions.ts"
+      },
+      {
         "signature": "soft_delete_own_message(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6572,6 +6607,11 @@
           "app/(app)/club/settings/safeguarding/actions.ts",
           "app/(app)/rugby-hub/actions.ts"
         ]
+      },
+      {
+        "signature": "start_safeguarding_conversation(uuid, text)",
+        "reason": "Slice 4G (J.12 line 545): open a safeguarding thread with the club's confirmed officers without having to choose one.",
+        "consumer": "app/(app)/rugby-hub/safeguarding/contact/page.tsx"
       },
       {
         "signature": "store_gocardless_connection(uuid, text, text, text, text)",
@@ -6847,6 +6887,11 @@
         "consumers": []
       },
       {
+        "signature": "welfare_member_view(uuid, text)",
+        "reason": "Slice 4G (J.12 line 549): a Safeguarding Officer's welfare lookup, with a required reason and a safeguarding.welfare_viewed event.",
+        "consumer": "app/(app)/club/settings/safeguarding/actions.ts"
+      },
+      {
         "signature": "withdraw_announcement(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7035,6 +7080,7 @@
     ],
     "authenticated_internal": [
       "account_avatar_owner(text)",
+      "active_safeguarding_officer_ids(uuid)",
       "administered_guardian_player_ids()",
       "advance_competition_knockout(uuid)",
       "age_fixture_band(text)",
@@ -7230,6 +7276,7 @@
       "rollover_identity_plan(uuid)",
       "rollover_planned_team_for(uuid, uuid, text)",
       "rollover_team_target_identity(uuid, uuid)",
+      "safeguarding_dispensation_team_ids()",
       "season_phase(uuid, date)",
       "sender_identity_label(text, uuid, uuid)",
       "session_ok()",

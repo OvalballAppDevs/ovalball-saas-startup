@@ -185,6 +185,63 @@ begin
     raise notice 'FAIL 13 (D): user=% status=%', v_uuid, v_text;
   end if;
 
+  -- SLICE 4G / AN-6. Acceptance no longer appoints anybody. The assignment is in
+  -- PENDING_CONFIRMATION and confers nothing, and the checks below that used to run straight after
+  -- acceptance now have a confirmation step in front of them -- which is the whole point of the
+  -- decision, so the pending state is asserted here rather than stepped over.
+  if exists (select 1 from public.role_assignments
+             where club_id = v_club_a and user_id = v_officer and role_key = 'SAFEGUARDING_OFFICER'
+               and state = 'ACTIVE' and confirmation_state = 'PENDING_CONFIRMATION') then
+    raise notice 'PASS 13b (AN-6): acceptance lands in PENDING_CONFIRMATION, not in the role';
+  else
+    raise notice 'FAIL 13b (AN-6): acceptance did not produce a pending nomination';
+  end if;
+  if not (internal.capability_decision(v_officer, 'safeguarding.conversation.handle', 'club', v_club_a, null, null, false, false)).allowed
+     and not (internal.capability_decision(v_officer, 'safeguarding.dispensation.view', 'club', v_club_a, null, null, false, false)).allowed then
+    raise notice 'PASS 13c (AN-6): a pending nomination holds no Safeguarding Officer capability at all';
+  else
+    raise notice 'FAIL 13c (AN-6): a pending nomination already holds Safeguarding Officer authority';
+  end if;
+
+  -- The Club Admin who nominated them cannot finish the job, however much authority they have in
+  -- their own club: AN-6 is an outside check or it is nothing.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin_a, 'role','authenticated', 'email','sgadmina@ovalball-test.invalid')::text, true);
+  begin
+    perform public.confirm_safeguarding_officer(
+      (select id from public.role_assignments where club_id = v_club_a and user_id = v_officer and role_key = 'SAFEGUARDING_OFFICER' and state = 'ACTIVE'),
+      'club admin trying to confirm');
+    raise notice 'FAIL 13d (AN-6): the nominating Club Admin confirmed their own nominee';
+  exception when others then
+    raise notice 'PASS 13d (AN-6): the nominating Club Admin cannot confirm -- Club Admin is not the authority';
+  end;
+
+  -- The nominee cannot confirm themselves either.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_officer, 'role','authenticated', 'email','sgofficer@ovalball-test.invalid')::text, true);
+  begin
+    perform public.confirm_safeguarding_officer(
+      (select id from public.role_assignments where club_id = v_club_a and user_id = v_officer and role_key = 'SAFEGUARDING_OFFICER' and state = 'ACTIVE'),
+      'confirming myself');
+    raise notice 'FAIL 13e (AN-6): the nominee confirmed their own appointment';
+  exception when others then
+    raise notice 'PASS 13e (AN-6): no self-confirmation';
+  end;
+
+  -- Ovalball confirms, with the canonical site capability and a reason.
+  insert into public.site_admins (user_id, status, admin_role) values (v_site, 'active', 'full')
+    on conflict (user_id) do update set status = 'active', admin_role = 'full';
+  perform set_config('request.jwt.claims', json_build_object('sub', v_site, 'role','authenticated', 'email','sgsite@ovalball-test.invalid')::text, true);
+  perform public.confirm_safeguarding_officer(
+    (select id from public.role_assignments where club_id = v_club_a and user_id = v_officer and role_key = 'SAFEGUARDING_OFFICER' and state = 'ACTIVE'),
+    'security suite: confirming the appointment');
+  if exists (select 1 from public.role_assignments
+             where club_id = v_club_a and user_id = v_officer and role_key = 'SAFEGUARDING_OFFICER'
+               and state = 'ACTIVE' and confirmation_state = 'CONFIRMED' and confirmed_by = v_site) then
+    raise notice 'PASS 13f (AN-6): the canonical site capability confirms, and who confirmed is recorded';
+  else
+    raise notice 'FAIL 13f (AN-6): confirmation did not take';
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_officer, 'role','authenticated', 'email','sgofficer@ovalball-test.invalid')::text, true);
+
   select count(*) into v_count from public.profiles where email = 'sgofficer@ovalball-test.invalid';
   if v_count = 1 then
     raise notice 'PASS 14 (D): acceptance created no second person';

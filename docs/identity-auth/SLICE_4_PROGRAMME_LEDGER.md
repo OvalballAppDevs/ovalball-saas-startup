@@ -1442,3 +1442,151 @@ both of which are prohibited. `SLICE_4F_PRODUCTION_RELEASE_REPORT.md` states tha
 implying coverage that does not exist.
 
 **Slice 4F is complete. 4G is not started. Slice 5 is not started.**
+
+# 4G ARCHAEOLOGY, IMPLEMENTATION AND VERIFICATION (recorded at ledger 497)
+
+AA.3 row 4g retires **per-officer override dependence and the Site Admin thread read**, extends
+`safeguarding_officer_security`, and owns `player_team_dispensation_select`. Design J.12 lines 541-553
+holds the thirteen keys; all thirteen already existed ACTIVE with exactly the bundles J.12 specifies,
+so **4G adds no capability and changes no bundle**. It carries section T's Appointment and Lifecycle,
+AN-6, AN-9, AI #68/#69, dispensation separation of duties, guardian notification, and the transitional
+`club.safeguarding.view/message` Slice 3 kept at legacy parity "until 4g".
+
+## What was actually wrong
+
+`internal.grant_role` wrote `confirmation_state = 'CONFIRMED'` the instant a SAFEGUARDING_OFFICER
+assignment was created, and `public.accept_safeguarding_officer_invitation` called it with the comment
+*"The club's nomination and the officer's own email-bound acceptance are the confirmation."* A club
+could appoint its own Safeguarding Officer end to end with no Ovalball involvement at any point. AN-6
+says the opposite, and nothing in the database disagreed with the comment.
+
+The rest followed from the same root: officer identity came from `club_safeguarding_officers.user_id`
+and `status = 'active'` — a table a Club Admin writes — and thread access from the `officer_user_id`
+named on the row. Neither asks whether an appointment was ever confirmed.
+
+| named legacy item | where it actually was |
+|---|---|
+| per-officer override dependence | `internal.notify_club_safeguarding_officers` read the contact table; `can_view/send_safeguarding_conversation` read `officer_user_id` |
+| Site Admin thread read | `internal.can_view_safeguarding_conversation` opened with `internal.is_site_admin()`, plus three RLS policies |
+
+## The state machine, and the seam
+
+```
+nomination → state ACTIVE, confirmation_state PENDING_CONFIRMATION   -- ZERO authority
+AN-6       → confirmation_state CONFIRMED                            -- the role becomes real
+deactivate → state REVOKED                                           -- authority ends, threads transfer
+```
+
+PENDING_CONFIRMATION conferring nothing did not have to be built: Slice 3's `internal.bundle_source`
+already carried `(role_key <> 'SAFEGUARDING_OFFICER' or confirmation_state = 'CONFIRMED')` at club,
+team and self scope. What was missing was anything that ever put an assignment **into**
+PENDING_CONFIRMATION.
+
+`internal.enter_safeguarding_nomination` is the one way in, and the seam Slice 5 will call after it
+admits a redeemer. Every rule that must survive redemption lives there: ACTIVE membership **of this
+club**, proved from the database; the account active and not a minor; PENDING, SUSPENDED, REVOKED,
+DECLINED and EXPIRED all refused by name; idempotent for a pending nomination. No browser role can
+execute it.
+
+## D-S4-2, honoured exactly
+
+No invitation table, token, code or redemption RPC was created. The pre-existing
+`club_safeguarding_officer_invitations` machinery is left alone and **not extended** — it is Slice 5's
+to unify — with two changes and no more: its administration gates became canonical, and acceptance now
+enters the same state machine instead of granting the role outright. 4G's own nomination targets an
+existing ACTIVE member and returns `INVITATION_REQUIRED` for anybody else, naming Slice 5 as the path.
+
+## Eight defects the gates found
+
+| # | defect | found by |
+|---|---|---|
+| A | AN-6 was unreachable: nomination confirmed itself | archaeology against section T |
+| B | the person who raised a safeguarding thread **could not reply in it** — the transitional key was Club Admin only | the shadow comparison |
+| C | `safeguarding.dispensation.view` was never implemented; an officer could not see the dispensations J.12 line 547 gives them | the matrix |
+| D | dispensation separation of duties was not enforced anywhere: the requester could approve their own request | section T against the RPC |
+| E | a security event emitted immediately before a `raise` is rolled back with it — an audit line that recorded nothing | the matrix asserting the event existed |
+| F | three-segment event-type names, refused by the catalogue's own constraint | `internal.emit_security_event` validating its input |
+| G | the app still asked all three retired keys, so the club-settings safeguarding tab would have vanished | the compatibility proof, not the test suite |
+| H | the Site Admin page filtered `role_assignments` by role-key literals | the role-literal guard |
+
+Defect E is the one worth keeping: the honest resolution was to **remove** the line and assert that
+refusals are not claimed to be audited, rather than leave code that reads like an audit trail and is not.
+
+## Performance
+
+`EXPLAIN (ANALYZE)` on 200 dispensations, with the pre-4G policy restored in-transaction for a
+like-for-like comparison:
+
+| read | pre-4G | 4G |
+|---|---|---|
+| dispensations as the **Club Admin** (the read that already existed) | ~35 ms | **~30 ms** |
+| dispensations as the **Safeguarding Officer** | ~118 ms, **0 rows** | **~1 ms**, 200 rows |
+| one 300-message safeguarding thread | — | 45 ms |
+| thread reviews, 40 | — | 0.5 ms |
+
+The officer's read was 110 ms until the safeguarding term was hoisted into an uncorrelated subquery
+and moved to the front of the policy: the time was in `can_manage_team` and `can_manage_club_fixtures`
+running once per row and answering no, before the term that says yes was ever reached.
+
+## Mutation testing
+
+Twelve mutants, **twelve killed, no survivors**, over two rounds. Three survived the first:
+
+- **M2** (self-confirmation allowed): every persona tested was refused by the *capability* check first, so the self-confirmation rule was never the deciding one. It needed a Full Site Admin who is also a member of the club and is the nominee.
+- **M4** and **M5** (the seam's membership and wrong-club checks deleted): both were shadowed by `public.nominate_club_safeguarding_officer` doing its own checks first. Slice 5 does not inherit the RPC — it inherits the seam — so the seam's rules are now asserted on the seam.
+
+## The gates
+
+| gate | result |
+|---|---|
+| `safeguarding_authority_matrix.sql` | **115 assertions**, SA-A … SA-P, deterministic and self-seeding |
+| `safeguarding_officer_security.sql` | extended to 36 (AA.3 row 4g) |
+| `safeguarding_officer_foundation`, `..._dispensation_notifications` | 24 and 8, both updated for AN-6 |
+| `safeguarding_authority_races.test.mts` | 4 passed, three times, real concurrent sessions |
+| browser suite 57 | 27/27 |
+| shared harness, suite 51 | extended with N12a-e; 30/30 |
+| full banking battery | **4187 passed, 0 failed across 205 suites** |
+| clean empty-database rebuild | 465 migrations from empty; 16 suites, 902 assertions; perimeter 11/11 |
+| production-shaped rehearsal | 462 → 465 one at a time, each dry-run first; **the existing officer untouched**; only data delta `audit` +8 |
+| compatibility matrix | 7/7 |
+
+## Release ordering, DERIVED
+
+The new build requires seven objects this slice creates. The previous build's nominate, invite and
+accept RPCs all still work, and acceptance now lands PENDING_CONFIRMATION — fail-closed: a person ends
+up holding **less**, never more. The one real window effect is measured and stated: for the length of
+the deploy the previous build's club-settings safeguarding tab does not appear, because it asks three
+keys the migration retires. Nothing is granted and nothing is lost.
+
+**Migrations first, then push.**
+
+## Retirement, after 4G
+
+| helper | policies | bodies |
+|---|---|---|
+| `has_capability` | 88 (was 90) | 90 (was 99) |
+| `is_site_admin` | 109 (was 113) | 122 (was 125) |
+
+PG-15 **128 → 124**, PG-16 **124 → 121**. The three `club.safeguarding.*` adapter rows are retired and
+the two transitional capabilities are DEPRECATED rather than deleted, because a key that has ever been
+granted is part of the record of what somebody once held.
+
+## §9 unknown-age check for 4G
+
+Does 4G make staff or safeguarding authority reachable through an identity whose age cannot be
+established? **No — and it narrows it.**
+
+`internal.person_is_minor` answers false when it has no date of birth, so an unknown-age identity
+passes the minor prohibition on SAFEGUARDING_OFFICER. That is **already true today** through
+`accept_safeguarding_officer_invitation` → `grant_role`, and it is the programme's carried follow-up,
+not this slice's to solve — 4G leaves that helper untouched and invents no age policy. What 4G changes
+is that such a person can no longer become an active officer at all without a named human at Ovalball
+confirming them, where before the club's own acceptance was enough. SA-M1-M4 pin both halves.
+
+## Carried, deliberately, and named so it is not mistaken for an oversight
+
+| carried | why | owner |
+|---|---|---|
+| `internal.is_club_admin` in the dispensation club and governing-body stages | section T says "the club stage needs CA", which is what that helper says | **4H** |
+| `internal.person_is_minor` treating an unknown date of birth as adult | pre-existing, not made newly reachable by 4G | the unknown-age follow-up |
+| `club_safeguarding_officer_invitations`, its token and its four RPCs | unified invitation redemption | **Slice 5 (D-S4-2)** |

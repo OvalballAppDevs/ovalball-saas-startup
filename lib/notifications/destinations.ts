@@ -154,6 +154,22 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "club_invitation_accepted":
     case "safeguarding_officer_invitation_accepted":
       return "/people"
+
+    // ---- Safeguarding appointments and threads (Slice 4G) ----------------
+    // A confirmed appointment, transferred threads and a club left without an officer are all things
+    // the club's safeguarding page is for. A review by Ovalball belongs there too: it is the page
+    // where the officer sees "Reviewed by Ovalball on ...".
+    case "safeguarding_officer_confirmed":
+    case "safeguarding_thread_reviewed":
+    case "safeguarding_threads_transferred":
+    case "safeguarding_threads_unattended":
+      return "/club/settings/safeguarding"
+
+    // A guardian being told about their own child's call-up or age-grade approval is not a club
+    // administration notice -- it goes where the parent already looks after their children.
+    case "safeguarding_guardian_call_up":
+    case "safeguarding_guardian_dispensation":
+      return "/parent/children"
     case "add_child_approved":
     case "add_child_declined":
     case "club_join_approved":

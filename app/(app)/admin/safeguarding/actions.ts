@@ -64,3 +64,30 @@ export async function setSafeguardingCapability(
   revalidatePath("/admin/safeguarding")
   return { ok: true }
 }
+
+/**
+ * AN-6 (Identity/Auth Slice 4G). A club nominates its Safeguarding Officer; Ovalball decides whether
+ * the appointment becomes real. Until this runs the nomination sits in PENDING_CONFIRMATION and
+ * confers nothing at all — not the thread, not the dispensation view, not the welfare record.
+ *
+ * The reason is required by the database, not by this form, and it is recorded on the assignment and
+ * on a safeguarding.officer_confirmed security event. The database also refuses self-confirmation,
+ * so a Site Admin who is themselves the nominee is turned away here as anywhere else.
+ */
+export async function confirmSafeguardingOfficer(assignmentId: string, reason: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const auth = await requireSiteAdmin(supabase)
+  if (!auth.ok) return { ok: false, error: auth.error }
+
+  const trimmed = reason.trim()
+  if (trimmed.length === 0) return { ok: false, error: "Say briefly why you are confirming this appointment." }
+  if (trimmed.length > 500) return { ok: false, error: "That's too long — a sentence or two is enough." }
+
+  const { error } = await supabase.rpc("confirm_safeguarding_officer", {
+    p_assignment_id: assignmentId,
+    p_reason: trimmed,
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/admin/safeguarding")
+  return { ok: true }
+}

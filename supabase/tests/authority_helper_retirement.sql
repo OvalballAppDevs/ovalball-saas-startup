@@ -33,10 +33,10 @@ $$;
 -- HR1 / HR2 --------------------------------------------------------------------------------------------------
 do $$
 declare
-  -- helper, policy ceiling, function-body ceiling (after Slice 4F)
+  -- helper, policy ceiling, function-body ceiling (after Slice 4G)
   v_ceilings constant text[][] := array[
-    ['has_capability', '90', '99'],
-    ['is_site_admin', '113', '125'],
+    ['has_capability', '88', '90'],
+    ['is_site_admin', '109', '122'],
     ['is_full_site_admin', '15', '39'],
     ['is_club_admin', '23', '20'],
     ['can_manage_club_fixtures', '12', '27'],
@@ -144,6 +144,26 @@ declare
   ];
   v_4c_tables constant text[] := array['fixtures', 'fixture_requests', 'fixture_request_groups',
                                         'fixture_result_submissions', 'fixture_player_call_up'];
+  -- Slice 4g (safeguarding and dispensations). The gates that decide an appointment, a safeguarding
+  -- thread, a welfare record and a dispensation, and the tables they decide over. The two legacy items
+  -- AA.3 row 4g names are the per-officer override dependence -- officer identity read off a table a
+  -- Club Admin writes -- and the Site Admin thread read.
+  v_4g_functions constant text[] := array[
+    'internal.active_safeguarding_officer_ids', 'internal.is_active_safeguarding_officer',
+    'internal.enter_safeguarding_nomination', 'internal.can_view_safeguarding_conversation',
+    'internal.can_send_safeguarding_conversation', 'internal.notify_club_safeguarding_officers',
+    'public.confirm_safeguarding_officer', 'public.nominate_club_safeguarding_officer',
+    'public.pending_safeguarding_nominations', 'public.site_safeguarding_review',
+    'public.welfare_member_view', 'public.club_safeguarding_contact',
+    'public.start_safeguarding_conversation', 'public.get_club_safeguarding_officers',
+    'public.update_safeguarding_officer_contact', 'public.deactivate_safeguarding_officer',
+    'public.start_or_get_safeguarding_officer_conversation'
+  ];
+  v_4g_tables constant text[] := array['club_safeguarding_officers', 'club_safeguarding_officer_conversations',
+                                        'club_safeguarding_officer_invitations', 'safeguarding_thread_reviews'];
+  -- is_club_admin is NOT in this list, and its absence is deliberate: the club stage of a dispensation
+  -- needs a Club Admin, which is what that helper says, and AA.3 row 4h owns retiring it.
+  v_legacy_4g constant text := '\m(is_site_admin|is_full_site_admin|has_capability|can_manage_team|can_manage_club_fixtures|staffs_team|is_messaging_staff)\(';
   -- Slice 4f (messaging and notifications). The gates that decide who may open, read, write, moderate
   -- or report a conversation, and the tables they decide over. The family branches inside
   -- can_view_team_conversation / can_send_team_conversation still ask Slice 4a's helpers, because
@@ -467,6 +487,63 @@ begin
     raise notice 'FAIL HR3 4f: a team.community.manage legacy adapter row is back';
   end if;
 
+  -- Slice 4g -----------------------------------------------------------------------------------------------
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) = any (v_4g_functions) and f.prosrc ~ v_legacy_4g;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4g functions: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4g functions still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  if (select count(*) filter (where n.nspname || '.' || f.proname = any (v_4g_functions)) from pg_proc f join pg_namespace n on n.oid = f.pronamespace)
+     = cardinality(v_4g_functions) then
+    raise notice 'PASS HR3 every 4g function in the ledger exists (the list is not stale)';
+  else
+    raise notice 'FAIL HR3 the 4g function list names a function that no longer exists';
+  end if;
+
+  select coalesce(array_agg(tablename || '.' || policyname order by 1), '{}') into v_bad
+  from pg_policies
+  where schemaname = 'public' and tablename = any (v_4g_tables)
+    and (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ v_legacy_4g;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4g table policies: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4g table policies still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- AA.3 row 4g retires the transitional club.safeguarding.* keys Slice 3 kept "until 4g".
+  if not exists (select 1 from public.capability_key_map where legacy_key like 'club.safeguarding.%') then
+    raise notice 'PASS HR3 4g: the transitional club.safeguarding.* adapter rows are gone';
+  else
+    raise notice 'FAIL HR3 4g: a transitional club.safeguarding adapter row is back';
+  end if;
+
+  -- THE PER-OFFICER OVERRIDE DEPENDENCE, retired. Officer identity used to come from
+  -- club_safeguarding_officers.user_id / status; it now comes from an ACTIVE CONFIRMED assignment.
+  -- Naming the columns is what makes this a real check rather than a restatement of the one above.
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) in (
+      'internal.can_view_safeguarding_conversation', 'internal.can_send_safeguarding_conversation',
+      'internal.notify_club_safeguarding_officers')
+    and f.prosrc ~ 'club_safeguarding_officers';
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4g: no safeguarding gate reads officer identity from the contact table';
+  else
+    raise notice 'FAIL HR3 4g: a safeguarding gate still reads the contact table: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- AN-6, structurally: nothing may enter a Safeguarding Officer assignment already confirmed.
+  if (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'internal' and p.proname = 'grant_role') ~ 'PENDING_CONFIRMATION' then
+    raise notice 'PASS HR3 4g: a nomination enters PENDING_CONFIRMATION, so AN-6 is reachable';
+  else
+    raise notice 'FAIL HR3 4g: grant_role no longer enters a Safeguarding Officer pending';
+  end if;
+
   -- The legacy team.view key is retired, not merely unused (Slice 4B, AA.3 row 4b).
   if not exists (select 1 from public.capability_key_map where legacy_key = 'team.view') then
     raise notice 'PASS HR3 4b: the legacy team.view adapter row is gone';
@@ -519,8 +596,8 @@ end $$;
 -- PG-15 / PG-16 ----------------------------------------------------------------------------------------------
 do $$
 declare
-  v_pg15_ceiling constant int := 128;  -- after Slice 4F (4e: 130, 4d: 130, 4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
-  v_pg16_ceiling constant int := 124;  -- after Slice 4F (4e: 135, 4d: 143, 4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
+  v_pg15_ceiling constant int := 124;  -- after Slice 4G (4f: 128, 4e: 130, 4d: 130, 4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
+  v_pg16_ceiling constant int := 121;  -- after Slice 4G (4f: 124, 4e: 135, 4d: 143, 4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
   v int;
 begin
   select count(*) into v from pg_policies p

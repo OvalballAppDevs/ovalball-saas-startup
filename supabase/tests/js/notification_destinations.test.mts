@@ -108,6 +108,14 @@ const matrix: Row[] = [
   ["club_claim_rejected", {}, "/dashboard"],
   ["club_invitation_accepted", {}, "/people"],
   ["safeguarding_officer_invitation_accepted", {}, "/people"],
+
+  // ---- Safeguarding appointments and threads (Slice 4G) ----------------
+  ["safeguarding_officer_confirmed", {}, "/club/settings/safeguarding"],
+  ["safeguarding_thread_reviewed", {}, "/club/settings/safeguarding"],
+  ["safeguarding_threads_transferred", {}, "/club/settings/safeguarding"],
+  ["safeguarding_threads_unattended", {}, "/club/settings/safeguarding"],
+  ["safeguarding_guardian_call_up", {}, "/parent/children"],
+  ["safeguarding_guardian_dispensation", {}, "/parent/children"],
   ["add_child_approved", {}, "/parent/children"],
   ["add_child_declined", {}, "/parent/children"],
   ["club_join_approved", {}, "/parent/children"],

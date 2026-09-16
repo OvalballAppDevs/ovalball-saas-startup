@@ -87,9 +87,49 @@ async function resolveOfficerDispatch(officerId: string) {
   }
 }
 
+export type NominationResult =
+  | { ok: true; outcome: "PENDING_CONFIRMATION"; assignmentId: string }
+  | { ok: true; outcome: "INVITATION_REQUIRED"; reason: string }
+  | { ok: false; error: string }
+
+/**
+ * Identity/Auth Slice 4G, under decision D-S4-2: nominate somebody who is ALREADY an active member of
+ * this club. That is the whole of what 4G can do, and deliberately so — the person has an account and
+ * a membership Ovalball can see, so nothing has to be invited, tokenised or redeemed to reach them.
+ *
+ * Anybody else — including an active member of a different club — comes back INVITATION_REQUIRED. It
+ * is not an error and should not read as one: it is the honest answer that Ovalball has no email
+ * invitation path into this state machine yet. Slice 5 supplies it, and will enter the SAME state
+ * machine at the SAME PENDING_CONFIRMATION step.
+ *
+ * Nothing here appoints anybody. The nomination confers no safeguarding authority whatsoever until a
+ * Site Admin confirms it (AN-6).
+ */
+export async function nominateClubSafeguardingOfficer(
+  clubId: string,
+  userId: string,
+  officerType: "primary" | "deputy",
+  reason?: string
+): Promise<NominationResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("nominate_club_safeguarding_officer", {
+    p_club_id: clubId,
+    p_user_id: userId,
+    p_officer_type: officerType,
+    p_reason: reason ?? undefined,
+  })
+  if (error) return { ok: false, error: error.message }
+  const result = (data ?? {}) as { outcome?: string; assignment_id?: string; reason?: string }
+  revalidatePath("/club/settings/safeguarding")
+  if (result.outcome === "INVITATION_REQUIRED") {
+    return { ok: true, outcome: "INVITATION_REQUIRED", reason: result.reason ?? "That person is not a member of this club." }
+  }
+  return { ok: true, outcome: "PENDING_CONFIRMATION", assignmentId: result.assignment_id ?? "" }
+}
+
 /**
  * Creates the CONTACT record only -- RLS/RPC (nominate_safeguarding_officer,
- * gated on club.safeguarding.manage_contact) is the real boundary. Grants
+ * gated on safeguarding.officer.nominate) is the real boundary. Grants
  * nothing by itself: status starts 'not_invited' (spec section 5/8).
  */
 export async function nominateSafeguardingOfficer(

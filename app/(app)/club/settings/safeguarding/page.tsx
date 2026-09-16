@@ -14,12 +14,15 @@ import { OfficerRow, type OfficerData } from "./officer-row"
 export const metadata = { title: "Safeguarding | Club Settings" }
 
 /**
- * Safeguarding Officer Foundation -- Club Admin area. Gated on
- * club.safeguarding.view (read) with club.safeguarding.manage_contact
- * (nominate/invite/edit/deactivate) and club.safeguarding.message
- * (message action) independently checked, matching this page family's
- * own established convention of independent booleans per action rather
- * than one combined flag.
+ * Safeguarding Officer Foundation -- Club Admin area. Identity/Auth Slice 4G retired the three
+ * transitional club.safeguarding.* keys this page used to ask (AA.3 row 4g), so it now asks the
+ * canonical ones: safeguarding.officer.nominate to reach the page and to nominate, invite, edit or
+ * deactivate, and safeguarding.conversation.start to message the officer. They are still checked
+ * independently, matching this page family's convention of a boolean per action rather than one
+ * combined flag.
+ *
+ * Nothing on this page appoints anybody any more. A nomination enters PENDING_CONFIRMATION and
+ * confers nothing until Ovalball confirms it (AN-6).
  */
 export default async function SafeguardingOfficerPage() {
   const supabase = await createClient()
@@ -38,8 +41,8 @@ export default async function SafeguardingOfficerPage() {
   if (!clubId || !canView) redirect("/club/settings")
 
   const [canManageContact, canMessage] = await Promise.all([
-    hasCapability(supabase, "club.safeguarding.manage_contact", "club", { clubId }),
-    hasCapability(supabase, "club.safeguarding.message", "club", { clubId }),
+    hasCapability(supabase, "safeguarding.officer.nominate", "club", { clubId }),
+    hasCapability(supabase, "safeguarding.conversation.start", "club", { clubId }),
   ])
 
   const { data: officerRows } = await supabase.rpc("get_club_safeguarding_officers", { p_club_id: clubId })

@@ -590,6 +590,61 @@ try {
     sql(`delete from public.fixture_messages where id = '${messageId}'`)
   }
 
+  // N12. Appointing a Safeguarding Officer (Slice 4G: AN-6).
+  //
+  // The decision AN-6 exists for is that a club cannot appoint its own Safeguarding Officer end to
+  // end. Before 4G it could: nomination plus the nominee's own acceptance was treated as the
+  // confirmation. So this checks the two halves that matter from the product, at the RPC, which is
+  // where the boundary is: the nomination grants nothing, and the people who should not be able to
+  // finish it cannot -- including the Club Admin who started it.
+  // -------------------------------------------------------------------------
+  {
+    const rpcAs = async (key, fn, body) => {
+      const token = await accessTokenOf(sessions[key].context)
+      const res = await fetch(`${API}/rest/v1/rpc/${fn}`, {
+        method: "POST",
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      return { ok: res.ok, body: await res.text() }
+    }
+
+    const nominated = await rpcAs("admin", "nominate_club_safeguarding_officer", {
+      p_club_id: ids.club, p_user_id: people.volunteer.id, p_officer_type: "deputy", p_reason: `slice4g replay ${TAG}`,
+    })
+    const assignmentId = one(`select id from public.role_assignments
+      where club_id = '${ids.club}' and user_id = '${people.volunteer.id}' and role_key = 'SAFEGUARDING_OFFICER' and state = 'ACTIVE'`)
+    const pending = one(`select coalesce(confirmation_state,'-') from public.role_assignments where id = '${assignmentId}'`)
+    record("N12a a Club Admin nominates an existing member, and it lands PENDING_CONFIRMATION",
+      nominated.ok && pending === "PENDING_CONFIRMATION", `ok=${nominated.ok} state=${pending} ${nominated.body.slice(0, 160)}`)
+
+    // The nomination must grant nothing. Asked of the database, for the capability that matters most.
+    const holds = one(`select (internal.capability_decision('${people.volunteer.id}','safeguarding.conversation.handle','club','${ids.club}',null,null,false,false)).allowed`)
+    record("N12b and it grants no Safeguarding Officer authority at all", holds === "f", `handle=${holds}`)
+
+    const leaked = []
+    for (const key of ["admin", "safeguarding", "secretary", "manager", "teamAdmin", "coach", "volunteer", "parent"]) {
+      const r = await rpcAs(key, "confirm_safeguarding_officer", { p_assignment_id: assignmentId, p_reason: `replayed by ${key}` })
+      if (one(`select coalesce(confirmation_state,'-') from public.role_assignments where id = '${assignmentId}'`) === "CONFIRMED") {
+        leaked.push(people[key]?.label ?? key)
+        sql(`update public.role_assignments set confirmation_state='PENDING_CONFIRMATION', confirmed_by=null, confirmed_at=null where id='${assignmentId}'`)
+      }
+      void r
+    }
+    record("N12c AN-6: nobody in the club can confirm it -- not even the Club Admin who nominated them",
+      leaked.length === 0, leaked.length ? `confirmed anyway: ${leaked.join(", ")}` : "every replay refused")
+
+    const bySite = await rpcAs("site", "confirm_safeguarding_officer", { p_assignment_id: assignmentId, p_reason: `slice4g site confirm ${TAG}` })
+    const confirmed = one(`select coalesce(confirmation_state,'-') from public.role_assignments where id = '${assignmentId}'`)
+    record("N12d while Ovalball can, through the canonical site capability",
+      bySite.ok && confirmed === "CONFIRMED", `ok=${bySite.ok} state=${confirmed} ${bySite.body.slice(0, 160)}`)
+    const nowHolds = one(`select (internal.capability_decision('${people.volunteer.id}','safeguarding.conversation.handle','club','${ids.club}',null,null,false,false)).allowed`)
+    record("N12e and only then does the role grant anything", nowHolds === "t", `handle=${nowHolds}`)
+
+    sql(`delete from public.notifications where data->>'assignment_id' = '${assignmentId}'`)
+    sql(`delete from public.role_assignments where id = '${assignmentId}'`)
+  }
+
   record("I1 no server error on any page or replay", serverProblems.length === 0, serverProblems.slice(0, 5).join(" | "))
 } finally {
   for (const s of Object.values(sessions)) await s.context.close().catch(() => {})

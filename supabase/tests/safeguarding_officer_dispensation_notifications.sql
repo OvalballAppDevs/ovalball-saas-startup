@@ -16,6 +16,9 @@ do $$
 declare
   v_club uuid; v_directory uuid;
   v_admin uuid := gen_random_uuid();
+  -- Slice 4G: a dispensation is decided by somebody other than whoever asked for it, so this suite
+  -- needs a second Club Admin. Using one person for both would now be refused, correctly.
+  v_admin2 uuid := gen_random_uuid();
   v_officer_user uuid := gen_random_uuid();
   v_player uuid := gen_random_uuid();
   v_team_source uuid; v_team_target uuid;
@@ -38,11 +41,14 @@ begin
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data) values
     (v_admin, 'sg-disp-admin-' || v_admin::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
+    (v_admin2, 'sg-disp-admin2-' || v_admin2::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
     (v_officer_user, 'sg-disp-officer-' || v_officer_user::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
   insert into public.profiles (id, first_name, surname, email) values
     (v_admin, 'Disp', 'Admin', 'sg-disp-admin-' || v_admin::text || '@ovalball.test'),
+    (v_admin2, 'Disp', 'Admintwo', 'sg-disp-admin2-' || v_admin2::text || '@ovalball.test'),
     (v_officer_user, 'Disp', 'Officer', 'sg-disp-officer-' || v_officer_user::text || '@ovalball.test');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin, 'CLUB_ADMIN', 'active');
+  insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin2, 'CLUB_ADMIN', 'active');
   insert into public.players (id, first_name, surname, active, created_by, playing_pathway) values (v_player, 'Test', 'Player', true, v_admin, 'MALE');
   insert into public.player_team_memberships (player_id, team_id, status, created_by) values (v_player, v_team_source, 'active', v_admin);
 
@@ -61,6 +67,25 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_officer_user::text, 'role', 'authenticated', 'email', 'sg-disp-officer-' || v_officer_user::text || '@ovalball.test')::text, true);
   perform public.accept_safeguarding_officer_invitation(v_token);
+
+  -- SLICE 4G / AN-6. Until Ovalball confirms the appointment there is no Safeguarding Officer, so
+  -- there is nobody for a dispensation notification to reach. Asserted first, because "the notice
+  -- went nowhere" is the failure mode this suite exists to catch and it must not be able to pass by
+  -- accident once the confirmation below runs.
+  reset role;
+  if not exists (select 1 from public.notifications where user_id = v_officer_user and type = 'safeguarding_dispensation_decided') then
+    raise notice 'PASS AN-6: an unconfirmed nominee is not yet an officer and receives nothing';
+  else
+    raise exception 'FAIL AN-6: an unconfirmed nominee was notified';
+  end if;
+  insert into public.site_admins (user_id, status, admin_role) values (v_admin, 'active', 'full')
+    on conflict (user_id) do update set status = 'active', admin_role = 'full';
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+  perform public.confirm_safeguarding_officer(
+    (select id from public.role_assignments where club_id = v_club and user_id = v_officer_user
+       and role_key = 'SAFEGUARDING_OFFICER' and state = 'ACTIVE'),
+    'dispensation suite: confirming the appointment');
 
   reset role;
   insert into public.capability_overrides (user_id, capability_key, scope_type, club_id, effect, granted_by)
@@ -102,8 +127,22 @@ begin
   -- at the genuine final (governing_body) stage.
   reset role;
   set local role authenticated;
-  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin2::text, 'role', 'authenticated')::text, true);
   perform public.decide_player_dispensation(v_dispensation_id, 'source_team', true);
+  reset role;
+  -- SLICE 4G, separation of duties. The person who asked cannot be the person who decides, at any
+  -- stage -- checked here on the live record rather than asserted about the source.
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+  begin
+    perform public.decide_player_dispensation(v_dispensation_id, 'club', true);
+    raise exception 'FAIL SoD: the requester approved their own dispensation';
+  exception
+    when sqlstate '42501' then raise notice 'PASS SoD: the person who requested the dispensation cannot approve it';
+    when others then
+      if sqlerrm like 'FAIL SoD%' then raise; end if;
+      raise notice 'PASS SoD: the person who requested the dispensation cannot approve it';
+  end;
   reset role;
   select count(*) into v_notify_count from public.notifications where user_id = v_officer_user and type = 'safeguarding_dispensation_decided';
   if v_notify_count = 0 then
@@ -113,7 +152,7 @@ begin
   end if;
 
   set local role authenticated;
-  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin2::text, 'role', 'authenticated')::text, true);
   perform public.decide_player_dispensation(v_dispensation_id, 'club', true);
   perform public.decide_player_dispensation(v_dispensation_id, 'governing_body', true, 'TEST-GB-REF-001');
   reset role;

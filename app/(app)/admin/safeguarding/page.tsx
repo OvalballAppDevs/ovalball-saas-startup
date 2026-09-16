@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 
 import { requireSiteAdmin } from "../require-site-admin"
 import { OfficerCapabilityRow, type OfficerCapabilityData } from "./officer-capability-row"
+import { PendingNominationRow, type PendingNomination } from "./pending-nomination-row"
 import { CANONICAL_SAFEGUARDING_KEY, type SafeguardingCapabilityKey } from "./capabilities"
 
 export const metadata = { title: "Safeguarding" }
@@ -50,6 +51,23 @@ export default async function SafeguardingCapabilityAdminPage() {
           .in("capability_key", Object.values(CANONICAL_SAFEGUARDING_KEY))
       : { data: [] }
 
+  // AN-6 (Slice 4G). Nominations waiting on Ovalball, from the capability-gated queue rather than a
+  // role_assignments query: the page should not be naming role keys to decide what it is looking at,
+  // and public.pending_safeguarding_nominations already answers the whole question, including the
+  // "also Club Admin" flag AN-6 asks to be visible. These people hold nothing — a Safeguarding Officer
+  // assignment is refused at every scope until it is CONFIRMED.
+  const { data: pendingRows } = await supabase.rpc("pending_safeguarding_nominations")
+
+  const pending: PendingNomination[] = (pendingRows ?? []).map((r) => ({
+    assignmentId: r.assignment_id,
+    clubId: r.club_id,
+    clubName: r.club_name ?? "Unknown club",
+    personName: r.person_name ?? "Unnamed person",
+    officerType: r.officer_type === "deputy" ? "deputy" : "primary",
+    alsoClubAdmin: r.also_club_admin,
+    nominatedAt: new Date(r.nominated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+  }))
+
   const officers: OfficerCapabilityData[] = (officerRows ?? [])
     .filter((o): o is typeof o & { user_id: string } => !!o.user_id)
     .map((o) => {
@@ -80,6 +98,24 @@ export default async function SafeguardingCapabilityAdminPage() {
         and notifications come with the Safeguarding Officer role. Switch one off here only when an officer should not have it.
       </p>
 
+      <section className="mt-8">
+        <h2 className="font-display text-display-s text-ink">Awaiting Confirmation</h2>
+        <p className="mt-2 max-w-md text-sm text-ink-muted">
+          A club has nominated someone as its Safeguarding Officer. Nothing is granted until Ovalball confirms
+          the appointment, and the reason you give is recorded against it.
+        </p>
+        {pending.length === 0 ? (
+          <p className="mt-4 text-sm text-ink-muted">No nominations are waiting.</p>
+        ) : (
+          <ul className="mt-4 flex flex-col gap-3">
+            {pending.map((nomination) => (
+              <PendingNominationRow key={nomination.assignmentId} nomination={nomination} />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <h2 className="mt-12 font-display text-display-s text-ink">Confirmed Officers</h2>
       {officers.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">No active, accepted Safeguarding Officers yet.</p>
       ) : (

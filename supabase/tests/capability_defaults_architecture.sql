@@ -98,8 +98,12 @@ begin
     -- player / guardian
     'club.guardians.manage', 'manage_fixture_callups', 'approve_fixture_callups',
     'manage_player_dispensations', 'approve_player_dispensations', 'place_graduating_players',
-    -- safeguarding
-    'club.safeguarding.view', 'club.safeguarding.manage_contact', 'club.safeguarding.message'
+    -- safeguarding. Slice 4G (AA.3 row 4g) retired the three transitional club.safeguarding.* keys:
+    -- view and message were Club-Admin-only stand-ins for capabilities J.12 gives most of a club, and
+    -- manage_contact was a rename adapter. A Club Admin still holds the canonical replacements, and
+    -- asking for them by their real names is the point of the change -- so the names move rather than
+    -- the row disappearing.
+    'safeguarding.contact.view', 'safeguarding.officer.nominate', 'safeguarding.conversation.start'
   ] loop
     if not internal.has_club_role_capability(v_club, v_key) then
       v_missing := v_missing || v_key::text;

@@ -147,10 +147,13 @@ begin
   perform pg_temp.check(v_n = 182
       and (select count(*) from public.capabilities where design_section ~ '^J\.' and design_section <> 'J.15' and status = 'DEPRECATED') = 2
       and (select count(*) from public.capabilities where key in ('club.news.manage', 'team.news.manage') and status = 'ACTIVE') = 2
-      and (select count(*) from public.capabilities where key in ('club.safeguarding.view', 'club.safeguarding.message') and status = 'ACTIVE'
-             and migration_action like 'TRANSITIONAL%') = 2
-      and (select count(*) from public.capabilities where status = 'ACTIVE') = 184,
-    'CI1: 182 designed keys (2 retired), the Club Home pair and the two transitional safeguarding keys: 184 active (' || v_n || ')');
+      -- Slice 4G retired the pair Slice 3 kept at legacy parity "until 4g". They are DEPRECATED
+      -- rather than deleted, because a capability key that has ever been granted is part of the
+      -- record of what a person once held.
+      and (select count(*) from public.capabilities where key in ('club.safeguarding.view', 'club.safeguarding.message')
+             and status = 'DEPRECATED' and migration_action like 'TRANSITIONAL%') = 2
+      and (select count(*) from public.capabilities where status = 'ACTIVE') = 182,
+    'CI1: 182 designed keys (2 retired) and the Club Home pair; the two transitional safeguarding keys are DEPRECATED in 4G: 182 active (' || v_n || ')');
 
   select count(*) into v_n from public.capabilities c
   where c.key in ('approve_fixture_callups','approve_player_dispensations','calendar.manage','calendar.view','club.capabilities.manage',
@@ -169,7 +172,7 @@ begin
     and (c.status = 'ACTIVE' or exists (select 1 from public.capability_key_map m where m.legacy_key = c.key));
   -- 72, not 73: Slice 4B retired team.view (AA.3 row 4b). It is DEPRECATED with no adapter row, so a
   -- stale caller is refused at rule 1 rather than silently answered. The rest stay resolvable until Slice 10.
-  perform pg_temp.check(v_n = 69, 'CI2: 69 of the 73 pre-Slice 3 keys are canonical or resolvable; team.view retired in 4B, calendar.manage/calendar.view in 4E, team.community.manage in 4F (' || v_n || ')');
+  perform pg_temp.check(v_n = 66, 'CI2: 66 of the 73 pre-Slice 3 keys are canonical or resolvable; team.view retired in 4B, calendar.manage/calendar.view in 4E, team.community.manage in 4F, the three club.safeguarding.* keys in 4G (' || v_n || ')');
 
   select string_agg(m.legacy_key || '@' || m.legacy_scope, ', ') into v_list
   from public.capability_key_map m join public.capabilities c on c.key = m.capability_key

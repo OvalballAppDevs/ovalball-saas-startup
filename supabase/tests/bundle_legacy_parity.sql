@@ -5,8 +5,8 @@
 -- out below, row by row, so an accidental loss cannot hide among them.
 --
 --   BP1  the archive of the old defaults is intact (139 rows)
---   BP2  every archived default is in the bundle projection, or is one of the 31 intended removals
---   BP3  the intended removals are exactly those 31
+--   BP2  every archived default is in the bundle projection, or is one of the 34 intended removals
+--   BP3  the intended removals are exactly those 34
 --   BP4  behaviour: a real person holding each legacy role passes has_capability for every retained default
 --   BP5  behaviour: and fails for each intended removal
 --   BP6  the retained additions beyond the J bundles (legacy authority kept) are exactly the three recorded
@@ -177,7 +177,15 @@ insert into intended_removals values
   ('club', 'CLUB_ADMIN', 'team.community.manage', 'AA.3 4f: SPLIT into messaging.announcement.send_club'),
   ('team', 'CLUB_ADMIN', 'team.community.manage', 'AA.3 4f: SPLIT into messaging.announcement.send_team'),
   ('team', 'TEAM_MANAGER', 'team.community.manage', 'AA.3 4f: SPLIT into messaging.announcement.send_team'),
-  ('team', 'TEAM_STAFF', 'team.community.manage', 'AA.3 4f: SPLIT into messaging.announcement.send_team');
+  ('team', 'TEAM_STAFF', 'team.community.manage', 'AA.3 4f: SPLIT into messaging.announcement.send_team'),
+  -- Slice 4G (AA.3 row 4g) retires the three transitional club.safeguarding.* keys. Slice 3 kept
+  -- view and message mapping to THEMSELVES, at Club-Admin-only parity, explicitly "until 4g": while
+  -- they stood the safeguarding contact card was hidden from parents and the member who opened a
+  -- safeguarding thread could not reply in it. manage_contact was already a rename adapter and loses
+  -- its last caller here. J.12 lines 541-545.
+  ('club', 'CLUB_ADMIN', 'club.safeguarding.view', 'AA.3 4g: RENAME + widen to safeguarding.contact.view'),
+  ('club', 'CLUB_ADMIN', 'club.safeguarding.message', 'AA.3 4g: RENAME + widen to safeguarding.conversation.start'),
+  ('club', 'CLUB_ADMIN', 'club.safeguarding.manage_contact', 'AA.3 4g: SPLIT into safeguarding.officer.nominate/deactivate');
 
 do $body$
 declare
@@ -196,11 +204,11 @@ begin
   select count(*) into v_n from (
     select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
     except select scope_type, role_key, capability_key from public.role_capability_defaults) x;
-  perform pg_temp.check(v_n = 31 and not exists (
+  perform pg_temp.check(v_n = 34 and not exists (
       select scope_type, role_key, capability_key from intended_removals
       except (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
               except select scope_type, role_key, capability_key from public.role_capability_defaults)),
-    'BP3: the intended removals are exactly the 31 listed (' || v_n || ')');
+    'BP3: the intended removals are exactly the 34 listed (' || v_n || ')');
 
   -- Behaviour, through the enforcement entry point, for a real holder of each legacy role.
   v_club := pg_temp.club('Parity'); v_team := pg_temp.team(v_club);

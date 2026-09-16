@@ -179,16 +179,22 @@ begin
                   and p.prosrc like '%message_moderator%'),
     'MA-A the message_moderator role literal decides no authority (J.10 line 521 RENAME)');
 
-  -- D-S4-2: 4F must not have started 4G. The safeguarding thread policy is untouched and no
-  -- nomination, confirmation or invitation surface exists.
+  -- 4F's own boundary against safeguarding still holds. This began as "none of 4G's surfaces exist",
+  -- which was the right assertion while 4G was unstarted and the wrong one the moment it landed --
+  -- a test that has to be deleted to let the next slice in was pinning the calendar, not the
+  -- contract. What 4F actually owes is that MESSAGING reporting routes to the officer through a
+  -- capability and never through the safeguarding thread store, and that is what is asserted now.
   perform pg_temp.check(
     exists (select 1 from pg_policies where policyname='club_safeguarding_officer_conversations_select'),
-    'MA-A D-S4-2 holds: the safeguarding conversation policy is untouched by this slice');
+    'MA-A the safeguarding conversation policy exists and is safeguarding''s, not messaging''s');
   perform pg_temp.check(
     not exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-                where n.nspname='public'
-                  and p.proname in ('confirm_safeguarding_officer','review_safeguarding_conversation','welfare_member_view')),
-    'MA-A and none of 4G''s own surfaces exist -- no confirmation, no thread review, no welfare view');
+                where n.nspname='public' and p.proname in ('report_message','club_message_reports')
+                  and p.prosrc ~ 'club_safeguarding_officer_conversations'),
+    'MA-A reporting a message never touches the safeguarding thread store -- the SO queue is a capability, not a join');
+  perform pg_temp.check(
+    (select count(*) from public.bundle_capabilities where capability_key='messaging.moderation.club_review') = 1,
+    'MA-A and the club review queue is still exactly one bundle wide');
 end $$;
 
 -- =====================================================================================================

@@ -219,6 +219,7 @@ insert into isolation_domain values
   -- 4f messaging and notifications
   ('club_announcements', '4f'), ('club_message_blocks', '4f'), ('message_policies', '4f'), ('team_conversations', '4f'),
   ('message_reports', '4f'),
+  ('safeguarding_thread_reviews', '4g'),
   ('messenger_announcement_deliveries', '4f'), ('email_deliveries', '4f'),
   -- 4g safeguarding and dispensations
   ('club_safeguarding_officers', '4g'), ('club_safeguarding_officer_invitations', '4g'),

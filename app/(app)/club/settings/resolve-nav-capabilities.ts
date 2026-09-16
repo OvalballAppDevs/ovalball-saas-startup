@@ -91,7 +91,11 @@ export async function resolveClubSettingsNavCapabilities(
     canPlayerDispensations: "manage_player_dispensations",
     // Identity/Auth Slice 4a: guardian administration at club level is family.relationship.approve (Phase 2 J.6)
     canGuardians: "family.relationship.approve",
-    canSafeguarding: "club.safeguarding.view",
+    // Identity/Auth Slice 4G: the transitional club.safeguarding.view key is retired (AA.3 row 4g).
+    // The club-settings tab is where the OFFICER is managed, so its gate is the nomination capability
+    // — not safeguarding.contact.view, which J.12 gives to most of a club including parents and would
+    // put a club administration tab in front of all of them.
+    canSafeguarding: "safeguarding.officer.nominate",
     canSubscriptionConfigure: "club.subscription.configure",
     canSubscriptionViewFinance: "club.subscription.view_finance",
     canPlatformBillingView: "club.platform_billing.view",
