@@ -1784,3 +1784,124 @@ prohibited. `SLICE_4H_PRODUCTION_RELEASE_REPORT.md` states that limit rather tha
 that does not exist.
 
 **Slice 4H is complete. 4I is not started. Slice 5 is not started.**
+
+---
+
+# 4I — Documents, partners, referrals and season handover (AA.3 row 4i)
+
+The final Slice 4 sub-slice.
+
+## What it owns
+
+Derived from AA.3 row 4i alone: the document library and its object-storage bucket, the season
+rollover and graduation surfaces, team lifecycle, partnerships and the invitation a club sends to a
+club not yet on Ovalball. The **global remaining Slice-4 footprint** is a separate list and lives in
+`SLICE_4_CLOSURE_AUDIT.md`. Nothing was pulled forward from Slice 5 or Slice 7 to reach a number.
+
+## Section U, made real
+
+J.5 line 427 and section U split a season handover: the Fixtures Secretary **prepares**, the Club
+Admin **applies**. Every handover RPC opened with one undivided `internal.is_club_admin(...)`, so the
+split existed only on paper — and it locked the Fixtures Secretary out of the half that was theirs.
+`apply_season_handover` now asks `team.handover.apply` (CA only, non-delegable, reason-bearing);
+preparation asks `team.handover.prepare` (CA and FS). The migration asserts the split structurally and
+refuses to install a version of `apply_season_handover` that also accepts the preparation key.
+
+## Two things this slice got wrong first, and what caught them
+
+**A cohort graduation handed to the Fixtures Secretary.** `internal.decide_rollover_team_proposal`
+serves five actions and carries fold and graduate behind their own lifecycle gates, precisely so the
+handover route could not reach them. The first cut mapped one key per function and flattened both onto
+the preparation key. `supabase/tests/union_u18_free_agent.sql` failed. Section 4 of
+`20270378000000` restores them and asserts the function names `team.lifecycle.manage` twice and the
+preparation key not at all.
+
+**A partnership invitation taken away from the Fixtures Secretary.**
+`club_ovalball_invitations` was keyed to `club.referrals.manage`, which is Club-Admin-only. But that
+table is the invitation a club sends to a club not yet on Ovalball, and its founding migration scopes
+it to "the same boundary `club_partnerships` already uses" — J.4 line 409's `club.partners.manage`,
+CA and FS. `club.referrals.*` is the referral **ledger**, with `site.commercial.*` as its master.
+`supabase/tests/referral_attribution_integrity.sql` failed, having asserted since the feature shipped
+that a Fixtures Secretary's invitation still attributes while `claim_club_referral` still refuses
+them. Both surfaces now ask their own key and `MI-E6b` asserts the two answers differ.
+
+Neither would have reached production — the batteries that caught them run before anything is banked —
+but both are recorded because "the tests caught it" is only worth writing down if the mistake is
+written down too.
+
+## The eighteen RPCs 4C left to their owner
+
+Slice 4C migrated the fixtures half of `internal.can_manage_club_fixtures` and recorded the rule for
+the rest: a helper is retired by the slice that owns the **meaning** of the call site. It named 4I for
+documents, partners and handover, and J.5's legacy column says the same. `20270380000000` takes those
+eighteen — five handover reads, six preparations, four graduation placements, three partnership acts.
+`can_manage_club_fixtures` bodies **27 → 9**.
+
+The placement functions move to `team.graduation.place`. At **club** scope — where they ask — that is
+the same two people the fixtures helper named, so nobody is widened; the Coach and Team Manager hold
+it at **team** scope, where `place_graduating_player` asks it. Both halves are asserted.
+
+## Z-12
+
+The `club-documents` bucket could be written and read but never cleared. `club_documents_storage_delete`
+is added, gated by the same predicate as its other writes. Four policies, asserted.
+
+## Counters
+
+`is_club_admin` bodies **14 → 3** · `can_manage_club_fixtures` bodies **27 → 9** · document-helper
+policies **6 → 0** · club-documents storage policies **3 → 4** · adapter rows **80 → 77** ·
+pre-Slice-3 keys resolvable **55 → 52** · intended default removals **44 → 49**.
+
+## A third thing this slice got wrong, and the instrument that found it
+
+The resolver shadow — sixteen questions, ten personas, byte-identical before and after — was blind to
+both errors above, because a gate repointed to the wrong key does not change what anybody *holds*. A
+second shadow was written that evaluates, for every gate 4I rewrote, the **old predicate against the
+new one** for all ten personas. It found five intended differences and one unintended:
+`create_partner_invitation` writes no literal `internal.is_site_admin()`, so the migration's "did this
+have a site branch?" guard said no — but the fixtures helper it called opens with one. The slice was
+about to take the club invitation away from Ovalball itself. Fixed, and the guard now takes the
+answer from the map rather than from the presence of a literal.
+
+The five intended differences: the Fixtures Secretary gains handover preparation (J.5 line 426,
+section U), and the Full Site Admin gains the named site masters J.4 and J.5 give four of these keys —
+the old `is_club_admin(club)` gates had **no site branch at all**, so Ovalball could not act in a
+club's handover or team lifecycle even to support it. `MI-S1`–`MI-S4` pin which profile gained what
+and assert that read-only, support and club-data admins gained nothing.
+
+## Evidence
+
+Resolver shadow: 16 questions × 10 personas, byte-identical. Gate shadow: 10 gates × 10 personas,
+5 intended differences and 0 unintended. Matrix: **84 assertions**, and the same 84 on a database
+built from empty as on a seeded one — the first cut depended on a seeded season and would have
+skipped its handover assertions on an empty database, which is a pass not earned. Races: 4, on real
+concurrent sessions, including applying the same handover twice. Mutation: **15 mutants, 0
+survivors**, with a restore that fails loudly — migration `20270378000000` rewrites whatever gate it
+finds and therefore cannot restore a body a mutant has replaced, so pristine definitions are
+snapshotted instead. Platform battery: **4370 passed, 0 failed across 209 suites**. Clean empty
+rebuild: **473 migrations from empty**, 22 suites, **1187 assertions**, 0 failures. Performance: a
+2,000-document library reads in **24.3 ms** hoisted against **457.3 ms** per-row.
+
+## Documented, not fixed
+
+`supabase/seeds/local_uat_parent_player.sql` cannot load into a database built from empty: it inserts
+a U12 team with no pathway, and `20261231000000_a_team_always_carries_its_pathway.sql` has refused
+that since December 2026. Pre-existing, unrelated to 4I, and outside its scope — recorded here so it
+is findable rather than rediscovered at the next clean boot.
+
+## §9 unknown-age check for 4I
+
+Does 4I make staff or sensitive authority reachable through an identity whose age cannot be
+established? **No.** It grants no role, changes no membership transition, adds no onboarding path and
+touches no age check; `internal.person_is_minor` is untouched.
+
+Two widenings exist and neither reaches an unverified identity. The Fixtures Secretary **gains**
+handover preparation — but only through an existing ACTIVE `FIXTURE_SECRETARY` membership of a
+specific club, which is a role a Club Admin assigns to a person the club already knows. The Full Site
+Admin gains four named site masters — a platform authority held by a bundle, reached through the site
+admin register, not through any club membership or any identity a club can create. `MI-S4` asserts
+that no site profile holds the club-scoped key itself, so neither widening can be reached by being
+treated as a member.
+
+The carried follow-up is unchanged and is surfaced in the closure audit ahead of Slice 5, which owns
+external email-bound invitation and redemption.

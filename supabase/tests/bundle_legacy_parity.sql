@@ -5,8 +5,8 @@
 -- out below, row by row, so an accidental loss cannot hide among them.
 --
 --   BP1  the archive of the old defaults is intact (139 rows)
---   BP2  every archived default is in the bundle projection, or is one of the 44 intended removals
---   BP3  the intended removals are exactly those 44
+--   BP2  every archived default is in the bundle projection, or is one of the 49 intended removals
+--   BP3  the intended removals are exactly those 49
 --   BP4  behaviour: a real person holding each legacy role passes has_capability for every retained default
 --   BP5  behaviour: and fails for each intended removal
 --   BP6  the retained additions beyond the J bundles (legacy authority kept) are exactly the three recorded
@@ -199,7 +199,19 @@ insert into intended_removals values
   ('club', 'CLUB_ADMIN', 'club.gocardless.connect', 'AA.3 4h: RENAME to finance.gocardless.connect'),
   ('club', 'CLUB_ADMIN', 'club.platform_billing.view', 'AA.3 4h: RENAME to finance.platform_billing.view'),
   ('club', 'CLUB_ADMIN', 'club.platform_billing.manage', 'AA.3 4h: RENAME to finance.platform_billing.manage'),
-  ('club', 'CLUB_ADMIN', 'club.capabilities.manage', 'AA.3 4h: MERGE into people.capability.manage (J.3 line 393)');
+  ('club', 'CLUB_ADMIN', 'club.capabilities.manage', 'AA.3 4h: MERGE into people.capability.manage (J.3 line 393)'),
+  -- Slice 4I (AA.3 row 4i) retires the last three club aliases: team lifecycle, season rollover and
+  -- partnerships. Each is a RENAME whose canonical key was already ACTIVE and already held by the
+  -- same bundle, so every holder loses the alias and keeps the authority. Two of them are also the
+  -- reason section U could not be enforced before: club.season_rollover.manage was one undivided key
+  -- for preparing AND applying a handover, and it is replaced by team.handover.prepare, which the
+  -- Fixtures Secretary holds, while applying moves to team.handover.apply, which they do not.
+  -- J.4 line 409 and J.5 lines 422-427.
+  ('club', 'CLUB_ADMIN', 'club.team_lifecycle.manage', 'AA.3 4i: RENAME to team.lifecycle.manage'),
+  ('team', 'CLUB_ADMIN', 'club.team_lifecycle.manage', 'AA.3 4i: RENAME to team.lifecycle.manage'),
+  ('club', 'CLUB_ADMIN', 'club.season_rollover.manage', 'AA.3 4i: SPLIT into team.handover.prepare and team.handover.apply (U)'),
+  ('club', 'CLUB_ADMIN', 'partner.manage', 'AA.3 4i: RENAME to club.partners.manage'),
+  ('club', 'FIXTURE_SECRETARY', 'partner.manage', 'AA.3 4i: RENAME to club.partners.manage');
 
 do $body$
 declare
@@ -218,11 +230,11 @@ begin
   select count(*) into v_n from (
     select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
     except select scope_type, role_key, capability_key from public.role_capability_defaults) x;
-  perform pg_temp.check(v_n = 44 and not exists (
+  perform pg_temp.check(v_n = 49 and not exists (
       select scope_type, role_key, capability_key from intended_removals
       except (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
               except select scope_type, role_key, capability_key from public.role_capability_defaults)),
-    'BP3: the intended removals are exactly the 44 listed (' || v_n || ')');
+    'BP3: the intended removals are exactly the 49 listed (' || v_n || ')');
 
   -- Behaviour, through the enforcement entry point, for a real holder of each legacy role.
   v_club := pg_temp.club('Parity'); v_team := pg_temp.team(v_club);

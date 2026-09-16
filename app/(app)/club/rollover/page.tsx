@@ -45,7 +45,9 @@ export default async function ClubRolloverPage({ searchParams }: { searchParams:
   // Scoped to the ACTIVE context, not "any CLUB_ADMIN membership this session
   // holds" -- see app/(app)/people/page.tsx for the identical, live-confirmed
   // leak this mirrors. Authorization derives from the canonical capability
-  // engine (club.season_rollover.manage) rather than a raw role comparison.
+  // engine (team.handover.prepare) rather than a raw role comparison. Preparing a
+  // handover is the Club Admin's AND the Fixtures Secretary's; applying it is the
+  // Club Admin's alone, and apply_season_handover enforces that separately (section U).
   const navCaps = await resolveClubSettingsNavCapabilities(supabase, activeClub)
   const { canRollover: canRunRollover } = navCaps
   if (!canRunRollover || !activeClub) redirect("/dashboard")

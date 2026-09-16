@@ -172,7 +172,7 @@ begin
     and (c.status = 'ACTIVE' or exists (select 1 from public.capability_key_map m where m.legacy_key = c.key));
   -- 72, not 73: Slice 4B retired team.view (AA.3 row 4b). It is DEPRECATED with no adapter row, so a
   -- stale caller is refused at rule 1 rather than silently answered. The rest stay resolvable until Slice 10.
-  perform pg_temp.check(v_n = 55, 'CI2: 55 of the 73 pre-Slice 3 keys are canonical or resolvable; team.view retired in 4B, calendar.manage/calendar.view in 4E, team.community.manage in 4F, the three club.safeguarding.* keys in 4G, and eleven club administration and finance keys in 4H (' || v_n || ')');
+  perform pg_temp.check(v_n = 52, 'CI2: 52 of the 73 pre-Slice 3 keys are canonical or resolvable; team.view retired in 4B, calendar.manage/calendar.view in 4E, team.community.manage in 4F, the three club.safeguarding.* keys in 4G, eleven club administration and finance keys in 4H, and club.team_lifecycle.manage/club.season_rollover.manage/partner.manage in 4I (' || v_n || ')');
 
   select string_agg(m.legacy_key || '@' || m.legacy_scope, ', ') into v_list
   from public.capability_key_map m join public.capabilities c on c.key = m.capability_key

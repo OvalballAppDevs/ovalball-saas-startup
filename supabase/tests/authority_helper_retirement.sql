@@ -33,21 +33,25 @@ $$;
 -- HR1 / HR2 --------------------------------------------------------------------------------------------------
 do $$
 declare
-  -- helper, policy ceiling, function-body ceiling (after Slice 4H)
+  -- helper, policy ceiling, function-body ceiling (after Slice 4I)
   v_ceilings constant text[][] := array[
     ['has_capability', '86', '61'],
     ['is_site_admin', '86', '92'],
     ['is_full_site_admin', '14', '38'],
-    -- 4H took every one of the 23 policies AA.3 row 4h names. The 14 bodies that remain are named in
-    -- HR3 below and belong to 4b, 4c and 4i; this slice did not take them to flatter the number.
-    ['is_club_admin', '0', '14'],
+    -- 4H took every one of the 23 policies AA.3 row 4h names and left 14 bodies. 4I has taken its
+    -- 11 -- the rollover, graduation, handover and team-lifecycle RPCs of J.5. The 3 that remain are
+    -- named in HR3 below and belong to 4b and 4c; this slice did not take them to flatter the number.
+    ['is_club_admin', '0', '3'],
     ['can_manage_club_fixtures', '12', '27'],
     ['can_manage_club_fixtures_or_any_team', '2', '0'],
     ['can_manage_fixture_side', '2', '6'],
     ['can_manage_team', '1', '15'],
     ['can_organise_competition', '0', '2'],
     ['can_organise_edition', '0', '1'],
-    ['can_manage_document_library', '6', '2'],
+    -- 4I moved the document library onto club.documents.manage / club.documents.view. No policy asks
+    -- either helper now; the two bodies that remain are the storage-path predicate and the delete
+    -- RPC, which are the reachable callers the matrix exercises directly (MI-B12..B16).
+    ['can_manage_document_library', '0', '2'],
     ['is_active_player_guardian', '7', '14'],
     ['is_own_linked_player', '9', '9']
   ];
@@ -608,12 +612,71 @@ begin
     raise notice 'FAIL HR3 4h: a club-money function has a Site Admin branch: %', array_to_string(v_bad, ', ');
   end if;
 
-  -- And the 14 bodies 4h deliberately did NOT take, so the omission stays visible.
+  -- And the bodies 4h deliberately did NOT take, so the omission stays visible. 4h left 14 and named
+  -- them as 4b's, 4c's and 4i's; 4i has since taken its 11, which leaves 4b's team helper, 4c's
+  -- fixtures helper and 4c's restoration RPC. Nothing else may move without a slice claiming it.
   if (select count(*) from pg_proc f join pg_namespace n on n.oid = f.pronamespace
-      where n.nspname in ('public','internal') and f.proname <> 'is_club_admin' and f.prosrc ~ '\mis_club_admin\(') = 14 then
-    raise notice 'PASS HR3 4h: the 14 remaining is_club_admin bodies are 4b''s, 4c''s and 4i''s, and are still there';
+      where n.nspname in ('public','internal') and f.proname <> 'is_club_admin' and f.prosrc ~ '\mis_club_admin\(') = 3 then
+    raise notice 'PASS HR3 4h: the 3 remaining is_club_admin bodies are 4b''s and 4c''s, after 4i took its 11';
   else
     raise notice 'FAIL HR3 4h: the remaining is_club_admin body count moved without a slice claiming it';
+  end if;
+
+  -- ---- Slice 4I (AA.3 row 4i): documents, partners, referrals and handover ----
+  -- The document library's two helpers no longer decide anything by role string, and no policy asks
+  -- them at all -- the one reachable caller left is the object-storage predicate.
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where n.nspname = 'internal' and f.proname in ('can_manage_document_library','can_view_document_library')
+    and (f.prosrc ~ '\mcm\.role\m' or f.prosrc ~ 'site_admin_role\(');
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4i: neither document helper decides by a membership or site-admin role string';
+  else
+    raise notice 'FAIL HR3 4i: a document helper still reads a role string: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- Z-12: the club-documents bucket is complete. A bucket that can be written but never cleared is a
+  -- retention problem, not a convenience one.
+  if (select count(*) from pg_policies where schemaname = 'storage'
+      and (coalesce(qual,'') || ' ' || coalesce(with_check,'')) like '%club-documents%') = 4 then
+    raise notice 'PASS HR3 4i: the club-documents bucket has all four policies, including delete (Z-12)';
+  else
+    raise notice 'FAIL HR3 4i: the club-documents bucket does not have exactly four policies (Z-12)';
+  end if;
+
+  -- Section U, structurally. These are two different keys in two different functions, and a single
+  -- function accepting both would be the split undone.
+  if (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'apply_season_handover') ~ 'team\.handover\.apply'
+     and (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'apply_season_handover') !~ 'team\.handover\.prepare'
+  then
+    raise notice 'PASS HR3 4i: applying a season handover asks team.handover.apply and not the prepare key (U)';
+  else
+    raise notice 'FAIL HR3 4i: section U is not enforced in apply_season_handover';
+  end if;
+
+  -- And the two decisions INSIDE a handover that are not preparation. Folding a side and graduating
+  -- a cohort keep their own lifecycle gates, so the preparation route is not a second door to them.
+  if (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'internal' and p.proname = 'decide_rollover_team_proposal') ~ 'team\.lifecycle\.manage'
+     and (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'internal' and p.proname = 'decide_rollover_team_proposal') !~ 'team\.handover\.prepare'
+  then
+    raise notice 'PASS HR3 4i: folding and graduating through a handover still ask team.lifecycle.manage';
+  else
+    raise notice 'FAIL HR3 4i: a fold or graduate decision inside a handover can be reached with the preparation key';
+  end if;
+
+  -- The three adapter rows 4I retires, and the ones it deliberately leaves to their own slices.
+  if not exists (select 1 from public.capability_key_map
+                 where legacy_key in ('club.season_rollover.manage','club.team_lifecycle.manage','partner.manage'))
+     and exists (select 1 from public.capability_key_map where legacy_key = 'club.guardians.manage')
+     and exists (select 1 from public.capability_key_map where legacy_key = 'fixture.edit')
+  then
+    raise notice 'PASS HR3 4i: the three 4i adapter rows are retired and 4a''s and 4c''s are not';
+  else
+    raise notice 'FAIL HR3 4i: the 4i adapter retirement is wrong, or it consumed another slice''s rows';
   end if;
 
   -- THE PER-OFFICER OVERRIDE DEPENDENCE, retired. Officer identity used to come from

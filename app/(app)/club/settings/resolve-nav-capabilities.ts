@@ -84,7 +84,7 @@ export async function resolveClubSettingsNavCapabilities(
     canProfile: "club.profile.edit",
     canPitchesManage: "venue.pitch.manage",
     canVenues: "venue.venue.manage",
-    canRollover: "club.season_rollover.manage",
+    canRollover: "team.handover.prepare",
     canPermissions: "people.capability.manage",
     canFixtureEdit: "fixture.edit",
     canFixtureCallups: "manage_fixture_callups",

@@ -381,21 +381,23 @@ begin
       'club.gocardless.connect','club.platform_billing.view','club.platform_billing.manage',
       'club.capabilities.manage','permissions.club_manage')),
     'CH-G2 the eleven Slice 4H adapter rows are retired');
+  -- 4H's point here was that it did not improve its own count by consuming another slice's rows.
+  -- 4A's club.guardians.manage still stands, and stands for that. 4I has since retired its own
+  -- club.season_rollover.manage on its own letter, which is the opposite of what this guards against.
   perform pg_temp.check(
-    exists (select 1 from public.capability_key_map where legacy_key = 'club.season_rollover.manage')
-    and exists (select 1 from public.capability_key_map where legacy_key = 'club.guardians.manage'),
-    'CH-G3 and the rows belonging to 4i and 4a are NOT -- this slice did not improve its count with theirs');
+    exists (select 1 from public.capability_key_map where legacy_key = 'club.guardians.manage'),
+    'CH-G3 and the row belonging to 4a is NOT -- this slice did not improve its count with another''s');
   perform pg_temp.check(
     not exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
                 where n.nspname in ('public','internal')
                   and p.prosrc ~ '''(club\.(subscription|platform_billing|gocardless|edit_profile|capabilities)[a-z_.]*|permissions\.club_manage)'''),
     'CH-G4 and nothing in the database asks a retired key');
+  -- Likewise: 4C's fixtures helper was named, not taken, and it is still named. 4I's handover RPCs
+  -- were named here too and have since been taken by 4I itself.
   perform pg_temp.check(
     exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-            where n.nspname='internal' and p.proname='can_manage_club_fixtures' and p.prosrc ~ '\mis_club_admin\(')
-    and exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-            where n.nspname='public' and p.proname='apply_season_handover' and p.prosrc ~ '\mis_club_admin\('),
-    'CH-G5 4C''s fixtures helper and 4i''s handover RPCs still hold theirs -- named, not taken');
+            where n.nspname='internal' and p.proname='can_manage_club_fixtures' and p.prosrc ~ '\mis_club_admin\('),
+    'CH-G5 4C''s fixtures helper still holds its own -- named, not taken');
 
   -- ---------------------------------------------------------------------------------------------
   -- CH-P  the hoist is an optimisation, not a change of answer

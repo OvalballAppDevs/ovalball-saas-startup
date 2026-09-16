@@ -11,8 +11,8 @@ import { PartnerClubsExplorer } from "./partner-clubs-explorer"
 import { PartnershipRequestRow, type PendingPartnershipData } from "./partnership-request-row"
 
 /**
- * Club-level only -- club_partnerships_select_scoped (can_manage_club_fixtures
- * on either side) means a team-only Team Admin/Coach has no read access to
+ * Club-level only -- club_partnerships_select_scoped (club.partners.manage on
+ * either side) means a team-only Team Admin/Coach has no read access to
  * this table at all, matching the "must not gain club-wide calendar-sharing
  * authority merely because they manage one team" requirement. Nav already
  * hides this link from them (build-nav-items.ts); this redirect is the

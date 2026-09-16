@@ -83,7 +83,11 @@ begin
     -- club administration
     'club.profile.edit', 'club.logo.manage', 'club.venues.manage', 'club.pitches.manage',
     -- teams
-    'club.teams.manage', 'club.team_lifecycle.manage', 'club.roster.manage', 'club.season_rollover.manage',
+    -- Slice 4I retired club.team_lifecycle.manage and club.season_rollover.manage. Their canonical
+    -- replacements are named here instead, and the rollover key is named as BOTH halves of the
+    -- section U split, because a Club Admin holds each of them and losing either would be a loss.
+    'club.teams.manage', 'team.lifecycle.manage', 'club.roster.manage',
+    'team.handover.prepare', 'team.handover.apply',
     -- fixtures
     'fixture.create', 'fixture.edit', 'fixture.cancel', 'fixture.manage_requests', 'fixture.view',
     -- training

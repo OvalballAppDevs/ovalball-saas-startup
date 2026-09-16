@@ -59,7 +59,7 @@ export default async function ClubSettingsHubPage() {
         hasCapability(supabase, "club.profile.edit", "club", { clubId }),
         hasCapability(supabase, "venue.venue.manage", "club", { clubId }),
         hasCapability(supabase, "venue.pitch.manage", "club", { clubId }),
-        hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
+        hasCapability(supabase, "team.handover.prepare", "club", { clubId }),
         hasCapability(supabase, "fixture.edit", "club", { clubId }),
         hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
         hasCapability(supabase, "club.guardians.manage", "club", { clubId }),

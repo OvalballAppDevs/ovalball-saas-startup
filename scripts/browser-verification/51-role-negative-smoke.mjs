@@ -102,6 +102,15 @@ begin
   delete from public.club_memberships where club_id in (v_club, v_far);
   delete from public.club_setup_state where club_id = v_club;
   delete from public.club_setup_state where club_id = v_far;
+  delete from public.season_transitions where rollover_id in (select id from public.age_grade_rollovers where club_id in (v_club, v_far));
+  delete from public.age_grade_rollover_group_flags where rollover_id in (select id from public.age_grade_rollovers where club_id in (v_club, v_far));
+  delete from public.age_grade_rollover_player_proposals where rollover_id in (select id from public.age_grade_rollovers where club_id in (v_club, v_far));
+  delete from public.age_grade_rollover_planned_teams where rollover_id in (select id from public.age_grade_rollovers where club_id in (v_club, v_far));
+  delete from public.age_grade_rollover_team_proposals where rollover_id in (select id from public.age_grade_rollovers where club_id in (v_club, v_far));
+  delete from public.age_grade_rollovers where club_id in (v_club, v_far);
+  delete from public.club_documents where club_id in (v_club, v_far);
+  delete from public.document_folders where club_id in (v_club, v_far);
+  delete from public.team_season_identity where team_id in (select id from public.teams where club_id in (v_club, v_far));
   delete from public.teams where club_id in (v_club, v_far);
   delete from public.clubs where id in (v_club, v_far);
   delete from public.club_directory where normalized_key in ('uat-slice4neg-${tag}', 'uat-slice4negfar-${tag}');
@@ -707,6 +716,49 @@ try {
       !bySite.ok && /not authoriz|not authoris/i.test(bySite.body), bySite.body)
     const bySecretary = await configureAs("secretary")
     record("N14b nor the Fixtures Secretary -- finance is the Club Admin's alone", !bySecretary.ok, bySecretary.body)
+  }
+
+  // -------------------------------------------------------------------------
+  // N15. Preparing versus applying a season handover (Slice 4I: section U).
+  //
+  // A season handover moves every age group in a club up a year, and there is no undo. Section U and
+  // J.5 line 427 split it: the Fixtures Secretary prepares it, the Club Admin applies it. Before this
+  // slice every handover RPC asked one undivided "is this person a club admin?" question, so the
+  // split existed only on paper and the Secretary held all of it. The same function also carries the
+  // fold and graduate decisions behind their own lifecycle gates, which preparation must not reach.
+  // -------------------------------------------------------------------------
+  {
+    const call = async (key, name, args) => {
+      const token = await accessTokenOf(sessions[key].context)
+      const res = await fetch(`${API}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      })
+      return { ok: res.ok, body: (await res.text()).slice(0, 160) }
+    }
+    const season = one(`select id from public.seasons where rugby_code = 'union' and not is_regression_fixture
+                        and starts_on > current_date order by starts_on limit 1`)
+    const generated = await call("admin", "generate_rollover_proposal", { p_club_id: ids.club, p_rugby_code: "union", p_to_season_id: season })
+    const rollover = generated.body.replace(/"/g, "").trim()
+    record("N15a the Club Admin generates a season handover for their club", generated.ok && /^[0-9a-f-]{36}$/.test(rollover), generated.body)
+    const proposal = one(`select id from public.age_grade_rollover_team_proposals where rollover_id = '${rollover}' limit 1`)
+
+    const prepared = await call("secretary", "confirm_rollover_team_proposal", { p_proposal_id: proposal, p_action: "confirm" })
+    record("N15b the Fixtures Secretary may PREPARE it -- confirming a progression is theirs (J.5 line 426)", prepared.ok, prepared.body)
+
+    const graduated = await call("secretary", "confirm_rollover_team_proposal", { p_proposal_id: proposal, p_action: "graduate" })
+    record("N15c but folding or graduating through it keeps its own lifecycle gate", !graduated.ok, graduated.body)
+
+    const appliedBySecretary = await call("secretary", "apply_season_handover", { p_rollover_id: rollover })
+    record("N15d INTENDED CHANGE: the Fixtures Secretary cannot APPLY it (section U)", !appliedBySecretary.ok, appliedBySecretary.body)
+    const appliedByCoach = await call("coach", "apply_season_handover", { p_rollover_id: rollover })
+    record("N15e nor a Coach", !appliedByCoach.ok, appliedByCoach.body)
+    const appliedByFar = await call("farAdmin", "apply_season_handover", { p_rollover_id: rollover })
+    record("N15f nor another club's Club Admin, naming this handover's id", !appliedByFar.ok, appliedByFar.body)
+    record("N15g and nothing moved: the club's side is still U12 and the handover is unapplied",
+      one(`select age_group from public.teams where id = '${ids.team}'`) === "U12"
+      && one(`select coalesce(applied_at::text,'-') from public.age_grade_rollovers where id = '${rollover}'`) === "-")
   }
 
   record("I1 no server error on any page or replay", serverProblems.length === 0, serverProblems.slice(0, 5).join(" | "))
