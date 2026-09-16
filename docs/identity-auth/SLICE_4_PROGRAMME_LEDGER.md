@@ -1756,3 +1756,31 @@ established? **No.** It grants no role, changes no membership transition, adds n
 touches no age check: `internal.person_is_minor` is untouched and no 4H key is `minor_prohibited`
 gated differently than before. Every authority it moves was already reachable by exactly the same
 people through the same memberships. The carried follow-up carries forward unchanged.
+
+## 4H production release (ledger 500)
+
+Commit `eb4342a`, pushed fast-forward `18ace8d..eb4342a`. Migrations applied to production **before**
+the push, dry-run first, exactly four travelling. Production moved **465 → 469**, tip
+`20270376000000`.
+
+**`is_club_admin` decides nothing in any policy in Ovalball: 23 → 0.** The 14 remaining function
+bodies are 4b's, 4c's and 4i's and are still there. The eleven club administration and finance adapter
+rows are retired; 4i's and 4a's are not. PG-15 **124 → 100**, PG-16 **121 → 91**. Identities, clubs and
+teams unchanged at **4 / 1 / 17** — every number identical to the production-shaped rehearsal.
+
+Thirteen production checks pass, including J.13's boundary (nothing that acts on a club's money carries
+a Site Admin branch), section S's export gate with its reason-bearing event, the hoist installed in the
+subquery form the planner folds and nowhere in the form it does not, the membership policy naming the
+master J.3 records, and 4C-4G still holding.
+
+One window effect is recorded rather than discovered later: for the length of the deploy the previous
+build's club-settings and finance tabs hide, because they ask eleven keys the migration retires.
+Fail-closed, self-healing, no data effect.
+
+The application layer is server-side and behind authentication, so it was verified by three sequential
+browser UAT passes locally (suites 51-58, 192/192 each) rather than in production: verifying it there
+would require creating production personas or signing in as the product owner, both of which are
+prohibited. `SLICE_4H_PRODUCTION_RELEASE_REPORT.md` states that limit rather than implying coverage
+that does not exist.
+
+**Slice 4H is complete. 4I is not started. Slice 5 is not started.**
