@@ -788,3 +788,238 @@ rules out any hand-edited difference between what was tested and what is serving
 
 4d–4i are not started. Next in order is 4d (Training). 4g stays banked under decision D-S4-2 and is
 not to be implemented ahead of its turn. Slice 5 is not started.
+
+---
+
+# 4D ARCHAEOLOGY AND OWNERSHIP MAP (recorded at ledger 485)
+
+Taken from the exact AA.3 row 4d contract and design J.8 lines 482-491, not from helper names.
+AA.3 row 4d retires **`can_organise_competition` role checks** and **`calendar.manage` tournament
+use**, and names the matrix `competition_authority_matrix.sql`.
+
+## Every call site, measured on the live database at 454
+
+| helper | policies | bodies | callers |
+|---|---|---|---|
+| `can_organise_competition` | 0 | 3 | `can_organise_edition`, `update_competition_metadata` |
+| `can_organise_edition` | **8** | 1 | the eight competition read policies, `require_edition_organiser` |
+| `can_manage_tournament` | 0 | 5 | save/cancel/get centre, reserve/release pitch |
+| `can_manage_tournament_entry` | 0 | 6 | save/delete game, record/remove opponent, remove entry |
+| `can_manage_competitions` | 5 | 6 | already canonical — `has_site_capability('site.competitions.manage')` |
+| `can_answer_competition_match` | 0 | 1 | `respond_competition_match` |
+| `require_edition_organiser` | 0 | 10 | the ten organiser-gated Creator RPCs |
+
+## What 4D does NOT take
+
+`calendar.manage` also decides **club events**, which is J.9 and belongs to 4E. AA.3 says 4d retires
+the *tournament* use, and that is all it retires. `app/(app)/club/events/page.tsx` keeps reading
+`calendar.manage` until its own slice. Equally, `competition_match_verifications_read` keeps asking
+4C's `can_bulk_plan_fixtures` and `can_create_team_fixture`: "may this club plan fixtures" is a
+fixture question that 4C owns the meaning of, exactly as 4B's roster policies kept asking 4A's
+family helpers.
+
+## The catalogue was already right
+
+All ten J.8 keys exist, ACTIVE, with the scopes and bundles J.8 specifies — Slice 3 seeded them and
+they are live in production. 4D therefore adds no capability and changes no bundle. It is a pure
+resolver migration: the gates stop asking role strings and a deprecated adapter, and start asking
+the catalogue.
+
+## §9 unknown-age check for 4D
+Does 4D make unknown-age staff authority or staff-role onboarding more reachable? **No.** 4D touches
+no role grant, no membership transition and no onboarding path; it only changes which capability key
+a competition or tournament gate asks. The follow-up carries forward unchanged.
+
+---
+
+# 4D SHADOW COMPARISON (AA.4) — SEVEN QUESTIONS × NINE PERSONAS
+
+Legacy answer versus canonical answer, on a seeded world, before anything was changed. 63 pairs,
+**two** differences — and a third appeared once the site master equivalents J.8 specifies were wired
+in. All three are declared intended changes.
+
+## INTENDED CHANGE 1 — a Coach may no longer answer a competition match
+`can_answer_competition_match` read raw role strings twice: `is_club_fixture_administrator()` matched
+`'CLUB_ADMIN'`/`'FIXTURE_SECRETARY'` on the membership, and a raw `team_permissions` read matched
+`('team_admin','coach','manager')`. J.8 line 488 gives `competition.match.respond` to CA and FS at
+club scope and TM at team scope. **A Coach is not on that list.** Answering commits the club to play
+the match — the same boundary 4C drew when a Coach kept the right to raise a fixture request and
+lost the right to answer one.
+
+## INTENDED CHANGE 2 — a solo-entered Team Manager no longer takes the whole occasion
+`can_manage_tournament` had a branch granting the occasion to someone with team authority over
+**every** entered team. Its own comment explains the intent: *"A U12 manager does not get the parent
+occasion just because U12 is going."* But when U12 is the **only** team entered, "every entered
+team" is satisfied by one team and the U12 manager got the whole occasion after all — measured as
+`true`, not inferred. The rule contradicted its own stated intent in exactly that case. J.8 line 490
+settles it: the occasion is club-level (CL, CA and FS). So this is less a removal than the rule
+finally meaning what it said.
+
+## INTENDED CHANGE 3 — site support may answer a competition match
+J.8 line 488 names `site.support.act_in_club` as the site master equivalent for
+`competition.match.respond`. The legacy gate gave site support no route in at all. This is a
+**widening**, and it is the architecture working as designed: an explicit, named site capability
+rather than a role bypass. It is declared rather than absorbed quietly.
+
+## What is deliberately PRESERVED
+`can_manage_tournament_entry` gives a Team Manager authority over **their own team's** entry. J.8
+defines no tournament-entry key, so the governing authority there is the product invariant that
+created the entry/occasion split in `20270217000000`: *"THIS team only. The whole point of the
+split: a U12 admin schedules U12's day and cannot touch U13's."* That invariant is live — measured,
+not assumed — and 4D preserves it, expressing the team branch as `calendar.event.manage` at team
+scope. AA.3's requirement is still met: the deprecated `calendar.manage` string and the
+`has_capability` adapter are both gone.
+
+There is one place where the site master is deliberately **withheld**: `issue_competition_matches`
+asks `competition.match.respond` at the participating club to decide whether the organiser has in
+effect already answered for it, and does **not** ask the site capability. Letting site support
+silently pre-confirm a match for a club nobody at that club has spoken for would invent consent.
+The function's own comment already said so about Site Admin; the canonical rewrite keeps it true.
+
+---
+
+# 4D IMPLEMENTATION (ledger 486)
+
+## Migrations
+`20270362000000_competition_authority_canonical.sql` — **expand**. Rewrites the five competition and
+tournament gates onto `internal.can`, migrates `issue_competition_matches` off its four raw-role
+reads, and drops the now-callerless `internal.is_club_fixture_administrator`.
+
+`20270363000000_competition_policies_canonical.sql` — the eight owned read policies, plus the
+hoisting helper `internal.organised_edition_ids()`.
+
+Neither withdraws a privilege, changes a signature or adds an application dependency, so neither is
+a *release-ordering* contract step. That is proven below rather than assumed.
+
+## A performance fix the slice did not strictly owe, and why it was taken anyway
+The eight policies became canonical the moment `can_organise_edition` did, so no policy rewrite was
+required for correctness. They were rewritten for a measured reason. Reading one edition's 800
+matches as its organising Club Admin:
+
+| | |
+|---|---|
+| pre-4D (`can_bulk_plan_fixtures` inside the gate) | 153.1 ms |
+| 4D gate (canonical `internal.can` inside the gate) | **146.5 ms** — no regression |
+| 4D gate + the hoist | **1.8 ms** — about 85× |
+
+So 4D caused no regression; the cost was already there, inherent to asking per row a question that
+does not vary per row. The organiser set depends only on *who* is asking, so it belongs in the
+policy as an uncorrelated subquery the planner evaluates once per statement as an InitPlan — the
+same fix 4C applied to `fixtures_select_related`.
+
+`internal.competition_edition_is_public` is deliberately **not** hoisted: J.8 line 482 marks it
+KEEP, and the set of publicly visible editions is platform-wide rather than caller-bounded, so
+hoisting it would build a large array for every reader to save a cheap flag test.
+
+A hoist must not change answers, so it was proved not to: for every persona and every affected
+table, the row set the hoisted policy returns was compared against the row set the per-row predicate
+would have returned — **12 comparisons, 0 mismatches**, on a deliberately *non-public* edition so
+the organiser branch is the only way in. With an active edition every persona sees everything and
+the comparison would have proved nothing.
+
+## A grant I removed, and had to put back — CORRECTED
+The first version of the hoist granted `EXECUTE` on `internal.organised_edition_ids()` to **anon** as
+well as `authenticated`. I removed the anon grant, reasoning that none of the eight tables grants
+anon `SELECT`, so anon never evaluates these policies. **That reasoning was wrong and the removal was
+a regression.** It is recorded here rather than quietly reversed, because the mistake is reusable.
+
+`has_table_privilege('anon', 'public.competition_matches', 'SELECT')` returns **false**, which reads
+like "anon never touches this table". It is false because anon's grant is **column-level**: the
+perimeter manifest classifies `competition_matches` as PUBLIC and grants anon nineteen named
+columns, which is how `app/competitions/[slug]` serves the public competition surface. A
+column-level grant does not satisfy a table-level privilege test. The manifest had already written
+this down — it lists `can_organise_edition(uuid)` under `anon_internal_policy_helpers` with the
+reason *"Evaluated by row policies when anon reads: … competition_matches …"* — and I did not read it
+before trusting the privilege probe.
+
+The grant is restored, and the migration now raises if anon **cannot** execute the helper, which is
+the assertion that would have caught this immediately. What 4D does tighten instead is real:
+`internal.can_organise_edition(uuid)` is no longer named by any policy, so anon's EXECUTE on **it** is
+withdrawn, and the manifest moves accordingly.
+
+The lesson generalises past this slice: a perimeter check that only looks for absence is content
+when a public surface goes dark. `CM-G4` now asserts both directions — anon reads none of a
+non-public edition, and **does** read a public one.
+
+## Application
+Two UI capability reads move off the deprecated key:
+`app/(app)/calendar/page.tsx` (`canCreateTournament`) and `app/(app)/tournaments/new/page.tsx`
+(`canCreate`), both now `tournament.tournament.manage`. `app/(app)/club/events/page.tsx` keeps
+`calendar.manage` — it is a club event, which is 4E's.
+
+No other application change: every 4D write already travels through `supabase.rpc(...)`, and a
+repository-wide search for a direct insert, update or upsert on any `competition_*` or
+`tournament_*` table returns nothing.
+
+## Release ordering, DERIVED
+Both directions were measured, not asserted:
+
+```
+OLD APP gate (calendar.manage, club)        CA=t  TM=f
+NEW APP gate (tournament.tournament.manage) CA=t  TM=f
+COMPATIBLE: both builds gate this route identically, so neither order can strand a user.
+OLD APP SAFE: the calendar.manage adapter row survives 4D.
+NEW APP SAFE: tournament.tournament.manage predates 4D (Slice 3 seeded it).
+```
+
+So 4D needs **no staged release**, unlike 4C. Migrations still go before the push, because the push
+is the deployment.
+
+---
+
+# 4D — WHAT THE CLEAN BOOT CAUGHT (ledger 487)
+
+The first clean boot of the 4D tree came up correctly — 456 migrations from empty, every 4D object
+present, `is_club_fixture_administrator` gone, zero `can_organise_edition` policy references, anon
+holding no EXECUTE, and 4C still intact — but `competition_authority_matrix` stopped at 53
+assertions with:
+
+```
+ERROR:  permission denied for function organised_edition_ids
+```
+
+The cause was mine: I had revoked anon's `EXECUTE` on the hoisted helper. The clean boot said
+"permission denied", and the **full battery then said it twice more** — `competition_matches` and
+`identity_foundation_and_perimeter`, two pre-existing suites, both stopped at the same function.
+Those two are what made the diagnosis unambiguous, because `competition_matches` contains a named
+product assertion that *anon **can** see an external-versus-external match*. Anon reading the public
+competition surface is the §12 invariant, not an accident.
+
+So the revoke was wrong and is reversed; the full correction is recorded under ledger 486.
+
+Two things are still worth keeping from the episode. First, a test written against a looser grant
+can depend on the **shape** of a refusal without saying so: CM-G4 expected "zero rows" and got
+"permission denied", and the helper it used had no exception handler, so the block aborted rather
+than failing one assertion. Second, the local database had carried the looser grant since before the
+revoke, so the local matrix went on passing while a database built from empty disagreed — which is
+the whole case for booting from empty rather than trusting a long-lived development database.
+
+CM-G4 now asserts anon reads none of a non-public edition, CM-G4b that it **does** read a public one,
+and CM-G4c pins the column-level grant and helper EXECUTE that make the public surface work. The
+matrix is **70 assertions**.
+
+Mutation testing was re-run against the corrected matrix: **6 mutants, 6 killed, 0 survivors**, with
+a clean restore.
+
+## Browser verification, and one anomaly reported rather than buried (ledger 488)
+Suites 51, 52, 53 and 54 were run three passes each: **pass 1 and pass 3 fully green**
+(19 / 17 / 14 / 22), pass 2 green for 52 and 53, with suite 51 crashing and suite 54 at 21/22.
+
+Suite 51's crash was a signed-out page: the parent's context landed on `/login` at N2, so the
+assertion that the guardian is offered the gender form threw rather than failed. It is **not
+reproducible in isolation** — 51 has since run 19/19 three consecutive times alone, and 54 22/22
+three consecutive times alone, six clean runs against one bad one.
+
+The one occurrence coincided with other activity against the same database. These suites are not
+safe to run concurrently **with themselves**: each deletes stale identities by email *prefix* at
+startup, so a second run of the same suite removes the first run's people mid-flight, and every
+later assertion then measures a signed-out page. That is an operating hazard of the harness, not a
+product defect, and it is the most likely explanation here.
+
+What was ruled out rather than assumed: the shared harness does **not** blindly trust a cached
+session — `tryCachedSession` reads the identity back from the product and drops the cache if it
+disagrees — so a stale session cache is not the cause. No change was made to the shared harness on
+the strength of a failure that cannot be reproduced; changing infrastructure four suites depend on,
+to fix something that has not happened again in six runs, would be the worse trade. It is recorded
+as a documented risk with a named recommended fix: the suites should take a database-level advisory
+lock for their prefix so a second concurrent run waits instead of deleting the first one's people.

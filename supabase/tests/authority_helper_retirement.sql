@@ -33,18 +33,18 @@ $$;
 -- HR1 / HR2 --------------------------------------------------------------------------------------------------
 do $$
 declare
-  -- helper, policy ceiling, function-body ceiling (after Slice 4C)
+  -- helper, policy ceiling, function-body ceiling (after Slice 4D)
   v_ceilings constant text[][] := array[
-    ['has_capability', '98', '123'],
-    ['is_site_admin', '115', '146'],
+    ['has_capability', '98', '121'],
+    ['is_site_admin', '115', '144'],
     ['is_full_site_admin', '15', '46'],
     ['is_club_admin', '23', '25'],
-    ['can_manage_club_fixtures', '13', '42'],
+    ['can_manage_club_fixtures', '13', '41'],
     ['can_manage_club_fixtures_or_any_team', '2', '0'],
     ['can_manage_fixture_side', '2', '6'],
     ['can_manage_team', '2', '20'],
     ['can_organise_competition', '0', '2'],
-    ['can_organise_edition', '8', '1'],
+    ['can_organise_edition', '0', '1'],
     ['can_manage_document_library', '6', '2'],
     ['staffs_team', '0', '3'],
     ['is_messaging_staff', '0', '0'],
@@ -106,6 +106,18 @@ declare
     'internal.team_people_authority', 'internal.may_resolve_join_request', 'internal.regulatory_context_for_team'
   ];
   v_4b_tables constant text[] := array['player_team_memberships', 'team_season_identity'];
+  -- Slice 4d (competitions and tournaments). The gates that decide a competition or a festival,
+  -- and the tables they decide over.
+  v_4d_functions constant text[] := array[
+    'internal.can_organise_competition', 'internal.can_organise_edition',
+    'internal.can_answer_competition_match', 'internal.can_manage_tournament',
+    'internal.can_manage_tournament_entry', 'internal.organised_edition_ids',
+    'public.issue_competition_matches'
+  ];
+  v_4d_tables constant text[] := array['competition_matches', 'competition_stages', 'competition_rounds',
+                                        'competition_groups', 'competition_group_members',
+                                        'competition_participants', 'competition_match_fixtures',
+                                        'competition_match_verifications'];
   -- Slice 4c (fixtures). The gates that decide a fixture, and the tables they decide over.
   v_4c_functions constant text[] := array[
     'internal.can_create_team_fixture', 'internal.can_bulk_plan_fixtures', 'internal.can_edit_fixture_details',
@@ -122,6 +134,13 @@ declare
   -- themselves 4c-owned gates that now resolve canonically, so 4c code calling them is not a legacy
   -- reference; what 4c must be free of is the blanket site/club helpers and the old capability adapter.
   v_legacy_4c constant text := '\m(is_site_admin|is_full_site_admin|is_club_admin|has_capability|can_manage_team|can_manage_club_fixtures|can_manage_player|may_complete_player_profile)\(';
+  -- 4d owns the competition and tournament gates. can_bulk_plan_fixtures and can_create_team_fixture
+  -- are 4c's CANONICAL gates rather than legacy helpers, so a 4d POLICY may ask them -- the match
+  -- verification row asks "may this club plan fixtures", which is a fixture question 4c owns. 4d's own
+  -- function bodies must be free of them, because borrowing 4c's Planner gate to answer "do you
+  -- organise this competition" is exactly what this slice removed.
+  v_legacy_4d_fn constant text := '\m(is_site_admin|is_full_site_admin|is_club_admin|has_capability|can_manage_team|can_manage_club_fixtures|can_bulk_plan_fixtures|is_club_fixture_administrator)\(';
+  v_legacy_4d_pol constant text := '\m(is_site_admin|is_full_site_admin|is_club_admin|has_capability|can_manage_team|can_manage_club_fixtures|is_club_fixture_administrator)\(';
   v_bad text[];
 begin
   select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
@@ -230,6 +249,55 @@ begin
     raise notice 'FAIL HR3 4c: a browser role still holds INSERT on public.fixtures';
   end if;
 
+  -- Slice 4d -----------------------------------------------------------------------------------------------
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) = any (v_4d_functions) and f.prosrc ~ v_legacy_4d_fn;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4d functions: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4d functions still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  if (select count(*) filter (where n.nspname || '.' || f.proname = any (v_4d_functions)) from pg_proc f join pg_namespace n on n.oid = f.pronamespace)
+     = cardinality(v_4d_functions) then
+    raise notice 'PASS HR3 every 4d function in the ledger exists (the list is not stale)';
+  else
+    raise notice 'FAIL HR3 the 4d function list names a function that no longer exists';
+  end if;
+
+  select coalesce(array_agg(tablename || '.' || policyname order by 1), '{}') into v_bad
+  from pg_policies
+  where schemaname = 'public' and tablename = any (v_4d_tables)
+    and (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ v_legacy_4d_pol;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4d table policies: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4d table policies still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- AA.3 row 4d retires the TOURNAMENT use of the deprecated calendar.manage key. Other domains keep
+  -- it until their own slice: a club event is 4e's question, not this one's.
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) = any (v_4d_functions) and f.prosrc like '%''calendar.manage''%';
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4d: the deprecated calendar.manage key decides no tournament authority';
+  else
+    raise notice 'FAIL HR3 4d still decides tournament authority with calendar.manage: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- The raw-role helper is dropped, not merely uncalled: it matched the membership role strings
+  -- 'CLUB_ADMIN' and 'FIXTURE_SECRETARY' directly, and a zero-caller raw-role helper is a hazard.
+  if not exists (
+    select 1 from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+    where n.nspname = 'internal' and f.proname = 'is_club_fixture_administrator'
+  ) then
+    raise notice 'PASS HR3 4d: internal.is_club_fixture_administrator is gone';
+  else
+    raise notice 'FAIL HR3 4d: internal.is_club_fixture_administrator is still installed';
+  end if;
+
   -- The legacy team.view key is retired, not merely unused (Slice 4B, AA.3 row 4b).
   if not exists (select 1 from public.capability_key_map where legacy_key = 'team.view') then
     raise notice 'PASS HR3 4b: the legacy team.view adapter row is gone';
@@ -282,8 +350,8 @@ end $$;
 -- PG-15 / PG-16 ----------------------------------------------------------------------------------------------
 do $$
 declare
-  v_pg15_ceiling constant int := 130;  -- after Slice 4C (4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
-  v_pg16_ceiling constant int := 145;  -- after Slice 4C (4b: 157, 4a: 159, Slice 3: 162)
+  v_pg15_ceiling constant int := 130;  -- after Slice 4D (4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
+  v_pg16_ceiling constant int := 143;  -- after Slice 4D (4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
   v int;
 begin
   select count(*) into v from pg_policies p

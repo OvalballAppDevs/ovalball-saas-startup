@@ -3602,11 +3602,6 @@
     ],
     "anon_internal_policy_helpers": [
       {
-        "signature": "can_organise_edition(uuid)",
-        "schema": "internal",
-        "reason": "Evaluated by row policies when anon reads: competition_group_members, competition_groups, competition_matches, competition_participants, competition_stages."
-      },
-      {
         "signature": "competition_edition_is_public(uuid)",
         "schema": "internal",
         "reason": "Evaluated by row policies when anon reads: competition_group_members, competition_groups, competition_matches, competition_participants, competition_stages."
@@ -3625,6 +3620,11 @@
         "signature": "is_site_admin()",
         "schema": "internal",
         "reason": "Evaluated by row policies when anon reads: club_contacts, club_directory, clubs, competition_editions, competitions, platform_plans, teams."
+      },
+      {
+        "signature": "organised_edition_ids()",
+        "schema": "internal",
+        "reason": "Evaluated by row policies when anon reads: competition_group_members, competition_groups, competition_match_fixtures, competition_matches, competition_participants, competition_rounds, competition_stages. Computed once per statement as an InitPlan; returns only the caller's own organisable editions, which for anon is always empty."
       }
     ],
     "authenticated_public": [

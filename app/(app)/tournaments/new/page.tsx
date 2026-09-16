@@ -40,8 +40,10 @@ export default async function NewTournamentPage() {
   if (!clubId) redirect("/calendar")
 
   // The same capability the RPC re-checks. This decides whether to offer the
-  // form at all; save_tournament decides whether the save happens.
-  const canCreate = await hasCapability(supabase, "calendar.manage", "club", { clubId })
+  // form at all; save_tournament decides whether the save happens. Slice 4D moved
+  // both onto tournament.tournament.manage (design J.8 line 490); the deprecated
+  // calendar.manage key no longer decides tournament authority anywhere.
+  const canCreate = await hasCapability(supabase, "tournament.tournament.manage", "club", { clubId })
   if (!canCreate) redirect("/calendar")
 
   const options = await getTournamentBuilderOptions(supabase, clubId)

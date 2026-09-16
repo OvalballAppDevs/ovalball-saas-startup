@@ -455,6 +455,42 @@ try {
     })
   }
 
+  // N8. Reaching the tournament builder (Slice 4D: tournament.tournament.manage).
+  //
+  // This is a NO-CHANGE guard, and it is worth saying so rather than dressing it up as one of the
+  // slice's intended changes. 4D swapped this route's gate from the deprecated calendar.manage key
+  // onto tournament.tournament.manage (design J.8 line 490). Both are club-scope for the roles that
+  // matter -- calendar.event.manage grants at club to CA and FS only, and a Team Manager holds it
+  // at TEAM scope -- so the set of people who reach this page is identical before and after. The
+  // test exists to keep it identical: a later widening of either key, or a slip back to a
+  // team-scope check, would show up here.
+  //
+  // 4D's real tournament change is at the RPC, where a Team Manager who could once manage a
+  // solo-entered occasion no longer can. That is not visible from this route and is covered by
+  // suite 54 (C1).
+  // -------------------------------------------------------------------------
+  {
+    const reached = async (key) => {
+      const { url } = await open(sessions[key].page, "/tournaments/new")
+      return /\/tournaments\/new/.test(url)
+    }
+    const allowed = []
+    for (const key of ["admin", "secretary"]) if (await reached(key)) allowed.push(key)
+    record("N8a the Club Admin and the Fixtures Secretary reach the tournament builder",
+      allowed.length === 2, `reached: ${allowed.join(", ") || "none"}`)
+    // The other club's Club Admin is deliberately NOT in this list. The route resolves the
+    // viewer's OWN club context and asks for tournament.tournament.manage there, so a Club Admin
+    // arrives at their own club's builder -- which is one identity holding authority in the scope
+    // it actually has, not a leak into this club. Suite 54 covers the cross-club refusal, which is
+    // where it is observable: the RPC names the club and refuses.
+    const leaked = []
+    for (const key of ["manager", "teamAdmin", "coach", "otherTeamCoach", "volunteer", "parent"]) {
+      if (await reached(key)) leaked.push(people[key]?.label ?? key)
+    }
+    record("N8b and a Team Manager, Team Admin, Coach, Volunteer or parent does not -- unchanged by 4D",
+      leaked.length === 0, leaked.length ? `reached: ${leaked.join(", ")}` : "all redirected")
+  }
+
   record("I1 no server error on any page or replay", serverProblems.length === 0, serverProblems.slice(0, 5).join(" | "))
 } finally {
   for (const s of Object.values(sessions)) await s.context.close().catch(() => {})
