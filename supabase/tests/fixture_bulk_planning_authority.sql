@@ -205,20 +205,39 @@ begin
   -- The single fixture itself, through the real fixtures boundary.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_manager::text, 'role', 'authenticated')::text, true);
-  begin
-    insert into public.fixtures (owning_team_id, home_away, opponent_directory_id, raw_opposition_text, kickoff_date, kickoff_time, status, source)
-    values (v_u12, 'Home', v_other_dir, 'FBPA Other RUFC', current_date + 14, '10:30', 'Planned', 'club_created')
-    returning id into v_fixture;
-    raise notice 'PASS B5: a Team Manager can still create a single fixture for their own team';
+  -- Slice 4C: creation no longer travels through a direct INSERT -- `authenticated` holds no
+  -- INSERT privilege on public.fixtures at all. The behaviour this row protects is unchanged
+  -- (a Team Manager may still create one fixture for their own team); only the route is now the
+  -- canonical public.create_fixture contract, which is also what enforces "an Ovalball opponent
+  -- is asked, never booked".
+  -- The opponent here is another ACTIVE Ovalball club, so under the Slice 4C contract this
+  -- correctly becomes a REQUEST for that club to answer rather than a fixture booked on their
+  -- behalf. The previous direct INSERT booked it outright, which was the bypass 4C closed.
+  declare v_res jsonb; begin
+    v_res := public.create_fixture(
+      v_u12, 'Home', 'FBPA Other RUFC', (current_date + 14)::date, 'Planned',
+      null, v_other_dir, '10:30'::time);
+    if (v_res->>'pendingRequest')::boolean then
+      raise notice 'PASS B5: a Team Manager may still initiate a fixture for their own team, and an Ovalball opponent is asked rather than booked';
+    else
+      raise notice 'FAIL B5: an Ovalball opponent was booked without being asked (%)', v_res;
+    end if;
   exception when others then
-    raise notice 'FAIL B5: a Team Manager could not create a single fixture for their own team: %', sqlerrm;
+    raise notice 'FAIL B5: a Team Manager could not initiate a fixture for their own team: %', sqlerrm;
   end;
+  -- Asked through the canonical contract, so this proves the team-scope refusal itself and not
+  -- merely the absence of an INSERT privilege.
   begin
-    insert into public.fixtures (owning_team_id, home_away, opponent_directory_id, raw_opposition_text, kickoff_date, kickoff_time, status, source)
-    values (v_u13, 'Home', v_other_dir, 'FBPA Other RUFC', current_date + 21, '10:30', 'Planned', 'club_created');
+    perform public.create_fixture(
+      v_u13, 'Home', 'FBPA Other RUFC', (current_date + 21)::date, 'Planned',
+      null, v_other_dir, '10:30'::time);
     raise notice 'FAIL B6: a Team Manager created a fixture for a team they do not run';
-  exception when insufficient_privilege then
-    raise notice 'PASS B6: a Team Manager cannot create a fixture for a team they do not run';
+  exception when others then
+    if sqlerrm like '%not authorised%' or sqlstate = '42501' then
+      raise notice 'PASS B6: a Team Manager cannot create a fixture for a team they do not run';
+    else
+      raise notice 'FAIL B6: refused for the wrong reason: %', sqlerrm;
+    end if;
   end;
   reset role;
 

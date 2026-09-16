@@ -85,6 +85,7 @@ begin
     || array(select id from public.guardian_link_requests where club_id = v_club or requested_by_user_id = any(v_people))
     || array(select id from public.guardian_player_permissions where player_id = any(v_players))
     || array(select id from public.player_team_memberships where player_id = any(v_players))
+    || array(select id from public.fixtures where owning_team_id in (select id from public.teams where club_id in (v_club, v_far)))
     || array(select id from public.teams where club_id = v_far)
     || array(select id from public.club_memberships where club_id = v_far)
     || array(select id from public.role_assignments where club_id = v_far)
@@ -94,6 +95,7 @@ begin
   delete from public.guardian_player_permissions where player_id = any(v_players);
   delete from public.guardian_link_requests where club_id = v_club or requested_by_user_id = any(v_people);
   delete from public.guardians where player_id = any(v_players);
+  delete from public.fixtures where owning_team_id in (select id from public.teams where club_id in (v_club, v_far));
   delete from public.player_team_memberships where player_id = any(v_players);
   delete from public.players where id = any(v_players);
   delete from public.role_assignments where club_id in (v_club, v_far);
@@ -277,6 +279,11 @@ insert into public.team_permissions (membership_id, team_id, permission)
 insert into public.team_permissions (membership_id, team_id, permission)
   select id, '${ids.team2}', 'coach' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.otherTeamCoach.id}';`)
 
+// Slice 4C: an archived fixture on the club's own team, so the Restore action has something real
+// to act on. fixtures no longer accepts a browser INSERT, so this is seeded as the owner.
+ids.fixture = one(`insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, status, source, archived_at, archival_reason)
+  values ('${ids.team}', 'Home', 'Slice4C External RFC', current_date + 40, 'Booked', 'club_created', now(), 'seeded deleted for replay test') returning id`)
+
 ids.parentOnCharlie = one(`select id from public.guardians where guardian_user_id = '${people.parent.id}' and player_id = '${ids.charlie}'`)
 ids.partnerOnCharlie = one(`select id from public.guardians where guardian_user_id = '${people.partner.id}' and player_id = '${ids.charlie}'`)
 
@@ -423,6 +430,28 @@ try {
       authorised: "manager",
       state: `select state from public.player_team_memberships where player_id = '${ids.charlie}' and team_id = '${ids.team}'`,
       changed: (v) => v === "ENDED",
+    })
+  }
+
+  // -------------------------------------------------------------------------
+  // N7. Restoring a deleted fixture (Slice 4C: fixture.fixture.archive).
+  //
+  // Captured from the Club Admin, who holds it club-wide, and replayed from everyone who does not.
+  // Phase 2 J.6 line 460 gives this key to CA, FS and TM, so the Coach, the Fixtures Secretary's
+  // peers without it, the family and unrelated staff must all be refused. The refusal is judged on
+  // the fixture's archived_at, not on what the page draws.
+  // -------------------------------------------------------------------------
+  {
+    const { page } = sessions.admin
+    await open(page, "/club/calendar/deleted-events")
+    const row = page.locator("li, tr", { hasText: "Slice4C External RFC" }).first()
+    await row.getByRole("button", { name: /^Restor/ }).waitFor({ timeout: 30000 })
+    const captured = await captureAction(page, () => row.getByRole("button", { name: /^Restor/ }).click())
+    await negativeSmoke("N7", "restoring a deleted fixture", captured, {
+      refused: ["coach", "otherTeamCoach", "farAdmin", "safeguarding", "volunteer", "parent", "partner", "otherParent"],
+      authorised: "admin",
+      state: `select coalesce(archived_at::text, 'RESTORED') from public.fixtures where id = '${ids.fixture}'`,
+      changed: (v) => v === "RESTORED",
     })
   }
 

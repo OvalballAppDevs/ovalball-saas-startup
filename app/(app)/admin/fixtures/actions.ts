@@ -357,92 +357,43 @@ export async function createFixture(input: CreateFixtureInput): Promise<FixtureR
   if (!input.kickoffDate) return { ok: false, error: "A kickoff date is required to publish a scheduled fixture." }
   if (!input.rawOppositionText.trim()) return { ok: false, error: "An opponent (resolved team, or raw text) is required." }
 
-  // AN OVALBALL OPPONENT IS ASKED, NEVER BOOKED. Whether the opponent is a
-  // real team or a claimed club still to name one (Central Fixture
-  // Participant Resolution's structured identity), the fixture goes through
-  // the same fixture_requests -> recipient-accepts flow as Request a Fixture,
-  // the Season Planner and import. Only an external or unclaimed club is
-  // recorded directly, because nobody on the other side can answer.
-  let opponentClub: { id: string; directoryId: string | null } | null = null
-  if (input.opponentTeamId) {
-    const { data: t } = await supabase.from("teams").select("club_id, clubs(directory_id, status)").eq("id", input.opponentTeamId).maybeSingle()
-    if (t?.clubs?.status === "active") opponentClub = { id: t.club_id, directoryId: t.clubs.directory_id }
-  } else if (input.opponentDirectoryId) {
-    const { data: c } = await supabase.from("clubs").select("id").eq("directory_id", input.opponentDirectoryId).eq("status", "active").maybeSingle()
-    if (c) opponentClub = { id: c.id, directoryId: input.opponentDirectoryId }
-  }
-  if (opponentClub) {
-    const { data: owningTeam } = await supabase.from("teams").select("club_id").eq("id", input.owningTeamId).single()
-    if (!owningTeam) return { ok: false, error: "Owning team not found." }
-
-    const venuePreference = input.homeAway === "Home" ? "home" : input.homeAway === "Away" ? "away" : "either"
-    const { data: group, error: groupError } = await supabase
-      .from("fixture_request_groups")
-      .insert({
-        requesting_club_id: owningTeam.club_id,
-        opponent_club_id: opponentClub.id,
-        opponent_directory_id: opponentClub.directoryId,
-        raw_opponent_text: input.rawOppositionText.trim(),
-        proposed_date: input.kickoffDate,
-        notes: input.notes.trim() || null,
-        game_type: input.gameType,
-        competition_edition_id: input.competitionEditionId ?? null,
-        created_by: auth.user.id,
-      })
-      .select("id")
-      .single()
-    if (groupError || !group) return { ok: false, error: groupError?.message ?? toPublicSubmissionError() }
-
-    const hosting = venuePreference === "home"
-    const { error: requestError } = await supabase.from("fixture_requests").insert({
-      group_id: group.id,
-      requesting_team_id: input.owningTeamId,
-      target_team_id: input.opponentTeamId ?? null,
-      venue_preference: venuePreference,
-      preferred_kickoff_time: input.kickoffTime || null,
-      // Our pitch and venue mean something only when we are hosting.
-      pitch_id: hosting ? (input.pitchId ?? null) : null,
-      venue_id: hosting ? (input.venueId ?? null) : null,
-      target_team_age_group: input.opponentTeamId ? null : (input.targetTeamAgeGroup ?? null),
-      target_team_gender: input.opponentTeamId ? null : (input.targetTeamGender ?? null),
-      target_team_squad_designation: input.opponentTeamId ? null : (input.targetTeamSquadDesignation ?? null),
-      created_by: auth.user.id,
-    })
-    if (requestError) return { ok: false, error: requestError.message }
-
-    revalidatePath("/admin/fixtures")
-    revalidatePath("/fixtures/management")
-    return { ok: true, fixtureId: null, pendingRequest: true }
-  }
-
-  const { data, error } = await supabase
-    .from("fixtures")
-    .insert({
-      owning_team_id: input.owningTeamId,
-      home_away: input.homeAway,
-      opponent_team_id: input.opponentTeamId,
-      opponent_directory_id: input.opponentDirectoryId,
-      raw_opposition_text: input.rawOppositionText.trim(),
-      kickoff_date: input.kickoffDate,
-      kickoff_time: input.kickoffTime || null,
-      game_type: input.gameType,
-      status: input.status,
-      venue_id: input.venueId,
-      notes: input.notes.trim() || null,
-      source: "site_admin_manual",
-      competition_edition_id: input.competitionEditionId ?? null,
-      pitch_id: input.pitchId ?? null,
-    })
-    .select("id")
-    .single()
+  // AN OVALBALL OPPONENT IS ASKED, NEVER BOOKED. That invariant now lives in the database:
+  // public.create_fixture derives the opposition's Ovalball status from the resource itself and
+  // raises a fixture_request instead of a fixture, so it cannot be walked around by choosing a
+  // different surface or by editing the payload. `authenticated` no longer holds INSERT on
+  // public.fixtures at all, so this is the only creation path the browser has.
+  const { data, error } = await supabase.rpc("create_fixture", {
+    p_owning_team_id: input.owningTeamId,
+    p_home_away: input.homeAway,
+    p_raw_opposition_text: input.rawOppositionText.trim(),
+    p_kickoff_date: input.kickoffDate,
+    p_status: input.status,
+    p_opponent_team_id: input.opponentTeamId ?? undefined,
+    p_opponent_directory_id: input.opponentDirectoryId ?? undefined,
+    p_kickoff_time: input.kickoffTime || undefined,
+    p_game_type: input.gameType ?? undefined,
+    p_venue_id: input.venueId ?? undefined,
+    p_pitch_id: input.pitchId ?? undefined,
+    p_notes: input.notes.trim() || undefined,
+    p_competition_edition_id: input.competitionEditionId ?? undefined,
+    // Only meaningful when the opposition is a claimed club that has not named a team yet: the
+    // request still has to say which side is being asked for. The RPC ignores them when a real
+    // opponent team is given.
+    p_target_team_age_group: input.targetTeamAgeGroup ?? undefined,
+    p_target_team_gender: input.targetTeamGender ?? undefined,
+    p_target_team_squad_designation: input.targetTeamSquadDesignation ?? undefined,
+  })
 
   if (error || !data) {
     console.error("createFixture failed:", error)
     return { ok: false, error: toPublicSubmissionError() }
   }
 
+  const result = data as { pendingRequest: boolean; fixtureId: string | null }
   revalidatePath("/admin/fixtures")
-  return { ok: true, fixtureId: data.id }
+  revalidatePath("/fixtures/management")
+  if (result.pendingRequest) return { ok: true, fixtureId: null, pendingRequest: true }
+  return { ok: true, fixtureId: result.fixtureId as string }
 }
 
 export interface EditFixtureInput {

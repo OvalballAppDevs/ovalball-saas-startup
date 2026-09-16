@@ -21415,6 +21415,27 @@ export type Database = {
         Args: { p_competition_id: string; p_season_id: string }
         Returns: string
       }
+      create_fixture: {
+        Args: {
+          p_competition_edition_id?: string
+          p_game_type?: string
+          p_home_away: string
+          p_kickoff_date: string
+          p_kickoff_time?: string
+          p_notes?: string
+          p_opponent_directory_id?: string
+          p_opponent_team_id?: string
+          p_owning_team_id: string
+          p_pitch_id?: string
+          p_raw_opposition_text: string
+          p_status: string
+          p_target_team_age_group?: string
+          p_target_team_gender?: string
+          p_target_team_squad_designation?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       create_fixture_message_with_attachment: {
         Args: {
           p_body: string

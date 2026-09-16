@@ -30,6 +30,7 @@ declare
   v_secretary uuid := gen_random_uuid();
   v_coach_a uuid := gen_random_uuid();
   v_coach_b uuid := gen_random_uuid();
+  v_secretary_b uuid := gen_random_uuid();
   v_outsider uuid := gen_random_uuid();
   v_site uuid := gen_random_uuid();
   v_person uuid;
@@ -48,7 +49,7 @@ declare
   v_team_x uuid;
   v_before integer;
 begin
-  foreach v_person in array array[v_secretary, v_coach_a, v_coach_b, v_outsider, v_site] loop
+  foreach v_person in array array[v_secretary, v_coach_a, v_coach_b, v_secretary_b, v_outsider, v_site] loop
     insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
       raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change,
       email_change_token_current, phone_change, phone_change_token, reauthentication_token)
@@ -81,6 +82,7 @@ begin
     (v_club_a, v_secretary, 'FIXTURE_SECRETARY', 'active'),
     (v_club_a, v_coach_a, 'BASIC_USER', 'active'),
     (v_club_b, v_coach_b, 'BASIC_USER', 'active'),
+    (v_club_b, v_secretary_b, 'FIXTURE_SECRETARY', 'active'),
     (v_club_x, v_outsider, 'CLUB_ADMIN', 'active');
   insert into public.team_permissions (membership_id, team_id, permission)
   select cm.id, x.team_id, 'coach' from (values (v_coach_a, v_team_a, v_club_a), (v_coach_b, v_team_b, v_club_b)) x(user_id, team_id, club_id)
@@ -175,7 +177,17 @@ begin
   exception when unique_violation then
     raise notice 'PASS I2: one open question per fixture';
   end;
+  -- Slice 4C intended change (design J.6 line 466): answering an inter-club fixture
+  -- request is fixture.request.respond, which a Coach does not hold. The opponent
+  -- club's Fixture Secretary answers instead.
   perform set_config('request.jwt.claims', json_build_object('sub', v_coach_b::text, 'role', 'authenticated')::text, true);
+  begin
+    perform public.accept_fixture_request(v_request, null);
+    raise notice 'FAIL I2b: the opponent club''s coach answered a fixture request';
+  exception when insufficient_privilege then
+    raise notice 'PASS I2b: a Coach may raise a fixture request but may not answer one';
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_secretary_b::text, 'role', 'authenticated')::text, true);
   perform public.accept_fixture_request(v_request, null);
   reset role;
   if exists (select 1 from public.fixtures where id = v_asked and opponent_team_id = v_team_b)

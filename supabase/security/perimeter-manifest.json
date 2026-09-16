@@ -1261,13 +1261,14 @@
       },
       "authenticated": {
         "select": "all",
-        "insert": "all",
+        "insert": "none",
         "update": "all",
         "write_consumers": [
           "app/(app)/admin/fixtures/actions.ts"
         ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "write_reason": "Direct application UPDATE; RLS write policies decide which rows. INSERT is no longer granted: fixtures are created only through public.create_fixture.",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns.",
+        "insert_reason": "Slice 4C retired the direct-insert bypass (AA.3 row 4c; J.6 line 457). Creation travels through public.create_fixture, which enforces canonical fixture.fixture.create and routes an Ovalball opponent into the request/verification flow. With no INSERT privilege there is no second route that could book a fixture against another club without asking them."
       }
     },
     "geographic_areas": {
@@ -4215,6 +4216,11 @@
         ]
       },
       {
+        "signature": "create_fixture(uuid, text, text, date, text, uuid, uuid, time without time zone, text, uuid, uuid, text, uuid, text, text, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "Slice 4C canonical fixture creation. Requires fixture.fixture.create at the owning team or club, derives the opposition's Ovalball status server-side, and routes an Ovalball opponent into the request/verification flow. Replaces the retired direct INSERT on public.fixtures."
+      },
+      {
         "signature": "create_fixture_message_with_attachment(uuid, uuid, text, text, text, text, integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7093,11 +7099,11 @@
       "fixture_audience_players(uuid, text)",
       "fixture_audience_recipients(uuid, text)",
       "fixture_communication_team_ids(uuid)",
+      "fixture_family_visible_row(uuid, uuid, uuid, uuid)",
       "fixture_result_eligible(uuid)",
       "fixture_result_notify(uuid, uuid, text, text, text)",
       "fixture_result_system_event(uuid, uuid, text)",
       "fixture_side_effective_team_ids(uuid, uuid)",
-      "fixture_visible_row(uuid, uuid, uuid, uuid)",
       "fold_team_core(uuid, text, uuid)",
       "generate_club_slug(text)",
       "generate_rollover_player_proposals_core(uuid)",
@@ -7206,7 +7212,9 @@
       "trial_remaining_seconds(bigint, bigint, timestamp with time zone)",
       "validate_fixture_group_participant(uuid, uuid, date, text)",
       "validate_mini_rugby_team_set(uuid, uuid[], uuid)",
-      "validate_scheduling_group_season(uuid, uuid)"
+      "validate_scheduling_group_season(uuid, uuid)",
+      "viewable_fixture_clubs()",
+      "viewable_fixture_teams()"
     ],
     "service_role_public": [
       "accept_directory_research_proposal(uuid)",

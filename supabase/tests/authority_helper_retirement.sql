@@ -33,16 +33,16 @@ $$;
 -- HR1 / HR2 --------------------------------------------------------------------------------------------------
 do $$
 declare
-  -- helper, policy ceiling, function-body ceiling (after Slice 4B)
+  -- helper, policy ceiling, function-body ceiling (after Slice 4C)
   v_ceilings constant text[][] := array[
-    ['has_capability', '98', '125'],
-    ['is_site_admin', '125', '158'],
+    ['has_capability', '98', '123'],
+    ['is_site_admin', '115', '146'],
     ['is_full_site_admin', '15', '46'],
     ['is_club_admin', '23', '25'],
-    ['can_manage_club_fixtures', '20', '57'],
+    ['can_manage_club_fixtures', '13', '42'],
     ['can_manage_club_fixtures_or_any_team', '2', '0'],
-    ['can_manage_fixture_side', '3', '6'],
-    ['can_manage_team', '7', '28'],
+    ['can_manage_fixture_side', '2', '6'],
+    ['can_manage_team', '2', '20'],
     ['can_organise_competition', '0', '2'],
     ['can_organise_edition', '8', '1'],
     ['can_manage_document_library', '6', '2'],
@@ -106,8 +106,22 @@ declare
     'internal.team_people_authority', 'internal.may_resolve_join_request', 'internal.regulatory_context_for_team'
   ];
   v_4b_tables constant text[] := array['player_team_memberships', 'team_season_identity'];
+  -- Slice 4c (fixtures). The gates that decide a fixture, and the tables they decide over.
+  v_4c_functions constant text[] := array[
+    'internal.can_create_team_fixture', 'internal.can_bulk_plan_fixtures', 'internal.can_edit_fixture_details',
+    'internal.can_submit_fixture_result', 'internal.can_manage_fixture_side',
+    'internal.can_manage_club_fixtures_or_any_team', 'internal.caller_fixture_club_id',
+    'internal.fixture_family_visible_row', 'internal.viewable_fixture_clubs', 'internal.viewable_fixture_teams',
+    'public.create_fixture', 'public.archive_fixture', 'public.restore_fixture'
+  ];
+  v_4c_tables constant text[] := array['fixtures', 'fixture_requests', 'fixture_request_groups',
+                                        'fixture_result_submissions', 'fixture_player_call_up'];
   v_legacy constant text := '\m(can_manage_player|may_complete_player_profile|is_site_admin|is_full_site_admin|is_club_admin|has_capability|is_active_player_guardian|is_own_linked_player|can_manage_team|can_manage_club_fixtures|can_manage_club_fixtures_or_any_team)\(';
   v_legacy_4b constant text := '\m(can_manage_team|is_site_admin|is_full_site_admin|is_club_admin|has_capability|can_manage_club_fixtures|can_manage_club_fixtures_or_any_team|can_manage_player|may_complete_player_profile)\(';
+  -- 4c owns the fixture helpers. can_manage_fixture_side and can_manage_club_fixtures_or_any_team are
+  -- themselves 4c-owned gates that now resolve canonically, so 4c code calling them is not a legacy
+  -- reference; what 4c must be free of is the blanket site/club helpers and the old capability adapter.
+  v_legacy_4c constant text := '\m(is_site_admin|is_full_site_admin|is_club_admin|has_capability|can_manage_team|can_manage_club_fixtures|can_manage_player|may_complete_player_profile)\(';
   v_bad text[];
 begin
   select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
@@ -169,6 +183,53 @@ begin
     raise notice 'FAIL HR3 4b table policies still call a legacy helper: %', array_to_string(v_bad, ', ');
   end if;
 
+  -- Slice 4c -----------------------------------------------------------------------------------------------
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) = any (v_4c_functions) and f.prosrc ~ v_legacy_4c;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4c functions: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4c functions still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  if (select count(*) filter (where n.nspname || '.' || f.proname = any (v_4c_functions)) from pg_proc f join pg_namespace n on n.oid = f.pronamespace)
+     = cardinality(v_4c_functions) then
+    raise notice 'PASS HR3 every 4c function in the ledger exists (the list is not stale)';
+  else
+    raise notice 'FAIL HR3 the 4c function list names a function that no longer exists';
+  end if;
+
+  select coalesce(array_agg(tablename || '.' || policyname order by 1), '{}') into v_bad
+  from pg_policies
+  where schemaname = 'public' and tablename = any (v_4c_tables)
+    and (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ v_legacy_4c;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4c table policies: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4c table policies still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- The superseded resolver is dropped, not merely uncalled: while it existed its body double-counted
+  -- the Slice 4a family branch against that slice's own retirement ceilings.
+  if not exists (
+    select 1 from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+    where n.nspname = 'internal' and f.proname = 'fixture_visible_row'
+  ) then
+    raise notice 'PASS HR3 4c: the superseded internal.fixture_visible_row is gone';
+  else
+    raise notice 'FAIL HR3 4c: internal.fixture_visible_row is still installed';
+  end if;
+
+  -- 4c's contract change: creation travels through public.create_fixture, so no browser role may
+  -- INSERT a fixture directly. This is the bypass that let a club be booked without being asked.
+  if not has_table_privilege('authenticated', 'public.fixtures', 'INSERT')
+     and not has_table_privilege('anon', 'public.fixtures', 'INSERT') then
+    raise notice 'PASS HR3 4c: no browser role may INSERT a fixture directly';
+  else
+    raise notice 'FAIL HR3 4c: a browser role still holds INSERT on public.fixtures';
+  end if;
+
   -- The legacy team.view key is retired, not merely unused (Slice 4B, AA.3 row 4b).
   if not exists (select 1 from public.capability_key_map where legacy_key = 'team.view') then
     raise notice 'PASS HR3 4b: the legacy team.view adapter row is gone';
@@ -221,8 +282,8 @@ end $$;
 -- PG-15 / PG-16 ----------------------------------------------------------------------------------------------
 do $$
 declare
-  v_pg15_ceiling constant int := 138;  -- after Slice 4B (4a: 140, Slice 3: 149); reaches 0 at Slice 7
-  v_pg16_ceiling constant int := 157;  -- after Slice 4B (4a: 159, Slice 3: 162)
+  v_pg15_ceiling constant int := 130;  -- after Slice 4C (4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
+  v_pg16_ceiling constant int := 145;  -- after Slice 4C (4b: 157, 4a: 159, Slice 3: 162)
   v int;
 begin
   select count(*) into v from pg_policies p
