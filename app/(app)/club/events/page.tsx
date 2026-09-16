@@ -76,7 +76,7 @@ export default async function ClubEventsPage({
   // THE CAPABILITY IS THE BOUNDARY. Resolved against whichever club was found
   // above, so reaching this page by URL with somebody else's event id gives
   // exactly nothing.
-  const canManageClub = await hasCapability(supabase, "calendar.manage", "club", { clubId })
+  const canManageClub = await hasCapability(supabase, "calendar.event.manage", "club", { clubId })
   if (!canManageClub) redirect("/calendar")
 
   // One read each for the three things the form offers, all scoped to this

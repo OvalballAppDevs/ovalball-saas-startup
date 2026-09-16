@@ -1043,3 +1043,171 @@ one the 3840 assertions and the clean boot ran against.
 
 4e–4i are not started. Next in order is 4e (Calendar, venues, pitches, training). 4g stays banked
 under D-S4-2. Slice 5 is not started.
+
+---
+
+# 4E ARCHAEOLOGY AND EXACT OWNERSHIP MAP (recorded at ledger 490)
+
+AA.3 row 4e retires **"role-string RPC checks, public training plans"**, with the matrix
+`venue_training_authority_matrix.sql`, and carries the **U** "venues RLS/RPC mismatch" closure and
+the **V** presets. Design J.9 lines 496-507 holds the eleven keys.
+
+## 4E-OWNED FOOTPRINT
+
+| object / path | current authority | canonical capability | scope | why 4E owns it |
+|---|---|---|---|---|
+| `internal.can_manage_club_event` | `is_site_admin()` + `calendar.manage` | `calendar.event.manage` | club, team | J.9 497 |
+| `internal.club_event_visible_row` | `is_site_admin()` + raw `club_memberships` read | `calendar.event.view` | club | J.9 496 |
+| `internal.can_manage_training` | `club.training.manage` / `team.training.manage` | `training.plan.manage` | club, team | J.9 505 MERGE |
+| `internal.training_session_visible_row` | `is_site_admin()` + raw membership read | `training.session.view` | club, team | J.9 504 |
+| 4 venue RPCs | **`internal.is_club_admin()`** (raw role) | `venue.venue.manage` | club | J.9 500; the U mismatch |
+| `public.set_venue_address` | `club.venues.manage` + `is_site_admin()` | `venue.venue.manage` | club | J.9 500 |
+| 5 pitch RPCs | `can_manage_club_fixtures` (4C's gate) | `venue.pitch.manage` | club | J.9 501 |
+| 10 training RPCs | `club.training.manage` ×10 | `training.plan.manage` | club | J.9 505 |
+| `venues_select` | **`true`** | `venue.venue.view` + `public_venues` | club | J.9 499, M-2 residue |
+| `training_plans_select`, schedule rules | **`true`** | `training.session.view` | club, team | J.9 504 |
+| venue / pitch / training write policies | legacy keys | the canonical manage keys | club | J.9 500/501/505 |
+| 8 application capability reads | `calendar.manage`, `calendar.view`, `club.venues.manage`, `club.pitches.manage`, `club.training.manage`, `fixture.edit` | the canonical keys | club | the UI half of the same rename |
+
+## NOT 4E — named so it is not mistaken for an oversight
+
+| object | why not 4E | owner |
+|---|---|---|
+| `app/(app)/club/events/page.tsx` … other `calendar.manage` uses | *club events* are J.9, but the remaining non-tournament, non-event uses are their own domains | their slice |
+| `club_pitches_select` = `true` | J.9 defines `venue.pitch.manage` and `venue.pitch_allocation.*` but **no pitch-view key**; anon already holds nothing | a later slice |
+| `get_tournament_centre` pending-invitation filter | a *display* filter, not an authority gate; never held the calendar key | tournament participation |
+| `update_tournament_venue` recipient query (`cm.role in (...)`) | selects who is **notified**; decides no authority | a later slice |
+| `training_plan_schedule_rules` family branch | "a player on this team, or their guardian" is 4A's question | 4A |
+| `competition_match_verifications_read` 4C helpers | "may this club plan fixtures" is a fixture question | 4C |
+
+## A Slice 4D remnant that BLOCKED 4E
+Four RPCs still decided **tournament** authority with the deprecated `calendar.manage`:
+`save_tournament`, `add_tournament_team_entry`, `get_tournament_centre`, `update_tournament_venue`.
+They are AA.3 row **4d**, and 4D's retirement assertion missed them because it checked the function
+list 4D declared rather than the contract's wording.
+
+4E could not complete its own J.9 RENAME while they held the key, so their **authority gates** are
+closed here on J.8 line 490's already-defined behaviour — plus two bare `is_site_admin()` bypasses
+found beside them. Nothing else of 4D's is touched, and the matrix asserts only the three gates 4E
+actually changed.
+
+## §9 unknown-age check for 4E
+Does 4E make unknown-age staff authority or staff-role onboarding more reachable? **No.** It grants
+no role, changes no membership transition and touches no onboarding path; every change either
+narrows a read or unifies two existing answers into one. The follow-up carries forward unchanged.
+
+---
+
+# 4E SHADOW COMPARISON (AA.4) AND FOUR INTENDED CHANGES (ledger 491)
+
+Ten questions × eight personas = 80 pairs, run before anything changed. Four differences, all four
+specified by J.9 and by the bundles Slice 3 already seeded.
+
+**1. A Fixtures Secretary may now manage a venue.** This *is* the U section's "venues RLS/RPC
+mismatch". The venue RPCs asked `internal.is_club_admin(club)` while the venues RLS asked
+`club.venues.manage`, which CA **and** FS hold — so a Fixtures Secretary could change a venue row
+through one door and was refused the same act at the other. J.9 line 500 makes
+`venue.venue.manage` CA and FS, one authority for one resource.
+
+**2. An ordinary club Member may no longer see training sessions or plans.** J.9 line 504 gives
+`training.session.view` to CA and FS at the club and CO, TM and PL at the team, with PG at the
+child — MB is absent, and the key is marked safeguarding-sensitive. The legacy helper admitted
+anyone holding any active membership row. A training session is a standing record of where named
+children will be on a given evening, so this narrowing is the point of the key rather than a
+side-effect of it. A club **event** is deliberately unaffected: `calendar.event.view` does include
+MB, because a club event is not a child's timetable.
+
+**3. Another club, or a signed-in stranger, may no longer read this club's venues.** `venues_select`
+was `true`. Anonymous exposure had already been narrowed by Slice 1 to `(id, name)`, but every
+*signed-in* account could read every club's venues in full — addresses, directions, notes.
+
+The obvious thing that could have broken is an AWAY fixture at the opposition's ground, and that was
+measured rather than hoped: `public.update_fixture_venue` refuses unless the fixture is a **home**
+fixture and the venue belongs to that fixture's own club. A visiting club therefore never resolves
+another club's venue row; an away fixture carries free-text `venue_address`.
+
+**4. Site support gains venue and training management** through the explicit site masters J.9 names
+(`site.clubs.profile.manage`, `site.support.act_in_club`), where the legacy gates gave it no route
+in at all. A widening, declared, and by named capability rather than role.
+
+## What the battery then said about those changes
+Eleven failures across eight suites, every one a genuine consequence rather than a flake:
+
+* `authority_helper_retirement` — `is_active_player_guardian` 15/14 and `is_own_linked_player` 10/9.
+  **The Slice 4C lesson repeating**: `training_family_visible_row` was introduced to carry the family
+  branch for the policies while `training_session_visible_row` still contained its own copy, so 4A's
+  counters saw each call site twice. The helper now delegates instead of repeating.
+* `security_perimeter_guard` — `public_venues` is an owner-rights view readable by anon, which P4
+  forbids except for the deliberately public list. It joins that list, which is what it is for.
+* `bundle_legacy_parity`, `backfill_verification` — retiring the calendar adapter removes 10 further
+  legacy role defaults, so the intended-removal list goes from 17 to 27, each named with its reason.
+* `capability_catalogue_integrity` — 72 → 70 pre-Slice 3 keys still resolvable.
+* `capability_override_ceilings` — its "legacy names accepted" case used `calendar.manage`, which is
+  no longer a legacy name that resolves. It now uses `club.edit_profile`, which still is, so the
+  coverage is kept rather than deleted.
+* `training_centre_visibility` — its "a member of the owning club sees the session" case used a
+  persona **named** `v_coach` that was seeded as a bare `BASIC_USER` with no team permission, so it
+  was really asserting club-wide visibility. It is now an actual coach, and an ordinary member is
+  seeded alongside to assert the narrowing. That is more coverage than before, not less.
+
+---
+
+# 4E — PERFORMANCE, AND A THREE-STAGE RELEASE DERIVED FROM EVIDENCE (ledger 492)
+
+## The per-row resolver, a third time
+Reading one club's 800 training sessions as its Club Admin:
+
+| | |
+|---|---|
+| pre-4E (raw membership read inside the helper) | 46.7 ms |
+| 4E gate, still called per row | **106.9 ms** — a real 2.3× regression |
+| 4E gate, sets hoisted into the policy | **0.9 ms** |
+
+The first hoist was not enough on its own, and the reason is worth recording. `training_plans`
+stayed linear — 6.6 ms for 50 rows, 53.8 ms for 400 — until `EXPLAIN` was actually read instead of
+guessed at. The plan showed the filter beginning with `internal.can_manage_training(club_id,
+team_id)`, with both hoisted SubPlans *"never executed"*: `training_plans_write_scoped` is a
+**FOR ALL** policy, so its `USING` clause is OR'd into every SELECT as well. It had never shown up
+before because `training_plans_select` was `true`, which let the planner satisfy every row from the
+trivial policy and never call the write gate at all. **Enforcing a read that was previously
+unenforced is what exposed it.** Hoisting the manage sets too brought 400 plans to 1.1 ms.
+
+A guess was tried first and rejected on the evidence: raising the family helper's planner `COST` to
+10000 changed nothing, because the family helper was never the cost.
+
+## Release ordering: neither pure order is safe
+4E is the first slice in this conveyor to **retire a legacy capability adapter**, so the old build's
+question stops resolving the moment the migration lands. Measured:
+
+```
+OLD BUILD, NEW DB   calendar.manage(CA)=f   club.training.manage(CA)=t   club.venues.manage(FS)=t
+NEW BUILD, NEW DB   calendar.event.manage(CA)=t  training.plan.manage(CA)=t  venue.venue.manage(FS)=t
+```
+
+* **Migrations first** → the deployed build's `hasCapability('calendar.manage')` reads FALSE, so a
+  Club Admin loses the club-events controls, and its `/competitions/[slug]` loses venue names when
+  anon's grant on `venues` goes.
+* **Application first** → the new `/competitions/[slug]` reads `public.public_venues`, which would
+  not exist yet.
+
+So the slice releases in **three stages**, and the contract migration was split to make that
+possible:
+
+| Stage | Action | Why |
+|---|---|---|
+| A | `20270364000000` + `20270365000000` | Both purely additive. The gates become canonical and `public_venues` appears; the running build neither knows nor needs either. |
+| B | Deploy the application | It now asks the canonical keys and reads `public_venues`, both of which Stage A has provided. |
+| C | `20270366000000` | Revokes anon's grant on `venues`, narrows the reads, closes the 4D remnant and retires the calendar adapter — all safe only once B is live. |
+
+Note that `club.training.manage`, `club.venues.manage` and `club.pitches.manage` keep resolving:
+`internal.has_capability` passes an unmapped key straight through to the canonical decision, and
+those keys still exist. Only `calendar.manage` and `calendar.view` had adapter rows, and only they
+stop resolving. That is why Stage C's blast radius is exactly two surfaces rather than the whole
+domain.
+
+## The rehearsal's one data delta, explained rather than waved through
+The production-shaped rehearsal reports the seeded shape identical except `audit 2859 → 2863`. That
+is exactly four rows, and they are the four `capability_key_map` deletions — `calendar.manage` and
+`calendar.view` at club and team scope — recorded by the audit coverage the design requires on the
+capability tables. Verified by querying the audit rows themselves, not inferred from the count. No
+club, person, venue, plan, session or event row changed.

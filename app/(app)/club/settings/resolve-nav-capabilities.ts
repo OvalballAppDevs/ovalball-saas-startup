@@ -82,8 +82,8 @@ export async function resolveClubSettingsNavCapabilities(
   // Players gate read the player-dispensations answer). Named pairs cannot drift.
   const checks = {
     canProfile: "club.edit_profile",
-    canPitchesManage: "club.pitches.manage",
-    canVenues: "club.venues.manage",
+    canPitchesManage: "venue.pitch.manage",
+    canVenues: "venue.venue.manage",
     canRollover: "club.season_rollover.manage",
     canPermissions: "club.capabilities.manage",
     canFixtureEdit: "fixture.edit",

@@ -3283,16 +3283,10 @@
       }
     },
     "venues": {
-      "classification": "PUBLIC",
+      "classification": "CLUB_PRIVATE",
       "anon": {
-        "select": [
-          "id",
-          "name"
-        ],
-        "reason": "Only the venue name, for the public competition schedule (competition_matches \u2192 venues(name)). Addresses, directions, coordinates and all other venue fields are not public.",
-        "consumers": [
-          "app/competitions/[slug]/page.tsx"
-        ]
+        "select": "none",
+        "reason": "Slice 4E removed anon's column-level grant on the venues table. Anonymous readers use the public_venues projection, so the public competition schedule still shows where a match is played."
       },
       "authenticated": {
         "select": "all",
@@ -3301,7 +3295,7 @@
           "lib/geocoding/backfill.ts"
         ],
         "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Row access decided by RLS: venue.venue.view at the owning club (Slice 4E, J.9 line 499). Before 4E venues_select was `true`, so every signed-in person read every club's venues in full."
       }
     }
   },
@@ -3495,6 +3489,20 @@
         "select": "all"
       },
       "reason": "The intentionally narrow public fixture projection (owner-rights view; 9 columns; Booked, future, unarchived; no score, note, meet time, changing room or venue)."
+    },
+    "public_venues": {
+      "classification": "PUBLIC_PROJECTION",
+      "security_invoker": false,
+      "anon": {
+        "select": "all",
+        "consumers": [
+          "app/competitions/[slug]/page.tsx"
+        ]
+      },
+      "authenticated": {
+        "select": "all"
+      },
+      "reason": "Slice 4E: the only anonymous projection of a venue -- id, name and owning club, and nothing else. It exists so that anon needs no grant on public.venues at all; before 4E anon held column-level SELECT on the venues table, which a table-level privilege test reports as FALSE and is therefore easy to miss."
     },
     "role_capability_defaults": {
       "classification": "PRIVATE",
@@ -7039,12 +7047,14 @@
       "can_manage_club_event(uuid)",
       "can_manage_club_fixtures(uuid)",
       "can_manage_club_fixtures_or_any_team(uuid)",
+      "can_manage_club_training(uuid)",
       "can_manage_competitions()",
       "can_manage_document_library(uuid, uuid)",
       "can_manage_fixture_side(uuid, uuid)",
       "can_manage_fixture_support()",
       "can_manage_global_lookups()",
       "can_manage_permissions()",
+      "can_manage_pitch(uuid)",
       "can_manage_player(uuid)",
       "can_manage_support()",
       "can_manage_team(uuid)",
@@ -7052,6 +7062,7 @@
       "can_manage_tournament(uuid)",
       "can_manage_tournament_entry(uuid)",
       "can_manage_training(uuid, uuid)",
+      "can_manage_venue(uuid)",
       "can_organise_competition(uuid)",
       "can_organise_edition(uuid)",
       "can_player(text, uuid)",
@@ -7072,6 +7083,7 @@
       "can_view_team_conversation(uuid)",
       "can_view_tournament(uuid)",
       "can_view_training_session(uuid)",
+      "can_view_venue(uuid)",
       "canonical_team_presentation(text, text, text, text, text)",
       "capitalise_name_segment(text)",
       "club_delegable_capability(text)",
@@ -7208,7 +7220,12 @@
       "tournament_visible_row(uuid)",
       "training_audience_players(uuid, text)",
       "training_audience_recipients(uuid, text)",
+      "training_family_visible_row(uuid, uuid)",
+      "training_manageable_clubs()",
+      "training_manageable_teams()",
       "training_session_visible_row(uuid, uuid, uuid)",
+      "training_visible_clubs()",
+      "training_visible_teams()",
       "trial_remaining_seconds(bigint, bigint, timestamp with time zone)",
       "validate_fixture_group_participant(uuid, uuid, date, text)",
       "validate_mini_rugby_team_set(uuid, uuid[], uuid)",

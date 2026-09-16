@@ -47,7 +47,10 @@ async function loadCompetition(slug: string) {
     supabase.from("competition_stages").select("id, kind, name, sort_order, settings, competition_groups(id, name, sort_order)").eq("edition_id", edition.id).order("sort_order"),
     supabase
       .from("competition_matches")
-      .select("id, stage_id, group_id, round_number, bracket_slot, home_participant_id, away_participant_id, home_source, away_source, match_date, kickoff_time, venue_text, status, home_score, away_score, winner_participant_id, venues(name)")
+      // venue_id rather than an embedded venues(name): Slice 4E removed anon's grant on
+      // public.venues, and the anonymous venue name now comes from the public_venues projection,
+      // resolved below. An embed cannot reach a view through a foreign key.
+      .select("id, stage_id, group_id, round_number, bracket_slot, home_participant_id, away_participant_id, home_source, away_source, match_date, kickoff_time, venue_text, venue_id, status, home_score, away_score, winner_participant_id")
       .eq("edition_id", edition.id)
       .order("match_date", { nullsFirst: false })
       .order("kickoff_time", { nullsFirst: false }),
@@ -58,10 +61,16 @@ async function loadCompetition(slug: string) {
   ])
   const stageIds = (stages ?? []).map((s) => s.id)
   const { data: members } = stageIds.length ? await supabase.from("competition_group_members").select("group_id, participant_id").in("stage_id", stageIds) : { data: [] }
+  // The anonymous venue name, from the one public projection. Slice 4E: anon holds no grant on
+  // public.venues, so this is the only route, and it carries the name and nothing else.
+  const venueIds = Array.from(new Set((matches ?? []).map((m) => m.venue_id).filter((id): id is string => Boolean(id))))
+  const { data: venues } = venueIds.length ? await supabase.from("public_venues").select("id, name").in("id", venueIds) : { data: [] }
+  const venueNameById = new Map((venues ?? []).map((v) => [v.id, v.name]))
+  const matchesWithVenue = (matches ?? []).map((m) => ({ ...m, venueName: m.venue_id ? (venueNameById.get(m.venue_id) ?? null) : null }))
   const type = category as { category: string; age_group: string | null; gender: string | null } | null
   // The competition's age and category, in the site-wide display form ("Under 12 Boys").
   const categoryLabel = type ? fullTeamLabel({ category: type.category, ageGroup: type.age_group, gender: type.gender, squadDesignation: null, rugbyCode: competition.rugby_code }) : null
-  return { competition, category: categoryLabel, edition, participants: participants ?? [], stages: stages ?? [], members: members ?? [], matches: matches ?? [] }
+  return { competition, category: categoryLabel, edition, participants: participants ?? [], stages: stages ?? [], members: members ?? [], matches: matchesWithVenue }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -284,7 +293,7 @@ function MatchList({ matches, nameOf, source, empty, showScore = false }: { matc
                 <span className="text-center font-medium text-ink tabular-nums">{showScore && m.home_score !== null ? `${m.home_score} – ${m.away_score}` : m.status === "postponed" ? "Postponed" : "v"}</span>
                 <span className={cn("text-ink", m.winner_participant_id && m.winner_participant_id === m.away_participant_id && "font-semibold")}>
                   {m.away_participant_id ? nameOf.get(m.away_participant_id) : source(m.away_source)}
-                  {(m.venues?.name || m.venue_text) && <span className="block text-xs text-ink-muted">{m.venues?.name ?? m.venue_text}</span>}
+                  {(m.venueName || m.venue_text) && <span className="block text-xs text-ink-muted">{m.venueName ?? m.venue_text}</span>}
                 </span>
               </li>
             ))}

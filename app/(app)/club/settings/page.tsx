@@ -57,8 +57,8 @@ export default async function ClubSettingsHubPage() {
   const [canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = clubId
     ? await Promise.all([
         hasCapability(supabase, "club.edit_profile", "club", { clubId }),
-        hasCapability(supabase, "club.venues.manage", "club", { clubId }),
-        hasCapability(supabase, "club.pitches.manage", "club", { clubId }),
+        hasCapability(supabase, "venue.venue.manage", "club", { clubId }),
+        hasCapability(supabase, "venue.pitch.manage", "club", { clubId }),
         hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
         hasCapability(supabase, "fixture.edit", "club", { clubId }),
         hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),

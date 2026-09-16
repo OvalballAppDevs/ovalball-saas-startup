@@ -491,6 +491,31 @@ try {
       leaked.length === 0, leaked.length ? `reached: ${leaked.join(", ")}` : "all redirected")
   }
 
+  // N9. Reaching the club settings venues surface (Slice 4E: venue.venue.manage).
+  //
+  // The U section's "venues RLS/RPC mismatch" closure, seen from the UI. Before 4E the venue RPCs
+  // asked internal.is_club_admin while the venue RLS asked a capability CA *and* FS hold, so a
+  // Fixtures Secretary could change a venue row one way and was refused the other. J.9 line 500
+  // makes venue.venue.manage CA and FS, and this asserts both halves of that from the product: the
+  // Secretary arrives, and the people J.9 leaves out do not.
+  // -------------------------------------------------------------------------
+  {
+    const reached = async (key) => {
+      const { url } = await open(sessions[key].page, "/club/settings")
+      return /\/club\/settings/.test(url)
+    }
+    const allowed = []
+    for (const key of ["admin", "secretary"]) if (await reached(key)) allowed.push(key)
+    record("N9a the Club Admin and the Fixtures Secretary reach club settings", allowed.length === 2,
+      `reached: ${allowed.join(", ") || "none"}`)
+    const leaked = []
+    for (const key of ["manager", "teamAdmin", "coach", "volunteer", "parent"]) {
+      if (await reached(key)) leaked.push(people[key]?.label ?? key)
+    }
+    record("N9b and a Team Manager, Team Admin, Coach, Volunteer or parent does not", leaked.length === 0,
+      leaked.length ? `reached: ${leaked.join(", ")}` : "all redirected")
+  }
+
   record("I1 no server error on any page or replay", serverProblems.length === 0, serverProblems.slice(0, 5).join(" | "))
 } finally {
   for (const s of Object.values(sessions)) await s.context.close().catch(() => {})

@@ -12,7 +12,9 @@
 --   P2. The functions the containment narrowed stay narrowed.
 --   P3. No write policy anywhere in public accepts a row unconditionally.
 --   P4. Views that run with their owner's rights are not readable by anon,
---       apart from the deliberately public ones listed.
+--       apart from the deliberately public ones listed. public_venues joined that list in
+--       Slice 4E: it carries a venue's id, name and club and nothing else, and it exists so that
+--       anonymous readers need no grant on public.venues at all.
 --   P5. Browser roles keep no write access to children's records, and cannot
 --       write the protected columns of profiles or club_memberships.
 --   P6. Every public table has row-level security enabled.
@@ -101,7 +103,7 @@ begin
     and has_table_privilege('anon', c.oid, 'SELECT')
     and not coalesce((select option_value in ('true', 'on', '1', 'yes')
                       from pg_options_to_table(c.reloptions) where option_name = 'security_invoker'), false)
-    and c.relname not in ('public_club_fixtures', 'notification_topic_settings');
+    and c.relname not in ('public_club_fixtures', 'public_venues', 'notification_topic_settings');
   if v_bad is null then
     raise notice 'PASS P4: owner-rights views readable by anonymous callers are only the deliberately public ones';
   else

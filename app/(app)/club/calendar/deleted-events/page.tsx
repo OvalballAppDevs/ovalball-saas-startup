@@ -30,7 +30,7 @@ export default async function DeletedCalendarEventsPage() {
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeManageableClubId(ctx, activeContext)
 
-  const canManageTraining = clubId ? await hasCapability(supabase, "club.training.manage", "club", { clubId }) : false
+  const canManageTraining = clubId ? await hasCapability(supabase, "training.plan.manage", "club", { clubId }) : false
   if (!clubId || !(canManageClubFixturesAnywhere(ctx) || canManageTraining)) redirect("/dashboard")
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Your club"

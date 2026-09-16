@@ -73,18 +73,18 @@ export default async function PitchAllocationPage({ searchParams }: { searchPara
   // on which pitch and when is ordinary club operational information, and a
   // team admin planning their Saturday needs it.
   //
-  // `fixture.edit` at CLUB scope is what allows MOVING anything. A team-scoped
-  // grant deliberately does not satisfy it -- reallocating a pitch reorders
-  // other teams' afternoons, which is not one team's decision. Nobody is
-  // granted a capability here merely to make the board open.
-  const [canViewClub, canViewTeam, canManage] = await Promise.all([
-    hasCapability(supabase, "calendar.view", "club", { clubId }),
-    activeContext.kind === "team" && activeContext.id
-      ? hasCapability(supabase, "calendar.view", "team", { clubId, teamId: activeContext.id })
-      : Promise.resolve(false),
-    hasCapability(supabase, "fixture.edit", "club", { clubId }),
+  // `venue.pitch_allocation.manage` at CLUB scope is what allows MOVING anything. A team-scoped
+  // grant deliberately does not satisfy it -- reallocating a pitch reorders other teams'
+  // afternoons, which is not one team's decision. Nobody is granted a capability here merely to
+  // make the board open.
+  // Slice 4E moved this onto the two keys J.9 lines 502-503 define for exactly this board.
+  // Both are CLUB scope, so the old club-or-team pair collapses into one question: a team-scoped
+  // grant never opened this board and still does not.
+  const [canView, canManage] = await Promise.all([
+    hasCapability(supabase, "venue.pitch_allocation.view", "club", { clubId }),
+    hasCapability(supabase, "venue.pitch_allocation.manage", "club", { clubId }),
   ])
-  if (!ctx.isSiteAdmin && !canViewClub && !canViewTeam && !canManage) redirect("/calendar")
+  if (!ctx.isSiteAdmin && !canView && !canManage) redirect("/calendar")
 
   const now = new Date()
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`

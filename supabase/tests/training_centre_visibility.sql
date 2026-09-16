@@ -32,6 +32,7 @@ do $$
 declare
   v_admin uuid := gen_random_uuid();
   v_coach uuid := gen_random_uuid();
+  v_member uuid := gen_random_uuid();
   v_parent uuid := gen_random_uuid();
   v_stranger uuid := gen_random_uuid();
   v_other_parent uuid := gen_random_uuid();
@@ -50,6 +51,7 @@ begin
 insert into auth.users (id, email, instance_id, aud, role) values
   (v_admin,'tcv-admin@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
   (v_coach,'tcv-coach@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
+  (v_member,'tcv-member@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
   (v_parent,'tcv-parent@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
   (v_stranger,'tcv-stranger@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
   (v_other_parent,'tcv-other@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated');
@@ -57,6 +59,7 @@ insert into auth.users (id, email, instance_id, aud, role) values
 insert into public.profiles (id, first_name, surname, email) values
   (v_admin,'Tcv','Admin','tcv-admin@ovalball-test.invalid'),
   (v_coach,'Tcv','Coach','tcv-coach@ovalball-test.invalid'),
+  (v_member,'Tcv','Member','tcv-member@ovalball-test.invalid'),
   (v_parent,'Tcv','Parent','tcv-parent@ovalball-test.invalid'),
   (v_stranger,'Tcv','Stranger','tcv-stranger@ovalball-test.invalid'),
   (v_other_parent,'Tcv','Other','tcv-other@ovalball-test.invalid');
@@ -80,8 +83,12 @@ values (v_club,'union','youth','U12','boys','Under 12 Boys','tcv-a-u12-'||v_slug
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug, active)
 values (v_club2,'union','youth','U12','boys','Under 12 Boys','tcv-b-u12-'||v_slug,false) returning id into v_team2;
 
--- The coach holds a role at the home club; the stranger holds nothing anywhere.
+-- The coach coaches the training team; the member holds nothing but a club membership; the
+-- stranger holds nothing anywhere.
 insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_coach, 'BASIC_USER', 'active');
+insert into public.team_permissions (membership_id, team_id, permission)
+  select id, v_team, 'coach' from public.club_memberships where club_id = v_club and user_id = v_coach;
+insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_member, 'BASIC_USER', 'active');
 
 -- playing_pathway is required before a player may join a gendered team --
 -- Ovalball never assumes it from the side they are being added to.
@@ -142,9 +149,25 @@ begin
 exception when others then v_blocked := true;
 end;
 if v_n = 1 and not v_blocked then
-  raise notice 'PASS 3 (B): a member of the owning club sees the session at both doors';
+  raise notice 'PASS 3 (B): the team''s coach sees the session at both doors';
 else
-  raise notice 'FAIL 3 (B): club member table_rows=% rpc_blocked=%', v_n, v_blocked;
+  raise notice 'FAIL 3 (B): coach table_rows=% rpc_blocked=%', v_n, v_blocked;
+end if;
+
+-- Slice 4E (AA.3 row 4e, J.9 line 504): an ordinary club member does NOT. training.session.view
+-- reaches CA and FS at the club and CO, TM and PL at the team, and the key is safeguarding
+-- sensitive, because a training session is a standing record of where named children will be.
+perform set_config('request.jwt.claims', json_build_object('sub', v_member, 'role','authenticated')::text, true);
+select count(*) into v_n from public.training_sessions where id = v_session;
+begin
+  perform 1 from public.get_training_session_card(v_session);
+  v_blocked := false;
+exception when others then v_blocked := true;
+end;
+if v_n = 0 and v_blocked then
+  raise notice 'PASS 3 (C): an ordinary club member sees the session at neither door';
+else
+  raise notice 'FAIL 3 (C): club member table_rows=% rpc_blocked=%', v_n, v_blocked;
 end if;
 
 -- Platform authority.

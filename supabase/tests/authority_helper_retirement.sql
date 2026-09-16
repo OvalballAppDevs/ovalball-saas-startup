@@ -33,16 +33,16 @@ $$;
 -- HR1 / HR2 --------------------------------------------------------------------------------------------------
 do $$
 declare
-  -- helper, policy ceiling, function-body ceiling (after Slice 4D)
+  -- helper, policy ceiling, function-body ceiling (after Slice 4E)
   v_ceilings constant text[][] := array[
-    ['has_capability', '98', '121'],
-    ['is_site_admin', '115', '144'],
+    ['has_capability', '92', '104'],
+    ['is_site_admin', '115', '136'],
     ['is_full_site_admin', '15', '46'],
-    ['is_club_admin', '23', '25'],
-    ['can_manage_club_fixtures', '13', '41'],
+    ['is_club_admin', '23', '21'],
+    ['can_manage_club_fixtures', '13', '35'],
     ['can_manage_club_fixtures_or_any_team', '2', '0'],
     ['can_manage_fixture_side', '2', '6'],
-    ['can_manage_team', '2', '20'],
+    ['can_manage_team', '2', '19'],
     ['can_organise_competition', '0', '2'],
     ['can_organise_edition', '0', '1'],
     ['can_manage_document_library', '6', '2'],
@@ -114,6 +114,20 @@ declare
     'internal.can_manage_tournament_entry', 'internal.organised_edition_ids',
     'public.issue_competition_matches'
   ];
+  -- Slice 4e (calendar, venues, pitches, training). The gates that decide a ground, a session or a
+  -- club event, and the tables they decide over.
+  v_4e_functions constant text[] := array[
+    'internal.can_manage_club_event', 'internal.club_event_visible_row', 'internal.can_manage_training',
+    'internal.can_manage_club_training', 'internal.training_session_visible_row',
+    'internal.can_manage_venue', 'internal.can_manage_pitch', 'internal.can_view_venue'
+  ];
+  v_4e_tables constant text[] := array['venues', 'club_pitches', 'club_events', 'training_plans',
+                                        'training_sessions', 'training_plan_schedule_rules'];
+  -- 4e owns the calendar, venue, pitch and training gates. The family branches inside
+  -- club_event_visible_row and training_session_visible_row ask Slice 4a's helpers, because "a
+  -- player on this team, or their active guardian" is a family question 4a owns -- the same
+  -- boundary 4b drew for its roster policies.
+  v_legacy_4e constant text := '\m(is_site_admin|is_full_site_admin|is_club_admin|has_capability|can_manage_team|can_manage_club_fixtures)\(';
   v_4d_tables constant text[] := array['competition_matches', 'competition_stages', 'competition_rounds',
                                         'competition_groups', 'competition_group_members',
                                         'competition_participants', 'competition_match_fixtures',
@@ -298,6 +312,66 @@ begin
     raise notice 'FAIL HR3 4d: internal.is_club_fixture_administrator is still installed';
   end if;
 
+  -- Slice 4e -----------------------------------------------------------------------------------------------
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) = any (v_4e_functions) and f.prosrc ~ v_legacy_4e;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4e functions: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4e functions still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  if (select count(*) filter (where n.nspname || '.' || f.proname = any (v_4e_functions)) from pg_proc f join pg_namespace n on n.oid = f.pronamespace)
+     = cardinality(v_4e_functions) then
+    raise notice 'PASS HR3 every 4e function in the ledger exists (the list is not stale)';
+  else
+    raise notice 'FAIL HR3 the 4e function list names a function that no longer exists';
+  end if;
+
+  select coalesce(array_agg(tablename || '.' || policyname order by 1), '{}') into v_bad
+  from pg_policies
+  where schemaname = 'public' and tablename = any (v_4e_tables)
+    and (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ v_legacy_4e;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4e table policies: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4e table policies still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- AA.3 row 4e retires the role-string RPC checks. The venue RPCs asked internal.is_club_admin
+  -- while the venue RLS asked a capability -- the U section's "venues RLS/RPC mismatch".
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where n.nspname = 'public'
+    and f.proname in ('create_venue', 'update_venue', 'set_venue_active', 'set_default_venue', 'set_venue_address',
+                      'create_club_pitch', 'rename_club_pitch', 'reorder_club_pitches', 'set_club_pitch_active', 'set_club_pitch_venue')
+    and f.prosrc ~ '\m(is_club_admin|can_manage_club_fixtures|is_site_admin)\(';
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4e: no venue or pitch RPC decides authority by role string';
+  else
+    raise notice 'FAIL HR3 4e venue/pitch RPCs still use a role-string check: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- The calendar adapter rows are retired, not merely unused (AA.3 row 4e; J.9 lines 496-497).
+  if not exists (select 1 from public.capability_key_map where legacy_key in ('calendar.manage', 'calendar.view')) then
+    raise notice 'PASS HR3 4e: the calendar.manage / calendar.view adapter rows are gone';
+  else
+    raise notice 'FAIL HR3 4e: a calendar legacy adapter row is back';
+  end if;
+
+  -- "public training plans" (M-2). Slice 1 closed it at the privilege layer; this asserts it stays
+  -- closed, and that the one deliberate public projection still serves.
+  if not exists (
+    select 1 from information_schema.column_privileges
+    where table_schema = 'public' and grantee = 'anon' and privilege_type = 'SELECT'
+      and table_name in ('training_plans', 'training_sessions', 'training_plan_schedule_rules', 'club_events', 'club_pitches', 'venues')
+  ) and has_table_privilege('anon', 'public.public_venues', 'SELECT') then
+    raise notice 'PASS HR3 4e: M-2 holds -- anon reads no training, event, pitch or venue table, only public_venues';
+  else
+    raise notice 'FAIL HR3 4e: the M-2 closure or the public venue projection is broken';
+  end if;
+
   -- The legacy team.view key is retired, not merely unused (Slice 4B, AA.3 row 4b).
   if not exists (select 1 from public.capability_key_map where legacy_key = 'team.view') then
     raise notice 'PASS HR3 4b: the legacy team.view adapter row is gone';
@@ -350,8 +424,8 @@ end $$;
 -- PG-15 / PG-16 ----------------------------------------------------------------------------------------------
 do $$
 declare
-  v_pg15_ceiling constant int := 130;  -- after Slice 4D (4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
-  v_pg16_ceiling constant int := 143;  -- after Slice 4D (4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
+  v_pg15_ceiling constant int := 130;  -- after Slice 4E (4d: 130, 4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
+  v_pg16_ceiling constant int := 135;  -- after Slice 4E (4d: 143, 4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
   v int;
 begin
   select count(*) into v from pg_policies p

@@ -5,8 +5,8 @@
 -- out below, row by row, so an accidental loss cannot hide among them.
 --
 --   BP1  the archive of the old defaults is intact (139 rows)
---   BP2  every archived default is in the bundle projection, or is one of the 17 intended removals
---   BP3  the intended removals are exactly those 17
+--   BP2  every archived default is in the bundle projection, or is one of the 27 intended removals
+--   BP3  the intended removals are exactly those 27
 --   BP4  behaviour: a real person holding each legacy role passes has_capability for every retained default
 --   BP5  behaviour: and fails for each intended removal
 --   BP6  the retained additions beyond the J bundles (legacy authority kept) are exactly the three recorded
@@ -155,7 +155,21 @@ insert into intended_removals values
   ('club', 'CLUB_MEMBER', 'team.view', 'AA.3 4b: retired in favour of team.team.view'),
   ('team', 'CLUB_ADMIN', 'team.view', 'AA.3 4b: retired in favour of team.team.view'),
   ('team', 'TEAM_STAFF', 'team.view', 'AA.3 4b: retired in favour of team.team.view'),
-  ('team', 'TEAM_MANAGER', 'team.view', 'AA.3 4b: retired in favour of team.team.view');
+  ('team', 'TEAM_MANAGER', 'team.view', 'AA.3 4b: retired in favour of team.team.view'),
+  -- Slice 4E (AA.3 row 4e) retires the legacy calendar.manage and calendar.view keys. Their
+  -- replacements calendar.event.manage and calendar.event.view are held by every one of these
+  -- bundles, so nobody loses a calendar; what goes is the legacy key. team/TEAM_MEMBER/calendar.view
+  -- is NOT repeated here -- it is already listed above under J.15, where the whole role was dropped.
+  ('club', 'CLUB_ADMIN', 'calendar.manage', 'AA.3 4e: retired in favour of calendar.event.manage'),
+  ('club', 'FIXTURE_SECRETARY', 'calendar.manage', 'AA.3 4e: retired in favour of calendar.event.manage'),
+  ('team', 'CLUB_ADMIN', 'calendar.manage', 'AA.3 4e: retired in favour of calendar.event.manage'),
+  ('team', 'TEAM_MANAGER', 'calendar.manage', 'AA.3 4e: retired in favour of calendar.event.manage'),
+  ('club', 'CLUB_ADMIN', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view'),
+  ('club', 'CLUB_MEMBER', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view'),
+  ('club', 'FIXTURE_SECRETARY', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view'),
+  ('team', 'CLUB_ADMIN', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view'),
+  ('team', 'TEAM_MANAGER', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view'),
+  ('team', 'TEAM_STAFF', 'calendar.view', 'AA.3 4e: retired in favour of calendar.event.view');
 
 do $body$
 declare
@@ -174,11 +188,11 @@ begin
   select count(*) into v_n from (
     select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
     except select scope_type, role_key, capability_key from public.role_capability_defaults) x;
-  perform pg_temp.check(v_n = 17 and not exists (
+  perform pg_temp.check(v_n = 27 and not exists (
       select scope_type, role_key, capability_key from intended_removals
       except (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
               except select scope_type, role_key, capability_key from public.role_capability_defaults)),
-    'BP3: the intended removals are exactly the 17 listed (' || v_n || ')');
+    'BP3: the intended removals are exactly the 27 listed (' || v_n || ')');
 
   -- Behaviour, through the enforcement entry point, for a real holder of each legacy role.
   v_club := pg_temp.club('Parity'); v_team := pg_temp.team(v_club);

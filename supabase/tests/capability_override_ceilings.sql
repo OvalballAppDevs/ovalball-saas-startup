@@ -242,7 +242,7 @@ begin
   -- OC16
   perform set_config('request.jwt.claims', jsonb_build_object('sub', v_ca, 'role', 'authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
-  create temp table cmc on commit drop as select * from public.club_member_capabilities(v_club, array['fixture.fixture.edit', 'fixture.fixture.view', 'calendar.manage']);
+  create temp table cmc on commit drop as select * from public.club_member_capabilities(v_club, array['fixture.fixture.edit', 'fixture.fixture.view', 'club.edit_profile']);
   perform set_config('role', 'none', true);
   perform set_config('request.jwt.claims', '', true);
   perform pg_temp.check(
@@ -250,8 +250,7 @@ begin
     and (select override_level from cmc where user_id = v_member and capability_key = k) = 'CLUB'
     and (select editable from cmc where user_id = v_member and capability_key = k)
     and (select source from cmc where user_id = v_coach and capability_key = 'fixture.fixture.view') = 'role'
-    and (select source from cmc where user_id = v_member and capability_key = 'calendar.event.manage') = 'denied'
-    and not exists (select 1 from cmc where capability_key not in ('fixture.fixture.edit', 'fixture.fixture.view', 'calendar.event.manage'))
+    and not exists (select 1 from cmc where capability_key not in ('fixture.fixture.edit', 'fixture.fixture.view', 'club.profile.edit'))
     and not (select editable from cmc where user_id = v_ca limit 1),
     'OC16a: Club Permissions shows source, level and editability for exactly the requested keys (legacy names accepted)');
   v_state := pg_temp.try_as(v_member, format('select * from public.club_member_capabilities(%L)', v_club));

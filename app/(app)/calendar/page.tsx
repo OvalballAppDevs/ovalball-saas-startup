@@ -893,7 +893,7 @@ export default async function CalendarPage({
   // merely because someone can view Calendar, and never for a team-scoped
   // Team Admin/Coach's narrower grant (their fixture.edit is at team
   // scope, which this club-scope check does not satisfy).
-  const canManagePitchAllocation = boardContext.kind === "club" && boardContext.id ? await hasCapability(supabase, "fixture.edit", "club", { clubId: boardContext.id }) : false
+  const canManagePitchAllocation = boardContext.kind === "club" && boardContext.id ? await hasCapability(supabase, "venue.pitch_allocation.manage", "club", { clubId: boardContext.id }) : false
   // Creating a tournament commits the club's teams and its Saturday, so it is
   // club-scope tournament authority -- the same capability save_tournament
   // re-checks in the database. Slice 4D moved this off the deprecated

@@ -32,7 +32,7 @@ export default async function TrainingManagementPage({ searchParams }: { searchP
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeClubId(ctx, activeContext)
 
-  const canManage = clubId ? await hasCapability(supabase, "club.training.manage", "club", { clubId }) : false
+  const canManage = clubId ? await hasCapability(supabase, "training.plan.manage", "club", { clubId }) : false
   if (!clubId || !canManage) redirect("/dashboard")
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"

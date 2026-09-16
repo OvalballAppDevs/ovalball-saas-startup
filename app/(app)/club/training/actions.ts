@@ -33,7 +33,7 @@ async function requireTrainingManageAccess(clubId: string) {
   if (!realClubId || realClubId !== clubId) {
     return { ok: false as const, error: "You are not authorised to manage Training for this club." }
   }
-  const can = await hasCapability(supabase, "club.training.manage", "club", { clubId })
+  const can = await hasCapability(supabase, "training.plan.manage", "club", { clubId })
   if (!can) return { ok: false as const, error: "You are not authorised to manage Training Plans for this club." }
   return { ok: true as const, supabase, user }
 }
