@@ -1211,3 +1211,26 @@ is exactly four rows, and they are the four `capability_key_map` deletions — `
 `calendar.view` at club and team scope — recorded by the audit coverage the design requires on the
 capability tables. Verified by querying the audit rows themselves, not inferred from the count. No
 club, person, venue, plan, session or event row changed.
+
+---
+
+# 4E — PRODUCTION RELEASE AND VERDICT (ledger 493)
+
+Commit `f78de26`, fast-forward `d882bb7..f78de26`. Released in **three stages**, each dry-run first,
+with the held-back migration kept in an isolated stage directory so only the expected file travelled.
+
+* **Stage A** — `20270364000000` + `20270365000000`, both additive. Dry run proposed exactly those
+  two. Both domains 200 afterwards.
+* **Stage B** — the push. Deployment confirmed live 80 s later on two independent markers: `/login`
+  etag `1d5a0b4c…` → `78ea2c5b…`, chunk set `48a53593…` → `8a7380b8…`.
+* **Stage C** — `20270366000000`. Dry run proposed exactly that one. It revokes anon's grant on
+  `venues`, narrows the reads, closes the 4D remnant and deletes the adapter rows, and it raises if
+  any of those is wrong. It completed clean, so those assertions passed **inside production**.
+
+**Production:** 459 rows, 459 applied, tip `20270366000000`, none pending, and
+`supabase db diff --linked` reports **"No schema changes found"**.
+
+**Verdict: IDENTITY/AUTH SLICE 4E — PRODUCTION VERIFIED.**
+
+4f–4i are not started. Next in order is 4f (Messaging and notifications). 4g stays banked under
+D-S4-2. Slice 5 is not started.

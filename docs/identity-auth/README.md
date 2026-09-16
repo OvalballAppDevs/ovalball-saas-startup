@@ -49,6 +49,16 @@ Production at 456 migrations, tip `20270363000000`, zero schema drift.
 | `SLICE_4D_IMPLEMENTATION_REPORT.md` | Implementation report for sub-slice 4d — the three intended changes, the hoist, and the anon regression it caught |
 | `SLICE_4D_PRODUCTION_RELEASE_REPORT.md` | The production release itself — verdict **IDENTITY/AUTH SLICE 4D — PRODUCTION VERIFIED** |
 
+## Slice 4E — Calendar, Venues, Pitches, Training
+
+Released and production verified on 16 September 2026, commit `f78de26`.
+Production at 459 migrations, tip `20270366000000`, zero schema drift.
+
+| Document | What it is |
+|---|---|
+| `SLICE_4E_IMPLEMENTATION_REPORT.md` | Implementation report for sub-slice 4e — the U "venues RLS/RPC mismatch" closure, four intended changes, and the third encounter with the per-row resolver |
+| `SLICE_4E_PRODUCTION_RELEASE_REPORT.md` | The production release itself — a three-stage release ordered by evidence; verdict **IDENTITY/AUTH SLICE 4E — PRODUCTION VERIFIED** |
+
 ## Programme state
 
 **Not started:** 4d–4i. The Slice 4 programme is **not** complete. Next in order
