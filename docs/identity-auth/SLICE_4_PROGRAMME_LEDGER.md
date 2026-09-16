@@ -1905,3 +1905,35 @@ treated as a member.
 
 The carried follow-up is unchanged and is surfaced in the closure audit ahead of Slice 5, which owns
 external email-bound invitation and redemption.
+
+## 4I production release (ledger 473)
+
+Commit `c7a9a96`, pushed fast-forward `edcc5ce..c7a9a96`. The four migrations were dry-run and then
+applied to production **before** the push, exactly four travelling. Production moved **469 → 473**,
+tip `20270380000000`.
+
+Twenty-three read-only production checks pass. `is_club_admin` decides nothing in any policy and
+holds **3** bodies, all 4b's and 4c's. `can_manage_club_fixtures` bodies **27 → 9**, the nine being
+4a's dead `can_manage_player` and eight of 4d's tournament functions. No policy asks a document
+helper, and neither helper matches a role string. The `club-documents` bucket has all four policies,
+so Z-12 is satisfied in production. The three 4I adapter rows are retired and 4a's and 4c's are not.
+The hoist is installed in the subquery form in **44 policies and the per-row form in none**. A null
+subject answers `false` rather than erroring. 4G and 4H still hold. Identities, clubs and teams
+unchanged at **4 / 1 / 17**.
+
+**Section U is live**: `apply_season_handover` asks `team.handover.apply` and not the preparation
+key; the Fixtures Secretary holds prepare and not apply; the key is non-delegable and reason-bearing;
+and folding or graduating through a handover still asks `team.lifecycle.manage` twice with the
+preparation key absent.
+
+Production holds **0 documents, 0 folders, 0 partnerships, 0 invitations and 0 handovers**. The
+authority is live and correct and is currently deciding about an empty set — recorded plainly, so a
+page of green checks is not read as evidence that live data was exercised.
+
+The application layer is server-side and behind authentication, so it was verified by three
+sequential browser UAT passes locally (suites 51-59, **247/247 each**) rather than in production:
+verifying it there would require creating production personas or signing in as the product owner,
+both prohibited. Two environmental failures occurred during UAT and are recorded in
+`SLICE_4I_PRODUCTION_RELEASE_REPORT.md` rather than quietly re-run away.
+
+**Slice 4I is complete. Slice 5 is not started, and must not be: see the closure audit.**

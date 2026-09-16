@@ -1,7 +1,8 @@
 # Slice 4I — production release report
 
-**Status: not yet released.** This report is written before the release and completed after it, as
-each prior sub-slice's was.
+**Status: released.** Commit `c7a9a96`, pushed fast-forward `edcc5ce..c7a9a96`. The four migrations
+were dry-run and then applied to production **before** the push, as the standing rule requires.
+Production moved **469 → 473**, tip `20270380000000`.
 
 ## Release order, derived from compatibility evidence
 
@@ -31,6 +32,44 @@ that each is independently safe: `20270377000000` (documents and Z-12), `2027037
 authority and the lifecycle gates inside it), `20270379000000` (policies and the three adapter
 retirements), `20270380000000` (the eighteen RPCs). Nothing in 377–379 depends on 380 having run, and
 380 asserts the section U split that 378 installs rather than assuming it.
+
+## Production verification
+
+Twenty-three checks were run against the live database, all read-only. Every one passes.
+
+| | production |
+|---|---|
+| ledger / tip | **473** / `20270380000000` |
+| `is_club_admin` policies / bodies | **0 / 3** |
+| `can_manage_club_fixtures` policies / bodies | **1 / 9** (was 1 / 27) |
+| document-helper policies | **0** |
+| document helpers free of role strings | yes |
+| Z-12 `club-documents` bucket policies | **4** |
+| adapter rows / of which 4I's | **77 / 0** |
+| 4A's and 4C's adapter rows still present | yes (2 keys × 2 scopes) |
+| **U**: apply asks the apply key and **not** the prepare key | yes |
+| **U**: the Fixtures Secretary holds prepare and not apply | yes |
+| apply is non-delegable and reason-bearing | `N` / `R` |
+| fold + graduate inside a handover keep the lifecycle gate | yes (twice, prepare key absent) |
+| the eighteen RPCs ask no legacy helper | yes |
+| referral ledger and partnership invitation keyed apart | yes |
+| hoist installed in the subquery form | **44 hoisted / 0 per-row** |
+| a null subject answers `false` rather than erroring | `false` |
+| 4H still holds: nothing acting on club money has a Site Admin branch | yes |
+| 4G still holds: no safeguarding gate reads the contact table | yes |
+| `anon` may still execute the two hoist helpers | yes |
+| every adapter row resolves to an ACTIVE key valid where evaluated | yes |
+| the nine 4I keys are ACTIVE | 9 of 9 |
+| identities / clubs / teams | **4 / 1 / 17**, unchanged |
+
+### What production actually holds in these domains
+
+**Nothing yet.** Production carries 0 club documents, 0 document folders, 0 partnerships, 0
+invitations to clubs not on Ovalball, and 0 season handovers. Every authority this slice moved is
+therefore live and correct, and is currently deciding about an empty set. That is worth saying
+plainly rather than letting a wall of green checks imply that live data was exercised: it was not,
+because there is none. The first club to file a document or run a handover meets this authority, not
+the old one.
 
 ## What travels
 
