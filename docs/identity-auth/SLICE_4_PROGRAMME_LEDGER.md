@@ -1418,3 +1418,27 @@ PG-15 **128** (was 130), PG-16 **124** (was 135).
 
 `authority_helper_retirement` pins the first of these by name and asserts the count is **exactly
 one**, so neither of the branches that were canonicalised can quietly revert to the role string.
+
+## 4F production release (ledger 496)
+
+Commit `2d18a01`, pushed fast-forward `117a63f..2d18a01`. Migrations applied to production **before**
+the push, dry-run first, exactly three travelling. Production moved **459 → 462**, tip
+`20270369000000`.
+
+Identities, clubs and teams unchanged at **4 / 1 / 17**: no data invented, no authority created.
+`staffs_team` and `is_messaging_staff` are gone from production; the two `team.community.manage`
+adapter rows are deleted; `message_reports` exists. PG-15 **130 → 128**, PG-16 **135 → 124** — every
+number identical to the production-shaped rehearsal.
+
+Thirteen production checks pass, including intended change 1 (a Fixtures Secretary no longer blocks,
+a Safeguarding Officer now does), the single permitted `is_full_site_admin` branch in `may_send_as`,
+the surviving explicit-participant route, "a question with no subject answers no", 4C-4E still
+holding, and **D-S4-2 untouched — no 4G surface exists**.
+
+The application layer is server-side and behind authentication, so it was verified by three
+sequential browser UAT passes locally (suites 51-56, 124/124 each) rather than in production:
+verifying it there would require creating production personas or signing in as the product owner,
+both of which are prohibited. `SLICE_4F_PRODUCTION_RELEASE_REPORT.md` states that limit rather than
+implying coverage that does not exist.
+
+**Slice 4F is complete. 4G is not started. Slice 5 is not started.**
