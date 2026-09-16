@@ -151,7 +151,7 @@ declare
   v_ca uuid; v_fs uuid; v_tm uuid; v_tm2 uuid; v_co uuid; v_mb uuid; v_sa uuid; v_far_ca uuid; v_str uuid;
   v_club uuid; v_far_club uuid; v_team uuid; v_team2 uuid; v_m uuid; v_season uuid;
   v_comp uuid; v_ed uuid; v_stage uuid; v_match uuid;
-  v_tourn uuid; v_solo uuid; v_entry uuid; v_entry2 uuid; v_solo_entry uuid;
+  v_tourn uuid; v_solo uuid; v_entry uuid; v_entry2 uuid; v_solo_entry uuid; v_part uuid; v_part2 uuid; v_dir3 uuid; v_dir4 uuid; v_ctt uuid;
   v_tag text := substr(gen_random_uuid()::text,1,8);
 begin
   v_club := pg_temp.club('Home'); v_far_club := pg_temp.club('Far');
@@ -358,6 +358,102 @@ begin
   perform pg_temp.check(
     pg_temp.try_as(v_tm, format('select public.save_tournament(%L::uuid, %L::jsonb)', v_solo, '{}'::text)) <> 'OK',
     'CM-H6 save_tournament refuses a Team Manager for the occasion');
+
+  -- ---------------------------------------------------------------------------------------------
+  -- CM-J  the eight functions Slice 4C left to 4D (Slice 4 closure, AA.3 row 4d)
+  --
+  -- 4C migrated the fixtures half of internal.can_manage_club_fixtures and wrote down that a helper is
+  -- retired by the slice that owns the MEANING of the call site, naming 4D for tournaments. 4D built
+  -- the canonical model and verified it, but these eight never went through it: they still asked the
+  -- fixtures role helper, so the occasion and a club's own consent were the same undivided question.
+  -- ---------------------------------------------------------------------------------------------
+  perform pg_temp.check(
+    not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where (n.nspname, p.proname) in (
+                   ('internal','tournament_visible_row'), ('public','get_tournament_centre'),
+                   ('public','check_tournament_participant_target'), ('public','invite_tournament_participant'),
+                   ('public','reconcile_tournament_participant'), ('public','remove_tournament_participant'),
+                   ('public','respond_tournament_invitation'), ('public','update_fixture_competition'))
+                   and p.prosrc ~ '\minternal\.(can_manage_club_fixtures|can_manage_team|is_site_admin|is_club_admin|is_full_site_admin)\('),
+    'CM-J1 none of the eight asks a legacy authority helper any more');
+  perform pg_temp.check(
+    (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname in ('public','internal') and p.proname <> 'can_manage_club_fixtures'
+        and p.prosrc ~ '\mcan_manage_club_fixtures\(') = 0,
+    'CM-J2 and can_manage_club_fixtures now decides nothing anywhere -- zero policies, zero bodies');
+
+  -- The consent boundary, which is the whole point. A tournament host invites; the invited club
+  -- answers. Neither may do the other's half.
+  insert into public.tournament_participants (tournament_id, club_directory_id, club_id, team_id, canonical_team_type_id, status, invited_by)
+  select v_tourn, pg_temp.dir_of(v_far_club), v_far_club, null, ct.id, 'pending', v_ca
+    from public.canonical_team_types ct where ct.is_active order by ct.sort_order limit 1
+  returning id into v_part;
+  perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.respond_tournament_invitation(%L, true)', v_part)) <> 'OK',
+    'CM-J3 the HOST club cannot answer an invitation on the invited club''s behalf -- organiser authority never invents consent');
+  -- Asked while it is still PENDING and still owned by a real club, so a gate that quietly switched
+  -- from the host's club to the participant's own would let this through.
+  perform pg_temp.check(pg_temp.try_as(v_far_ca, format('select public.remove_tournament_participant(%L)', v_part)) <> 'OK',
+    'CM-J3b an invited club cannot remove its own pending participation -- declining is its answer, deletion is not');
+  perform pg_temp.check(pg_temp.try_as(v_far_ca, format('select public.respond_tournament_invitation(%L, true)', v_part)) = 'OK',
+    'CM-J4 while the INVITED club answers for itself');
+  perform pg_temp.check(
+    (select status from public.tournament_participants where id = v_part) = 'accepted'
+    and (select responded_by from public.tournament_participants where id = v_part) = v_far_ca,
+    'CM-J5 and the answer is recorded against the club that actually gave it');
+
+  -- A SECOND participant, left PENDING on purpose. The removal path refuses an accepted participant
+  -- outright -- the host may not unilaterally eject a club that has already said yes -- so asking the
+  -- removal questions of v_part would have them all refused for a state reason and prove nothing
+  -- about authority.
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('CAM Third '||v_tag,'T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','cam-third-'||v_tag)
+  returning id into v_dir3;
+  insert into public.tournament_participants (tournament_id, club_directory_id, club_id, team_id, canonical_team_type_id, status, invited_by)
+  select v_tourn, v_dir3, null, null, ct.id, 'pending', v_ca
+    from public.canonical_team_types ct where ct.is_active order by ct.sort_order limit 1
+  returning id into v_part2;
+
+  -- A directory that is NOT already a participant. Inviting one twice is refused on the unique
+  -- constraint, which would answer this question for a reason that has nothing to do with authority.
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('CAM Fourth '||v_tag,'T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','cam-fourth-'||v_tag)
+  returning id into v_dir4;
+  select ct.id into v_ctt from public.canonical_team_types ct where ct.is_active order by ct.sort_order limit 1;
+  perform pg_temp.check(pg_temp.try_as(v_far_ca, format('select public.invite_tournament_participant(%L, %L, %L)', v_tourn, v_dir4, v_ctt)) <> 'OK',
+    'CM-J6 an invited club cannot invite further participants to somebody else''s occasion');
+  perform pg_temp.check(pg_temp.try_as(v_mb, format('select public.invite_tournament_participant(%L, %L, %L)', v_tourn, v_dir4, v_ctt)) <> 'OK'
+                        and pg_temp.try_as(v_co, format('select public.invite_tournament_participant(%L, %L, %L)', v_tourn, v_dir4, v_ctt)) <> 'OK',
+    'CM-J6b nor may an ordinary member or a Coach of the host club');
+  perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.invite_tournament_participant(%L, %L, %L)', v_tourn, v_dir4, v_ctt)) = 'OK',
+    'CM-J6c while the host club''s administrator may -- so those refusals are the boundary, not a missing team type');
+  perform pg_temp.check(pg_temp.try_as(v_far_ca, format('select public.remove_tournament_participant(%L)', v_part2)) <> 'OK',
+    'CM-J7 nor remove another club''s PENDING participation -- so the refusal is authority, not the already-accepted rule');
+  perform pg_temp.check(pg_temp.try_as(v_mb, format('select public.remove_tournament_participant(%L)', v_part2)) <> 'OK'
+                        and pg_temp.try_as(v_co, format('select public.remove_tournament_participant(%L)', v_part2)) <> 'OK',
+    'CM-J8 nor may an ordinary member or a Coach of the host club');
+  perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.remove_tournament_participant(%L)', v_part2)) = 'OK',
+    'CM-J9 while the host club''s administrator may -- so the refusals above are the boundary, not a broken participant');
+  perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.remove_tournament_participant(%L)', v_part)) <> 'OK',
+    'CM-J9b and even the host cannot remove a club that has ACCEPTED -- consent, once given, is not the organiser''s to withdraw');
+
+  -- J.8 line 490 again, and the 4D distinction the closure pass had to preserve: the occasion is
+  -- club-level, and a Team Manager's authority reaches their own entry and stops there.
+  perform pg_temp.check(pg_temp.bool_as(v_tm, format('internal.can_manage_tournament_entry(%L)', v_entry))
+                        and not pg_temp.bool_as(v_tm, format('internal.can_manage_tournament(%L)', v_tourn)),
+    'CM-J10 a Team Manager still controls their own entry and not the whole occasion');
+  perform pg_temp.check(not pg_temp.bool_as(v_tm, format('internal.can_manage_tournament_entry(%L)', v_entry2)),
+    'CM-J11 and not another side''s entry');
+  perform pg_temp.check(
+    not exists (select 1 from public.bundle_capabilities
+                 where capability_key = 'tournament.tournament.manage' and scope_type = 'team'),
+    'CM-J12 tournament.tournament.manage still has no team bundle at all (J.8 line 490)');
+  -- update_fixture_competition is a FIXTURE edit, not a tournament act: it sets which competition a
+  -- club's own fixture belongs to. Naming the key is what stops it drifting onto a view key, which
+  -- would let anyone who can SEE a fixture decide what competition it counts towards.
+  perform pg_temp.check(
+    (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'update_fixture_competition') ~ 'fixture\.fixture\.edit',
+    'CM-J13 update_fixture_competition asks fixture.fixture.edit by name (J.7)');
 end $$;
 
 -- =====================================================================================================
@@ -414,6 +510,7 @@ begin
                   and f.proname in ('can_manage_tournament','can_manage_tournament_entry','can_organise_competition')
                   and f.prosrc like '%''calendar.manage''%'),
     'CM-I5 the deprecated calendar.manage key decides no tournament authority (AA.3 row 4d)');
+
 end $$;
 
 rollback;

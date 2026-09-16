@@ -478,9 +478,11 @@ begin
     and exists (select 1 from public.capability_key_map where legacy_key='club.guardians.manage')
     and exists (select 1 from public.capability_key_map where legacy_key='fixture.edit'),
     'MI-G5 and 4b''s, 4a''s and 4c''s are NOT -- this slice did not reach zero with theirs');
+  -- 4I left one can_manage_club_fixtures policy standing and named it as 4g's. The Slice 4 closure
+  -- pass took it, so there is now none anywhere in Ovalball.
   perform pg_temp.check(
-    (select count(*) from pg_policies where (coalesce(qual,'')||' '||coalesce(with_check,'')) ~ '\mcan_manage_club_fixtures\(') = 1,
-    'MI-G6 one can_manage_club_fixtures policy remains -- player_team_dispensation_select, which is 4c''s');
+    (select count(*) from pg_policies where (coalesce(qual,'')||' '||coalesce(with_check,'')) ~ '\mcan_manage_club_fixtures\(') = 0,
+    'MI-G6 no can_manage_club_fixtures policy remains anywhere -- the closure pass took 4g''s last one');
   -- The eighteen RPCs Slice 4C left to the slice that owns the meaning of the call site.
   perform pg_temp.check(
     not exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
@@ -493,11 +495,13 @@ begin
                   'revoke_club_partnership','create_partner_invitation')
                   and p.prosrc ~ '\m(can_manage_club_fixtures|is_site_admin|is_full_site_admin|is_club_admin)\('),
     'MI-G7 and none of the eighteen handover, placement and partnership RPCs asks a legacy helper');
+  -- Likewise the nine bodies 4I named: 4d's eight tournament functions and 4a's dead can_manage_player,
+  -- which the closure pass migrated and retired respectively.
   perform pg_temp.check(
     (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
      where n.nspname in ('public','internal') and p.proname <> 'can_manage_club_fixtures'
-       and p.prosrc ~ '\mcan_manage_club_fixtures\(') = 9,
-    'MI-G8 nine can_manage_club_fixtures bodies remain: 4a''s dead can_manage_player and eight of 4d''s tournament functions');
+       and p.prosrc ~ '\mcan_manage_club_fixtures\(') = 0,
+    'MI-G8 and no can_manage_club_fixtures body remains either -- 4d''s eight migrated, 4a''s dead helper retired');
 
   -- ---------------------------------------------------------------------------------------------
   -- MI-P  the hoist is an optimisation, not a change of answer

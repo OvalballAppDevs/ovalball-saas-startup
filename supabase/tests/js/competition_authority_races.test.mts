@@ -178,6 +178,39 @@ test("R4 two managers scheduling their own entries at once do not reach each oth
   assert.equal(mark(ob), "truefalse", `TM2 saw own/other = ${mark(ob)}\n${ob}`)
 })
 
+/**
+ * R5 exists because the Slice 4 closure pass rewrote BOTH sides of this boundary at once:
+ * remove_tournament_participant (the host's) and respond_tournament_invitation (the invited club's).
+ * They meet on one row, and the rule that the host may not remove a club which has already accepted
+ * is a read-then-write shape -- read the status, decide, delete. Raced, the danger is a club whose
+ * acceptance is recorded and then deleted anyway, or a row deleted and then resurrected as accepted.
+ */
+test("R5 a host removing a participant while that club accepts leaves one coherent answer", async () => {
+  const ctt = one(`select id from public.canonical_team_types where is_active order by sort_order limit 1`)
+  sql(`delete from public.tournament_participants where tournament_id = '${ids.tourn}'`)
+  const part = one(`insert into public.tournament_participants
+      (tournament_id, club_directory_id, club_id, team_id, canonical_team_type_id, status, invited_by)
+    values ('${ids.tourn}','${ids.orgDir}','${ids.orgClub}',null,'${ctt}','pending','${ids.clubAdmin}') returning id`)
+
+  const host = session(`crace_host_${TAG}`,
+    `begin;\n${asUser(ids.clubAdmin)}select public.remove_tournament_participant('${part}');\ncommit;\n`)
+  const invited = session(`crace_inv_${TAG}`,
+    `begin;\n${asUser(ids.organiser)}select public.respond_tournament_invitation('${part}', true);\ncommit;\n`)
+  const [oh, oi] = await Promise.all([host.done, invited.done])
+
+  const row = one(`select coalesce(status, '-') from public.tournament_participants where id = '${part}'`)
+  const exists = row !== ""
+  const accepted = /ERROR/i.test(oi) === false
+
+  // Exactly one of two coherent worlds. What must never happen is an acceptance that was recorded and
+  // then removed anyway -- a club told it is in the festival, and absent from it.
+  assert.ok(
+    (accepted && exists && row === "accepted") || (!accepted && !exists),
+    `the removal and the acceptance disagree (accepted=${accepted}, row=${row || "gone"})\nHOST:${oh}\nINVITED:${oi}`)
+
+  sql(`delete from public.tournament_participants where tournament_id = '${ids.tourn}'`)
+})
+
 after(() => {
   sql(`do $$
 declare v_people uuid[] := array['${ids.organiser}'::uuid,'${ids.organiser2}'::uuid,'${ids.clubAdmin}'::uuid,'${ids.tm1}'::uuid,'${ids.tm2}'::uuid]; v_rec uuid[];

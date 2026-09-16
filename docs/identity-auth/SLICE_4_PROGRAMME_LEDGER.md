@@ -1937,3 +1937,71 @@ both prohibited. Two environmental failures occurred during UAT and are recorded
 `SLICE_4I_PRODUCTION_RELEASE_REPORT.md` rather than quietly re-run away.
 
 **Slice 4I is complete. Slice 5 is not started, and must not be: see the closure audit.**
+
+---
+
+# SLICE 4 — FINAL CONTRACT CLOSURE PASS
+
+The closure audit at the end of 4I named three items Phase 2 still assigns to Slice 4 that no
+sub-slice had done. None was a live authority hole; all three were unfinished retirements. This pass
+closed exactly those three and nothing broader.
+
+## Verified first, changed second
+
+Before anything was edited, a **gate shadow** measured the old predicate against the candidate
+predicate for every gate the pass intended to rewrite, across thirteen personas. It confirmed that
+each item maps onto keys that Phase 2 already defines — J.7 lines 471–473, J.8 lines 489–490, J.9
+line 498, J.12 line 548 — and that **no item required a new product or security decision**. Two
+behavioural changes were mandated and are recorded as intended; everything else was a site-master
+narrowing of the kind every earlier slice made.
+
+## The three
+
+**4G's dispensation policy.** It carried the last `can_manage_club_fixtures` policy in Ovalball plus
+two `can_manage_team` terms. Now `fixture.dispensation.request` and `fixture.dispensation.approve_team`,
+hoisted through `internal.dispensation_team_ids()` shaped like the safeguarding helper beside it. The
+Safeguarding Officer's branch and the site branch are untouched, and separation of duties is untouched
+because it governs writes and this changed a read — `SA-Q7` asserts a Team Manager who can now see a
+dispensation still cannot decide the club stage. **Intended change:** a Fixtures Secretary gains the
+read through the target team, which J.7 line 471 entitles them to.
+
+**4D's eight tournament functions.** Slice 4C had recorded that a helper is retired by the slice that
+owns the meaning of the call site and named 4D. They now ask `tournament.tournament.manage` for the
+occasion, `calendar.event.manage` at team scope for a side acting for itself, and `fixture.fixture.edit`
+for `update_fixture_competition`, which is a fixture edit rather than a tournament act. The consent
+boundary is asserted in the migration itself and in the matrix: the host invites and cannot answer;
+the invited club answers and cannot invite; and the host cannot remove a club that has accepted.
+**Intended change:** a Coach can no longer answer a tournament invitation, which applies 4D's own
+decision — `can_manage_tournament_entry` already excluded a Coach — rather than making a new one.
+
+**4A's `can_manage_player`.** Zero callers, zero policies, zero dependent objects, verified before the
+drop and asserted after it. Dropped outright, the same treatment 4F gave `staffs_team` and
+`is_messaging_staff` for the same recorded reason. Its body lives on as a test-local SECURITY DEFINER
+function so 4A's two historical shadow comparisons still measure the real legacy answer.
+
+## Deliberately not done
+
+`can_manage_club_fixtures` reached zero policies and zero bodies as a consequence of the second item,
+but was **not** dropped: ten permanent suites use it as a legacy comparison baseline, and removing it
+means rewriting them, which is broader work this pass was told not to absorb.
+`may_complete_player_profile` is likewise a zero-caller helper, but AA.3 row 4a does not name it and
+its body asks `is_full_site_admin`, so it travels with Slice 7.
+
+## Evidence
+
+Gate shadow: 8 gates × 13 personas. Matrices extended in place, never replaced: **4A 75 → 79**,
+**4D 65 → 87**, **4G 115 → 128**, plus the retirement ledger **69 → 73**. Mutation: **9 mutants, 0
+survivors** — and one of them, granting `tournament.tournament.manage` at team scope, is refused by
+the database itself through `internal.guard_bundle_capability()`, which is a stronger guarantee than
+any assertion. One race, not ceremonial: a host removing a participant while that club accepts, which
+is the read-then-write shape behind "the host may not remove a club that has accepted". Platform
+battery **4405 passed, 0 failed**. Clean empty rebuild: **474 migrations from empty**, 22 suites,
+**1225 assertions**, 0 failures. Production-shaped rehearsal at ledger 473: `can_manage_club_fixtures`
+1 policy / 9 bodies → **0 / 0**, `can_manage_player` defined → **gone**. Browser: suites 51–59,
+**247/247**.
+
+## Verdict
+
+**Slice 4 is complete.** No item Phase 2 assigns to Slice 4 remains unfinished.
+`SLICE_4_CLOSURE_AUDIT.md` lists everything still standing with the later owner Phase 2 or a prior
+slice assigned it. **Slice 5 is not started.**

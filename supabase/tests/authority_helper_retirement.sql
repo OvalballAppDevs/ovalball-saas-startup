@@ -42,10 +42,15 @@ declare
     -- 11 -- the rollover, graduation, handover and team-lifecycle RPCs of J.5. The 3 that remain are
     -- named in HR3 below and belong to 4b and 4c; this slice did not take them to flatter the number.
     ['is_club_admin', '0', '3'],
-    ['can_manage_club_fixtures', '12', '27'],
+    -- The Slice 4 closure pass took 4g's last policy and 4d's eight bodies, so this helper now decides
+    -- NOTHING anywhere. The definition survives only as the legacy baseline that ten permanent suites
+    -- compare against; removing it would mean rewriting them, which is Slice 7/10's cleanup, not this.
+    ['can_manage_club_fixtures', '0', '0'],
     ['can_manage_club_fixtures_or_any_team', '2', '0'],
     ['can_manage_fixture_side', '2', '6'],
-    ['can_manage_team', '1', '15'],
+    -- 4b took its roster call sites; the closure pass took the dispensation policy, which was the last
+    -- POLICY asking it. The bodies that remain are non-roster questions outside AA.3 row 4b's wording.
+    ['can_manage_team', '0', '7'],
     ['can_organise_competition', '0', '2'],
     ['can_organise_edition', '0', '1'],
     -- 4I moved the document library onto club.documents.manage / club.documents.view. No policy asks
@@ -55,7 +60,9 @@ declare
     ['is_active_player_guardian', '7', '14'],
     ['is_own_linked_player', '9', '9']
   ];
-  -- retired to zero by: 4a
+  -- retired to zero by: 4a, and can_manage_player DROPPED outright by the Slice 4 closure pass -- 4a
+  -- removed its call sites and left the body, which is the same hazard 4f dropped staffs_team for.
+  -- family_authority_matrix FA14 asserts its non-existence; this only guards the reference count.
   v_retired constant text[] := array['can_manage_player', 'may_complete_player_profile',
   -- retired to zero by: 4f. Both are also dropped outright -- a zero-caller raw-role helper is still a
   -- hazard, because the next person needing the answer may find it before they find the canonical one.
@@ -677,6 +684,45 @@ begin
     raise notice 'PASS HR3 4i: the three 4i adapter rows are retired and 4a''s and 4c''s are not';
   else
     raise notice 'FAIL HR3 4i: the 4i adapter retirement is wrong, or it consumed another slice''s rows';
+  end if;
+
+  -- ---- Slice 4 FINAL CLOSURE: the three residual items the closure audit named ----
+  if not exists (select 1 from pg_policies where (coalesce(qual,'') || ' ' || coalesce(with_check,'')) ~ '\mcan_manage_club_fixtures\(')
+     and not exists (select 1 from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+                      where n.nspname in ('public','internal') and f.proname <> 'can_manage_club_fixtures'
+                        and f.prosrc ~ '\mcan_manage_club_fixtures\(')
+  then
+    raise notice 'PASS HR3 closure: can_manage_club_fixtures decides nothing anywhere -- zero policies, zero bodies';
+  else
+    raise notice 'FAIL HR3 closure: can_manage_club_fixtures still decides something';
+  end if;
+
+  if not exists (select 1 from pg_policies where (coalesce(qual,'') || ' ' || coalesce(with_check,'')) ~ '\mcan_manage_team\(') then
+    raise notice 'PASS HR3 closure: no policy anywhere asks can_manage_team';
+  else
+    raise notice 'FAIL HR3 closure: a policy still asks can_manage_team';
+  end if;
+
+  if not exists (select 1 from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+                  where n.nspname = 'internal' and f.proname = 'can_manage_player') then
+    raise notice 'PASS HR3 closure: internal.can_manage_player is gone, not merely unused';
+  else
+    raise notice 'FAIL HR3 closure: internal.can_manage_player is still defined';
+  end if;
+
+  -- The eight 4d functions, and the consent boundary they carry.
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) in (
+          'internal.tournament_visible_row', 'public.get_tournament_centre',
+          'public.check_tournament_participant_target', 'public.invite_tournament_participant',
+          'public.reconcile_tournament_participant', 'public.remove_tournament_participant',
+          'public.respond_tournament_invitation', 'public.update_fixture_competition')
+    and f.prosrc ~ '\m(can_manage_club_fixtures|can_manage_team|is_site_admin|is_full_site_admin|is_club_admin)\(';
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 closure: none of 4d''s eight remaining functions asks a legacy helper';
+  else
+    raise notice 'FAIL HR3 closure: a 4d function still asks a legacy helper: %', array_to_string(v_bad, ', ');
   end if;
 
   -- THE PER-OFFICER OVERRIDE DEPENDENCE, retired. Officer identity used to come from

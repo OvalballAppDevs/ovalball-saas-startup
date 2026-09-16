@@ -605,19 +605,51 @@ begin
   ) d), '');
 end $$;
 
+-- The historical baseline for FA13a and FA13b.
+--
+-- internal.can_manage_player was RETIRED by the Slice 4 closure pass. AA.3 row 4a lists it as legacy
+-- removed; 4a removed its call sites and left the body, and the closure audit found it standing with
+-- no callers at all. A zero-caller authority helper is a hazard precisely because it is a second way
+-- to answer "may this person act on this child" -- the question CLAUDE.md warns must not be answered
+-- that way.
+--
+-- Its exact body lives on HERE, as a test-local function, so these two shadow comparisons still
+-- measure the real historical answer. It is SECURITY DEFINER because the original was: the old helper
+-- saw player_team_memberships and teams rows regardless of the caller's RLS, and a baseline that
+-- quietly lost that would understate what the legacy form allowed.
+create or replace function pg_temp.legacy_can_manage_player(p_player_id uuid)
+returns boolean language sql stable security definer set search_path to 'public' as $legacy$
+  select exists (
+    select 1
+    from public.player_team_memberships ptm
+    join public.teams t on t.id = ptm.team_id
+    where ptm.player_id = p_player_id
+      and ptm.status = 'active'
+      and (internal.can_manage_team(t.id) or internal.can_manage_club_fixtures(t.club_id))
+  );
+$legacy$;
+grant execute on function pg_temp.legacy_can_manage_player(uuid) to public;
+
 do $$
 declare v_c1 text := quote_literal(pg_temp.f('C1')); v_club text := quote_literal(pg_temp.f('clubA'));
         v_team text := quote_literal(pg_temp.f('teamA1')); v_req text := quote_literal(pg_temp.f('REQ_first'));
         v_legacy text; v_new text;
 begin
   -- S1 seeing a child at all (base row or staff projection)
-  v_legacy := pg_temp.allowed_for('internal.is_site_admin() or internal.is_active_player_guardian(' || v_c1 || ') or internal.can_manage_player(' || v_c1 || ')');
+  --
+  -- internal.can_manage_player was RETIRED by the Slice 4 closure pass: AA.3 row 4a lists it as legacy
+  -- removed, 4a removed its call sites, and the closure audit found the body still standing with no
+  -- callers. A zero-caller authority helper is a hazard because it is a second way to answer "may this
+  -- person act on this child", which is exactly the question CLAUDE.md warns must not be answered that
+  -- way. Its body is inlined here instead, so this comparison still measures the real historical
+  -- answer and the schema no longer carries a way to ask it.
+  v_legacy := pg_temp.allowed_for('internal.is_site_admin() or internal.is_active_player_guardian(' || v_c1 || ') or pg_temp.legacy_can_manage_player(' || v_c1 || ')');
   v_new := pg_temp.allowed_for('exists (select 1 from public.players where id = ' || v_c1 || ') or exists (select 1 from public.player_staff_view where id = ' || v_c1 || ')');
   perform pg_temp.check(pg_temp.shadow(v_legacy, v_new) = '+SO',
     'FA13a seeing a child: the Safeguarding Officer gains the minimal view (T, J.6); the Fixtures Secretary keeps names through team operations only (D-4a-1) -- ' || pg_temp.shadow(v_legacy, v_new));
 
-  -- S2 asking a child's guardians for missing information
-  v_legacy := pg_temp.allowed_for('internal.can_manage_player(' || v_c1 || ') or internal.is_site_admin()');
+  -- S2 asking a child's guardians for missing information. Same retired helper, same inlined body.
+  v_legacy := pg_temp.allowed_for('pg_temp.legacy_can_manage_player(' || v_c1 || ') or internal.is_site_admin()');
   v_new := pg_temp.succeeds_for('select public.request_player_playing_pathway(' || v_c1 || ')');
   perform pg_temp.check(pg_temp.shadow(v_legacy, v_new) = '-FS,-SITE',
     'FA13b asking for missing information: the Fixtures Secretary and a Site Admin without a club role lose it (J.6 player.pathway.request CO/TM/CA, no site master) -- ' || pg_temp.shadow(v_legacy, v_new));
@@ -648,6 +680,38 @@ begin
   v_legacy := pg_temp.allowed_for('internal.is_active_player_guardian(' || v_c1 || ') or internal.has_capability(''club.guardians.manage'', ''club'', ' || v_club || ', null)');
   v_new := pg_temp.allowed_for('internal.can_access_player_avatar(' || v_c1 || ')');
   perform pg_temp.check(pg_temp.shadow(v_legacy, v_new) = '', 'FA13g a child''s picture: no change -- ' || pg_temp.shadow(v_legacy, v_new));
+end $$;
+
+-- ---------------------------------------------------------------------------------------------------
+-- FA14  internal.can_manage_player is retired (AA.3 row 4a, Slice 4 closure)
+--
+-- 4a moved every call site off it and left the body. The final Slice 4 closure audit found it standing
+-- with no callers anywhere -- no function, no policy, no dependent object -- which is the worst state
+-- for an authority helper to be in: it decides nothing, so nothing tests it, and it remains available
+-- to the next person who needs to answer "may this person act on this child" before they find the
+-- canonical resolver. CLAUDE.md carried a standing warning against reaching for it.
+-- ---------------------------------------------------------------------------------------------------
+do $$
+begin
+  perform pg_temp.check(
+    not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname = 'internal' and p.proname = 'can_manage_player'),
+    'FA14a internal.can_manage_player no longer exists');
+  perform pg_temp.check(
+    not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname in ('public','internal') and p.proname ~ '^can_manage_player'),
+    'FA14b and nothing named like it was put in its place -- a compatibility shim would only move the hazard');
+  perform pg_temp.check(
+    not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname in ('public','internal') and p.prosrc ~ '\mcan_manage_player\(')
+    and not exists (select 1 from pg_policies
+                     where (coalesce(qual,'') || ' ' || coalesce(with_check,'')) ~ '\mcan_manage_player\('),
+    'FA14c and nothing calls it: zero function bodies and zero policies');
+  -- The canonical answers it used to stand in front of are still there and still answer.
+  perform pg_temp.check(
+    (select count(*) from public.capabilities
+      where status = 'ACTIVE' and key in ('player.profile.edit_protected','player.pathway.request','family.relationship.approve')) = 3,
+    'FA14d while the canonical keys that replaced it remain ACTIVE');
 end $$;
 
 rollback;

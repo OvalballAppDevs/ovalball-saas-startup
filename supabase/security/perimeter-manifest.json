@@ -7292,6 +7292,7 @@
       "rollover_identity_plan(uuid)",
       "rollover_planned_team_for(uuid, uuid, text)",
       "rollover_team_target_identity(uuid, uuid)",
+      "dispensation_team_ids()",
       "safeguarding_dispensation_team_ids()",
       "season_phase(uuid, date)",
       "sender_identity_label(text, uuid, uuid)",

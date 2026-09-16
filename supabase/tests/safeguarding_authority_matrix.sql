@@ -125,9 +125,21 @@ language sql stable security definer set search_path = public as $$
   where internal.can('safeguarding.dispensation.view', 'club',
                      (select t.club_id from public.teams t where t.id = d.source_team_id), null, null)
      or internal.has_site_capability('site.support.view_club')
-     or internal.can_manage_team(d.source_team_id)
-     or internal.can_manage_team(d.target_team_id)
-     or internal.can_manage_club_fixtures((select t.club_id from public.teams t where t.id = d.source_team_id));
+     -- The Slice 4 closure pass moved the three fixture/team role-helper terms onto the keys J.7
+     -- lines 471-472 give the act: requesting a dispensation and approving the team stage. Asked here
+     -- once per row, exactly as the policy asks it once per statement.
+     or internal.can('fixture.dispensation.request', 'club',
+                     (select t.club_id from public.teams t where t.id = d.source_team_id), null, null)
+     or internal.can('fixture.dispensation.request', 'team',
+                     (select t.club_id from public.teams t where t.id = d.source_team_id), d.source_team_id, null)
+     or internal.can('fixture.dispensation.approve_team', 'team',
+                     (select t.club_id from public.teams t where t.id = d.source_team_id), d.source_team_id, null)
+     or internal.can('fixture.dispensation.request', 'club',
+                     (select t.club_id from public.teams t where t.id = d.target_team_id), null, null)
+     or internal.can('fixture.dispensation.request', 'team',
+                     (select t.club_id from public.teams t where t.id = d.target_team_id), d.target_team_id, null)
+     or internal.can('fixture.dispensation.approve_team', 'team',
+                     (select t.club_id from public.teams t where t.id = d.target_team_id), d.target_team_id, null);
 $$;
 grant execute on function pg_temp.unhoisted_dispensations() to public;
 
@@ -221,6 +233,7 @@ do $$
 declare
   v_club uuid; v_far uuid; v_team uuid; v_team2 uuid; v_season uuid;
   v_ca uuid; v_ca2 uuid; v_fs uuid; v_mb uuid; v_co uuid; v_str uuid; v_farca uuid; v_farmb uuid;
+  v_tm uuid; v_ta uuid; v_tgt_tm uuid; v_so2 uuid;
   v_sa uuid; v_sup uuid; v_mod uuid; v_nom uuid; v_unknown uuid; v_pg uuid; v_sanom uuid;
   v_pending uuid; v_susp uuid; v_rev uuid; v_dec uuid; v_exp uuid;
   v_ms uuid; v_assign uuid; v_assign2 uuid; v_off uuid; v_conv uuid; v_disp uuid; v_player uuid;
@@ -235,6 +248,17 @@ begin
   v_mb  := pg_temp.person('MB');  perform pg_temp.member(v_club, v_mb,  'ACTIVE');
   v_co  := pg_temp.person('CO');  v_ms := pg_temp.member(v_club, v_co, 'ACTIVE');
   insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team, 'coach');
+  -- Team staff, for the dispensation boundary the Slice 4 closure pass canonicalised. A dispensation
+  -- moves a child between two teams, so both ends need a named person.
+  v_tm  := pg_temp.person('TM');  v_ms := pg_temp.member(v_club, v_tm, 'ACTIVE');
+  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team, 'manager');
+  v_ta  := pg_temp.person('TA');  v_ms := pg_temp.member(v_club, v_ta, 'ACTIVE');
+  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team, 'team_admin');
+  v_tgt_tm := pg_temp.person('TGTTM'); v_ms := pg_temp.member(v_club, v_tgt_tm, 'ACTIVE');
+  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team2, 'manager');
+  -- A member with NO team role at all, kept clear of every other assertion, so the safeguarding
+  -- branch of the dispensation read can be tested through a person who has no other way in.
+  v_so2 := pg_temp.person('SO2'); perform pg_temp.member(v_club, v_so2, 'ACTIVE');
   v_pg  := pg_temp.person('PG');  perform pg_temp.member(v_club, v_pg, 'ACTIVE');
   v_str := pg_temp.person('STR');
   v_farca := pg_temp.person('FARCA'); perform pg_temp.member(v_far, v_farca, 'ACTIVE', 'CLUB_ADMIN');
@@ -609,6 +633,48 @@ begin
     'SA-L6 and the confirmed officer can see the club''s dispensations (J.12 line 547), which nothing implemented before');
   perform pg_temp.check(pg_temp.count_as(v_str, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0,
     'SA-L7 while a stranger sees none');
+
+  -- The confirmed officer above (CO) is ALSO a coach of the source team, so SA-L6 could be satisfied
+  -- by the team-staff branch rather than the officer branch and would not notice if J.12's branch
+  -- disappeared. A deputy with no team role anywhere reads it through the officer branch or not at all.
+  v_res := pg_temp.json_as(v_ca, format('select public.nominate_club_safeguarding_officer(%L,%L,''deputy'',''matrix: officer with no team role'')', v_club, v_so2));
+  perform pg_temp.check(pg_temp.try_as(v_sa, format('select public.confirm_safeguarding_officer(%L,''matrix: confirming the deputy'')', (v_res->>'assignment_id'))) = 'OK',
+    'SA-L8 a deputy officer who holds no team role can be appointed');
+  perform pg_temp.check(pg_temp.count_as(v_so2, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 1,
+    'SA-L9 and reads the club''s dispensations through the SAFEGUARDING branch alone (J.12 line 548) -- they have no other way in');
+
+  -- ---------------------------------------------------------------------------------------------
+  -- SA-Q  the dispensation read, canonicalised (Slice 4 closure, AA.3 row 4g)
+  --
+  -- This policy was the LAST can_manage_club_fixtures policy anywhere in Ovalball, and it also carried
+  -- two can_manage_team terms. Slice 4C assigned dispensations to 4G by name and 4G did not take them.
+  -- Who may read a dispensation is who may act on one: J.7 lines 471-472 give that to
+  -- fixture.dispensation.request (CO, TM; CA, FS) and fixture.dispensation.approve_team (TM, TA).
+  -- A dispensation moves a child BETWEEN two teams, so both ends can see it.
+  -- ---------------------------------------------------------------------------------------------
+  perform pg_temp.check(
+    (select count(*) from pg_policies where tablename = 'player_team_dispensation'
+       and (coalesce(qual,'') || ' ' || coalesce(with_check,'')) ~ '\m(can_manage_club_fixtures|can_manage_team|is_site_admin|is_club_admin)\(') = 0,
+    'SA-Q1 no dispensation policy decides by a fixtures or team role helper any more');
+  perform pg_temp.check(
+    (select count(*) from pg_policies where (coalesce(qual,'') || ' ' || coalesce(with_check,'')) ~ '\mcan_manage_club_fixtures\(') = 0,
+    'SA-Q2 and with it goes the last can_manage_club_fixtures policy in Ovalball');
+  for v_ms in select unnest(array[v_ca, v_ca2, v_fs, v_tm, v_ta]) loop
+    perform pg_temp.check(pg_temp.count_as(v_ms, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 1,
+      'SA-Q3 the people who may request or approve a dispensation can read it (' ||
+        (select surname from public.profiles where id = v_ms) || ')');
+  end loop;
+  perform pg_temp.check(pg_temp.count_as(v_tgt_tm, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 1,
+    'SA-Q4 including the TARGET team''s manager -- a move has two ends, and the side receiving a child sees it');
+  perform pg_temp.check(pg_temp.count_as(v_mb, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0
+                        and pg_temp.count_as(v_pg, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0,
+    'SA-Q5 while an ordinary member and a guardian with no team role read none of it');
+  perform pg_temp.check(pg_temp.count_as(v_farca, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0
+                        and pg_temp.count_as(v_farmb, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0,
+    'SA-Q6 nor does another club, naming this dispensation''s id');
+  -- Separation of duties is a WRITE rule and this is a READ change. It must be untouched.
+  perform pg_temp.check(pg_temp.try_as(v_tm, format('select public.decide_player_dispensation(%L,''club'',true)', v_disp)) <> 'OK',
+    'SA-Q7 and reading is not approving: a Team Manager who can see it cannot decide the club stage (J.7 line 473)');
 
   -- ---------------------------------------------------------------------------------------------
   -- SA-P  the hoist is an optimisation, not a change of answer

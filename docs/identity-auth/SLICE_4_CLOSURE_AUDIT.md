@@ -1,7 +1,12 @@
 # Final Slice 4 closure audit
 
-Read-and-verify only. No change was made in the course of this audit; everything it reports was
-measured against the migration tree as banked at the end of Slice 4I.
+**This audit has two parts.** Part one was read-and-verify only, at the end of Slice 4I, and it found
+three unfinished items. Part two records the FINAL CLOSURE PASS that closed them, and re-measures
+every AA.3 row afterwards. Nothing below is inferred: every count was taken from the banked tree.
+
+**Verdict: Slice 4 is complete.** No item Phase 2 assigns to Slice 4 remains unfinished. Everything
+still standing is named below with its later owner, and each of those owners is an assignment Phase 2
+or a prior slice made, not a deferral invented here.
 
 The question it answers is the one the letter asks: **is every item Phase 2 assigns to Slice 4
 actually done, and where something is not, is it assigned to a later slice by an approved decision
@@ -13,13 +18,13 @@ rather than merely deferred?**
 
 | Row | Domain | Legacy AA.3 names | State |
 |---|---|---|---|
-| 4a | Family and players | `can_manage_player`, guardian branches of `is_site_admin` | **Done.** `can_manage_player` has **0 policies and 0 callers**. See §3 for the dead helper it leaves. |
-| 4b | Teams and roster | `team.view` club default, `can_manage_team` roster uses, `team_permissions` writes | **Done for 4b's own ledger.** `team.view` retired; the roster policies and RPCs in the 4b ledger are free of it. `internal.can_manage_team` survives as a helper — §2. |
-| 4c | Fixtures, requests, results, Planner, Import | `can_manage_club_fixtures`, `can_manage_fixture_side`, direct fixture writes | **Done for 4c's own ledger**, and 4c recorded the remainder explicitly — §2. |
-| 4d | Competitions and tournaments | `can_organise_competition` role checks, `calendar.manage` tournament use | **Done for 4d's own ledger.** Eight tournament functions still route through the fixtures helper — §2. |
+| 4a | Family and players | `can_manage_player`, guardian branches of `is_site_admin` | **Done and closed.** `can_manage_player` is **retired outright** by the closure pass. |
+| 4b | Teams and roster | `team.view` club default, `can_manage_team` roster uses, `team_permissions` writes | **Done.** `team.view` retired and the roster call sites migrated. No POLICY anywhere asks `can_manage_team` now; the helper's remaining bodies are non-roster questions and it opens with `is_site_admin`, so it travels with Slice 7. |
+| 4c | Fixtures, requests, results, Planner, Import | `can_manage_club_fixtures`, `can_manage_fixture_side`, direct fixture writes | **Done and closed.** `can_manage_fixture_side` is canonical inside; `can_manage_club_fixtures` now decides nothing anywhere (0 policies, 0 bodies). |
+| 4d | Competitions and tournaments | `can_organise_competition` role checks, `calendar.manage` tournament use | **Done and closed.** `can_organise_competition` is canonical inside; the eight remaining tournament functions were migrated by the closure pass. |
 | 4e | Calendar, venues, pitches, training | role-string RPC checks, public training plans | **Done.** |
 | 4f | Messaging and notifications | `staffs_team`, `is_messaging_staff`, Site Admin conversation read | **Done.** |
-| 4g | Safeguarding and dispensations | per-officer override dependence, Site Admin thread read | **Done.** One dispensation policy still asks the fixtures helper — §2. |
+| 4g | Safeguarding and dispensations | per-officer override dependence, Site Admin thread read | **Done and closed.** The dispensation policy was migrated by the closure pass. |
 | 4h | Club administration and finance | `is_club_admin` (24 policies) | **Done.** 24 → 0 policies. |
 | 4i | Documents, partners, referrals, handover | `can_manage_document_library` role checks | **Done.** 6 → 0 policies; and 4i additionally took the 11 `is_club_admin` bodies and the 18 `can_manage_club_fixtures` bodies that J.5 and 4c assign to it. |
 
@@ -32,15 +37,18 @@ other than the helper itself.
 
 | Helper | Policies | Bodies | Owner | Why it is still there |
 |---|---|---|---|---|
-| `is_site_admin` | 76 | 70 | **Slice 7** | AA.3 says so in its own words, immediately under the table: *"Site-side `is_site_admin()` removal (140 policies) happens in Slice 7, alongside the Users & Access UI, domain by domain in the same order."* This is an assignment in the design, not a deferral by a slice. |
+| `is_site_admin` | 76 | 63 | **Slice 7** | AA.3 says so in its own words, immediately under the table: *"Site-side `is_site_admin()` removal (140 policies) happens in Slice 7, alongside the Users & Access UI, domain by domain in the same order."* This is an assignment in the design, not a deferral by a slice. |
 | `is_full_site_admin` | 14 | 30 | **Slice 7** | Same sentence. It is the narrower of the two site-admin helpers and retires with them. |
 | `has_capability` | 86 | 60 | **per-domain, then Slice 10** | The legacy adapter. It answers through `capability_key_map`, so each row retires with the slice that owns its domain; the adapter's own removal is the end state the programme reaches at Slice 10. 77 rows remain — §4. |
-| `can_manage_club_fixtures` | 1 | 9 | **4G (1 policy), 4D (8 bodies), 4A (1 body)** | See below. |
-| `can_manage_team` | 1 | 15 | **4B, and the site-admin work in Slice 7** | The helper itself still opens with `internal.is_site_admin() or internal.is_club_admin(...)`, so it cannot be finished before the Slice 7 site-admin pass. Its *call sites* in 4b's ledger were migrated. |
+| `can_manage_club_fixtures` | **0** | **0** | **closed** | The closure pass took 4G's policy and 4D's eight bodies; 4A's caller went with `can_manage_player`. It decides nothing anywhere. The definition is retained deliberately — see §5. |
+| `can_manage_team` | **0** | 7 | **Slice 7** | AA.3 row 4b names "`can_manage_team` **roster uses**", and those are done. The closure pass took the dispensation policy, which was the last POLICY asking it anywhere. The helper opens with `internal.is_site_admin()`, so the remaining bodies cannot be finished before the Slice 7 site-admin pass. |
 | `is_club_admin` | 0 | 3 | **4B (1), 4C (2)** | `internal.can_manage_team` (4b's), `internal.can_manage_club_fixtures` (4c's) and `public.request_fixture_restoration` (4c's). Zero policies anywhere in Ovalball. |
 | `site_admin_role` | 0 | 6 | **Slice 7** | A site-profile reader; site-side. |
 | `can_manage_document_library` / `can_view_document_library` | 0 / 0 | 2 / 2 | **done (4I)** | Both are canonical inside. The bodies are the object-storage predicate and the delete RPC, which the 4I matrix exercises by name. |
-| `can_manage_player` | 0 | 0 | **done (4A)** | — |
+| `can_manage_player` | 0 | 0 | **RETIRED** | Dropped outright by the closure pass — same treatment 4F gave `staffs_team` and `is_messaging_staff`, and for the same reason. |
+| `can_manage_fixture_side` | 2 | 6 | **done (4C)** | Not legacy: the helper is canonical inside, asking `fixture.fixture.edit` at team and club scope. AA.3 row 4c is satisfied by that. |
+| `can_organise_competition` | 0 | 2 | **done (4D)** | Likewise canonical inside, asking `competition.edition.manage` with `site.competitions.manage` as its master. |
+| `may_complete_player_profile` | 0 | 0 | **Slice 7** | A zero-caller helper, and AA.3 row 4a does **not** name it — row 4a names `can_manage_player` and the guardian branches of `is_site_admin`. Its body asks `internal.is_full_site_admin()`, so it travels with the Slice 7 site-admin retirement. `CLAUDE.md` still names it as the gender-recording authority, which is why it is not removed casually. |
 
 ### `can_manage_club_fixtures`, in full
 
@@ -89,7 +97,10 @@ are exactly 49 — so no row can be dropped silently and none can be added witho
 | `can_manage_club_fixtures` bodies | 57 | **9** |
 | `can_manage_document_library` policies | 6 | **0** |
 | `can_manage_player` policies / bodies | — | **0 / 0** |
-| `is_site_admin` bodies | — | **70** (4I alone took 17 of them) |
+| `is_site_admin` bodies | — | **63** (4I took 17, the closure pass 7 more) |
+| `can_manage_club_fixtures` policies / bodies | 18 / 57 | **0 / 0** |
+| `can_manage_team` policies | — | **0** |
+| helpers dropped outright | — | **3** (`staffs_team`, `is_messaging_staff`, `can_manage_player`) |
 | adapter rows | 80+ | **77** |
 | intended default removals, each named with a reason | 0 | **49** |
 | domain matrices | 0 | **9**, all deterministic and self-seeding |
@@ -103,45 +114,68 @@ seed-file drift, not a schema fault, and it belongs to whoever next owns the loc
 
 ---
 
-## 5. Items Phase 2 assigns to Slice 4 that are NOT done
+## 5. The three items, closed
 
-The letter is explicit that Slice 4 must not be described as complete if an item Phase 2 assigns to it
-has merely been deferred without an approved decision. Three such items exist. They are recorded here
-rather than fixed, because fixing them inside 4I would be doing exactly what 4C warned against:
-moving another domain's decision without anyone reviewing that decision.
+Migration `20270381000000_slice4_closure_canonical.sql`. Every mapping came from a Phase 2 table.
 
-1. **`player_team_dispensation_select` still asks the fixtures helper.** AA.3 row 4g owns
-   dispensations. 4G's letter scoped it to the safeguarding *appointment* authority and state machine,
-   and the policy was not in that scope. There is no recorded decision assigning it onward.
+### 1. The dispensation read — 4G
 
-2. **Eight tournament functions still ask the fixtures helper.** AA.3 row 4d owns competitions and
-   tournaments. 4C named them as 4D's. There is no recorded decision assigning them onward.
+`player_team_dispensation_select` carried five branches: the Safeguarding Officer's (canonical), the
+site branch (canonical), and three that were not — `can_manage_team` on the source team, on the target
+team, and `can_manage_club_fixtures` on the source club. That last one was **the final
+`can_manage_club_fixtures` policy anywhere in Ovalball**.
 
-3. **`internal.can_manage_player` is a zero-caller helper that still asks the fixtures helper.**
-   AA.3 row 4a names `can_manage_player` as legacy to be removed. Its call sites are all gone, which
-   is the substance of the row; the function body itself was left in place. There is no recorded
-   decision to keep it.
+Who may read a dispensation is who may act on one, so the three moved onto J.7 lines 471–472:
+`fixture.dispensation.request` (CO, TM; CA, FS) and `fixture.dispensation.approve_team` (TM, TA),
+hoisted through a new `internal.dispensation_team_ids()` shaped exactly like the
+`internal.safeguarding_dispensation_team_ids()` beside it. 4G's separation of duties is untouched
+because it is a **write** rule and this is a **read** change — `SA-Q7` asserts that a Team Manager who
+can now see a dispensation still cannot decide the club stage.
 
-### Three things that are NOT on that list, and why
+One behavioural change, mandated: a **Fixtures Secretary** gains the read through the target team.
+J.7 line 471 lists `CA, FS` for `fixture.dispensation.request`, and the Secretary already had the
+source-club branch, so this makes the two ends consistent.
 
-- **`can_manage_team`'s 15 remaining bodies.** AA.3 row 4b's legacy column says "`can_manage_team`
-  **roster uses**", not the helper itself. Those roster call sites were migrated. The helper survives
-  for non-roster questions and opens with `internal.is_site_admin()`, so it cannot be finished before
-  Slice 7's site-admin pass in any case.
-- **`is_site_admin` and `is_full_site_admin`.** Assigned to Slice 7 by AA.3's own sentence.
-- **The 77 adapter rows.** Each retires with the slice that owns its domain; the adapter's removal is
-  the Slice 10 end state, not a Slice 4 obligation.
+### 2. The eight tournament functions — 4D
 
-None of the three unfinished items is a live authority hole: (1) is a read policy whose answer is unchanged, (2) are
-tournament surfaces whose answer is unchanged, and (3) decides nothing because nothing calls it. They
-are **unfinished retirements, not open vulnerabilities.** But they are Slice 4 work that has not been
-done, so this audit does not describe Slice 4 as complete without naming them.
+Slice 4C recorded the rule and named 4D: *"A helper is retired by the slice that owns the meaning of
+the call site."* 4D built the canonical model and verified it, but these eight never went through it.
+They now ask `tournament.tournament.manage` (J.8 line 490) for the occasion,
+`calendar.event.manage` at team scope for a side acting for itself — the mechanism
+`internal.can_manage_tournament_entry` already uses — and `fixture.fixture.edit` for
+`update_fixture_competition`, which is a fixture edit and not a tournament act at all.
 
-The judgement is the product owner's: they can be taken as a short closing pass before Slice 5, or
-assigned to Slice 7 alongside the site-admin retirement they would naturally travel with. What this
-audit will not do is call them finished.
+The consent boundary is asserted structurally **in the migration** and behaviourally in the matrix:
+inviting, reconciling and removing must name the host club and nothing else; responding must name the
+participant's own club and team and must not consult the host. `CM-J3` proves the host cannot answer
+for an invited club, and `CM-J9b` proves the host cannot remove a club that has already accepted —
+consent, once given, is not the organiser's to withdraw.
 
----
+One behavioural change, mandated: a **Coach** can no longer answer a tournament invitation for their
+team. `tournament.tournament.manage` has no team bundle at all (J.8 line 490, asserted as `CM-A` and
+`CM-J12`), and 4D's own `can_manage_tournament_entry` already excluded a Coach from entry management.
+This applies that decision rather than making a new one.
+
+### 3. `internal.can_manage_player` — 4A
+
+Zero callers, zero policies, zero dependent objects — verified before the drop and asserted after it.
+AA.3 row 4a lists it as legacy removed; 4a removed its call sites and left the body. **Dropped
+outright**, which is exactly what 4F did with `staffs_team` and `is_messaging_staff` and for the
+recorded reason: a zero-caller raw-role helper is still a hazard, because the next person needing the
+answer may find it before they find the canonical one. No compatibility shim was put in its place —
+`FA14b` asserts that nothing named like it appeared.
+
+Its body lives on in `family_authority_matrix.sql` as a test-local `SECURITY DEFINER` function, so
+4A's two historical shadow comparisons still measure the real legacy answer.
+
+### Why `can_manage_club_fixtures` was NOT dropped, though it is now zero-caller
+
+It reached 0 policies and 0 bodies as a **consequence** of item 2. Dropping it would be a fourth
+action this letter did not authorise, and it is not the same case as `can_manage_player`: **ten
+permanent test suites use it as a legacy comparison baseline**, so removing it means rewriting them.
+AA.3 row 4c's "legacy removed" is satisfied by its call sites being gone, which is the same reading
+applied to row 4b's "`can_manage_team` roster uses". Its definition travels with the test-baseline
+cleanup at Slice 7/10.
 
 ## 6. The carried follow-up
 

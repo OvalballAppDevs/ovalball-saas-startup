@@ -186,7 +186,14 @@ progression.
 A player's gender is recorded as `players.playing_pathway` (`MALE` / `FEMALE`)
 and shown to people as **Gender**. Only an active guardian, the adult player
 themselves, or a Full Site Admin may record it —
-`internal.may_complete_player_profile`. Club and team staff may **ask**
-(`request_player_playing_pathway`); they may not answer. Do not reach for
-`internal.can_manage_player` here: that is a fixture-and-roster authority, and
-using it would widen staff authority over a child's identity.
+`internal.can_player_as_family('player.profile.edit_protected', …)`, with
+`site.users.identity.correct` as the site master. Club and team staff may
+**ask** (`request_player_playing_pathway`); they may not answer.
+
+This used to carry a standing warning against reaching for
+`internal.can_manage_player`, because it is a fixture-and-roster authority and
+using it would widen staff authority over a child's identity. That function no
+longer exists: the Slice 4 closure pass dropped it once its last caller had
+gone, precisely so that nobody finds it before they find the canonical
+resolver. `internal.may_complete_player_profile` also still exists with no
+callers and retires with the Slice 7 site-admin pass; do not build on it.
