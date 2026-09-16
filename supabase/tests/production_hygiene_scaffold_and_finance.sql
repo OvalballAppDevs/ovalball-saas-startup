@@ -176,7 +176,10 @@ begin
 
   -- 13. And the authorization INSIDE is untouched -- the grant change must not
   -- have been used as a substitute for the capability check.
-  select (pg_get_functiondef(p.oid) ~* 'has_capability' and pg_get_functiondef(p.oid) ~* '42501')
+  -- Identity/Auth Slice 4H moved this function onto internal.can. The claim being made here is that
+  -- the authorisation check inside it survived the grant change, not that it is spelled a particular
+  -- way, so both spellings count.
+  select (pg_get_functiondef(p.oid) ~* '(has_capability|internal\.can\()' and pg_get_functiondef(p.oid) ~* '42501')
     into v_ok
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname='public' and p.proname='cancel_club_platform_subscription';

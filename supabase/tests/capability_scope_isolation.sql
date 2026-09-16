@@ -164,7 +164,7 @@ begin
   perform pg_temp.check(pg_temp.can_as(v_p, 'fixture.fixture.view', 'team', v_club_b, v_team_b)
                         and pg_temp.can_as(v_p, 'matchcentre.attendance.respond', 'self', null, null, v_player)
                         and not pg_temp.can_as(v_p, 'fixture.fixture.view', 'team', v_club_b, (select id from public.teams where club_id = v_club_b and id <> v_team_b limit 1))
-                        and not pg_temp.bool_as(v_p, format('internal.has_capability(''club.edit_profile'', ''club'', %L::uuid, null)', v_club_b)),
+                        and not pg_temp.bool_as(v_p, format('internal.has_capability(''club.profile.edit'', ''club'', %L::uuid, null)', v_club_b)),
     'SI1b: their player authority works in their Club B player scope only');
 
   -- SI2: Coach of Team A, Parent of a child in Team C (another club)

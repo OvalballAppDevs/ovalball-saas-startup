@@ -242,7 +242,7 @@ begin
   -- OC16
   perform set_config('request.jwt.claims', jsonb_build_object('sub', v_ca, 'role', 'authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
-  create temp table cmc on commit drop as select * from public.club_member_capabilities(v_club, array['fixture.fixture.edit', 'fixture.fixture.view', 'club.edit_profile']);
+  create temp table cmc on commit drop as select * from public.club_member_capabilities(v_club, array['fixture.fixture.edit', 'fixture.fixture.view', 'club.profile.edit']);
   perform set_config('role', 'none', true);
   perform set_config('request.jwt.claims', '', true);
   perform pg_temp.check(

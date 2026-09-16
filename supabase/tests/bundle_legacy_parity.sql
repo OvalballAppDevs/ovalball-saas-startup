@@ -5,8 +5,8 @@
 -- out below, row by row, so an accidental loss cannot hide among them.
 --
 --   BP1  the archive of the old defaults is intact (139 rows)
---   BP2  every archived default is in the bundle projection, or is one of the 34 intended removals
---   BP3  the intended removals are exactly those 34
+--   BP2  every archived default is in the bundle projection, or is one of the 44 intended removals
+--   BP3  the intended removals are exactly those 44
 --   BP4  behaviour: a real person holding each legacy role passes has_capability for every retained default
 --   BP5  behaviour: and fails for each intended removal
 --   BP6  the retained additions beyond the J bundles (legacy authority kept) are exactly the three recorded
@@ -185,7 +185,21 @@ insert into intended_removals values
   -- its last caller here. J.12 lines 541-545.
   ('club', 'CLUB_ADMIN', 'club.safeguarding.view', 'AA.3 4g: RENAME + widen to safeguarding.contact.view'),
   ('club', 'CLUB_ADMIN', 'club.safeguarding.message', 'AA.3 4g: RENAME + widen to safeguarding.conversation.start'),
-  ('club', 'CLUB_ADMIN', 'club.safeguarding.manage_contact', 'AA.3 4g: SPLIT into safeguarding.officer.nominate/deactivate');
+  ('club', 'CLUB_ADMIN', 'club.safeguarding.manage_contact', 'AA.3 4g: SPLIT into safeguarding.officer.nominate/deactivate'),
+  -- Slice 4H (AA.3 row 4h) retires the club administration and finance aliases. Every one of them is a
+  -- RENAME that Slice 3 catalogued and then nothing moved onto: the canonical key was ACTIVE with the
+  -- same Club Admin bundle the whole time, so a Club Admin loses the alias and keeps the authority.
+  -- J.4 line 400 and J.13 lines 559-566.
+  ('club', 'CLUB_ADMIN', 'club.edit_profile', 'AA.3 4h: RENAME to club.profile.edit'),
+  ('club', 'CLUB_ADMIN', 'club.subscription.view_finance', 'AA.3 4h: RENAME to finance.subscription.view'),
+  ('club', 'CLUB_ADMIN', 'club.subscription.configure', 'AA.3 4h: RENAME to finance.subscription.configure'),
+  ('club', 'CLUB_ADMIN', 'club.subscription.manage_enrolment', 'AA.3 4h: RENAME to finance.enrolment.manage'),
+  ('club', 'CLUB_ADMIN', 'club.subscription.manage_payment_actions', 'AA.3 4h: RENAME to finance.payment.act'),
+  ('club', 'CLUB_ADMIN', 'club.subscription.export', 'AA.3 4h: RENAME to finance.subscription.export'),
+  ('club', 'CLUB_ADMIN', 'club.gocardless.connect', 'AA.3 4h: RENAME to finance.gocardless.connect'),
+  ('club', 'CLUB_ADMIN', 'club.platform_billing.view', 'AA.3 4h: RENAME to finance.platform_billing.view'),
+  ('club', 'CLUB_ADMIN', 'club.platform_billing.manage', 'AA.3 4h: RENAME to finance.platform_billing.manage'),
+  ('club', 'CLUB_ADMIN', 'club.capabilities.manage', 'AA.3 4h: MERGE into people.capability.manage (J.3 line 393)');
 
 do $body$
 declare
@@ -204,11 +218,11 @@ begin
   select count(*) into v_n from (
     select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
     except select scope_type, role_key, capability_key from public.role_capability_defaults) x;
-  perform pg_temp.check(v_n = 34 and not exists (
+  perform pg_temp.check(v_n = 44 and not exists (
       select scope_type, role_key, capability_key from intended_removals
       except (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
               except select scope_type, role_key, capability_key from public.role_capability_defaults)),
-    'BP3: the intended removals are exactly the 34 listed (' || v_n || ')');
+    'BP3: the intended removals are exactly the 44 listed (' || v_n || ')');
 
   -- Behaviour, through the enforcement entry point, for a real holder of each legacy role.
   v_club := pg_temp.club('Parity'); v_team := pg_temp.team(v_club);

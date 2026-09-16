@@ -1623,3 +1623,136 @@ that does not exist.
 **4G IMPLEMENTED:** Safeguarding appointment authority/state machine.
 
 **SLICE 5 DEFERRED:** Email-bound SAFEGUARDING_OFFICER invitation and redemption entry path.
+
+# 4H ARCHAEOLOGY, IMPLEMENTATION AND VERIFICATION (recorded at ledger 499)
+
+AA.3 row 4h names one legacy item — **`internal.is_club_admin`, 23 policies and 20 function bodies at
+ledger 465** — the matrix `club_admin_authority_matrix.sql`, and ten owned tables: `clubs`, `teams`,
+`club_memberships`, `role_assignments`, `club_join_requests`, `invitations`, `invitation_teams`,
+`club_contacts`, `team_contacts`, `club_opponent_notes`. It carries section **S** "Club Admin
+boundary", including `club.reporting.export` with R and an event, and the finance domain **J.13** its
+own title names. Every key J.3, J.4, J.5 and J.13 require is already ACTIVE with exactly the bundles
+they specify, so **4H adds no capability and changes no bundle**.
+
+## What was actually wrong
+
+Two things, and only one of them was on the row's label.
+
+**`club.reporting.export` had no caller at all.** The capability has been ACTIVE since Slice 3 with
+AAL R and section S's last prohibition is *"Export personal data without R and event"*. What it should
+have been governing is the club player-movement export: named children, the teams they moved between,
+their dispensation status and the governing-body reference the club recorded. It asked
+`manage_fixture_callups` — a fixtures key at AAL A2 — and emitted nothing, so nobody could afterwards
+tell that a club's roll of children had been downloaded, or why.
+
+**Twenty-six finance functions opened with a bare `internal.is_site_admin()`.** Every site-admin
+profile — `read_only`, `content`, `fixture_ops`, `message_moderator` included — could configure a
+club's subscription prices, exempt a member from an obligation, change who pays, refund a payment,
+end a subscription, connect or disconnect the club's GoCardless account, and start, pause or cancel
+the club's plan with Ovalball. J.13 leaves the site-master column **empty** for every acting key and
+says why in the table itself: *"(Site Admins never act on club payments)"*, closing with a hard
+prohibition that payment secrets are never accessible to any Site Admin profile. So those branches
+were **removed**, not re-pointed. The two platform-billing keys and the finance read — Ovalball's own
+commercial relationship with the club rather than the club's money — took the masters J.13 records.
+
+## 4H-OWNED FOOTPRINT
+
+| | before | after |
+|---|---|---|
+| `is_club_admin` policies | 23 | **0** |
+| `is_club_admin` function bodies | 20 | 14 (4b's, 4c's and 4i's, named below) |
+| functions asking a deprecated club/finance key | 29 | **0** |
+| policies asking a deprecated club/finance key | 23 | **0** |
+| adapter rows for those keys | 13 | **0** |
+| `club.reporting.export` callers | 0 | 1 (the one gate) |
+
+## GLOBAL REMAINING SLICE-4 FOOTPRINT
+
+| helper | policies | bodies |
+|---|---|---|
+| `has_capability` | 86 (was 88) | 61 (was 90) |
+| `is_site_admin` | 86 (was 109) | 92 (was 122) |
+| `is_full_site_admin` | 14 (was 15) | 38 (was 39) |
+| `is_club_admin` | **0** (was 23) | 14 (was 20) |
+| `can_manage_club_fixtures` | 12 | 27 |
+| `can_manage_team` | 1 | 15 |
+
+PG-15 **124 → 100**. PG-16 **121 → 91**.
+
+## NOT 4H — named so the omission reads as a decision
+
+| left alone | why | owner |
+|---|---|---|
+| `can_manage_club_fixtures`, `can_manage_team` | fixtures and roster helpers | 4c, 4b |
+| the eleven rollover, graduation, handover and tournament-team functions | `team.handover.*`, `team.lifecycle.manage` | **4i** |
+| `club.season_rollover.manage`, `club.guardians.manage` adapter rows | still have callers in surfaces those slices own | 4i, 4a |
+| the source-team stage of `decide_player_dispensation` | a fixtures question (`approve_player_dispensations`) | 4c |
+| the site-side `is_site_admin` bulk | AA.3's closing line | Slice 7 |
+
+## Six defects the gates found
+
+| # | defect | found by |
+|---|---|---|
+| A | `club.reporting.export` existed and governed nothing; a club's roll of children could be exported with no reason and no trace | archaeology against section S |
+| B | 26 finance functions let any site-admin profile act on a club's money | archaeology against J.13 |
+| C | the first draft used the site master of the **wrong key** — `site.memberships.manage` for a SELECT whose club branch is `people.member.view`, which would have stopped user support reading a club's roll | the shadow comparison, immediately |
+| D | `role_assignments_select` was about to **widen** from Full-Site-Admin-only to every site profile | the shadow comparison |
+| E | `internal.has_site_capability` was not executable by `anon`, and **44 policies targeted `to public` already call it** — a signed-out visitor reading a published club article evaluates `clubs_select` transitively and would have got "permission denied for function" | `club_digital_home`, walking the transitive path |
+| F | the hoist was written `= any (fn(...))`, which Postgres evaluates **once per row**; `EXPLAIN` showed it sitting in the Filter beside two folded InitPlans | `EXPLAIN (ANALYZE)` |
+
+Defect E is the one with reach beyond this slice: the grant was missing for policies 4C, 4E and 4F
+installed, and `internal.is_site_admin` — what they all used to ask — happened to be anon-executable,
+so the transitive path had been working by accident.
+
+## Performance
+
+| read | pre-4H | 4H |
+|---|---|---|
+| a 400-member club roll, as the Club Admin | ~21.5 ms | **~2.1 ms** |
+| the same, before the hoist was written as a subquery | — | 47.5 ms |
+| teams, clubs directory | 0.5 ms | 0.5 ms |
+
+Ten times faster than before the slice, because the club question is now asked once per query instead
+of once per row. `= any (stable_fn(...))` is not enough — Postgres folds a **subquery**, so
+`club_id in (select unnest(internal.club_ids_with(...)))` is what becomes the InitPlan.
+
+## Mutation testing
+
+Ten mutants, **ten killed, no survivors**. Three of them taught something:
+
+- **M7** was written as a new overload rather than a replacement, and in surviving it revealed that
+  **CH-D5 had been calling a signature no function had** — passing on "function does not exist", and
+  it would have gone on passing if the authority inside had been deleted.
+- **M10** (swapping the membership policy's site master for a same-sized neighbour) survived every
+  behavioural test, because `site.users.view` and `site.clubs.view` sit in exactly the same six
+  bundles. It is killed by asserting the **key by name**, which is the thing the contract fixes.
+- The restore step left a mutant alive until pristine definitions were snapshotted first — the same
+  trap 4F hit, in a different shape.
+
+## The gates
+
+| gate | result |
+|---|---|
+| `club_admin_authority_matrix.sql` | **79 assertions**, CH-A … CH-P, deterministic and self-seeding |
+| `club_admin_authority_races.test.mts` | 4 passed, three times, real concurrent sessions |
+| browser suite 58 | 30/30 |
+| shared harness, suite 51 | extended with N13a-d and N14a-b; 36/36 |
+| full banking battery | **4261 passed, 0 failed across 206 suites** |
+| clean empty-database rebuild | 469 migrations from empty; 18 suites, 992 assertions; perimeter 11/11 |
+| production-shaped rehearsal | 465 → 469 one at a time, each dry-run first; **nobody's access changed**; only data delta `audit` +13 |
+| compatibility matrix | 7/7 |
+
+## Release ordering, DERIVED
+
+The new build requires `record_club_export` and `internal.club_ids_with`, both created here. The
+previous build asks the eleven retired aliases, so for the length of the deploy its club-settings and
+finance tabs hide. Fail-closed, self-healing, no data effect — and the reason the app half of this
+slice repoints those call sites. **Migrations first, then push.**
+
+## §9 unknown-age check for 4H
+
+Does 4H make staff or sensitive authority reachable through an identity whose age cannot be
+established? **No.** It grants no role, changes no membership transition, adds no onboarding path and
+touches no age check: `internal.person_is_minor` is untouched and no 4H key is `minor_prohibited`
+gated differently than before. Every authority it moves was already reachable by exactly the same
+people through the same memberships. The carried follow-up carries forward unchanged.

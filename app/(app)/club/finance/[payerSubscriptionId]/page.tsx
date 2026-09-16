@@ -83,7 +83,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
   const { data: detail, error: detailError } = await supabase.rpc("get_membership_operational_detail", { p_payer_subscription_id: payerSubscriptionId }).maybeSingle()
   if (detailError || !detail) notFound()
 
-  const canManagePayments = await hasCapability(supabase, "club.subscription.manage_payment_actions", "club", { clubId: detail.club_id })
+  const canManagePayments = await hasCapability(supabase, "finance.payment.act", "club", { clubId: detail.club_id })
 
   const { data: obligationsRaw } = await supabase
     .from("membership_obligations")

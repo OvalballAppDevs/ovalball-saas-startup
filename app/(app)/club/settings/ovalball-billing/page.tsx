@@ -45,7 +45,7 @@ export default async function OvalballBillingPage() {
 
   const [navCaps, canManage, canReferrals] = await Promise.all([
     resolveClubSettingsNavCapabilities(supabase, clubId),
-    hasCapability(supabase, "club.platform_billing.manage", "club", { clubId }),
+    hasCapability(supabase, "finance.platform_billing.manage", "club", { clubId }),
     hasCapability(supabase, "club.referrals.view", "club", { clubId }),
   ])
   const canView = navCaps.canPlatformBillingView

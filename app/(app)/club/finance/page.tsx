@@ -43,12 +43,12 @@ export default async function ClubFinanceDashboardPage({ searchParams }: { searc
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
   const clubId = activeClubId(ctx, activeContext)
 
-  const canView = clubId ? await hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }) : false
+  const canView = clubId ? await hasCapability(supabase, "finance.subscription.view", "club", { clubId }) : false
   if (!clubId || !canView) redirect("/dashboard")
 
-  const canManageEnrolment = await hasCapability(supabase, "club.subscription.manage_enrolment", "club", { clubId })
-  const canManagePayments = await hasCapability(supabase, "club.subscription.manage_payment_actions", "club", { clubId })
-  const canExport = await hasCapability(supabase, "club.subscription.export", "club", { clubId })
+  const canManageEnrolment = await hasCapability(supabase, "finance.enrolment.manage", "club", { clubId })
+  const canManagePayments = await hasCapability(supabase, "finance.payment.act", "club", { clubId })
+  const canExport = await hasCapability(supabase, "finance.subscription.export", "club", { clubId })
 
   const billingPeriod = params.month && /^\d{4}-\d{2}-01$/.test(params.month) ? params.month : currentMonthISO()
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"

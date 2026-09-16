@@ -17,14 +17,34 @@ function csvField(value: string): string {
  * call-up is linked to one -- still never raw governing-body evidence
  * beyond the reference the club itself recorded.
  */
-export async function exportPlayerMovementsCsv(clubId: string): Promise<ExportPlayerMovementsResult> {
+export async function exportPlayerMovementsCsv(clubId: string, reason: string): Promise<ExportPlayerMovementsResult> {
   const supabase = await createClient()
   const canExport = await hasCapability(supabase, "manage_fixture_callups", "club", { clubId })
   if (!canExport) return { ok: false, error: "Not authorised to export this club's player movement history." }
 
+  // Identity/Auth Slice 4H, section S: "Export personal data without R and event | club.reporting.export".
+  // This file lists named children, the teams they moved between, their dispensation status and the
+  // governing-body reference the club recorded. It asked a fixtures capability and left no trace, so
+  // nobody could afterwards tell that a club's roll of children had been downloaded, or why.
+  //
+  // record_club_export is the gate: it requires club.reporting.export (AAL R), refuses an empty reason
+  // and emits an export.generated security event naming the kind and the row count. The fixtures check
+  // above stays -- it is what decides whether this person may see the data at all.
+  const trimmedReason = reason.trim()
+  if (trimmedReason.length === 0) return { ok: false, error: "Say briefly why you need this export. It is recorded." }
+  if (trimmedReason.length > 500) return { ok: false, error: "That's too long — a sentence or two is enough." }
+
   const { data: teamRows } = await supabase.from("teams").select("id").eq("club_id", clubId)
   const teamIds = (teamRows ?? []).map((t) => t.id)
-  if (teamIds.length === 0) return { ok: true, csv: "player,source_team,target_team,fixture_date,request_date,status,decided_by,eligibility_status,eligibility_reference\n" }
+  if (teamIds.length === 0) {
+    // Still recorded. An export that returns nothing is still an attempt to take the roll away, and
+    // the reason for it is still worth having.
+    const { error } = await supabase.rpc("record_club_export", {
+      p_club_id: clubId, p_kind: "player_movements", p_reason: trimmedReason, p_row_count: 0,
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, csv: "player,source_team,target_team,fixture_date,request_date,status,decided_by,eligibility_status,eligibility_reference\n" }
+  }
 
   const { data: rows } = await supabase
     .from("fixture_player_call_up")
@@ -33,6 +53,14 @@ export async function exportPlayerMovementsCsv(clubId: string): Promise<ExportPl
     )
     .or(`source_team_id.in.(${teamIds.join(",")}),target_team_id.in.(${teamIds.join(",")})`)
     .order("created_at", { ascending: false })
+
+  const { error: recordError } = await supabase.rpc("record_club_export", {
+    p_club_id: clubId,
+    p_kind: "player_movements",
+    p_reason: trimmedReason,
+    p_row_count: (rows ?? []).length,
+  })
+  if (recordError) return { ok: false, error: recordError.message }
 
   const header = "player,source_team,target_team,fixture_date,opponent,request_date,status,eligibility_status,eligibility_reference\n"
   const exportPlayers = await loadStaffPlayers(supabase, (rows ?? []).map((r) => r.player_id))

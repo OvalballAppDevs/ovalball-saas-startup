@@ -42,7 +42,7 @@ begin
   -- bulk editing is the batched form of an edit a team role already has.
   -- =================================================================
   select count(*) into n from public.capabilities
-  where key in ('fixture.import', 'fixture.bulk_edit', 'club.capabilities.manage');
+  where key in ('fixture.import', 'fixture.bulk_edit', 'people.capability.manage');
   if n = 3 then
     raise notice 'PASS 1: the three fixture-management capabilities are registered';
   else
@@ -152,7 +152,7 @@ begin
   -- club out of its own permissions screen.
   begin
     perform public.set_capability_override(
-      v_other, 'club.capabilities.manage', 'club', v_club, null, 'grant', 'automated coverage'
+      v_other, 'people.capability.manage', 'club', v_club, null, 'grant', 'automated coverage'
     );
     raise notice 'FAIL 10: a club administrator granted the delegation authority itself';
   exception when insufficient_privilege then
@@ -163,7 +163,7 @@ begin
   -- capability added later is not silently a club's to grant.
   begin
     perform public.set_capability_override(
-      v_other, 'club.platform_billing.manage', 'club', v_club, null, 'grant', 'automated coverage'
+      v_other, 'finance.platform_billing.manage', 'club', v_club, null, 'grant', 'automated coverage'
     );
     raise notice 'FAIL 11: a club administrator granted a non-operational capability';
   exception when insufficient_privilege then

@@ -205,7 +205,7 @@ begin
     v_set,
     format('select public.revoke_capability_override(%L)', gen_random_uuid()),
     format('select * from public.club_member_capabilities(%L)', v_club),
-    format('select public.has_capability(''club.edit_profile'', ''club'', %L, null)', v_club)
+    format('select public.has_capability(''club.profile.edit'', ''club'', %L, null)', v_club)
   ] loop
     if pg_temp.try_as(null, v_s) <> '42501' then v_bad := v_bad || ('AM1 ' || left(v_s, 50)); end if;
   end loop;
@@ -228,7 +228,7 @@ begin
     if v_s <> '0' then v_bad := v_bad || (a.label || ' clubs update rows=' || v_s); end if;
     v_s := pg_temp.try_as(a.who, format('select public.assign_role(%L, ''COACH'', %L, null)', v_member_ms, v_team));
     if v_s <> '42501' then v_bad := v_bad || (a.label || ' assign_role=' || v_s); end if;
-    if pg_temp.bool_as(a.who, format('internal.has_capability(''club.edit_profile'', ''club'', %L::uuid, null)', v_club)) then
+    if pg_temp.bool_as(a.who, format('internal.has_capability(''club.profile.edit'', ''club'', %L::uuid, null)', v_club)) then
       v_bad := v_bad || (a.label || ' has_capability'); end if;
     if pg_temp.bool_as(a.who, format('exists (select 1 from public.my_capabilities(''club'', %L::uuid) where allowed and capability_key in (''club.profile.edit'', ''people.capability.manage''))', v_club)) then
       v_bad := v_bad || (a.label || ' my_capabilities'); end if;
@@ -241,7 +241,7 @@ begin
   if v_s <> '42501' then v_bad := v_bad || ('AM5 override on another team=' || v_s); end if;
 
   -- AM11 malformed scope
-  if pg_temp.bool_as(v_ca, format('internal.has_capability(''club.edit_profile'', ''team'', %L::uuid, null)', v_club))
+  if pg_temp.bool_as(v_ca, format('internal.has_capability(''club.profile.edit'', ''team'', %L::uuid, null)', v_club))
      or pg_temp.can_as(v_ca, 'club.profile.edit', 'club', v_club, v_team)
      or pg_temp.can_as(v_ca, 'club.profile.edit', 'organisation', v_club)
      or pg_temp.can_as(v_ca, 'club.profile.edit', 'site')

@@ -278,11 +278,11 @@ begin
     raise notice 'FAIL 16 (E): acceptance granted more (or less) than the member defaults';
   end if;
 
-  if not internal.has_capability('club.edit_profile', 'club', v_club_a)
+  if not internal.has_capability('club.profile.edit', 'club', v_club_a)
      and not internal.has_capability('club.teams.manage', 'club', v_club_a)
-     and not internal.has_capability('club.platform_billing.view', 'club', v_club_a)
+     and not internal.has_capability('finance.platform_billing.view', 'club', v_club_a)
      and not internal.has_capability('club.guardians.manage', 'club', v_club_a)
-     and not internal.has_capability('club.subscription.view_finance', 'club', v_club_a) then
+     and not internal.has_capability('finance.subscription.view', 'club', v_club_a) then
     raise notice 'PASS 17 (E): an officer receives no club admin, finance or guardian authority';
   else
     raise notice 'FAIL 17 (E): an officer picked up unrelated club authority';

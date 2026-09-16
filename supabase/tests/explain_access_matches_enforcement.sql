@@ -174,7 +174,7 @@ begin
                                ('site-master-control', v_full, 'site.club_roles.manage', 'site', null, null, null),
                                ('read-only-mutation', v_ro, 'site.clubs.profile.manage', 'site', null, null, null),
                                ('member-no-bundle', v_member, k, 'club', v_club, null, null),
-                               ('legacy-key', v_ca, 'club.edit_profile', 'club', v_club, null, null);
+                               ('legacy-key', v_ca, 'club.profile.edit', 'club', v_club, null, null);
 
   v_g := pg_temp.person('E-guardian');
   insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Exp', 'Child', (current_date - interval '9 years')::date, 'MALE') returning id into v_child;

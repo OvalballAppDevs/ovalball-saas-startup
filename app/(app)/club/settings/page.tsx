@@ -56,16 +56,16 @@ export default async function ClubSettingsHubPage() {
   // ordinary club members also hold).
   const [canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = clubId
     ? await Promise.all([
-        hasCapability(supabase, "club.edit_profile", "club", { clubId }),
+        hasCapability(supabase, "club.profile.edit", "club", { clubId }),
         hasCapability(supabase, "venue.venue.manage", "club", { clubId }),
         hasCapability(supabase, "venue.pitch.manage", "club", { clubId }),
         hasCapability(supabase, "club.season_rollover.manage", "club", { clubId }),
         hasCapability(supabase, "fixture.edit", "club", { clubId }),
         hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
         hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
-        hasCapability(supabase, "club.subscription.configure", "club", { clubId }),
-        hasCapability(supabase, "club.subscription.view_finance", "club", { clubId }),
-        hasCapability(supabase, "club.platform_billing.view", "club", { clubId }),
+        hasCapability(supabase, "finance.subscription.configure", "club", { clubId }),
+        hasCapability(supabase, "finance.subscription.view", "club", { clubId }),
+        hasCapability(supabase, "finance.platform_billing.view", "club", { clubId }),
       ])
     : [false, false, false, false, false, false, false, false, false, false]
   const canNews = clubId ? await hasCapability(supabase, "club.news.manage", "club", { clubId }) : false

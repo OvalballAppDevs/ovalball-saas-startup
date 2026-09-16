@@ -124,8 +124,8 @@ select 'seeded' as step, (select count(*) from public.club_memberships cm join b
 -- ---------------------------------------------------------------------------------------------
 create temp table bench_questions on commit drop as
 select q, p.id as subject, c.club, t.id as team,
-  (array['club.edit_profile', 'fixture.edit', 'fixture.view', 'club.view', 'team.attendance.view', 'club.training.manage',
-         'manage_fixture_callups', 'team.roster.manage', 'club.subscription.view_finance', 'fixture.create'])[1 + (q % 10)] as key,
+  (array['club.profile.edit', 'fixture.edit', 'fixture.view', 'club.view', 'team.attendance.view', 'club.training.manage',
+         'manage_fixture_callups', 'team.roster.manage', 'finance.subscription.view', 'fixture.create'])[1 + (q % 10)] as key,
   case when q % 3 = 0 then 'team' else 'club' end as scope
 from generate_series(1, 2000) q
 join bench_people p on p.n = 1 + ((q * 7919) % 10000)

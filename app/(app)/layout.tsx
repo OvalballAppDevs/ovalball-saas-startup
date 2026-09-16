@@ -124,7 +124,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   if (contextClubId && !diagnosticClub) {
     const setup = await getClubSetupState(supabase, contextClubId)
     if (setup && setup.status !== "COMPLETED") {
-      const canComplete = await hasCapability(supabase, "club.edit_profile", "club", { clubId: contextClubId })
+      const canComplete = await hasCapability(supabase, "club.profile.edit", "club", { clubId: contextClubId })
       if (canComplete) {
         if (!isSetupAllowedPath(pathname)) {
           redirect(`/club/setup?step=${resumeStep(setup.requirements)}`)

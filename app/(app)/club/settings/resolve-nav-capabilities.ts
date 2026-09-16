@@ -81,11 +81,11 @@ export async function resolveClubSettingsNavCapabilities(
   // when a check was inserted, which silently handed every later tab the previous tab's answer (the Guardians &
   // Players gate read the player-dispensations answer). Named pairs cannot drift.
   const checks = {
-    canProfile: "club.edit_profile",
+    canProfile: "club.profile.edit",
     canPitchesManage: "venue.pitch.manage",
     canVenues: "venue.venue.manage",
     canRollover: "club.season_rollover.manage",
-    canPermissions: "club.capabilities.manage",
+    canPermissions: "people.capability.manage",
     canFixtureEdit: "fixture.edit",
     canFixtureCallups: "manage_fixture_callups",
     canPlayerDispensations: "manage_player_dispensations",
@@ -96,9 +96,9 @@ export async function resolveClubSettingsNavCapabilities(
     // — not safeguarding.contact.view, which J.12 gives to most of a club including parents and would
     // put a club administration tab in front of all of them.
     canSafeguarding: "safeguarding.officer.nominate",
-    canSubscriptionConfigure: "club.subscription.configure",
-    canSubscriptionViewFinance: "club.subscription.view_finance",
-    canPlatformBillingView: "club.platform_billing.view",
+    canSubscriptionConfigure: "finance.subscription.configure",
+    canSubscriptionViewFinance: "finance.subscription.view",
+    canPlatformBillingView: "finance.platform_billing.view",
     canNews: "club.news.manage",
   } as const
   const entries = Object.entries(checks) as [keyof typeof checks, string][]

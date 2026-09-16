@@ -30,7 +30,7 @@ async function resolveActiveClub(): Promise<
   const clubId = activeClubId(ctx, activeContext)
   if (!clubId) return { ok: false, error: "Switch to a club before changing its Ovalball plan." }
 
-  if (!(await hasCapability(supabase, "club.platform_billing.manage", "club", { clubId }))) {
+  if (!(await hasCapability(supabase, "finance.platform_billing.manage", "club", { clubId }))) {
     return { ok: false, error: "You do not have permission to manage this club's Ovalball plan." }
   }
 

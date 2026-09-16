@@ -51,7 +51,7 @@ export default async function ClubSetupPage({
   const clubId = activeManageableClubId(ctx, activeContext)
   if (!clubId) redirect("/dashboard")
 
-  const canEdit = await hasCapability(supabase, "club.edit_profile", "club", { clubId })
+  const canEdit = await hasCapability(supabase, "club.profile.edit", "club", { clubId })
   if (!canEdit) redirect("/dashboard")
 
   const setup = await getClubSetupState(supabase, clubId)

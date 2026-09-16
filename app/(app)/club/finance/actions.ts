@@ -22,7 +22,7 @@ async function requireFinanceCapability(clubId: string, capability: string) {
 }
 
 export async function generateObligationsForCurrentPeriod(clubId: string, billingPeriod: string): Promise<ActionResult> {
-  const auth = await requireFinanceCapability(clubId, "club.subscription.manage_enrolment")
+  const auth = await requireFinanceCapability(clubId, "finance.enrolment.manage")
   if (!auth.ok) return auth
 
   const { error } = await auth.supabase.rpc("create_membership_obligations_for_period", { p_club_id: clubId, p_billing_period: billingPeriod })
@@ -33,7 +33,7 @@ export async function generateObligationsForCurrentPeriod(clubId: string, billin
 }
 
 export async function setObligationExemption(clubId: string, obligationId: string, status: "EXEMPT" | "WAIVED", reason: string): Promise<ActionResult> {
-  const auth = await requireFinanceCapability(clubId, "club.subscription.manage_enrolment")
+  const auth = await requireFinanceCapability(clubId, "finance.enrolment.manage")
   if (!auth.ok) return auth
 
   const { error } = await auth.supabase.rpc("set_obligation_exemption", { p_obligation_id: obligationId, p_status: status, p_reason: reason })
@@ -44,7 +44,7 @@ export async function setObligationExemption(clubId: string, obligationId: strin
 }
 
 export async function retryFailedPayment(clubId: string, gocardlessPaymentDbId: string): Promise<ActionResult> {
-  const auth = await requireFinanceCapability(clubId, "club.subscription.manage_payment_actions")
+  const auth = await requireFinanceCapability(clubId, "finance.payment.act")
   if (!auth.ok) return auth
 
   const { data: payment } = await auth.supabase.from("gocardless_payments").select("gc_payment_id, status").eq("id", gocardlessPaymentDbId).eq("club_id", clubId).maybeSingle()
@@ -65,7 +65,7 @@ export async function retryFailedPayment(clubId: string, gocardlessPaymentDbId: 
 }
 
 export async function issueRefund(clubId: string, gocardlessPaymentDbId: string, amountMinor: number, reason: string): Promise<ActionResult> {
-  const auth = await requireFinanceCapability(clubId, "club.subscription.manage_payment_actions")
+  const auth = await requireFinanceCapability(clubId, "finance.payment.act")
   if (!auth.ok) return auth
 
   const { data: payment } = await auth.supabase.from("gocardless_payments").select("id, gc_payment_id, status").eq("id", gocardlessPaymentDbId).eq("club_id", clubId).maybeSingle()
@@ -116,7 +116,7 @@ export async function cancelMembershipAction(payerSubscriptionId: string, reason
   const { data: programmeRow } = await supabase.from("club_subscription_programmes").select("club_id").eq("id", payerRow.programme_id).maybeSingle()
   if (!programmeRow) return { ok: false, error: "Programme not found." }
 
-  const authorized = await hasCapability(supabase, "club.subscription.manage_payment_actions", "club", { clubId: programmeRow.club_id })
+  const authorized = await hasCapability(supabase, "finance.payment.act", "club", { clubId: programmeRow.club_id })
   if (!authorized) return { ok: false, error: "You are not authorised to cancel memberships for this club." }
 
   if (payerRow.status !== "active") {
@@ -151,7 +151,7 @@ export type ExportResult = { ok: true; csv: string } | { ok: false; error: strin
  * could otherwise break the format.
  */
 export async function exportFinanceCsv(clubId: string, billingPeriod: string): Promise<ExportResult> {
-  const auth = await requireFinanceCapability(clubId, "club.subscription.export")
+  const auth = await requireFinanceCapability(clubId, "finance.subscription.export")
   if (!auth.ok) return auth
 
   const { data, error } = await auth.supabase.rpc("export_finance_rows", { p_club_id: clubId, p_billing_period: billingPeriod })

@@ -33,12 +33,14 @@ $$;
 -- HR1 / HR2 --------------------------------------------------------------------------------------------------
 do $$
 declare
-  -- helper, policy ceiling, function-body ceiling (after Slice 4G)
+  -- helper, policy ceiling, function-body ceiling (after Slice 4H)
   v_ceilings constant text[][] := array[
-    ['has_capability', '88', '90'],
-    ['is_site_admin', '109', '122'],
-    ['is_full_site_admin', '15', '39'],
-    ['is_club_admin', '23', '20'],
+    ['has_capability', '86', '61'],
+    ['is_site_admin', '86', '92'],
+    ['is_full_site_admin', '14', '38'],
+    -- 4H took every one of the 23 policies AA.3 row 4h names. The 14 bodies that remain are named in
+    -- HR3 below and belong to 4b, 4c and 4i; this slice did not take them to flatter the number.
+    ['is_club_admin', '0', '14'],
     ['can_manage_club_fixtures', '12', '27'],
     ['can_manage_club_fixtures_or_any_team', '2', '0'],
     ['can_manage_fixture_side', '2', '6'],
@@ -144,6 +146,20 @@ declare
   ];
   v_4c_tables constant text[] := array['fixtures', 'fixture_requests', 'fixture_request_groups',
                                         'fixture_result_submissions', 'fixture_player_call_up'];
+  -- Slice 4h (club administration and finance). The ten tables the ledger assigns to this slice, the
+  -- finance surface J.13 governs, and the gates that decide a club-administration question.
+  v_4h_functions constant text[] := array[
+    'internal.club_ids_with', 'public.record_club_export', 'internal.can_address_club_audience',
+    'public.get_club_member_directory', 'public.update_message_communication_policy',
+    'public.list_fixtures_since_deactivation', 'public.decide_player_dispensation',
+    'public.revoke_player_dispensation', 'internal.assert_club_setup_authority',
+    'public.export_finance_rows', 'public.record_payment_refund', 'public.set_subscription_price',
+    'public.select_club_plan', 'public.store_gocardless_connection', 'public.upsert_club_kit'
+  ];
+  v_4h_tables constant text[] := array['clubs', 'teams', 'club_memberships', 'role_assignments',
+                                        'club_join_requests', 'invitations', 'invitation_teams',
+                                        'club_contacts', 'team_contacts', 'club_opponent_notes'];
+  v_legacy_4h constant text := '\m(is_site_admin|is_full_site_admin|is_club_admin|has_capability|staffs_team|is_messaging_staff)\(';
   -- Slice 4g (safeguarding and dispensations). The gates that decide an appointment, a safeguarding
   -- thread, a welfare record and a dispensation, and the tables they decide over. The two legacy items
   -- AA.3 row 4g names are the per-officer override dependence -- officer identity read off a table a
@@ -521,6 +537,85 @@ begin
     raise notice 'FAIL HR3 4g: a transitional club.safeguarding adapter row is back';
   end if;
 
+  -- Slice 4h -----------------------------------------------------------------------------------------------
+  -- decide_player_dispensation is excluded here and asserted separately below. 4H owns the CLUB and
+  -- governing-body stages of that function; the source-team stage beside them asks
+  -- approve_player_dispensations, which is a fixtures question and AA.3 row 4c's. The exclusion is
+  -- what keeps that fact visible instead of widening v_legacy_4h for everybody.
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where (n.nspname || '.' || f.proname) = any (v_4h_functions)
+    and n.nspname || '.' || f.proname <> 'public.decide_player_dispensation'
+    and f.prosrc ~ v_legacy_4h;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4h functions: no legacy authority helper';
+  else
+    raise notice 'FAIL HR3 4h functions still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  if (select count(*) filter (where n.nspname || '.' || f.proname = any (v_4h_functions)) from pg_proc f join pg_namespace n on n.oid = f.pronamespace)
+     = cardinality(v_4h_functions) then
+    raise notice 'PASS HR3 every 4h function in the ledger exists (the list is not stale)';
+  else
+    raise notice 'FAIL HR3 the 4h function list names a function that no longer exists';
+  end if;
+
+  select coalesce(array_agg(tablename || '.' || policyname order by 1), '{}') into v_bad
+  from pg_policies
+  where schemaname = 'public' and tablename = any (v_4h_tables)
+    and (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ v_legacy_4h;
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4h table policies: no legacy authority helper on any of the ten tables';
+  else
+    raise notice 'FAIL HR3 4h table policies still call a legacy helper: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- AA.3 row 4h retires eleven club administration and finance aliases.
+  if not exists (select 1 from public.capability_key_map where legacy_key in (
+      'club.edit_profile','club.subscription.view_finance','club.subscription.configure',
+      'club.subscription.manage_enrolment','club.subscription.manage_payment_actions','club.subscription.export',
+      'club.gocardless.connect','club.platform_billing.view','club.platform_billing.manage',
+      'club.capabilities.manage','permissions.club_manage')) then
+    raise notice 'PASS HR3 4h: the eleven club administration and finance adapter rows are gone';
+  else
+    raise notice 'FAIL HR3 4h: a club administration or finance adapter row is back';
+  end if;
+
+  -- THE ONE PERMITTED RESIDUE, pinned so it cannot grow. 4H's two stages are canonical; the source-team
+  -- stage's single has_capability call is 4c's, and the count is asserted so neither of 4H's stages can
+  -- quietly revert to one.
+  if (select count(*) from regexp_matches(
+        (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public' and p.proname = 'decide_player_dispensation'),
+        '\mhas_capability\(', 'g')) = 2
+     and (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public' and p.proname = 'decide_player_dispensation') !~ '\m(is_club_admin|is_site_admin|is_full_site_admin)\('
+  then
+    raise notice 'PASS HR3 4h decide_player_dispensation: only the source-team stage is legacy, and no raw role helper remains';
+  else
+    raise notice 'FAIL HR3 4h decide_player_dispensation: the legacy residue moved';
+  end if;
+
+  -- J.13's hard boundary, structurally: no site-admin profile acts on a club's money.
+  select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where n.nspname in ('public','internal')
+    and f.prosrc ~ '\mfinance\.(payment\.act|subscription\.(configure|export)|enrolment\.manage|gocardless\.connect)\m'
+    and f.prosrc ~ '\m(is_site_admin|is_full_site_admin)\(';
+  if cardinality(v_bad) = 0 then
+    raise notice 'PASS HR3 4h: nothing that acts on a club''s money carries a Site Admin branch (J.13)';
+  else
+    raise notice 'FAIL HR3 4h: a club-money function has a Site Admin branch: %', array_to_string(v_bad, ', ');
+  end if;
+
+  -- And the 14 bodies 4h deliberately did NOT take, so the omission stays visible.
+  if (select count(*) from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+      where n.nspname in ('public','internal') and f.proname <> 'is_club_admin' and f.prosrc ~ '\mis_club_admin\(') = 14 then
+    raise notice 'PASS HR3 4h: the 14 remaining is_club_admin bodies are 4b''s, 4c''s and 4i''s, and are still there';
+  else
+    raise notice 'FAIL HR3 4h: the remaining is_club_admin body count moved without a slice claiming it';
+  end if;
+
   -- THE PER-OFFICER OVERRIDE DEPENDENCE, retired. Officer identity used to come from
   -- club_safeguarding_officers.user_id / status; it now comes from an ACTIVE CONFIRMED assignment.
   -- Naming the columns is what makes this a real check rather than a restatement of the one above.
@@ -596,8 +691,8 @@ end $$;
 -- PG-15 / PG-16 ----------------------------------------------------------------------------------------------
 do $$
 declare
-  v_pg15_ceiling constant int := 124;  -- after Slice 4G (4f: 128, 4e: 130, 4d: 130, 4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
-  v_pg16_ceiling constant int := 121;  -- after Slice 4G (4f: 124, 4e: 135, 4d: 143, 4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
+  v_pg15_ceiling constant int := 100;  -- after Slice 4H (4g: 124, 4f: 128, 4e: 130, 4d: 130, 4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
+  v_pg16_ceiling constant int := 91;   -- after Slice 4H (4g: 121, 4f: 124, 4e: 135, 4d: 143, 4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
   v int;
 begin
   select count(*) into v from pg_policies p

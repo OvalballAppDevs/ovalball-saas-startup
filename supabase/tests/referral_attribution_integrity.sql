@@ -78,9 +78,9 @@ begin
   v_missing := null;
   foreach v_key in array array[
     'club.referrals.view', 'club.referrals.manage',
-    'club.platform_billing.view', 'club.platform_billing.manage',
-    'club.training.manage', 'club.teams.manage', 'club.edit_profile',
-    'club.gocardless.connect', 'club.subscription.configure'
+    'finance.platform_billing.view', 'finance.platform_billing.manage',
+    'club.training.manage', 'club.teams.manage', 'club.profile.edit',
+    'finance.gocardless.connect', 'finance.subscription.configure'
   ] loop
     if not internal.has_club_role_capability(v_club_a, v_key) then
       v_missing := concat_ws(', ', v_missing, v_key);

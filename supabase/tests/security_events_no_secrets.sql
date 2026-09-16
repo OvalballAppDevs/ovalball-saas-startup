@@ -348,7 +348,11 @@ begin
                                              -- mark. None lets the caller choose the event, the actor or the subject:
                                              -- the type is a literal in the body and the actor is auth.uid().
                                              'confirm_safeguarding_officer', 'site_safeguarding_review', 'welfare_member_view',
-                                             'deactivate_safeguarding_officer'))
+                                             'deactivate_safeguarding_officer',
+                                             -- Slice 4H: the section S export gate. The kind and the row
+                                             -- count come from the caller; the event type, the actor and
+                                             -- the subject do not.
+                                             'record_club_export'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

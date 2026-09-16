@@ -81,7 +81,7 @@ begin
 
   foreach v_key in array array[
     -- club administration
-    'club.edit_profile', 'club.logo.manage', 'club.venues.manage', 'club.pitches.manage',
+    'club.profile.edit', 'club.logo.manage', 'club.venues.manage', 'club.pitches.manage',
     -- teams
     'club.teams.manage', 'club.team_lifecycle.manage', 'club.roster.manage', 'club.season_rollover.manage',
     -- fixtures
@@ -91,10 +91,10 @@ begin
     -- referrals
     'club.referrals.view', 'club.referrals.manage',
     -- platform billing / commercial
-    'club.platform_billing.view', 'club.platform_billing.manage',
+    'finance.platform_billing.view', 'finance.platform_billing.manage',
     -- GoCardless / member payments
-    'club.gocardless.connect', 'club.subscription.configure', 'club.subscription.view_finance',
-    'club.subscription.manage_enrolment', 'club.subscription.manage_payment_actions', 'club.subscription.export',
+    'finance.gocardless.connect', 'finance.subscription.configure', 'finance.subscription.view',
+    'finance.enrolment.manage', 'finance.payment.act', 'finance.subscription.export',
     -- player / guardian
     'club.guardians.manage', 'manage_fixture_callups', 'approve_fixture_callups',
     'manage_player_dispensations', 'approve_player_dispensations', 'place_graduating_players',
@@ -146,8 +146,8 @@ begin
   v_missing := '{}';
   foreach v_key in array array[
     'club.referrals.view', 'club.referrals.manage',
-    'club.platform_billing.view', 'club.platform_billing.manage',
-    'club.training.manage', 'club.gocardless.connect', 'club.subscription.configure'
+    'finance.platform_billing.view', 'finance.platform_billing.manage',
+    'club.training.manage', 'finance.gocardless.connect', 'finance.subscription.configure'
   ] loop
     if not internal.has_club_role_capability(v_club, v_key) then
       v_missing := v_missing || v_key::text;
@@ -192,7 +192,7 @@ begin
   -- =================================================================
   perform set_config('request.jwt.claims', json_build_object('sub', v_sec, 'role','authenticated')::text, true);
   if internal.has_club_role_capability(v_club, 'fixture.create')
-     and not internal.has_club_role_capability(v_club, 'club.edit_profile')
+     and not internal.has_club_role_capability(v_club, 'club.profile.edit')
      and not internal.has_club_role_capability(v_club, 'club.referrals.manage') then
     raise notice 'PASS 9 (E): a Fixture Secretary keeps fixtures and gains nothing commercial';
   else
@@ -202,7 +202,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_member, 'role','authenticated')::text, true);
   if internal.has_club_role_capability(v_club, 'club.view')
      and not internal.has_club_role_capability(v_club, 'fixture.create')
-     and not internal.has_club_role_capability(v_club, 'club.edit_profile') then
+     and not internal.has_club_role_capability(v_club, 'club.profile.edit') then
     raise notice 'PASS 10 (E): an ordinary member keeps read-only defaults';
   else
     raise notice 'FAIL 10 (E): ordinary member boundary moved';
@@ -217,11 +217,11 @@ begin
 
   -- A grant override gives a member something no role default provides.
   insert into public.capability_overrides (user_id, capability_key, scope_type, club_id, effect, status, granted_by)
-  values (v_member, 'club.edit_profile', 'club', v_club, 'grant', 'active', v_site);
+  values (v_member, 'club.profile.edit', 'club', v_club, 'grant', 'active', v_site);
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_member, 'role','authenticated')::text, true);
-  if public.has_capability('club.edit_profile', 'club', v_club, null)
-     and not internal.has_club_role_capability(v_club, 'club.edit_profile') then
+  if public.has_capability('club.profile.edit', 'club', v_club, null)
+     and not internal.has_club_role_capability(v_club, 'club.profile.edit') then
     raise notice 'PASS 11 (F): a grant override adds authority without changing any role default';
   else
     raise notice 'FAIL 11 (F): grant override precedence wrong';
@@ -243,7 +243,7 @@ begin
 
   -- The same Club Admin keeps every other capability -- a deny is surgical.
   if public.has_capability('club.referrals.view', 'club', v_club, null)
-     and public.has_capability('club.platform_billing.view', 'club', v_club, null) then
+     and public.has_capability('finance.platform_billing.view', 'club', v_club, null) then
     raise notice 'PASS 13 (F): a deny on one capability leaves the rest of the role intact';
   else
     raise notice 'FAIL 13 (F): a single deny removed unrelated capabilities';
@@ -253,9 +253,9 @@ begin
   -- club authority the same person holds.
   perform set_config('request.jwt.claims', null, true);
   insert into public.capability_overrides (user_id, capability_key, scope_type, club_id, effect, status, granted_by)
-  values (v_site, 'club.edit_profile', 'club', v_club, 'deny', 'active', v_site);
+  values (v_site, 'club.profile.edit', 'club', v_club, 'deny', 'active', v_site);
   perform set_config('request.jwt.claims', json_build_object('sub', v_site, 'role','authenticated')::text, true);
-  if not public.has_capability('club.edit_profile', 'club', v_club, null) then
+  if not public.has_capability('club.profile.edit', 'club', v_club, null) then
     raise notice 'PASS 14 (F): a deny override outranks Site Admin';
   else
     raise notice 'FAIL 14 (F): Site Admin bypassed an explicit deny';
@@ -267,7 +267,7 @@ begin
   -- Cross-club isolation: a default is not club-scoped data, and an override
   -- at club A grants nothing at club B.
   perform set_config('request.jwt.claims', json_build_object('sub', v_member, 'role','authenticated')::text, true);
-  if not public.has_capability('club.edit_profile', 'club', v_club2, null) then
+  if not public.has_capability('club.profile.edit', 'club', v_club2, null) then
     raise notice 'PASS 15 (G): a grant at one club grants nothing at another';
   else
     raise notice 'FAIL 15 (G): a club-scoped grant leaked across clubs';
@@ -276,8 +276,8 @@ begin
   -- Scope discipline: a club capability cannot be exercised at site scope,
   -- however the arguments are shaped.
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
-  if not public.has_capability('club.edit_profile', 'site', null, null)
-     and not public.has_capability('club.edit_profile', 'club', null, null) then
+  if not public.has_capability('club.profile.edit', 'site', null, null)
+     and not public.has_capability('club.profile.edit', 'club', null, null) then
     raise notice 'PASS 16 (G): a club capability is refused outside club scope';
   else
     raise notice 'FAIL 16 (G): scope validation bypassed';
@@ -287,7 +287,7 @@ begin
   perform set_config('request.jwt.claims', null, true);
   update public.clubs set status = 'deactivated' where id = v_club;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
-  if not internal.has_club_role_capability(v_club, 'club.edit_profile') then
+  if not internal.has_club_role_capability(v_club, 'club.profile.edit') then
     raise notice 'PASS 17 (G): a deactivated club yields no role capability at all';
   else
     raise notice 'FAIL 17 (G): a deactivated club still granted authority';

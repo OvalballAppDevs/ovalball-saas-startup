@@ -645,6 +645,70 @@ try {
     sql(`delete from public.role_assignments where id = '${assignmentId}'`)
   }
 
+  // N13. Exporting a club's personal data (Slice 4H: section S).
+  //
+  // Section S's last prohibition is "Export personal data without R and event". The club
+  // player-movement export -- named children, the teams they moved between, their dispensation status
+  // and the governing-body reference the club recorded -- asked a fixtures capability and emitted
+  // nothing, so nobody could afterwards tell that a club's roll of children had been downloaded, or
+  // why. record_club_export is the gate, and this replays it from every session.
+  // -------------------------------------------------------------------------
+  {
+    const exportAs = async (key, reason) => {
+      const token = await accessTokenOf(sessions[key].context)
+      const res = await fetch(`${API}/rest/v1/rpc/record_club_export`, {
+        method: "POST",
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_club_id: ids.club, p_kind: "player_movements", p_reason: reason, p_row_count: 3 }),
+      })
+      return res.ok
+    }
+    const before = one(`select count(*) from public.security_events where event_type = 'export.generated' and club_id = '${ids.club}'`)
+    const leaked = []
+    for (const key of ["secretary", "manager", "teamAdmin", "coach", "volunteer", "parent", "safeguarding"]) {
+      if (await exportAs(key, `replayed by ${key} ${TAG}`)) leaked.push(people[key]?.label ?? key)
+    }
+    record("N13a only club.reporting.export may export -- not the secretary, team staff, a parent or the officer",
+      leaked.length === 0, leaked.length ? `exported anyway: ${leaked.join(", ")}` : "every replay refused")
+
+    const noReason = await exportAs("admin", "")
+    record("N13b and the Club Admin cannot export without a reason", noReason === false, `ok=${noReason}`)
+
+    const ok = await exportAs("admin", `slice4h export ${TAG}`)
+    const after = one(`select count(*) from public.security_events where event_type = 'export.generated' and club_id = '${ids.club}'`)
+    record("N13c while the Club Admin may, with a reason, and it leaves exactly one event",
+      ok && Number(after) === Number(before) + 1, `ok=${ok} events ${before} -> ${after}`)
+    const recorded = one(`select reason from public.security_events where event_type = 'export.generated' and club_id = '${ids.club}' order by occurred_at desc limit 1`)
+    record("N13d carrying the reason that was given", recorded === `slice4h export ${TAG}`, `reason=${recorded}`)
+    // Not deleted here. security_events is append-only (Phase 2 Y.14/Y.15) and refuses a delete
+    // outright -- which is the right answer, and this run's own cleanup removes it under the
+    // maintenance flag along with everything else it created.
+  }
+
+  // N14. A club's money (Slice 4H: J.13).
+  //
+  // J.13 leaves the site-master column EMPTY for every key that acts on a club's money and says why
+  // in the table itself: "Site Admins never act on club payments". Twenty-six finance functions
+  // opened with a bare is_site_admin() before this slice, so every site-admin profile could configure
+  // a club's subscription. Checked here from the real Site Admin session.
+  // -------------------------------------------------------------------------
+  {
+    const configureAs = async (key) => {
+      const token = await accessTokenOf(sessions[key].context)
+      const res = await fetch(`${API}/rest/v1/rpc/configure_subscription_programme`, {
+        method: "POST",
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_club_id: ids.club, p_enabled: true, p_collection_day: 1, p_platform_fee_mode: "CLUB_PAYS", p_first_payment_policy: "IMMEDIATE" }),
+      })
+      return { ok: res.ok, body: (await res.text()).slice(0, 140) }
+    }
+    const bySite = await configureAs("site")
+    record("N14a INTENDED CHANGE: a Full Site Admin cannot configure this club's subscription (J.13)",
+      !bySite.ok && /not authoriz|not authoris/i.test(bySite.body), bySite.body)
+    const bySecretary = await configureAs("secretary")
+    record("N14b nor the Fixtures Secretary -- finance is the Club Admin's alone", !bySecretary.ok, bySecretary.body)
+  }
+
   record("I1 no server error on any page or replay", serverProblems.length === 0, serverProblems.slice(0, 5).join(" | "))
 } finally {
   for (const s of Object.values(sessions)) await s.context.close().catch(() => {})

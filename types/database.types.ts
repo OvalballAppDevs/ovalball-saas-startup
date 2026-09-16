@@ -23807,6 +23807,15 @@ export type Database = {
         }
         Returns: string
       }
+      record_club_export: {
+        Args: {
+          p_club_id: string
+          p_kind: string
+          p_reason: string
+          p_row_count?: number
+        }
+        Returns: undefined
+      }
       record_competition_match_result: {
         Args: {
           p_away_score: number

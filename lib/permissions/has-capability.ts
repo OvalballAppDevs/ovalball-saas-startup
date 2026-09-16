@@ -11,8 +11,10 @@ type Client = SupabaseClient<Database>
  * Every answer the signed-in person holds at one scope, from the ONE canonical
  * resolver (internal.capability_decision) through public.my_capabilities.
  * Canonical keys and the legacy keys the app still names are both present, so a
- * caller asking "club.edit_profile" and one asking "club.profile.edit" get the
- * same decision.
+ * caller asking a retired alias and one asking its canonical key get the same
+ * decision. Identity/Auth Slice 4H moved the club administration and finance
+ * call sites onto the canonical keys and retired their aliases, so the aliases
+ * that remain belong to slices that have not reached their turn yet.
  *
  * Cached per request (React cache keys on the client and the scope), so a page
  * that asks twenty questions about one club makes one round trip.

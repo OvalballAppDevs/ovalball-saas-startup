@@ -3635,6 +3635,11 @@
     ],
     "anon_internal_policy_helpers": [
       {
+        "signature": "club_ids_with(text)",
+        "schema": "internal",
+        "reason": "Identity/Auth Slice 4H: evaluated by clubs_select, teams_select and the club contact policies, which a signed-out visitor reaches transitively -- club_articles_public_read joins to clubs. Resolves through internal.can, so anon's set is always empty."
+      },
+      {
         "signature": "competition_edition_is_public(uuid)",
         "schema": "internal",
         "reason": "Evaluated by row policies when anon reads: competition_group_members, competition_groups, competition_matches, competition_participants, competition_stages."
@@ -3643,6 +3648,11 @@
         "signature": "has_capability(text, text, uuid, uuid)",
         "schema": "internal",
         "reason": "Evaluated by row policies when anon reads: hub_content_applicability, hub_content_heritage_links, hub_content_item_positions, hub_content_items, hub_content_relationships, hub_content_sources, hub_glossary_content_links, hub_glossary_positions, hub_glossary_relationships, hub_glossary_skills, hub_glossary_terms, hub_person_honour_relationships, hub_person_team_relationships, hub_position_age_stage, hub_position_relationships, hub_position_skills, hub_positions, hub_regulatory_fact_references, hub_skill_content_links, hub_skill_relationships, hub_skills, hub_team_honours, regulatory_content_section_audience_copy, regulatory_content_sections, regulatory_content_sets, regulatory_reporting_route_citations, regulatory_reporting_routes."
+      },
+      {
+        "signature": "has_site_capability(text)",
+        "schema": "internal",
+        "reason": "Identity/Auth Slices 4C-4H: evaluated by 44 policies targeted `to public`, reached transitively by a signed-out visitor. Resolves through capability_decision for internal.effective_person(), which is null without a session, so anon is told no."
       },
       {
         "signature": "is_club_admin(uuid)",
@@ -5541,6 +5551,11 @@
         ]
       },
       {
+        "signature": "record_club_export(uuid, text, text, integer)",
+        "reason": "Section S (Identity/Auth Slice 4H): the one gate for a club-scoped personal-data export. Requires club.reporting.export (AAL R) and a reason, and emits an export.generated security event naming the kind and row count. The caller supplies what is being exported; the function decides whether it may happen and records that it did.",
+        "consumer": "app/(app)/dashboard/actions.ts"
+      },
+      {
         "signature": "record_competition_match_result(uuid, integer, integer, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7160,6 +7175,7 @@
       "club_delegable_capability(text)",
       "club_effective_plan(uuid)",
       "club_event_visible_row(uuid, uuid, boolean)",
+      "club_ids_with(text)",
       "club_playing_group_player_ids(uuid)",
       "competition_club_recipients(uuid, uuid)",
       "competition_edition_is_public(uuid)",

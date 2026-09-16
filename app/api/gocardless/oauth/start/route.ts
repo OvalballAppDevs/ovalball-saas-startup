@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  const authorized = await hasCapability(supabase, "club.gocardless.connect", "club", { clubId })
+  const authorized = await hasCapability(supabase, "finance.gocardless.connect", "club", { clubId })
   if (!authorized) {
     return NextResponse.json({ error: "You are not authorised to connect GoCardless for this club." }, { status: 403 })
   }
