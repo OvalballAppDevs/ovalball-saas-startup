@@ -1023,3 +1023,23 @@ the strength of a failure that cannot be reproduced; changing infrastructure fou
 to fix something that has not happened again in six runs, would be the worse trade. It is recorded
 as a documented risk with a named recommended fix: the suites should take a database-level advisory
 lock for their prefix so a second concurrent run waits instead of deleting the first one's people.
+
+---
+
+# 4D — PRODUCTION RELEASE AND VERDICT (ledger 489)
+
+Commit `ecdb9e4`, fast-forward `3e8b932..ecdb9e4`. Migrations applied **before** the push, because
+the push is the deployment; no staging, because compatibility was measured in both directions and
+both builds gate the affected route identically.
+
+Deployment confirmed live 40 s after the push on two independent markers: `/login` etag
+`326f5974…` → `242e5209…` and chunk set `15f43204…` → `fea9dfa7…`. Both domains 200.
+
+**Production:** 456 rows, 456 applied, tip `20270363000000`, none pending, and
+`supabase db diff --linked` reports **"No schema changes found"** — the live schema is exactly the
+one the 3840 assertions and the clean boot ran against.
+
+**Verdict: IDENTITY/AUTH SLICE 4D — PRODUCTION VERIFIED.**
+
+4e–4i are not started. Next in order is 4e (Calendar, venues, pitches, training). 4g stays banked
+under D-S4-2. Slice 5 is not started.

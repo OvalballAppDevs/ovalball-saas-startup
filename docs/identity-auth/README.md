@@ -39,6 +39,16 @@ Production at 454 migrations, tip `20270361000000`, zero schema drift.
 | `SLICE_4C_PRODUCTION_RELEASE_REPORT.md` | The production release itself — the three staged steps and the verdict **IDENTITY/AUTH SLICE 4C — PRODUCTION VERIFIED** |
 | `SLICE_4_PROGRAMME_LEDGER.md` | The running programme ledger — scope authority, archaeology, corrections and every checkpoint from 4C onwards. Unlike the slice reports, this one is appended to rather than frozen |
 
+## Slice 4D — Competitions and Tournaments
+
+Released and production verified on 16 September 2026, commit `ecdb9e4`.
+Production at 456 migrations, tip `20270363000000`, zero schema drift.
+
+| Document | What it is |
+|---|---|
+| `SLICE_4D_IMPLEMENTATION_REPORT.md` | Implementation report for sub-slice 4d — the three intended changes, the hoist, and the anon regression it caught |
+| `SLICE_4D_PRODUCTION_RELEASE_REPORT.md` | The production release itself — verdict **IDENTITY/AUTH SLICE 4D — PRODUCTION VERIFIED** |
+
 ## Programme state
 
 **Not started:** 4d–4i. The Slice 4 programme is **not** complete. Next in order
