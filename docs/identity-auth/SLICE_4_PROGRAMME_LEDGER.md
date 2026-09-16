@@ -1590,3 +1590,36 @@ confirming them, where before the club's own acceptance was enough. SA-M1-M4 pin
 | `internal.is_club_admin` in the dispensation club and governing-body stages | section T says "the club stage needs CA", which is what that helper says | **4H** |
 | `internal.person_is_minor` treating an unknown date of birth as adult | pre-existing, not made newly reachable by 4G | the unknown-age follow-up |
 | `club_safeguarding_officer_invitations`, its token and its four RPCs | unified invitation redemption | **Slice 5 (D-S4-2)** |
+
+## 4G production release (ledger 498)
+
+Commit `b702824`, pushed fast-forward `967ff85..b702824`. Migrations applied to production **before**
+the push, dry-run first, exactly three travelling. Production moved **462 → 465**, tip
+`20270372000000`.
+
+Identities, clubs and teams unchanged at **4 / 1 / 17**, and Safeguarding Officer assignments unchanged
+at 0: nothing was appointed and nothing un-appointed. The three `club.safeguarding.*` adapter rows are
+gone, `safeguarding_thread_reviews` exists, `internal.grant_role` enters a nomination PENDING, and
+PG-15 **128 → 124**, PG-16 **124 → 121** — every number identical to the production-shaped rehearsal.
+
+Fifteen production checks pass, including AN-6 being reachable at all, the resolver refusing an
+unconfirmed officer at all three scopes, no self-confirmation, no blanket Site Admin thread read in the
+gate or in any of the five policies, officer identity coming from confirmed assignments rather than the
+contact table, dispensation separation of duties, **D-S4-2 intact** (exactly one safeguarding invitation
+table and no temporary token or redemption RPC), and 4C-4F still holding.
+
+One window effect is recorded rather than discovered later: for the length of the deploy the previous
+build's club-settings safeguarding tab does not appear, because it asks three keys the migration
+retires. Fail-closed, self-healing, no data effect.
+
+The application layer is server-side and behind authentication, so it was verified by three sequential
+browser UAT passes locally (suites 51-57, 156/156 each) rather than in production: verifying it there
+would require creating production personas or signing in as the product owner, both of which are
+prohibited. `SLICE_4G_PRODUCTION_RELEASE_REPORT.md` states that limit rather than implying coverage
+that does not exist.
+
+**Slice 4G is complete. 4H is not started. Slice 5 is not started.**
+
+**4G IMPLEMENTED:** Safeguarding appointment authority/state machine.
+
+**SLICE 5 DEFERRED:** Email-bound SAFEGUARDING_OFFICER invitation and redemption entry path.
