@@ -14,12 +14,15 @@ This file is the resume point. Everything below was verified, not assumed.
 | **Legacy plaintext token retirement** — terminal rows cleared, live pending honoured | `242c95d` |
 | **Invitation races R1–R6** — real concurrent sessions | `53baee5` |
 | **Legacy read surface corrected + reader allow-list** | `d7b93e4` |
+| **Club claim state machine** — six states, conversation, authority split, title grants nothing | `41a85f8` |
+| **Claim race R12** — competing approvals | `c7ef5f8` |
 
 **Evidence at this checkpoint**
-- Platform battery **4512 passed, 0 failed across 212 suites**; `tsc` clean.
-- `invitation_authority_matrix` **62 assertions**; `age_eligibility_matrix` **32**.
+- Platform battery **4555 passed, 0 failed across 214 suites**; `tsc` clean.
+- `invitation_authority_matrix` **62 assertions**; `age_eligibility_matrix` **32**;
+  `club_claim_authority_matrix` **42**.
 - Mutation: **15 mutants, 0 survivors**, restore verified either side.
-- Races: **6/6**, self-cleaning and repeatable.
+- Races: **R1–R6 and R12**, 7/7, self-cleaning and repeatable.
 - Clean boot: **485 migrations from empty**, 23 suites, **1294 assertions**, 0 failures.
 - Production-shaped rehearsal at ledger 474 with production's row shape: seven `site_admin_invitations`
   in, six revoked tokens cleared, the pending one retained, no row deleted, no authority changed.
@@ -30,24 +33,35 @@ Autonomous decisions D-S5-AUTO-1 … 6 are in `IDENTITY_AUTH_DECISION_RECORD.md`
 
 ## Not done — the remainder of Slice 5
 
-1. **Club claims (P, Y.13).** `club_claims` state machine, `club_claim_messages`,
-   `submit_club_claim`, `reply_to_claim`, `decide_club_claim`, the state backfill. Not started.
-2. **Application layer.** `/join` (link and code) unifying `/invite`, `/invited`, `/guardian-invite`
+1. **Application layer.** `/join` (link and code) unifying `/invite`, `/invited`, `/guardian-invite`
    and `/player-invite`; invitation emails; People & Access Invite; Team Join Codes UI; Claim a Club;
    Site Admin claims review; onboarding for invitees without accounts; public entry points; removal of
    `ovalballSignupPayload`. Not started.
    **This is also what completes the legacy token retirement** — moving these three actions onto
    `public.issue_invitation` is what stops new plaintext being written and lets the read surface close
    (D-S5-AUTO-6).
-3. **Races R12 and R18.** Both need subsystems not yet built: competing club claims needs the claims
-   machine, and the email-change race needs an email-change handler.
-4. **Still owed.** Browser UAT 43 and 44; accessibility; performance measurement of the invitation and
+2. **Race R18.** Needs an email-change handler, which this slice has not built.
+3. **Still owed.** Browser UAT 43 and 44; accessibility; performance measurement of the invitation and
    claim paths; release-order proof for the application changes; release and production verification.
 
 ## Resume here
 
-Start at **club claims**, then the application layer, then the remaining evidence. Nothing banked
-depends on the order of the remainder.
+Start at the **application layer**. The order that matters:
+
+1. **Migrate the three legacy issuers** — `app/(app)/people/actions.ts`,
+   `app/(app)/admin/site-admins/actions.ts`, `app/(app)/parent/children/actions.ts` — onto
+   `public.issue_invitation`. This is what stops new plaintext being written, shrinks the
+   `verify-legacy-invitation-token-readers` allow-list toward zero, and lets the read surface close
+   (D-S5-AUTO-6). It is the substance of Slice 5 closure items 2 and 3.
+2. **`/join`**, consuming `preview_invitation` and `redeemInvitation` from the chokepoint, so
+   canonical invitations are actually redeemable by a person.
+3. The remaining journeys, then UAT, accessibility, performance, a fresh clean boot and rehearsal.
+
+**One design question is already visible and unresolved.** Legacy `invitations` supports MULTIPLE team
+assignments through `invitation_teams`; canonical `access_invitations` has a single `team_id`. O.1
+describes CLUB_STAFF scope as "CL (+ TE list)", so the team list belongs in `intended_outcome`, and
+`redeem_invitation` needs to grant per team. Decide that before migrating the club-staff issuer, or the
+migration will quietly drop multi-team invitations.
 
 ## Two things the next run should know
 
