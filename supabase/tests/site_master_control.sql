@@ -110,7 +110,7 @@ declare
   v_tag text := substr(gen_random_uuid()::text,1,8);
   v_full uuid; v_ro uuid; v_data uuid; v_support uuid; v_ops uuid;
   v_target uuid; v_outsider uuid;
-  v_dir uuid; v_club uuid; v_team uuid; v_m uuid; v_ra uuid; v_player uuid; v_guardian uuid;
+  v_dir uuid; v_club uuid; v_team uuid; v_m uuid; v_ra uuid; v_player uuid; v_guardian uuid; v_new uuid; v_new2 uuid;
   v_n bigint;
 begin
   v_full    := pg_temp.person('FULL','smc-full-'||v_tag||'@ovalball.test');
@@ -370,6 +370,73 @@ begin
         and event_type in ('site.team_role_assigned','account.suspended','account.disabled',
                            'account.password_reset_forced','site.guardian_linked','site.guardian_unlinked')) >= 5,
     'SMC-35 and each distinct master-control act left its own audit line');
+
+  -- =============================================================================================
+  -- SMC-36..42  CREATE USER (Q.2).
+  --
+  -- The service role creates the auth identity and nothing else; everything that confers authority
+  -- happens in site_register_created_identity under the ordinary rules. The harness stands in for
+  -- the service role by inserting the auth row directly, which is exactly the division of labour
+  -- being asserted: the identity is free, the authority is not.
+  -- =============================================================================================
+  v_new := pg_temp.person('Created','smc-created-'||v_tag||'@ovalball.test');
+  update public.profiles set account_state = 'PENDING_SETUP', setup_state = 'PENDING_DETAILS',
+         first_name = '', surname = '' where id = v_new;
+
+  perform pg_temp.check(
+    pg_temp.try_as(v_support, format('select public.site_register_created_identity(%L,''Aoife'',''Kelly'',null,''creating an account for somebody who cannot self-register'')', v_new)) = '42501',
+    'SMC-36 User Access cannot create identities -- site.users.create is SITE_FULL alone');
+  perform pg_temp.check(
+    pg_temp.try_as(v_full, format('select public.site_register_created_identity(%L,''Aoife'',''Kelly'',null,''creating an account for somebody who cannot self-register'')', v_new)) = 'OK',
+    'SMC-37 POSITIVE CONTROL: a Full Site Admin CAN complete a created identity');
+  perform pg_temp.check(
+    (select first_name||' '||surname from public.profiles where id = v_new) = 'Aoife Kelly'
+    and (select created_source from public.profiles where id = v_new) = 'SITE_ADMIN_CREATE',
+    'SMC-37b and the record says a Site Admin made it, which is the thing a support query needs to know later');
+  perform pg_temp.check(
+    (select account_state from public.profiles where id = v_new) = 'PENDING_SETUP',
+    'SMC-37c the account is NOT active -- the person still has to set a password and an authenticator');
+  perform pg_temp.check(
+    exists (select 1 from public.access_invitations
+             where kind = 'ACCOUNT_SETUP' and target_user_id = v_new and state = 'ISSUED'),
+    'SMC-37d and a setup invitation was issued for them');
+
+  -- ID-6. Running it again is the shape of a double submit, and the second one must not overwrite
+  -- a real person's name from a form somebody left open.
+  update public.profiles set setup_state = 'COMPLETE', account_state = 'ACTIVE' where id = v_new;
+  perform pg_temp.check(
+    pg_temp.try_as(v_full, format('select public.site_register_created_identity(%L,''Someone'',''Else'',null,''running the same creation a second time'')', v_new)) = '23505',
+    'SMC-38 ID-6: an account that is already set up is never overwritten by Create User');
+
+  -- Site Admin is not on the create form, by any route.
+  v_new2 := pg_temp.person('Created2','smc-created2-'||v_tag||'@ovalball.test');
+  update public.profiles set account_state = 'PENDING_SETUP', setup_state = 'PENDING_DETAILS' where id = v_new2;
+  perform pg_temp.check(
+    pg_temp.try_as(v_full, format(
+      'select public.site_register_created_identity(%L,''Sam'',''Doyle'',null,''creating an account with site admin attached'',%L::jsonb)',
+      v_new2, '[{"kind":"SITE_ADMIN","profile_key":"SITE_FULL"}]')) = '42501',
+    'SMC-39 Site Admin cannot be granted from the Create User form -- that takes two administrators');
+  perform pg_temp.check(
+    not exists (select 1 from public.site_admins where user_id = v_new2),
+    'SMC-39b and the refusal left nothing behind');
+
+  -- An intended assignment goes through the master-control RPC that owns it, so it is refused by
+  -- that RPC's OWN capability. This is what stops Create User becoming a way round the others.
+  perform pg_temp.check(
+    pg_temp.try_as(v_full, format(
+      'select public.site_register_created_identity(%L,''Sam'',''Doyle'',null,''creating an account with a made-up assignment'',%L::jsonb)',
+      v_new2, '[{"kind":"NOT_A_KIND"}]')) = '22023',
+    'SMC-40 an unrecognised assignment kind is refused rather than ignored');
+
+  -- =============================================================================================
+  -- SMC-41  INSPECTION. Read-only, and still a capability.
+  -- =============================================================================================
+  perform pg_temp.check(
+    pg_temp.count_as(v_ro, format('select count(*) from public.site_membership_history(%L)', v_target)) >= 0,
+    'SMC-41 Read Only holds site.users.view, so it CAN read a provenance timeline');
+  perform pg_temp.check(
+    pg_temp.count_as(v_outsider, format('select count(*) from public.site_membership_history(%L)', v_target)) = 0,
+    'SMC-41b somebody with no site capability at all reads an empty timeline, not somebody else''''s history');
 end $$;
 
 rollback;

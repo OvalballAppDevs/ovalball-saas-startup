@@ -3,7 +3,9 @@ import Link from "next/link"
 import { ChevronRight, ShieldCheck } from "lucide-react"
 
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
+import { mySiteCapabilities } from "@/lib/auth/require-capability"
 import { createClient } from "@/lib/supabase/server"
+import { Button } from "@/components/ui/button"
 
 import { Pagination } from "../pagination"
 import { ExportUsersButton } from "./export-button"
@@ -35,6 +37,11 @@ export default async function AdminUsersPage({
 
   const resolvedParams = await searchParams
   const query = parseAdminUserQuery(resolvedParams)
+  // The control is rendered from the capability, not from "is a Site Admin":
+  // site.users.create is held by SITE_FULL alone, and a Club Data or Support
+  // administrator who can read this page cannot create identities. The page
+  // behind the link and the RPC behind that both ask again.
+  const canCreateUsers = (await mySiteCapabilities(supabase)).has("site.users.create")
   const from = (query.page - 1) * query.size
   const to = from + query.size - 1
 
@@ -57,7 +64,14 @@ export default async function AdminUsersPage({
             or SQL.
           </p>
         </div>
-        <ExportUsersButton query={query} />
+        <div className="flex items-center gap-2">
+          {canCreateUsers && (
+            <Button className="h-9" nativeButton={false} render={<Link href="/admin/users/new" />}>
+              Create User
+            </Button>
+          )}
+          <ExportUsersButton query={query} />
+        </div>
       </div>
 
       <div className="mt-6">

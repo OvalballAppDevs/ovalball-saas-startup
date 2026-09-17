@@ -404,7 +404,9 @@ begin
                                              -- approval, the rejection and the revocation each leave a
                                              -- mark; none lets the caller choose the event or the actor.
                                              'site_request_site_admin_grant', 'site_approve_site_admin_grant',
-                                             'site_reject_site_admin_grant', 'site_revoke_site_admin'))
+                                             'site_reject_site_admin_grant', 'site_revoke_site_admin',
+                                             -- Slice 7b: Create User, and the setup-link rotation.
+                                             'site_register_created_identity', 'site_resend_account_setup'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

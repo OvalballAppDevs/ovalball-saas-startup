@@ -6960,6 +6960,14 @@
         "reason": "Phase 2 Q.3 master control. Revokes a guardian relationship with a reason; never deletes it, so the record that the link existed survives for safeguarding. Requires site.family.manage."
       },
       {
+        "signature": "site_family_history(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/[userId]/page.tsx"
+        ],
+        "reason": "Phase 2 Q.3 inspection. Read-only provenance timeline from security_events, gated on site.users.view."
+      },
+      {
         "signature": "site_force_password_reset(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6976,6 +6984,22 @@
         "reason": "Phase 2 Q.3 master control. Creates a canonical ACTIVE guardians row with source SITE_ADMIN_ASSIGNMENT for a family link that cannot be repaired by the family themselves. Requires site.family.manage (SITE_FULL only). Refuses linking a player's own account as their guardian, and refuses to record CLUB_VERIFIED -- a Site Admin attests SITE_VERIFIED or records UNVERIFIED."
       },
       {
+        "signature": "site_membership_history(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/[userId]/page.tsx"
+        ],
+        "reason": "Phase 2 Q.3 inspection. Read-only provenance timeline from security_events, gated on site.users.view."
+      },
+      {
+        "signature": "site_register_created_identity(uuid, text, text, date, text, jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/new/actions.ts"
+        ],
+        "reason": "Phase 2 Q.2 Create User, step 6. Everything that confers authority, so that the service role in lib/admin/create-identity.ts only ever registers the auth identity and decides nothing. Requires site.users.create, recent AAL2 and a reason; refuses an account that is already set up (ID-6); applies each intended assignment through the SAME master-control RPC the Users & Access screen would call, so each re-checks its own capability; refuses SITE_ADMIN outright because that takes two administrators. Returns the invitation id and never the token."
+      },
+      {
         "signature": "site_reject_site_admin_grant(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6990,6 +7014,14 @@
           "app/(app)/admin/site-admins/actions.ts"
         ],
         "reason": "Phase 2 Slice 7c. Raises a PENDING request to make somebody a Site Admin; grants nothing by itself. Requires site.admins.manage, recent AAL2, a reason of at least ten characters, and refuses a self-target."
+      },
+      {
+        "signature": "site_resend_account_setup(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/new/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3. ROTATES the ACCOUNT_SETUP invitation -- revokes any live one before issuing the next, because two live setup links for one person is two ways in and the older one is the one nobody is watching. Requires site.invitations.manage."
       },
       {
         "signature": "site_revoke_invitation(uuid, text)",
@@ -7037,12 +7069,28 @@
         "reason": "Phase 2 Q.3 master control. Moves an account between ACTIVE, SUSPENDED and DISABLED. Deliberately asks for a DIFFERENT capability per state: site.users.disable for DISABLED, site.users.security.manage otherwise, because switching an account off permanently is a larger act than suspending it and User Access holds only the second."
       },
       {
+        "signature": "site_set_capability_override(uuid, text, text, uuid, uuid, text, text, timestamp with time zone)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/permissions/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3, granted_level = SITE. Delegates to public.set_capability_override, which owns the override rules; the wrapper exists for the master-control preamble, because a per-person exception to the whole capability model is exactly the operation that should need a recent authenticator code and a readable reason."
+      },
+      {
         "signature": "site_set_player_team_membership(uuid, uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/admin/users/actions.ts"
         ],
         "reason": "Phase 2 Q.3 / M.3 master control. Adds, ends or moves a player's place in a team. Delegates to the canonical archive/move functions and calls internal.assert_player_team_pathway_compatible on an add, so the governing-body age-grade and pathway rules are not bypassed by platform authority."
+      },
+      {
+        "signature": "site_team_history(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/[userId]/page.tsx"
+        ],
+        "reason": "Phase 2 Q.3 inspection. Read-only provenance timeline from security_events, gated on site.users.view."
       },
       {
         "signature": "site_transition_club_membership(uuid, text, text)",

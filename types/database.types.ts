@@ -25913,6 +25913,16 @@ export type Database = {
         Args: { p_reason: string; p_relationship_id: string }
         Returns: undefined
       }
+      site_family_history: {
+        Args: { p_user_id: string }
+        Returns: {
+          actor_user_id: string
+          at: string
+          detail: string
+          entry: string
+          player_id: string
+        }[]
+      }
       site_force_password_reset: {
         Args: { p_reason: string; p_user_id: string }
         Returns: undefined
@@ -25927,6 +25937,28 @@ export type Database = {
         }
         Returns: string
       }
+      site_membership_history: {
+        Args: { p_user_id: string }
+        Returns: {
+          actor_user_id: string
+          at: string
+          club_id: string
+          club_name: string
+          detail: string
+          entry: string
+        }[]
+      }
+      site_register_created_identity: {
+        Args: {
+          p_dob?: string
+          p_first_name: string
+          p_intended?: Json
+          p_reason?: string
+          p_surname: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       site_reject_site_admin_grant: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
@@ -25937,6 +25969,10 @@ export type Database = {
           p_reason: string
           p_target_user_id: string
         }
+        Returns: string
+      }
+      site_resend_account_setup: {
+        Args: { p_reason: string; p_user_id: string }
         Returns: string
       }
       site_revoke_invitation: {
@@ -25972,6 +26008,19 @@ export type Database = {
         Args: { p_reason: string; p_state: string; p_user_id: string }
         Returns: undefined
       }
+      site_set_capability_override: {
+        Args: {
+          p_capability_key: string
+          p_club_id: string
+          p_effect: string
+          p_expires_at?: string
+          p_reason: string
+          p_scope_type: string
+          p_team_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       site_set_player_team_membership: {
         Args: {
           p_action: string
@@ -25980,6 +26029,16 @@ export type Database = {
           p_team_id: string
         }
         Returns: undefined
+      }
+      site_team_history: {
+        Args: { p_user_id: string }
+        Returns: {
+          actor_user_id: string
+          at: string
+          detail: string
+          entry: string
+          team_id: string
+        }[]
       }
       site_transition_club_membership: {
         Args: { p_membership_id: string; p_reason: string; p_to_state: string }
