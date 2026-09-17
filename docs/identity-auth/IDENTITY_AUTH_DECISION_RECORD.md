@@ -88,6 +88,54 @@ only objects that predate Slice 4B, so that Slice 5 changes those assertions del
 by accident. That assertion is the tripwire for this decision: when it changes, D-S5-1 is being
 implemented.
 
+### The three questions, resolved
+
+Slice 5 stopped at implementation because "adult eligibility established" had no defined
+representation, evidence standard or transition. The owner resolved all three. This is an **approved
+clarification of D-S5-1**; it is not permission to change D-S4-4 or to redefine
+`internal.person_is_minor`.
+
+**Q1 — evidence standard.** A **canonical recorded date of birth that establishes the person is an
+adult** is sufficient age evidence for ordinary minor-prohibited staff authority. This is an
+**age-eligibility** rule, **not** external identity or proof-of-age verification, and must never be
+described as independently verified proof of age.
+
+For SAFEGUARDING_OFFICER, a recorded DOB establishing adulthood is required **before** entering the
+nomination path, **and** 4G's AN-6 Ovalball confirmation remains independently mandatory. AN-6 is not
+itself proof of age. **Neither substitutes for the other.**
+
+**Q2 — scope.** The gate applies to **every** role and capability transition the canonical catalogue
+classifies `minor_prohibited` — seven roles (CLUB_ADMIN, COACH, FIXTURES_SECRETARY,
+SAFEGUARDING_OFFICER, TEAM_ADMINISTRATION, TEAM_MANAGER, VOLUNTEER) and 212 capabilities. The
+affected set is **derived from the canonical metadata**, never from a second handwritten list in the
+invitation UI. Alternate REST, RPC and server-action paths are included.
+
+**Q3 — representation.** A canonical predicate over the person's canonical recorded DOB. No separate
+eligibility-state table. Semantics: *"does the canonical recorded DOB establish that this person is
+currently an adult under Ovalball's existing age boundary?"* — missing DOB `FALSE`, unusable DOB
+`FALSE`, recorded minor `FALSE`, recorded adult `TRUE`; server-derived, never client-authoritative,
+deterministic, and tested at the exact boundary dates. Existing age arithmetic is reused rather than
+duplicated.
+
+### What this deliberately still does not do
+
+It does **not** make Date of Birth mandatory to create or use an Ovalball account. An identity with
+no recorded DOB may hold an account, hold relationships and use everything not prohibited to minors.
+The gate applies only where a write or transition would confer `minor_prohibited` authority.
+
+Where such an identity reaches a redemption flow without sufficient DOB, the transition fails closed
+and the designed eligibility-required continuation is shown. **A one-time invitation is not consumed
+before every eligibility check required for the transition has succeeded**, and it remains redeemable
+once eligibility is established rather than being silently discarded.
+
+### Existing holders
+
+Unchanged: no retroactive revocation. Existing holders whose age cannot be established remain
+`NEEDS_ATTENTION` for later review and backfill. Slice 5 identifies and rehearses that population
+against production-shaped data but does not revoke it. Enforcement is at the **write/transition**
+boundary; `internal.capability_decision` is not changed, so no read-time resolver change can
+retroactively strip authority.
+
 ### Status
 
-**Recorded, not implemented. Slice 5 is not started.**
+**Resolved and being implemented in Slice 5.** RA7 remains the tripwire.

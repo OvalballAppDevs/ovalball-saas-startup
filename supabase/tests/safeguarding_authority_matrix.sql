@@ -718,13 +718,26 @@ begin
   perform pg_temp.check(
     (select date_of_birth from public.profiles where id = v_unknown) is null,
     'SA-M1 the unknown-age identity really has no date of birth recorded');
-  v_res := pg_temp.json_as(v_ca, format('select public.nominate_club_safeguarding_officer(%L,%L,''deputy'',''unknown age'')', v_club, v_unknown));
-  perform pg_temp.check(v_res->>'outcome' = 'PENDING_CONFIRMATION',
-    'SA-M2 they can be nominated -- 4G adds no age rule of its own and invents no age policy');
+  -- INTENDED CHANGE (D-S5-1, approved after 4G). 4G deliberately added no age rule of its own, so an
+  -- identity Ovalball had never been told the age of could be nominated and then had to wait for a
+  -- human at Ovalball. Slice 5 closes that a step earlier: unknown age is not adulthood, so the
+  -- nomination itself is now refused. This is the RA7-class tripwire firing on purpose.
+  perform pg_temp.check(
+    pg_temp.try_as(v_ca, format('select public.nominate_club_safeguarding_officer(%L,%L,''deputy'',''unknown age'')', v_club, v_unknown)) = '23514',
+    'SA-M2 INTENDED CHANGE: an identity with no recorded date of birth can no longer even be NOMINATED (D-S5-1)');
   perform pg_temp.check(pg_temp.count_as(v_ca, format('select pg_temp.so_authority(%L,%L)', v_unknown, v_club)) = 0,
-    'SA-M3 but hold nothing, because a nomination holds nothing');
+    'SA-M3 and holds nothing, which was already true and still is');
+  -- Now the same person, once a date of birth establishing adulthood is on file. The point of the
+  -- decision is that the age gate and AN-6 are INDEPENDENT: establishing adulthood gets you as far as
+  -- PENDING_CONFIRMATION and no further, and Ovalball still has to look.
+  update public.profiles set date_of_birth = (current_date - interval '30 years')::date where id = v_unknown;
+  v_res := pg_temp.json_as(v_ca, format('select public.nominate_club_safeguarding_officer(%L,%L,''deputy'',''age now on file'')', v_club, v_unknown));
+  perform pg_temp.check(v_res->>'outcome' = 'PENDING_CONFIRMATION',
+    'SA-M4 with a date of birth establishing adulthood they can be nominated, and land in PENDING_CONFIRMATION');
+  perform pg_temp.check(pg_temp.count_as(v_ca, format('select pg_temp.so_authority(%L,%L)', v_unknown, v_club)) = 0,
+    'SA-M5 still holding nothing -- the age gate is not a confirmation');
   perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.confirm_safeguarding_officer(%L,''club says yes'')', (v_res->>'assignment_id'))) = '42501',
-    'SA-M4 and the club cannot confirm them -- so unknown age now needs a person at Ovalball to look, which it did not before 4G');
+    'SA-M6 and the club still cannot confirm them: AN-6 is independently mandatory and age is not proof of anything else');
 end $$;
 
 rollback;

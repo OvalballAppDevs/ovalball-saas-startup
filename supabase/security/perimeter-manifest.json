@@ -7255,6 +7255,8 @@
       "platform_playing_group_player_ids()",
       "player_avatar_path_player_id(text)",
       "player_effective_age(uuid, date)",
+      "person_is_established_adult(uuid)",
+      "person_recorded_date_of_birth(uuid)",
       "player_is_adult(uuid)",
       "player_recipient_exclusions(uuid[])",
       "player_scopes(uuid)",

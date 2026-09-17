@@ -51,13 +51,13 @@ begin
     (v_parent, 'sg-parent-' || v_parent::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
     (v_officer_user, 'sg-officer-' || v_officer_user::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
     (v_site_admin, 'sg-siteadmin-' || v_site_admin::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
-  insert into public.profiles (id, first_name, surname, email) values
-    (v_admin_a, 'Admin', 'A', 'sg-admin-a-' || v_admin_a::text || '@ovalball.test'),
-    (v_admin_b, 'Admin', 'B', 'sg-admin-b-' || v_admin_b::text || '@ovalball.test'),
-    (v_team_admin, 'Team', 'Admin', 'sg-teamadmin-' || v_team_admin::text || '@ovalball.test'),
-    (v_parent, 'Test', 'Parent', 'sg-parent-' || v_parent::text || '@ovalball.test'),
-    (v_officer_user, 'Test', 'Officer', 'sg-officer-' || v_officer_user::text || '@ovalball.test'),
-    (v_site_admin, 'Site', 'Admin', 'sg-siteadmin-' || v_site_admin::text || '@ovalball.test');
+  insert into public.profiles (id, first_name, surname, email, date_of_birth)
+    values (v_admin_a, 'Admin', 'A', 'sg-admin-a-' || v_admin_a::text || '@ovalball.test', (current_date - interval '35 years')::date),
+    (v_admin_b, 'Admin', 'B', 'sg-admin-b-' || v_admin_b::text || '@ovalball.test', (current_date - interval '35 years')::date),
+    (v_team_admin, 'Team', 'Admin', 'sg-teamadmin-' || v_team_admin::text || '@ovalball.test', (current_date - interval '35 years')::date),
+    (v_parent, 'Test', 'Parent', 'sg-parent-' || v_parent::text || '@ovalball.test', (current_date - interval '35 years')::date),
+    (v_officer_user, 'Test', 'Officer', 'sg-officer-' || v_officer_user::text || '@ovalball.test', (current_date - interval '35 years')::date),
+    (v_site_admin, 'Site', 'Admin', 'sg-siteadmin-' || v_site_admin::text || '@ovalball.test', (current_date - interval '35 years')::date);
   insert into public.club_memberships (club_id, user_id, role, status) values
     (v_club_a, v_admin_a, 'CLUB_ADMIN', 'active'),
     (v_club_b, v_admin_b, 'CLUB_ADMIN', 'active'),

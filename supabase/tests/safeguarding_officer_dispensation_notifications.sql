@@ -43,10 +43,10 @@ begin
     (v_admin, 'sg-disp-admin-' || v_admin::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
     (v_admin2, 'sg-disp-admin2-' || v_admin2::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
     (v_officer_user, 'sg-disp-officer-' || v_officer_user::text || '@ovalball.test', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
-  insert into public.profiles (id, first_name, surname, email) values
-    (v_admin, 'Disp', 'Admin', 'sg-disp-admin-' || v_admin::text || '@ovalball.test'),
-    (v_admin2, 'Disp', 'Admintwo', 'sg-disp-admin2-' || v_admin2::text || '@ovalball.test'),
-    (v_officer_user, 'Disp', 'Officer', 'sg-disp-officer-' || v_officer_user::text || '@ovalball.test');
+  insert into public.profiles (id, first_name, surname, email, date_of_birth)
+    values (v_admin, 'Disp', 'Admin', 'sg-disp-admin-' || v_admin::text || '@ovalball.test', (current_date - interval '35 years')::date),
+    (v_admin2, 'Disp', 'Admintwo', 'sg-disp-admin2-' || v_admin2::text || '@ovalball.test', (current_date - interval '35 years')::date),
+    (v_officer_user, 'Disp', 'Officer', 'sg-disp-officer-' || v_officer_user::text || '@ovalball.test', (current_date - interval '35 years')::date);
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin, 'CLUB_ADMIN', 'active');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin2, 'CLUB_ADMIN', 'active');
   insert into public.players (id, first_name, surname, active, created_by, playing_pathway) values (v_player, 'Test', 'Player', true, v_admin, 'MALE');

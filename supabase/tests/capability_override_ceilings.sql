@@ -26,7 +26,10 @@ begin
   if coalesce(p_ok, false) then raise notice 'PASS %', p_label; else raise notice 'FAIL %', p_label; end if;
 end $$;
 
-create or replace function pg_temp.person(p_label text, p_dob date default null) returns uuid language plpgsql as $$
+-- D-S5-1: an adult by default. These fixtures grant staff roles, and a staff role now needs a
+-- recorded date of birth establishing adulthood; a suite that wants a minor or an unknown age
+-- still says so explicitly at the call site.
+create or replace function pg_temp.person(p_label text, p_dob date default (current_date - interval '35 years')::date) returns uuid language plpgsql as $$
 declare v uuid := gen_random_uuid();
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
@@ -157,7 +160,8 @@ begin
   perform pg_temp.try_as(v_ca, format('select public.assign_role(%L, ''TEAM_ADMINISTRATION'', %L, null)', v_ta_ms, v_team));
   v_vol := pg_temp.person('Volunteer'); perform pg_temp.member(v_club, v_vol);
   perform pg_temp.try_as(v_ca, format('select public.assign_role((select id from public.club_memberships where user_id = %L and club_id = %L), ''VOLUNTEER'', null, null)', v_vol, v_club));
-  v_minor := pg_temp.person('Minor'); perform pg_temp.member(v_club, v_minor);
+  -- Explicitly a minor on the profile, for the same reason as above.
+  v_minor := pg_temp.person('Minor', (current_date - interval '14 years')::date); perform pg_temp.member(v_club, v_minor);
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id) values ('Oc', 'Minor', (current_date - interval '14 years')::date, 'MALE', v_minor);
   v_outsider := pg_temp.person('Outsider');
 

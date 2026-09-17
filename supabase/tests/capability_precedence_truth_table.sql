@@ -20,7 +20,10 @@ begin
   if coalesce(p_ok, false) then raise notice 'PASS %', p_label; else raise notice 'FAIL %', p_label; end if;
 end $$;
 
-create or replace function pg_temp.person(p_label text, p_dob date default null) returns uuid language plpgsql as $$
+-- D-S5-1: an adult by default. These fixtures grant staff roles, and a staff role now needs a
+-- recorded date of birth establishing adulthood; a suite that wants a minor or an unknown age
+-- still says so explicitly at the call site.
+create or replace function pg_temp.person(p_label text, p_dob date default (current_date - interval '35 years')::date) returns uuid language plpgsql as $$
 declare v uuid := gen_random_uuid();
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
@@ -137,7 +140,10 @@ begin
   execute $f$create or replace function internal.session_aal_ok() returns boolean language sql stable set search_path = '' as $b$ select true $b$$f$;
 
   -- P02: a minor never holds a minor-prohibited key, whatever allows it
-  v_s := pg_temp.person('P02'); perform pg_temp.member(v_club, v_s, 'FIXTURE_SECRETARY');
+  -- A minor on the PROFILE, not only on a player row: internal.person_is_minor reads the profile
+  -- date of birth first, so a fixture that records the age only on the player record is relying
+  -- on the profile being blank -- which D-S5-1 makes a different thing entirely.
+  v_s := pg_temp.person('P02', (current_date - interval '15 years')::date); perform pg_temp.member(v_club, v_s, 'FIXTURE_SECRETARY');
   perform pg_temp.override(v_s, k, 'club', v_club, null, 'grant', 'CLUB', v_ca);
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id) values ('Ptt', 'Minor', (current_date - interval '15 years')::date, 'MALE', v_s);
   perform pg_temp.row('P02', v_s, k, 'club', v_club, null, null, false, '1', 'hard prohibition beats every allow');

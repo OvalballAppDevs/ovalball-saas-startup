@@ -80,7 +80,7 @@ begin
       email_change_token_current, phone_change, phone_change_token, reauthentication_token)
     values (v_person, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ras-' || v_person::text || '@ovalball.test', '',
       now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', '', '', '', '', '');
-    insert into public.profiles (id, first_name, surname, email) values (v_person, 'Ras', 'Tester', 'ras-' || v_person::text || '@ovalball.test')
+    insert into public.profiles (id, first_name, surname, email, date_of_birth) values (v_person, 'Ras', 'Tester', 'ras-' || v_person::text || '@ovalball.test', (current_date - interval '35 years')::date)
     on conflict (id) do nothing;
   end loop;
   insert into public.site_admins (user_id, status, admin_role) values (v_full, 'active', 'full');

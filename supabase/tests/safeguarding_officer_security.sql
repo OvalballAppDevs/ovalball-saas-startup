@@ -30,12 +30,12 @@ begin
     (v_coach,  'sgcoach@ovalball-test.invalid', '00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
     (v_officer,'sgofficer@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
     (v_site,   'sgsite@ovalball-test.invalid',  '00000000-0000-0000-0000-000000000000','authenticated','authenticated');
-  insert into public.profiles (id, first_name, surname, email) values
-    (v_admin_a,'SG','AdminA','sgadmina@ovalball-test.invalid'),
-    (v_admin_b,'SG','AdminB','sgadminb@ovalball-test.invalid'),
-    (v_coach,'SG','Coach','sgcoach@ovalball-test.invalid'),
-    (v_officer,'SG','Officer','sgofficer@ovalball-test.invalid'),
-    (v_site,'SG','Site','sgsite@ovalball-test.invalid');
+  insert into public.profiles (id, first_name, surname, email, date_of_birth)
+    values (v_admin_a,'SG','AdminA','sgadmina@ovalball-test.invalid', (current_date - interval '35 years')::date),
+    (v_admin_b,'SG','AdminB','sgadminb@ovalball-test.invalid', (current_date - interval '35 years')::date),
+    (v_coach,'SG','Coach','sgcoach@ovalball-test.invalid', (current_date - interval '35 years')::date),
+    (v_officer,'SG','Officer','sgofficer@ovalball-test.invalid', (current_date - interval '35 years')::date),
+    (v_site,'SG','Site','sgsite@ovalball-test.invalid', (current_date - interval '35 years')::date);
 
   insert into public.club_directory (name, rugby_code, country, nation, source, verification_status, normalized_key) values
     ('SG Test A RUFC','union','England','England','manual','verified','sg-test-a'),

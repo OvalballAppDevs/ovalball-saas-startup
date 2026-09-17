@@ -227,6 +227,7 @@ SUITES=(
   safeguarding_authority_matrix
   club_admin_authority_matrix
   club_misc_authority_matrix
+  age_eligibility_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences
   hub_content_schema

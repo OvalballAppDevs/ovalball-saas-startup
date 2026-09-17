@@ -137,7 +137,8 @@ function seed() {
         email_change_token_current, phone_change, phone_change_token, reauthentication_token)
       values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${email(id)}', '', now(), now(), now(),
         '{}', '{}', '', '', '', '', '', '', '', '');
-      insert into public.profiles (id, first_name, surname, email) values ('${id}', 'Race', 'Tester', '${email(id)}') on conflict (id) do nothing;`
+      -- D-S5-1: staff fixtures are adults; a role or override now needs a recorded date of birth saying so.
+      insert into public.profiles (id, first_name, surname, email, date_of_birth) values ('${id}', 'Race', 'Tester', '${email(id)}', (current_date - interval '35 years')::date) on conflict (id) do nothing;`
     )
     .join("\n")
   sql(`${users}
