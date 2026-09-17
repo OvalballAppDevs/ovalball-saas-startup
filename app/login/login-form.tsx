@@ -15,7 +15,7 @@ import { AuthDivider, SocialAuthButtons } from "@/components/auth/social-auth-bu
 import { hasAnyOAuthProvider } from "@/lib/auth/oauth-providers"
 import { REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember-constants"
 
-import { submitLogin } from "./actions"
+import { submitLogin, submitPasswordLogin } from "./actions"
 
 const EMAIL_PATTERN = /\S+@\S+\.\S+/
 const REMEMBER_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400
@@ -63,6 +63,10 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
   const [sessionUpdated, setSessionUpdated] = useState(() => searchParams.get("reason") === "updated")
   const [sessionSuspended, setSessionSuspended] = useState(() => searchParams.get("reason") === "suspended")
   const [email, setEmail] = useState(searchParams.get("email") ?? "")
+  // Password is the primary way in from Slice 6. The magic link stays beside it, because retiring it is
+  // a later, separately gated step and half of production has never had a password.
+  const [password, setPassword] = useState("")
+  const [usePassword, setUsePassword] = useState(true)
   const [touched, setTouched] = useState(false)
   const [status, setStatus] = useState<Status>("idle")
   const [hasSent, setHasSent] = useState(false)
@@ -80,6 +84,24 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
     const timer = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000)
     return () => clearInterval(timer)
   }, [resendCooldown])
+
+  async function signInWithPassword() {
+    if (status === "submitting" || !humanPassed || !syntaxValid || password.length === 0) return
+    setStatus("submitting")
+    setErrorMessage(null)
+    setLinkError(false)
+    setRememberCookie(rememberMe)
+
+    const result = await submitPasswordLogin(email, password, humanToken)
+    if (!result.ok) {
+      setStatus("error")
+      setErrorMessage(result.message)
+      if (securityCheckActive) setHumanToken(null)
+      return
+    }
+    // A second factor still to present goes to the challenge; otherwise straight on.
+    window.location.assign(result.needsMfa ? "/security/verify" : (searchParams.get("next") ?? "/dashboard"))
+  }
 
   async function sendLink() {
     if (!syntaxValid || status === "submitting" || !humanPassed) return
@@ -191,7 +213,8 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            void sendLink()
+            if (usePassword) void signInWithPassword()
+            else void sendLink()
           }}
           className="flex flex-col gap-4"
           noValidate
@@ -222,7 +245,9 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
               )}
             />
             <p id={`${emailId}-hint`} className="text-xs text-ink-muted">
-              We&apos;ll email you a one-time sign-in link. Ovalball has no passwords.
+              {usePassword
+                ? "Use the password you set for Ovalball."
+                : "We'll email you a one-time sign-in link."}
             </p>
             {showSyntaxError && (
               <p className="text-sm text-destructive-text">
@@ -230,6 +255,32 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
               </p>
             )}
           </div>
+
+          {usePassword && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${emailId}-password`} className="text-ink/80">
+                Password
+              </Label>
+              <Input
+                id={`${emailId}-password`}
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value)
+                  if (status === "error") setStatus("idle")
+                }}
+                className="h-12 rounded-xl border-ink/15 bg-white px-3.5 text-base text-ink"
+              />
+              <a
+                href="/forgot-password"
+                className="self-start text-sm text-forest-800 underline underline-offset-4"
+              >
+                Forgotten your password?
+              </a>
+            </div>
+          )}
 
           <label htmlFor={rememberId} className="flex items-start gap-2.5 text-sm text-ink/70">
             <input
@@ -253,10 +304,35 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
           <Button
             type="submit"
             className="h-12 rounded-xl text-[15px]"
-            disabled={!syntaxValid || status === "submitting" || !humanPassed}
+            disabled={
+              !syntaxValid ||
+              status === "submitting" ||
+              !humanPassed ||
+              (usePassword && password.length === 0)
+            }
           >
-            {status === "submitting" ? "Sending…" : "Send sign-in link"}
+            {status === "submitting"
+              ? usePassword
+                ? "Signing in…"
+                : "Sending…"
+              : usePassword
+                ? "Sign In"
+                : "Send Sign-In Link"}
           </Button>
+
+          {/* The legacy way in, kept beside the new one rather than removed. Retiring it is a separate,
+              later step, and until then somebody who has never set a password still needs it. */}
+          <button
+            type="button"
+            onClick={() => {
+              setUsePassword((v) => !v)
+              setStatus("idle")
+              setErrorMessage(null)
+            }}
+            className="text-sm text-ink-muted underline underline-offset-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+          >
+            {usePassword ? "Email me a link instead" : "Use my password instead"}
+          </button>
 
           {hasAnyOAuthProvider() && (
             <button

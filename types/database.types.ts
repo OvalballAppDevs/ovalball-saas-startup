@@ -308,6 +308,75 @@ export type Database = {
         }
         Relationships: []
       }
+      account_recovery_codes: {
+        Row: {
+          batch_id: string
+          code_hmac: string
+          created_at: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          batch_id: string
+          code_hmac: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          batch_id?: string
+          code_hmac?: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      account_security_state: {
+        Row: {
+          enforcement_group: string
+          enforcement_override: string | null
+          enforcement_override_until: string | null
+          last_aal2_at: string | null
+          last_security_review_at: string | null
+          mfa_enrolled_at: string | null
+          must_reset_password: boolean
+          password_set_at: string | null
+          recovery_codes_generated_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enforcement_group?: string
+          enforcement_override?: string | null
+          enforcement_override_until?: string | null
+          last_aal2_at?: string | null
+          last_security_review_at?: string | null
+          mfa_enrolled_at?: string | null
+          must_reset_password?: boolean
+          password_set_at?: string | null
+          recovery_codes_generated_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enforcement_group?: string
+          enforcement_override?: string | null
+          enforcement_override_until?: string | null
+          last_aal2_at?: string | null
+          last_security_review_at?: string | null
+          mfa_enrolled_at?: string | null
+          must_reset_password?: boolean
+          password_set_at?: string | null
+          recovery_codes_generated_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       age_grade_rollover_group_flags: {
         Row: {
           created_at: string
@@ -12838,6 +12907,36 @@ export type Database = {
         }
         Relationships: []
       }
+      mfa_enforcement_policy: {
+        Row: {
+          block_magic_link_login: boolean
+          enforcement_group: string
+          grace_until: string | null
+          reason: string | null
+          require_aal2_from: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          block_magic_link_login?: boolean
+          enforcement_group: string
+          grace_until?: string | null
+          reason?: string | null
+          require_aal2_from?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          block_magic_link_login?: boolean
+          enforcement_group?: string
+          grace_until?: string | null
+          reason?: string | null
+          require_aal2_from?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           email_enabled: boolean
@@ -15381,6 +15480,63 @@ export type Database = {
           policy_version?: string
           source?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      privileged_recovery_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cancel_reason: string | null
+          cancelled_by: string | null
+          completed_at: string | null
+          created_at: string
+          execute_after: string | null
+          id: string
+          kind: string
+          proofing_note: string | null
+          reason: string
+          requested_by: string | null
+          requested_by_role: string
+          state: string
+          target_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancel_reason?: string | null
+          cancelled_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          execute_after?: string | null
+          id?: string
+          kind: string
+          proofing_note?: string | null
+          reason: string
+          requested_by?: string | null
+          requested_by_role: string
+          state?: string
+          target_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancel_reason?: string | null
+          cancelled_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          execute_after?: string | null
+          id?: string
+          kind?: string
+          proofing_note?: string | null
+          reason?: string
+          requested_by?: string | null
+          requested_by_role?: string
+          state?: string
+          target_user_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -21977,6 +22133,10 @@ export type Database = {
         Args: { p_request_id: string; p_team_id: string }
         Returns: undefined
       }
+      approve_privileged_recovery: {
+        Args: { p_reason: string; p_request_id: string }
+        Returns: undefined
+      }
       archive_fixture: {
         Args: { p_fixture_id: string; p_reason: string }
         Returns: undefined
@@ -22071,6 +22231,10 @@ export type Database = {
       cancel_guardian_link_request: {
         Args: { p_request_id: string }
         Returns: string
+      }
+      cancel_privileged_recovery: {
+        Args: { p_reason?: string; p_request_id: string }
+        Returns: undefined
       }
       cancel_tournament: {
         Args: { p_reason?: string; p_tournament_id: string }
@@ -22908,6 +23072,10 @@ export type Database = {
       fold_team: {
         Args: { p_reason: string; p_team_id: string }
         Returns: number
+      }
+      generate_recovery_codes_for: {
+        Args: { p_user_id: string }
+        Returns: string[]
       }
       generate_rollover_player_proposals: {
         Args: { p_rollover_id: string }
@@ -23995,6 +24163,7 @@ export type Database = {
         Args: { p_error?: string; p_event_id: string }
         Returns: undefined
       }
+      mfa_challenge_locked: { Args: { p_user_id: string }; Returns: boolean }
       moderator_delete_message: {
         Args: { p_message_id: string }
         Returns: undefined
@@ -24112,6 +24281,7 @@ export type Database = {
           team_name: string
         }[]
       }
+      my_recovery_code_count: { Args: never; Returns: number }
       my_sender_identities: {
         Args: never
         Returns: {
@@ -24120,6 +24290,18 @@ export type Database = {
           identity_id: string
           identity_type: string
           label: string
+        }[]
+      }
+      my_session_assurance: { Args: never; Returns: Json }
+      my_sessions: {
+        Args: never
+        Returns: {
+          aal: string
+          created_at: string
+          is_current: boolean
+          refreshed_at: string
+          session_id: string
+          user_agent: string
         }[]
       }
       my_site_capabilities: { Args: never; Returns: string[] }
@@ -24570,6 +24752,10 @@ export type Database = {
         }
         Returns: string
       }
+      record_mfa_verification_failure: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       record_own_date_of_birth: {
         Args: {
           p_date_of_birth: string
@@ -24602,6 +24788,10 @@ export type Database = {
         }
         Returns: string
       }
+      record_security_change: {
+        Args: { p_change: string; p_user_id: string }
+        Returns: undefined
+      }
       record_session_version: {
         Args: { p_version: number }
         Returns: undefined
@@ -24617,6 +24807,10 @@ export type Database = {
       redeem_invitation: {
         Args: { p_code?: string; p_token?: string }
         Returns: Json
+      }
+      redeem_recovery_code_for: {
+        Args: { p_code: string; p_user_id: string }
+        Returns: boolean
       }
       referral_data_health: {
         Args: never
@@ -24833,6 +25027,15 @@ export type Database = {
       request_player_playing_pathway: {
         Args: { p_player_id: string }
         Returns: number
+      }
+      request_privileged_recovery: {
+        Args: {
+          p_kind: string
+          p_proofing_note?: string
+          p_reason: string
+          p_target_user_id: string
+        }
+        Returns: string
       }
       request_to_join_club: {
         Args: { p_club_id: string; p_player_id: string }
@@ -25052,6 +25255,10 @@ export type Database = {
       revoke_invitation: {
         Args: { p_invitation_id: string; p_reason: string }
         Returns: undefined
+      }
+      revoke_my_other_sessions: {
+        Args: { p_keep_session_id?: string; p_user_id: string }
+        Returns: number
       }
       revoke_player_dispensation: {
         Args: { p_id: string; p_reason: string }

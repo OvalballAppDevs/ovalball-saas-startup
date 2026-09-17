@@ -238,6 +238,7 @@ SUITES=(
   age_eligibility_matrix
   invitation_authority_matrix
   invitation_team_list
+  aal_enforcement
   club_claim_authority_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences

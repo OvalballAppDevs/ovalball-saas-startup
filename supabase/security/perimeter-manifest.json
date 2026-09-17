@@ -5537,6 +5537,23 @@
         ]
       },
       {
+        "signature": "my_session_assurance()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/auth/require-session.ts",
+          "app/(app)/account/security/page.tsx"
+        ],
+        "reason": "Phase 2 AA. The caller's own session posture, so the server layer and the database cannot disagree about whether a session is good enough. Returns no credential and nothing about anybody else."
+      },
+      {
+        "signature": "my_sessions()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/account/security/page.tsx"
+        ],
+        "reason": "Phase 2 H. The caller's own sessions for Account -> Security, so they can see where they are signed in and end the others. Own rows only; no token or refresh token is exposed."
+      },
+      {
         "signature": "my_site_capabilities()",
         "category": "APPLICATION_RPC",
         "consumers": [
