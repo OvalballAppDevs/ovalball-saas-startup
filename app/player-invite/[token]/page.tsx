@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { createClient } from "@/lib/supabase/server"
@@ -18,6 +19,12 @@ export default async function PlayerInvitePage({ params }: { params: Promise<{ t
   const supabase = await createClient()
 
   const { data: preview, error } = await supabase.rpc("get_player_account_invitation_preview", { p_token: token }).maybeSingle()
+
+  // CONVERGENCE. New player account invitations are issued by public.issue_invitation and link to
+  // /join. This route stays because Phase 2 O.5 honours a legacy invitation until it expires, and a
+  // link already in somebody's inbox has to keep working -- but a CANONICAL token arriving here must
+  // not be told it is invalid just because it looked in the old table first.
+  if (!preview) redirect(`/join?t=${encodeURIComponent(token)}`)
 
   const {
     data: { user },

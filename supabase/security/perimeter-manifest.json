@@ -5296,7 +5296,8 @@
         "consumers": [
           "app/(app)/people/actions.ts",
           "app/(app)/admin/site-admins/actions.ts",
-          "app/(app)/parent/children/actions.ts"
+          "app/(app)/parent/children/actions.ts",
+          "app/(app)/teams/[teamId]/join-code-actions.ts"
         ],
         "reason": "The one canonical issuer for all eight invitation kinds (Phase 2 O.1). It checks the caller's authority for the kind, club, team or child itself, applies the O.1 role ceiling, and returns the link token and human code ONCE -- only their hashes are stored, so this call is the only moment either exists."
       },
@@ -6237,8 +6238,9 @@
         "signature": "revoke_invitation(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/people/actions.ts"
-        ]
+          "app/(app)/teams/[teamId]/join-code-actions.ts"
+        ],
+        "reason": "Withdraws an invitation that has not been used. Authority is re-decided inside the function by internal.can_administer_invitation, so naming a stranger's invitation id achieves nothing."
       },
       {
         "signature": "revoke_player_dispensation(uuid, text)",

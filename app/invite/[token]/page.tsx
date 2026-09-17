@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { createClient } from "@/lib/supabase/server"
@@ -19,6 +20,12 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const supabase = await createClient()
 
   const { data: preview, error } = await supabase.rpc("get_invitation_preview", { p_token: token }).maybeSingle()
+  // CONVERGENCE. New invitations are all issued by public.issue_invitation and their links point at
+  // /join. This route stays because Phase 2 O.5 honours a legacy invitation until it expires, and a
+  // link already in somebody's inbox has to keep working. What it must not do is tell the holder of a
+  // CANONICAL token that their invitation is invalid merely because it looked here first -- so when
+  // the legacy lookup finds nothing, the token goes to the one place that can answer for it.
+  if (!preview) redirect(`/join?t=${encodeURIComponent(token)}`)
 
   const {
     data: { user },

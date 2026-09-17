@@ -19,9 +19,15 @@ export const metadata: Metadata = {
  * should be told so plainly rather than sent round a signup form that will
  * not help them.
  *
- * Deliberately not a "paste your invitation code" box. Invitation tokens
- * are long, single-use and arrive as links; a box for typing one out is a
- * worse version of clicking the link, and it invites guessing.
+ * There IS now somewhere to type a code, and it is /join. That is not a
+ * reversal of the old reasoning -- an invitation token is still long,
+ * single-use and delivered as a link, and typing one out would still be a
+ * worse version of clicking it. A team join code is a different thing: it is
+ * ten characters, it is meant to be read out at training or printed on a
+ * sheet, and there is no email for it to arrive in. So this page points at
+ * the code box rather than containing one, because /join is the single place
+ * any invitation is accepted and a second entry point would be a second set
+ * of rules.
  */
 export default function InvitedPage() {
   return (
@@ -40,6 +46,21 @@ export default function InvitedPage() {
           Open the link in your invitation email. That link is what connects you to your club, your
           team, or your child&rsquo;s team &mdash; there is nothing to fill in here.
         </p>
+
+        <section className="mt-8 rounded-lg border border-ink/10 bg-white px-5 py-5">
+          <h2 className="font-display text-xl text-ink">Given a code instead?</h2>
+          <p className="mt-2 text-base leading-relaxed text-ink/70">
+            Some teams hand out a join code rather than emailing each person &mdash; ten characters,
+            usually read out at training or printed on a sheet. Enter it and it will take you to the
+            right team.
+          </p>
+          <Link
+            href="/join"
+            className="mt-4 inline-flex h-9 items-center rounded-lg bg-pitch-600 px-3.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-pitch-600/80 focus-visible:ring-3 focus-visible:ring-pitch-400/50"
+          >
+            Enter an Invite Code
+          </Link>
+        </section>
 
         <section className="mt-10">
           <h2 className="font-display text-xl text-ink">If you can&rsquo;t find the email</h2>

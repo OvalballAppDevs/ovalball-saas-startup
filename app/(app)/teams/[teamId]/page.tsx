@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/server"
 import { compactTeamLabel, fullTeamLabel } from "@/lib/teams/compact-label"
 import { formatGenderLabel } from "@/lib/teams/labels"
 
+import { teamJoinCodes } from "./join-code-actions"
+import { JoinCodeSection } from "./join-code-section"
 import { TeamIdentitySection } from "./team-identity-section"
 import { TeamLifecycleSection, type RestorableFixtureRow } from "./team-lifecycle-section"
 import { TeamPeople, type ClubMemberOption, type TeamPersonRow } from "./team-people"
@@ -80,6 +82,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
     ctx.siteCapabilities.includes("site.team_roles.manage") ||
     (await hasCapability(supabase, "team.roster.manage", "team", { clubId: team.club_id, teamId: team.id })) ||
     (await hasCapability(supabase, "team.roster.manage", "club", { clubId: team.club_id }))
+
+  // A join code is a credential for this team, so it is gated on the capability that says so --
+  // held either at the team itself or club-wide. This only decides whether to show the section;
+  // issue_invitation re-decides it, and it is the boundary.
+  const canManageJoinCodes =
+    (await hasCapability(supabase, "team.join_code.manage", "team", { clubId: team.club_id, teamId: team.id })) ||
+    (await hasCapability(supabase, "team.join_code.manage", "club", { clubId: team.club_id }))
 
   // Team news: the same capability pair the database's publishing adapter
   // resolves (club.news.manage, or team.news.manage for this team). This
@@ -185,6 +194,10 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         canManage={canManagePeople}
         canAssignTeamAdmin={canAssignTeamAdmin}
       />
+
+      {canManageJoinCodes && team.active && (
+        <JoinCodeSection teamId={team.id} codes={await teamJoinCodes(team.id)} />
+      )}
 
       {canPublishTeamNews && team.active && (
         <Link
