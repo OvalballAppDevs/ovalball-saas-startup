@@ -115,7 +115,23 @@ stage ran.
 | `SLICE_5_PRODUCTION_RELEASE_REPORT.md` | The release itself — verdict **IDENTITY/AUTH SLICE 5 — PRODUCTION VERIFIED** |
 | `SLICE_5_PROGRESS.md` | The running record of how it got there |
 
-**Slice 6 is not started.**
+## Slice 6 — Password, MFA, recovery and sessions
+
+**Released and production verified.** Production is at **507 migrations**, tip `20270416000000`,
+commit `53e1575`.
+
+This is **AG.2 step T0**: password, TOTP and recovery codes available to everyone, the Security page
+live, and **no enforcement switched on for anybody**. Production had four identities, zero verified
+TOTP factors, two with no password at all and exactly one Full Site Admin, so a release that demanded
+AAL2 would have locked out every user including the only person who could fix it. Rehearsed at
+production's own ledger with that population: **0 of 9 live sessions denied**.
+
+| Document | What it is |
+|---|---|
+| `SLICE_6_PRODUCTION_RELEASE_REPORT.md` | The release itself, the eight defects it found, and every deferred step — verdict **IDENTITY/AUTH SLICE 6 — PRODUCTION VERIFIED** |
+| `../security/BREAK_GLASS.md` | What to do when no Full Site Admin can sign in. A gate on enforcement, not a routine tool; **not yet rehearsed**, which is why T3 is deferred |
+
+**Slice 7 is not started.**
 
 ## Provenance
 

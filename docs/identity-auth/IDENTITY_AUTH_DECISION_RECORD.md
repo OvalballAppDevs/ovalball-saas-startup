@@ -454,3 +454,90 @@ canonical rule is the stricter and correct one, so the fixtures were fixed rathe
 survivors.
 
 **Owning slice.** 5.
+
+---
+
+## Slice 6 autonomous decisions
+
+### D-S6-AUTO-1 — the assurance level is read from the server, never from the token
+
+**Decision.** `internal.session_aal_ok()` reads `auth.sessions.aal`. It never reads
+`auth.jwt() ->> 'aal'`, and a migration assertion fails if it ever does.
+
+**Reason.** Phase 2 D describes reading the `aal` claim. That claim is minted at sign-in and travels in
+the client's hands, so a session whose factors were deleted a moment ago still presents `aal2` until
+its JWT expires — and "stale AAL claim" is on the attack list this slice has to defeat.
+`auth.sessions.aal` is GoTrue's own record of the same fact, updated when a factor is verified, and a
+holder of an old token cannot replay it. Reading the row is strictly stronger and never weaker.
+
+**Consequence.** `AE-D1`–`AE-D3` pin it, and mutant **M3** (take the claim when present) is killed.
+
+### D-S6-AUTO-2 — a person's own security writes take no user id, and use no elevated client
+
+**Decision.** `regenerate_my_recovery_codes`, `issue_my_first_recovery_codes`,
+`record_my_security_change`, `sign_out_my_other_devices`, `record_my_mfa_failure` and
+`redeem_my_recovery_code` take **no user id** and read `auth.uid()`. No Server Action in the Slice 6
+surfaces imports the service-role client.
+
+**Reason.** `lib/supabase/service-role.ts` says in its own comment: *never import this from a Server
+Action reachable by an ordinary authenticated request — it has no session, no capability check of its
+own, and bypasses every RLS policy in this project.* The first cut did exactly that. It was also
+unnecessary: every one of these is a person acting on their own account, so the identity never needed
+passing, and an argument is something a caller can change.
+
+**Including recovery.** Phase 2 G describes the recovery route deleting factors through the admin API.
+It does not have to: `internal.revoke_session` already deletes from `auth.sessions` as a definer
+function, and the same owner holds DELETE on `auth.mfa_factors`, `auth.mfa_challenges` and
+`auth.mfa_amr_claims` — **verified read-only on production before this was written**, not assumed from
+a local stack.
+
+**How it was found.** `SUPABASE_SERVICE_ROLE_KEY` is not set locally, so the client threw and the
+Security page rendered as a blank error in the browser suite. A missing environment variable can no
+longer break it, because nothing on that path needs one.
+
+### D-S6-AUTO-3 — the attempt limits count `subject_user_id`, not `actor_user_id`
+
+**Decision.** The recovery-code and authenticator attempt limits count past failures on
+`subject_user_id`.
+
+**Reason.** `internal.security_event_facts` sets `actor_user_id := auth.uid()` on every insert,
+overwriting whatever a caller passed — correctly, because the actor of a security event is whoever
+performed it. Both limits ran as callers with **no session**, so every failure was recorded against
+nobody, every count was zero, and **the limits would never have fired in production.** Guessing at
+recovery codes would have been uncapped. `subject_user_id` is the person the event is about, and the
+trigger deliberately leaves it alone.
+
+**Consequence.** `RC-D1`–`RC-D3` pin it; mutant **M5** is killed.
+
+### D-S6-AUTO-4 — the session gate is hoisted to one evaluation per statement
+
+**Decision.** The RESTRICTIVE policy reads `using ((select internal.session_ok()))`, and a migration
+assertion fails if any gate loses the wrapper.
+
+**Reason.** Measured, not guessed: 5,000 rows through a gated table took **171.3 ms** with the gate and
+**0.4 ms** without — 0.034 ms per row, on 209 tables, on every query the product makes. `session_ok` is
+STABLE but is a SECURITY DEFINER plpgsql function, so it is neither inlined nor hoisted on its own. The
+sub-select makes it an InitPlan, exactly as this schema already does for `(select auth.uid())`. The
+same read afterwards costs **1.25 ms**. It changes nothing about what is decided: the function takes no
+arguments and does not vary by row.
+
+### D-S6-AUTO-5 — account security is exempt from the app's relationship gate
+
+**Decision.** `/account/security` is reachable by any signed-in person, including one with no club
+membership, guardian relationship or player link. Everything else in `(app)` stays behind that check.
+
+**Reason.** Everybody with an Ovalball account has account security, and AG.3's upgrade flow asks
+people to set up a password and an authenticator *before* they have joined anything. Bouncing them to
+`/welcome` would mean the one page they were sent to in order to secure their account is the one page
+they cannot reach. Middleware now passes the path through so the layout can make that one exception.
+
+### D-S6-AUTO-6 — the setup path keeps a weaker gate, deliberately
+
+**Decision.** `profiles`, `account_security_state` and `mfa_enforcement_policy` carry
+`internal.session_live_only()` instead of `internal.session_ok()`.
+
+**Reason.** Phase 2 F lists what an AAL1 session may still do, and two of those are table reads: a
+person reads their own security posture, and a person whose account is still `PENDING_SETUP` completes
+their own name and date of birth. Gating those on "usable account" would mean an account could never
+*become* usable. The weaker gate still refuses a revoked session; it only declines to require that the
+account already be complete.
