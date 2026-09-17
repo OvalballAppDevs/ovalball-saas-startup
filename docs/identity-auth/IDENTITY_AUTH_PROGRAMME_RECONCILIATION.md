@@ -68,6 +68,45 @@ change is required. It is owner action, not engineering.
 
 ---
 
+## B.1 Stage 0 — status as at 17 September 2026
+
+Stage 0 addresses **§B only**. It is the designed path, not a relaxation: `require_recent_aal2` is
+untouched, master control keeps its MFA requirement, and no enforcement group is activated.
+
+**Phase 2 basis, verified verbatim rather than assumed.** AG.2 **T0** is *"Password + TOTP + recovery
+codes **available to everyone** … account Security page live … **no enforcement**"*. AN-3's Blocks
+column reads *"Slice 6 **T1+**, Slice 7c"*; L16 states AN-3 *"blocks **enforcement**"*. TOTP
+**availability** therefore belongs to T0, and AN-3 gates T1 onward. **No contradiction.**
+
+| Step | State |
+|---|---|
+| 0.1 Enable TOTP enrol/verify in the production Auth settings | **BLOCKED — OWNER ACTION.** No MCP tool reads or writes Auth configuration, and the public settings endpoint does not report MFA. Dashboard action by the platform owner |
+| 0.2 Existing Full Site Admin enrols through the product | Pending 0.1. Claude must never see the secret or the code |
+| 0.3 Read-only verification | Pending 0.2 |
+
+**Security UI proven ready before any owner uses it** (local evidence; no production identity was
+created): enrolment runs on the caller's own session with no user id passed and **no service-role
+client** — the only mention of the service role in that path is a comment explaining its absence, and
+commit `96d65ae` removed it. `account_recovery_codes` grants `authenticated` **nothing**, and the
+`_for(uuid)` variants that take a target are not executable by a browser role — only the `my_` ones —
+so factor and code management is account-scoped by construction. Codes are stored as `code_hmac`;
+there is no plaintext column. Browser suite `61-auth-security` **21/21**, including "a wrong code is
+refused", "a real code is accepted", "exactly ten recovery codes, once", "Ovalball stored a hash of
+each code, never a code", and recovery-code replay refused. Suites: `recovery_codes` 26,
+`aal_enforcement` 38, `security_events_no_secrets` 24, `password_policy` 9 — all green.
+
+**Composition demonstrated on one AAL1 session with no TOTP**, which is exactly production's Site
+Admin today: enforcement groups requiring AAL2 = **0**; `session_ok()` = **true**; ordinary site
+capability resolves = **true**; the same session attempting master control is **refused** with *"Enter
+a code from your authenticator to continue."* T0 does not mean master control loses its recent-TOTP
+requirement — it means the general enforcement rollout has not begun.
+
+**Enrolling does not lock anyone out.** `session_aal_ok()` returns `not mfa_enforced_for_group(...)`
+on the AAL1 path, and `mfa_enforced_for_group('PRIVILEGED')` is **false** at T0, so an administrator
+who enrols keeps ordinary access on an AAL1 session and gains the recent-TOTP capability on demand.
+
+---
+
 ## C. Requirement traceability counts
 
 Counted from the **101 requirement rows in section D**. Sections E–P carry supplementary
