@@ -176,6 +176,10 @@ begin
   perform pg_temp.check(
     (select count(*) from public.preview_invitation('not-a-real-token', null)) = 0,
     'IN-C4 and a wrong token previews nothing, without saying why');
+  perform pg_temp.check(
+    not exists (select 1 from public.preview_invitation(v_inv.token, null) pv
+                 where pv.scope_label like '%@%' or pv.inviter_label like '%@%'),
+    'IN-C5 and a preview never contains an email address -- it says which club invited you, never whom');
 
   -- ---------------------------------------------------------------------------------------------
   -- IN-D  redemption, and the identity binding
@@ -233,7 +237,9 @@ begin
   -- IN-F  expiry, revocation and the generic refusal
   -- ---------------------------------------------------------------------------------------------
   perform pg_temp.as_(v_ca);
-  select * into v_inv from public.issue_invitation('CLUB_STAFF', v_club, null, null, null, null, 'exp-'||v_tag||'@ovalball.test',
+  -- Issued to the invitee's OWN address on purpose: if the email did not match, the identity check
+  -- would refuse first and this would prove nothing about expiry.
+  select * into v_inv from public.issue_invitation('CLUB_STAFF', v_club, null, null, null, null, v_email,
     jsonb_build_object('roles', jsonb_build_array('VOLUNTEER')));
   perform set_config('request.jwt.claims','',true);
   update public.access_invitations set expires_at = now() - interval '1 minute' where id = v_inv.invitation_id;
@@ -245,7 +251,8 @@ begin
     'IN-F2 and the expiry is PERSISTED before the refusal, so a raise does not roll it back (M-5)');
 
   perform pg_temp.as_(v_ca);
-  select * into v_inv from public.issue_invitation('CLUB_STAFF', v_club, null, null, null, null, 'rev-'||v_tag||'@ovalball.test',
+  -- Same reasoning as IN-F1: revocation must be the only thing that can refuse this.
+  select * into v_inv from public.issue_invitation('CLUB_STAFF', v_club, null, null, null, null, v_email,
     jsonb_build_object('roles', jsonb_build_array('VOLUNTEER')));
   perform set_config('request.jwt.claims','',true);
   perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.revoke_invitation(%L, ''matrix: revoked'')', v_inv.invitation_id)) = 'OK',
@@ -317,6 +324,15 @@ begin
       where m.user_id = v_unknown and ra.role_key = 'SAFEGUARDING_OFFICER'
         and ra.confirmation_state = 'PENDING_CONFIRMATION') = 1,
     'IN-H4 and AN-6 is still ahead of them: Ovalball has not confirmed anything');
+  -- WHY a compromised redemption path still cannot mint an active officer: internal.grant_role forces
+  -- PENDING_CONFIRMATION for this role whatever the caller does. 4G put the rule at the grant seam
+  -- rather than only in its own RPC, so the invitation path inherits it rather than re-implementing
+  -- it. If that clause is ever removed, this assertion is what notices.
+  perform pg_temp.check(
+    (select prosrc from pg_proc pr join pg_namespace nn on nn.oid = pr.pronamespace
+      where nn.nspname='internal' and pr.proname='grant_role')
+      ~ 'when p_role_key = ''SAFEGUARDING_OFFICER'' then ''PENDING_CONFIRMATION''',
+    'IN-H5 and internal.grant_role forces PENDING_CONFIRMATION for a Safeguarding Officer whoever calls it');
 
   -- ---------------------------------------------------------------------------------------------
   -- IN-I  no resurrection of terminal authority through an invitation
@@ -350,6 +366,74 @@ begin
   perform pg_temp.check(
     (select count(*) from public.invitation_redemption_attempts) >= 1,
     'IN-J3 every attempt is logged, which is what makes the rate limits possible');
+
+  -- ---------------------------------------------------------------------------------------------
+  -- IN-L  the ISSUER's authority is re-checked at redemption (O.2 step 8)
+  --
+  -- An invitation sent by somebody who has since lost the authority to send it must stop working.
+  -- Without this, revoking an administrator leaves every invitation they ever sent live.
+  -- ---------------------------------------------------------------------------------------------
+  declare v_gone uuid; v_gone_ms uuid; v_gone_inv record;
+  begin
+    v_gone := pg_temp.person('GONECA','goneca-'||v_tag||'@ovalball.test');
+    insert into public.club_memberships (club_id,user_id,role,status) values (v_club,v_gone,'CLUB_ADMIN','active')
+      returning id into v_gone_ms;
+    perform pg_temp.as_(v_gone);
+    select * into v_gone_inv from public.issue_invitation('CLUB_STAFF', v_club, v_team, null, null, null,
+      'byGone-'||v_tag||'@ovalball.test', jsonb_build_object('roles', jsonb_build_array('VOLUNTEER')));
+    perform set_config('request.jwt.claims','',true);
+    perform pg_temp.check(v_gone_inv.invitation_id is not null,
+      'IN-L1 an administrator issues an invitation while they still hold the authority');
+    -- They lose the club entirely.
+    update public.club_memberships set state = 'REVOKED', status = 'revoked' where id = v_gone_ms;
+    perform pg_temp.check(
+      (pg_temp.json_as(pg_temp.person('BYGONE','byGone-'||v_tag||'@ovalball.test'),
+        format('select public.redeem_invitation(%L, null)', v_gone_inv.token)))->>'outcome' = 'REFUSED',
+      'IN-L2 and once they have lost it, the invitation they sent stops working (O.2 step 8)');
+    perform pg_temp.check(
+      (select count(*) from public.security_events where event_type = 'invitation.issuer_authority_lost') >= 1,
+      'IN-L3 which is recorded, because an invitation outliving its issuer is worth seeing');
+  end;
+
+  -- ---------------------------------------------------------------------------------------------
+  -- IN-K  the caller contract (D-S5-AUTO-2)
+  --
+  -- Redemption refuses by RETURNING, because raising rolled back the attempt record and defeated the
+  -- rate limits. That makes the returned shape security-critical: a caller that ignores it, or treats
+  -- an unrecognised outcome as success, grants authority the database refused. One chokepoint holds
+  -- the contract in the application (lib/invitations/redeem.ts, enforced by
+  -- scripts/verify-redemption-callers.mjs); these assertions hold the database's half of it.
+  -- ---------------------------------------------------------------------------------------------
+  perform pg_temp.check(
+    (select count(*) from regexp_matches(
+      (select prosrc from pg_proc pr join pg_namespace nn on nn.oid = pr.pronamespace
+        where nn.nspname='public' and pr.proname='redeem_invitation'), '''REFUSED''', 'g')) >= 1,
+    'IN-K1 a refusal is reported as an outcome, not raised -- so the attempt record and the events survive');
+  perform pg_temp.check(
+    (select count(*) from regexp_matches(
+      (select prosrc from pg_proc pr join pg_namespace nn on nn.oid = pr.pronamespace
+        where nn.nspname='public' and pr.proname='redeem_invitation'), 'raise exception', 'g')) = 3,
+    'IN-K2 and only the two genuinely exceptional conditions still raise: no session, and no input');
+
+  -- No enumeration oracle: every distinct cause gives the SAME sentence.
+  declare v_m1 text; v_m2 text; v_m3 text;
+  begin
+    v_m1 := (pg_temp.json_as(v_invitee, 'select public.redeem_invitation(''totally-made-up-token'', null)'))->>'message';
+    perform pg_temp.as_(v_ca);
+    select * into v_inv from public.issue_invitation('CLUB_STAFF', v_club, v_team, null, null, null, 'oracle-'||v_tag||'@ovalball.test',
+      jsonb_build_object('roles', jsonb_build_array('VOLUNTEER')));
+    perform set_config('request.jwt.claims','',true);
+    perform pg_temp.try_as(v_ca, format('select public.revoke_invitation(%L, ''matrix: oracle check'')', v_inv.invitation_id));
+    v_m2 := (pg_temp.json_as(v_invitee, format('select public.redeem_invitation(%L, null)', v_inv.token)))->>'message';
+    perform pg_temp.as_(v_ca);
+    select * into v_inv2 from public.issue_invitation('CLUB_STAFF', v_club, v_team, null, null, null, 'oracle2-'||v_tag||'@ovalball.test',
+      jsonb_build_object('roles', jsonb_build_array('VOLUNTEER')));
+    perform set_config('request.jwt.claims','',true);
+    update public.access_invitations set expires_at = now() - interval '1 second' where id = v_inv2.invitation_id;
+    v_m3 := (pg_temp.json_as(v_invitee, format('select public.redeem_invitation(%L, null)', v_inv2.token)))->>'message';
+    perform pg_temp.check(v_m1 is not null and v_m1 = v_m2 and v_m2 = v_m3,
+      'IN-K3 NO ORACLE: never existed, revoked and expired all give the identical sentence');
+  end;
 end $$;
 
 rollback;

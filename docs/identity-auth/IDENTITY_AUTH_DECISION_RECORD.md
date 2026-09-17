@@ -181,6 +181,26 @@ O.2 requirement).
 tell a revoked invitation from one that never existed.
 **Owning slice.** 5.
 
+### D-S5-AUTO-4 — one chokepoint for invitation redemption
+
+**Decision.** `lib/invitations/redeem.ts` is the only module permitted to name the `redeem_invitation`
+RPC. `scripts/verify-redemption-callers.mjs` fails the build if anything else does, and runs in the
+permanent battery.
+**Reason.** D-S5-AUTO-2 made refusals return rather than raise, which was necessary but created a
+caller contract that does not look dangerous at the call site: the RPC call *succeeds* on a refusal,
+so a caller that ignores the result, or treats an unrecognised outcome as success, grants a
+membership or a role the database refused. Proving that property about arbitrary future call sites is
+hard; having one chokepoint is easy and checkable.
+**Alternatives rejected.** A lint rule that inspects each call site for an outcome check (brittle, and
+it cannot see through a helper); trusting review (this is exactly the mistake review does not catch);
+returning a tagged error object from the RPC and hoping callers destructure it.
+**Consequence.** Redemption returns a discriminated union that cannot be used without inspection, and
+fails closed on any outcome this build does not recognise — including an outcome a *newer* database
+knows about, which is the dangerous case. The verifier additionally refuses a success list containing
+`REFUSED`. Refusals share one generic message so they cannot become an enumeration oracle; only
+`AGE_ELIGIBILITY_REQUIRED` and `MEMBERSHIP_REQUIRED` are surfaced, because a person can act on those.
+**Owning slice.** 5.
+
 ### D-S5-AUTO-3 — "you have already accepted this" is answered before the terminal-state check
 
 **Decision.** The per-person idempotency answer moved ahead of the missing/revoked/expired/used check.

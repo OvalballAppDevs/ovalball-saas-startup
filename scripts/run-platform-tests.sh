@@ -21,6 +21,10 @@ fi
 
 # Identity/Auth Slice 4 (Phase 2 AA.5): authority role literals stay within their shrink list outside
 # lib/auth/**, and a browser-session client writes a table only where the perimeter manifest lists it.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-redemption-callers.mjs"; then
+  FAILED=$((FAILED + 1))
+fi
+
 if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-authority-guards.mjs"; then
   exit 1
 fi
