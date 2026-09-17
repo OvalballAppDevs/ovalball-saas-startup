@@ -1,5 +1,13 @@
 -- =====================================================================================================
--- SLICE 5 (19/n) -- the fourth issuer
+-- SLICE 5 (CONTRACT, applied LAST) -- the fourth issuer
+--
+-- NUMBERED AFTER THE REST OF SLICE 5 ON PURPOSE, for the same reason as 20270402000000. It swaps what
+-- invite_safeguarding_officer returns from a legacy token to a canonical one, and the CURRENTLY
+-- DEPLOYED build puts that value into /invite/safeguarding-officer/<token> -- a URL that only knows
+-- how to look the old kind up. Under the old build every Safeguarding Officer invitation sent between
+-- the migration and the deploy would carry a link that says it is not valid.
+--
+-- Release order: everything up to 20270401000000 first, then deploy, then this.
 --
 -- `invite_safeguarding_officer` was still writing a row into club_safeguarding_officer_invitations
 -- with its token in plaintext. It was missed by scripts/verify-legacy-invitation-token-readers.mjs

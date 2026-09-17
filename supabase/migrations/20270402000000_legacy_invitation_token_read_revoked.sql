@@ -1,5 +1,15 @@
 -- =====================================================================================================
--- SLICE 5 (16/n) -- the legacy plaintext token stops being readable
+-- SLICE 5 (CONTRACT, applied LAST) -- the legacy plaintext token stops being readable
+--
+-- THIS FILE IS NUMBERED AFTER THE REST OF SLICE 5 ON PURPOSE. It is a CONTRACT step: it removes a
+-- read that the CURRENTLY DEPLOYED application still performs. Applying it while the old build is
+-- serving takes the link out of every club-staff, Site Admin and player-account invitation email
+-- until the new build is live -- which was measured on a production-shaped rehearsal, where
+-- has_column_privilege('authenticated', 'public.invitations', 'token', 'SELECT') went from true to
+-- false the moment it ran.
+--
+-- Release order: everything up to 20270401000000 first (all expand, safe under the old build), then
+-- deploy, then this.
 --
 -- D-S5-AUTO-6 kept the read surface because three server actions inserted a legacy invitation and read
 -- its token straight back to build the emailed link. Revoking the grant then would have shipped a real
