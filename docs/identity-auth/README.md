@@ -13,7 +13,7 @@ rewritten) and `IDENTITY_AUTH_DECISION_RECORD.md`.
 
 | Document | What it is |
 |---|---|
-| `IDENTITY_AUTH_DECISION_RECORD.md` | **The locked decisions, in one place** — D-S4-1 to D-S4-4 and D-S5-1. Referenced by number throughout the release reports |
+| `IDENTITY_AUTH_DECISION_RECORD.md` | **The locked decisions, in one place** — D-S4-1 to D-S4-4, D-S5-1, and the delegated D-S5-AUTO-1 to D-S5-AUTO-11. Referenced by number throughout the release reports |
 | `SECURITY_FOLLOW_UP_unverifiable_age.md` | The technical record of the unverifiable-age finding, raised at 4B and carried to the Slice 4 boundary. Owner now assigned: Slice 5, by D-S5-1 |
 | `DECISION_REQUIRED_unknown_age_before_slice_5.md` | The four options that decision was chosen from, kept as the record of what was weighed |
 
@@ -98,9 +98,14 @@ listed in the closure audit with the later owner Phase 2 or a prior slice
 assigned it — principally the `is_site_admin` retirement, which AA.3 assigns to
 **Slice 7**, and the legacy adapter, which reaches zero at **Slice 10**.
 
-**Slice 5 is not started.** It is next in order, and it carries **D-S5-1**: the
-unknown-age eligibility gate, approved at this boundary and not yet
-implemented.
+**Slice 5 is complete and ready for release**, and not yet released — production
+is still at 474 migrations, tip `20270381000000`. It delivers the unified
+invitation model (Phase 2 §O), the club claim state machine (§P), team join
+codes, and **D-S5-1**. `SLICE_5_IMPLEMENTATION_REPORT.md` is the one to read:
+it lists the ten defects the work found, the evidence, and the three-stage
+release order — two of the twenty migrations are contract steps that must land
+*after* the application is deployed, which was measured on a rehearsal at
+production's own ledger rather than assumed.
 
 ## Provenance
 

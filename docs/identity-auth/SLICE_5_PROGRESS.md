@@ -1,6 +1,10 @@
 # Slice 5 — progress record
 
-**Status: IN PROGRESS. Not released. Production is unchanged at ledger 474, tip `20270381000000`.**
+**Status: COMPLETE and ready for release. Production is still unchanged at ledger 474, tip
+`20270381000000`.**
+
+See `SLICE_5_IMPLEMENTATION_REPORT.md` for the full picture, the ten defects this slice found, and the
+three-stage release order. This file remains the running record of how it got there.
 
 This file is the resume point. Everything below was verified, not assumed.
 
