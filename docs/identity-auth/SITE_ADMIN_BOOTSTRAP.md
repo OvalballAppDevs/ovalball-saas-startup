@@ -59,17 +59,20 @@ begin;
 account could be recovered if that one were lost. Authorised by the platform owner on <date>.'
 
 -- 2. The grant request and its approval, recorded as the two separate acts they are. There is no
---    second administrator to approve it, so the platform owner stands as both -- which is precisely
---    what makes this a bootstrap and precisely why it is done here and not in the product.
+--    second administrator to approve it, so the platform owner stands as both -- which is what
+--    `bootstrap` declares. It is the single permitted exception to the requester-is-not-the-approver
+--    rule, it is set in the DATA rather than by switching a constraint off, and nothing in the
+--    application can set it: no browser role can write this table and no RPC writes this column.
 insert into public.site_admin_grant_requests
-  (target_user_id, profile_key, requested_by, reason, state, decided_by, decided_at, decision_reason)
-select p.id, 'SITE_FULL', owner.user_id, :'reason', 'APPROVED', owner.user_id, now(), :'reason'
+  (target_user_id, profile_key, requested_by, reason, state, decided_by, decided_at, decision_reason, bootstrap)
+select p.id, 'SITE_FULL', owner.user_id, :'reason', 'APPROVED', owner.user_id, now(), :'reason', true
   from public.profiles p
-  cross join (select user_id from public.site_admins where status = 'active' and profile_key = 'SITE_FULL' limit 1) owner
+  cross join (select user_id from public.site_admins
+               where status = 'active' and profile_key = 'SITE_FULL' limit 1) owner
  where p.email = :'target_email';
 
 -- 3. Apply it through the SAME function every other grant goes through, so the row is created the
---    one canonical way and the site_admin.granted event is written by the trigger that owns it.
+--    one canonical way and site_admin.granted is written by the trigger that owns it.
 select internal.apply_site_admin_grant(
   (select id from public.profiles where email = :'target_email'), 'SITE_FULL');
 
@@ -82,24 +85,23 @@ select internal.emit_security_event('site_admin.grant_approved',
 commit;
 ```
 
-Note that step 3 does not bypass anything: `internal.apply_site_admin_grant` still refuses unless it
-finds an approved request, and step 2 is what supplies one. The exception being made is visible in
-exactly one place — that the requester and the approver are the same person — and the database's own
-`site_admin_grant_requests_decider_not_requester` CHECK will refuse it, which is why step 2 writes the
-row with `decided_by` set rather than calling the approval RPC.
+Step 3 bypasses nothing: `internal.apply_site_admin_grant` still refuses unless it finds an approved
+request, and step 2 is what supplies one.
 
-If the CHECK refuses the insert, that is the constraint doing its job. Drop it for the length of this
-transaction and restore it before you commit:
+**No constraint is dropped.** An earlier draft of this procedure had you drop
+`site_admin_grant_requests_decider_not_requester`, write the row, and add the constraint back —
+which cannot work, because adding a CHECK revalidates every existing row and the row you have just
+written is the one that violates it. Rehearsing this against a production-shaped database is how that
+was found, and the fix was to declare the exception rather than to switch the rule off: a constraint
+that has to be removed to do a legitimate thing is a constraint with an undeclared exception, and
+"the constraint was off for a while" leaves no trace once it is back on.
+
+The trace this leaves does not go away:
 
 ```sql
-alter table public.site_admin_grant_requests drop constraint site_admin_grant_requests_decider_not_requester;
--- ... steps 2 to 4 ...
-alter table public.site_admin_grant_requests add constraint site_admin_grant_requests_decider_not_requester
-  check (decided_by is null or decided_by <> requested_by);
+select target_user_id, requested_by, decided_by, decided_at, reason
+  from public.site_admin_grant_requests where bootstrap;
 ```
-
-The final `alter table` revalidates every existing row, so a forgotten restore fails loudly the next
-time anybody looks, and the constraint cannot quietly stay off.
 
 ## Afterwards
 
