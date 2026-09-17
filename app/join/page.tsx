@@ -51,11 +51,14 @@ export default async function JoinPage({
 
   const usable = preview?.state === "usable"
 
-  // Somebody invited to Ovalball who has never been anybody here yet has no profile row at all, and
-  // first name and surname are NOT NULL on it -- so the age question has to ask for those too.
+  // Somebody invited to Ovalball who has never been anybody here yet has no NAME. Creating an account
+  // now creates a profile row alongside it, so "has a profile" is not the question -- an empty one is
+  // just as nameless, and asking only when the row is missing left those people unable to answer the
+  // age question at all, because first name and surname are NOT NULL on that row.
   const { data: profile } = user
-    ? await supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle()
+    ? await supabase.from("profiles").select("first_name, surname").eq("id", user.id).maybeSingle()
     : { data: null }
+  const hasName = Boolean(profile?.first_name?.trim() && profile?.surname?.trim())
 
   return (
     <main className="brand-light-scope min-h-screen bg-chalk">
@@ -104,7 +107,7 @@ export default async function JoinPage({
           token={token}
           signedIn={Boolean(user)}
           hasInvitation={Boolean(usable)}
-          needsName={Boolean(user) && !profile}
+          needsName={Boolean(user) && !hasName}
         />
       </div>
     </main>
