@@ -270,3 +270,58 @@ because the refusal is deliberately identical for every cause.
 **Consequence.** Safe. The lookup is keyed on `(invitation, user)`, so it tells that person only what
 they already did and a stranger has no row. Everyone else still gets the one generic sentence.
 **Owning slice.** 5.
+
+### D-S5-AUTO-8 — a `CLUB_STAFF` invitation carries a team LIST, and the server writes it
+
+**Decision.** `CLUB_STAFF` keeps the multi-team shape Phase 2 gives it. The authorised teams are
+server-authored at issuance into `access_invitations.intended_outcome.teams`, and
+`access_invitations.team_id` stays NULL for that kind. At redemption the list is read back from the
+stored invitation, a club-scoped role is granted once and a team-scoped role once per authorised
+team, and the whole outcome is validated before the invitation is consumed.
+
+**Phase 2 evidence, exactly.** O.1 (design lines 897–906) gives each kind its own scope, and they are
+not the same shape: `CLUB_STAFF` is **`CL (+ TE list)`**, while `GUARDIAN` is `TE (+ optional
+player_id)` and `TEAM_JOIN_CODE` is `TE`. Y.12 (line 1556) gives `access_invitations` one scalar
+`team_id` alongside `intended_outcome jsonb`. The scalar is therefore the single team a genuinely
+team-scoped kind is for; the `TE list` that only `CLUB_STAFF` has lives in the extensible outcome
+column. Which roles are held at a team is not decided here either — `internal.role_is_team_scoped`
+reads `public.role_definitions.scope`, where `COACH`, `TEAM_MANAGER` and `TEAM_ADMINISTRATION` are
+`TEAM`, `VOLUNTEER` is `CLUB_OR_TEAM` and the rest are `CLUB`.
+
+**Reason.** The legacy `invitations` table already carried several teams, in `invitation_teams`.
+Collapsing to the scalar would have truncated every one of those to its first team on migration, and
+silently — the invitation would still have looked valid. Overloading `team_id` to mean "the first of
+several" would have left two places answering "which teams", which is the shape that drifts. Issuing
+one invitation per team would have turned one decision by a Club Admin into several credentials that
+can be separately expired, revoked and replayed, and would have sent the new coach three emails.
+
+**Alternatives rejected.** One invitation per team (N credentials for one decision); a separate
+`access_invitation_teams` join table (a second table to keep in step with an envelope that already
+exists, for a list that is never queried across invitations); trusting a team list supplied at
+redemption (the invitee would author their own authority).
+
+**What is server-authored means.** At issue, every team must be non-null, must exist, must be an
+active team of *this* invitation's club, and the issuer must hold the club authority to invite the
+intended role; the list is then de-duplicated and ordered before it is stored. At redemption there is
+no team argument at all — `redeem_invitation(p_token, p_code)` has nowhere to put one — so the only
+list is the stored one. A `CLUB_STAFF` row with a non-null `team_id` is rejected by the constraint
+`access_invitations_club_staff_no_scalar_team`, so the scalar cannot become a second answer.
+
+**Two defects this found.** A null in the team list slipped past the existence check, because
+`select … into v_bad` over no rows leaves the variable null, which reads exactly like "nothing was
+wrong" — a null would have been stored as an authorised team. Nulls are now rejected first and
+separately. And the club membership was written *before* the team list was validated, so a staff
+invitation naming a since-retired team left the person an ordinary member of a club they had not
+joined, from a redemption that reported `REFUSED`. Validation now precedes every write of the
+outcome.
+
+**Consequence.** `supabase/tests/invitation_team_list.sql` (32 assertions) pins zero, one and many
+teams; duplicates collapsing; cross-club, nonexistent, null and unauthorised-issuer lists refused;
+role substitution refused; the scalar staying null under a constraint; no browser role able to rewrite
+the list; a refusal on one team of three granting nothing and leaving the invitation usable; the same
+invitation then delivering the complete three-team outcome; and replay repeating the answer rather
+than the grants. `R18` in `invitation_races.test.mts` proves two simultaneous redemptions produce one
+complete three-team outcome, not a partial one and not six assignments. Mutants **T1** (keep only the
+first intended team) and **T2** (trust the caller's list) are both killed.
+
+**Owning slice.** 5.

@@ -4,7 +4,7 @@ import { execFileSync, spawn, type ChildProcessWithoutNullStreams } from "node:c
 import { randomUUID } from "node:crypto"
 
 /**
- * INVITATION RACES (Identity/Auth Slice 5, Phase 2 races R1-R6).
+ * INVITATION RACES (Identity/Auth Slice 5, Phase 2 races R1-R6, plus R18).
  *
  * Real concurrent database sessions. No sleep decides a result.
  *
@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto"
  *   R4  two personal invitations issued for one email and scope  one invitation, not two live secrets
  *   R5  a team code redeemed twice by the same person           one join request, idempotent
  *   R6  a team code's max_uses reached by concurrent users      exactly max_uses succeed
+ *   R18 a THREE-team staff invitation opened twice at once       one complete three-team outcome
  *
  * R1 and R6 are the ones that matter. An invitation is a credential: if two sessions can both consume
  * a single-use one, the "single use" in the design is decoration, and a club that invited one Club
@@ -50,7 +51,8 @@ const asUser = (id: string) =>
 
 const ids = {
   ca: randomUUID(), ca2: randomUUID(), invitee: randomUUID(), joinerA: randomUUID(), joinerB: randomUUID(), joinerC: randomUUID(),
-  club: "", dir: "", team: "",
+  multi: randomUUID(),
+  club: "", dir: "", team: "", teamB: "", teamC: "",
 }
 
 function person(id: string, label: string) {
@@ -66,7 +68,7 @@ function person(id: string, label: string) {
 }
 
 function seed() {
-  for (const [k, v] of [["ca","CA"],["ca2","CA2"],["invitee","INV"],["joinerA","JA"],["joinerB","JB"],["joinerC","JC"]] as const) {
+  for (const [k, v] of [["ca","CA"],["ca2","CA2"],["invitee","INV"],["joinerA","JA"],["joinerB","JB"],["joinerC","JC"],["multi","MT"]] as const) {
     person((ids as never as Record<string,string>)[k], v)
   }
   ids.dir = one(`insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
@@ -74,6 +76,10 @@ function seed() {
   ids.club = one(`insert into public.clubs (directory_id, slug, status) values ('${ids.dir}','irace-${TAG}','active') returning id`)
   ids.team = one(`insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
     values ('${ids.club}','Under 12 Boys','irace-u12-${TAG}','youth','U12','boys','union',true) returning id`)
+  ids.teamB = one(`insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
+    values ('${ids.club}','Under 13 Boys','irace-u13-${TAG}','youth','U13','boys','union',true) returning id`)
+  ids.teamC = one(`insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
+    values ('${ids.club}','Under 14 Boys','irace-u14-${TAG}','youth','U14','boys','union',true) returning id`)
   sql(`insert into public.club_memberships (club_id, user_id, role, status) values
       ('${ids.club}','${ids.ca}','CLUB_ADMIN','active'),
       ('${ids.club}','${ids.ca2}','CLUB_ADMIN','active')`)
@@ -81,11 +87,13 @@ function seed() {
 seed()
 
 /** Issues an invitation as the Club Admin and returns its id, token and code. */
-function issueAs(actor: string, kind: string, to: string | null, roles: string[], maxUses: number | null = null): { id: string; token: string; code: string } {
+function issueAs(actor: string, kind: string, to: string | null, roles: string[], maxUses: number | null = null,
+                 teams: string[] | null = null): { id: string; token: string; code: string } {
+  const teamList = teams ? `array[${teams.map((t) => `'${t}'::uuid`).join(",")}]` : "null"
   const row = one(`begin;
 ${asUser(actor)}select id || '|' || token || '|' || code from public.issue_invitation(
-  '${kind}', ${kind === "TEAM_JOIN_CODE" ? "null" : `'${ids.club}'`}, '${ids.team}', null, null, null,
-  ${to ? `'${to}'` : "null"}, '${JSON.stringify({ roles })}'::jsonb, ${maxUses ?? "null"}) as t(id, token, code, e, a);
+  '${kind}', ${kind === "TEAM_JOIN_CODE" ? "null" : `'${ids.club}'`}, ${teams ? "null" : `'${ids.team}'`}, null, null, null,
+  ${to ? `'${to}'` : "null"}, '${JSON.stringify({ roles })}'::jsonb, ${maxUses ?? "null"}, ${teamList}) as t(id, token, code, e, a);
 commit;`)
   const [id, token, code] = row.split("|")
   return { id, token, code }
@@ -183,8 +191,40 @@ test("R6 a team code at its limit admits exactly max_uses concurrent users and n
   assert.ok(used >= 1, `no concurrent redemption succeeded at all\n${outs.join("\n---\n")}`)
 })
 
+/**
+ * R18. A staff invitation for THREE teams, opened twice at the same instant.
+ *
+ * A multi-team invitation has more to go wrong than a single-team one: the outcome is now several
+ * writes, and two sessions racing could interleave them into a person holding some teams from one
+ * attempt and some from the other. "Exactly one complete outcome" means all three teams, once.
+ */
+test("R18 a multi-team staff invitation redeemed twice at once produces one complete three-team outcome", async () => {
+  const inv = issueAs(ids.ca, "CLUB_STAFF", email(ids.multi), ["COACH"], null, [ids.team, ids.teamB, ids.teamC])
+  const script = `begin;\n${asUser(ids.multi)}select public.redeem_invitation('${inv.token}', null);\ncommit;\n`
+  const [a, b] = [session(`irace_t1_${TAG}`, script), session(`irace_t2_${TAG}`, script)]
+  const [oa, ob] = await Promise.all([a.done, b.done])
+  const ctx = `A:${oa}\nB:${ob}`
+
+  assert.equal(one(`select count(*) from public.club_memberships where user_id = '${ids.multi}' and club_id = '${ids.club}'`),
+    "1", `the invitee ended up with more than one membership\n${ctx}`)
+  assert.equal(one(`select count(*) from public.invitation_redemptions where invitation_id = '${inv.id}'`),
+    "1", `a three-team invitation was consumed more than once\n${ctx}`)
+
+  // COMPLETE: all three, not two.
+  const teams = one(`select string_agg(distinct ra.team_id::text, ',' order by ra.team_id::text)
+    from public.role_assignments ra join public.club_memberships m on m.id = ra.membership_id
+    where m.user_id = '${ids.multi}' and ra.role_key = 'COACH' and ra.state = 'ACTIVE' and ra.team_id is not null`)
+  const expected = [ids.team, ids.teamB, ids.teamC].sort().join(",")
+  assert.equal(teams, expected, `the racing redemptions left a PARTIAL team set\n${ctx}`)
+
+  // ONE: three assignments, not six.
+  assert.equal(one(`select count(*) from public.role_assignments ra join public.club_memberships m on m.id = ra.membership_id
+    where m.user_id = '${ids.multi}' and ra.role_key = 'COACH' and ra.state = 'ACTIVE'`),
+    "3", `the losing session duplicated the team grants\n${ctx}`)
+})
+
 after(() => {
-  const people = [ids.ca, ids.ca2, ids.invitee, ids.joinerA, ids.joinerB, ids.joinerC]
+  const people = [ids.ca, ids.ca2, ids.invitee, ids.joinerA, ids.joinerB, ids.joinerC, ids.multi]
   sql(`do $$
 declare v_people uuid[] := array[${people.map((p) => `'${p}'::uuid`).join(",")}];
 begin
