@@ -155,6 +155,14 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "safeguarding_officer_invitation_accepted":
       return "/people"
 
+    // ---- Account security (Slice 6) --------------------------------------
+    // Both go to the person's own Security page, and the first one is the reason that page has a
+    // Cancel control: being told somebody asked to reset your sign-in security is only a defence if
+    // the notification lands where you can stop it.
+    case "account_recovery_requested":
+    case "account_recovery_completed":
+      return "/account/security"
+
     // ---- Safeguarding appointments and threads (Slice 4G) ----------------
     // A confirmed appointment, transferred threads and a club left without an officer are all things
     // the club's safeguarding page is for. A review by Ovalball belongs there too: it is the page

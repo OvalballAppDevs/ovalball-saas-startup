@@ -371,8 +371,12 @@ begin
   -- reads look fast and writes look permitted, and nothing else in this matrix would notice -- which
   -- is exactly what a half-applied migration did during development.
   perform pg_temp.check(
-    (select count(*) from pg_policies where schemaname='public' and tablename='training_plans' and cmd='ALL') = 1
-    and (select count(*) from pg_policies where schemaname='public' and tablename='venues' and cmd in ('INSERT','UPDATE')) = 2,
+    -- PERMISSIVE only: Slice 6's RESTRICTIVE session gate is FOR ALL on every non-public table, and it
+    -- grants nothing. What this assertion is about is the WRITE policies still being there.
+    (select count(*) from pg_policies where schemaname='public' and tablename='training_plans'
+      and cmd='ALL' and permissive='PERMISSIVE') = 1
+    and (select count(*) from pg_policies where schemaname='public' and tablename='venues'
+      and cmd in ('INSERT','UPDATE') and permissive='PERMISSIVE') = 2,
     'VT-J9 the training and venue write policies are installed, not merely intended');
   declare v_state text; v_mode text;
   begin

@@ -3437,6 +3437,46 @@
         "select": "all",
         "select_reason": "Slice 5, Phase 2 Y.13. The NEEDS_INFORMATION conversation on a club claim. RLS limits rows to the claimant's own claim and to holders of site.claims.review; no client writes -- reply_to_claim is a definer RPC."
       }
+    },
+    "account_security_state": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Phase 2 Y.2. A person's own security POSTURE -- when a password was set, when MFA was enrolled, which rollout group they are in. RLS returns own row only, plus site.users.view. It holds no credential: passwords and TOTP secrets stay in GoTrue and are never copied here. No browser write; every write is a definer function."
+      }
+    },
+    "mfa_enforcement_policy": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Phase 2 Y.4 / AG.1. Which rollout groups require AAL2, as data rather than code so that enabling and rolling back need no deploy. internal.session_aal_ok() reads it on every request, so authenticated must be able to SELECT it; there is nothing secret in it. Writes are a site RPC under R2."
+      }
+    },
+    "account_recovery_codes": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Phase 2 Y.3. RLS enabled with NO policies and no grants: not even the owner may read their own rows. It holds HMACs of recovery codes, never codes, so there is nothing a browser could correctly do with it. Reachable only through definer functions."
+      }
+    },
+    "privileged_recovery_requests": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Phase 2 Y.17 / G. A factor reset or email change awaiting its 24-hour period. The target can see their own -- being told is the defence against a social-engineered recovery, and it is how they cancel it. Guardians see a child's MINOR_MFA_RESET; site.users.security.manage sees all. Writes are RPCs under the two-person rule."
+      }
     }
   },
   "views": {
@@ -3987,6 +4027,14 @@
         ]
       },
       {
+        "signature": "approve_privileged_recovery(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/account/security/actions.ts"
+        ],
+        "reason": "Phase 2 G / R2. The SECOND administrator on a privileged recovery. Refuses the requester and refuses the target, so it cannot be one person twice."
+      },
+      {
         "signature": "archive_fixture(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4105,6 +4153,14 @@
         "consumers": [
           "app/(app)/parent/children/actions.ts"
         ]
+      },
+      {
+        "signature": "cancel_privileged_recovery(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/account/security/actions.ts"
+        ],
+        "reason": "Phase 2 G. The account holder (or a guardian, for a child) stops a recovery while it waits. This is the defence against a social-engineered request."
       },
       {
         "signature": "cancel_tournament(uuid, text)",
@@ -5465,6 +5521,14 @@
         ]
       },
       {
+        "signature": "my_recovery_code_count()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/account/security/page.tsx"
+        ],
+        "reason": "How many unused recovery codes the caller has left, for their own Security page. A count is not a code, and the codes themselves cannot be read back by anyone."
+      },
+      {
         "signature": "my_sender_identities()",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6017,6 +6081,14 @@
         "consumers": [
           "app/(app)/club/rollover/actions.ts"
         ]
+      },
+      {
+        "signature": "request_privileged_recovery(uuid, text, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/account/security/actions.ts"
+        ],
+        "reason": "Phase 2 G. Raises a factor reset or email change. Decides the requester's role itself, refuses an administrator targeting themselves, and starts a 24-hour clock the account holder can stop."
       },
       {
         "signature": "request_to_join_club(uuid, uuid)",
@@ -7400,6 +7472,7 @@
       "decide_rollover_team_proposal(uuid, text, text, text, text, text, uuid)",
       "direct_messaging_allowed_for_club(uuid)",
       "direct_messaging_allowed_for_pair(uuid, uuid)",
+      "dispensation_team_ids()",
       "edition_season_for_code(text)",
       "effective_person()",
       "effective_training_session_status(text, date, time without time zone)",
@@ -7462,11 +7535,11 @@
       "notify_club_safeguarding_officers(uuid, text, text, text, text, jsonb)",
       "notify_site_admins_of_new_request(text, text, text, jsonb)",
       "notify_training_participants(uuid, text, text, text)",
+      "person_is_established_adult(uuid)",
+      "person_recorded_date_of_birth(uuid)",
       "platform_playing_group_player_ids()",
       "player_avatar_path_player_id(text)",
       "player_effective_age(uuid, date)",
-      "person_is_established_adult(uuid)",
-      "person_recorded_date_of_birth(uuid)",
       "player_is_adult(uuid)",
       "player_recipient_exclusions(uuid[])",
       "player_scopes(uuid)",
@@ -7475,6 +7548,7 @@
       "project_competition_match(uuid)",
       "project_team_identity(text, text, integer)",
       "project_team_identity(text, text, text, integer)",
+      "recent_aal2(integer)",
       "reconcile_partner_invitations(uuid, uuid, timestamp with time zone)",
       "refresh_competition_match_verification(uuid)",
       "refresh_rollover_player_proposals(uuid)",
@@ -7504,10 +7578,11 @@
       "rollover_identity_plan(uuid)",
       "rollover_planned_team_for(uuid, uuid, text)",
       "rollover_team_target_identity(uuid, uuid)",
-      "dispensation_team_ids()",
       "safeguarding_dispensation_team_ids()",
       "season_phase(uuid, date)",
       "sender_identity_label(text, uuid, uuid)",
+      "session_aal_ok()",
+      "session_live_only()",
       "session_ok()",
       "should_deliver_notification(uuid, text, text)",
       "site_admin_role(uuid)",

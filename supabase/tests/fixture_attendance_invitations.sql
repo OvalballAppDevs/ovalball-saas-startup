@@ -247,8 +247,12 @@ begin
 
   -- The ledger is not browser-readable: it says which adults are attached to
   -- which fixture, and nothing in the product needs to read it client-side.
+  -- PERMISSIVE only. Slice 6 adds a RESTRICTIVE session gate (FOR ALL) to every non-public table, and
+  -- a restrictive policy can only ever take access away -- counting it here would read "exposed" for a
+  -- change that does the exact opposite.
   select count(*) into v_count from pg_policies
-  where tablename = 'fixture_attendance_invitations' and cmd in ('SELECT','ALL');
+  where tablename = 'fixture_attendance_invitations' and cmd in ('SELECT','ALL')
+    and permissive = 'PERMISSIVE';
   if v_count = 0 then
     raise notice 'PASS 16 (G): the invitation ledger has no read policy -- it is never exposed to the browser';
   else

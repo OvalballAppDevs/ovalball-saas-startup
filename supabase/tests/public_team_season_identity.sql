@@ -103,7 +103,12 @@ begin
   end if;
 
   -- Q3: the signed-in resolver and the public projection agree.
-  perform pg_temp.act('authenticated', gen_random_uuid());
+  --
+  -- A REAL active identity, not a random uuid. Slice 6 gates every non-public table on a live session
+  -- AND a usable account, so a uuid with no profile row is no longer "signed in" as far as the database
+  -- is concerned -- which is correct, and means this assertion now compares the public projection with
+  -- what an actual signed-in person sees rather than with what a fiction saw.
+  perform pg_temp.act('authenticated', (select id from public.profiles where account_state = 'ACTIVE' limit 1));
   select string_agg(team_id || ':' || season_id || ':' || display_name, ',' order by season_id) into v_name from public.get_team_identities_for_season_batch(v_pairs);
   perform pg_temp.act_postgres();
   perform pg_temp.act('anon');

@@ -109,6 +109,12 @@ const matrix: Row[] = [
   ["club_invitation_accepted", {}, "/people"],
   ["safeguarding_officer_invitation_accepted", {}, "/people"],
 
+  // ---- Account security (Slice 6) --------------------------------------
+  // The request notification is the defence against a social-engineered recovery, so it has to land
+  // where the person can cancel it -- not on a dashboard that leaves them hunting for the control.
+  ["account_recovery_requested", { request_id: "11111111-1111-1111-1111-111111111111" }, "/account/security"],
+  ["account_recovery_completed", { request_id: "11111111-1111-1111-1111-111111111111" }, "/account/security"],
+
   // ---- Safeguarding appointments and threads (Slice 4G) ----------------
   ["safeguarding_officer_confirmed", {}, "/club/settings/safeguarding"],
   ["safeguarding_thread_reviewed", {}, "/club/settings/safeguarding"],
