@@ -98,14 +98,24 @@ listed in the closure audit with the later owner Phase 2 or a prior slice
 assigned it — principally the `is_site_admin` retirement, which AA.3 assigns to
 **Slice 7**, and the legacy adapter, which reaches zero at **Slice 10**.
 
-**Slice 5 is complete and ready for release**, and not yet released — production
-is still at 474 migrations, tip `20270381000000`. It delivers the unified
+**Slice 5 is released and production verified.** Production is at **494
+migrations**, tip `20270403000000`, commit `67969eb`. It delivers the unified
 invitation model (Phase 2 §O), the club claim state machine (§P), team join
-codes, and **D-S5-1**. `SLICE_5_IMPLEMENTATION_REPORT.md` is the one to read:
-it lists the ten defects the work found, the evidence, and the three-stage
-release order — two of the twenty migrations are contract steps that must land
-*after* the application is deployed, which was measured on a rehearsal at
-production's own ledger rather than assumed.
+codes, and **D-S5-1**.
+
+It was released in **three stages**, because two of its twenty migrations
+remove something the then-deployed build still used — measured on a rehearsal
+booted at production's own ledger, not assumed. `/join` going 404 → 200 on the
+live site is what confirmed the new build was serving before the contract
+stage ran.
+
+| Document | What it is |
+|---|---|
+| `SLICE_5_IMPLEMENTATION_REPORT.md` | What Ovalball had, what it has now, and the ten defects the work found |
+| `SLICE_5_PRODUCTION_RELEASE_REPORT.md` | The release itself — verdict **IDENTITY/AUTH SLICE 5 — PRODUCTION VERIFIED** |
+| `SLICE_5_PROGRESS.md` | The running record of how it got there |
+
+**Slice 6 is not started.**
 
 ## Provenance
 

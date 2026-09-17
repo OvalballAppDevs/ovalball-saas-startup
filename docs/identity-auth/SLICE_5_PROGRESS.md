@@ -1,10 +1,11 @@
 # Slice 5 — progress record
 
-**Status: COMPLETE and ready for release. Production is still unchanged at ledger 474, tip
-`20270381000000`.**
+**Status: RELEASED AND PRODUCTION VERIFIED.** Production is at **494 migrations**, tip
+`20270403000000`, commit `67969eb`.
 
-See `SLICE_5_IMPLEMENTATION_REPORT.md` for the full picture, the ten defects this slice found, and the
-three-stage release order. This file remains the running record of how it got there.
+`SLICE_5_PRODUCTION_RELEASE_REPORT.md` is the release record and the verdict.
+`SLICE_5_IMPLEMENTATION_REPORT.md` is the full picture and the ten defects this slice found. This file
+remains the running record of how it got there.
 
 This file is the resume point. Everything below was verified, not assumed.
 
