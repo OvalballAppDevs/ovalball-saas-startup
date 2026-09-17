@@ -421,8 +421,15 @@ begin
   -- the service role by inserting the auth row directly, which is exactly the division of labour
   -- being asserted: the identity is free, the authority is not.
   -- =============================================================================================
+  -- Created the way internal.create_profile_for_identity creates one, and NOT adjusted afterwards.
+  --
+  -- This assertion used to set account_state to PENDING_SETUP first, which seeded the state the RPC
+  -- expects instead of the state the product actually produces -- every new profile is ('ACTIVE',
+  -- 'PENDING_DETAILS'). The ID-6 guard read account_state, so it fired on every freshly created
+  -- identity and Create User could never succeed; this suite passed throughout because it had quietly
+  -- arranged the one input that avoids the bug. A browser found it on the first attempt.
   v_new := pg_temp.person('Created','smc-created-'||v_tag||'@ovalball.test');
-  update public.profiles set account_state = 'PENDING_SETUP', setup_state = 'PENDING_DETAILS',
+  update public.profiles set account_state = 'ACTIVE', setup_state = 'PENDING_DETAILS',
          first_name = '', surname = '' where id = v_new;
 
   perform pg_temp.check(
@@ -439,20 +446,30 @@ begin
     (select account_state from public.profiles where id = v_new) = 'PENDING_SETUP',
     'SMC-37c the account is NOT active -- the person still has to set a password and an authenticator');
   perform pg_temp.check(
+    (select count(*) from public.security_events
+      where subject_user_id = v_new and event_type = 'site.user_created' and reason is not null) = 1,
+    'SMC-37e ONE site.user_created carrying the reason -- user.created belongs to the ID-1 trigger, which
+     wrote it when the identity appeared and had no reason to record');
+  perform pg_temp.check(
     exists (select 1 from public.access_invitations
              where kind = 'ACCOUNT_SETUP' and target_user_id = v_new and state = 'ISSUED'),
     'SMC-37d and a setup invitation was issued for them');
 
   -- ID-6. Running it again is the shape of a double submit, and the second one must not overwrite
   -- a real person's name from a form somebody left open.
-  update public.profiles set setup_state = 'COMPLETE', account_state = 'ACTIVE' where id = v_new;
+  -- Setting up the account -- which is setup_state, and only setup_state -- is what makes it
+  -- somebody's real record rather than a half-made one.
+  update public.profiles set setup_state = 'COMPLETE' where id = v_new;
   perform pg_temp.check(
     pg_temp.try_as(v_full, format('select public.site_register_created_identity(%L,''Someone'',''Else'',null,''running the same creation a second time'')', v_new)) = '23505',
-    'SMC-38 ID-6: an account that is already set up is never overwritten by Create User');
+    'SMC-38 ID-6: an account that is already SET UP is never overwritten by Create User');
+  perform pg_temp.check(
+    (select first_name||' '||surname from public.profiles where id = v_new) = 'Aoife Kelly',
+    'SMC-38b and the real person''''s name survived the attempt');
 
   -- Site Admin is not on the create form, by any route.
   v_new2 := pg_temp.person('Created2','smc-created2-'||v_tag||'@ovalball.test');
-  update public.profiles set account_state = 'PENDING_SETUP', setup_state = 'PENDING_DETAILS' where id = v_new2;
+  update public.profiles set account_state = 'ACTIVE', setup_state = 'PENDING_DETAILS' where id = v_new2;
   perform pg_temp.check(
     pg_temp.try_as(v_full, format(
       'select public.site_register_created_identity(%L,''Sam'',''Doyle'',null,''creating an account with site admin attached'',%L::jsonb)',
