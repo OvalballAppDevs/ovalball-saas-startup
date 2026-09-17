@@ -39,6 +39,7 @@ import type { Database } from "@/types/database.types"
  */
 
 export type RecipientRef =
+  | { kind: "access_invitation"; invitationId: string }
   | { kind: "club_invitation"; invitationId: string }
   | { kind: "guardian_invitation"; invitationId: string }
   | { kind: "player_account_invitation"; invitationId: string }
@@ -135,6 +136,27 @@ export async function resolveRecipients(
       if (error) return { ok: false, reason: `Safeguarding Officer could not be read: ${error.message}` }
       if (!data) return { ok: false, reason: "That Safeguarding Officer record could not be found." }
       return one(data.contact_email, data.id, data.club_id)
+    }
+
+    /**
+     * The canonical invitation. One recipient resolver for all eight kinds, because there is one
+     * table behind them. The address is read from the ROW rather than taken as an argument, so the
+     * invitation decides who it was for -- and RLS on `access_invitations` means only somebody who
+     * may administer that invitation can resolve it at all.
+     */
+    case "access_invitation": {
+      const { data, error } = await supabase
+        .from("access_invitations")
+        .select("id, invited_email_normalised, club_id")
+        .eq("id", ref.invitationId)
+        .maybeSingle()
+      if (error) return { ok: false, reason: `Invitation could not be read: ${error.message}` }
+      if (!data) return { ok: false, reason: "That invitation could not be found." }
+      if (!data.invited_email_normalised) {
+        // A team join code is not sent to anybody -- it is read out. There is no recipient to resolve.
+        return { ok: false, reason: "That invitation is a code, not an emailed invitation." }
+      }
+      return one(data.invited_email_normalised, data.id, data.club_id)
     }
 
     case "site_admin_invitation": {

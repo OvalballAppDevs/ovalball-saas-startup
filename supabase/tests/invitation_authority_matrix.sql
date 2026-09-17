@@ -509,4 +509,92 @@ begin
     'IN-M5 and the moment it becomes terminal the token goes, because a revoked invitation''s secret protects nothing');
 end $$;
 
+-- =====================================================================================================
+-- IN-N. The outcomes that are declared are the outcomes that are applied.
+--
+-- A redemption that reports success and changes nothing is worse than one that refuses: the person is
+-- told they have an Ovalball login, and they have none.
+-- =====================================================================================================
+do $$
+declare
+  v_tag text := substr(gen_random_uuid()::text,1,8);
+  v_dir uuid; v_club uuid; v_team uuid;
+  v_sa uuid; v_guardian uuid; v_player uuid;
+  v_adult uuid; v_ageless uuid; v_child_acct uuid; v_taken uuid;
+  v_inv record; v_res jsonb;
+begin
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('Out '||v_tag||' RUFC','T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','out-'||v_tag) returning id into v_dir;
+  insert into public.clubs (directory_id, slug, status) values (v_dir,'out-'||v_tag,'active') returning id into v_club;
+  insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
+  values (v_club,'Under 16 Boys','out-u16-'||v_tag,'youth','U16','boys','union',true) returning id into v_team;
+
+  v_sa       := pg_temp.person('SA','out-sa-'||v_tag||'@ovalball.test');
+  v_adult    := pg_temp.person('ADULT','out-adult-'||v_tag||'@ovalball.test');
+  v_ageless  := pg_temp.person('AGELESS','out-ageless-'||v_tag||'@ovalball.test', null);
+  insert into public.site_admins (user_id,status,admin_role) values (v_sa,'active','full');
+
+  -- ---------------------------------------------------------------------------------------------
+  -- IN-N1..N4  Becoming a Site Admin is an authority boundary like any other (D-S5-1).
+  -- ---------------------------------------------------------------------------------------------
+  perform pg_temp.as_(v_sa);
+  select * into v_inv from public.issue_invitation('SITE_ADMIN', null, null, null, null, null,
+    'out-ageless-'||v_tag||'@ovalball.test', jsonb_build_object('admin_role','read_only'));
+  perform set_config('request.jwt.claims','',true);
+
+  v_res := pg_temp.json_as(v_ageless, format('select public.redeem_invitation(%L, null)', v_inv.token));
+  perform pg_temp.check(v_res->>'reason' = 'AGE_ELIGIBILITY_REQUIRED',
+    'IN-N1 an identity whose age was never recorded cannot become a Site Admin -- the widest authority Ovalball has');
+  perform pg_temp.check(
+    not exists (select 1 from public.site_admins sa where sa.user_id = v_ageless),
+    'IN-N2 and no site_admins row was created on the way to that refusal');
+  perform pg_temp.check(
+    (select state from public.access_invitations where id = v_inv.invitation_id) = 'ISSUED',
+    'IN-N3 and the invitation is NOT spent, because recording a date of birth fixes it');
+
+  update public.profiles set date_of_birth = (current_date - interval '41 years')::date where id = v_ageless;
+  v_res := pg_temp.json_as(v_ageless, format('select public.redeem_invitation(%L, null)', v_inv.token));
+  perform pg_temp.check(
+    v_res->>'outcome' = 'SITE_ADMIN_ACTIVE'
+    and exists (select 1 from public.site_admins sa where sa.user_id = v_ageless and sa.status = 'active'),
+    'IN-N4 and once it is on file the SAME invitation works -- prohibit new, never revoke existing');
+
+  -- ---------------------------------------------------------------------------------------------
+  -- IN-N5..N8  A player account invitation links the player, or refuses and stays usable.
+  -- ---------------------------------------------------------------------------------------------
+  v_guardian  := pg_temp.person('GUARDIAN','out-guardian-'||v_tag||'@ovalball.test');
+  v_child_acct := pg_temp.person('CHILDACCT','out-child-'||v_tag||'@ovalball.test', (current_date - interval '17 years')::date);
+  v_taken     := pg_temp.person('TAKEN','out-taken-'||v_tag||'@ovalball.test');
+
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway)
+  values ('Harry','Player',(current_date - interval '17 years')::date, 'MALE') returning id into v_player;
+  insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team, 'active');
+  insert into public.guardians (player_id, guardian_user_id, relationship_type, status, state, created_by)
+  values (v_player, v_guardian, 'parent', 'active', 'ACTIVE', v_guardian);
+
+  perform pg_temp.as_(v_guardian);
+  select * into v_inv from public.issue_invitation('PLAYER_ACCOUNT', null, null, v_player, null, null,
+    'out-child-'||v_tag||'@ovalball.test', '{}'::jsonb);
+  perform set_config('request.jwt.claims','',true);
+
+  v_res := pg_temp.json_as(v_child_acct, format('select public.redeem_invitation(%L, null)', v_inv.token));
+  perform pg_temp.check(v_res->>'outcome' = 'ACCEPTED',
+    'IN-N5 the invited player accepts their own account invitation');
+  perform pg_temp.check(
+    (select pl.user_id from public.players pl where pl.id = v_player) = v_child_acct,
+    'IN-N6 and the player row is actually LINKED -- a success that changed nothing would be worse than a refusal');
+
+  -- A second player, invited to an account that is already somebody.
+  perform pg_temp.as_(v_guardian);
+  select * into v_inv from public.issue_invitation('PLAYER_ACCOUNT', null, null, v_player, null, null,
+    'out-taken-'||v_tag||'@ovalball.test', '{}'::jsonb);
+  perform set_config('request.jwt.claims','',true);
+  v_res := pg_temp.json_as(v_taken, format('select public.redeem_invitation(%L, null)', v_inv.token));
+  perform pg_temp.check(v_res->>'outcome' = 'REFUSED',
+    'IN-N7 a player who already has a login cannot be linked to a second account');
+  perform pg_temp.check(
+    (select pl.user_id from public.players pl where pl.id = v_player) = v_child_acct,
+    'IN-N8 and the first person keeps their player -- two identities are never merged by an invitation');
+end $$;
+
 rollback;

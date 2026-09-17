@@ -343,3 +343,39 @@ complete three-team outcome, not a partial one and not six assignments. Mutants 
 first intended team) and **T2** (trust the caller's list) are both killed.
 
 **Owning slice.** 5.
+
+### D-S5-AUTO-9 — a declared outcome is an applied outcome, and a child's scope is the child
+
+**Decision.** Four fixes found by taking the legacy issuers to the canonical one, landed together
+because they are the same finding from four sides: the canonical invitation path had never actually
+been exercised end to end for a child-scoped kind.
+
+1. **A child-scoped invitation could not be issued.** `issue_invitation` derives the club and team
+   from the player — correct, for the invitation *row* — and was passing them into the authority
+   check as well. `internal.capability_decision` rejects child scope as `SCOPE_MALFORMED` the moment
+   a club or a team is supplied alongside, because a child's scope *is* the child. Every
+   `PLAYER_ACCOUNT` invitation a guardian could have sent was refused as unauthorised.
+2. **And could not be redeemed.** The issuer re-check at redemption tested the issuer's authority at
+   club scope and at team scope and nowhere else, so a capability valid at neither always returned
+   `issuer_authority_lost`. Fixing only one half would have moved the refusal rather than removed it.
+3. **`PLAYER_ACCOUNT` redemption answered `ACCEPTED` and did nothing.** The legacy
+   `accept_player_account_invitation` sets `players.user_id`; the canonical path returned the same
+   shape of success without the link, so a player would have been told they had an Ovalball login and
+   had none. It now performs the link behind the same guards the legacy path had — signed in with
+   `player.account.link`, not already linked to a player, and the player not already having a login —
+   except that each one *refuses* rather than raising, so the attempt is recorded (D-S5-AUTO-2) and
+   the invitation is not spent.
+4. **Becoming a Site Admin had no age gate.** D-S5-1 gates the club roles because they are
+   `minor_prohibited` in `role_definitions`, and `site_admins` is not in that table — so the single
+   most safeguarding-sensitive authority on the platform was the one an identity of unknown age could
+   still cross, by invitation. D-S5-1 names invitation redemption as in scope, so the gate goes here.
+   It is written as its own condition rather than by adding a `SITE_ADMIN` row to `role_definitions`,
+   because a fake catalogue row is something every other query then has to know to ignore.
+
+**Consequence.** `IN-N1`–`IN-N8` pin all four: unknown age cannot become a Site Admin, no
+`site_admins` row is written on the way to that refusal, the invitation survives it and works once a
+date of birth is on file; and a player account invitation links the player, while a player who
+already has a login cannot be linked to a second account and the first person keeps their player.
+Mutants **T3** (report `ACCEPTED`, link nothing) and **T4** (drop the Site Admin age gate) are killed.
+
+**Owning slice.** 5.
