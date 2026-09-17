@@ -41,7 +41,10 @@ begin
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
-  if not internal.is_full_site_admin() then
+  -- The probe is a capability SITE_FULL alone holds, not the admin_role label: Slice 7 retired
+  -- internal.is_full_site_admin(), because a string comparison against a presentation column skipped
+  -- every check capability_decision makes.
+  if not internal.has_site_capability('site.admins.manage') then
     raise notice 'SKIP: uat.fullsiteadmin is not a Full Site Admin in this database';
     return;
   end if;

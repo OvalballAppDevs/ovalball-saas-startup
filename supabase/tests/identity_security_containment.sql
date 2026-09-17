@@ -7,7 +7,7 @@
 --
 --   C. Players cannot be created or altered directly (anon, members, staff).
 --   D. Nobody can change their own account status; only a Site Admin with
---      user-access authority can, through set_account_status.
+--      user-access authority can, through site_set_account_state.
 --   E. admin_fixture_overview reveals nothing to anonymous or unrelated callers.
 --   F. A club's GoCardless merchant token is never returned to a browser role.
 --   G. A player-login invitation binds only the invited, verified email.
@@ -290,7 +290,7 @@ begin
   v_err := null;
   begin
     perform pg_temp.act('authenticated', v_site_ro);
-    perform public.set_account_status(v_member, 'suspended');
+    perform public.site_set_account_state(v_member, 'SUSPENDED', 'suspending pending a safeguarding review');
     perform pg_temp.act_postgres();
   exception when others then get stacked diagnostics v_err = returned_sqlstate;
   end;
@@ -304,7 +304,7 @@ begin
   v_err := null;
   begin
     perform pg_temp.act('authenticated', v_club_admin);
-    perform public.set_account_status(v_member, 'suspended');
+    perform public.site_set_account_state(v_member, 'SUSPENDED', 'suspending pending a safeguarding review');
     perform pg_temp.act_postgres();
   exception when others then get stacked diagnostics v_err = returned_sqlstate;
   end;
@@ -318,19 +318,19 @@ begin
   v_err := null;
   begin
     perform pg_temp.act('authenticated', v_site_full);
-    perform public.set_account_status(v_member, 'suspended');
+    perform public.site_set_account_state(v_member, 'SUSPENDED', 'suspending pending a safeguarding review');
     perform pg_temp.act_postgres();
   exception when others then get stacked diagnostics v_err = message_text;
   end;
   v_text := (select account_status from public.profiles where id = v_member);
   begin
     perform pg_temp.act('authenticated', v_site_access);
-    perform public.set_account_status(v_member, 'active');
+    perform public.site_set_account_state(v_member, 'ACTIVE', 'the review closed with no action needed');
     perform pg_temp.act_postgres();
   exception when others then get stacked diagnostics v_err2 = message_text;
   end;
   if v_text = 'suspended' and (select account_status from public.profiles where id = v_member) = 'active' then
-    raise notice 'PASS D6: a Full Site Admin can suspend, and a user-access Site Admin can reactivate, through set_account_status';
+    raise notice 'PASS D6: a Full Site Admin can suspend, and a User Access Site Admin can reinstate, through site_set_account_state';
   else
     raise notice 'FAIL D6: the canonical account-status administration does not work (% / % / %)', v_text, v_err, v_err2;
   end if;
@@ -338,7 +338,7 @@ begin
   v_err := null;
   begin
     perform pg_temp.act('authenticated', v_site_full);
-    perform public.set_account_status(v_site_full, 'suspended');
+    perform public.site_set_account_state(v_site_full, 'SUSPENDED', 'attempting to suspend my own account');
     perform pg_temp.act_postgres();
   exception when others then get stacked diagnostics v_err = returned_sqlstate;
   end;

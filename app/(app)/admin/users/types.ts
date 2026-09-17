@@ -45,7 +45,12 @@ export interface AdminUserRow {
   hasFixturesAdmin: boolean
   hasTeamAdmin: boolean
   hasPendingRequest: boolean
-  accountStatus: "active" | "suspended"
+  /**
+   * The canonical account state. `account_status` is the two-valued compatibility
+   * column that predates it and cannot say "disabled"; this derives from
+   * profiles.account_state, which Slice 7 made settable from Users & Access.
+   */
+  accountStatus: "active" | "suspended" | "disabled"
   memberships: MembershipSummary[]
   pendingRequests: PendingRequestSummary[]
 }

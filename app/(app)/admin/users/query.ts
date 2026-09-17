@@ -101,7 +101,11 @@ export function mapAdminUserRow(row: Database["public"]["Views"]["admin_user_ove
     hasFixturesAdmin: row.has_fixtures_admin ?? false,
     hasTeamAdmin: row.has_team_admin ?? false,
     hasPendingRequest: row.has_pending_request ?? false,
-    accountStatus: (row.account_status as "active" | "suspended") ?? "active",
+    // From the canonical account_state, not the compatibility account_status:
+    // a disabled account reports "active" in the older column, and Users &
+    // Access can now disable an account, so it has to be able to show one.
+    accountStatus:
+      row.account_state === "SUSPENDED" ? "suspended" : row.account_state === "DISABLED" ? "disabled" : "active",
     // Open requests to join are listed as pending requests; a membership card
     // is a membership that was granted, whether still active or now history.
     memberships: ((row.memberships as unknown as MembershipSummary[]) ?? []).filter((m) => m.status === "active" || m.status === "revoked"),

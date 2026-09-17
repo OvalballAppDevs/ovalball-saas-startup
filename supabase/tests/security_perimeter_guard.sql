@@ -66,7 +66,7 @@ begin
 
   -- P2 ---------------------------------------------------------------
   v_bad := '{}';
-  if has_function_privilege('anon', 'public.set_account_status(uuid, text)', 'EXECUTE') then v_bad := v_bad || 'anon: set_account_status'::text; end if;
+  if has_function_privilege('anon', 'public.site_set_account_state(uuid, text, text)', 'EXECUTE') then v_bad := v_bad || 'anon: site_set_account_state'::text; end if;
   if has_function_privilege('anon', 'public.record_session_version(integer)', 'EXECUTE') then v_bad := v_bad || 'anon: record_session_version'::text; end if;
   if has_function_privilege('anon', 'public.list_suspended_club_memberships(uuid)', 'EXECUTE') then v_bad := v_bad || 'anon: list_suspended_club_memberships'::text; end if;
   if has_function_privilege('anon', 'public.accept_fixture_request(uuid, uuid)', 'EXECUTE') then v_bad := v_bad || 'anon: accept_fixture_request'::text; end if;

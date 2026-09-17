@@ -58,7 +58,7 @@ insert into public.club_memberships (club_id, user_id, role, status)
 values (v_club, v_master, 'BASIC_USER', 'active');
 
 perform set_config('request.jwt.claims', json_build_object('sub', v_master,'role','authenticated')::text, true);
-if internal.is_full_site_admin() then
+if internal.has_site_capability('site.admins.manage') then
   raise notice 'PASS 1: joining a club as an ordinary member left Full Site Admin authority intact';
 else
   raise notice 'FAIL 1: joining a club removed Full Site Admin authority';
@@ -67,14 +67,14 @@ end if;
 -- ============ 2. Being given a club role ============
 
 update public.club_memberships set role = 'CLUB_ADMIN' where club_id = v_club and user_id = v_master;
-if internal.is_full_site_admin() then
+if internal.has_site_capability('site.admins.manage') then
   raise notice 'PASS 2: being made a Club Admin did not replace Site Admin authority with club authority';
 else
   raise notice 'FAIL 2: a club role replaced Full Site Admin authority';
 end if;
 
 update public.club_memberships set role = 'FIXTURE_SECRETARY' where club_id = v_club and user_id = v_master;
-if internal.is_full_site_admin() then
+if internal.has_site_capability('site.admins.manage') then
   raise notice 'PASS 3: a further club role change still left Site Admin authority untouched';
 else
   raise notice 'FAIL 3: a club role change removed Site Admin authority';
@@ -150,7 +150,7 @@ begin
   select id into v_p18 from public.age_grade_rollover_team_proposals where team_id = v_u18;
   perform public.confirm_rollover_team_proposal(v_p18,'graduate',null,null,null,null);
 
-  if internal.is_full_site_admin() then
+  if internal.has_site_capability('site.admins.manage') then
     raise notice 'PASS 8: graduating a cohort -- which ends player memberships -- left Site Admin authority untouched';
   else
     raise notice 'FAIL 8: graduation processing removed Site Admin authority';

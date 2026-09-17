@@ -20663,6 +20663,7 @@ export type Database = {
       }
       admin_user_overview: {
         Row: {
+          account_state: string | null
           account_status: string | null
           club_names: string | null
           email: string | null
@@ -25543,10 +25544,6 @@ export type Database = {
           recipient_count: number
         }[]
       }
-      set_account_status: {
-        Args: { p_status: string; p_user_id: string }
-        Returns: undefined
-      }
       set_capability_override: {
         Args: {
           p_capability_key: string
@@ -25808,6 +25805,10 @@ export type Database = {
           team_id: string
         }[]
       }
+      site_add_club_membership: {
+        Args: { p_club_id: string; p_reason: string; p_user_id: string }
+        Returns: string
+      }
       site_admin_dashboard_commercial: {
         Args: never
         Returns: {
@@ -25881,6 +25882,59 @@ export type Database = {
           growth_monthly: Json
         }[]
       }
+      site_assign_club_role: {
+        Args: {
+          p_attributes?: Json
+          p_club_id: string
+          p_reason: string
+          p_role_key: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      site_assign_team_role: {
+        Args: {
+          p_reason: string
+          p_role_key: string
+          p_team_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      site_end_guardian_relationship: {
+        Args: { p_reason: string; p_relationship_id: string }
+        Returns: undefined
+      }
+      site_force_password_reset: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: undefined
+      }
+      site_link_guardian: {
+        Args: {
+          p_guardian_user_id: string
+          p_player_id: string
+          p_reason: string
+          p_relationship_type: string
+          p_verification_state?: string
+        }
+        Returns: string
+      }
+      site_revoke_invitation: {
+        Args: { p_invitation_id: string; p_reason: string }
+        Returns: undefined
+      }
+      site_revoke_role_assignment: {
+        Args: {
+          p_allow_no_club_admin?: boolean
+          p_assignment_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      site_revoke_sessions: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: number
+      }
       site_safeguarding_review: {
         Args: { p_conversation_id: string; p_reason: string }
         Returns: {
@@ -25889,6 +25943,23 @@ export type Database = {
           message_id: string
           sender_user_id: string
         }[]
+      }
+      site_set_account_state: {
+        Args: { p_reason: string; p_state: string; p_user_id: string }
+        Returns: undefined
+      }
+      site_set_player_team_membership: {
+        Args: {
+          p_action: string
+          p_player_id: string
+          p_reason: string
+          p_team_id: string
+        }
+        Returns: undefined
+      }
+      site_transition_club_membership: {
+        Args: { p_membership_id: string; p_reason: string; p_to_state: string }
+        Returns: undefined
       }
       soft_delete_own_message: {
         Args: { p_message_id: string }

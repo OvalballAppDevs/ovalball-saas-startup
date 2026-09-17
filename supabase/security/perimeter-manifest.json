@@ -6939,6 +6939,46 @@
         "reason": "Phase 2 Q.3. Gives a club role, creating the membership if there is none. Delegates to internal.grant_role, so the minor prohibition, the D-S5-1 age gate and the Safeguarding Officer PENDING_CONFIRMATION rule all still apply to a Site Admin."
       },
       {
+        "signature": "site_assign_team_role(uuid, uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3 master control. Appoints somebody to a team role and, where no club membership exists, admits one through internal.admit_club_member first -- a team role has to hang from a club membership. Requires site.team_roles.manage (SITE_FULL only), recent AAL2, a reason of at least ten characters, and refuses a self-target. Delegates to internal.grant_role, so the minor prohibitions and the Safeguarding Officer confirmation rule still apply to a Site Admin."
+      },
+      {
+        "signature": "site_end_guardian_relationship(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3 master control. Revokes a guardian relationship with a reason; never deletes it, so the record that the link existed survives for safeguarding. Requires site.family.manage."
+      },
+      {
+        "signature": "site_force_password_reset(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3 master control, bounded by L2: no Site Admin path sets, sees or chooses a password. Marks the account as requiring a reset and ends its sessions; the person resets it themselves through recovery. Requires site.users.security.manage."
+      },
+      {
+        "signature": "site_link_guardian(uuid, uuid, text, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3 master control. Creates a canonical ACTIVE guardians row with source SITE_ADMIN_ASSIGNMENT for a family link that cannot be repaired by the family themselves. Requires site.family.manage (SITE_FULL only). Refuses linking a player's own account as their guardian, and refuses to record CLUB_VERIFIED -- a Site Admin attests SITE_VERIFIED or records UNVERIFIED."
+      },
+      {
+        "signature": "site_revoke_invitation(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3 master control. Authorises at site scope and then delegates to public.revoke_invitation, which re-decides authority itself -- the Slice 5 revocation remains the only code that revokes an invitation. Requires site.invitations.manage."
+      },
+      {
         "signature": "site_revoke_role_assignment(uuid, text, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6947,9 +6987,33 @@
         "reason": "Phase 2 Q.3. Revokes a role through the canonical transition, which carries the last-Club-Admin guard; the override is explicit and recorded."
       },
       {
+        "signature": "site_revoke_sessions(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3 master control. Ends every live session for an account through internal.revoke_all_sessions. Runs the revocation inside the definer rather than handing the work to a service-role client, so no elevated client sits in the request path. Requires site.users.security.manage."
+      },
+      {
         "signature": "site_safeguarding_review(uuid, text)",
         "reason": "AN-9 / AI #68-69 (Slice 4G): the only route by which Ovalball reads a club safeguarding thread. site.safeguarding.review, a required reason, one event, and a review row the club's officers can see.",
         "consumer": "app/(app)/admin/safeguarding/actions.ts"
+      },
+      {
+        "signature": "site_set_account_state(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3 master control. Moves an account between ACTIVE, SUSPENDED and DISABLED. Deliberately asks for a DIFFERENT capability per state: site.users.disable for DISABLED, site.users.security.manage otherwise, because switching an account off permanently is a larger act than suspending it and User Access holds only the second."
+      },
+      {
+        "signature": "site_set_player_team_membership(uuid, uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3 / M.3 master control. Adds, ends or moves a player's place in a team. Delegates to the canonical archive/move functions and calls internal.assert_player_team_pathway_compatible on an add, so the governing-body age-grade and pathway rules are not bypassed by platform authority."
       },
       {
         "signature": "site_transition_club_membership(uuid, text, text)",
@@ -8529,9 +8593,9 @@
     "anon_write_policies": "none may admit anonymous callers without an authority helper"
   },
   "known_legacy_bypasses": [
-    "internal.is_site_admin() in RLS and definer functions (Phase 1: 140 policies) \u2014 retire in Slice 7 with explicit site capabilities.",
-    "admin_club_overview row gate uses internal.is_site_admin() \u2014 replace with site.clubs.view in Slice 7.",
-    "authenticated reads every club_directory column (notes, official_email) because Site Admin pages select * as authenticated \u2014 column-restrict when Site Admin reads move to site-capability RPCs (Slice 7).",
+    "internal.is_site_admin() in RLS and definer functions (Phase 1: 140 policies) — retire in Slice 7 with explicit site capabilities.",
+    "admin_club_overview row gate uses internal.is_site_admin() — replace with site.clubs.view in Slice 7.",
+    "authenticated reads every club_directory column (notes, official_email) because Site Admin pages select * as authenticated — column-restrict when Site Admin reads move to site-capability RPCs (Slice 7).",
     "Identity/Auth Slice 3 removed the Site Admin club/team bypass from internal.has_capability; Site Admin authority is site capabilities (K rule 7). Remaining is_site_admin() RLS/function references retire in Slice 7."
   ],
   "append_only_history": {

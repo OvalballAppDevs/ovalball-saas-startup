@@ -66,34 +66,69 @@ export async function getPersonalDetails(userId: string): Promise<PersonalDetail
  */
 
 /**
- * Account-level suspend/reactivate -- genuinely blocks protected actions,
- * not a shadow flag: internal.is_account_active() is composed into
- * is_site_admin/is_club_admin/can_manage_team/can_manage_club_fixtures
- * (20260831230000), the four functions nearly every meaningful RLS write
- * policy in this project already funnels through. No service-role key is
- * available to this app, so this never touches auth.users/login itself --
- * a suspended user can still authenticate, but every protected action they
- * try will fail exactly as if they had no membership at all. A Site Admin
- * cannot suspend their own account (the same self-lockout guard as
- * revokeSiteAdmin).
+ * Account-level suspend/reinstate -- genuinely blocks protected actions, not
+ * a shadow flag: internal.is_account_active() is composed into the resolver
+ * chain nearly every meaningful RLS write policy funnels through. No
+ * service-role key is available to this app, so this never touches
+ * auth.users or login itself -- a suspended person can still authenticate,
+ * but every protected action fails exactly as if they had no membership.
  *
- * The change goes through set_account_status(), which repeats the profile
- * and self-change checks in the database: account_status is not writable by
- * any browser role, so a suspended user cannot reactivate themselves.
+ * SLICE 7: this used to call set_account_status(), which decided authority
+ * by comparing site_admins.admin_role against the strings 'full' and
+ * 'user_access'. That is the presentation role -- the word the Site Admins
+ * screen displays -- and reading it skipped capability_decision entirely,
+ * and with it the recent-authenticator requirement, the session liveness
+ * check and any per-person capability override. It also took no reason and
+ * emitted no security event of its own, so an account could be suspended
+ * with nothing on the record saying why.
+ *
+ * It now calls public.site_set_account_state, which carries the Q.3 master
+ * control preamble: the named capability, a recent authenticator code, a
+ * reason of at least ten characters, and a refusal to act on your own
+ * account. The reason is not decoration -- it is what the audit line says
+ * to whoever reads it months later, which is why the form below requires
+ * it rather than defaulting it.
+ *
+ * The capability asked for depends on the state, deliberately: DISABLED
+ * needs site.users.disable (SITE_FULL only) while SUSPENDED needs
+ * site.users.security.manage (SITE_FULL and SITE_SUPPORT). Switching an
+ * account off permanently is a larger act than suspending it.
  */
-export async function suspendUser(targetUserId: string): Promise<ActionResult> {
+const MIN_REASON = 10
+
+async function setAccountState(
+  targetUserId: string,
+  state: "ACTIVE" | "SUSPENDED" | "DISABLED",
+  reason: string,
+): Promise<ActionResult> {
   const supabase = await createClient()
-  const auth = await requireSiteAdmin(supabase, ['full', 'user_access'])
+  const auth = await requireSiteAdmin(supabase, ["full", "user_access"])
   if (!auth.ok) return { ok: false, error: auth.error }
 
+  // Checked here so the person gets a useful message instead of a database
+  // error, and checked again in site_set_account_state because this one is
+  // only a courtesy -- the boundary is the RPC.
   if (auth.user.id === targetUserId) {
-    return { ok: false, error: "You cannot suspend your own account." }
+    return { ok: false, error: "You cannot change your own account's status." }
+  }
+  if (reason.trim().length < MIN_REASON) {
+    return { ok: false, error: `Give a fuller reason — at least ${MIN_REASON} characters, so the record makes sense later.` }
   }
 
-  const { error } = await supabase.rpc("set_account_status", { p_user_id: targetUserId, p_status: "suspended" })
+  const { error } = await supabase.rpc("site_set_account_state", {
+    p_user_id: targetUserId,
+    p_state: state,
+    p_reason: reason.trim(),
+  })
 
   if (error) {
-    console.error("suspendUser failed:", error)
+    console.error("setAccountState failed:", error)
+    // 42501 is the preamble refusing: the capability, the authenticator code
+    // or the self-target. Its message is written for the person reading it
+    // and carries nothing sensitive, so it is surfaced rather than swallowed.
+    if (error.code === "42501" || error.code === "22023") {
+      return { ok: false, error: error.message }
+    }
     return { ok: false, error: toPublicSubmissionError() }
   }
   revalidatePath(`/admin/users/${targetUserId}`)
@@ -101,24 +136,16 @@ export async function suspendUser(targetUserId: string): Promise<ActionResult> {
   return { ok: true }
 }
 
-export async function reactivateUser(targetUserId: string): Promise<ActionResult> {
-  const supabase = await createClient()
-  const auth = await requireSiteAdmin(supabase, ['full', 'user_access'])
-  if (!auth.ok) return { ok: false, error: auth.error }
+export async function suspendUser(targetUserId: string, reason: string): Promise<ActionResult> {
+  return setAccountState(targetUserId, "SUSPENDED", reason)
+}
 
-  if (auth.user.id === targetUserId) {
-    return { ok: false, error: "You cannot change the status of your own account." }
-  }
+export async function reactivateUser(targetUserId: string, reason: string): Promise<ActionResult> {
+  return setAccountState(targetUserId, "ACTIVE", reason)
+}
 
-  const { error } = await supabase.rpc("set_account_status", { p_user_id: targetUserId, p_status: "active" })
-
-  if (error) {
-    console.error("reactivateUser failed:", error)
-    return { ok: false, error: toPublicSubmissionError() }
-  }
-  revalidatePath(`/admin/users/${targetUserId}`)
-  revalidatePath("/admin/users")
-  return { ok: true }
+export async function disableUser(targetUserId: string, reason: string): Promise<ActionResult> {
+  return setAccountState(targetUserId, "DISABLED", reason)
 }
 
 export async function revokeSiteAdmin(targetUserId: string): Promise<ActionResult> {

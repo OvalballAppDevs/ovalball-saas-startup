@@ -439,9 +439,9 @@ begin
   end if;
 
   -- Slice 4f -----------------------------------------------------------------------------------------------
-  -- internal.may_send_as is excluded here and asserted separately below. It is the one 4f function
-  -- with a legacy call left in it, and the exclusion is what keeps that fact visible rather than
-  -- quietly widening v_legacy_4f for everybody.
+  -- internal.may_send_as is still excluded here and asserted separately below. It no longer has a
+  -- legacy call in it -- Slice 7 closed that -- but the separate assertion is what records WHY it
+  -- once did and pins it shut, so the exclusion stays rather than silently folding back in.
   select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
   from pg_proc f join pg_namespace n on n.oid = f.pronamespace
   where (n.nspname || '.' || f.proname) = any (v_4f_functions)
@@ -453,18 +453,25 @@ begin
     raise notice 'FAIL HR3 4f functions still call a legacy helper: %', array_to_string(v_bad, ', ');
   end if;
 
-  -- THE SINGLE PERMITTED RESIDUE, pinned so it cannot grow. "May you speak as Ovalball itself" has
-  -- no row in J.10 and no key in the catalogue, and AA.3 puts site-side is_site_admin removal in
-  -- Slice 7; that one branch therefore waits. The other two site branches DO have a recorded site
-  -- master (site.support.act_in_club, J.10 lines 514-515) and were canonicalised in 4f. Asserting
-  -- the count is exactly one is what stops either of them quietly reverting to the role string.
+  -- THE SINGLE PERMITTED RESIDUE IS NOW CLOSED, and this assertion is inverted rather than deleted.
+  --
+  -- Slice 4f left exactly one is_full_site_admin() branch here -- "may you speak as Ovalball itself"
+  -- -- and pinned the count at one, recording that it had no key in the catalogue and that AA.3 put
+  -- site-side removal in Slice 7. This is Slice 7. The branch now asks site.email.manage, which is
+  -- held by SITE_FULL and nobody else, so precisely the same people may speak as the platform; what
+  -- changes is that the question goes through capability_decision, which also asks whether the
+  -- session is live and recent and whether an override applies. A string comparison against
+  -- site_admins.admin_role asked none of that.
+  --
+  -- The pin is kept, pointing the other way: the count must now be ZERO, so the residue cannot come
+  -- back, and the site master must still be named.
   select coalesce(array_agg(x order by x), '{}') into v_bad
   from (
     select case
-             when (select count(*) from regexp_matches(f.prosrc, '\mis_full_site_admin\(', 'g')) <> 1
+             when (select count(*) from regexp_matches(f.prosrc, '\mis_full_site_admin\(', 'g')) <> 0
                then 'is_full_site_admin appears ' ||
                     (select count(*) from regexp_matches(f.prosrc, '\mis_full_site_admin\(', 'g'))::text ||
-                    ' times, expected exactly 1 (the platform branch)'
+                    ' times; Slice 7 retired it, so the platform branch must ask site.email.manage'
            end as x
     from pg_proc f join pg_namespace n on n.oid = f.pronamespace
     where n.nspname = 'internal' and f.proname = 'may_send_as'
@@ -482,10 +489,17 @@ begin
            end
     from pg_proc f join pg_namespace n on n.oid = f.pronamespace
     where n.nspname = 'internal' and f.proname = 'may_send_as'
+    union all
+    select case
+             when f.prosrc !~ 'site\.email\.manage'
+               then 'the platform sender branch no longer asks site.email.manage'
+           end
+    from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+    where n.nspname = 'internal' and f.proname = 'may_send_as'
   ) q
   where x is not null;
   if cardinality(v_bad) = 0 then
-    raise notice 'PASS HR3 4f may_send_as: exactly one permitted is_full_site_admin branch (platform), the rest canonical';
+    raise notice 'PASS HR3 4f may_send_as: the last permitted residue is gone -- the platform branch asks site.email.manage';
   else
     raise notice 'FAIL HR3 4f may_send_as: %', array_to_string(v_bad, '; ');
   end if;
@@ -809,6 +823,7 @@ declare
   v_pg15_ceiling constant int := 0;
   v_pg16_ceiling constant int := 0;
   v int;
+  v_names text;
 begin
   select count(*) into v from pg_policies p
   where p.schemaname in ('public', 'storage')
@@ -825,6 +840,59 @@ begin
     raise notice 'PASS PG16 % SECURITY DEFINER bodies call is_site_admin() (must be %)', v, v_pg16_ceiling;
   else
     raise notice 'FAIL PG16 % SECURITY DEFINER bodies call is_site_admin() (ceiling %)', v, v_pg16_ceiling;
+  end if;
+
+  -- PG-15+ / PG-16+ -----------------------------------------------------------------------------
+  --
+  -- PG-15 and PG-16 as the design writes them name three functions. Reaching zero on both was true,
+  -- and was not the same as "no policy or function decides authority from the Site Admin label".
+  -- Slice 7 found thirty function bodies and three RLS policies that did, through
+  -- internal.is_full_site_admin() (which PG-16 does not name) and internal.site_admin_support_level()
+  -- (which neither names, because it renames the label into the words 'manage' and 'view' first).
+  --
+  -- So the invariant is widened to the property people actually read PG-15/16 as asserting: nothing
+  -- that grants or refuses reads site_admins.admin_role by ANY route. The named exceptions are the
+  -- adapters that legitimately handle the column AS DATA -- the trigger that keeps it in step with
+  -- profile_key, the two translation functions either side of it, and the three invitation paths that
+  -- write it when an administrator is appointed. None of them decides whether somebody may act.
+  select count(*) into v from pg_policies p
+  where p.schemaname in ('public', 'storage')
+    and (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, ''))
+        ~ '\m(is_site_admin|is_full_site_admin|is_club_admin|site_admin_role|site_admin_support_level)\s*\(';
+  if v = 0 then
+    raise notice 'PASS PG15+ no RLS policy decides authority from the Site Admin presentation role, by any route';
+  else
+    raise notice 'FAIL PG15+ % policies still read the Site Admin presentation role', v;
+  end if;
+
+  select coalesce(string_agg(n.nspname || '.' || f.proname, ', ' order by f.proname), '') into v_names
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where n.nspname in ('public', 'internal')
+    and f.prosrc ~ '\m(is_site_admin|is_full_site_admin|site_admin_support_level)\s*\('
+    and f.proname not in ('is_site_admin', 'is_full_site_admin', 'site_admin_support_level');
+  if v_names = '' then
+    raise notice 'PASS PG16+ no function body calls a Site Admin label helper';
+  else
+    raise notice 'FAIL PG16+ these bodies still call a Site Admin label helper: %', v_names;
+  end if;
+
+  select coalesce(string_agg(n.nspname || '.' || f.proname, ', ' order by f.proname), '') into v_names
+  from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+  where n.nspname in ('public', 'internal')
+    and f.prosrc ~ 'site_admin_role\s*\('
+    and f.proname not in (
+      -- The declared adapters: the label as DATA, never as authority.
+      'site_admin_role',                      -- the accessor itself
+      'site_admin_profile_sync',              -- trigger: keeps admin_role and profile_key in step
+      'site_profile_for_admin_role',          -- label -> profile
+      'admin_role_for_site_profile',          -- profile -> label
+      'accept_site_admin_invitation',         -- writes the label when an administrator is appointed
+      'get_site_admin_invitation_preview',    -- shows the label on an invitation
+      'redeem_invitation');                   -- writes the label on redemption
+  if v_names = '' then
+    raise notice 'PASS PG16+ the presentation role is read only by its declared adapters';
+  else
+    raise notice 'FAIL PG16+ these read site_admins.admin_role outside the declared adapters: %', v_names;
   end if;
 end $$;
 

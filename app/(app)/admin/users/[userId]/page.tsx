@@ -91,7 +91,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
               value={
                 person.accountStatus === "suspended"
                   ? "Suspended"
-                  : person.isSiteAdmin
+                  : person.accountStatus === "disabled"
+                    ? "Disabled"
+                    : person.isSiteAdmin
                     ? "Site Admin"
                     : person.hasActiveMembership
                       ? "Active member"

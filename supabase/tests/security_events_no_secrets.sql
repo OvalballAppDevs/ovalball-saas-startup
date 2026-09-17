@@ -86,19 +86,19 @@ begin
   insert into public.site_admins (user_id, status, admin_role) values (v_admin, 'active', 'full'), (v_ua_admin, 'active', 'user_access');
 
   perform pg_temp.act('authenticated', v_admin);
-  perform public.set_account_status(v_target, 'suspended');
+  perform public.site_set_account_state(v_target, 'SUSPENDED', 'suspending pending a safeguarding review');
   perform pg_temp.act_postgres();
   select * into v_row from public.security_events where subject_user_id = v_target and event_type = 'account.suspended';
   if pg_temp.events(v_target, 'account.suspended') = 1 and v_row.actor_user_id = v_admin and v_row.effective_person_id = v_admin
      and v_row.impersonation_session_id is null
      and v_row.metadata = '{"from_state":"ACTIVE","to_state":"SUSPENDED"}'::jsonb and v_row.occurred_at = now() then
-    raise notice 'PASS S3: set_account_status records account.suspended with the Site Admin as actor, the person as subject, in the same transaction';
+    raise notice 'PASS S3: site_set_account_state records ONE account.suspended, written by the profiles trigger, with the Site Admin as actor and the person as subject, in the same transaction';
   else
     raise notice 'FAIL S3: suspended events %, actor %, metadata %', pg_temp.events(v_target, 'account.suspended'), v_row.actor_user_id, v_row.metadata;
   end if;
 
   perform pg_temp.act('authenticated', v_admin);
-  perform public.set_account_status(v_target, 'active');
+  perform public.site_set_account_state(v_target, 'ACTIVE', 'the review closed with no action needed');
   perform pg_temp.act_postgres();
   if pg_temp.events(v_target, 'account.restored') = 1
      and (select actor_user_id from public.security_events where subject_user_id = v_target and event_type = 'account.restored') = v_admin then
@@ -127,7 +127,7 @@ begin
   v_before := (select count(*) from public.security_events where subject_user_id = v_target);
   begin
     perform pg_temp.act('authenticated', v_admin);
-    perform public.set_account_status(v_target, 'suspended');
+    perform public.site_set_account_state(v_target, 'SUSPENDED', 'suspending pending a safeguarding review');
     perform pg_temp.act_postgres();
     raise exception 'roll this back' using errcode = 'P0001';
   exception when others then
@@ -136,7 +136,7 @@ begin
   v_err := null;
   begin
     perform pg_temp.act('authenticated', v_bystander);
-    perform public.set_account_status(v_target, 'suspended');
+    perform public.site_set_account_state(v_target, 'SUSPENDED', 'suspending pending a safeguarding review');
     perform pg_temp.act_postgres();
   exception when others then
     get stacked diagnostics v_err = returned_sqlstate;
@@ -395,7 +395,11 @@ begin
                                              -- the target of the operation, and the reason is required
                                              -- to be at least ten characters by the shared preamble.
                                              'site_add_club_membership', 'site_transition_club_membership',
-                                             'site_assign_club_role', 'site_revoke_role_assignment'))
+                                             'site_assign_club_role', 'site_revoke_role_assignment',
+                                             'site_assign_team_role', 'site_set_player_team_membership',
+                                             'site_link_guardian', 'site_end_guardian_relationship',
+                                             'site_set_account_state', 'site_revoke_sessions',
+                                             'site_force_password_reset'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

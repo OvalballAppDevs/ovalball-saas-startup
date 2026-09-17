@@ -13,6 +13,7 @@ begin;
 
 do $$
 declare
+  v_admin_manages boolean; v_moderator_sees boolean;
   v_admin     uuid := gen_random_uuid();   -- Full Site Admin (support: manage)
   v_moderator uuid := gen_random_uuid();   -- message_moderator (support: none)
   v_requester uuid := gen_random_uuid();   -- Club Admin who raises the ticket
@@ -170,13 +171,28 @@ begin
     raise notice 'FAIL 10 (D/G): Site Admin could not see the case';
   end if;
 
-  -- support level is the canonical gate, not "is a Site Admin"
-  if internal.site_admin_support_level(v_admin) = 'manage'
-     and internal.site_admin_support_level(v_moderator) = 'none' then
-    raise notice 'PASS 11: support visibility uses the canonical support level, not context = site_admin';
+  -- The named capability is the canonical gate, not "is a Site Admin" and no longer a support LEVEL
+  -- either. internal.site_admin_support_level translated site_admins.admin_role into the words
+  -- 'manage' / 'view' / 'none', and Slice 7 removed it: a helper that turns a presentation label into
+  -- an authority word is the hazard, not the word. Its three outcomes already had capabilities that
+  -- said the same thing exactly -- 'manage' is site.support.manage (SITE_FULL, SITE_SUPPORT) and
+  -- 'view' is site.support.view (those two plus SITE_RO) -- so the same people see the same cases.
+  --
+  -- has_site_capability reads auth.uid(), so each person is asked in their own session rather than
+  -- passed in as an argument. That is the point: authority is a property of who is asking.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  v_admin_manages := internal.has_site_capability('site.support.manage');
+  perform set_config('request.jwt.claims', json_build_object('sub', v_moderator, 'role', 'authenticated')::text, true);
+  v_moderator_sees := internal.has_site_capability('site.support.view');
+  -- Put the Site Admin's session back, not a blank one: everything after this point in the suite
+  -- continues to act as v_admin, and clearing the claims here made send_support_reply below refuse a
+  -- caller the test had already established was authorised.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+
+  if v_admin_manages and not v_moderator_sees then
+    raise notice 'PASS 11: support visibility uses the named capability, not context = site_admin';
   else
-    raise notice 'FAIL 11: admin=%, moderator=%',
-      internal.site_admin_support_level(v_admin), internal.site_admin_support_level(v_moderator);
+    raise notice 'FAIL 11: admin manages=%, moderator sees=%', v_admin_manages, v_moderator_sees;
   end if;
 
   -- ============ I/O/P. Site Admin reply, actor preserved ============

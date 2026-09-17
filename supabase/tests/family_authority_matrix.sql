@@ -671,10 +671,22 @@ begin
   v_new := pg_temp.allowed_for('internal.can(''family.relationship.remove'', ''club'', ' || v_club || ', null, null)');
   perform pg_temp.check(pg_temp.shadow(v_legacy, v_new) = '', 'FA13e removing a relationship at the club: no change -- ' || pg_temp.shadow(v_legacy, v_new));
 
-  -- S6 recording a child's gender
-  v_legacy := pg_temp.allowed_for('internal.may_complete_player_profile(' || v_c1 || ')');
+  -- S6 recording a child's gender.
+  --
+  -- This was a shadow comparison against internal.may_complete_player_profile, and it can no longer
+  -- be one: Slice 7 DROPPED that helper, which is what CLAUDE.md has said would happen to it since it
+  -- lost its last caller ("retires with the Slice 7 site-admin pass; do not build on it"). A shadow
+  -- test compares a legacy answer with a canonical one to prove the migration changed nobody's
+  -- authority; once the legacy side is deleted the comparison is between the canonical answer and an
+  -- exception, which would either fail forever or, if somebody "fixed" it by widening the expected
+  -- shadow, quietly stop checking anything.
+  --
+  -- So it becomes what the shadow was evidence FOR: a direct statement of who may record a child's
+  -- gender. Guardians and the adult player themselves, through the family resolver; a Full Site Admin
+  -- through the site master capability. Club and team staff may ask and may not answer.
   v_new := pg_temp.allowed_for('internal.can_player_as_family(''player.profile.edit_protected'', ' || v_c1 || ') or internal.has_site_capability(''site.users.identity.correct'')');
-  perform pg_temp.check(pg_temp.shadow(v_legacy, v_new) = '', 'FA13f recording a child''s gender: no change -- ' || pg_temp.shadow(v_legacy, v_new));
+  perform pg_temp.check(v_new = 'PG,PG_AAL1,SITE',
+    'FA13f recording a child''s gender: the guardians and the site master, and nobody else -- got ' || coalesce(nullif(v_new,''),'(nobody)'));
 
   -- S7 a child's picture
   v_legacy := pg_temp.allowed_for('internal.is_active_player_guardian(' || v_c1 || ') or internal.has_capability(''club.guardians.manage'', ''club'', ' || v_club || ', null)');

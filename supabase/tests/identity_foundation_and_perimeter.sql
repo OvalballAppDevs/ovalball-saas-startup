@@ -241,14 +241,14 @@ begin
   insert into public.profiles (id, first_name, surname) values (v_admin, 'Slice', 'Admin');
   insert into public.site_admins (user_id, status, admin_role) values (v_admin, 'active', 'full');
   perform pg_temp.act('authenticated', v_admin);
-  perform public.set_account_status(v_social, 'active');
+  perform public.site_set_account_state(v_social, 'ACTIVE', 'reinstating after the account was confirmed');
   perform pg_temp.act_postgres();
   if (select account_state from public.profiles where id = v_social) = 'ACTIVE'
      and (select account_status from public.profiles where id = v_social) = 'active'
      and (select state_changed_by from public.profiles where id = v_social) = v_admin then
     raise notice 'PASS B8: Site Admin account administration owns account_state and records who changed it';
   else
-    raise notice 'FAIL B8: set_account_status did not own the state change';
+    raise notice 'FAIL B8: site_set_account_state did not own the state change';
   end if;
 
   -- =================================================================
@@ -373,7 +373,7 @@ begin
   -- =================================================================
   -- E. Function execute perimeter
   -- =================================================================
-  select not has_function_privilege('anon', 'public.set_account_status(uuid, text)', 'EXECUTE')
+  select not has_function_privilege('anon', 'public.site_set_account_state(uuid, text, text)', 'EXECUTE')
      and not has_function_privilege('anon', 'public.accept_invitation(text)', 'EXECUTE')
      and not has_function_privilege('anon', 'public.approve_guardian_link_request(uuid)', 'EXECUTE')
      and not has_function_privilege('anon', 'public.get_club_member_directory(uuid)', 'EXECUTE')
