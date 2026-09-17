@@ -165,7 +165,11 @@ where schemaname = 'storage' and tablename = 'objects'
   and cmd in ('INSERT', 'UPDATE', 'DELETE')
   -- coalesce BOTH: an INSERT policy has no USING clause, so `qual` is null
   -- and a bare concatenation yields null rather than the WITH CHECK text.
-  and coalesce(qual, '') || coalesce(with_check, '') like '%is_full_site_admin%';
+  -- Slice 7 (7d) took the Site Admin LABEL out of every policy. The bucket is still Full-Site-Admin
+  -- only, but it now says so by naming the capability: site.email.manage is held by SITE_FULL alone.
+  -- Asking for the old helper here would be asking whether the label survived, which is the opposite
+  -- of what this assertion cares about.
+  and coalesce(qual, '') || coalesce(with_check, '') like '%site.email.manage%';
 
 if v_count = 3 then
   raise notice 'PASS 12 (F): insert, update and delete on the bucket all require a Full Site Admin';

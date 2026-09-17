@@ -6888,6 +6888,14 @@
         ]
       },
       {
+        "signature": "site_add_club_membership(uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3 master control. Puts somebody into a club with no invitation and no pre-existing relationship -- which is the point of master control, and why it is audited. Requires site.memberships.manage at SITE scope, a recent authenticator code, a reason of at least ten characters, and refuses a self-target. Delegates to internal.admit_club_member, so every canonical rule still applies."
+      },
+      {
         "signature": "site_admin_dashboard_commercial()",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6923,9 +6931,33 @@
         ]
       },
       {
+        "signature": "site_assign_club_role(uuid, uuid, text, text, jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3. Gives a club role, creating the membership if there is none. Delegates to internal.grant_role, so the minor prohibition, the D-S5-1 age gate and the Safeguarding Officer PENDING_CONFIRMATION rule all still apply to a Site Admin."
+      },
+      {
+        "signature": "site_revoke_role_assignment(uuid, text, boolean)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3. Revokes a role through the canonical transition, which carries the last-Club-Admin guard; the override is explicit and recorded."
+      },
+      {
         "signature": "site_safeguarding_review(uuid, text)",
         "reason": "AN-9 / AI #68-69 (Slice 4G): the only route by which Ovalball reads a club safeguarding thread. site.safeguarding.review, a required reason, one event, and a review row the club's officers can see.",
         "consumer": "app/(app)/admin/safeguarding/actions.ts"
+      },
+      {
+        "signature": "site_transition_club_membership(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/actions.ts"
+        ],
+        "reason": "Phase 2 Q.3. Moves a membership to ACTIVE, SUSPENDED or REVOKED through the canonical transition, which marks a Site Admin suspension as SITE level so a club cannot lift it afterwards."
       },
       {
         "signature": "soft_delete_own_message(uuid)",
@@ -7580,6 +7612,9 @@
       "is_message_blocked(uuid, uuid)",
       "is_own_linked_player(uuid)",
       "is_site_admin()",
+      "master_control_club(uuid, boolean)",
+      "master_control_preamble(text, text, uuid)",
+      "master_control_target(uuid)",
       "may_address_player(uuid)",
       "may_ask_club_allocation(uuid)",
       "may_complete_player_profile(uuid)",
@@ -7624,6 +7659,7 @@
       "regulatory_season_of(date, text)",
       "request_player_dispensation_core(uuid, uuid, uuid, uuid, text, uuid)",
       "require_edition_organiser(uuid)",
+      "require_recent_aal2(interval)",
       "resolve_age_grade_rule_bundle(text, uuid, date, uuid)",
       "resolve_attendance_response_source(uuid)",
       "resolve_audience(text, uuid, jsonb, boolean, text, text)",

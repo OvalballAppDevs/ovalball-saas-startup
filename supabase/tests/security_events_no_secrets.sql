@@ -270,14 +270,48 @@ begin
   perform pg_temp.act('authenticated', v_bystander);
   select count(*) into v_count from public.security_events where subject_user_id = v_target;
   perform pg_temp.act_postgres();
+  -- The User Support profile DOES read security events, and is meant to: Phase 2 R puts
+  -- site.security_events.view in that bundle by name, because investigating "somebody says they were
+  -- locked out" is what User Support is for.
+  --
+  -- This assertion used to require that they saw none, which matched the old policy
+  -- (is_full_site_admin) rather than the designed profile model. Slice 7 (7d) replaced the LABEL with
+  -- the CAPABILITY, so the boundary is now the one the design describes. What still has to be true --
+  -- and is asserted below -- is that a Site Admin WITHOUT that capability sees nothing.
   perform pg_temp.act('authenticated', v_ua_admin);
   select count(*) into v_before from public.security_events where subject_user_id = v_target;
   perform pg_temp.act_postgres();
-  if v_count = 0 and v_before = 0 then
-    raise notice 'PASS V2: another member, and a Site Admin without Full authority, cannot read someone else''s security events';
+  if v_count = 0 and v_before > 0 then
+    raise notice 'PASS V2: an unrelated member sees none, while User Support sees them through site.security_events.view';
   else
-    raise notice 'FAIL V2: bystander saw %, User Access admin saw %', v_count, v_before;
+    raise notice 'FAIL V2: bystander saw %, User Support saw % (expected 0 and more than 0)', v_count, v_before;
   end if;
+
+  -- POSITIVE CONTROL for the narrowing 7d actually performs: a Site Admin profile WITHOUT
+  -- site.security_events.view reads nothing, where the old is_site_admin() policy would have shown
+  -- them everything.
+  declare v_ro uuid := gen_random_uuid(); v_ro_saw int;
+  begin
+    insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+      created_at, updated_at, raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token,
+      email_change_token_new, email_change, email_change_token_current, phone_change, phone_change_token,
+      reauthentication_token)
+    values (v_ro,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+            'sec-ro-'||substr(v_ro::text,1,8)||'@ovalball.test','',now(),now(),now(),'{}','{}','','','','','','','','');
+    insert into public.profiles (id, first_name, surname, account_state)
+    values (v_ro, 'Read', 'Only', 'ACTIVE');
+    insert into public.site_admins (user_id, status, admin_role, profile_key)
+    values (v_ro, 'active', 'read_only', 'SITE_RO');
+
+    perform pg_temp.act('authenticated', v_ro);
+    select count(*) into v_ro_saw from public.security_events where subject_user_id = v_target;
+    perform pg_temp.act_postgres();
+    if v_ro_saw = 0 then
+      raise notice 'PASS V2b: a Read Only Site Admin sees none -- the label no longer carries the authority';
+    else
+      raise notice 'FAIL V2b: a Read Only Site Admin saw % security events', v_ro_saw;
+    end if;
+  end;
 
   perform pg_temp.act('authenticated', v_admin);
   select count(*) into v_count from public.security_events where subject_user_id = v_target;
@@ -352,7 +386,16 @@ begin
                                              -- Slice 4H: the section S export gate. The kind and the row
                                              -- count come from the caller; the event type, the actor and
                                              -- the subject do not.
-                                             'record_club_export'))
+                                             'record_club_export',
+                                             -- Slice 7 (7a): master control. These deliberately write
+                                             -- lower-scope canonical records, so each one leaves a mark
+                                             -- naming who did it, to whom and why. The caller chooses
+                                             -- none of that: the event type is a literal in the body,
+                                             -- the actor is auth.uid() (set by trigger), the subject is
+                                             -- the target of the operation, and the reason is required
+                                             -- to be at least ten characters by the shared preamble.
+                                             'site_add_club_membership', 'site_transition_club_membership',
+                                             'site_assign_club_role', 'site_revoke_role_assignment'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then
