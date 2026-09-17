@@ -218,13 +218,17 @@ begin
             and (has_table_privilege('anon', c.oid, 'TRUNCATE') or has_table_privilege('authenticated', c.oid, 'TRUNCATE'))) = 0
      and (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname in ('public','internal') and has_function_privilege('anon', p.oid, 'EXECUTE')
-            and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) = 17 then
+            and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) = 18 then
+    -- 17 became 18 in Identity/Auth Slice 5: public.preview_invitation is anon-executable by design
+    -- (O.1 Previews), because the person holding an invitation link has no account yet. It answers
+    -- with nothing at all for a token it does not recognise, so it is not an enumeration oracle.
+    --
     -- 15 became 17 in Identity/Auth Slice 4H, deliberately. internal.club_ids_with and
     -- internal.has_site_capability are now evaluated by policies a signed-out visitor reaches
     -- TRANSITIVELY -- club_articles_public_read joins to clubs, which evaluates clubs_select. Both
     -- resolve through the canonical decision and answer no without a session, so anon can call them
     -- and learns nothing; club_admin_authority_matrix CH-P4 and CH-P4b assert that emptiness.
-    raise notice 'PASS T2: admin_club_overview, competition and club directory private columns stay closed, no browser TRUNCATE, 17 anon functions';
+    raise notice 'PASS T2: admin_club_overview, competition and club directory private columns stay closed, no browser TRUNCATE, 18 anon functions';
   else
     raise notice 'FAIL T2: a Slice 1 closure regressed';
   end if;

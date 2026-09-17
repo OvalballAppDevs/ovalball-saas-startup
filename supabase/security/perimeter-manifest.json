@@ -3322,6 +3322,46 @@
         "select": "all",
         "select_reason": "Identity/Auth Slice 4G (AN-9, AI #68/#69). One row each time Ovalball opens a club safeguarding thread through public.site_safeguarding_review, carrying the reason. RLS: the reviewer, the club's CONFIRMED ACTIVE Safeguarding Officers, and holders of site.safeguarding.review. Deliberately NOT the Club Admin -- a review may concern them. No browser write: the RPC is the only writer."
       }
+    },
+    "access_invitations": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Slice 5. Rows gated by access_invitations_select_scoped to whoever holds the issuing capability at that scope. No client writes: issue, redeem, revoke and resend are definer RPCs. Administrators read invitations_admin_view, which cannot select token_sha256 or code_hmac."
+      }
+    },
+    "invitation_redemption_attempts": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Slice 5. Definer-only. It exists to rate limit guessing; exposing it would tell an attacker how close they are and would leak hashed IPs."
+      }
+    },
+    "invitation_redemptions": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Slice 5. Definer-only. Who redeemed what is reported back through redeem_invitation, not read from the table."
+      }
+    },
+    "auth_flow_states": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Slice 5, Y.19. Server-side flow context keyed by the hash of an opaque httpOnly cookie. The browser holds only the key, never the payload (the H-7 lesson)."
+      }
     }
   },
   "views": {
@@ -3572,6 +3612,17 @@
         "select": "all"
       },
       "reason": "Team result statistics for signed-in surfaces."
+    },
+    "invitations_admin_view": {
+      "classification": "ADMIN_PROJECTION",
+      "security_invoker": true,
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all"
+      },
+      "reason": "Slice 5. Invitations as an administrator sees them, with token_sha256 and code_hmac absent by construction so no query can leak a secret by accident. Rows follow the underlying table's RLS."
     }
   },
   "functions": {
@@ -3626,6 +3677,11 @@
         "signature": "platform_public_state()",
         "reason": "Public platform mode and release banner on public pages.",
         "consumer": "lib/platform/mode.ts"
+      },
+      {
+        "signature": "preview_invitation(text, text)",
+        "reason": "Phase 2 O.1 Previews. Somebody holding an invitation link has no account yet, so the preview must answer without a session. It returns only the kind, the club or team name, the inviter's name, the expiry and the state -- never the invited email, a child's name or any id.",
+        "consumer": "app/join"
       },
       {
         "signature": "submit_public_support_ticket(text, text, text, text, text, text)",
@@ -5138,6 +5194,13 @@
         ]
       },
       {
+        "signature": "issue_invitation(text, uuid, uuid, uuid, uuid, uuid, text, jsonb, integer)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/people/actions.ts"
+        ]
+      },
+      {
         "signature": "leave_fixture_conversation(uuid, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5606,6 +5669,13 @@
         ]
       },
       {
+        "signature": "redeem_invitation(text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/join/actions.ts"
+        ]
+      },
+      {
         "signature": "referral_data_health()",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5838,6 +5908,13 @@
         ]
       },
       {
+        "signature": "resend_invitation(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/people/actions.ts"
+        ]
+      },
+      {
         "signature": "resend_safeguarding_officer_invitation(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6039,6 +6116,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/partner-clubs/actions.ts"
+        ]
+      },
+      {
+        "signature": "revoke_invitation(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/people/actions.ts"
         ]
       },
       {

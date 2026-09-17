@@ -236,6 +236,9 @@ insert into isolation_domain values
   ('age_grade_rollover_player_proposals', '4i'), ('player_graduation_queue', '4i'), ('season_transitions', '4i'),
   -- people, roles and capabilities (isolated by Slices 2-3; People & Access is Slice 8)
   ('club_memberships', 'people'), ('role_assignments', 'people'), ('capability_overrides', 'people'),
+  -- Slice 5: the canonical invitation replacing the six legacy tables above it. Classified to the
+  -- same 'people' domain as the legacy invitations it supersedes, so the isolation sweep covers it.
+  ('access_invitations', 'people'),
   ('access_review_items', 'people'), ('club_join_requests', 'people'), ('invitations', 'people'), ('invitation_teams', 'people'),
   -- platform, public and Ovalball support (Slice 7 / public read)
   ('security_events', 'platform'), ('site_admin_diagnostic_sessions', 'platform'), ('support_tickets', 'platform'),

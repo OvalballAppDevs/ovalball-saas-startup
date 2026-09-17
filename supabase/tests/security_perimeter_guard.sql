@@ -29,6 +29,11 @@ begin;
 do $$
 declare
   v_allowed text[] := array[
+    -- Slice 5, Phase 2 O.1 Previews. Somebody holding an invitation link has no account yet, so
+    -- the preview must answer without a session. It returns the kind, the club or team name, the
+    -- inviter's name, the expiry and the state -- never the invited email, a child's name or an
+    -- id, and an unknown token previews nothing rather than saying so.
+    'preview_invitation(text, text)',
     'active_email_logo_path()',
     'current_platform_mode()',
     'get_guardian_invitation_preview(text)',

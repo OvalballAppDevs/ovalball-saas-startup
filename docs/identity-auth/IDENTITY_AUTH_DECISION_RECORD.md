@@ -138,4 +138,57 @@ retroactively strip authority.
 
 ### Status
 
-**Resolved and being implemented in Slice 5.** RA7 remains the tripwire.
+**Implemented in Slice 5 stage 1**, commit `819830a`. RA7 remains the tripwire.
+
+---
+
+## Autonomous decisions (delegated authority, Slices 5–10)
+
+The owner delegated ordinary implementation, architecture, migration, compatibility and security
+decisions within the approved Identity/Auth programme, to be recorded here with the decision, the
+reason, the alternatives rejected, the authority consequence and the owning slice.
+
+### D-S5-AUTO-1 — invitation events carry no secret-shaped metadata key
+
+**Decision.** `invitation.issued` no longer records `code_hint` in its event metadata.
+**Reason.** The platform's audit guard refuses any metadata key matching password/token/secret/code/otp,
+and it refused this one. The hint is two characters for administrator display, but a blanket rule
+about key *names* should not acquire exceptions — the next key called `code_something` would pass on
+the precedent.
+**Alternatives rejected.** Widening the guard's pattern (weakens a working control for a cosmetic
+gain); renaming the key to evade the pattern (defeats the control by wordplay).
+**Consequence.** None for authority. The event carries `invitation_id`, and
+`access_invitations.code_hint` is one join away, so nothing is lost and the audit trail stops
+restating a fragment of a secret.
+**Owning slice.** 5.
+
+### D-S5-AUTO-2 — a refused redemption returns, it does not raise
+
+**Decision.** `redeem_invitation` returns `{"outcome":"REFUSED", ...}` for every refusal. Only a
+missing session and missing input still raise.
+**Reason.** This was a real defect, not a style choice. The function logged every attempt into
+`invitation_redemption_attempts` and then raised — and the raise rolled the log entry back. Postgres
+has no autonomous transactions here, so the O.2 rate limits could never fire, and
+`invitation.identity_mismatch` and `invitation.issuer_authority_lost` were never written. An attacker
+could guess codes without limit and leave no trace, which is exactly what the attempt table exists to
+prevent. It is the M-5 lesson from Slice 4G in a new place.
+**Alternatives rejected.** `dblink` or `pg_background` for an autonomous transaction (adds an
+extension and a second connection to the most security-sensitive path in the slice); writing the
+attempt from a trigger (same rollback); keeping the raise and accepting no rate limiting (abandons an
+O.2 requirement).
+**Consequence.** Rate limiting and the two probe-detection events now work. Callers must treat
+`REFUSED` as failure; the refusal message stays identical for every cause, so a prober still cannot
+tell a revoked invitation from one that never existed.
+**Owning slice.** 5.
+
+### D-S5-AUTO-3 — "you have already accepted this" is answered before the terminal-state check
+
+**Decision.** The per-person idempotency answer moved ahead of the missing/revoked/expired/used check.
+**Reason.** A one-time invitation is `REDEEMED` after use, so the person who had just accepted it was
+told, generically, that it could not be used. The commonest cause of a second click is a slow page or
+a back button.
+**Alternatives rejected.** Leaving the order and having the server action infer the cause — it cannot,
+because the refusal is deliberately identical for every cause.
+**Consequence.** Safe. The lookup is keyed on `(invitation, user)`, so it tells that person only what
+they already did and a stranger has no row. Everyone else still gets the one generic sentence.
+**Owning slice.** 5.
