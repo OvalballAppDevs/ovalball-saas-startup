@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react"
 import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-admin"
 import { createClient } from "@/lib/supabase/server"
 
+import { claimMessages } from "./actions"
 import { ClaimCard } from "./claim-card"
 
 export const metadata = { title: "Club Claims" }
@@ -33,8 +34,10 @@ export default async function SiteAdminClaimsPage() {
 
   const { data: claims } = await supabase
     .from("club_claims")
-    .select("id, claimant_user_id, claimed_role, authority_declaration, created_at, club_directory(name)")
-    .eq("status", "pending")
+    .select("id, claimant_user_id, claimed_role, authority_declaration, created_at, state, club_directory(name)")
+    // The canonical state machine, not the legacy `status`. A claim waiting on the claimant is still
+    // open work -- it is in the queue with a question outstanding, not gone from it.
+    .in("state", ["SUBMITTED", "NEEDS_INFORMATION"])
     .order("created_at", { ascending: true })
 
   // No direct FK from club_claims to profiles (both reference auth.users
@@ -56,6 +59,7 @@ export default async function SiteAdminClaimsPage() {
       <h1 className="mt-2 font-display text-display-l text-ink">Club Claims</h1>
       <p className="mt-2 max-w-md text-sm text-ink-muted">
         Review who&apos;s asking to represent a club on Ovalball before they get administrative access.
+        A claimed title suggests what to grant; it decides nothing.
       </p>
 
       {!claims || claims.length === 0 ? (
@@ -65,7 +69,7 @@ export default async function SiteAdminClaimsPage() {
         </div>
       ) : (
         <div className="mt-8 flex flex-col gap-4">
-          {claims.map((c) => {
+          {await Promise.all(claims.map(async (c) => {
             const claimant = profileById.get(c.claimant_user_id)
             return (
             <ClaimCard
@@ -78,10 +82,12 @@ export default async function SiteAdminClaimsPage() {
                 claimedRole: c.claimed_role,
                 authorityDeclaration: c.authority_declaration,
                 submittedAt: c.created_at,
+                state: c.state ?? "SUBMITTED",
+                messages: await claimMessages(c.id),
               }}
             />
             )
-          })}
+          }))}
         </div>
       )}
     </div>

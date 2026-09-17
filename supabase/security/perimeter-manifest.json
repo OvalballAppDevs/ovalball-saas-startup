@@ -5958,8 +5958,10 @@
         "signature": "reply_to_claim(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/claims/actions.ts"
-        ]
+          "app/(app)/admin/claims/actions.ts",
+          "app/welcome/actions.ts"
+        ],
+        "reason": "A message on a club claim. The function decides the author's role itself -- site.claims.review makes you the reviewer, being the claimant makes you the claimant, anyone else is refused -- and moves the claim between SUBMITTED and NEEDS_INFORMATION accordingly, so the thread and the review queue cannot disagree about whose turn it is."
       },
       {
         "signature": "report_fixture_message(uuid, text)",

@@ -6,7 +6,7 @@ import type { Database } from "@/types/database.types"
 
 export type PendingStatus =
   | { kind: "no-request" }
-  | { kind: "claim-pending"; clubName: string; role: string; status: string }
+  | { kind: "claim-pending"; clubName: string; role: string; status: string; claimId: string; state: string }
   | { kind: "join-pending"; clubName: string; role: string; status: string }
   | { kind: "directory-pending"; clubName: string; status: string }
   | { kind: "approved"; clubName: string; role: string }
@@ -40,7 +40,7 @@ export async function getPendingStatus(
 
   const { data: claim } = await supabase
     .from("club_claims")
-    .select("status, claimed_role, club_directory(name)")
+    .select("id, status, state, claimed_role, club_directory(name)")
     .eq("claimant_user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -52,6 +52,10 @@ export async function getPendingStatus(
       clubName: claim.club_directory?.name ?? "your club",
       role: claim.claimed_role,
       status: claim.status,
+      claimId: claim.id,
+      // The canonical state machine. `status` is the legacy word for the same thing and is kept only
+      // so nothing reading it breaks; NEEDS_INFORMATION exists only here.
+      state: claim.state ?? "SUBMITTED",
     }
   }
 

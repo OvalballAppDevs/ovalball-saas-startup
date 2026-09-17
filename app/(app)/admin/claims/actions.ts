@@ -10,6 +10,49 @@ import { createClient } from "@/lib/supabase/server"
 
 export type ClaimActionResult = { ok: true } | { ok: false; error: string }
 
+export type ClaimMessage = { id: string; body: string; authorRole: "SITE_ADMIN" | "CLAIMANT"; createdAt: string }
+
+/**
+ * The conversation on a claim.
+ *
+ * A reviewer whose only controls are approve and reject has to guess, and guessing about who is
+ * entitled to administer a children's rugby club is the wrong thing to be doing. Asking a question
+ * moves the claim to NEEDS_INFORMATION and the answer moves it back to SUBMITTED -- the state machine
+ * does that, not this action, so the queue cannot disagree with the thread.
+ */
+export async function askClaimant(claimId: string, body: string): Promise<ClaimActionResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "You must be signed in." }
+  if (!(await requireActiveSiteAdmin(supabase, user)).ok) {
+    return { ok: false, error: "Site Admin access is required, in an active Site Admin context." }
+  }
+  if (!body.trim()) return { ok: false, error: "Write the question you want to ask." }
+
+  const { error } = await supabase.rpc("reply_to_claim", { p_claim_id: claimId, p_body: body.trim() })
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/admin/claims")
+  return { ok: true }
+}
+
+export async function claimMessages(claimId: string): Promise<ClaimMessage[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("club_claim_messages")
+    .select("id, body, author_role, created_at")
+    .eq("claim_id", claimId)
+    .order("created_at", { ascending: true })
+  return (data ?? []).map((m) => ({
+    id: m.id as string,
+    body: m.body as string,
+    authorRole: m.author_role as "SITE_ADMIN" | "CLAIMANT",
+    createdAt: m.created_at as string,
+  }))
+}
+
 /**
  * Both actions call the SECURITY DEFINER functions from
  * supabase/migrations/20260831090000_role_vocabulary_and_claim_approval.sql,

@@ -2,6 +2,9 @@ import { CalendarDays, MessageSquare, ShieldCheck, Users } from "lucide-react"
 import { redirect } from "next/navigation"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
+
+import { ownClaimMessages } from "./actions"
+import { ClaimConversation } from "./claim-conversation"
 import { createClient } from "@/lib/supabase/server"
 import { getPendingStatus } from "@/lib/signup/pending-status"
 
@@ -96,13 +99,23 @@ export default async function WelcomePage() {
               </div>
               <p className="mt-3 max-w-md text-sm text-ink/60">
                 {status.kind === "claim-pending" &&
-                  `We're reviewing your request to act on behalf of ${status.clubName}.`}
+                  (status.state === "NEEDS_INFORMATION"
+                    ? `Ovalball has asked you something about your request to act on behalf of ${status.clubName}.`
+                    : `We're reviewing your request to act on behalf of ${status.clubName}.`)}
                 {status.kind === "join-pending" &&
                   `We've sent your access request to ${status.clubName}'s existing admins.`}
                 {status.kind === "directory-pending" &&
                   `We're validating ${status.clubName} before it's added to the Ovalball directory.`}
               </p>
             </div>
+
+            {status.kind === "claim-pending" && (
+              <ClaimConversation
+                claimId={status.claimId}
+                state={status.state}
+                messages={await ownClaimMessages(status.claimId)}
+              />
+            )}
 
             <div>
               <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
