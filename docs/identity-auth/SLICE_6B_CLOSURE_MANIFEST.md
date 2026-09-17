@@ -116,6 +116,21 @@ depend on external configuration.
   session-layer contract is not yet closed. 6b.2's permanent tests must prove that suspension cannot
   retain or recover authority.
 
+- **D-S6B-AUTO-11** — 6b.2 is delivered as a **staged series**, and this stage is **6b.2a** only:
+  the session enforcement layer (S6-9), the suspension proofs, and SO-7. `auth_flow_states` (SO-4),
+  the `ovalballSignupPayload` retirement (H-7) and the transport-security row (S6-17) are **NOT
+  STARTED** — no stubs, no dead code, no partial schema. The ordering is forced by the authorisation
+  itself, which says the legacy payload must not be deleted before the canonical replacement works,
+  so H-7 cannot precede SO-4; and SO-4's consume path runs inside the session boundary, so it wants
+  that boundary proven first. The full archaeology for all four stages is recorded in
+  `SLICE_6B2_REQUIREMENT_MATRIX.md` and does not need repeating.
+- **D-S6B-AUTO-12** — `requireSession` gains an explicit `allowAalElevation` option, used **only** by
+  `/security/enrol` and `/security/verify`. Without it the wiring would have created a lockout that
+  appears only at T1: once an enforcement group is switched on, `enforcement_required` is true for
+  exactly the people who have not enrolled, so an unqualified boundary on the enrolment page would
+  refuse them at the one page that could fix it and send them straight back to it. Identity, session
+  liveness and account state are still enforced there; only the assurance gate stands down, and a
+  permanent guard fails if any other file uses the option.
 - **D-S6B-AUTO-4** — S6-14, S6-23 and S6-24 are **not** 6b rows. They are AN-3 and T-stage operations
   and are recorded here only so they cannot be mistaken for omissions.
 

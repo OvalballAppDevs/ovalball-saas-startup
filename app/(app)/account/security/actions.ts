@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { checkPassword } from "@/lib/auth/password-policy"
+import { guardAction } from "@/lib/auth/action-boundary"
 import { createClient } from "@/lib/supabase/server"
 import { MAX_TOTP_FACTORS } from "./constants"
 
@@ -22,10 +23,10 @@ export type ActionResult = { ok: true } | { ok: false; error: string }
 /** A replacement set. Regenerating invalidates every previous code (G). */
 export async function regenerateRecoveryCodes(): Promise<{ ok: true; codes: string[] } | { ok: false; error: string }> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Sign in to continue." }
+  // D.2 layer 2: identity AND session liveness AND account state AND assurance,
+  // not identity alone. A direct POST meets this whether or not a layout ran.
+  const gate = await guardAction({}, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
 
   // R is enforced INSIDE the function, not here: a check in a Server Action is a courtesy, and the
   // database is the boundary.
@@ -40,10 +41,10 @@ export async function regenerateRecoveryCodes(): Promise<{ ok: true; codes: stri
 /** Removing a factor. The LAST one cannot be removed -- replace, don't remove (F). */
 export async function removeTotpFactor(factorId: string): Promise<ActionResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Sign in to continue." }
+  // D.2 layer 2: identity AND session liveness AND account state AND assurance,
+  // not identity alone. A direct POST meets this whether or not a layout ran.
+  const gate = await guardAction({}, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
 
   const { data: factors } = await supabase.auth.mfa.listFactors()
   const verified = (factors?.totp ?? []).filter((f) => f.status === "verified")
@@ -62,10 +63,10 @@ export async function removeTotpFactor(factorId: string): Promise<ActionResult> 
 /** Sign out everywhere else. H: this is what "Sign Out Other Devices" actually has to do. */
 export async function signOutOtherDevices(): Promise<ActionResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Sign in to continue." }
+  // D.2 layer 2: identity AND session liveness AND account state AND assurance,
+  // not identity alone. A direct POST meets this whether or not a layout ran.
+  const gate = await guardAction({}, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
 
   // Deleting the session rows is what makes this real: session_ok checks the row exists, so a stolen
   // refresh token stops working on its next request rather than when its JWT happens to expire. The
@@ -79,10 +80,10 @@ export async function signOutOtherDevices(): Promise<ActionResult> {
 /** Setting or changing a password. The policy is checked here, on the server, before GoTrue sees it. */
 export async function setAccountPassword(password: string): Promise<ActionResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Sign in to continue." }
+  // D.2 layer 2: identity AND session liveness AND account state AND assurance,
+  // not identity alone. A direct POST meets this whether or not a layout ran.
+  const gate = await guardAction({}, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
 
   const verdict = await checkPassword(password)
   if (!verdict.ok) return { ok: false, error: verdict.message }

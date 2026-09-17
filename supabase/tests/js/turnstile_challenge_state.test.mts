@@ -168,3 +168,85 @@ test("H3 but the server, not this flag, is what actually enforces it", () => {
   // fails closed once configured. This assertion is a signpost, not a substitute for that.
   assert.equal(canSubmitProtected({ token: null, passed: true }, REQUIRED), false)
 })
+
+// ---------------------------------------------------------------------------
+// SLICE 6b.2 / SO-7 -- THE SAME DEFECT, ON THE SURFACES THE HOTFIX DID NOT REACH.
+//
+// The hotfix was deliberately scoped to /login. Two other public authentication surfaces carried the
+// identical shape and were left for this unit: the signup wizard kept two useStates for one fact and
+// cleared neither when a submission failed, and the signup account step handed the provider buttons a
+// hardcoded `turnstileToken={null}` while leaving them enabled.
+//
+// These are SOURCE-SHAPE invariants, which is what a structural guard is for: they prove the defect
+// cannot be reintroduced by a future edit. They are NOT a substitute for proving enforcement runs --
+// that is what scripts/browser-verification/65-signup-challenge-lifecycle.mjs does against a real
+// server and a real Cloudflare round-trip.
+// ---------------------------------------------------------------------------
+
+import { readFileSync, readdirSync, statSync } from "node:fs"
+import { join } from "node:path"
+
+/**
+ * Comments are prose, not code. The first draft of this guard failed on the very comment explaining
+ * the defect it guards against, which would have taught the next author to describe it vaguely --
+ * exactly the wrong lesson. Strip comments, then look at what actually executes.
+ */
+function code(file: string): string {
+  return readFileSync(file, "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*\/\/.*$/gm, "")
+}
+
+function sourceFiles(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    if (entry === "node_modules" || entry.startsWith(".")) continue
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) sourceFiles(full, acc)
+    else if (/\.(ts|tsx)$/.test(entry)) acc.push(full)
+  }
+  return acc
+}
+
+const SOURCES = [...sourceFiles("app"), ...sourceFiles("components")]
+
+test("SO-7 no surface hands the provider buttons a hardcoded null challenge token", () => {
+  const offenders = SOURCES.filter((f) => /turnstileToken=\{null\}/.test(code(f)))
+  assert.deepEqual(
+    offenders,
+    [],
+    "A literal turnstileToken={null} means the button renders enabled and the server refuses every " +
+      "click. Pass the live challenge token, or challengeRequired={false} on a surface that genuinely " +
+      "has no challenge.",
+  )
+})
+
+test("SO-7 every SocialAuthButtons caller that requires a challenge also reports the spend", () => {
+  const problems: string[] = []
+  for (const f of SOURCES) {
+    const src = code(f)
+    if (!/<SocialAuthButtons/.test(src)) continue
+    for (const m of src.match(/<SocialAuthButtons[\s\S]*?\/>/g) ?? []) {
+      if (/challengeRequired/.test(m) && !/onChallengeSpent/.test(m)) {
+        problems.push(`${f}: gates on a challenge but never reports it spent`)
+      }
+    }
+  }
+  assert.deepEqual(problems, [])
+})
+
+test("SO-7 the signup wizard holds ONE fact, from the shared module, not a private pair", () => {
+  const shell = code("app/signup/signup-shell.tsx")
+  assert.match(shell, /from "@\/lib\/auth\/challenge-state"/, "must use the one shared rule")
+  assert.doesNotMatch(
+    shell,
+    /useState<string \| null>\(null\)[\s\S]{0,200}useState\(!humanCheckRequired\)/,
+    "the token and the permission to submit are one fact and must not be two useStates again",
+  )
+  assert.match(shell, /spendChallenge\(\)/, "an attempt must spend the challenge")
+})
+
+test("SO-7 the signup submission spends the challenge before branching on the result", () => {
+  const shell = code("app/signup/signup-shell.tsx")
+  const spend = shell.indexOf("spendChallenge()\n\n    if (result.ok)")
+  assert.notEqual(spend, -1, "spendChallenge must run unconditionally, not only on the success branch")
+})

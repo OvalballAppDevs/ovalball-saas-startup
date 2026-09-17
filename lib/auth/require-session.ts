@@ -1,6 +1,9 @@
 import "server-only"
 
+import type { SupabaseClient, User } from "@supabase/supabase-js"
+
 import { createClient } from "@/lib/supabase/server"
+import type { Database } from "@/types/database.types"
 
 /**
  * THE SERVER SIDE OF THE SESSION GATE.
@@ -19,7 +22,7 @@ import { createClient } from "@/lib/supabase/server"
  */
 
 export type SessionDecision =
-  | { ok: true; userId: string; aal: "aal1" | "aal2"; group: string }
+  | { ok: true; userId: string; user: User; aal: "aal1" | "aal2"; group: string }
   | { ok: false; reason: "SIGN_IN_REQUIRED" | "ACCOUNT_UNAVAILABLE" | "MFA_REQUIRED" | "VERIFY_AGAIN" }
 
 export type RequireSessionOptions = {
@@ -27,10 +30,31 @@ export type RequireSessionOptions = {
   aal?: "aal1" | "aal2"
   /** Require a TOTP verified within this many minutes (Phase 2 "R"). */
   recentMinutes?: number
+  /**
+   * For the surfaces whose whole PURPOSE is to reach AAL2 -- /security/enrol and /security/verify.
+   *
+   * This exists to prevent a lockout that would only appear at T1. Once an enforcement group is
+   * switched on, `enforcement_required` is true for exactly the people who have not enrolled yet, so
+   * an unqualified requireSession on the enrolment page would refuse them at the one page that could
+   * fix it, and `sessionRefusal` would send them straight back to it. Nobody in that group could ever
+   * enrol. Identity, session liveness and account state are still enforced here; only the assurance
+   * gate is stood down, and only where standing it up would be circular.
+   */
+  allowAalElevation?: boolean
 }
 
-export async function requireSession(options: RequireSessionOptions = {}): Promise<SessionDecision> {
-  const supabase = await createClient()
+/**
+ * `client` lets a caller that already has a request-scoped Supabase client hand it over. This is not
+ * a micro-optimisation: `createClient()` is deliberately one instance per request and `getUser()`
+ * re-validates against the auth server, so a boundary that made its own client would add a second
+ * network round trip to every page load for an answer the caller already has. The decision carries
+ * the verified `user` back for the same reason -- so nothing downstream calls `getUser()` again.
+ */
+export async function requireSession(
+  options: RequireSessionOptions = {},
+  client?: SupabaseClient<Database>,
+): Promise<SessionDecision> {
+  const supabase = client ?? (await createClient())
 
   const {
     data: { user },
@@ -56,8 +80,9 @@ export async function requireSession(options: RequireSessionOptions = {}): Promi
   if (!assurance.account_usable) return { ok: false, reason: "ACCOUNT_UNAVAILABLE" }
 
   const atAal2 = assurance.aal === "aal2"
-  // Either this person's group is being enforced, or the caller asked for AAL2 for this operation.
-  if ((assurance.enforcement_required || options.aal === "aal2") && !atAal2) {
+  // Either this person's group is being enforced, or the caller asked for AAL2 for this operation --
+  // unless this IS the surface that exists to get them there.
+  if (!options.allowAalElevation && (assurance.enforcement_required || options.aal === "aal2") && !atAal2) {
     return { ok: false, reason: "MFA_REQUIRED" }
   }
   if (options.recentMinutes && !assurance.recent_aal2) {
@@ -67,6 +92,7 @@ export async function requireSession(options: RequireSessionOptions = {}): Promi
   return {
     ok: true,
     userId: user.id,
+    user,
     aal: atAal2 ? "aal2" : "aal1",
     group: assurance.enforcement_group,
   }

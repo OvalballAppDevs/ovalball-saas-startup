@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
+import { guardAction } from "@/lib/auth/action-boundary"
 import { createClient } from "@/lib/supabase/server"
 import { reissueAuthCookiesWithRememberPreference, REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember"
 
@@ -21,10 +22,9 @@ export async function signOut() {
  */
 export async function setRememberPreference(remember: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not signed in." }
+  // D.2 layer 2: identity AND liveness AND account state AND assurance.
+  const gate = await guardAction({}, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
 
   const cookieStore = await cookies()
   cookieStore.set(REMEMBER_COOKIE_NAME, remember ? "1" : "0", {
@@ -75,10 +75,10 @@ export type UpdatePhoneResult = { ok: true } | { ok: false; error: string }
  */
 export async function updateOwnPhoneNumber(phone: string): Promise<UpdatePhoneResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not signed in." }
+  // D.2 layer 2: identity AND liveness AND account state AND assurance.
+  const gate = await guardAction({}, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const user = gate.user
 
   const trimmed = phone.trim()
   const { error } = await supabase
@@ -106,10 +106,10 @@ export interface PersonalDetailsInput {
 /** profiles_update_self_or_admin restricts this to your own row -- never DOB (view-only, set at signup) and never email (its own secure Auth flow below). */
 export async function updatePersonalDetails(input: PersonalDetailsInput): Promise<UpdateProfileResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not signed in." }
+  // D.2 layer 2: identity AND liveness AND account state AND assurance.
+  const gate = await guardAction({}, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const user = gate.user
   if (!input.firstName.trim() || !input.surname.trim()) return { ok: false, error: "First name and surname are required." }
 
   const { error } = await supabase
@@ -142,10 +142,10 @@ export type UploadAvatarResult = { ok: true; url: string } | { ok: false; error:
 /** Own-path-only storage policies (avatars_insert_self etc.) are the real boundary -- upload-then-link, matching every other image upload this session. */
 export async function uploadAvatar(formData: FormData): Promise<UploadAvatarResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not signed in." }
+  // D.2 layer 2: identity AND liveness AND account state AND assurance.
+  const gate = await guardAction({}, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const user = gate.user
 
   const file = formData.get("avatar")
   if (!(file instanceof File)) return { ok: false, error: "No file provided." }
@@ -181,10 +181,10 @@ export async function uploadAvatar(formData: FormData): Promise<UploadAvatarResu
 
 export async function removeAvatar(): Promise<UpdateProfileResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not signed in." }
+  // D.2 layer 2: identity AND liveness AND account state AND assurance.
+  const gate = await guardAction({}, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const user = gate.user
 
   const { data: existing } = await supabase.from("profiles").select("avatar_storage_path").eq("id", user.id).maybeSingle()
   const { error } = await supabase.from("profiles").update({ avatar_storage_path: null }).eq("id", user.id)

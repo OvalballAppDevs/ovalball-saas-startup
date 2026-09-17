@@ -20,6 +20,12 @@ interface AccountStepProps {
   humanPassed?: boolean
   /** True when a provider already authenticated this visitor. */
   isAuthenticated?: boolean
+  /** SO-7: the live challenge, so the provider buttons are gated on a real token. */
+  turnstileToken?: string | null
+  challengeRequired?: boolean
+  /** Remount key -- a spent challenge must be replaced, never reused. */
+  challengeKey?: string
+  onChallengeSpent?: () => void
 }
 
 const EMAIL_PATTERN = /\S+@\S+\.\S+/
@@ -42,6 +48,10 @@ export function AccountStep({
   onVerified,
   humanPassed = true,
   isAuthenticated = false,
+  turnstileToken = null,
+  challengeRequired = false,
+  challengeKey,
+  onChallengeSpent,
 }: AccountStepProps) {
   const [touched, setTouched] = useState(false)
   const showError = touched && email.length > 0 && !EMAIL_PATTERN.test(email)
@@ -75,9 +85,15 @@ export function AccountStep({
         </p>
       </div>
 
+      {/* SO-7. This passed `turnstileToken={null}` with `ready` defaulting to true, so the buttons
+          rendered enabled and every click was refused by the server's fail-closed check -- social
+          signup could not work at all once Turnstile was configured. The buttons now carry the real
+          token, know whether a challenge is required, and report the spend so a fresh one is issued. */}
       <SocialAuthButtons
-        turnstileToken={null}
+        turnstileToken={turnstileToken}
         ready={humanPassed}
+        challengeRequired={challengeRequired}
+        onChallengeSpent={onChallengeSpent}
         intent="signup"
         next="/signup"
       />
@@ -113,7 +129,12 @@ export function AccountStep({
       </div>
 
       {turnstileSiteKey && onVerified && (
-        <AuthSecurityCheck siteKey={turnstileSiteKey} action="signup-start" onVerified={onVerified} />
+        <AuthSecurityCheck
+          key={challengeKey}
+          siteKey={turnstileSiteKey}
+          action="signup-start"
+          onVerified={onVerified}
+        />
       )}
 
       <div className="space-y-2 border-t border-ink/10 pt-5 text-sm text-ink/60">
