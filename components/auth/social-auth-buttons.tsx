@@ -29,6 +29,18 @@ export function SocialAuthButtons({
   turnstileToken,
   ready,
   next,
+  /**
+   * True when a Turnstile challenge is configured and therefore required. Defaults to false so that
+   * callers which have not been moved onto the shared challenge state keep exactly their current
+   * behaviour: this hotfix changes the login page and nothing else.
+   */
+  challengeRequired = false,
+  /**
+   * Called when a provider attempt has spent the token, so the owner of the challenge state can
+   * forget it and ask for a fresh one. Without it, a failed or abandoned round-trip left these
+   * buttons enabled with a dead token, repeating the same "security check" message indefinitely.
+   */
+  onChallengeSpent,
   /** "signin" | "signup" -- only affects the accessible name. */
   intent = "signin",
   className,
@@ -36,6 +48,8 @@ export function SocialAuthButtons({
   turnstileToken: string | null
   ready: boolean
   next?: string
+  challengeRequired?: boolean
+  onChallengeSpent?: () => void
   intent?: "signin" | "signup"
   className?: string
 }) {
@@ -45,8 +59,12 @@ export function SocialAuthButtons({
 
   if (providers.length === 0) return null
 
+  // A challenge that is required but has no token cannot start anything: the server would refuse,
+  // fail-closed and correctly, and the visitor would get a message they cannot act on.
+  const canStart = ready && (!challengeRequired || Boolean(turnstileToken))
+
   async function start(providerId: string) {
-    if (!ready || pending) return
+    if (!canStart || pending) return
     setPending(providerId)
     setError(null)
     const result = await startOAuthSignIn(providerId, next ?? null, turnstileToken)
@@ -56,6 +74,9 @@ export function SocialAuthButtons({
     }
     setPending(null)
     setError(result.error)
+    // The token went with the attempt. Tell whoever owns the challenge, so the next click waits for
+    // a fresh one instead of replaying a token Cloudflare has already retired.
+    onChallengeSpent?.()
   }
 
   return (
@@ -68,7 +89,7 @@ export function SocialAuthButtons({
             key={provider.id}
             type="button"
             onClick={() => start(provider.id)}
-            disabled={!ready || pending !== null}
+            disabled={!canStart || pending !== null}
             className={cn(
               // Centred as a unit: mark and label sit together in the middle
               // of the button rather than the label starting hard left.
