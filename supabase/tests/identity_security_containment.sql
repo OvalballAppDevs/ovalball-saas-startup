@@ -733,7 +733,9 @@ begin
     perform pg_temp.act_postgres();
   exception when others then get stacked diagnostics v_err = message_text;
   end;
-  if v_err like '%second Full Site Admin%'
+  -- Matched on the substance rather than the whole sentence: the wording is aimed at the invitee
+  -- and may be improved again, but "a second administrator has to approve" is the rule.
+  if v_err like '%second Ovalball administrator to approve%'
      and not exists (select 1 from public.site_admins where user_id = v_site_revoked and status = 'active') then
     raise notice 'PASS I3a: an invitation alone does not make somebody a Site Admin -- a second administrator has to have approved it';
   else

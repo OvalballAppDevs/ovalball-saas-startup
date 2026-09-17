@@ -198,6 +198,53 @@ begin
   end;
   perform pg_temp.check(v_rc = 'REFUSED',
     'SAG-13d nor quietly demoted to Read Only, which is how a lockout happens without anybody revoking anything');
+
+  -- =============================================================================================
+  -- SAG-14  AN INVITATION THAT CANNOT YET BE HONOURED IS NOT SPENT.
+  --
+  -- Production holds a Site Admin invitation issued before this rule existed. It now confers nothing
+  -- until a second administrator approves, which is deliberate. What must not happen is the link
+  -- marking itself accepted on the way to conferring nothing -- the invitee would be told it worked,
+  -- the sender would be told it was accepted, and the invitation could never be tried again.
+  -- =============================================================================================
+  declare v_inv uuid; v_tok text; v_rc2 text; v_invitee uuid;
+  begin
+    v_invitee := pg_temp.person('Invitee','sag-inv-'||v_tag||'@ovalball.test');
+    v_tok := 'sag-token-'||v_tag;
+    insert into public.site_admin_invitations (invited_email, admin_role, token, status, expires_at, invited_by)
+    values ('sag-inv-'||v_tag||'@ovalball.test', 'full', v_tok, 'pending', now() + interval '7 days', v_a)
+    returning id into v_inv;
+
+    perform set_config('request.jwt.claims',
+      jsonb_build_object('sub', v_invitee, 'role', 'authenticated',
+                         'email', 'sag-inv-'||v_tag||'@ovalball.test')::text, true);
+    begin
+      set local role authenticated;
+      perform public.accept_site_admin_invitation(v_tok);
+      v_rc2 := 'OK';
+    exception when others then get stacked diagnostics v_rc2 = returned_sqlstate;
+    end;
+    reset role;
+    perform set_config('request.jwt.claims','', true);
+
+    perform pg_temp.check(v_rc2 = '42501',
+      'SAG-14 a Site Admin invitation alone no longer grants anything');
+    perform pg_temp.check(
+      not exists (select 1 from public.site_admins where user_id = v_invitee and status = 'active'),
+      'SAG-14b and the invitee did not become a Site Admin');
+    perform pg_temp.check(
+      (select status from public.site_admin_invitations where id = v_inv) = 'pending',
+      'SAG-14c and the invitation is STILL PENDING -- it was not spent on an attempt that conferred nothing');
+    -- Deliberately NOT asserting that the attempt was recorded. The refusal aborts the transaction,
+    -- so nothing written on the way to it survives -- which is why the handler in
+    -- accept_site_admin_invitation does not pretend to write anything. This assertion exists to stop
+    -- somebody adding that emit back believing it works.
+    perform pg_temp.check(
+      not exists (select 1 from public.security_events
+                   where subject_user_id = v_invitee and event_type like 'site_admin.%'),
+      'SAG-14d no site_admin event was recorded, because a refused transaction records nothing -- the
+       handler does not pretend otherwise, and this assertion stops the pretence being added back');
+  end;
 end $$;
 
 rollback;
