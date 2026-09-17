@@ -99,21 +99,23 @@ depend on external configuration.
   dev server, the mail catcher, a service-role key and a linked `playwright-core`; when any of that is
   missing they are **NOT RUN and say so loudly**, and are never silently skipped or counted as
   passing. `SKIP_BROWSER_JOURNEYS=1` is an explicit, announced opt-out for an inner-loop run.
-- **D-S6B-AUTO-10 — OPEN QUESTION FOR THE OWNER. Phase 2 D.2 and the shipped session layer disagree
-  about what a suspended person experiences, and 6b.1 does not resolve it.** D.2 names
-  `/account/suspended` as a destination, which presumes the person keeps a session and is shown a page.
-  `lib/supabase/middleware.ts` (reached through `proxy.ts`) instead re-reads `profiles.account_status`
-  on **every** request and, on `suspended`, signs the session out and redirects to
-  `/login?reason=suspended` — which `/login` already explains in words. So the live behaviour is
-  **stronger** than the design, and `/account/suspended` is **not reachable**.
+- **D-S6B-AUTO-10 — DECIDED BY THE OWNER (17 September 2026): the current fail-closed suspension
+  model is PRESERVED.** A suspended or disabled account must not retain a usable authenticated session
+  merely so `/account/suspended` can render. The canonical behaviour is: authenticated request →
+  canonical account-state check → suspended/disabled detected → usable session terminated or refused →
+  safe signed-out explanation at `/login?reason=suspended`.
 
-  6b.1 does not change that policy. The session layer is 6b.2, the one unit with high lockout risk, and
-  making a suspended session survive is a security-relevant loosening that is the owner's decision, not
-  an implementation detail. What 6b.1 does is build the route D.2 names, prove its own guard (an active
-  account is sent on rather than held — S6B1-28), assert the behaviour the product actually has
-  (S6B1-25, -26, -26b, -26c), and **not claim S6-8 closed**. The owner has three options at 6b.2:
-  keep the stronger policy and retire the route; route to it and accept a surviving, powerless session;
-  or keep both, sending only DISABLED accounts to the harder path.
+  `/account/suspended` remains as a defensive presentation destination where it is reachable safely.
+  It is **not** a reason to keep a live authenticated session for a suspended identity, and the
+  middleware, session and account-state enforcement must **not** be weakened to make that route
+  reachable.
+
+  Phase 2 D.2 is reconciled rather than followed literally: its security intent is preserved, and the
+  shipped fail-closed session termination **supersedes** D.2's assumption that a suspended identity
+  remains authenticated. **S6-8 remains OPEN for 6b.2**, because the wider `requireSession` /
+  session-layer contract is not yet closed. 6b.2's permanent tests must prove that suspension cannot
+  retain or recover authority.
+
 - **D-S6B-AUTO-4** — S6-14, S6-23 and S6-24 are **not** 6b rows. They are AN-3 and T-stage operations
   and are recorded here only so they cannot be mistaken for omissions.
 

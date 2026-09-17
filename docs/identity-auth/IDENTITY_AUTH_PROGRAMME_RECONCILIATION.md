@@ -84,20 +84,36 @@ any other row's status.
 
 ---
 
-## B.2 Slice 6b.1 — built and verified locally, NOT released
+## B.2 Slice 6b.1 — PRODUCTION VERIFIED
 
-Unit 6b.1 (`SLICE_6B1_PASSWORD_RECOVERY.md`) builds `/forgot-password`, `/account/reset-password`,
-`/account/setup` and `/account/suspended`, corrects the GoTrue password minimum in `config.toml`, and
-adds one anon-executable RPC so a reset request can leave the event Phase 2 G names.
+Unit 6b.1 (`SLICE_6B1_PASSWORD_RECOVERY.md`) is released. Production release **`c03e2b8`**, migration
+ledger **521 / `20270430000000`**. `/forgot-password`, `/account/reset-password`, `/account/setup` and
+`/account/suspended` resolve in production; before this release all four were 404.
 
-**No row below changes status yet, deliberately.** Every status in this register is a statement about
-*production*, and 6b.1 is not in production: the emergency hotfix authority covered `cd18ba6` alone
-and does not extend to this unit. S6-6 therefore still reads REGRESSED, S6-7 and S6-8 still read
-MISSED, and they will continue to until a release is authorised and verified live. Nothing is claimed
-on local evidence.
+**Closure accounting, not inflated:**
 
-The rows affected when that release happens are **S6-2, S6-5, S6-6, S6-7, S6-8** and the **code half**
-of **S6-3**. The production half of S6-3 is a dashboard setting and stays with 6b.5.
+| Row | Outcome of 6b.1 |
+|---|---|
+| S6-6 `/forgot-password` reset flow | **CLOSED** |
+| S6-7 `/account/setup` landing | **CLOSED** |
+| S6-2 L1 password policy | **PARTIALLY CLOSED** — validator on every surface; the provider minimum is code/local only |
+| S6-5 validator on every password surface | **CLOSED** for the surfaces that exist |
+| S6-3 GoTrue minimum 12 | **PARTIALLY CLOSED** — repository/local config corrected and verified; the **production Auth setting is NOT changed or verified by this release** and stays with 6b.5 |
+| S6-8 `/account/suspended` | **STILL OPEN for 6b.2** — the route resolves, but nothing routes to it and the session-layer contract is unclosed |
+| S6-9 `requireSession` | **STILL OPEN for 6b.2** |
+| S6-4, S6-19, S6-20 | **OWNER / EXTERNAL CONFIGURATION REQUIRED** — unchanged by this release |
+
+### D.2 reconciled — suspension (owner decision, D-S6B-AUTO-10)
+
+Phase 2 D.2 lists `/account/suspended` as a destination, which presumes a suspended identity remains
+authenticated. **That assumption is superseded by a recorded owner decision.** The shipped session
+layer terminates or refuses a usable session the moment the canonical account-state check reads
+suspended or disabled, and lands the person on a safe signed-out explanation. The security intent of
+D.2 is preserved; the mechanism is stronger. `/account/suspended` survives as a defensive
+presentation destination only, and enforcement must never be weakened to make it reachable.
+
+S6-8 therefore stays **open for 6b.2**, whose permanent tests must prove suspension cannot retain or
+recover authority.
 
 ---
 

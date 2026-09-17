@@ -4,9 +4,12 @@
 **Rows this unit addresses:** S6-2, S6-5, S6-6, S6-7 and the **code half only** of S6-3 are built and
 locally verified. **S6-8 is NOT closed** — the route exists but nothing reaches it, for the reason set
 out under D.2 below.
-**Status:** **BANKED — VERIFIED LOCALLY ON A CLEAN BOOT — NOT RELEASED.** The emergency hotfix
-authority covered `cd18ba6` alone and does not extend to this unit, so nothing here is in production
-and no reconciliation row has changed status.
+**Status:** **PRODUCTION VERIFIED.** Implementation commit `694a1a4`; production release **`c03e2b8`**
+(fast-forward `cd18ba6..c03e2b8`); migration ledger **521 / `20270430000000`**.
+
+> The copy of this file released at `c03e2b8` still reads "BANKED … NOT RELEASED", because the release
+> is by definition the commit that was banked. The correction above is local and lands with the next
+> authorised push; no deployment was made merely to ship a markdown edit.
 
 ---
 
@@ -212,25 +215,63 @@ assertion that tested behaviour the product deliberately does not have.
 
 ---
 
-## Release gate — STOP
+## How it was released
 
-This unit is **not** authorised for release. The emergency authority granted for the login incident
-covered `cd18ba6` alone. 6b.1 carries a **migration** and changes the authentication perimeter, so it
-needs its own authorisation.
+Authorised 17 September 2026. Migration first, then the application, because the push *is* the
+deployment: an app that called `record_password_reset_requested` before the function existed would
+have failed the reset request rather than the route.
 
-When it is authorised, the order is fixed and matters: **apply `20270430000000` to production first,
-then push `main`**, because the push *is* the deployment — Vercel builds on it, and an application
-that calls `record_password_reset_requested` before the function exists would 404 the reset request
-rather than the route.
+1. `supabase db push` applied **one** migration, `20270430000000`. Nothing else was pending.
+2. The migration was verified read-only, and the **still-deployed old application** was confirmed safe
+   against it: the change is purely additive (one new function, one extra `when` branch in
+   `record_security_change`), the old app has no code path that reaches the new RPC, and the existing
+   change vocabulary is a strict subset of the new one. Production counts were unchanged and
+   `/forgot-password` was still a 404 on the old app, so nothing could reach it.
+3. The application was released as **`c03e2b8`**, a fast-forward `cd18ba6..c03e2b8`.
 
-Also still local and still unreleased, and **not** part of this unit: the two programme documentation
-commits `cea1167` and `e4d25e7`.
+**The release was isolated.** Local `main` is ahead of production by the two programme documentation
+commits `cea1167` and `e4d25e7`, which are still withheld. Pushing `main` would have promoted them, so
+the release was cut from `origin/main` and `694a1a4` cherry-picked onto it. That produced exactly one
+conflict — `694a1a4` edits `IDENTITY_AUTH_PROGRAMME_RECONCILIATION.md`, whose base lives only in the
+withheld `cea1167` — and it was resolved by **excluding that one file from the release**, not by
+promoting the commit it depends on. Nothing was reset, restored, stashed or reordered; local `main`
+then took the released commit by an ordinary merge and still carries every withheld change.
+
+**Released: 26 files.** 6b.1's 27 files minus that one doc.
 
 ---
 
-## The one question this unit needs answered
+## Production verification
 
-**What should a suspended person see?** Phase 2 D.2 says a page at `/account/suspended`. The shipped
-session layer ends their session and explains it on `/login`. Both are defensible; they are not the
-same product. The three options are set out in **D-S6B-AUTO-10**, and 6b.2 cannot wire `requireSession`
-without an answer, because that is the layer that would do the routing.
+Read-only, and deliberately narrow. **No production recovery credential, token or email was exercised
+at any point**, and no owner credentials were used.
+
+| Check | Result |
+|---|---|
+| Ledger / tip | **521 / `20270430000000`** |
+| New RPC | present, SECURITY DEFINER, `returns void`, EXECUTE held by `anon` and `authenticated` only (plus owner/service_role) |
+| Enumeration resistance | `anon` still cannot SELECT `security_events`; the RPC returns void for every input |
+| Security-event RLS | unchanged — `authenticated` holds no INSERT; reads stay scoped to the subject |
+| Anon-executable functions | 18 → **19**, the one declared addition |
+| `/forgot-password` | **404 → 200** |
+| `/account/reset-password` | 307 → `/forgot-password?expired=1` with no recovery session — resolves and fails closed |
+| `/account/setup` | 307 → `/login` when signed out |
+| `/account/suspended` | 307 → `/login` when signed out — resolves **without** altering suspension semantics |
+| Sign In → Forgotten Password | links to `/forgot-password` in the live page |
+| Turnstile | active on `/forgot-password`, same site key as `/login` |
+| Full Site Admin | `full` / `SITE_FULL`, ACTIVE / COMPLETE, **10 live sessions unchanged**, 1 club membership |
+| Forced re-login | none — `AUTH_SESSION_VERSION` untouched by this release |
+| Accounts / admins / memberships / invitations | unchanged (4 profiles all ACTIVE, 1 site admin, 1 club membership, 1 pending invitation) |
+| MFA / configuration | unchanged — 0 factors, 0 groups enforcing, no Auth setting altered |
+| `password.reset_requested` / `password.reset_completed` events | **0 / 0** — nothing was exercised |
+
+### Password policy — the two halves are recorded separately
+
+**CODE / LOCAL CONFIG — VERIFIED.** The repository's `minimum_password_length` is 12, and a clean
+provider built from it refuses a six-character password and accepts a twelve-character one.
+
+**PRODUCTION GOTRUE SETTING — NOT VERIFIED, NOT CHANGED BY THIS RELEASE.** No production Auth setting
+was altered. There is no genuinely read-only authoritative way to inspect it: `/auth/v1/settings`
+exposes no password fields at all, and the security advisors report only leaked-password protection.
+Confirming or changing the production minimum is a console action and stays with **6b.5**. Leaked
+password protection remains **disabled** in production (S6-4), unchanged by this release.
