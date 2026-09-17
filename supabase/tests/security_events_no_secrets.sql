@@ -406,7 +406,18 @@ begin
                                              'site_request_site_admin_grant', 'site_approve_site_admin_grant',
                                              'site_reject_site_admin_grant', 'site_revoke_site_admin',
                                              -- Slice 7b: Create User, and the setup-link rotation.
-                                             'site_register_created_identity', 'site_resend_account_setup'))
+                                             'site_register_created_identity', 'site_resend_account_setup',
+                                             -- Slice 6b.1: the one event that has to be written with no
+                                             -- session at all, because asking for a password reset is
+                                             -- something a signed-OUT person does (Phase 2 G). It is the
+                                             -- only anon-executable name on this list, so it is worth
+                                             -- being exact about what the caller controls: nothing. The
+                                             -- event type is a literal in the body, the actor and subject
+                                             -- are looked up from the address, and an address with no
+                                             -- account writes no row at all. The caller supplies an email
+                                             -- and learns nothing -- the function returns void either way
+                                             -- and anon cannot read security_events back.
+                                             'record_password_reset_requested'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

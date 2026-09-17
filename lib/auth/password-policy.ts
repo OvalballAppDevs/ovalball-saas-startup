@@ -20,8 +20,8 @@ import { createHash } from "node:crypto"
  */
 
 /** Phase 2 E. 72 bytes is bcrypt's limit; a longer password is REFUSED, never silently truncated. */
-export const PASSWORD_MIN_LENGTH = 12
-export const PASSWORD_MAX_BYTES = 72
+export { PASSWORD_MIN_LENGTH, PASSWORD_MAX_BYTES } from "./password-policy-shared"
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_BYTES } from "./password-policy-shared"
 
 export type PasswordCheck = { ok: true } | { ok: false; message: string }
 

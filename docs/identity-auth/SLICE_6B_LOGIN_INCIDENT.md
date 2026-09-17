@@ -2,6 +2,23 @@
 
 **Incident date:** 17 September 2026. **Symptom first reported:** *"My admin details don't work anymore."*
 
+## STATUS: PRODUCTION VERIFIED — OWNER CONFIRMED (closed)
+
+| | |
+|---|---|
+| Production release | **`cd18ba6`**, fast-forward `d0acaab..cd18ba6`, deployed and confirmed live |
+| Deploy evidence | `onChallengeSpent` and `challengeRequired` — both introduced by this hotfix — present in the served production client bundle, with a control string confirming the correct chunk |
+| Owner confirmation | The platform owner **personally confirmed** they can authenticate again and reach the correct **Full Site Admin** context |
+| Corroborating record | A successful sign-in for the established identity is recorded at **16:18:59 UTC**, after the incident window (15:50 UTC / 16:50 BST) and after the release |
+| Authority repair | **None was required.** The identity was never damaged: ACTIVE / COMPLETE, `active / SITE_FULL`, club membership intact, throughout |
+| Production state | Ledger **520 / `20270429000000`** unchanged; 0 TOTP factors; 0 MFA enforcement groups; pending second-admin invitation untouched |
+
+**This closes the incident only.** It does not close Slice 6. The authentication contract
+closure is tracked in `SLICE_6B_CLOSURE_MANIFEST.md`.
+
+---
+
+
 ## Observed production symptom
 
 The established Full Site Admin, signed out deliberately and using Email + Password with a correct

@@ -83,6 +83,12 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
 
   const [showEmail, setShowEmail] = useState(() => Boolean(searchParams.get("email")))
   const [linkError, setLinkError] = useState(() => searchParams.get("error") === "link")
+  // SLICE 6b.1. A completed password reset normally keeps the session it was completed in. It only
+  // lands back here when revoking the OTHER sessions failed, in which case the reset deliberately
+  // ends every session including that one -- failing closed rather than leaving a session obtained
+  // under the old password alive. The person is not being told off, and their new password works;
+  // without a word here that is indistinguishable from the reset having failed.
+  const [afterReset, setAfterReset] = useState(() => searchParams.get("reset") === "1")
   const [sessionUpdated, setSessionUpdated] = useState(() => searchParams.get("reason") === "updated")
   const [sessionSuspended, setSessionSuspended] = useState(() => searchParams.get("reason") === "suspended")
   const [email, setEmail] = useState(searchParams.get("email") ?? "")
@@ -210,6 +216,12 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
           this is an error.
         </Notice>
       )}
+      {afterReset && (
+        <Notice tone="info">
+          Your new password is saved. For safety we signed out every device, including this one
+          &mdash; sign in again with the password you just chose.
+        </Notice>
+      )}
       {linkError && (
         <Notice tone="info">
           That link didn&apos;t work &mdash; sign-in links are one-time only and expire. Request a
@@ -264,6 +276,7 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
                 setEmail(event.target.value)
                 if (status === "error") setStatus("idle")
                 if (linkError) setLinkError(false)
+                if (afterReset) setAfterReset(false)
               }}
               onBlur={() => setTouched(true)}
               aria-invalid={showSyntaxError}
