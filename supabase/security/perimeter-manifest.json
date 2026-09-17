@@ -3362,6 +3362,16 @@
         "select": "none",
         "select_reason": "Slice 5, Y.19. Server-side flow context keyed by the hash of an opaque httpOnly cookie. The browser holds only the key, never the payload (the H-7 lesson)."
       }
+    },
+    "club_claim_messages": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Slice 5, Phase 2 Y.13. The NEEDS_INFORMATION conversation on a club claim. RLS limits rows to the claimant's own claim and to holders of site.claims.review; no client writes -- reply_to_claim is a definer RPC."
+      }
     }
   },
   "views": {
@@ -4495,6 +4505,13 @@
         "consumers": [
           "app/(app)/calendar/training-session-actions.ts",
           "app/(app)/club/training/actions.ts"
+        ]
+      },
+      {
+        "signature": "decide_club_claim(uuid, text, text, text[])",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/claims/actions.ts"
         ]
       },
       {
@@ -5846,6 +5863,13 @@
         ]
       },
       {
+        "signature": "reply_to_claim(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/claims/actions.ts"
+        ]
+      },
+      {
         "signature": "report_fixture_message(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6717,6 +6741,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/api/gocardless/oauth/callback/route.ts"
+        ]
+      },
+      {
+        "signature": "submit_club_claim(uuid, text, text, jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/signup/submit-signup.ts"
         ]
       },
       {

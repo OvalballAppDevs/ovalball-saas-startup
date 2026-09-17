@@ -243,6 +243,22 @@ module stops reading one, so the list shrinking is a visible event rather than s
 notices.
 **Owning slice.** 5, completing when the application moves to the canonical issuer.
 
+### D-S5-AUTO-7 — `claimed_role` keeps its name; Y.13's `claimed_title` is not added
+
+**Decision.** The existing `club_claims.claimed_role` column is the claimed title. Y.13's
+`claimed_title` is not introduced as a second column or a rename.
+**Reason.** `claimed_role` already holds exactly what Y.13 describes — a curated title from a fixed
+list, which grants nothing (L9) — and it is read by the claims review screen and written by signup.
+Renaming it breaks those consumers, and adding a second column for the same fact invites the two to
+disagree. The name is unfortunate, because "role" is precisely what a title is *not*, but that is a
+naming problem and the fix for it is the invariant being enforced and tested, which it now is.
+**Alternatives rejected.** Rename with a compatibility view (churn for no security gain); add
+`claimed_title` and sync the two (two columns, one fact, guaranteed drift).
+**Consequence.** None for authority. `CL-C2`, `CL-C3` and `CL-C5` assert the substance: a
+"Committee Member" claim grants no role at all, approval no longer manufactures a Club Admin, and the
+title only *suggests* a default to the reviewer.
+**Owning slice.** 5.
+
 ### D-S5-AUTO-3 — "you have already accepted this" is answered before the terminal-state check
 
 **Decision.** The per-person idempotency answer moved ahead of the missing/revoked/expired/used check.
