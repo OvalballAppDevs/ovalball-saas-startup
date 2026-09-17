@@ -68,6 +68,39 @@ change is required. It is owner action, not engineering.
 
 ---
 
+## B.0 Owner-login incident — CLOSED, owner confirmed
+
+A production authentication incident on 17 September 2026 locked the established Full Site Admin out
+of their own account with a correct password. Root cause: the login page cleared the single-use
+Turnstile token on a failed attempt while leaving the "challenge passed" boolean true, so the submit
+button stayed enabled and every retry posted a null token, which the server refused fail-closed. It
+was introduced by `4ecde7b` (Slice 6) and is **not** a defect in Turnstile, the password, the account
+or any authority record.
+
+Released as **`cd18ba6`** and **confirmed by the owner in production**: they can authenticate and
+reach the correct Full Site Admin context. No authority repair was required at any point. Full record:
+`SLICE_6B_LOGIN_INCIDENT.md`. Row **S6-1 remains PRODUCTION VERIFIED**; the incident did not change
+any other row's status.
+
+---
+
+## B.2 Slice 6b.1 — built and verified locally, NOT released
+
+Unit 6b.1 (`SLICE_6B1_PASSWORD_RECOVERY.md`) builds `/forgot-password`, `/account/reset-password`,
+`/account/setup` and `/account/suspended`, corrects the GoTrue password minimum in `config.toml`, and
+adds one anon-executable RPC so a reset request can leave the event Phase 2 G names.
+
+**No row below changes status yet, deliberately.** Every status in this register is a statement about
+*production*, and 6b.1 is not in production: the emergency hotfix authority covered `cd18ba6` alone
+and does not extend to this unit. S6-6 therefore still reads REGRESSED, S6-7 and S6-8 still read
+MISSED, and they will continue to until a release is authorised and verified live. Nothing is claimed
+on local evidence.
+
+The rows affected when that release happens are **S6-2, S6-5, S6-6, S6-7, S6-8** and the **code half**
+of **S6-3**. The production half of S6-3 is a dashboard setting and stays with 6b.5.
+
+---
+
 ## B.1 Stage 0 — status as at 17 September 2026
 
 Stage 0 addresses **§B only**. It is the designed path, not a relaxation: `require_recent_aal2` is

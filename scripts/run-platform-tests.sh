@@ -240,6 +240,9 @@ SUITES=(
   invitation_team_list
   aal_enforcement
   recovery_codes
+  # Slice 6b.1: both ends of the password reset journey leave a mark, and asking
+  # for one never reveals who has an account.
+  password_reset_journey
   club_claim_authority_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences
@@ -422,6 +425,77 @@ if [[ -d "$TEST_DIR/js" ]]; then
       grep -E 'AssertionError|✖' <<<"$js_output" | head -12 | sed 's/^/          /'
     else
       printf '  ok    %-34s %s passed\n' "$js_name" "$js_ok"
+    fi
+  done
+fi
+
+# ---------------------------------------------------------------------------
+# Identity/Auth browser journeys.
+#
+# SLICE 6b: a login page cannot be accepted by SQL and TypeScript alone. The
+# production incident that opened this slice -- an owner locked out by a
+# boolean that outlived the token it stood for -- was invisible to every
+# assertion in this file, because it lived in a React component's state
+# between two clicks. The suites below are the only evidence of that class of
+# defect, so they belong to the release runner rather than to somebody's
+# memory of having run them once.
+#
+# They need things this script otherwise does not: a dev server, the local
+# mail catcher, a service-role key and a linked playwright-core (which is
+# deliberately not a project dependency -- see the suites' README). When any
+# of that is absent the journeys are NOT RUN and say so loudly; they are
+# never quietly skipped and never counted as passing. A release claim that
+# rests on them is only true if this section actually ran.
+#
+# SKIP_BROWSER_JOURNEYS=1 opts out for a fast inner-loop run. It still prints
+# the notice, because the point is that nobody discovers afterwards that the
+# browser evidence was never produced.
+# ---------------------------------------------------------------------------
+BROWSER_SUITES=(
+  63-turnstile-login-recovery
+  64-password-recovery-journey
+)
+
+browser_blocked=""
+if [[ -n "${SKIP_BROWSER_JOURNEYS:-}" ]]; then
+  browser_blocked="SKIP_BROWSER_JOURNEYS is set"
+elif [[ ! -e "$(dirname "${BASH_SOURCE[0]}")/../node_modules/playwright-core" ]]; then
+  browser_blocked="playwright-core is not linked into node_modules (see scripts/browser-verification/README.md)"
+elif [[ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]]; then
+  browser_blocked="SUPABASE_SERVICE_ROLE_KEY is not set"
+elif ! curl -sf -o /dev/null --max-time 10 "${APP_URL:-http://localhost:3000}/login"; then
+  browser_blocked="no dev server answering on ${APP_URL:-http://localhost:3000}"
+elif ! curl -sf -o /dev/null --max-time 5 "${MAILPIT_URL:-http://127.0.0.1:54324}"; then
+  browser_blocked="no mail catcher answering on ${MAILPIT_URL:-http://127.0.0.1:54324}"
+fi
+
+echo
+if [[ -n "$browser_blocked" ]]; then
+  echo "  BROWSER JOURNEYS NOT RUN -- $browser_blocked"
+  for b in "${BROWSER_SUITES[@]}"; do
+    printf '        not run  %s\n' "$b"
+  done
+  echo "        No browser evidence was produced by this run. Do not report it as if there were."
+else
+  for b in "${BROWSER_SUITES[@]}"; do
+    b_output=$(node "$(dirname "${BASH_SOURCE[0]}")/browser-verification/$b.mjs" 2>&1)
+    b_ok=$(grep -c '^PASS' <<<"$b_output")
+    b_bad=$(grep -c '^FAIL' <<<"$b_output")
+    total_pass=$((total_pass + b_ok))
+    total_fail=$((total_fail + b_bad))
+    if [[ "$b_bad" -gt 0 ]]; then
+      failed_suites+=("$b")
+      printf '  FAIL  %-34s %s passed, %s failed\n' "$b" "$b_ok" "$b_bad"
+      grep '^FAIL' <<<"$b_output" | head -12 | sed 's/^/          /'
+    else
+      printf '  ok    %-34s %s passed\n' "$b" "$b_ok"
+      # A suite that asserted nothing has not proved anything, and a silent
+      # zero here would read exactly like a clean run.
+      if [[ "$b_ok" -eq 0 ]]; then
+        failed_suites+=("$b (recorded no assertions)")
+        total_fail=$((total_fail + 1))
+      fi
+      grep '^NOTE' <<<"$b_output" | sed 's/^/          /'
     fi
   done
 fi

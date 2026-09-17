@@ -178,11 +178,21 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+#
+# SLICE 6b.1: this is the key the Supabase CLI actually reads, and it was left at 6 while a
+# `password_min_length = 12` line below claimed the Phase 2 value. That key does not exist, so GoTrue
+# received PASSWORD_MIN_LENGTH=6 and the direct Auth API accepted a six-character password no matter
+# what Ovalball's own validator said. Phase 2 E requires 12.
+minimum_password_length = 12
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 # Phase 2 E / L1.
-password_min_length = 12
+#
+# `password_min_length` is NOT a Supabase CLI key and never was -- it is retained here only as a
+# gravestone, because deleting it silently would invite somebody to add it back. The real setting is
+# `minimum_password_length` above. Verified by reading what GoTrue actually received:
+#   docker exec supabase_auth_<project> env | grep GOTRUE_PASSWORD
+# `password_requirements` stays empty pending AN-1, which is an owner decision (6b.5).
 password_requirements = ""
 
 # Configure passkey sign-ins.

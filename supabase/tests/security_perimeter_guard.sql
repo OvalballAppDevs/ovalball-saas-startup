@@ -45,6 +45,13 @@ declare
     'get_safeguarding_officer_invitation_preview(text)',
     'get_site_admin_invitation_preview(text)',
     'platform_public_state()',
+    -- Identity/Auth Slice 6b.1, Phase 2 G. A password reset is asked for by somebody who is not
+    -- signed in, so the password.reset_requested event has to be written without a session. It takes
+    -- an email and returns void whether or not the address matches an account, raises nothing, and
+    -- writes only to security_events, which anon cannot read -- so it answers the same for a member
+    -- and a stranger and cannot be used to discover who holds an Ovalball account. Reaching for the
+    -- service role on a public request was rejected: Slice 6 deliberately removed it from this path.
+    'record_password_reset_requested(text)',
     'submit_public_support_ticket(text, text, text, text, text, text)'
   ];
   v_found text;

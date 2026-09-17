@@ -17540,6 +17540,7 @@ export type Database = {
       }
       site_admin_grant_requests: {
         Row: {
+          bootstrap: boolean
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -17553,6 +17554,7 @@ export type Database = {
           target_user_id: string
         }
         Insert: {
+          bootstrap?: boolean
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -17566,6 +17568,7 @@ export type Database = {
           target_user_id: string
         }
         Update: {
+          bootstrap?: boolean
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -24769,6 +24772,10 @@ export type Database = {
           p_first_name?: string
           p_surname?: string
         }
+        Returns: undefined
+      }
+      record_password_reset_requested: {
+        Args: { p_email: string }
         Returns: undefined
       }
       record_payment_refund: {
