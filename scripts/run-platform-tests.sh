@@ -351,6 +351,9 @@ SUITES=(
   # Slice 7c: a Site Admin grant takes two people by every route, and the last
   # Full Site Admin cannot be revoked, deleted or quietly demoted.
   site_admin_grant_and_lockout
+  # Slice 7, AI #36/#37/#41: the master-control surface is discovered from the
+  # catalogue, so an RPC added later without the preamble fails this by default.
+  site_admin_profile_matrix
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

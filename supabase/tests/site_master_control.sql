@@ -437,6 +437,39 @@ begin
   perform pg_temp.check(
     pg_temp.count_as(v_outsider, format('select count(*) from public.site_membership_history(%L)', v_target)) = 0,
     'SMC-41b somebody with no site capability at all reads an empty timeline, not somebody else''''s history');
+
+  -- =============================================================================================
+  -- SMC-42  AI #50. Resending a setup link ROTATES it.
+  --
+  -- The attack is mundane and effective: somebody sees the first setup email -- a shared mailbox, a
+  -- forwarded message, a screen over a shoulder -- the administrator resends because "it didn't
+  -- arrive", and the original link still works. Two live setup links for one person is two ways in,
+  -- and the older one is the one nobody is watching.
+  -- =============================================================================================
+  declare v_first uuid; v_second uuid; v_new3 uuid;
+  begin
+    v_new3 := pg_temp.person('Resend','smc-resend-'||v_tag||'@ovalball.test');
+    update public.profiles set account_state = 'PENDING_SETUP', setup_state = 'PENDING_DETAILS' where id = v_new3;
+    perform pg_temp.try_as(v_full, format('select public.site_register_created_identity(%L,''Niamh'',''Byrne'',null,''creating an account for a club secretary'')', v_new3));
+    select id into v_first from public.access_invitations
+     where kind = 'ACCOUNT_SETUP' and target_user_id = v_new3 and state = 'ISSUED';
+
+    perform pg_temp.check(
+      pg_temp.try_as(v_support, format('select public.site_resend_account_setup(%L,''they say the first email never arrived'')', v_new3)) = 'OK',
+      'SMC-42 POSITIVE CONTROL: User Access holds site.invitations.manage and CAN resend a setup link');
+
+    select id into v_second from public.access_invitations
+     where kind = 'ACCOUNT_SETUP' and target_user_id = v_new3 and state = 'ISSUED';
+    perform pg_temp.check(v_second is not null and v_second <> v_first,
+      'SMC-42b a fresh invitation was issued');
+    perform pg_temp.check(
+      (select state from public.access_invitations where id = v_first) <> 'ISSUED',
+      'SMC-42c and the FIRST one is no longer live -- resending rotates rather than adding a second way in');
+    perform pg_temp.check(
+      (select count(*) from public.access_invitations
+        where kind = 'ACCOUNT_SETUP' and target_user_id = v_new3 and state = 'ISSUED') = 1,
+      'SMC-42d exactly one setup link is live for that person at any time');
+  end;
 end $$;
 
 rollback;
