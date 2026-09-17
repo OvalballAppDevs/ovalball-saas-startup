@@ -116,6 +116,19 @@ begin
   perform pg_temp.check(internal.session_ok(),
     'AE-B4 including the Site Admin -- the sole administrator is not locked out by this release');
 
+  -- A USABLE ACCOUNT is part of the question, and stays part of it whatever the enforcement flags say.
+  -- Suspension that waits for a token to expire is not suspension.
+  update public.profiles set account_state = 'SUSPENDED' where id = v_plain;
+  perform pg_temp.as_session(v_plain, v_s1);
+  perform pg_temp.check(not internal.session_ok(),
+    'AE-B5 SUSPENDED: a suspended account is refused even though nothing is enforced');
+  update public.profiles set account_state = 'DISABLED' where id = v_plain;
+  perform pg_temp.check(not internal.session_ok(),
+    'AE-B6 and so is a disabled one');
+  update public.profiles set account_state = 'ACTIVE' where id = v_plain;
+  perform pg_temp.check(internal.session_ok(),
+    'AE-B7 POSITIVE CONTROL: restoring the account restores access, so the refusal was about its state');
+
   -- ---------------------------------------------------------------------------------------------
   -- AE-C  Turn PRIVILEGED on. Now the boundary bites, and only for that group.
   -- ---------------------------------------------------------------------------------------------
@@ -134,6 +147,34 @@ begin
   perform pg_temp.check(internal.session_aal_ok(),
     'AE-C3 POSITIVE CONTROL: the same person at AAL2 is accepted -- the refusal was about assurance');
   perform pg_temp.check(internal.session_ok(), 'AE-C4 and session_ok is true again');
+
+  -- A DATE IN THE FUTURE IS NOT ENFORCEMENT. Setting one is how a rollout is scheduled and announced;
+  -- if merely having a date counted, every announcement would take effect the moment it was made.
+  update auth.sessions set aal = 'aal1' where id = v_s_admin;
+  update public.mfa_enforcement_policy
+     set require_aal2_from = now() + interval '7 days', grace_until = null
+   where enforcement_group = 'PRIVILEGED';
+  perform pg_temp.as_session(v_admin, v_s_admin);
+  perform pg_temp.check(internal.session_aal_ok(),
+    'AE-C6 SCHEDULED: a rollout dated next week does not bite today');
+
+  -- A grace window is the same promise: announced, dated, and not yet in force.
+  update public.mfa_enforcement_policy
+     set require_aal2_from = now() - interval '1 day', grace_until = now() + interval '7 days'
+   where enforcement_group = 'PRIVILEGED';
+  perform pg_temp.check(internal.session_aal_ok(),
+    'AE-C7 GRACE: a group inside its grace window is not yet enforced');
+
+  update public.mfa_enforcement_policy
+     set require_aal2_from = now() - interval '1 day', grace_until = now() - interval '1 hour'
+   where enforcement_group = 'PRIVILEGED';
+  perform pg_temp.check(not internal.session_aal_ok(),
+    'AE-C8 POSITIVE CONTROL: once the grace window closes the same session is refused');
+
+  update public.mfa_enforcement_policy
+     set require_aal2_from = now() - interval '1 minute', grace_until = null
+   where enforcement_group = 'PRIVILEGED';
+  update auth.sessions set aal = 'aal2' where id = v_s_admin;
 
   -- The unenforced group is untouched by somebody else's rollout.
   perform pg_temp.as_session(v_plain, v_s1);
