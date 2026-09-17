@@ -94,21 +94,37 @@ on conflict (slug) do nothing;
 -- constrained to NULL/'B'/'C' for youth -- the A side is the one with no
 -- designation. Letting the domain name its own teams is the point; passing
 -- a hand-written display_name would just be overwritten.
-insert into public.teams (club_id, rugby_code, category, age_group, squad_designation, active)
-select c.id, 'union', 'youth', v.age_group, v.squad, true
+--
+-- The pathway is given for U12 and up because the database requires it there: from Under-12 a side
+-- plays in the boys' or the girls' pathway and Ovalball will not choose for you. It is left null for
+-- the minis, which are genuinely mixed. Without this, seeding a FRESH database fails outright -- the
+-- rule arrived after these rows were written, and the development database never noticed because it
+-- had been seeded before the rule existed.
+-- The primary sides first, in their own statement. A B squad cannot be activated without an active
+-- primary team at its level, and one INSERT ... SELECT gives no guarantee about the order rows reach
+-- the trigger -- so the dependency is expressed as two statements rather than left to luck.
+insert into public.teams (club_id, rugby_code, category, age_group, gender, active)
+select c.id, 'union', 'youth', v.age_group, v.gender, true
 from public.clubs c
 cross join (values
-  ('U12', null),
+  ('U12', 'boys'),
   ('U7',  null),
   ('U8',  null),
-  ('U8',  'B'),
-  ('U16', null)
-) as v(age_group, squad)
+  ('U16', 'boys')
+) as v(age_group, gender)
 where c.slug = 'ovalball-uat-rufc'
   and not exists (
     select 1 from public.teams t
-    where t.club_id = c.id and t.age_group = v.age_group
-      and t.squad_designation is not distinct from v.squad
+    where t.club_id = c.id and t.age_group = v.age_group and t.squad_designation is null
+  );
+
+insert into public.teams (club_id, rugby_code, category, age_group, squad_designation, active)
+select c.id, 'union', 'youth', 'U8', 'B', true
+from public.clubs c
+where c.slug = 'ovalball-uat-rufc'
+  and not exists (
+    select 1 from public.teams t
+    where t.club_id = c.id and t.age_group = 'U8' and t.squad_designation = 'B'
   );
 
 -- Mini-Rugby: U7 and U8 play as one scheduling group, so the fixture is
@@ -123,7 +139,14 @@ where c.slug = 'ovalball-uat-rufc'
 insert into public.scheduling_groups (club_id, display_tag, active, season_id)
 select c.id, 'U7/U8 Minis', true, s.id
 from public.clubs c
-cross join lateral (select id from public.seasons where rugby_code='union' and active order by starts_on desc limit 1) s
+-- The CURRENT season, not the latest one. "Latest" silently became next season the moment the
+-- register gained one, and a U7/U8 group in next season is a group whose teams have aged out of the
+-- Mini-Rugby band -- which the database correctly refuses. Current means the season today falls in.
+cross join lateral (
+  select id from public.seasons
+   where rugby_code = 'union' and active
+   order by (current_date between starts_on and ends_on) desc, starts_on desc
+   limit 1) s
 where c.slug = 'ovalball-uat-rufc'
   and not exists (select 1 from public.scheduling_groups g where g.club_id = c.id and g.display_tag = 'U7/U8 Minis');
 
@@ -161,6 +184,15 @@ from (values
 ) as v(email)
 where not exists (select 1 from auth.users u where u.email = v.email);
 
+-- An UPSERT, not an insert-if-absent.
+--
+-- Creating an auth.users row now creates a profile alongside it, with no name in it yet. The old
+-- "where not exists" guard therefore skipped every one of these people on a FRESH database and left
+-- them nameless, which showed up as a blocked-users list that could not say who had been blocked --
+-- a screen reading as broken because of a seed, not because of the screen.
+--
+-- It only fills a name that is MISSING. A name somebody has corrected is never re-spelled by a seed,
+-- which is the same rule internal.normalise_person_name follows.
 insert into public.profiles (id, first_name, surname, email)
 select u.id, v.first_name, v.surname, u.email
 from auth.users u
@@ -171,21 +203,34 @@ join (values
   ('uat.unrelated@ovalball.test',    'Unrelated','Visitor'),
   ('uat.coach@ovalball.test',        'Priya', 'Nair')
 ) as v(email, first_name, surname) on v.email = u.email
-where not exists (select 1 from public.profiles p where p.id = u.id);
+on conflict (id) do update
+  set first_name = case when btrim(coalesce(public.profiles.first_name, '')) = ''
+                        then excluded.first_name else public.profiles.first_name end,
+      surname    = case when btrim(coalesce(public.profiles.surname, '')) = ''
+                        then excluded.surname else public.profiles.surname end,
+      email      = coalesce(nullif(btrim(public.profiles.email), ''), excluded.email);
 
 -- Players. Ages chosen against real behaviour, not decoration: Rowan is 16+
 -- so self-response is legitimate; the younger three are under 16 so only a
 -- guardian may respond for them.
-insert into public.players (first_name, surname, date_of_birth, user_id, active)
-select v.first_name, v.surname, v.dob::date,
+-- The pathway is recorded on the PLAYER, never inferred from the side they are placed in: that is
+-- exactly what internal.may_complete_player_profile exists to protect, and the database refuses a
+-- placement into an Under-12-or-older team without it.
+--
+-- These are fixtures, so both facts are authored here together -- the side and the pathway are chosen
+-- to agree, rather than one being derived from the other. The names came first and carry no meaning;
+-- what matters for a UAT fixture is that a child placed in a boys' side is recorded as playing in it,
+-- because the governing-body rule this seed has to satisfy is about the pathway and nothing else.
+insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id, active)
+select v.first_name, v.surname, v.dob::date, v.pathway,
        (select u.id from auth.users u where u.email = v.login_email),
        true
 from (values
-  ('Ava',  'Whitaker', '2014-04-12', null),
-  ('Ben',  'Whitaker', '2017-08-03', null),
-  ('Cara', 'Bell',     '2014-11-21', null),
-  ('Rowan','Whitaker', '2009-02-17', 'uat.player.self@ovalball.test')
-) as v(first_name, surname, dob, login_email)
+  ('Ava',  'Whitaker', '2014-04-12', 'MALE',   null),
+  ('Ben',  'Whitaker', '2017-08-03', null,     null),
+  ('Cara', 'Bell',     '2014-11-21', 'MALE',   null),
+  ('Rowan','Whitaker', '2009-02-17', 'MALE',   'uat.player.self@ovalball.test')
+) as v(first_name, surname, dob, pathway, login_email)
 where not exists (
   select 1 from public.players p
   where p.first_name = v.first_name and p.surname = v.surname and p.date_of_birth = v.dob::date
@@ -245,7 +290,14 @@ from public.teams t
 join public.clubs c on c.id = t.club_id and c.slug = 'ovalball-uat-rufc'
 join public.venues v on v.club_id = c.id and v.slug = 'ovalball-uat-ground'
 join public.club_directory d on d.normalized_key = 'ovalball-uat-opposition-rfc'
-cross join lateral (select id from public.seasons where rugby_code='union' and active order by starts_on desc limit 1) s
+-- The CURRENT season, not the latest one. "Latest" silently became next season the moment the
+-- register gained one, and a U7/U8 group in next season is a group whose teams have aged out of the
+-- Mini-Rugby band -- which the database correctly refuses. Current means the season today falls in.
+cross join lateral (
+  select id from public.seasons
+   where rugby_code = 'union' and active
+   order by (current_date between starts_on and ends_on) desc, starts_on desc
+   limit 1) s
 where t.age_group = 'U12' and t.squad_designation is null
   and not exists (
     select 1 from public.fixtures f where f.owning_team_id = t.id and f.kickoff_date = (current_date + 3)
@@ -262,7 +314,14 @@ join public.clubs c on c.id = t.club_id and c.slug = 'ovalball-uat-rufc'
 join public.scheduling_groups g on g.club_id = c.id and g.display_tag = 'U8 Minis'
 join public.venues v on v.club_id = c.id and v.slug = 'ovalball-uat-ground'
 join public.club_directory d on d.normalized_key = 'ovalball-uat-opposition-rfc'
-cross join lateral (select id from public.seasons where rugby_code='union' and active order by starts_on desc limit 1) s
+-- The CURRENT season, not the latest one. "Latest" silently became next season the moment the
+-- register gained one, and a U7/U8 group in next season is a group whose teams have aged out of the
+-- Mini-Rugby band -- which the database correctly refuses. Current means the season today falls in.
+cross join lateral (
+  select id from public.seasons
+   where rugby_code = 'union' and active
+   order by (current_date between starts_on and ends_on) desc, starts_on desc
+   limit 1) s
 where t.age_group = 'U8' and t.squad_designation is null
   and not exists (
     select 1 from public.fixtures f where f.owning_scheduling_group_id = g.id
@@ -276,7 +335,14 @@ select c.id, t.id, s.id, v.id, (current_date + 1), '18:00', '19:30', 'Local UAT 
 from public.clubs c
 join public.teams t on t.club_id = c.id and t.age_group = 'U12' and t.squad_designation is null
 join public.venues v on v.club_id = c.id and v.slug = 'ovalball-uat-ground'
-cross join lateral (select id from public.seasons where rugby_code='union' and active order by starts_on desc limit 1) s
+-- The CURRENT season, not the latest one. "Latest" silently became next season the moment the
+-- register gained one, and a U7/U8 group in next season is a group whose teams have aged out of the
+-- Mini-Rugby band -- which the database correctly refuses. Current means the season today falls in.
+cross join lateral (
+  select id from public.seasons
+   where rugby_code = 'union' and active
+   order by (current_date between starts_on and ends_on) desc, starts_on desc
+   limit 1) s
 where c.slug = 'ovalball-uat-rufc'
   and not exists (
     select 1 from public.training_sessions ts where ts.team_id = t.id and ts.session_date = (current_date + 1)
@@ -378,8 +444,8 @@ join auth.users u on u.email = v.email
 where not exists (select 1 from public.profiles p where p.id = u.id);
 
 -- The child with no response.
-insert into public.players (first_name, surname, date_of_birth)
-select 'Priya', 'Rao', '2014-09-09'
+insert into public.players (first_name, surname, date_of_birth, playing_pathway)
+select 'Priya', 'Rao', '2014-09-09', 'MALE'
 where not exists (select 1 from public.players p where p.first_name = 'Priya' and p.surname = 'Rao');
 
 insert into public.player_team_memberships (player_id, team_id, status)

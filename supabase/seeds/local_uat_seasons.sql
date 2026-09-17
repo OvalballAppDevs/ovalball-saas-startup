@@ -87,11 +87,29 @@ begin
      and season_ref = '2026';
 
   -- ---------------------------------------------------------------------
-  -- RUGBY UNION 27/28 -- next season, already correctly shaped.
+  -- RUGBY UNION 27/28 -- next season.
   --
-  -- Left alone deliberately: it carries recorded team identities, and a
-  -- season that already agrees with the model is not rewritten just because
-  -- this file happens to run.
+  -- CREATED here, not merely corrected. This file said it was "an idempotent
+  -- upsert keyed on (rugby_code, season_ref)" and was in fact three UPDATEs,
+  -- so on a FRESH database 27/28 simply did not exist -- it was one of the
+  -- ad-hoc hand-made rows this file was written to put an end to, and it had
+  -- survived on the development machine only because nobody ever reset it.
+  --
+  -- A season handover has no meaning without a season to hand over INTO, so
+  -- its absence did not read as missing data: it read as the handover being
+  -- broken. An existing row is still left alone beyond the date corrections
+  -- above, because a season that carries recorded team identities is a record
+  -- of what happened.
   -- ---------------------------------------------------------------------
+  -- season_year_start and season_year_end are DERIVED from the dates by the table itself, so they
+  -- are deliberately absent here: writing them would be a second answer to a question the register
+  -- already answers.
+  insert into public.seasons (name, season_ref, rugby_code, starts_on, ends_on,
+                              pre_season_starts_on, active, created_by, updated_by)
+  select 'Rugby Union 27/28', '27/28', 'union', date '2027-09-01', date '2028-06-30',
+         date '2027-08-01', true, v_actor, v_actor
+  where not exists (
+    select 1 from public.seasons s where s.rugby_code = 'union' and s.season_ref = '27/28'
+  );
 end
 $$;

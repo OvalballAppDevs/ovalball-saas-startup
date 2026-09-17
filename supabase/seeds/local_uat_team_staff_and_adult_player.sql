@@ -87,6 +87,26 @@ from auth.users u
 where u.email = 'uat.adult.player@ovalball.test'
   and not exists (select 1 from public.players p where p.user_id = u.id);
 
+-- THE ADULT SIDES.
+--
+-- Created here rather than assumed. This file joined `teams` on the display name "Men's 1st Team" and
+-- never created it, so on a FRESH database the join matched nothing and the adult player silently had
+-- no team -- which reads as adult messaging being broken rather than as a missing fixture. The rows
+-- existed on the development machine only because somebody had made them by hand.
+--
+-- The display name is DERIVED from the canonical identity (senior / mens / 1st), so the identity is
+-- what is written and the name follows. Passing a display_name would simply be overwritten.
+insert into public.teams (club_id, rugby_code, category, gender, squad_designation, active)
+select c.id, 'union', 'senior', v.gender, v.squad, true
+from public.clubs c
+join public.club_directory d on d.id = c.directory_id and d.normalized_key = 'ovalball-uat-rufc'
+cross join (values ('mens', '1st'), ('womens', '1st')) as v(gender, squad)
+where not exists (
+  select 1 from public.teams t
+  where t.club_id = c.id and t.category = 'senior'
+    and t.gender = v.gender and t.squad_designation = v.squad
+);
+
 insert into public.player_team_memberships (player_id, team_id, status)
 select p.id, t.id, 'active'
 from public.players p
