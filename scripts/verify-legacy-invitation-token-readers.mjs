@@ -3,13 +3,14 @@
  * WHO MAY READ A LEGACY INVITATION TOKEN.
  *
  * Six legacy tables still store their invitation token in plaintext. Slice 5 cleared the token from
- * every terminal and expired row, but the READ surface has to stay until the application moves to the
- * canonical issuer: three server actions insert a legacy invitation and read the token straight back
- * to build the emailed link, and removing the grant breaks invitation sending (D-S5-AUTO-6).
+ * every terminal and expired row, and the READ surface had to stay while three server actions still
+ * inserted a legacy invitation and read the token straight back to build the emailed link -- removing
+ * the grant then would have broken invitation sending (D-S5-AUTO-6).
  *
- * A temporary surface that nobody is watching becomes a permanent one. This pins exactly which
- * modules may read a legacy token, so the exposure cannot spread while it waits to be retired, and so
- * that the list shrinking to zero is a visible event rather than something nobody notices.
+ * THE LIST IS NOW EMPTY. All three moved to the canonical issuer, so nothing in the application reads
+ * a plaintext legacy token any more, and the column grant itself has been revoked. What this script
+ * guards has therefore changed from "only these three" to "none at all": a new reader is now a
+ * regression rather than a known cost, and the failure message says so.
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs"
@@ -25,12 +26,13 @@ const LEGACY_TABLES = [
   "club_ovalball_invitations",
 ]
 
-/** Each entry is a module that legitimately needs a legacy token today, and why. */
-const ALLOWED = new Map([
-  ["app/(app)/people/actions.ts", "Club staff invitation: reads the token back to build the emailed link."],
-  ["app/(app)/admin/site-admins/actions.ts", "Site Admin invitation: same, for the site-admin link."],
-  ["app/(app)/parent/children/actions.ts", "Player account invitation: same, for the guardian's link."],
-])
+/**
+ * Empty, and meant to stay empty. It is kept rather than deleted because an allow-list that exists
+ * and is empty is a much clearer statement than a check with no list at all -- and because if some
+ * future migration genuinely needs a legacy token for a while, this is where that debt gets written
+ * down with a reason and a name on it.
+ */
+const ALLOWED = new Map([])
 
 function walk(dir, out = []) {
   let entries
@@ -62,8 +64,9 @@ for (const file of walk(join(ROOT, "app")).concat(walk(join(ROOT, "lib")), walk(
   found.add(rel)
   if (!ALLOWED.has(rel)) {
     failures.push(
-      `${rel} reads a legacy invitation token. That surface is retiring: move this to the canonical ` +
-        `issuer (public.issue_invitation), or add it to the allow-list in this script with a reason.`,
+      `${rel} reads a legacy invitation token. Nothing does that any more -- the six legacy tables ` +
+        `store their secret in plaintext, and the column grant has been revoked, so this cannot work ` +
+        `at runtime either. Use the canonical issuer, public.issue_invitation.`,
     )
   }
 }
@@ -84,5 +87,7 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `  ok    legacy_invitation_token_readers    ${found.size} module(s) may read a plaintext legacy token, all allow-listed`,
+  found.size === 0
+    ? "  ok    legacy_invitation_token_readers    nothing reads a plaintext legacy invitation token"
+    : `  ok    legacy_invitation_token_readers    ${found.size} module(s) may read one, all allow-listed`,
 )

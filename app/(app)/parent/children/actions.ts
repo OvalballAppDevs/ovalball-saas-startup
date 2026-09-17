@@ -150,26 +150,35 @@ export async function invitePlayerAccount(playerId: string, playerFirstName: str
   const supabase = await createClient()
   const allowed = await requirePlayerCapability(supabase, "player.account.invite", playerId)
   if (!allowed.ok) return allowed
-  const { data: invitationId, error } = await supabase.rpc("invite_player_account", { p_player_id: playerId, p_email: email })
-  if (error || !invitationId) {
-    if (error) console.error("invite_player_account failed:", error)
-    return { ok: false, error: error ? toPublicPlayerAccountInviteError(error) : "We couldn't send this invitation right now. Please try again." }
+
+  // The canonical issuer. It re-checks `player.account.invite` for this child in the scope the
+  // capability is actually held in -- the child's -- so the check above is a better error message
+  // rather than the boundary.
+  const { data, error } = await supabase
+    .rpc("issue_invitation", { p_kind: "PLAYER_ACCOUNT", p_player_id: playerId, p_email: email })
+    .maybeSingle()
+
+  if (error || !data) {
+    if (error) console.error("issue_invitation (PLAYER_ACCOUNT) failed:", error)
+    return {
+      ok: false,
+      error: error
+        ? toPublicPlayerAccountInviteError(error)
+        : "We couldn't send this invitation right now. Please try again.",
+    }
   }
 
-  const { data: invitation } = await supabase
-    .from("player_account_invitations")
-    .select("token")
-    .eq("id", invitationId)
-    .maybeSingle()
-  if (invitation?.token) {
-    await sendEmailEvent({
-      supabase,
-      eventKey: "player_account_invitation",
-      idempotencyKey: `player_account_invitation:${invitationId}`,
-      recipient: { kind: "player_account_invitation", invitationId },
-      data: { playerFirstName, inviteToken: invitation.token },
-    })
+  if (data.already_existed || !data.token) {
+    return { ok: false, error: "An invitation to this address is already waiting to be accepted." }
   }
+
+  await sendEmailEvent({
+    supabase,
+    eventKey: "player_account_invitation",
+    idempotencyKey: `player_account_invitation:${data.invitation_id}`,
+    recipient: { kind: "access_invitation", invitationId: data.invitation_id },
+    data: { playerFirstName, inviteToken: data.token },
+  })
 
   revalidatePath("/parent/children")
   return { ok: true }

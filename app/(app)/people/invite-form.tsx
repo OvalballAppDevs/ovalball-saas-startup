@@ -6,26 +6,32 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TEAM_PERMISSION_OPTIONS } from "@/lib/permissions/role-labels"
+import { createInvitation, type StaffRoleOption } from "./actions"
 
-// View Only never gave any team access and is not a team role; a parent or
-// player reaches a team through their child or their own place in it.
-const TEAM_PERMISSIONS = TEAM_PERMISSION_OPTIONS.filter((option) => option.value !== "view_only")
-
-import { createInvitation } from "./actions"
-
+/**
+ * The roles on offer come from the role catalogue, narrowed by the database to what an invitation is
+ * allowed to carry -- not from a list written here. A second list in TypeScript is a second
+ * catalogue, and it drifts silently, because nothing fails when the two disagree.
+ *
+ * Team Administration is absent for that reason rather than by a filter: it is already
+ * `visible = false` in the catalogue, because it is a capability bundle held on top of Coach or Team
+ * Manager rather than a role somebody is invited into.
+ */
 interface InviteFormProps {
   clubId: string
   clubName: string
   teams: { id: string; displayName: string }[]
+  roleOptions: StaffRoleOption[]
 }
 
-export function InviteForm({ clubId, clubName, teams }: InviteFormProps) {
+export function InviteForm({ clubId, clubName, teams, roleOptions }: InviteFormProps) {
+  const clubRoleOptions = roleOptions.filter((option) => !option.heldAtTeam)
+  const teamRoleOptions = roleOptions.filter((option) => option.heldAtTeam)
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [declaredRole, setDeclaredRole] = useState("")
-  const [clubRole, setClubRole] = useState<"" | "CLUB_ADMIN" | "FIXTURE_SECRETARY">("")
+  const [clubRole, setClubRole] = useState("")
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<"idle" | "saving" | "sent" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
@@ -40,8 +46,8 @@ export function InviteForm({ clubId, clubName, teams }: InviteFormProps) {
   }
 
   const teamAssignments = Object.entries(selectedTeams)
-    .filter(([, permission]) => permission)
-    .map(([teamId, teamPermission]) => ({ teamId, teamPermission: teamPermission as (typeof TEAM_PERMISSIONS)[number]["value"] }))
+    .filter(([, roleKey]) => roleKey)
+    .map(([teamId, roleKey]) => ({ teamId, roleKey }))
 
   const canSubmit = email.trim().length > 0 && (clubRole || teamAssignments.length > 0)
 
@@ -136,12 +142,15 @@ export function InviteForm({ clubId, clubName, teams }: InviteFormProps) {
         <select
           id="invite-club-role"
           value={clubRole}
-          onChange={(e) => setClubRole(e.target.value as typeof clubRole)}
+          onChange={(e) => setClubRole(e.target.value)}
           className="mt-1.5 h-11 w-full rounded-lg border border-ink/15 bg-white px-3.5 text-base text-ink outline-none focus-visible:border-pitch-600 sm:w-64"
         >
           <option value="">None</option>
-          <option value="CLUB_ADMIN">Club Admin</option>
-          <option value="FIXTURE_SECRETARY">Fixture Secretary</option>
+          {clubRoleOptions.map((option) => (
+            <option key={option.roleKey} value={option.roleKey}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -158,9 +167,9 @@ export function InviteForm({ clubId, clubName, teams }: InviteFormProps) {
                   className="h-9 flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
                 >
                   <option value="">Not assigned</option>
-                  {TEAM_PERMISSIONS.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
+                  {teamRoleOptions.map((option) => (
+                    <option key={option.roleKey} value={option.roleKey}>
+                      {option.label}
                     </option>
                   ))}
                 </select>

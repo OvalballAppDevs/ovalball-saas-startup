@@ -16,16 +16,17 @@ export type ActionResult = { ok: true } | { ok: false; error: string }
 export type InviteSiteAdminResult = { ok: true; inviteLink: string } | { ok: false; error: string }
 
 /**
- * Only a Full Site Admin may issue these -- RLS
- * (site_admin_invitations_insert_full_admin: internal.is_full_site_admin())
- * is the real boundary; requireSiteAdmin here just gives a real error
- * instead of a confusing RLS rejection. The row itself never grants
- * anything -- accept_site_admin_invitation() (called from
- * /invite/site-admin/[token]) is the only path from here to a real
- * site_admins row, and it requires the recipient's own authenticated
- * session email to match. No real email is sent this session -- see
- * lib/email/send.ts -- and the invite link is returned directly too, so an
- * invitation still works when no mail provider is configured.
+ * The canonical Site Admin invitation.
+ *
+ * `public.issue_invitation` is the authority -- the SITE_ADMIN kind requires
+ * `site.admins.manage` through the canonical site capability check, not a bare `is_site_admin()`.
+ * `requireSiteAdmin` here only gives a real error instead of a confusing rejection.
+ *
+ * The row grants nothing by existing. Redemption, reached from /join, is the only path from here to
+ * a real `site_admins` row: it requires the recipient's own authenticated session email to match,
+ * and -- because this is the widest authority Ovalball has -- it requires a date of birth on file
+ * showing they are an adult (D-S5-1). No real email is sent this session, see lib/email/send.ts, so
+ * the invite link is returned directly too and an invitation still works with no mail provider.
  */
 export async function inviteSiteAdmin(email: string, adminRole: string): Promise<InviteSiteAdminResult> {
   const supabase = await createClient()
@@ -35,26 +36,32 @@ export async function inviteSiteAdmin(email: string, adminRole: string): Promise
   const trimmedEmail = email.trim().toLowerCase()
   if (!trimmedEmail) return { ok: false, error: "An email address is required." }
 
-  const { data: invitation, error } = await supabase
-    .from("site_admin_invitations")
-    .insert({ invited_email: trimmedEmail, admin_role: adminRole, invited_by: auth.user.id })
-    .select("id, token")
-    .single()
+  const { data, error } = await supabase
+    .rpc("issue_invitation", {
+      p_kind: "SITE_ADMIN",
+      p_email: trimmedEmail,
+      p_intended_outcome: { admin_role: adminRole },
+    })
+    .maybeSingle()
 
-  if (error || !invitation) {
+  if (error || !data) {
     console.error("inviteSiteAdmin failed:", error)
     return { ok: false, error: toPublicSubmissionError() }
   }
 
-  const inviteLink = `${getSiteUrl()}/invite/site-admin/${invitation.token}`
+  if (data.already_existed || !data.token) {
+    return { ok: false, error: "That person already has a Site Admin invitation waiting to be accepted." }
+  }
+
+  const inviteLink = `${getSiteUrl()}/join?t=${encodeURIComponent(data.token)}`
   const profileLabel = PROFILE_LABEL_FN(adminRole)
 
   await sendEmailEvent({
     supabase,
     eventKey: "site_admin_invitation",
-    idempotencyKey: `site_admin_invitation:${invitation.id}`,
-    recipient: { kind: "site_admin_invitation", invitationId: invitation.id },
-    data: { profileLabel, inviteToken: invitation.token },
+    idempotencyKey: `site_admin_invitation:${data.invitation_id}`,
+    recipient: { kind: "access_invitation", invitationId: data.invitation_id },
+    data: { profileLabel, inviteToken: data.token },
   })
 
   revalidatePath("/admin/site-admins")

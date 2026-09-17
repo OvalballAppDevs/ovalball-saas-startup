@@ -34,6 +34,7 @@ export type EmailClassification =
  * structurally impossible rather than a rule every call site must remember.
  */
 export type RecipientKind =
+  | "access_invitation"
   | "club_invitation"
   | "guardian_invitation"
   | "player_account_invitation"
@@ -60,7 +61,7 @@ export const EMAIL_EVENTS = {
   club_invitation: {
     classification: "TRANSACTIONAL_IDENTITY",
     topicKey: null,
-    recipientKind: "club_invitation",
+    recipientKind: "access_invitation",
     description: "Someone has been invited to join a club on Ovalball.",
   },
   guardian_invitation: {
@@ -72,7 +73,7 @@ export const EMAIL_EVENTS = {
   player_account_invitation: {
     classification: "TRANSACTIONAL_IDENTITY",
     topicKey: null,
-    recipientKind: "player_account_invitation",
+    recipientKind: "access_invitation",
     description: "A player has been invited to create their own Ovalball login.",
   },
   safeguarding_officer_invitation: {
@@ -84,7 +85,7 @@ export const EMAIL_EVENTS = {
   site_admin_invitation: {
     classification: "TRANSACTIONAL_IDENTITY",
     topicKey: null,
-    recipientKind: "site_admin_invitation",
+    recipientKind: "access_invitation",
     description: "Someone has been invited to become an Ovalball Site Administrator.",
   },
   partner_club_invitation: {

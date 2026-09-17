@@ -192,7 +192,7 @@ const TEXT_FOOTER = [
 /* ------------------------------------------------------------------ */
 
 const clubInvitation: Renderer<"club_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
-  const url = link(`/invite/${d.inviteToken}`, siteUrl)
+  const url = link(`/join?t=${encodeURIComponent(d.inviteToken)}`, siteUrl)
   const c = copyFor("club_invitation", d, content)
   return {
     subject: c.subject,
@@ -273,7 +273,7 @@ const guardianInvitation: Renderer<"guardian_invitation"> = (d, siteUrl, content
 }
 
 const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
-  const url = link(`/player-invite/${d.inviteToken}`, siteUrl)
+  const url = link(`/join?t=${encodeURIComponent(d.inviteToken)}`, siteUrl)
   const c = copyFor("player_account_invitation", d, content)
   return {
     subject: c.subject,
@@ -390,7 +390,7 @@ const safeguardingOfficerMessage: Renderer<"safeguarding_officer_message"> = (d,
 
 const siteAdminInvitation: Renderer<"site_admin_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const c = copyFor("site_admin_invitation", d, content)
-  const url = link(`/invite/site-admin/${d.inviteToken}`, siteUrl)
+  const url = link(`/join?t=${encodeURIComponent(d.inviteToken)}`, siteUrl)
   const subject = c.subject
   const preheader = c.preheader
   return {

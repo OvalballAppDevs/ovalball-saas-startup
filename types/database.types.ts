@@ -23681,6 +23681,14 @@ export type Database = {
           violations: number
         }[]
       }
+      invitation_staff_role_options: {
+        Args: never
+        Returns: {
+          held_at_team: boolean
+          label: string
+          role_key: string
+        }[]
+      }
       invite_player_account: {
         Args: { p_email: string; p_player_id: string }
         Returns: string

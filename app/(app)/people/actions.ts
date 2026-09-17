@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
+import { toPublicSubmissionError } from "@/lib/errors/public-error"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
 
@@ -14,72 +15,102 @@ export interface InviteInput {
   clubName: string
   email: string
   declaredRole: string
-  clubRole: "CLUB_ADMIN" | "FIXTURE_SECRETARY" | null
-  teamAssignments: { teamId: string; teamPermission: "team_admin" | "coach" | "manager" | "view_only" }[]
+  /** A role key from `invitationStaffRoleOptions`, never a word invented at the call site. */
+  clubRole: string | null
+  teamAssignments: { teamId: string; roleKey: string }[]
+}
+
+export type StaffRoleOption = { roleKey: string; label: string; heldAtTeam: boolean }
+
+/**
+ * What a staff invitation may carry, from the role catalogue. The database narrows it to the O.1
+ * ceiling and to roles the catalogue marks visible, so the form and the issuer cannot disagree about
+ * what a staff invitation can produce.
+ */
+export async function invitationStaffRoleOptions(): Promise<StaffRoleOption[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("invitation_staff_role_options")
+  if (error) {
+    console.error("invitation_staff_role_options failed:", error)
+    return []
+  }
+  return (data ?? []).map((row) => ({
+    roleKey: row.role_key,
+    label: row.label,
+    heldAtTeam: row.held_at_team,
+  }))
 }
 
 
 /**
- * Creates the invitation row (+ per-team rows) only -- RLS
- * (invitations_insert_club_scoped) requires the caller to already be that
- * club's admin, so this grants nothing beyond what the caller could already
- * do directly. The row itself never grants access; accept_invitation()
- * (called from /invite/[token]) is the only path from here to a real
- * permission, and it requires the recipient's own authenticated session
- * email to match. No real email is sent this session -- see
- * lib/email/send.ts -- and the invite link is returned directly for the
- * inviter to share by hand.
+ * The canonical club staff invitation.
+ *
+ * `public.issue_invitation` is the authority: it checks that the caller may invite for this club,
+ * that every role is within what O.1 allows a staff invitation to carry, and that every team named
+ * is an active team of THIS club. The link token and the human code are returned once, at issue, and
+ * only their hashes are stored -- so this is the only moment either exists, and nothing can read
+ * them back afterwards.
+ *
+ * The invitation grants nothing by existing. Redemption, reached from /join, is the only path from
+ * here to a membership or a role, and it requires the recipient's own authenticated session to match
+ * the address the invitation was sent to.
  */
+
 export async function createInvitation(input: InviteInput): Promise<InviteResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not signed in." }
 
-  const { data: invitation, error } = await supabase
-    .from("invitations")
-    .insert({
-      club_id: input.clubId,
-      created_by: user.id,
-      invited_email: input.email.trim().toLowerCase(),
-      declared_role: input.declaredRole || null,
-      club_role: input.clubRole,
+  const clubRoles = input.clubRole ? [input.clubRole] : []
+
+  // Teams are grouped by the role they are being given, because one invitation can legitimately make
+  // somebody Coach of one team and Team Manager of another -- and flattening that would hand both
+  // roles to both teams. Nothing here validates the role: `issue_invitation` does, against the same
+  // catalogue the options came from.
+  const teamRoles: { id: string; roles: string[] }[] = []
+  for (const assignment of input.teamAssignments) {
+    const existing = teamRoles.find((t) => t.id === assignment.teamId)
+    if (existing) existing.roles.push(assignment.roleKey)
+    else teamRoles.push({ id: assignment.teamId, roles: [assignment.roleKey] })
+  }
+
+  if (clubRoles.length === 0 && teamRoles.length === 0) {
+    return { ok: false, error: "Choose a club role, a team role, or both." }
+  }
+
+  const { data, error } = await supabase
+    .rpc("issue_invitation", {
+      p_kind: "CLUB_STAFF",
+      p_club_id: input.clubId,
+      p_email: input.email.trim().toLowerCase(),
+      p_intended_outcome: { roles: clubRoles, declared_role: input.declaredRole || null },
+      p_team_roles: teamRoles.length > 0 ? teamRoles : undefined,
     })
-    .select("id, token")
-    .single()
+    .maybeSingle()
 
-  if (error || !invitation) {
-    return { ok: false, error: error?.message ?? "Could not create the invitation." }
+  if (error || !data) {
+    console.error("createInvitation failed:", error)
+    return { ok: false, error: toPublicSubmissionError() }
   }
 
-  if (input.teamAssignments.length > 0) {
-    const { error: teamsError } = await supabase.from("invitation_teams").insert(
-      input.teamAssignments.map((t) => ({
-        invitation_id: invitation.id,
-        team_id: t.teamId,
-        team_permission: t.teamPermission,
-      }))
-    )
-    if (teamsError) {
-      return { ok: false, error: teamsError.message }
-    }
+  // An identical invitation already out there is returned rather than reissued, and deliberately
+  // without a second live secret -- so the honest answer is that one is already on its way.
+  if (data.already_existed || !data.token) {
+    return { ok: false, error: "That person already has an invitation to this club waiting to be accepted." }
   }
 
-  const inviteLink = `${getSiteUrl()}/invite/${invitation.token}`
+  const inviteLink = `${getSiteUrl()}/join?t=${encodeURIComponent(data.token)}`
 
-  // Recipient is resolved from the invitation ROW, not from `input.email`:
-  // the address is a property of the invitation this action just created
-  // under its own authorization, never an argument the browser can aim.
+  // Recipient is resolved from the invitation ROW, not from `input.email`: the address is a property
+  // of the invitation this action just created under its own authorization, never an argument the
+  // browser can aim.
   await sendEmailEvent({
     supabase,
     eventKey: "club_invitation",
-    idempotencyKey: `club_invitation:${invitation.id}`,
-    recipient: { kind: "club_invitation", invitationId: invitation.id },
+    idempotencyKey: `club_invitation:${data.invitation_id}`,
+    recipient: { kind: "access_invitation", invitationId: data.invitation_id },
     data: {
       clubName: input.clubName,
       clubLogoUrl: await resolveClubCrestEmailUrl(supabase, input.clubId),
-      inviteToken: invitation.token,
+      inviteToken: data.token,
       roleLabel: input.declaredRole || null,
     },
   })

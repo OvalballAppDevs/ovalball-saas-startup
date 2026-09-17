@@ -595,8 +595,22 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Slice 5, Phase 2 O.5. Row access is unchanged and RLS still limits these rows to the club's own administrators. The plaintext `token` column is still readable by a signed-in administrator ON PURPOSE and temporarily (D-S5-AUTO-6): three server actions read it back to build the emailed invitation link, and removing the grant breaks invitation sending. scripts/verify-legacy-invitation-token-readers.mjs pins exactly which modules may, so the surface cannot spread. Terminal and expired rows no longer hold a token at all, and anon reaches none of this."
+        "select": [
+          "id",
+          "officer_id",
+          "club_id",
+          "invited_email",
+          "status",
+          "expires_at",
+          "accepted_by",
+          "accepted_at",
+          "revoked_by",
+          "revoked_at",
+          "invited_by",
+          "created_at",
+          "updated_at"
+        ],
+        "select_reason": "Slice 5, D-S5-AUTO-6 closed. Every legacy issuer now goes through public.issue_invitation, so nothing reads the plaintext token back to build an emailed link. The table grant was replaced with this explicit column list -- which omits `token` -- because a column-level REVOKE does nothing underneath a table-level SELECT grant. The rows stay readable to the club administrators RLS already limits them to; the secret does not."
       }
     },
     "club_safeguarding_officers": {
@@ -1377,8 +1391,21 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Slice 5, Phase 2 O.5. Row access is unchanged and RLS still limits these rows to the club's own administrators. The plaintext `token` column is still readable by a signed-in administrator ON PURPOSE and temporarily (D-S5-AUTO-6): three server actions read it back to build the emailed invitation link, and removing the grant breaks invitation sending. scripts/verify-legacy-invitation-token-readers.mjs pins exactly which modules may, so the surface cannot spread. Terminal and expired rows no longer hold a token at all, and anon reaches none of this."
+        "select": [
+          "id",
+          "club_id",
+          "team_id",
+          "invited_email",
+          "status",
+          "expires_at",
+          "accepted_by",
+          "accepted_at",
+          "invited_by_user_id",
+          "replacement_for_player_id",
+          "created_at",
+          "updated_at"
+        ],
+        "select_reason": "Slice 5, D-S5-AUTO-6 closed. Every legacy issuer now goes through public.issue_invitation, so nothing reads the plaintext token back to build an emailed link. The table grant was replaced with this explicit column list -- which omits `token` -- because a column-level REVOKE does nothing underneath a table-level SELECT grant. The rows stay readable to the club administrators RLS already limits them to; the secret does not."
       }
     },
     "guardian_link_requests": {
@@ -2079,14 +2106,28 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
+        "select": [
+          "id",
+          "club_id",
+          "invited_email",
+          "declared_role",
+          "club_role",
+          "status",
+          "expires_at",
+          "accepted_by",
+          "accepted_at",
+          "created_by",
+          "updated_by",
+          "created_at",
+          "updated_at"
+        ],
         "insert": "all",
         "update": "all",
         "write_consumers": [
           "app/(app)/people/actions.ts"
         ],
         "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Slice 5, Phase 2 O.5. Row access is unchanged and RLS still limits these rows to the club's own administrators. The plaintext `token` column is still readable by a signed-in administrator ON PURPOSE and temporarily (D-S5-AUTO-6): three server actions read it back to build the emailed invitation link, and removing the grant breaks invitation sending. scripts/verify-legacy-invitation-token-readers.mjs pins exactly which modules may, so the surface cannot spread. Terminal and expired rows no longer hold a token at all, and anon reaches none of this."
+        "select_reason": "Slice 5, D-S5-AUTO-6 closed. Every legacy issuer now goes through public.issue_invitation, so nothing reads the plaintext token back to build an emailed link. The table grant was replaced with this explicit column list -- which omits `token` -- because a column-level REVOKE does nothing underneath a table-level SELECT grant. The rows stay readable to the club administrators RLS already limits them to; the secret does not."
       }
     },
     "membership_obligations": {
@@ -2428,8 +2469,19 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Slice 5, Phase 2 O.5. Row access is unchanged and RLS still limits these rows to the club's own administrators. The plaintext `token` column is still readable by a signed-in administrator ON PURPOSE and temporarily (D-S5-AUTO-6): three server actions read it back to build the emailed invitation link, and removing the grant breaks invitation sending. scripts/verify-legacy-invitation-token-readers.mjs pins exactly which modules may, so the surface cannot spread. Terminal and expired rows no longer hold a token at all, and anon reaches none of this."
+        "select": [
+          "id",
+          "player_id",
+          "invited_email",
+          "status",
+          "expires_at",
+          "invited_by",
+          "accepted_by",
+          "accepted_at",
+          "created_at",
+          "updated_at"
+        ],
+        "select_reason": "Slice 5, D-S5-AUTO-6 closed. Every legacy issuer now goes through public.issue_invitation, so nothing reads the plaintext token back to build an emailed link. The table grant was replaced with this explicit column list -- which omits `token` -- because a column-level REVOKE does nothing underneath a table-level SELECT grant. The rows stay readable to the club administrators RLS already limits them to; the secret does not."
       }
     },
     "player_club_join_requests": {
@@ -3004,13 +3056,26 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
+        "select": [
+          "id",
+          "invited_email",
+          "admin_role",
+          "status",
+          "expires_at",
+          "accepted_by",
+          "accepted_at",
+          "revoked_by",
+          "revoked_at",
+          "invited_by",
+          "created_at",
+          "updated_at"
+        ],
         "insert": "all",
         "write_consumers": [
           "app/(app)/admin/site-admins/actions.ts"
         ],
         "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Slice 5, Phase 2 O.5. Row access is unchanged and RLS still limits these rows to the club's own administrators. The plaintext `token` column is still readable by a signed-in administrator ON PURPOSE and temporarily (D-S5-AUTO-6): three server actions read it back to build the emailed invitation link, and removing the grant breaks invitation sending. scripts/verify-legacy-invitation-token-readers.mjs pins exactly which modules may, so the surface cannot spread. Terminal and expired rows no longer hold a token at all, and anon reaches none of this."
+        "select_reason": "Slice 5, D-S5-AUTO-6 closed. Every legacy issuer now goes through public.issue_invitation, so nothing reads the plaintext token back to build an emailed link. The table grant was replaced with this explicit column list -- which omits `token` -- because a column-level REVOKE does nothing underneath a table-level SELECT grant. The rows stay readable to the club administrators RLS already limits them to; the secret does not."
       }
     },
     "site_admins": {
@@ -5182,6 +5247,14 @@
         ]
       },
       {
+        "signature": "invitation_staff_role_options()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/people/actions.ts"
+        ],
+        "reason": "The roles a staff invitation may carry, read from the role catalogue so the invite form and the issuer cannot disagree. Returns catalogue rows only -- no club, person or invitation data."
+      },
+      {
         "signature": "invite_player_account(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5216,6 +5289,16 @@
         "consumers": [
           "app/(app)/club/people/actions.ts"
         ]
+      },
+      {
+        "signature": "issue_invitation(text, uuid, uuid, uuid, uuid, uuid, text, jsonb, integer, uuid[], jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/people/actions.ts",
+          "app/(app)/admin/site-admins/actions.ts",
+          "app/(app)/parent/children/actions.ts"
+        ],
+        "reason": "The one canonical issuer for all eight invitation kinds (Phase 2 O.1). It checks the caller's authority for the kind, club, team or child itself, applies the O.1 role ceiling, and returns the link token and human code ONCE -- only their hashes are stored, so this call is the only moment either exists."
       },
       {
         "signature": "leave_fixture_conversation(uuid, uuid)",

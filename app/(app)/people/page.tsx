@@ -7,6 +7,7 @@ import { getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/sessio
 import { createClient } from "@/lib/supabase/server"
 import { teamPermissionLabel } from "@/lib/permissions/role-labels"
 
+import { invitationStaffRoleOptions } from "./actions"
 import { InviteForm } from "./invite-form"
 import { JoinRequestRow } from "./join-request-row"
 import { PendingInvitationRow } from "./pending-invitation-row"
@@ -176,7 +177,12 @@ export default async function PeoplePage() {
       )}
 
       <div className="mt-8">
-        <InviteForm clubId={clubId} clubName={clubName} teams={(teams ?? []).map((t) => ({ id: t.id, displayName: t.display_name }))} />
+        <InviteForm
+          clubId={clubId}
+          clubName={clubName}
+          teams={(teams ?? []).map((t) => ({ id: t.id, displayName: t.display_name }))}
+          roleOptions={await invitationStaffRoleOptions()}
+        />
       </div>
     </div>
   )
