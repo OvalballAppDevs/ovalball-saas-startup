@@ -239,6 +239,7 @@ SUITES=(
   invitation_authority_matrix
   invitation_team_list
   aal_enforcement
+  recovery_codes
   club_claim_authority_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences
