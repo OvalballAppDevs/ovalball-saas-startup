@@ -5740,6 +5740,14 @@
         ]
       },
       {
+        "signature": "record_own_date_of_birth(date, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/join/actions.ts"
+        ],
+        "reason": "D-S5-1's other half. A person SUPPLIES a date of birth they have never given; it refuses to change one already on file, because correcting one is site.users.identity.correct (Phase 2 ID-5). Writes only the caller's own profile row."
+      },
+      {
         "signature": "record_payment_refund(uuid, integer, text)",
         "category": "APPLICATION_RPC",
         "consumers": [

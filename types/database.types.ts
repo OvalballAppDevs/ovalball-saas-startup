@@ -24570,6 +24570,14 @@ export type Database = {
         }
         Returns: string
       }
+      record_own_date_of_birth: {
+        Args: {
+          p_date_of_birth: string
+          p_first_name?: string
+          p_surname?: string
+        }
+        Returns: undefined
+      }
       record_payment_refund: {
         Args: { p_amount_minor: number; p_payment_id: string; p_reason: string }
         Returns: string

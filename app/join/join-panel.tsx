@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { acceptInvitation } from "./actions"
+import { acceptInvitation, recordOwnDateOfBirth } from "./actions"
 
 /** What the person should be looking at once the invitation has done its work. */
 const DESTINATION: Record<string, string> = {
@@ -20,16 +20,60 @@ const DESTINATION: Record<string, string> = {
   ALREADY_REDEEMED: "/dashboard",
 }
 
-export function JoinPanel({ token, signedIn, hasInvitation }: { token: string | null; signedIn: boolean; hasInvitation: boolean }) {
+export function JoinPanel({
+  token,
+  signedIn,
+  hasInvitation,
+  needsName,
+}: {
+  token: string | null
+  signedIn: boolean
+  hasInvitation: boolean
+  needsName: boolean
+}) {
   const router = useRouter()
   const [code, setCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, start] = useTransition()
 
+  // The age gate is a prompt, not a dead end. When redemption refuses because Ovalball cannot
+  // establish that this person is an adult, the invitation is deliberately NOT spent -- so the right
+  // thing to show is the question, and then the same invitation again.
+  const [askAge, setAskAge] = useState(false)
+  const [dob, setDob] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [surname, setSurname] = useState("")
+  const [lastInput, setLastInput] = useState<{ token?: string | null; code?: string | null }>({})
+
   function submit(input: { token?: string | null; code?: string | null }) {
     setError(null)
+    setLastInput(input)
     start(async () => {
       const result = await acceptInvitation(input)
+      if (result.ok) {
+        router.push(DESTINATION[result.outcome] ?? "/dashboard")
+        router.refresh()
+        return
+      }
+      if (result.reason === "AGE_ELIGIBILITY_REQUIRED") {
+        setAskAge(true)
+        return
+      }
+      setError(result.message)
+    })
+  }
+
+  function submitAge(event: React.FormEvent) {
+    event.preventDefault()
+    setError(null)
+    start(async () => {
+      const recorded = await recordOwnDateOfBirth({ dateOfBirth: dob, firstName, surname })
+      if (!recorded.ok) {
+        setError(recorded.error)
+        return
+      }
+      setAskAge(false)
+      const result = await acceptInvitation(lastInput)
       if (result.ok) {
         router.push(DESTINATION[result.outcome] ?? "/dashboard")
         router.refresh()
@@ -51,6 +95,37 @@ export function JoinPanel({ token, signedIn, hasInvitation }: { token: string | 
           Sign In
         </Button>
       </div>
+    )
+  }
+
+  if (askAge) {
+    return (
+      <form className="mt-8 rounded-lg border border-ink/10 bg-white p-5" onSubmit={submitAge}>
+        <p className="text-sm text-ink/70">
+          This role is for adults, so Ovalball needs your date of birth before you can accept it. You give
+          it once and it is not shown to your club.
+        </p>
+        {needsName && (
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="join-first-name">First Name</Label>
+              <Input id="join-first-name" className="mt-2" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="join-surname">Last Name</Label>
+              <Input id="join-surname" className="mt-2" value={surname} onChange={(e) => setSurname(e.target.value)} />
+            </div>
+          </div>
+        )}
+        <div className="mt-4 sm:max-w-xs">
+          <Label htmlFor="join-dob">Date of Birth</Label>
+          <Input id="join-dob" type="date" className="mt-2" value={dob} onChange={(e) => setDob(e.target.value)} />
+        </div>
+        <Button type="submit" className="mt-4 h-11 px-6" disabled={pending || dob.length === 0}>
+          {pending ? "Saving…" : "Save & Accept"}
+        </Button>
+        {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
+      </form>
     )
   }
 

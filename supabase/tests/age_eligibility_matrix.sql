@@ -248,4 +248,75 @@ begin
     'AE-H4 and a signed-out visitor cannot ask whether somebody is an adult');
 end $$;
 
+
+-- =====================================================================================================
+-- AE-I. The other half of D-S5-1: somewhere to answer.
+--
+-- A gate with no way through it is not a gate, it is a wall. An invited adult whose age Ovalball has
+-- never asked for must be able to say it -- once -- and then get on with what they were invited to do.
+-- =====================================================================================================
+do $$
+declare
+  v_new uuid; v_known uuid; v_fresh uuid;
+  v_before date; v_after date; v_r text;
+begin
+  v_new   := pg_temp.person('NEWDOB', null);
+  v_known := pg_temp.person('KNOWNDOB', (current_date - interval '44 years')::date);
+
+  perform pg_temp.check(
+    not internal.person_is_established_adult(v_new),
+    'AE-I1 an identity with no date of birth on file is not an established adult');
+
+  perform pg_temp.check(
+    pg_temp.try_as(v_new, format('select public.record_own_date_of_birth(%L::date)',
+      (current_date - interval '39 years')::date)) = 'OK',
+    'AE-I2 and they can supply one themselves -- D-S5-1 flags, it does not lock people out');
+  perform pg_temp.check(
+    internal.person_is_established_adult(v_new),
+    'AE-I3 which establishes them, so the same invitation now works');
+
+  -- Set once. Everything below is why.
+  select date_of_birth into v_before from public.profiles where id = v_new;
+  perform pg_temp.check(
+    pg_temp.try_as(v_new, format('select public.record_own_date_of_birth(%L::date)',
+      (current_date - interval '20 years')::date)) = '42501',
+    'AE-I4 SET ONCE: they cannot then change it -- correcting one is site.users.identity.correct');
+  select date_of_birth into v_after from public.profiles where id = v_new;
+  perform pg_temp.check(v_before = v_after,
+    'AE-I5 and the refusal changed nothing, rather than partly applying');
+
+  perform pg_temp.check(
+    pg_temp.try_as(v_known, format('select public.record_own_date_of_birth(%L::date)',
+      (current_date - interval '30 years')::date)) = '42501',
+    'AE-I6 nor can somebody whose date of birth was already on file overwrite it');
+
+  -- An unchecked date field is how somebody asserts whatever the gate above wants to hear. The
+  -- plausibility check runs BEFORE the already-set one, so a nonsense date is called nonsense rather
+  -- than being waved through into the "you already answered" branch.
+  perform pg_temp.check(
+    pg_temp.try_as(v_new, format('select public.record_own_date_of_birth(%L::date)',
+      (current_date + interval '1 day')::date)) = '22023',
+    'AE-I7 a date in the future is rejected as a date, before anything else is considered');
+  v_fresh := pg_temp.person('FUTURE', null);
+  perform pg_temp.check(
+    pg_temp.try_as(v_fresh, format('select public.record_own_date_of_birth(%L::date)',
+      (current_date + interval '1 day')::date)) = '22023',
+    'AE-I8 and on a fresh identity a future date of birth is refused on its own merits');
+  perform pg_temp.check(
+    pg_temp.try_as(v_fresh, format('select public.record_own_date_of_birth(%L::date)',
+      (current_date - interval '150 years')::date)) = '22023',
+    'AE-I9 as is one a century and a half ago');
+  perform pg_temp.check(
+    not internal.person_is_established_adult(v_fresh),
+    'AE-I10 and neither refusal left anything behind');
+
+  perform pg_temp.check(
+    not has_function_privilege('anon','public.record_own_date_of_birth(date,text,text)','EXECUTE'),
+    'AE-I11 a signed-out visitor cannot record a date of birth against anybody');
+  perform pg_temp.check(
+    (select count(*) from public.security_events
+      where event_type = 'identity.date_of_birth_recorded' and actor_user_id = v_new) = 1,
+    'AE-I12 and the one time it was answered is on the record');
+end $$;
+
 rollback;

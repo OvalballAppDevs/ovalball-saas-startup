@@ -51,6 +51,12 @@ export default async function JoinPage({
 
   const usable = preview?.state === "usable"
 
+  // Somebody invited to Ovalball who has never been anybody here yet has no profile row at all, and
+  // first name and surname are NOT NULL on it -- so the age question has to ask for those too.
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle()
+    : { data: null }
+
   return (
     <main className="brand-light-scope min-h-screen bg-chalk">
       <div className="border-b border-ink/8 px-4 py-5 md:px-8">
@@ -94,7 +100,12 @@ export default async function JoinPage({
           </>
         )}
 
-        <JoinPanel token={token} signedIn={Boolean(user)} hasInvitation={Boolean(usable)} />
+        <JoinPanel
+          token={token}
+          signedIn={Boolean(user)}
+          hasInvitation={Boolean(usable)}
+          needsName={Boolean(user) && !profile}
+        />
       </div>
     </main>
   )

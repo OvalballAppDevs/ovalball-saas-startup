@@ -379,3 +379,36 @@ already has a login cannot be linked to a second account and the first person ke
 Mutants **T3** (report `ACCEPTED`, link nothing) and **T4** (drop the Site Admin age gate) are killed.
 
 **Owning slice.** 5.
+
+### D-S5-AUTO-10 — a person may supply a date of birth once, and may not change it
+
+**Decision.** `public.record_own_date_of_birth(date, text, text)` lets a signed-in person supply a
+date of birth Ovalball has never had, creating their profile if they do not have one yet. It refuses
+to change one already on file, refuses a date in the future or more than 120 years ago, and records
+`identity.date_of_birth_recorded` once.
+
+**Reason.** D-S5-1 listed this as an open question — *"the UI to record a date of birth against an
+existing adult account does not [exist]"* — and Slice 5 turned it from a question into a blocker: the
+Site Admin age gate (D-S5-AUTO-9) would otherwise refuse an invited adult who has no profile at all
+and leave them nowhere to go, and a member surfaced as `NEEDS_ATTENTION` would have no way to clear
+it. A gate with no way through it is a wall.
+
+**Why set-once is the whole point.** Phase 2 ID-5 makes a date of birth set once by the person and
+corrected only through `site.users.identity.correct`. A date of birth that can be edited at will is
+not evidence of anything, and the gate standing on top of it would mean nothing. The rule is in the
+function rather than in the form, because a form is not a boundary. The plausibility check runs first
+so a nonsense date is called nonsense rather than being waved into the "you already answered" branch.
+
+**What this does not claim.** A self-supplied date of birth is a declaration, not a verification.
+What the gate buys is that silence stops reading as adulthood: crossing one of these boundaries now
+requires an explicit, dated, audited answer from the person themselves. That was always D-S5-1's
+shape — it says *unknown or unverified*, and it chose flagging over locking people out.
+
+**Consequence.** `AE-I1`–`AE-I12` pin all of it: an unrecorded identity is not an established adult;
+they can supply one and it establishes them; they cannot then change it and the refusal changes
+nothing; somebody whose date of birth was already on file cannot overwrite it; future and
+impossibly-old dates are refused and leave nothing behind; `anon` cannot call it; and the one time it
+was answered is on the record. `/join` turns the refusal into the question and then retries the same
+invitation, which works because an age refusal deliberately does not spend it.
+
+**Owning slice.** 5.
