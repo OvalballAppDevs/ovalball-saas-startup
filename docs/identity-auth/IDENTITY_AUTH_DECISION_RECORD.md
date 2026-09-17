@@ -274,8 +274,8 @@ they already did and a stranger has no row. Everyone else still gets the one gen
 ### D-S5-AUTO-8 — a `CLUB_STAFF` invitation carries a team LIST, and the server writes it
 
 **Decision.** `CLUB_STAFF` keeps the multi-team shape Phase 2 gives it. The authorised teams are
-server-authored at issuance into `access_invitations.intended_outcome.teams`, and
-`access_invitations.team_id` stays NULL for that kind. At redemption the list is read back from the
+server-authored at issuance into `access_invitations.intended_outcome.teams`, as
+`[{"id": <team>, "roles": [...]}, …]`, and `access_invitations.team_id` stays NULL for that kind. At redemption the list is read back from the
 stored invitation, a club-scoped role is granted once and a team-scoped role once per authorised
 team, and the whole outcome is validated before the invitation is consumed.
 
@@ -295,10 +295,26 @@ several" would have left two places answering "which teams", which is the shape 
 one invitation per team would have turned one decision by a Club Admin into several credentials that
 can be separately expired, revoked and replayed, and would have sent the new coach three emails.
 
+**Why each entry carries its own roles.** The People & Access form already lets a Club Admin invite
+somebody as Coach of one team and Team Manager of another in a single invitation — `invitation_teams`
+stores a `team_permission` per team, and the form collects one per selected team. A flat list of team
+ids could only carry that by giving every role to every team, which is exactly the widening this
+migration must not do. So the entry, not the invitation, owns the roles; the invitation's `roles`
+array is the union, which keeps the O.1 ceiling, the D-S5-1 age gate and the preview looking at the
+whole picture.
+
+**The scalar argument.** `p_team_id` is kept for the kinds Y.12 means it for. For `CLUB_STAFF` it is
+context from the old call shape rather than an assignment, so it contributes a team when the
+invitation has a role that is held at a team and is dropped when it does not. Teams named
+*explicitly*, through `p_team_ids` or `p_team_roles`, are never dropped: an explicit team that would
+receive nothing is an error, because silently discarding a named team is how an invitation comes to
+mean something other than what the person issuing it saw.
+
 **Alternatives rejected.** One invitation per team (N credentials for one decision); a separate
 `access_invitation_teams` join table (a second table to keep in step with an envelope that already
 exists, for a list that is never queried across invitations); trusting a team list supplied at
-redemption (the invitee would author their own authority).
+redemption (the invitee would author their own authority); a flat `uuid[]` of teams (cannot express
+the per-team roles the product already collects without widening them).
 
 **What is server-authored means.** At issue, every team must be non-null, must exist, must be an
 active team of *this* invitation's club, and the issuer must hold the club authority to invite the
@@ -315,8 +331,10 @@ invitation naming a since-retired team left the person an ordinary member of a c
 joined, from a redemption that reported `REFUSED`. Validation now precedes every write of the
 outcome.
 
-**Consequence.** `supabase/tests/invitation_team_list.sql` (32 assertions) pins zero, one and many
-teams; duplicates collapsing; cross-club, nonexistent, null and unauthorised-issuer lists refused;
+**Consequence.** `supabase/tests/invitation_team_list.sql` (39 assertions) pins zero, one and many
+teams; per-team roles that do not leak between teams; duplicates collapsing; cross-club,
+nonexistent, null and unauthorised-issuer lists refused; a club-held role refused as a team's role;
+the same teams named two ways at once refused rather than reconciled;
 role substitution refused; the scalar staying null under a constraint; no browser role able to rewrite
 the list; a refusal on one team of three granting nothing and leaving the invitation usable; the same
 invitation then delivering the complete three-team outcome; and replay repeating the answer rather

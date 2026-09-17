@@ -20,6 +20,11 @@
 -- The list is SERVER-AUTHORED. It is validated and canonicalised at issue and read from the stored
 -- invitation at redemption; a redemption payload naming teams is ignored, because there is nowhere in
 -- the redemption signature to put one.
+--
+-- Each entry carries its OWN roles, as {"id": <team>, "roles": [...]}. That is not over-engineering:
+-- the legacy People & Access form already lets a Club Admin invite somebody as Coach of one team and
+-- Team Manager of another in a single invitation, and a flat list of team ids could only carry that
+-- by giving every role to every team -- which is precisely the widening the migration must not do.
 -- =====================================================================================================
 
 -- One source of truth: a staff invitation's teams are in intended_outcome, never in the scalar.
@@ -45,7 +50,8 @@ create or replace function public.issue_invitation(
   p_email text default null,
   p_intended_outcome jsonb default '{}'::jsonb,
   p_max_uses integer default null,
-  p_team_ids uuid[] default null
+  p_team_ids uuid[] default null,
+  p_team_roles jsonb default null
 ) returns table (invitation_id uuid, token text, code text, expires_at timestamptz, already_existed boolean)
 language plpgsql security definer set search_path = 'public' as $$
 declare
@@ -54,7 +60,7 @@ declare
   v_email text := lower(btrim(nullif(p_email, '')));
   v_token text; v_code text;
   v_id uuid; v_existing uuid;
-  v_roles text[]; v_teams uuid[];
+  v_roles text[]; v_team_roles text[]; v_teams jsonb;
   v_max int; v_club uuid := p_club_id; v_outcome jsonb;
 begin
   if v_actor is null then
@@ -88,7 +94,52 @@ begin
   v_outcome := coalesce(p_intended_outcome, '{}'::jsonb);
 
   if p_kind = 'CLUB_STAFF' then
+    -- Two ways in, one stored shape. p_team_ids is the ordinary case -- these teams get whichever of
+    -- the invitation's roles are held at a team. p_team_roles is for the invitation that genuinely
+    -- differs per team. Accepting both at once would be two answers to one question.
+    if p_team_ids is not null and p_team_roles is not null then
+      raise exception 'Name the teams once, either as a list or with their own roles.' using errcode = '22023';
+    end if;
+
     v_roles := coalesce(array(select jsonb_array_elements_text(v_outcome->'roles')), '{}');
+
+    -- A scalar team is one team, not a special case: the old single-team call shape canonicalises
+    -- into the list, which is why the COLUMN can stay null and still lose nothing.
+    if p_team_roles is null then
+      -- Which of this invitation's roles are actually held at a team. If none are, the invitation is
+      -- club-scoped and there is nothing to assign at a team.
+      v_team_roles := coalesce(array(select r from unnest(v_roles) r where internal.role_is_team_scoped(r)), '{}'::text[]);
+
+      v_teams := case when v_team_roles = '{}'::text[] then '[]'::jsonb else
+        coalesce((select jsonb_agg(jsonb_build_object('id', t, 'roles', to_jsonb(v_team_roles)) order by t)
+                    from (select distinct t from unnest(
+                            coalesce(p_team_ids, '{}'::uuid[]) ||
+                            case when p_team_id is null then '{}'::uuid[] else array[p_team_id] end) t) d),
+                 '[]'::jsonb) end;
+
+      -- A team NAMED explicitly must end up with something. The scalar p_team_id is different: for
+      -- CLUB_STAFF it is context from the old call shape, not an assignment (Y.12), so it is dropped
+      -- rather than turned into an error.
+      if coalesce(array_length(p_team_ids, 1), 0) > 0 and v_teams = '[]'::jsonb then
+        raise exception 'That invitation names teams, but none of its roles are held at a team.'
+          using errcode = '22023';
+      end if;
+    else
+      v_teams := coalesce((select jsonb_agg(jsonb_build_object('id', e.id, 'roles', e.roles) order by e.id)
+                             from (select (t->>'id')::uuid as id,
+                                          jsonb_agg(distinct r order by r) as roles
+                                     from jsonb_array_elements(p_team_roles) t,
+                                          lateral jsonb_array_elements_text(t->'roles') r
+                                    group by 1) e),
+                          '[]'::jsonb);
+      -- Every per-team role is part of what this invitation carries, so the ceiling, the age gate and
+      -- the preview all see the whole picture rather than only the club-wide part.
+      v_roles := coalesce((select array_agg(distinct r) from (
+                             select unnest(v_roles) as r
+                             union select jsonb_array_elements_text(t->'roles') from jsonb_array_elements(v_teams) t) u),
+                          '{}');
+    end if;
+
     if v_roles = '{}' then
       raise exception 'A staff invitation must say which roles it is for.' using errcode = '22023';
     end if;
@@ -101,39 +152,43 @@ begin
       raise exception 'You are not authorised to invite a Club Admin.' using errcode = '42501';
     end if;
 
-    -- The team list, canonicalised: duplicates collapsed and order made deterministic, so the stored
-    -- envelope is the same whatever order the screen sent them in. A caller naming a single team the
-    -- old scalar way is one team, not a special case -- the scalar is an input convenience that
-    -- canonicalises into the list, which is why the COLUMN can stay null and still lose nothing.
-    v_teams := coalesce((select array_agg(distinct t order by t)
-                           from unnest(coalesce(p_team_ids, '{}'::uuid[]) ||
-                                       case when p_team_id is null then '{}'::uuid[] else array[p_team_id] end) t),
-                        '{}'::uuid[]);
-
-    -- A null in the list is a malformed payload, and it is checked FIRST and separately, because a
-    -- null can never be caught by "does this team exist": the existence lookup returns no row, and a
-    -- `select ... into` over no row leaves the variable null, which reads exactly like "nothing wrong".
-    -- An unnoticed null would then be stored as an authorised team.
-    if exists (select 1 from unnest(v_teams) t where t is null) then
+    -- A null in the list is checked FIRST and separately, because a null can never be caught by "does
+    -- this team exist": the existence lookup returns no row, and a `select ... into` over no row
+    -- leaves the variable null, which reads exactly like "nothing was wrong". An unnoticed null would
+    -- then be stored as an authorised team.
+    if exists (select 1 from jsonb_array_elements(v_teams) t where (t->>'id') is null) then
       raise exception 'That invitation names a team that is not a team.' using errcode = '22023';
     end if;
 
     -- Every team must exist AND belong to this invitation's club. A team from another club in the
     -- payload is the attack this rejects: it would otherwise hand a role inside somebody else's club.
-    if exists (select 1 from unnest(v_teams) t
+    if exists (select 1 from jsonb_array_elements(v_teams) t
                 where not exists (select 1 from public.teams te
-                                   where te.id = t and te.club_id = v_club and te.active)) then
+                                   where te.id = (t->>'id')::uuid and te.club_id = v_club and te.active)) then
       raise exception 'That invitation names a team which is not an active team of this club.'
         using errcode = '42501';
     end if;
 
-    -- A team-scoped role needs somewhere to be held. Inviting a Coach with no team is not a smaller
-    -- invitation, it is an incoherent one.
-    if v_teams = '{}'::uuid[] and exists (select 1 from unnest(v_roles) r where internal.role_is_team_scoped(r)) then
+    -- A role held at a CLUB cannot be granted at a team, and a team entry with no roles at all is an
+    -- assignment that would do nothing -- both mean the caller and the server disagree about what
+    -- this invitation is, which is not something to resolve by guessing.
+    if exists (select 1 from jsonb_array_elements(v_teams) t
+                where jsonb_array_length(t->'roles') = 0
+                   or exists (select 1 from jsonb_array_elements_text(t->'roles') r
+                               where not internal.role_is_team_scoped(r))) then
+      raise exception 'A team in that invitation has no role, or a role that is not held at a team.'
+        using errcode = '22023';
+    end if;
+
+    -- A Coach with nowhere to coach is not a smaller invitation, it is an incoherent one.
+    if exists (select 1 from unnest(v_roles) r
+                where internal.role_is_team_scoped(r)
+                  and not exists (select 1 from jsonb_array_elements(v_teams) t,
+                                       lateral jsonb_array_elements_text(t->'roles') tr where tr = r)) then
       raise exception 'A Coach or Team Manager invitation must name at least one team.' using errcode = '22023';
     end if;
 
-    v_outcome := v_outcome || jsonb_build_object('teams', to_jsonb(v_teams));
+    v_outcome := v_outcome || jsonb_build_object('roles', to_jsonb(v_roles), 'teams', v_teams);
     p_team_id := null;   -- Y.12: the scalar is for genuinely single-team kinds only
   end if;
 
@@ -180,8 +235,8 @@ begin
   return query select v_id, v_token, v_code, (now() + v_spec.lifetime), false;
 end $$;
 
-revoke all on function public.issue_invitation(text,uuid,uuid,uuid,uuid,uuid,text,jsonb,integer,uuid[]) from public, anon;
-grant execute on function public.issue_invitation(text,uuid,uuid,uuid,uuid,uuid,text,jsonb,integer,uuid[]) to authenticated;
+revoke all on function public.issue_invitation(text,uuid,uuid,uuid,uuid,uuid,text,jsonb,integer,uuid[],jsonb) from public, anon;
+grant execute on function public.issue_invitation(text,uuid,uuid,uuid,uuid,uuid,text,jsonb,integer,uuid[],jsonb) to authenticated;
 
 -- ---------------------------------------------------------------------------------------------------
 -- Redemption applies the WHOLE envelope, or none of it.
@@ -206,20 +261,20 @@ E'  if v.kind = ''CLUB_STAFF'' then
 E'  if v.kind = ''CLUB_STAFF'' then
     -- The authorised teams come from the STORED invitation. Redemption takes no team argument, so
     -- there is nothing for a browser to substitute.
-    v_teams := coalesce(array(select (jsonb_array_elements_text(v.intended_outcome->''teams''))::uuid), ''{}''::uuid[]);
+    v_teams := coalesce(v.intended_outcome->''teams'', ''[]''::jsonb);
 
     -- Validated here, before ANY part of the outcome is written: every team must still be an active
     -- team of this club, or the invitation stays unspent and the person is left exactly as they were.
-    if exists (select 1 from unnest(v_teams) t
+    if exists (select 1 from jsonb_array_elements(v_teams) t
                 where not exists (select 1 from public.teams te
-                                   where te.id = t and te.club_id = v.club_id and te.active)) then
+                                   where te.id = (t->>''id'')::uuid and te.club_id = v.club_id and te.active)) then
       perform internal.invitation_refused(v.id, ''scope_gone'');
       return jsonb_build_object(''outcome'',''REFUSED'',''message'',v_generic);
     end if;
 
     select m.id into v_membership from public.club_memberships m');
 
-  -- 2. A team-scoped role is granted at each authorised team; a club-scoped one is granted once.
+  -- 2. A club-scoped role is granted once; a team's own roles are granted at that team.
   v := replace(v,
 E'    foreach v_role in array v_roles loop
       perform internal.grant_role(v_membership, v_role, v.team_id, ''INVITATION'',
@@ -227,20 +282,24 @@ E'    foreach v_role in array v_roles loop
     end loop;
     v_result := jsonb_build_object(''outcome'',''MEMBERSHIP_ACTIVE'',''membership_id'',v_membership,''roles'',to_jsonb(v_roles));',
 E'    foreach v_role in array v_roles loop
-      if internal.role_is_team_scoped(v_role) then
-        foreach v_team in array v_teams loop
-          perform internal.grant_role(v_membership, v_role, v_team, ''INVITATION'',
-                                      ''accepted invitation '' || v.id::text);
-        end loop;
-      else
+      if not internal.role_is_team_scoped(v_role) then
         perform internal.grant_role(v_membership, v_role, null, ''INVITATION'',
                                     ''accepted invitation '' || v.id::text);
       end if;
     end loop;
+    for v_team, v_team_roles in
+      select (t->>''id'')::uuid, array(select jsonb_array_elements_text(t->''roles''))
+        from jsonb_array_elements(v_teams) t
+    loop
+      foreach v_role in array v_team_roles loop
+        perform internal.grant_role(v_membership, v_role, v_team, ''INVITATION'',
+                                    ''accepted invitation '' || v.id::text);
+      end loop;
+    end loop;
     v_result := jsonb_build_object(''outcome'',''MEMBERSHIP_ACTIVE'',''membership_id'',v_membership,
-                                   ''roles'',to_jsonb(v_roles),''teams'',to_jsonb(v_teams));');
+                                   ''roles'',to_jsonb(v_roles),''teams'',v_teams);');
 
-  v := replace(v, '  v_existing uuid;', E'  v_existing uuid;\n  v_teams uuid[];\n  v_team uuid;');
+  v := replace(v, '  v_existing uuid;', E'  v_existing uuid;\n  v_teams jsonb;\n  v_team uuid;\n  v_team_roles text[];');
 
   execute format('create or replace function public.redeem_invitation(p_token text default null, p_code text default null) returns jsonb language plpgsql security definer set search_path to %L as %s', 'public', quote_literal(v));
 end $$;

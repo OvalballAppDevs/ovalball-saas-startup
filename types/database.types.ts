@@ -34,6 +34,232 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_invitations: {
+        Row: {
+          club_directory_id: string | null
+          club_id: string | null
+          code_hint: string | null
+          code_hmac: string
+          created_at: string
+          delivery_id: string | null
+          expires_at: string
+          id: string
+          intended_outcome: Json
+          invited_email_normalised: string | null
+          issued_by: string
+          issued_level: string
+          issuer_capability: string
+          kind: string
+          last_sent_at: string | null
+          max_uses: number
+          player_id: string | null
+          redeemed_at: string | null
+          redeemed_by: string | null
+          resend_count: number
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          scope_key: string | null
+          state: string
+          target_user_id: string | null
+          team_id: string | null
+          token_sha256: string
+          updated_at: string
+          use_count: number
+        }
+        Insert: {
+          club_directory_id?: string | null
+          club_id?: string | null
+          code_hint?: string | null
+          code_hmac: string
+          created_at?: string
+          delivery_id?: string | null
+          expires_at: string
+          id?: string
+          intended_outcome: Json
+          invited_email_normalised?: string | null
+          issued_by: string
+          issued_level: string
+          issuer_capability: string
+          kind: string
+          last_sent_at?: string | null
+          max_uses?: number
+          player_id?: string | null
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          resend_count?: number
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scope_key?: string | null
+          state?: string
+          target_user_id?: string | null
+          team_id?: string | null
+          token_sha256: string
+          updated_at?: string
+          use_count?: number
+        }
+        Update: {
+          club_directory_id?: string | null
+          club_id?: string | null
+          code_hint?: string | null
+          code_hmac?: string
+          created_at?: string
+          delivery_id?: string | null
+          expires_at?: string
+          id?: string
+          intended_outcome?: Json
+          invited_email_normalised?: string | null
+          issued_by?: string
+          issued_level?: string
+          issuer_capability?: string
+          kind?: string
+          last_sent_at?: string | null
+          max_uses?: number
+          player_id?: string | null
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          resend_count?: number
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scope_key?: string | null
+          state?: string
+          target_user_id?: string | null
+          team_id?: string | null
+          token_sha256?: string
+          updated_at?: string
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_invitations_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["directory_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_directory_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "club_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_invitations_issuer_capability_fkey"
+            columns: ["issuer_capability"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "access_invitations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       access_review_items: {
         Row: {
           assignment_id: string | null
@@ -988,6 +1214,39 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_flow_states: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          flow_id_sha256: string
+          id: string
+          kind: string
+          payload: Json
+          user_id: string | null
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          flow_id_sha256: string
+          id?: string
+          kind: string
+          payload?: Json
+          user_id?: string | null
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          flow_id_sha256?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       bundle_capabilities: {
         Row: {
           bundle_key: string
@@ -1766,6 +2025,41 @@ export type Database = {
           },
         ]
       }
+      club_claim_messages: {
+        Row: {
+          author_role: string
+          author_user_id: string
+          body: string
+          claim_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_role: string
+          author_user_id: string
+          body: string
+          claim_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_role?: string
+          author_user_id?: string
+          body?: string
+          claim_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_claim_messages_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "club_claims"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_claims: {
         Row: {
           authority_declaration: string
@@ -1774,11 +2068,19 @@ export type Database = {
           created_at: string
           decided_at: string | null
           decided_by: string | null
+          decision_reason: string | null
           directory_id: string
+          evidence: Json
+          has_existing_admin: boolean
           id: string
           proposed_teams: Json
+          resulting_membership_id: string | null
           review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          state: string
           status: string
+          superseded_by_claim_id: string | null
           updated_at: string
           verification_method: string | null
         }
@@ -1789,11 +2091,19 @@ export type Database = {
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
+          decision_reason?: string | null
           directory_id: string
+          evidence?: Json
+          has_existing_admin?: boolean
           id?: string
           proposed_teams?: Json
+          resulting_membership_id?: string | null
           review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          state?: string
           status?: string
+          superseded_by_claim_id?: string | null
           updated_at?: string
           verification_method?: string | null
         }
@@ -1804,11 +2114,19 @@ export type Database = {
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
+          decision_reason?: string | null
           directory_id?: string
+          evidence?: Json
+          has_existing_admin?: boolean
           id?: string
           proposed_teams?: Json
+          resulting_membership_id?: string | null
           review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          state?: string
           status?: string
+          superseded_by_claim_id?: string | null
           updated_at?: string
           verification_method?: string | null
         }
@@ -1832,6 +2150,20 @@ export type Database = {
             columns: ["directory_id"]
             isOneToOne: false
             referencedRelation: "club_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_claims_resulting_membership_id_fkey"
+            columns: ["resulting_membership_id"]
+            isOneToOne: false
+            referencedRelation: "club_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_claims_superseded_by_claim_id_fkey"
+            columns: ["superseded_by_claim_id"]
+            isOneToOne: false
+            referencedRelation: "club_claims"
             referencedColumns: ["id"]
           },
         ]
@@ -2763,6 +3095,7 @@ export type Database = {
           requested_role: string
           requesting_user_id: string
           review_notes: string | null
+          source_invitation_id: string | null
           status: string
           updated_at: string
         }
@@ -2775,6 +3108,7 @@ export type Database = {
           requested_role: string
           requesting_user_id: string
           review_notes?: string | null
+          source_invitation_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -2787,6 +3121,7 @@ export type Database = {
           requested_role?: string
           requesting_user_id?: string
           review_notes?: string | null
+          source_invitation_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -2845,6 +3180,20 @@ export type Database = {
             columns: ["club_id"]
             isOneToOne: false
             referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_join_requests_source_invitation_id_fkey"
+            columns: ["source_invitation_id"]
+            isOneToOne: false
+            referencedRelation: "access_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_join_requests_source_invitation_id_fkey"
+            columns: ["source_invitation_id"]
+            isOneToOne: false
+            referencedRelation: "invitations_admin_view"
             referencedColumns: ["id"]
           },
         ]
@@ -3348,7 +3697,7 @@ export type Database = {
           inviting_club_id: string
           resulting_partnership_id: string | null
           status: string
-          token: string
+          token: string | null
           updated_at: string
         }
         Insert: {
@@ -3364,7 +3713,7 @@ export type Database = {
           inviting_club_id: string
           resulting_partnership_id?: string | null
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Update: {
@@ -3380,7 +3729,7 @@ export type Database = {
           inviting_club_id?: string
           resulting_partnership_id?: string | null
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3873,7 +4222,7 @@ export type Database = {
           revoked_at: string | null
           revoked_by: string | null
           status: string
-          token: string
+          token: string | null
           updated_at: string
         }
         Insert: {
@@ -3889,7 +4238,7 @@ export type Database = {
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Update: {
@@ -3905,7 +4254,7 @@ export type Database = {
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -9806,7 +10155,7 @@ export type Database = {
           replacement_for_player_id: string | null
           status: string
           team_id: string
-          token: string
+          token: string | null
           updated_at: string
         }
         Insert: {
@@ -9821,7 +10170,7 @@ export type Database = {
           replacement_for_player_id?: string | null
           status?: string
           team_id: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Update: {
@@ -9836,7 +10185,7 @@ export type Database = {
           replacement_for_player_id?: string | null
           status?: string
           team_id?: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -11681,6 +12030,87 @@ export type Database = {
           },
         ]
       }
+      invitation_redemption_attempts: {
+        Row: {
+          id: number
+          invitation_id: string | null
+          ip_hash: string | null
+          occurred_at: string
+          outcome: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: number
+          invitation_id?: string | null
+          ip_hash?: string | null
+          occurred_at?: string
+          outcome: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: number
+          invitation_id?: string | null
+          ip_hash?: string | null
+          occurred_at?: string
+          outcome?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitation_redemption_attempts_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "access_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitation_redemption_attempts_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "invitations_admin_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invitation_redemptions: {
+        Row: {
+          id: string
+          invitation_id: string
+          redeemed_at: string
+          result_ref: Json
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          invitation_id: string
+          redeemed_at?: string
+          result_ref?: Json
+          user_id: string
+        }
+        Update: {
+          id?: string
+          invitation_id?: string
+          redeemed_at?: string
+          result_ref?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitation_redemptions_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "access_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitation_redemptions_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "invitations_admin_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitation_teams: {
         Row: {
           invitation_id: string
@@ -11755,7 +12185,7 @@ export type Database = {
           id: string
           invited_email: string
           status: string
-          token: string
+          token: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -11771,7 +12201,7 @@ export type Database = {
           id?: string
           invited_email: string
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -11787,7 +12217,7 @@ export type Database = {
           id?: string
           invited_email?: string
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -13944,7 +14374,7 @@ export type Database = {
           invited_email: string
           player_id: string
           status: string
-          token: string
+          token: string | null
           updated_at: string
         }
         Insert: {
@@ -13957,7 +14387,7 @@ export type Database = {
           invited_email: string
           player_id: string
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Update: {
@@ -13970,7 +14400,7 @@ export type Database = {
           invited_email?: string
           player_id?: string
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -17015,7 +17445,7 @@ export type Database = {
           revoked_at: string | null
           revoked_by: string | null
           status: string
-          token: string
+          token: string | null
           updated_at: string
         }
         Insert: {
@@ -17030,7 +17460,7 @@ export type Database = {
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Update: {
@@ -17045,7 +17475,7 @@ export type Database = {
           revoked_at?: string | null
           revoked_by?: string | null
           status?: string
-          token?: string
+          token?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -20619,6 +21049,217 @@ export type Database = {
         }
         Relationships: []
       }
+      invitations_admin_view: {
+        Row: {
+          club_directory_id: string | null
+          club_id: string | null
+          code_hint: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string | null
+          intended_outcome: Json | null
+          invited_email_normalised: string | null
+          issued_by: string | null
+          issued_level: string | null
+          issuer_capability: string | null
+          kind: string | null
+          last_sent_at: string | null
+          max_uses: number | null
+          player_id: string | null
+          redeemed_at: string | null
+          redeemed_by: string | null
+          resend_count: number | null
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          state: string | null
+          target_user_id: string | null
+          team_id: string | null
+          use_count: number | null
+        }
+        Insert: {
+          club_directory_id?: string | null
+          club_id?: string | null
+          code_hint?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          intended_outcome?: Json | null
+          invited_email_normalised?: string | null
+          issued_by?: string | null
+          issued_level?: string | null
+          issuer_capability?: string | null
+          kind?: string | null
+          last_sent_at?: string | null
+          max_uses?: number | null
+          player_id?: string | null
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          resend_count?: number | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          state?: string | null
+          target_user_id?: string | null
+          team_id?: string | null
+          use_count?: number | null
+        }
+        Update: {
+          club_directory_id?: string | null
+          club_id?: string | null
+          code_hint?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          intended_outcome?: Json | null
+          invited_email_normalised?: string | null
+          issued_by?: string | null
+          issued_level?: string | null
+          issuer_capability?: string | null
+          kind?: string | null
+          last_sent_at?: string | null
+          max_uses?: number | null
+          player_id?: string | null
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          resend_count?: number | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          state?: string | null
+          target_user_id?: string | null
+          team_id?: string | null
+          use_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_invitations_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["directory_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_directory_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_directory_id_fkey"
+            columns: ["club_directory_id"]
+            isOneToOne: false
+            referencedRelation: "club_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_invitations_issuer_capability_fkey"
+            columns: ["issuer_capability"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "access_invitations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "access_invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_topic_channels: {
         Row: {
           description: string | null
@@ -22064,6 +22705,15 @@ export type Database = {
         Args: { p_plan_id: string; p_reason?: string }
         Returns: undefined
       }
+      decide_club_claim: {
+        Args: {
+          p_claim_id: string
+          p_decision: string
+          p_reason: string
+          p_roles?: string[]
+        }
+        Returns: Json
+      }
       decide_club_join_request: {
         Args: { p_decision: string; p_reason?: string; p_request_id: string }
         Returns: string
@@ -23054,6 +23704,28 @@ export type Database = {
         Args: { p_edition_id: string; p_match_ids?: string[] }
         Returns: Json
       }
+      issue_invitation: {
+        Args: {
+          p_club_directory_id?: string
+          p_club_id?: string
+          p_email?: string
+          p_intended_outcome?: Json
+          p_kind: string
+          p_max_uses?: number
+          p_player_id?: string
+          p_target_user_id?: string
+          p_team_id?: string
+          p_team_ids?: string[]
+          p_team_roles?: Json
+        }
+        Returns: {
+          already_existed: boolean
+          code: string
+          expires_at: string
+          invitation_id: string
+          token: string
+        }[]
+      }
       leave_fixture_conversation: {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
         Returns: undefined
@@ -23646,6 +24318,16 @@ export type Database = {
           policy: string
         }[]
       }
+      preview_invitation: {
+        Args: { p_code?: string; p_token?: string }
+        Returns: {
+          expires_at: string
+          inviter_label: string
+          kind: string
+          scope_label: string
+          state: string
+        }[]
+      }
       preview_my_fixture_contact_card: {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
         Returns: {
@@ -23916,6 +24598,10 @@ export type Database = {
         }
         Returns: string
       }
+      redeem_invitation: {
+        Args: { p_code?: string; p_token?: string }
+        Returns: Json
+      }
       referral_data_health: {
         Args: never
         Returns: {
@@ -24071,6 +24757,10 @@ export type Database = {
         Args: { p_announcement_id: string; p_body: string }
         Returns: string
       }
+      reply_to_claim: {
+        Args: { p_body: string; p_claim_id: string }
+        Returns: string
+      }
       report_fixture_message: {
         Args: { p_message_id: string; p_reason: string }
         Returns: undefined
@@ -24131,6 +24821,14 @@ export type Database = {
       request_to_join_club: {
         Args: { p_club_id: string; p_player_id: string }
         Returns: string
+      }
+      resend_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: {
+          code: string
+          expires_at: string
+          token: string
+        }[]
       }
       resend_safeguarding_officer_invitation: {
         Args: { p_officer_id: string }
@@ -24333,6 +25031,10 @@ export type Database = {
       }
       revoke_club_partnership: {
         Args: { p_partnership_id: string }
+        Returns: undefined
+      }
+      revoke_invitation: {
+        Args: { p_invitation_id: string; p_reason: string }
         Returns: undefined
       }
       revoke_player_dispensation: {
@@ -25002,6 +25704,15 @@ export type Database = {
           p_environment: string
           p_gc_organisation_id: string
           p_scope: string
+        }
+        Returns: string
+      }
+      submit_club_claim: {
+        Args: {
+          p_authority_declaration: string
+          p_claimed_role: string
+          p_directory_id: string
+          p_evidence?: Json
         }
         Returns: string
       }

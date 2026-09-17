@@ -66,7 +66,7 @@ declare
   v_dir uuid; v_club uuid; v_fdir uuid; v_far uuid;
   v_a uuid; v_b uuid; v_c uuid; v_f uuid;
   v_ca uuid; v_farca uuid; v_mb uuid;
-  v_one uuid; v_many uuid; v_dup uuid; v_mixed uuid; v_none uuid; v_partial uuid; v_atomic uuid;
+  v_one uuid; v_many uuid; v_dup uuid; v_mixed uuid; v_none uuid; v_partial uuid; v_atomic uuid; v_per uuid;
   v_inv record; v_res jsonb; v_teams uuid[]; v_sorted uuid[]; v_n int; v_code text;
 begin
   insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
@@ -100,6 +100,7 @@ begin
   v_none    := pg_temp.person('NONE','tl-none-'||v_tag||'@ovalball.test');
   v_partial := pg_temp.person('PARTIAL','tl-partial-'||v_tag||'@ovalball.test');
   v_atomic  := pg_temp.person('ATOMIC','tl-partial2-'||v_tag||'@ovalball.test');
+  v_per     := pg_temp.person('PER','tl-per-'||v_tag||'@ovalball.test');
 
   -- ===============================================================================================
   -- TL-A  The three sizes of list: none, one, many
@@ -184,6 +185,41 @@ begin
     and not internal.role_is_team_scoped('CLUB_ADMIN') and not internal.role_is_team_scoped('VOLUNTEER'),
     'TL-B3 and which is which comes from role_definitions.scope, not a list written inside redemption');
 
+  -- TL-B4  The case a flat list of team ids could not carry without widening: Coach of one team and
+  -- Team Manager of another, in ONE invitation, which the People & Access form already allows.
+  perform pg_temp.as_(v_ca);
+  select * into v_inv from public.issue_invitation('CLUB_STAFF', v_club, null, null, null, null,
+    'tl-per-'||v_tag||'@ovalball.test', '{}'::jsonb, null, null,
+    jsonb_build_array(jsonb_build_object('id', v_a, 'roles', jsonb_build_array('COACH')),
+                      jsonb_build_object('id', v_b, 'roles', jsonb_build_array('TEAM_MANAGER'))));
+  perform set_config('request.jwt.claims','',true);
+  v_res := pg_temp.json_as(v_per, format('select public.redeem_invitation(%L, null)', v_inv.token));
+  perform pg_temp.check(
+    v_res->>'outcome' = 'MEMBERSHIP_ACTIVE'
+    and pg_temp.team_roles(v_per, v_club, 'COACH') = array[v_a]
+    and pg_temp.team_roles(v_per, v_club, 'TEAM_MANAGER') = array[v_b],
+    'TL-B4 PER-TEAM ROLES: Coach of one team and Team Manager of another, and neither role leaks to the other team');
+  perform pg_temp.check(
+    (select count(*) from public.role_assignments ra join public.club_memberships m on m.id = ra.membership_id
+      where m.user_id = v_per and m.club_id = v_club and ra.state = 'ACTIVE' and ra.source = 'INVITATION') = 2,
+    'TL-B5 and that is two assignments from the invitation, not four -- a flat list would have widened both');
+  perform pg_temp.check(
+    (select a.intended_outcome->'roles' from public.access_invitations a where a.id = v_inv.invitation_id)
+      @> '["COACH","TEAM_MANAGER"]'::jsonb,
+    'TL-B6 with both roles recorded on the invitation, so the ceiling and the age gate see all of it');
+  perform pg_temp.check(
+    pg_temp.try_as(v_ca, format(
+      'select * from public.issue_invitation(''CLUB_STAFF'', %L, null, null, null, null, %L, ''{}''::jsonb, null, null, %L::jsonb)',
+      v_club, 'tl-x7-'||v_tag||'@ovalball.test',
+      jsonb_build_array(jsonb_build_object('id', v_a, 'roles', jsonb_build_array('CLUB_ADMIN'))))) = '22023',
+    'TL-B7 and a role held at the CLUB cannot be smuggled in as a team''s role');
+  perform pg_temp.check(
+    pg_temp.try_as(v_ca, format(
+      'select * from public.issue_invitation(''CLUB_STAFF'', %L, null, null, null, null, %L, %L::jsonb, null, array[%L::uuid], %L::jsonb)',
+      v_club, 'tl-x8-'||v_tag||'@ovalball.test', '{"roles":["COACH"]}', v_a,
+      jsonb_build_array(jsonb_build_object('id', v_b, 'roles', jsonb_build_array('COACH'))))) = '22023',
+    'TL-B8 and naming the teams twice, two different ways, is refused rather than reconciled');
+
   -- ===============================================================================================
   -- TL-C  What the issuer may not author
   -- ===============================================================================================
@@ -222,6 +258,16 @@ begin
       'select * from public.issue_invitation(''CLUB_STAFF'', %L, null, null, null, null, %L, %L::jsonb, null, array[%L::uuid])',
       v_club, 'tl-x6-'||v_tag||'@ovalball.test', '{"roles":["TEAM_ADMINISTRATION"]}', v_a)) = '42501',
     'TL-C6 ROLE SUBSTITUTION: a role outside the O.1 ceiling is refused whatever teams accompany it');
+  perform pg_temp.check(
+    pg_temp.try_as(v_ca, format(
+      'select * from public.issue_invitation(''CLUB_STAFF'', %L, null, null, null, null, %L, %L::jsonb, null, array[%L::uuid])',
+      v_club, 'tl-x9-'||v_tag||'@ovalball.test', '{"roles":["FIXTURES_SECRETARY"]}', v_a)) = '22023',
+    'TL-C7 POINTLESS: naming teams for an invitation whose roles are all club-held is refused, not quietly dropped');
+  perform pg_temp.check(
+    pg_temp.try_as(v_ca, format(
+      'select * from public.issue_invitation(''CLUB_STAFF'', %L, %L, null, null, null, %L, %L::jsonb)',
+      v_club, v_a, 'tl-x10-'||v_tag||'@ovalball.test', '{"roles":["FIXTURES_SECRETARY"]}')) = 'OK',
+    'TL-C8 while the old scalar call still works, because for CLUB_STAFF that argument is context, not an assignment');
 
   -- ===============================================================================================
   -- TL-D  What the invitee may not substitute
@@ -254,7 +300,8 @@ begin
 
   -- The widening attempt itself: the list is server state, so the only way in is a privileged write.
   update public.access_invitations
-     set intended_outcome = jsonb_set(intended_outcome, '{teams}', to_jsonb(array[v_a,v_b,v_c]))
+     set intended_outcome = jsonb_set(intended_outcome, '{teams}',
+           (select jsonb_agg(jsonb_build_object('id', t, 'roles', jsonb_build_array('COACH'))) from unnest(array[v_a,v_b,v_c]) t))
    where id = v_inv.invitation_id and false;   -- deliberately applies to no row
   perform pg_temp.check(
     (select jsonb_array_length(a.intended_outcome->'teams') from public.access_invitations a where a.id = v_inv.invitation_id) = 1,
@@ -312,9 +359,9 @@ begin
   perform pg_temp.check(
     not exists (
       select 1 from public.access_invitations a,
-           lateral jsonb_array_elements_text(a.intended_outcome->'teams') t
+           lateral jsonb_array_elements(a.intended_outcome->'teams') t
        where a.kind = 'CLUB_STAFF'
-         and not exists (select 1 from public.teams te where te.id = t::uuid and te.club_id = a.club_id)),
+         and not exists (select 1 from public.teams te where te.id = (t->>'id')::uuid and te.club_id = a.club_id)),
     'TL-F2 and no stored list contains a team belonging to a different club than the invitation');
 end $$;
 
