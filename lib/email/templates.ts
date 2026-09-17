@@ -308,7 +308,7 @@ const playerAccountInvitation: Renderer<"player_account_invitation"> = (d, siteU
 
 const safeguardingOfficerInvitation: Renderer<"safeguarding_officer_invitation"> = (d, siteUrl, content, assetOrigin, isTest) => {
   const c = copyFor("safeguarding_officer_invitation", d, content)
-  const url = link(`/invite/safeguarding-officer/${d.inviteToken}`, siteUrl)
+  const url = link(`/join?t=${encodeURIComponent(d.inviteToken)}`, siteUrl)
   const subject = c.subject
   const preheader = c.preheader
   return {

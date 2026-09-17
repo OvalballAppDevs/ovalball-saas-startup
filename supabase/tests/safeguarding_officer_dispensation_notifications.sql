@@ -66,7 +66,7 @@ begin
   reset role;
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_officer_user::text, 'role', 'authenticated', 'email', 'sg-disp-officer-' || v_officer_user::text || '@ovalball.test')::text, true);
-  perform public.accept_safeguarding_officer_invitation(v_token);
+  perform public.redeem_invitation(v_token, null);
 
   -- SLICE 4G / AN-6. Until Ovalball confirms the appointment there is no Safeguarding Officer, so
   -- there is nobody for a dispensation notification to reach. Asserted first, because "the notice

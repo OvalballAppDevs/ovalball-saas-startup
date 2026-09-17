@@ -412,3 +412,45 @@ was answered is on the record. `/join` turns the refusal into the question and t
 invitation, which works because an age refusal deliberately does not spend it.
 
 **Owning slice.** 5.
+
+### D-S5-AUTO-11 — the Safeguarding Officer invitation, and the external nominee who could not accept
+
+**Decision.** `invite_safeguarding_officer` and `resend_safeguarding_officer_invitation` issue through
+`public.issue_invitation`, and canonical `SAFEGUARDING_OFFICER` redemption performs the whole outcome:
+admit the club member behind the people lock, link and activate the officer record, enter 4G's
+nomination against that officer, and tell whoever invited them. `accept_safeguarding_officer_invitation`
+stays legacy-only.
+
+**The fourth issuer.** `scripts/verify-legacy-invitation-token-readers.mjs` reported an empty
+allow-list while this one was still writing a plaintext token, because the script looked for a module
+SELECTing `token` off a legacy table and this one never did — the token came back through an RPC's
+return value. A function that hands a plaintext legacy token to its caller is the same exposure
+whatever the call site looks like, so the check now also asks the database which functions do that,
+and it was proven to bite before being trusted.
+
+**The external nominee could not accept.** The canonical branch entered 4G's nomination seam and did
+nothing else, and because it admitted nobody it refused anyone not already a member of the club with
+`MEMBERSHIP_REQUIRED` — which is every external nominee, the exact case Slice 5's email-bound
+invitation exists for. 4G's own comment said what was owed: *"THE SAME SEAM, and this is the shape
+Slice 5 inherits: admit the person, then enter the one state machine."* This is the same defect as the
+five dropped claim effects, from the same cause: a canonical replacement written from what the design
+document lists rather than from what the code it replaces actually does. **AN-6 is untouched** —
+`internal.enter_safeguarding_nomination` forces `PENDING_CONFIRMATION` whoever calls it, so accepting
+an invitation still produces an appointment awaiting Ovalball and never an active authority.
+
+**Why the legacy accept did NOT become an adapter.** That was built and withdrawn. Its callers expect
+a refusal to *raise*, and the canonical path refuses by *returning* precisely so the attempt it just
+recorded survives (D-S5-AUTO-2). Turning the return back into a raise throws the record away with it —
+the M-5 lesson — so every refusal reached through the adapter would have been invisible to the rate
+limits, which is a way of guessing at invitation tokens the canonical path exists to cap. The two
+paths stay separate instead, and the legacy route already redirects an unrecognised token to `/join`.
+
+**A fixture finding worth keeping.** Three 4G suites created `auth.users` rows with no
+`email_confirmed_at`. The legacy accept compared against the JWT's `email` claim and was satisfied;
+canonical redemption compares against the session's own **confirmed** address and was not. The
+canonical rule is the stricter and correct one, so the fixtures were fixed rather than the rule.
+
+**Consequence.** Mutant **T5** (never admit the nominee) is killed. The campaign is 20 mutants, 0
+survivors.
+
+**Owning slice.** 5.

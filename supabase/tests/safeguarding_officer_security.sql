@@ -24,12 +24,14 @@ declare
   v_off_a uuid; v_off_b uuid;
   v_conv uuid; v_token text; v_count int; v_text text; v_uuid uuid;
 begin
-  insert into auth.users (id, email, instance_id, aud, role) values
-    (v_admin_a,'sgadmina@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
-    (v_admin_b,'sgadminb@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
-    (v_coach,  'sgcoach@ovalball-test.invalid', '00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
-    (v_officer,'sgofficer@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
-    (v_site,   'sgsite@ovalball-test.invalid',  '00000000-0000-0000-0000-000000000000','authenticated','authenticated');
+  -- email_confirmed_at is not decoration: canonical redemption binds an invitation to the
+  -- session's own CONFIRMED address, so a fixture without one is not a signed-in person.
+  insert into auth.users (id, email, instance_id, aud, role, email_confirmed_at) values
+    (v_admin_a,'sgadmina@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated', now()),
+    (v_admin_b,'sgadminb@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated', now()),
+    (v_coach,  'sgcoach@ovalball-test.invalid', '00000000-0000-0000-0000-000000000000','authenticated','authenticated', now()),
+    (v_officer,'sgofficer@ovalball-test.invalid','00000000-0000-0000-0000-000000000000','authenticated','authenticated', now()),
+    (v_site,   'sgsite@ovalball-test.invalid',  '00000000-0000-0000-0000-000000000000','authenticated','authenticated', now());
   insert into public.profiles (id, first_name, surname, email, date_of_birth)
     values (v_admin_a,'SG','AdminA','sgadmina@ovalball-test.invalid', (current_date - interval '35 years')::date),
     (v_admin_b,'SG','AdminB','sgadminb@ovalball-test.invalid', (current_date - interval '35 years')::date),
@@ -149,13 +151,13 @@ begin
     raise notice 'FAIL 9 (D): a pending invitation granted authority';
   end if;
 
-  -- A random token is refused.
-  begin
-    perform public.accept_safeguarding_officer_invitation('not-a-real-token-000000000000');
-    raise notice 'FAIL 10 (D): a random token was accepted';
-  exception when others then
+  -- A random token is refused. Slice 5: redemption REFUSES BY RETURNING, so that the attempt it just
+  -- recorded survives -- a raise would roll it back and the rate limits would never see a guess.
+  if (public.redeem_invitation('not-a-real-token-000000000000', null))->>'outcome' = 'REFUSED' then
     raise notice 'PASS 10 (D): a random token is refused';
-  end;
+  else
+    raise notice 'FAIL 10 (D): a random token was accepted';
+  end if;
 
   -- Another club's admin cannot invite against club A's assignment.
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin_b, 'role','authenticated', 'email','sgadminb@ovalball-test.invalid')::text, true);
@@ -168,16 +170,16 @@ begin
 
   -- The wrong signed-in person cannot accept someone else's token.
   perform set_config('request.jwt.claims', json_build_object('sub', v_coach, 'role','authenticated', 'email','sgcoach@ovalball-test.invalid')::text, true);
-  begin
-    perform public.accept_safeguarding_officer_invitation(v_token);
-    raise notice 'FAIL 12 (D): the wrong account accepted an invitation';
-  exception when others then
+  if (public.redeem_invitation(v_token, null))->>'outcome' = 'REFUSED' then
     raise notice 'PASS 12 (D): only the invited email may accept';
-  end;
+  else
+    raise notice 'FAIL 12 (D): the wrong account accepted an invitation';
+  end if;
 
   -- The right person accepts, binding the EXISTING canonical user.
   perform set_config('request.jwt.claims', json_build_object('sub', v_officer, 'role','authenticated', 'email','sgofficer@ovalball-test.invalid')::text, true);
-  perform public.accept_safeguarding_officer_invitation(v_token);
+  raise notice 'DEBUG attempts=[%] state=%', (select string_agg(outcome,',' order by occurred_at) from public.invitation_redemption_attempts), (select state from public.access_invitations where token_sha256 = internal.invitation_token_hash(v_token));
+  perform public.redeem_invitation(v_token, null);
   select user_id, status into v_uuid, v_text from public.club_safeguarding_officers where id = v_off_a;
   if v_uuid = v_officer and v_text = 'active' then
     raise notice 'PASS 13 (D): acceptance binds the existing canonical user and activates';
@@ -249,13 +251,18 @@ begin
     raise notice 'FAIL 14 (D): % profiles for the officer', v_count;
   end if;
 
-  -- Replay: the same token cannot be used twice.
-  begin
-    perform public.accept_safeguarding_officer_invitation(v_token);
+  -- Replay: the same token cannot be used twice. ALREADY_REDEEMED is the RIGHT answer here, not a
+  -- weaker one -- it tells the person who has just accepted that they already have, which is the
+  -- commonest reason for a second click, and it is keyed on (invitation, person) so a stranger
+  -- learns nothing from it.
+  if (public.redeem_invitation(v_token, null))->>'outcome' in ('REFUSED','ALREADY_REDEEMED')
+     and (select count(*) from public.invitation_redemptions r
+           join public.access_invitations a on a.id = r.invitation_id
+          where a.token_sha256 = internal.invitation_token_hash(v_token)) = 1 then
+    raise notice 'PASS 15 (D): a used invitation cannot be replayed into a second acceptance';
+  else
     raise notice 'FAIL 15 (D): a used token was accepted again';
-  exception when others then
-    raise notice 'PASS 15 (D): a used invitation cannot be replayed';
-  end;
+  end if;
 
   -- =================================================================
   -- E. The accepted officer gets ONLY safeguarding authority

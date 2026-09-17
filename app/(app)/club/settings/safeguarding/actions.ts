@@ -164,7 +164,7 @@ export async function updateSafeguardingOfficerContact(officerId: string, contac
 
 /**
  * The row itself never grants access -- accept_safeguarding_officer_
- * invitation() (called from /invite/safeguarding-officer/[token]) is the
+ * invitation() (accepted at /join) is the
  * only path from here to a real, authorized officer, and it requires the
  * recipient's own authenticated session email to match. No real email is
  * Email goes through lib/email/send.ts, whose recipient is resolved from
@@ -179,7 +179,7 @@ export async function inviteSafeguardingOfficer(officerId: string): Promise<{ ok
   const { data, error } = await ctx.supabase.rpc("invite_safeguarding_officer", { p_officer_id: officerId }).single()
   if (error || !data) return { ok: false, error: error?.message ?? "Could not create the invitation." }
 
-  const inviteLink = `${getSiteUrl()}/invite/safeguarding-officer/${data.token}`
+  const inviteLink = `${getSiteUrl()}/join?t=${encodeURIComponent(data.token)}`
   await sendEmailEvent({
     supabase: ctx.supabase,
     eventKey: "safeguarding_officer_invitation",
@@ -199,7 +199,7 @@ export async function resendSafeguardingOfficerInvitation(officerId: string): Pr
   const { data, error } = await ctx.supabase.rpc("resend_safeguarding_officer_invitation", { p_officer_id: officerId }).single()
   if (error || !data) return { ok: false, error: error?.message ?? "Could not resend the invitation." }
 
-  const inviteLink = `${getSiteUrl()}/invite/safeguarding-officer/${data.token}`
+  const inviteLink = `${getSiteUrl()}/join?t=${encodeURIComponent(data.token)}`
   // A RESEND is a new occurrence, not a retry of the original -- the officer
   // asked for another copy. It carries the new invitation row's own id, so
   // idempotency protects against a double-click without ever swallowing a

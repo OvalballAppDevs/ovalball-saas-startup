@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { hasCompletedProfile } from "@/lib/identity/profile-setup"
@@ -22,6 +23,12 @@ export default async function SafeguardingOfficerInvitePage({ params }: { params
   const supabase = await createClient()
 
   const { data: preview, error } = await supabase.rpc("get_safeguarding_officer_invitation_preview", { p_token: token }).maybeSingle()
+
+  // CONVERGENCE. New Safeguarding Officer invitations are issued by public.issue_invitation and link
+  // to /join. This route stays because Phase 2 O.5 honours a legacy invitation until it expires -- but
+  // a canonical token arriving here must not be told it is invalid by the table that was never going
+  // to have it.
+  if (!preview) redirect(`/join?t=${encodeURIComponent(token)}`)
 
   const {
     data: { user },

@@ -123,7 +123,12 @@ begin
   select token into v_token2 from public.resend_safeguarding_officer_invitation(v_officer_id);
   if v_token2 <> v_token
      and (select count(*) from public.club_safeguarding_officers where id = v_officer_id) = 1
-     and (select count(*) from public.club_safeguarding_officer_invitations where officer_id = v_officer_id and status = 'pending') = 1
+     -- Slice 5: the invitation is canonical now, so the count that matters is there. One live
+     -- invitation per officer assignment is still the invariant -- it just lives somewhere the secret
+     -- is not stored in plaintext.
+     and (select count(*) from public.access_invitations
+           where kind = 'SAFEGUARDING_OFFICER' and state = 'ISSUED'
+             and intended_outcome->>'officer_id' = v_officer_id::text) = 1
   then
     raise notice 'PASS E: resending issues a fresh token, revokes the stale one, and never creates a second officer row or a second pending invitation';
   else
@@ -136,7 +141,7 @@ begin
   reset role;
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_officer_user::text, 'role', 'authenticated', 'email', 'sg-officer-' || v_officer_user::text || '@ovalball.test')::text, true);
-  perform public.accept_safeguarding_officer_invitation(v_token2);
+  perform public.redeem_invitation(v_token2, null);
 
   -- SLICE 4G / AN-6. Acceptance now produces a nomination awaiting Ovalball, not an officer. The
   -- happy path this suite documents therefore has one more step in it, and the step is the point.

@@ -7,12 +7,20 @@
  * inserted a legacy invitation and read the token straight back to build the emailed link -- removing
  * the grant then would have broken invitation sending (D-S5-AUTO-6).
  *
- * THE LIST IS NOW EMPTY. All three moved to the canonical issuer, so nothing in the application reads
- * a plaintext legacy token any more, and the column grant itself has been revoked. What this script
- * guards has therefore changed from "only these three" to "none at all": a new reader is now a
+ * THE LIST IS NOW EMPTY. All of them moved to the canonical issuer, so nothing in the application
+ * reads a plaintext legacy token any more, and the column grant itself has been revoked. What this
+ * script guards has therefore changed from "only these" to "none at all": a new reader is now a
  * regression rather than a known cost, and the failure message says so.
+ *
+ * It also checks the DATABASE, not just the application, and that is not belt-and-braces. The first
+ * version of this script looked only for a module SELECTing `token` off a legacy table, and it missed
+ * the Safeguarding Officer issuer completely -- that one never touched the table from TypeScript,
+ * because the token came back through an RPC's return value. A function that hands a plaintext legacy
+ * token to a caller is the same exposure whatever the call site looks like, so the functions are
+ * where it is checked.
  */
 
+import { execFileSync } from "node:child_process"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 
@@ -80,6 +88,39 @@ for (const [rel] of ALLOWED) {
   }
 }
 
+/**
+ * Any function that still returns a legacy plaintext token to its caller. Read from the database
+ * rather than from the migrations, because a later migration can replace a body without the earlier
+ * file changing -- which is exactly how the canonical issuers landed.
+ */
+const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
+const LEGACY_TOKEN_SQL = `
+  select string_agg(p.proname, ', ' order by p.proname)
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname in ('public', 'internal')
+     and p.prosrc ~ 'returning[^;]*\\ytoken\\y'
+     and p.prosrc ~ '(${LEGACY_TABLES.join("|")})'`
+
+let leakingFunctions = ""
+try {
+  leakingFunctions = execFileSync(
+    "docker",
+    ["exec", "-i", CONTAINER, "psql", "-U", "postgres", "-d", "postgres", "-Atq", "-c", LEGACY_TOKEN_SQL],
+    { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] },
+  ).trim()
+} catch {
+  // No local database to ask. The source check above still ran; say so rather than passing silently.
+  leakingFunctions = "\u0000unavailable"
+}
+
+if (leakingFunctions && leakingFunctions !== "\u0000unavailable") {
+  failures.push(
+    `these database functions still hand a plaintext legacy invitation token back to their caller: ` +
+      `${leakingFunctions}. Issue through public.issue_invitation, which returns the secret once and ` +
+      `stores only its hash.`,
+  )
+}
+
 if (failures.length > 0) {
   console.error("verify-legacy-invitation-token-readers: FAIL")
   for (const f of failures) console.error(`  - ${f}`)
@@ -87,7 +128,9 @@ if (failures.length > 0) {
 }
 
 console.log(
-  found.size === 0
-    ? "  ok    legacy_invitation_token_readers    nothing reads a plaintext legacy invitation token"
-    : `  ok    legacy_invitation_token_readers    ${found.size} module(s) may read one, all allow-listed`,
+  leakingFunctions === "\u0000unavailable"
+    ? "  ok    legacy_invitation_token_readers    no module reads one (database not checked: no local stack)"
+    : found.size === 0
+      ? "  ok    legacy_invitation_token_readers    nothing reads a plaintext legacy invitation token, in the app or the database"
+      : `  ok    legacy_invitation_token_readers    ${found.size} module(s) may read one, all allow-listed`,
 )
