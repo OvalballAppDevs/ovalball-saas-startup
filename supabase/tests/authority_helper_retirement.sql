@@ -876,6 +876,36 @@ begin
     raise notice 'FAIL PG16+ these bodies still call a Site Admin label helper: %', v_names;
   end if;
 
+  -- A DEPRECATED capability passed to internal.has_site_capability is the quietest possible
+  -- authority failure. That function does NOT translate -- it takes the key straight to
+  -- capability_decision, which refuses a retired capability at rule 1 and therefore denies
+  -- EVERYBODY, including a Full Site Admin. Nothing starts working that should not, so nobody
+  -- notices until somebody cannot do their job.
+  --
+  -- This is deliberately narrow. Plenty of policies legitimately name a deprecated key through
+  -- internal.has_capability(), which is the compatibility adapter and translates it via
+  -- public.capability_key_map -- 'site.hub_content.view' becomes 'site.hub.view', 'team.view' becomes
+  -- its canonical key, and so on. Those are correct, they are how the adapter is meant to be used,
+  -- and they retire with it at Slice 10. Counting them would be a grep count masquerading as a
+  -- finding. What is forbidden is the NON-translating call.
+  select coalesce(string_agg(x, '; '), '') into v_names from (
+    select p.schemaname || '.' || p.tablename || ' :: ' || p.policyname || ' -> ' || c.key as x
+      from pg_policies p join public.capabilities c on c.status = 'DEPRECATED'
+     where p.schemaname in ('public', 'storage')
+       and (coalesce(p.qual, '') || coalesce(p.with_check, '')) like '%has_site_capability(''' || c.key || '''%'
+    union all
+    select n.nspname || '.' || f.proname || ' -> ' || c.key
+      from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+      join public.capabilities c on c.status = 'DEPRECATED'
+     where n.nspname in ('public', 'internal')
+       and f.prosrc like '%has_site_capability(''' || c.key || '''%'
+  ) q;
+  if v_names = '' then
+    raise notice 'PASS PG16+ no policy or function asks has_site_capability for a RETIRED capability (which would deny everybody)';
+  else
+    raise notice 'FAIL PG16+ these ask has_site_capability for a retired capability, denying everybody: %', v_names;
+  end if;
+
   select coalesce(string_agg(n.nspname || '.' || f.proname, ', ' order by f.proname), '') into v_names
   from pg_proc f join pg_namespace n on n.oid = f.pronamespace
   where n.nspname in ('public', 'internal')
