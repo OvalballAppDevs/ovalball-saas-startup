@@ -220,6 +220,29 @@ future policy written too loosely still cannot leak it. Production held **six re
 migration, and the one pending invitation is honoured until it expires.
 **Owning slice.** 5.
 
+### D-S5-AUTO-6 — the legacy token read surface stays until the application moves
+
+**Decision.** The plaintext `token` column on the six legacy tables remains readable by a signed-in
+administrator. The nulling of terminal and expired rows stands.
+**Reason.** The first attempt replaced the table grant with a per-column grant omitting `token`.
+Rehearsing it against the real application showed why that was wrong: three server actions insert a
+legacy invitation and read the token straight back to build the emailed link —
+`app/(app)/people/actions.ts`, `app/(app)/admin/site-admins/actions.ts` and
+`app/(app)/parent/children/actions.ts` all do `.select("id, token")` as the signed-in user. Removing
+the grant breaks invitation sending outright, which is the exact line O.5 draws: retirement must not
+invalidate legitimate flows. The surface is also not an unintended one — RLS already limits these rows
+to the club's own administrators, and it is the surface the feature has always had.
+**Alternatives rejected.** Migrating those three actions to the canonical issuer in the same change
+(that is the application work this slice still owes, and half-doing it breaks live invitations);
+keeping the revoke and letting invitation sending fail (ships a regression to fix a theoretical one).
+**Consequence.** What was genuinely unintended is fixed: terminal rows no longer hold a usable-looking
+secret, and six revoked plaintext Site Admin tokens leave production. `anon` reaches none of it. The
+remaining surface is pinned by `scripts/verify-legacy-invitation-token-readers.mjs`, which names the
+three modules that may read a token and fails if a fourth appears — and also fails if an allow-listed
+module stops reading one, so the list shrinking is a visible event rather than something nobody
+notices.
+**Owning slice.** 5, completing when the application moves to the canonical issuer.
+
 ### D-S5-AUTO-3 — "you have already accepted this" is answered before the terminal-state check
 
 **Decision.** The per-person idempotency answer moved ahead of the missing/revoked/expired/used check.

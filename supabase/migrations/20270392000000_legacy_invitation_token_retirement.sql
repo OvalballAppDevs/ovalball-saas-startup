@@ -92,25 +92,25 @@ end $$;
 -- the API today. A column-level revoke means a stray `select *` cannot carry a secret to a client
 -- even if a future policy is written too loosely.
 -- ---------------------------------------------------------------------------------------------------
--- A column-level REVOKE does nothing while a table-level SELECT grant exists: in PostgreSQL the
--- table grant already covers every column. So the table grant is replaced by an explicit grant of
--- every column EXCEPT token, generated from the catalogue rather than typed out, so a column added
--- later is not silently dropped from the grant.
-do $$
-declare r record; v_cols text;
-begin
-  for r in select unnest(array[
-      'invitations','guardian_invitations','player_account_invitations',
-      'site_admin_invitations','club_safeguarding_officer_invitations','club_ovalball_invitations']) as t
-  loop
-    select string_agg(quote_ident(c.column_name), ', ' order by c.ordinal_position) into v_cols
-      from information_schema.columns c
-     where c.table_schema = 'public' and c.table_name = r.t and c.column_name <> 'token';
-    execute format('revoke select on public.%I from authenticated, anon', r.t);
-    execute format('grant select (%s) on public.%I to authenticated', v_cols, r.t);
-  end loop;
-  raise notice 'Slice 5: the legacy token columns are no longer selectable by any browser role';
-end $$;
+-- D-S5-AUTO-6: the token column's READ surface stays as it is, for now.
+--
+-- The first attempt here replaced the table-level SELECT grant with a per-column grant that omitted
+-- `token`. It was wrong, and rehearsing it against the real application is what showed why: three
+-- server actions insert a legacy invitation and read the token straight back to build the emailed
+-- link -- app/(app)/people/actions.ts, app/(app)/admin/site-admins/actions.ts and
+-- app/(app)/parent/children/actions.ts all do `.select("id, token")` as the signed-in user. Removing
+-- the column grant breaks invitation sending outright, which is precisely the "retirement must not
+-- invalidate legitimate flows" line O.5 draws.
+--
+-- The surface is also not an unintended one: RLS already limits these rows to the club's own
+-- administrators, and it is the surface the feature has always had. What WAS unintended -- terminal
+-- rows still holding a usable-looking secret -- is fixed above, and that is the substantive change:
+-- six revoked plaintext Site Admin tokens leave production.
+--
+-- The read surface retires when the application moves to the canonical issuer, which is the same
+-- change that stops new plaintext being written at all. Until then
+-- scripts/verify-legacy-invitation-token-readers.mjs pins exactly which modules may read one, so the
+-- surface cannot quietly spread while it waits.
 
 -- ---------------------------------------------------------------------------------------------------
 -- 4. Assertions.
@@ -128,9 +128,12 @@ begin
     if v_n > 0 then
       raise exception 'Slice 5: public.% still holds % plaintext token(s) on terminal or expired rows.', r.t, v_n;
     end if;
-    if has_column_privilege('authenticated', format('public.%I', r.t)::regclass, 'token', 'SELECT')
-       or has_column_privilege('anon', format('public.%I', r.t)::regclass, 'token', 'SELECT') then
-      raise exception 'Slice 5: a browser role can still select public.%.token', r.t;
+    -- anon must never reach a token. `authenticated` still can, deliberately and temporarily: see
+    -- D-S5-AUTO-6 above. Which modules may is pinned by
+    -- scripts/verify-legacy-invitation-token-readers.mjs, so the surface cannot spread while it waits
+    -- for the application to move to the canonical issuer.
+    if has_column_privilege('anon', format('public.%I', r.t)::regclass, 'token', 'SELECT') then
+      raise exception 'Slice 5: a signed-out visitor can select public.%.token', r.t;
     end if;
   end loop;
   raise notice 'Slice 5: legacy plaintext token retirement verified';

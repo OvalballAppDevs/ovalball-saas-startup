@@ -465,13 +465,15 @@ begin
       'invitations','guardian_invitations','player_account_invitations',
       'site_admin_invitations','club_safeguarding_officer_invitations','club_ovalball_invitations']) as t
   loop
-    if has_column_privilege('authenticated', format('public.%I', r.t)::regclass, 'token', 'SELECT')
-       or has_column_privilege('anon', format('public.%I', r.t)::regclass, 'token', 'SELECT') then
+    if has_column_privilege('anon', format('public.%I', r.t)::regclass, 'token', 'SELECT') then
       v_bad := v_bad || r.t;
     end if;
   end loop;
+  -- A signed-in club administrator can still read a legacy token, deliberately and temporarily
+  -- (D-S5-AUTO-6): three server actions read it back to build the emailed link, and removing the
+  -- grant breaks invitation sending. A signed-out visitor never could and still cannot.
   perform pg_temp.check(cardinality(v_bad) = 0,
-    'IN-M2 and no browser role can select a legacy token column at all ('
+    'IN-M2 and no signed-out visitor can select a legacy token column ('
       || coalesce(array_to_string(v_bad, ', '), '') || ')');
 
   perform pg_temp.check(
