@@ -201,6 +201,25 @@ knows about, which is the dangerous case. The verifier additionally refuses a su
 `AGE_ELIGIBILITY_REQUIRED` and `MEMBERSHIP_REQUIRED` are surfaced, because a person can act on those.
 **Owning slice.** 5.
 
+### D-S5-AUTO-5 — the legacy token columns become nullable, and column-limited
+
+**Decision.** All six legacy invitation tables get `token` set nullable, and their table-level SELECT
+grant is replaced by an explicit per-column grant that omits `token`.
+**Reason.** O.5 says to null the plaintext token on terminal rows, and every one of the columns was
+`NOT NULL`, so the disposition was literally impossible to carry out. Separately, a column-level
+`REVOKE` does nothing while a table-level grant exists — PostgreSQL's table grant already covers every
+column — so excluding the secret required replacing the grant rather than revoking a piece of it.
+**Alternatives rejected.** A sentinel value such as `''` or `'RETIRED'` (still has to be excluded
+everywhere, and reads as a token in a backup); deleting terminal rows outright (destroys the
+read-only history O.5 deliberately keeps); leaving the grant alone and relying on nothing querying the
+column (that is a habit, not a control).
+**Consequence.** Terminal and expired rows lose the secret; a live pending invitation keeps it until
+expiry, so nothing legitimate is invalidated. No browser role can select the column at all, so a
+future policy written too loosely still cannot leak it. Production held **six revoked
+`site_admin_invitations` rows with plaintext platform-authority tokens**; those are cleared by this
+migration, and the one pending invitation is honoured until it expires.
+**Owning slice.** 5.
+
 ### D-S5-AUTO-3 — "you have already accepted this" is answered before the terminal-state check
 
 **Decision.** The per-person idempotency answer moved ahead of the missing/revoked/expired/used check.

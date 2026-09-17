@@ -550,8 +550,22 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select": [
+          "accepted_at",
+          "accepted_by",
+          "club_directory_id",
+          "contact_email",
+          "contact_name",
+          "created_at",
+          "expires_at",
+          "id",
+          "invited_by",
+          "inviting_club_id",
+          "resulting_partnership_id",
+          "status",
+          "updated_at"
+        ],
+        "select_reason": "Slice 5, Phase 2 O.5. SELECT is granted column by column so that `token` is excluded: this table stored its invitation secret in plaintext, and a table-level grant would carry it to any client that ran `select *`. Terminal and expired rows have had the token cleared; a live pending invitation keeps it until expiry, which is what O.5 requires. Row access is unchanged."
       }
     },
     "club_partnerships": {
@@ -595,8 +609,22 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select": [
+          "accepted_at",
+          "accepted_by",
+          "club_id",
+          "created_at",
+          "expires_at",
+          "id",
+          "invited_by",
+          "invited_email",
+          "officer_id",
+          "revoked_at",
+          "revoked_by",
+          "status",
+          "updated_at"
+        ],
+        "select_reason": "Slice 5, Phase 2 O.5. SELECT is granted column by column so that `token` is excluded: this table stored its invitation secret in plaintext, and a table-level grant would carry it to any client that ran `select *`. Terminal and expired rows have had the token cleared; a live pending invitation keeps it until expiry, which is what O.5 requires. Row access is unchanged."
       }
     },
     "club_safeguarding_officers": {
@@ -1377,8 +1405,21 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select": [
+          "accepted_at",
+          "accepted_by",
+          "club_id",
+          "created_at",
+          "expires_at",
+          "id",
+          "invited_by_user_id",
+          "invited_email",
+          "replacement_for_player_id",
+          "status",
+          "team_id",
+          "updated_at"
+        ],
+        "select_reason": "Slice 5, Phase 2 O.5. SELECT is granted column by column so that `token` is excluded: this table stored its invitation secret in plaintext, and a table-level grant would carry it to any client that ran `select *`. Terminal and expired rows have had the token cleared; a live pending invitation keeps it until expiry, which is what O.5 requires. Row access is unchanged."
       }
     },
     "guardian_link_requests": {
@@ -2079,14 +2120,28 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
+        "select": [
+          "accepted_at",
+          "accepted_by",
+          "club_id",
+          "club_role",
+          "created_at",
+          "created_by",
+          "declared_role",
+          "expires_at",
+          "id",
+          "invited_email",
+          "status",
+          "updated_at",
+          "updated_by"
+        ],
         "insert": "all",
         "update": "all",
         "write_consumers": [
           "app/(app)/people/actions.ts"
         ],
         "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Slice 5, Phase 2 O.5. SELECT is granted column by column so that `token` is excluded: this table stored its invitation secret in plaintext, and a table-level grant would carry it to any client that ran `select *`. Terminal and expired rows have had the token cleared; a live pending invitation keeps it until expiry, which is what O.5 requires. Row access is unchanged."
       }
     },
     "membership_obligations": {
@@ -2428,8 +2483,19 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select": [
+          "accepted_at",
+          "accepted_by",
+          "created_at",
+          "expires_at",
+          "id",
+          "invited_by",
+          "invited_email",
+          "player_id",
+          "status",
+          "updated_at"
+        ],
+        "select_reason": "Slice 5, Phase 2 O.5. SELECT is granted column by column so that `token` is excluded: this table stored its invitation secret in plaintext, and a table-level grant would carry it to any client that ran `select *`. Terminal and expired rows have had the token cleared; a live pending invitation keeps it until expiry, which is what O.5 requires. Row access is unchanged."
       }
     },
     "player_club_join_requests": {
@@ -3004,13 +3070,26 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
+        "select": [
+          "accepted_at",
+          "accepted_by",
+          "admin_role",
+          "created_at",
+          "expires_at",
+          "id",
+          "invited_by",
+          "invited_email",
+          "revoked_at",
+          "revoked_by",
+          "status",
+          "updated_at"
+        ],
         "insert": "all",
         "write_consumers": [
           "app/(app)/admin/site-admins/actions.ts"
         ],
         "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Slice 5, Phase 2 O.5. SELECT is granted column by column so that `token` is excluded: this table stored its invitation secret in plaintext, and a table-level grant would carry it to any client that ran `select *`. Terminal and expired rows have had the token cleared; a live pending invitation keeps it until expiry, which is what O.5 requires. Row access is unchanged."
       }
     },
     "site_admins": {

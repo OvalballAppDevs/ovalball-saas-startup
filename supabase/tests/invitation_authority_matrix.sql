@@ -436,4 +436,75 @@ begin
   end;
 end $$;
 
+-- =====================================================================================================
+-- IN-M. The six legacy plaintext-token tables (Phase 2 O.5).
+--
+-- Every one of them stored its invitation token in plaintext, which is the PG-10 violation Phase 2
+-- line 54 assigns to this slice. O.5's disposition is exact and is what is implemented: terminal rows
+-- lose the token now, a live pending invitation keeps it until it expires, and nothing legitimate is
+-- invalidated on the way.
+-- =====================================================================================================
+do $$
+declare r record; v_n integer; v_bad text[] := '{}';
+begin
+  for r in select unnest(array[
+      'invitations','guardian_invitations','player_account_invitations',
+      'site_admin_invitations','club_safeguarding_officer_invitations','club_ovalball_invitations']) as t
+  loop
+    execute format(
+      'select count(*) from public.%I where token is not null and (status in (''accepted'',''revoked'',''expired'') or expires_at <= now())',
+      r.t) into v_n;
+    if v_n > 0 then v_bad := v_bad || (r.t || '=' || v_n); end if;
+  end loop;
+  perform pg_temp.check(cardinality(v_bad) = 0,
+    'IN-M1 no legacy invitation row that is terminal or past expiry still holds a plaintext token ('
+      || coalesce(array_to_string(v_bad, ', '), '') || ')');
+
+  v_bad := '{}';
+  for r in select unnest(array[
+      'invitations','guardian_invitations','player_account_invitations',
+      'site_admin_invitations','club_safeguarding_officer_invitations','club_ovalball_invitations']) as t
+  loop
+    if has_column_privilege('authenticated', format('public.%I', r.t)::regclass, 'token', 'SELECT')
+       or has_column_privilege('anon', format('public.%I', r.t)::regclass, 'token', 'SELECT') then
+      v_bad := v_bad || r.t;
+    end if;
+  end loop;
+  perform pg_temp.check(cardinality(v_bad) = 0,
+    'IN-M2 and no browser role can select a legacy token column at all ('
+      || coalesce(array_to_string(v_bad, ', '), '') || ')');
+
+  perform pg_temp.check(
+    not has_function_privilege('authenticated','internal.null_legacy_invitation_tokens()','EXECUTE')
+    and not has_function_privilege('anon','internal.null_legacy_invitation_tokens()','EXECUTE'),
+    'IN-M3 the retirement job is definer-only');
+end $$;
+
+-- A LIVE pending invitation must keep its token: O.5 honours legacy invitations until they expire,
+-- and clearing one would invalidate something a real person is still holding a link for.
+do $$
+declare v_club uuid; v_dir uuid; v_by uuid; v_id uuid; v_tag text := substr(gen_random_uuid()::text,1,8);
+begin
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('Legacy '||v_tag,'T','T','union','United Kingdom','England',true,'unverified','site_admin_manual','legacy-'||v_tag) returning id into v_dir;
+  insert into public.clubs (directory_id, slug, status) values (v_dir,'legacy-'||v_tag,'active') returning id into v_club;
+  v_by := pg_temp.person('LEGACYBY','legacyby-'||v_tag||'@ovalball.test');
+  insert into public.invitations (club_id, invited_email, club_role, token, created_by, expires_at, status)
+  values (v_club, 'stillvalid-'||v_tag||'@ovalball.test', 'FIXTURE_SECRETARY', 'legacy-live-'||v_tag, v_by,
+          now() + interval '3 days', 'pending')
+  returning id into v_id;
+
+  perform internal.null_legacy_invitation_tokens();
+
+  perform pg_temp.check(
+    (select token from public.invitations where id = v_id) is not null,
+    'IN-M4 a LIVE pending legacy invitation keeps its token -- O.5 honours it until expiry, so retirement invalidates nothing legitimate');
+
+  update public.invitations set status = 'revoked' where id = v_id;
+  perform internal.null_legacy_invitation_tokens();
+  perform pg_temp.check(
+    (select token from public.invitations where id = v_id) is null,
+    'IN-M5 and the moment it becomes terminal the token goes, because a revoked invitation''s secret protects nothing');
+end $$;
+
 rollback;
