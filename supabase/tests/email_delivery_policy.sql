@@ -210,13 +210,36 @@ begin
   raise notice 'PASS (E): ordinary user refused delivery history.';
   reset role;
 
+  -- Slice 7 (7d): reading delivery history is site.email.deliveries.view, which Phase 2 R gives to
+  -- FULL and SUPPORT. The "narrow" admin in these fixtures is Club Data, whose bundle is users.view,
+  -- clubs.view, clubs.profile.manage, directory.manage, claims.review and audit.view -- email delivery
+  -- history is a User Support concern, not a club-data one.
+  --
+  -- This assertion used to require the opposite, and it was right about the OLD behaviour: the function
+  -- asked internal.is_site_admin(), which is true for every profile including Read Only. That is the
+  -- label standing in for authority, and taking it out is the whole of 7d.
   perform set_config('request.jwt.claims', json_build_object('sub', v_narrow_site_admin, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  if (select count(*) from public.email_usage_summary()) < 1 then
-    raise exception 'FAIL 13 (E): a narrow Site Admin could not view usage, but Email Configuration itself allows narrow Site Admins to read';
-  end if;
-  raise notice 'PASS (E): narrow Site Admin CAN view usage.';
+  v_raised := false;
+  begin
+    perform * from public.email_usage_summary();
+  exception when others then v_raised := true;
+  end;
   reset role;
+  if not v_raised then
+    raise exception 'FAIL 13 (E): a Club Data Site Admin read email delivery usage, which is a User Support capability';
+  end if;
+  raise notice 'PASS (E): a Club Data Site Admin is refused delivery usage -- the label no longer carries it.';
+
+  -- POSITIVE CONTROL. The refusal above has to be about the capability, not about the function being
+  -- broken for everybody.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_full_site_admin, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  if (select count(*) from public.email_usage_summary()) < 1 then
+    raise exception 'FAIL 13b (E): a Full Site Admin could not view usage either -- the capability check is wrong, not narrow';
+  end if;
+  reset role;
+  raise notice 'PASS (E): POSITIVE CONTROL -- a Full Site Admin still can.';
 
   raise notice 'Email delivery policy complete.';
 end $$;

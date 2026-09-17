@@ -800,15 +800,21 @@ end $$;
 -- PG-15 / PG-16 ----------------------------------------------------------------------------------------------
 do $$
 declare
-  v_pg15_ceiling constant int := 100;  -- after Slice 4H (4g: 124, 4f: 128, 4e: 130, 4d: 130, 4c: 130, 4b: 138, 4a: 140, Slice 3: 149); reaches 0 at Slice 7
-  v_pg16_ceiling constant int := 91;   -- after Slice 4H (4g: 121, 4f: 124, 4e: 135, 4d: 143, 4c: 145, 4b: 157, 4a: 159, Slice 3: 162)
+  -- SLICE 7 (7d): both reach ZERO, which is the Slice 7 acceptance criterion. The ceiling is no longer
+  -- a shrink allowance -- it is an exact count, so a single reintroduced Site Admin label fails this.
+  --
+  -- The history, kept because it is the argument for doing it slice by slice rather than in one go:
+  --   PG-15  Slice 3: 149, 4a: 140, 4b: 138, 4c: 130, 4d: 130, 4e: 130, 4f: 128, 4g: 124, 4H: 100, 7: 0
+  --   PG-16  Slice 3: 162, 4a: 159, 4b: 157, 4c: 145, 4d: 143, 4e: 135, 4f: 124, 4g: 121, 4H: 91,  7: 0
+  v_pg15_ceiling constant int := 0;
+  v_pg16_ceiling constant int := 0;
   v int;
 begin
   select count(*) into v from pg_policies p
   where p.schemaname in ('public', 'storage')
     and (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) ~ '\m(is_site_admin|is_full_site_admin|is_club_admin)\(';
   if v <= v_pg15_ceiling then
-    raise notice 'PASS PG15 % policies reference is_site_admin/is_full_site_admin/is_club_admin (ceiling %)', v, v_pg15_ceiling;
+    raise notice 'PASS PG15 % policies reference is_site_admin/is_full_site_admin/is_club_admin (must be %)', v, v_pg15_ceiling;
   else
     raise notice 'FAIL PG15 % policies reference is_site_admin/is_full_site_admin/is_club_admin (ceiling %)', v, v_pg15_ceiling;
   end if;
@@ -816,7 +822,7 @@ begin
   select count(*) into v from pg_proc f join pg_namespace n on n.oid = f.pronamespace
   where n.nspname in ('public', 'internal') and f.prosecdef and f.proname <> 'is_site_admin' and f.prosrc ~ '\mis_site_admin\(';
   if v <= v_pg16_ceiling then
-    raise notice 'PASS PG16 % SECURITY DEFINER bodies call is_site_admin() (ceiling %)', v, v_pg16_ceiling;
+    raise notice 'PASS PG16 % SECURITY DEFINER bodies call is_site_admin() (must be %)', v, v_pg16_ceiling;
   else
     raise notice 'FAIL PG16 % SECURITY DEFINER bodies call is_site_admin() (ceiling %)', v, v_pg16_ceiling;
   end if;
