@@ -77,6 +77,30 @@ end $$;
 -- one. That carve-out is correct, and it also meant the AAL2 half of the master-control preamble was
 -- never being exercised by this suite at all -- every assertion above walks straight past it. This
 -- helper supplies a session id with no TOTP claim behind it, which is what an AAL1 browser looks like.
+-- A session that internal.session_live() will actually recognise.
+--
+-- This is the half SMC-33 was missing. A random session id has no row in auth.sessions, so
+-- session_live() is false, session_ok() is false, has_site_capability() is false, and the call is
+-- refused 42501 -- by the SESSION gate, before require_recent_aal2 is ever reached. The assertion
+-- passed and proved nothing about AAL2, which a mutation campaign showed by deleting the body of
+-- require_recent_aal2 and watching the suite stay green.
+--
+-- With a real session row and no TOTP claim behind it, session_aal_ok() returns true at T0 (no
+-- enforcement group is enforced yet), so the ONLY thing left that can refuse is the recent-AAL2
+-- requirement. That is what makes the assertion below about the thing it names.
+create or replace function pg_temp.session_for(p_subject uuid, p_totp_age interval default null)
+returns uuid language plpgsql as $$
+declare v uuid := gen_random_uuid();
+begin
+  insert into auth.sessions (id, user_id, created_at, updated_at, aal, not_after)
+  values (v, p_subject, now(), now(), 'aal1', now() + interval '1 day');
+  if p_totp_age is not null then
+    insert into auth.mfa_amr_claims (id, session_id, created_at, updated_at, authentication_method)
+    values (gen_random_uuid(), v, now() - p_totp_age, now() - p_totp_age, 'totp');
+  end if;
+  return v;
+end $$;
+
 create or replace function pg_temp.try_as_session(p_subject uuid, p_session uuid, p_sql text)
 returns text language plpgsql as $$
 declare v text;
@@ -349,14 +373,32 @@ begin
   -- behind it is what an AAL1 browser looks like, and master control has to refuse it -- otherwise
   -- the whole of Q.3's preamble is one capability check wearing three.
   -- =============================================================================================
-  perform pg_temp.check(
-    pg_temp.try_as_session(v_full, gen_random_uuid(),
-      format('select public.site_revoke_sessions(%L,''an AAL1 browser attempting master control'')', v_target)) = '42501',
-    'SMC-33 master control is refused to a session that has not recently passed a second factor');
-  perform pg_temp.check(
-    pg_temp.try_as_session(v_full, gen_random_uuid(),
-      format('select public.site_assign_team_role(%L,%L,''COACH'',''an AAL1 browser attempting master control'')', v_outsider, v_team)) = '42501',
-    'SMC-33b and the gate is in the shared preamble, so it holds for every master-control RPC');
+  declare v_aal1 uuid; v_stale uuid; v_fresh uuid;
+  begin
+    v_aal1  := pg_temp.session_for(v_full);                       -- signed in, never did TOTP
+    v_stale := pg_temp.session_for(v_full, interval '45 minutes'); -- did TOTP, but not recently
+    v_fresh := pg_temp.session_for(v_full, interval '1 minute');   -- did TOTP a moment ago
+
+    perform pg_temp.check(
+      pg_temp.try_as_session(v_full, v_aal1,
+        format('select public.site_revoke_sessions(%L,''an AAL1 browser attempting master control'')', v_target)) = '42501',
+      'SMC-33 master control is refused to a live session that has never passed a second factor');
+    perform pg_temp.check(
+      pg_temp.try_as_session(v_full, v_stale,
+        format('select public.site_revoke_sessions(%L,''a browser whose authenticator code is 45 minutes old'')', v_target)) = '42501',
+      'SMC-33b and refused to one whose authenticator code is 45 minutes old -- RECENT is the word that matters');
+
+    -- POSITIVE CONTROL. Without it, both refusals above are satisfied by a session gate that refuses
+    -- every session with an id, which is exactly what this assertion used to be doing.
+    perform pg_temp.check(
+      pg_temp.try_as_session(v_full, v_fresh,
+        format('select public.site_revoke_sessions(%L,''ending sessions after a report of a shared login'')', v_target)) = 'OK',
+      'SMC-33c POSITIVE CONTROL: the SAME call succeeds from a session that passed TOTP a minute ago');
+    perform pg_temp.check(
+      pg_temp.try_as_session(v_full, v_aal1,
+        format('select public.site_assign_team_role(%L,%L,''COACH'',''an AAL1 browser attempting master control'')', v_outsider, v_team)) = '42501',
+      'SMC-33d and the gate is in the shared preamble, so it holds for every master-control RPC');
+  end;
 
   -- =============================================================================================
   -- SMC-34  Self-target and audit across the new surface.
