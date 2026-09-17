@@ -11,6 +11,13 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
 import { AuthSecurityCheck } from "@/components/auth/auth-security-check"
+import {
+  canSubmitProtected,
+  challengeIdle,
+  challengeSpent,
+  challengeVerified,
+  tokenForSubmission,
+} from "@/lib/auth/challenge-state"
 import { AuthDivider, SocialAuthButtons } from "@/components/auth/social-auth-buttons"
 import { hasAnyOAuthProvider } from "@/lib/auth/oauth-providers"
 import { REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember-constants"
@@ -55,8 +62,24 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
   // is blocked -- a checkpoint with no verification behind it would be
   // theatre occupying the top of the page.
   const securityCheckActive = Boolean(turnstileSiteKey)
-  const [humanToken, setHumanToken] = useState<string | null>(null)
-  const [humanPassed, setHumanPassed] = useState(!turnstileSiteKey)
+  // ONE piece of state for one fact. It used to be two -- a token and a boolean -- and a failed
+  // password attempt cleared the token while leaving the boolean true. The button is gated on the
+  // boolean, so it stayed enabled, every retry posted a null token, the server refused fail-closed,
+  // and the visitor was locked out with a correct password. See lib/auth/challenge-state.ts.
+  const [challenge, setChallenge] = useState(() => challengeIdle(Boolean(turnstileSiteKey)))
+  // Remounting the checkpoint is what actually asks Cloudflare for a new token. Clearing the state
+  // alone would leave the button correctly disabled and the visitor with no way to re-enable it,
+  // which trades one lockout for a quieter one. The widget removes itself on unmount, so a changed
+  // key is a clean restart.
+  const [challengeNonce, setChallengeNonce] = useState(0)
+
+  /** The token has been spent: forget it, and ask for a fresh challenge. */
+  function spendChallenge() {
+    setChallenge(challengeSpent(securityCheckActive))
+    if (securityCheckActive) setChallengeNonce((n) => n + 1)
+  }
+  const humanPassed = canSubmitProtected(challenge, securityCheckActive)
+  const humanToken = tokenForSubmission(challenge, securityCheckActive)
 
   const [showEmail, setShowEmail] = useState(() => Boolean(searchParams.get("email")))
   const [linkError, setLinkError] = useState(() => searchParams.get("error") === "link")
@@ -96,7 +119,10 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
     if (!result.ok) {
       setStatus("error")
       setErrorMessage(result.message)
-      if (securityCheckActive) setHumanToken(null)
+      // The token went with the attempt whatever the outcome, so the whole challenge is spent and
+      // the widget must issue a fresh one before anything else is tried. Clearing only the token
+      // here -- which is what this line used to do -- is what caused the lockout.
+      spendChallenge()
       return
     }
     // A second factor still to present goes to the challenge; otherwise straight on.
@@ -120,10 +146,7 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
       setResendCooldown(30)
       // A Turnstile token is single-use; the checkpoint re-runs itself for
       // a resend rather than failing with an error nobody can act on.
-      if (securityCheckActive) {
-        setHumanToken(null)
-        setHumanPassed(false)
-      }
+      spendChallenge()
     } else {
       setStatus("error")
       setErrorMessage(result.message)
@@ -146,12 +169,10 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
 
         {securityCheckActive && !humanPassed && turnstileSiteKey && (
           <AuthSecurityCheck
+            key={`login-resend-${challengeNonce}`}
             siteKey={turnstileSiteKey}
             action="login-resend"
-            onVerified={(token) => {
-              setHumanToken(token)
-              setHumanPassed(true)
-            }}
+            onVerified={(token) => setChallenge(challengeVerified(token))}
           />
         )}
 
@@ -196,7 +217,16 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
         </Notice>
       )}
 
-      <SocialAuthButtons turnstileToken={humanToken} ready={humanPassed} intent="signin" />
+      <SocialAuthButtons
+        turnstileToken={humanToken}
+        ready={humanPassed}
+        challengeRequired={securityCheckActive}
+        // A failed or abandoned provider round-trip spends the token just as a password attempt
+        // does. Without this the buttons stayed enabled with a dead token and repeated the same
+        // "security check" message indefinitely.
+        onChallengeSpent={spendChallenge}
+        intent="signin"
+      />
 
       {hasAnyOAuthProvider() && <AuthDivider label="or" />}
 
@@ -351,12 +381,10 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
           any one control above it. */}
       {securityCheckActive && turnstileSiteKey && (
         <AuthSecurityCheck
+          key={`login-${challengeNonce}`}
           siteKey={turnstileSiteKey}
           action="login"
-          onVerified={(token) => {
-            setHumanToken(token)
-            setHumanPassed(true)
-          }}
+          onVerified={(token) => setChallenge(challengeVerified(token))}
         />
       )}
     </div>
