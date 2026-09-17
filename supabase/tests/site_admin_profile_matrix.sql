@@ -43,8 +43,14 @@ end $$;
 create or replace function pg_temp.call_with_nulls(p_subject uuid, p_oid oid) returns text language plpgsql as $$
 declare v_sql text; v_state text;
 begin
+  -- `order by a.ord` is load-bearing, and its absence is why this helper once reported that every
+  -- master-control RPC had ceased to exist. string_agg over a join has no inherent order, so the
+  -- argument list came out as (text, uuid, uuid) for a function declared (uuid, uuid, text) and
+  -- Postgres correctly answered "no such function" -- 42883, not 42501. On the development database
+  -- the rows happened to come back in declaration order and the suite passed; a clean boot from
+  -- empty produced a different plan and it did not.
   select 'select ' || n.nspname || '.' || p.proname || '(' ||
-         coalesce((select string_agg('null::' || format_type(t.oid, null), ', ')
+         coalesce((select string_agg('null::' || format_type(t.oid, null), ', ' order by a.ord)
                      from unnest(p.proargtypes) with ordinality as a(oid, ord)
                      join pg_type t on t.oid = a.oid), '') || ')'
     into v_sql
@@ -121,6 +127,8 @@ begin
        order by p.proname
     loop
       v_state := pg_temp.call_with_nulls(v_persona.id, r.oid);
+      -- 42883 would mean the call never reached the function, which is a broken harness rather than
+      -- a refusal. It is reported the same way so it can never be mistaken for a pass.
       if v_state <> '42501' then
         v_bad := v_bad || (r.proname || ' -> ' || v_state);
       end if;
@@ -167,8 +175,13 @@ begin
   -- Everything above is a refusal, and every one of them would also pass if the RPCs were simply
   -- broken, or if call_with_nulls were constructing SQL that never ran. A Full Site Admin passes the
   -- preamble, so the SAME generic call must get PAST the capability check -- and then fail on the
-  -- NULL arguments, which is a different error entirely. Anything still returning 42501 for FULL
-  -- would mean this suite has been proving nothing at all.
+  -- NULL arguments, which is a different error entirely.
+  --
+  -- "Not 42501" is NOT sufficient, and this assertion said exactly that until a clean boot proved it
+  -- worthless: with the argument list built in the wrong order every call returned 42883, "function
+  -- does not exist", the four refusals above failed honestly, and this control reported success --
+  -- because 42883 is not 42501. A positive control that accepts "the function could not be found"
+  -- as evidence the function ran is not a control. 42883 is now named and rejected.
   --
   -- The two-admin grant RPCs are excluded, and only those: they refuse a Full Site Admin too, for a
   -- reason that is the whole of 7c rather than a capability failure.
@@ -185,11 +198,16 @@ begin
     loop
       v_total := v_total + 1;
       v_state := pg_temp.call_with_nulls(v_full, r.oid);
-      if v_state <> '42501' then v_past := v_past + 1; else v_bad := v_bad || r.proname; end if;
+      if v_state not in ('42501', '42883') then
+        v_past := v_past + 1;
+      else
+        v_bad := v_bad || (r.proname || ' -> ' || v_state);
+      end if;
     end loop;
     perform pg_temp.check(v_past = v_total,
-      format('SAPM-05 POSITIVE CONTROL: a Full Site Admin gets PAST the capability check on all %s of them (%s did)',
-             v_total, v_past));
+      format('SAPM-05 POSITIVE CONTROL: a Full Site Admin gets PAST the capability check on all %s of them, and every call reached a real function (%s did)%s',
+             v_total, v_past,
+             case when cardinality(v_bad) = 0 then '' else ' -- ' || array_to_string(v_bad, '; ') end));
   end;
 end $$;
 
