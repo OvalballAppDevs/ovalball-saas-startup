@@ -347,6 +347,7 @@ SUITES=(
   cross_club_isolation_matrix
   roster_authority_matrix
   authority_helper_retirement
+  site_master_control
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
