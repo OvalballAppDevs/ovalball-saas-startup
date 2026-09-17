@@ -28,6 +28,8 @@ export type InviteSiteAdminResult = { ok: true; inviteLink: string } | { ok: fal
  * showing they are an adult (D-S5-1). No real email is sent this session, see lib/email/send.ts, so
  * the invite link is returned directly too and an invitation still works with no mail provider.
  */
+const MIN_REASON = 10
+
 export async function inviteSiteAdmin(email: string, adminRole: string): Promise<InviteSiteAdminResult> {
   const supabase = await createClient()
   const auth = await requireSiteAdmin(supabase, ["full"])
@@ -83,21 +85,48 @@ export async function revokeSiteAdminInvitation(invitationId: string): Promise<A
 }
 
 /**
- * Changes an EXISTING active Site Admin's profile -- distinct from
- * inviting (which grants access for the first time). The lockout trigger
- * (internal.prevent_last_full_admin_lockout) still applies against this
- * write, so demoting the last remaining Full Site Admin is blocked
- * server-side regardless of what this action allows.
+ * Changes an EXISTING active Site Admin's profile -- distinct from granting
+ * access for the first time.
+ *
+ * SLICE 7c: this used to be a direct update of public.site_admins from the
+ * browser. No browser role can write that table any more, because the
+ * two-person grant rule lives in a SECURITY DEFINER function and a rule is
+ * worth nothing while the caller can write the table instead.
+ *
+ * public.site_change_site_admin_profile carries the asymmetry that matters:
+ * moving somebody UP TO SITE_FULL is a grant of the authority the rule
+ * exists to protect, so it goes through the two-admin gate and fails here
+ * unless a second Full Site Admin has already approved it. Moving them down
+ * or sideways is a reduction, and one administrator may do it.
+ *
+ * internal.prevent_last_full_admin_lockout still fires underneath either
+ * way, so the last remaining Full Site Admin cannot be quietly demoted.
  */
-export async function changeSiteAdminRole(targetUserId: string, adminRole: string): Promise<ActionResult> {
+export async function changeSiteAdminRole(
+  targetUserId: string,
+  profileKey: string,
+  reason: string,
+): Promise<ActionResult> {
   const supabase = await createClient()
   const auth = await requireSiteAdmin(supabase, ["full"])
   if (!auth.ok) return { ok: false, error: auth.error }
+  if (reason.trim().length < MIN_REASON) {
+    return { ok: false, error: `Give a fuller reason — at least ${MIN_REASON} characters, so the record makes sense later.` }
+  }
 
-  const { error } = await supabase.from("site_admins").update({ admin_role: adminRole }).eq("user_id", targetUserId)
+  const { error } = await supabase.rpc("site_change_site_admin_profile", {
+    p_user_id: targetUserId,
+    p_profile_key: profileKey,
+    p_reason: reason.trim(),
+  })
   if (error) {
     console.error("changeSiteAdminRole failed:", error)
-    return { ok: false, error: error.message.includes("last remaining Full Site Admin") ? error.message : toPublicSubmissionError() }
+    // These carry the sentence the administrator needs -- the two-admin
+    // refusal, the lockout guard -- and none of them leak anything.
+    if (error.code === "42501" || error.code === "22023" || error.code === "23514" || error.message.includes("last remaining Full Site Admin")) {
+      return { ok: false, error: error.message }
+    }
+    return { ok: false, error: toPublicSubmissionError() }
   }
   revalidatePath("/admin/site-admins")
   return { ok: true }
@@ -239,7 +268,7 @@ export async function setSeasonsAccess(targetUserId: string, enabled: boolean): 
  * Full Site Admin only, no self-revoke, and the lockout trigger still
  * blocks removing the last remaining Full Site Admin either way.
  */
-export async function revokeActiveSiteAdmin(targetUserId: string): Promise<ActionResult> {
+export async function revokeActiveSiteAdmin(targetUserId: string, reason: string): Promise<ActionResult> {
   const supabase = await createClient()
   const auth = await requireSiteAdmin(supabase, ["full"])
   if (!auth.ok) return { ok: false, error: auth.error }
@@ -247,14 +276,24 @@ export async function revokeActiveSiteAdmin(targetUserId: string): Promise<Actio
   if (auth.user.id === targetUserId) {
     return { ok: false, error: "You cannot revoke your own Site Admin access." }
   }
+  if (reason.trim().length < MIN_REASON) {
+    return { ok: false, error: `Give a fuller reason — at least ${MIN_REASON} characters, so the record makes sense later.` }
+  }
 
-  const { error } = await supabase
-    .from("site_admins")
-    .update({ status: "revoked", revoked_by: auth.user.id, revoked_at: new Date().toISOString() })
-    .eq("user_id", targetUserId)
+  // Revoking deliberately needs only one administrator: taking authority
+  // away is the safe direction, and requiring two people to stop somebody is
+  // how an incident gets worse while a form is filled in. The RPC also ends
+  // every live session, so the authority does not outlive the decision.
+  const { error } = await supabase.rpc("site_revoke_site_admin", {
+    p_user_id: targetUserId,
+    p_reason: reason.trim(),
+  })
 
   if (error) {
     console.error("revokeActiveSiteAdmin failed:", error)
+    if (error.code === "42501" || error.code === "23514" || error.message.includes("last remaining Full Site Admin")) {
+      return { ok: false, error: error.message }
+    }
     return { ok: false, error: toPublicSubmissionError() }
   }
   revalidatePath("/admin/site-admins")

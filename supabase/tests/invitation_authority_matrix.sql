@@ -41,6 +41,23 @@ begin
   return v;
 end $$;
 
+-- Some refusals come back as a JSON outcome and some are raised. IN-N1's age refusal is returned,
+-- because the invitation stays usable once a date of birth is recorded; Slice 7c's missing-approval
+-- refusal is raised, because there is nothing about the invitation to fix. This returns the SQLSTATE
+-- for the raised kind so both shapes can be asserted in the same suite.
+create or replace function pg_temp.err_as(p_subject uuid, p_sql text) returns text language plpgsql as $$
+declare v text; r jsonb;
+begin
+  perform pg_temp.as_(p_subject);
+  begin
+    execute p_sql into r;
+    v := 'OK';
+  exception when others then get stacked diagnostics v = returned_sqlstate;
+  end;
+  perform set_config('request.jwt.claims','', true);
+  return v;
+end $$;
+
 create or replace function pg_temp.json_as(p_subject uuid, p_sql text) returns jsonb language plpgsql as $$
 declare v jsonb;
 begin
@@ -553,11 +570,26 @@ begin
     'IN-N3 and the invitation is NOT spent, because recording a date of birth fixes it');
 
   update public.profiles set date_of_birth = (current_date - interval '41 years')::date where id = v_ageless;
+
+  -- SLICE 7c: a SITE_ADMIN invitation is no longer sufficient on its own. redeem_invitation asks
+  -- internal.apply_site_admin_grant, which needs a grant request approved by a SECOND Full Site
+  -- Admin -- a Slice 5 invitation of this kind was the third of three single-handed routes to
+  -- platform authority. The age gate above still refuses first, which is the ordering that matters:
+  -- D-S5-1 is about who may hold authority at all, and the two-person rule is about who decides.
+  perform pg_temp.check(
+    pg_temp.err_as(v_ageless, format('select public.redeem_invitation(%L, null)', v_inv.token)) = '42501'
+    and not exists (select 1 from public.site_admins sa where sa.user_id = v_ageless and sa.status = 'active'),
+    'IN-N4a with the date of birth on file, the invitation still does not grant on its own -- nobody has approved it');
+
+  insert into public.site_admin_grant_requests (target_user_id, profile_key, requested_by, reason, state, decided_by, decided_at)
+  values (v_ageless, 'SITE_RO', v_sa, 'they are joining the support rota in a read-only capacity',
+          'APPROVED', pg_temp.person('SECOND','out-second-'||v_tag||'@ovalball.test'), now());
+
   v_res := pg_temp.json_as(v_ageless, format('select public.redeem_invitation(%L, null)', v_inv.token));
   perform pg_temp.check(
     v_res->>'outcome' = 'SITE_ADMIN_ACTIVE'
     and exists (select 1 from public.site_admins sa where sa.user_id = v_ageless and sa.status = 'active'),
-    'IN-N4 and once it is on file the SAME invitation works -- prohibit new, never revoke existing');
+    'IN-N4 POSITIVE CONTROL: with the date of birth on file AND a second administrator''s approval, the SAME invitation works -- prohibit new, never revoke existing');
 
   -- ---------------------------------------------------------------------------------------------
   -- IN-N5..N8  A player account invitation links the player, or refuses and stays usable.

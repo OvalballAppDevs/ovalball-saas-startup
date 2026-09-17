@@ -25882,6 +25882,10 @@ export type Database = {
           growth_monthly: Json
         }[]
       }
+      site_approve_site_admin_grant: {
+        Args: { p_reason: string; p_request_id: string }
+        Returns: undefined
+      }
       site_assign_club_role: {
         Args: {
           p_attributes?: Json
@@ -25901,6 +25905,10 @@ export type Database = {
         }
         Returns: string
       }
+      site_change_site_admin_profile: {
+        Args: { p_profile_key: string; p_reason: string; p_user_id: string }
+        Returns: undefined
+      }
       site_end_guardian_relationship: {
         Args: { p_reason: string; p_relationship_id: string }
         Returns: undefined
@@ -25919,6 +25927,18 @@ export type Database = {
         }
         Returns: string
       }
+      site_reject_site_admin_grant: {
+        Args: { p_reason: string; p_request_id: string }
+        Returns: undefined
+      }
+      site_request_site_admin_grant: {
+        Args: {
+          p_profile_key: string
+          p_reason: string
+          p_target_user_id: string
+        }
+        Returns: string
+      }
       site_revoke_invitation: {
         Args: { p_invitation_id: string; p_reason: string }
         Returns: undefined
@@ -25934,6 +25954,10 @@ export type Database = {
       site_revoke_sessions: {
         Args: { p_reason: string; p_user_id: string }
         Returns: number
+      }
+      site_revoke_site_admin: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: undefined
       }
       site_safeguarding_review: {
         Args: { p_conversation_id: string; p_reason: string }

@@ -399,7 +399,12 @@ begin
                                              'site_assign_team_role', 'site_set_player_team_membership',
                                              'site_link_guardian', 'site_end_guardian_relationship',
                                              'site_set_account_state', 'site_revoke_sessions',
-                                             'site_force_password_reset'))
+                                             'site_force_password_reset',
+                                             -- Slice 7c: the two-person Site Admin grant. The ask, the
+                                             -- approval, the rejection and the revocation each leave a
+                                             -- mark; none lets the caller choose the event or the actor.
+                                             'site_request_site_admin_grant', 'site_approve_site_admin_grant',
+                                             'site_reject_site_admin_grant', 'site_revoke_site_admin'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

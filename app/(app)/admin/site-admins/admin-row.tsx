@@ -5,7 +5,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
 import { changeSiteAdminRole, revokeActiveSiteAdmin, setCompetitionsAccess, setDiagnosticAccess, setFixtureSupportAccess, setGlobalLookupsAccess, setSeasonsAccess, setTeamCatalogueAccess } from "./actions"
-import { ADMIN_PROFILES } from "./profiles"
+import { ADMIN_PROFILES, profileKeyFor, profileLabel } from "./profiles"
+
+const MIN_REASON = 10
 
 export interface ActiveSiteAdminData {
   userId: string
@@ -32,6 +34,19 @@ export function AdminRow({ admin, isSelf }: { admin: ActiveSiteAdminData; isSelf
   const [working, setWorking] = useState(false)
   const [revoked, setRevoked] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // SLICE 7c: a profile change and a revocation both need a reason now, so
+  // neither can be a single click any more. `pending` is what the
+  // administrator has chosen but not yet justified.
+  const [pending, setPending] = useState<{ kind: "role"; next: string } | { kind: "revoke" } | null>(null)
+  const [reason, setReason] = useState("")
+
+  const reasonReady = reason.trim().length >= MIN_REASON
+
+  function cancelPending() {
+    setPending(null)
+    setReason("")
+    setError(null)
+  }
 
   async function handleDiagnosticToggle(next: boolean) {
     const previous = diagnosticAccess
@@ -111,26 +126,40 @@ export function AdminRow({ admin, isSelf }: { admin: ActiveSiteAdminData; isSelf
     }
   }
 
-  async function handleRoleChange(next: string) {
-    const previous = adminRole
-    setAdminRole(next)
+  // No optimistic update here, unlike the add-on toggles above: moving
+  // somebody UP TO Full Site Admin goes through the two-admin gate and will
+  // be refused unless a second administrator has already approved it, so
+  // showing the new profile before the server agrees would show an authority
+  // change that did not happen.
+  async function confirmPending() {
+    if (!pending || !reasonReady) return
     setWorking(true)
     setError(null)
-    const result = await changeSiteAdminRole(admin.userId, next)
+    if (pending.kind === "revoke") {
+      const result = await revokeActiveSiteAdmin(admin.userId, reason)
+      setWorking(false)
+      if (result.ok) {
+        setRevoked(true)
+        cancelPending()
+      } else {
+        setError(result.error)
+      }
+      return
+    }
+    const profileKey = profileKeyFor(pending.next)
+    if (!profileKey) {
+      setWorking(false)
+      setError("That is not a Site Admin profile.")
+      return
+    }
+    const result = await changeSiteAdminRole(admin.userId, profileKey, reason)
     setWorking(false)
-    if (!result.ok) {
-      setAdminRole(previous)
+    if (result.ok) {
+      setAdminRole(pending.next)
+      cancelPending()
+    } else {
       setError(result.error)
     }
-  }
-
-  async function handleRevoke() {
-    setWorking(true)
-    setError(null)
-    const result = await revokeActiveSiteAdmin(admin.userId)
-    setWorking(false)
-    if (result.ok) setRevoked(true)
-    else setError(result.error)
   }
 
   if (revoked) {
@@ -216,8 +245,12 @@ export function AdminRow({ admin, isSelf }: { admin: ActiveSiteAdminData; isSelf
           {seasonsAccess ? "Seasons: On" : "Seasons: Off"}
         </Button>
         <select
-          value={adminRole}
-          onChange={(e) => handleRoleChange(e.target.value)}
+          value={pending?.kind === "role" ? pending.next : adminRole}
+          onChange={(e) => {
+            setPending({ kind: "role", next: e.target.value })
+            setReason("")
+            setError(null)
+          }}
           disabled={working || isSelf}
           className="h-9 rounded-lg border border-ink/15 bg-white px-2.5 text-sm text-ink outline-none focus-visible:border-pitch-600 disabled:opacity-50"
         >
@@ -230,11 +263,57 @@ export function AdminRow({ admin, isSelf }: { admin: ActiveSiteAdminData; isSelf
         {isSelf ? (
           <span className="text-xs text-ink-muted">You</span>
         ) : (
-          <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text hover:bg-destructive/10" disabled={working} onClick={handleRevoke}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 text-destructive-text hover:bg-destructive/10"
+            disabled={working}
+            onClick={() => {
+              setPending({ kind: "revoke" })
+              setReason("")
+              setError(null)
+            }}
+          >
             Revoke
           </Button>
         )}
       </div>
+
+      {pending && (
+        <label className="mt-1 flex w-full flex-col gap-1.5 border-t border-ink/8 pt-3 text-sm text-ink">
+          <span className="font-medium">
+            {pending.kind === "revoke"
+              ? `Reason for revoking ${admin.name}'s Site Admin access`
+              : `Reason for moving ${admin.name} to ${profileLabel(pending.next)}`}
+          </span>
+          <span className="text-xs font-normal text-ink-muted">
+            {pending.kind === "revoke"
+              ? "Their live sessions end as soon as you confirm."
+              : "Moving somebody up to Full Site Admin needs a second Full Site Admin to have approved it first."}
+          </span>
+          <textarea
+            className="min-h-20 rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+            value={reason}
+            maxLength={500}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReason(e.target.value)}
+          />
+          <span className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={pending.kind === "revoke" ? "destructive" : "default"}
+              className="h-9"
+              disabled={working || !reasonReady}
+              onClick={confirmPending}
+            >
+              {working ? "Working…" : pending.kind === "revoke" ? "Confirm Revoke" : "Confirm Change"}
+            </Button>
+            <Button type="button" variant="ghost" className="h-9" disabled={working} onClick={cancelPending}>
+              Cancel
+            </Button>
+          </span>
+        </label>
+      )}
     </li>
   )
 }

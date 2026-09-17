@@ -3070,12 +3070,7 @@
           "created_at",
           "updated_at"
         ],
-        "insert": "all",
-        "write_consumers": [
-          "app/(app)/admin/site-admins/actions.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Slice 5, D-S5-AUTO-6 closed. Every legacy issuer now goes through public.issue_invitation, so nothing reads the plaintext token back to build an emailed link. The table grant was replaced with this explicit column list -- which omits `token` -- because a column-level REVOKE does nothing underneath a table-level SELECT grant. The rows stay readable to the club administrators RLS already limits them to; the secret does not."
+        "select_reason": "Slice 7c removed the INSERT grant: issuing a Site Admin invitation was the second of three single-handed routes to platform authority, and accept_site_admin_invitation now asks internal.apply_site_admin_grant rather than writing site_admins itself, so an invitation grants nothing without a second administrator's approval behind it. Slice 5, D-S5-AUTO-6 closed. Every legacy issuer now goes through public.issue_invitation, so nothing reads the plaintext token back to build an emailed link. The table grant was replaced with this explicit column list -- which omits `token` -- because a column-level REVOKE does nothing underneath a table-level SELECT grant. The rows stay readable to the club administrators RLS already limits them to; the secret does not."
       }
     },
     "site_admins": {
@@ -3085,13 +3080,7 @@
       },
       "authenticated": {
         "select": "all",
-        "update": "all",
-        "write_consumers": [
-          "app/(app)/admin/site-admins/actions.ts",
-          "app/(app)/admin/users/[userId]/actions.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns. Slice 7c removed every WRITE: a Site Admin grant takes two people, that rule lives in internal.apply_site_admin_grant, and a rule enforced in a SECURITY DEFINER function is worth nothing while the caller can write the table instead. The grant, the profile change and the revocation are now public.site_request_site_admin_grant, public.site_approve_site_admin_grant, public.site_change_site_admin_profile and public.site_revoke_site_admin."
       }
     },
     "site_capability_grants": {
@@ -6931,6 +6920,14 @@
         ]
       },
       {
+        "signature": "site_approve_site_admin_grant(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/site-admins/actions.ts"
+        ],
+        "reason": "Phase 2 Slice 7c, the second half of the two-person rule. Refuses the requester and refuses the target, then consumes the approval and applies the grant through internal.apply_site_admin_grant. AN-3: with only one Full Site Admin in production no approval is possible, which is the rule working rather than a defect to route around."
+      },
+      {
         "signature": "site_assign_club_role(uuid, uuid, text, text, jsonb)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6945,6 +6942,14 @@
           "app/(app)/admin/users/actions.ts"
         ],
         "reason": "Phase 2 Q.3 master control. Appoints somebody to a team role and, where no club membership exists, admits one through internal.admit_club_member first -- a team role has to hang from a club membership. Requires site.team_roles.manage (SITE_FULL only), recent AAL2, a reason of at least ten characters, and refuses a self-target. Delegates to internal.grant_role, so the minor prohibitions and the Safeguarding Officer confirmation rule still apply to a Site Admin."
+      },
+      {
+        "signature": "site_change_site_admin_profile(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/site-admins/actions.ts"
+        ],
+        "reason": "Phase 2 Slice 7c. Moves a Site Admin between profiles. A move UP TO SITE_FULL goes through the two-admin gate because it grants the authority the rule exists to protect; a move down or sideways is a reduction and one administrator may do it."
       },
       {
         "signature": "site_end_guardian_relationship(uuid, text)",
@@ -6971,6 +6976,22 @@
         "reason": "Phase 2 Q.3 master control. Creates a canonical ACTIVE guardians row with source SITE_ADMIN_ASSIGNMENT for a family link that cannot be repaired by the family themselves. Requires site.family.manage (SITE_FULL only). Refuses linking a player's own account as their guardian, and refuses to record CLUB_VERIFIED -- a Site Admin attests SITE_VERIFIED or records UNVERIFIED."
       },
       {
+        "signature": "site_reject_site_admin_grant(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/site-admins/actions.ts"
+        ],
+        "reason": "Phase 2 Slice 7c. Closes a pending grant request with a reason."
+      },
+      {
+        "signature": "site_request_site_admin_grant(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/site-admins/actions.ts"
+        ],
+        "reason": "Phase 2 Slice 7c. Raises a PENDING request to make somebody a Site Admin; grants nothing by itself. Requires site.admins.manage, recent AAL2, a reason of at least ten characters, and refuses a self-target."
+      },
+      {
         "signature": "site_revoke_invitation(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6993,6 +7014,14 @@
           "app/(app)/admin/users/actions.ts"
         ],
         "reason": "Phase 2 Q.3 master control. Ends every live session for an account through internal.revoke_all_sessions. Runs the revocation inside the definer rather than handing the work to a service-role client, so no elevated client sits in the request path. Requires site.users.security.manage."
+      },
+      {
+        "signature": "site_revoke_site_admin(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/site-admins/actions.ts"
+        ],
+        "reason": "Phase 2 Slice 7c. Revokes Site Admin and ends every live session immediately, so authority does not outlive the decision. Deliberately needs only ONE administrator: requiring two people to stop somebody is how an incident gets worse while a form is filled in. prevent_last_full_admin_lockout still refuses to remove the last Full Site Admin."
       },
       {
         "signature": "site_safeguarding_review(uuid, text)",

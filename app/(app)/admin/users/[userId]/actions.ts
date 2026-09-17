@@ -148,22 +148,34 @@ export async function disableUser(targetUserId: string, reason: string): Promise
   return setAccountState(targetUserId, "DISABLED", reason)
 }
 
-export async function revokeSiteAdmin(targetUserId: string): Promise<ActionResult> {
+/**
+ * SLICE 7c: public.site_admins is no longer writable by any browser role,
+ * so this goes through the canonical revocation, which also ends every live
+ * session for the person -- a revoked administrator holding an open session
+ * is exactly the case a capability check alone does not cover.
+ */
+export async function revokeSiteAdmin(targetUserId: string, reason: string): Promise<ActionResult> {
   const supabase = await createClient()
-  const auth = await requireSiteAdmin(supabase, ['full'])
+  const auth = await requireSiteAdmin(supabase, ["full"])
   if (!auth.ok) return { ok: false, error: auth.error }
 
   if (auth.user.id === targetUserId) {
     return { ok: false, error: "You cannot revoke your own Site Admin access." }
   }
+  if (reason.trim().length < MIN_REASON) {
+    return { ok: false, error: `Give a fuller reason — at least ${MIN_REASON} characters, so the record makes sense later.` }
+  }
 
-  const { error } = await supabase
-    .from("site_admins")
-    .update({ status: "revoked", revoked_by: auth.user.id, revoked_at: new Date().toISOString() })
-    .eq("user_id", targetUserId)
+  const { error } = await supabase.rpc("site_revoke_site_admin", {
+    p_user_id: targetUserId,
+    p_reason: reason.trim(),
+  })
 
   if (error) {
     console.error("revokeSiteAdmin failed:", error)
+    if (error.code === "42501" || error.code === "23514" || error.message.includes("last remaining Full Site Admin")) {
+      return { ok: false, error: error.message }
+    }
     return { ok: false, error: toPublicSubmissionError() }
   }
   revalidatePath(`/admin/users/${targetUserId}`)

@@ -348,6 +348,9 @@ SUITES=(
   roster_authority_matrix
   authority_helper_retirement
   site_master_control
+  # Slice 7c: a Site Admin grant takes two people by every route, and the last
+  # Full Site Admin cannot be revoked, deleted or quietly demoted.
+  site_admin_grant_and_lockout
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then

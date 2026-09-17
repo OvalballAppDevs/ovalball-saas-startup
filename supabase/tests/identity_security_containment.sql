@@ -722,6 +722,31 @@ begin
       (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin2 and state in ('PENDING', 'ACTIVE', 'SUSPENDED')), v_err;
   end if;
 
+  -- SLICE 7c: accepting a Site Admin invitation no longer creates the site_admins row itself. It asks
+  -- internal.apply_site_admin_grant, which refuses unless a second Full Site Admin has approved a
+  -- grant for that person. Issuing an invitation used to be one of three ways for one administrator
+  -- to hand out platform authority single-handed; this is that route being closed.
+  v_err := null;
+  begin
+    perform pg_temp.act('authenticated', v_site_revoked);
+    perform public.accept_site_admin_invitation(v_sainv_token);
+    perform pg_temp.act_postgres();
+  exception when others then get stacked diagnostics v_err = message_text;
+  end;
+  if v_err like '%second Full Site Admin%'
+     and not exists (select 1 from public.site_admins where user_id = v_site_revoked and status = 'active') then
+    raise notice 'PASS I3a: an invitation alone does not make somebody a Site Admin -- a second administrator has to have approved it';
+  else
+    raise notice 'FAIL I3a: a Site Admin invitation granted access with no second approval (err %)', v_err;
+  end if;
+
+  -- The positive control, and the original I3 assertion. Seeded as the owner because raising and
+  -- approving a request is not what this suite is testing -- site_admin_grant_and_lockout.sql tests
+  -- that. What is tested here is that the re-grant starts from the invitation's profile and carries
+  -- none of the add-on flags the person held before they were revoked.
+  insert into public.site_admin_grant_requests (target_user_id, profile_key, requested_by, reason, state, decided_by, decided_at)
+  values (v_site_revoked, 'SITE_RO', v_site_full, 'they are coming back in a read-only capacity', 'APPROVED', v_site_access, now());
+
   v_err := null;
   begin
     perform pg_temp.act('authenticated', v_site_revoked);
@@ -731,7 +756,7 @@ begin
   end;
   if (select status = 'active' and admin_role = 'read_only' and not manage_competitions and not manage_permissions and revoked_at is null
       from public.site_admins where user_id = v_site_revoked) then
-    raise notice 'PASS I3: a re-invited Site Admin starts from the new profile, without the capability flags they held before';
+    raise notice 'PASS I3: with an approval behind it, a re-invited Site Admin starts from the new profile, without the capability flags they held before';
   else
     raise notice 'FAIL I3: a re-invited Site Admin kept old capability flags (err %)', v_err;
   end if;
