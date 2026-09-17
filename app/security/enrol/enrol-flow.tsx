@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 
@@ -8,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { confirmTotpEnrolment, startTotpEnrolment } from "@/app/(app)/account/security/actions"
+import { confirmTotpEnrolment, startTotpEnrolment } from "./actions"
 
 /**
  * Three steps, and the middle one is the only one that can fail in a way the person can fix.
@@ -72,16 +71,23 @@ export function EnrolFlow() {
       <div className="mt-8 rounded-lg border border-ink/10 bg-white p-5">
         <p className="text-sm text-ink/70">Scan this with your authenticator app.</p>
         {qr && (
-          <Image
+          // A plain <img>, not next/image. The QR arrives from the auth server as an SVG DATA URL, and
+          // next/image refuses those outright -- which took the whole page down with an unhandled
+          // error rather than a broken picture. There is also nothing for an optimiser to do here: the
+          // bytes are already in the markup, and they must never be fetched from anywhere else.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={qr}
             alt="QR code for setting up your authenticator"
             width={200}
             height={200}
-            unoptimized
             className="mt-4 rounded-lg border border-ink/10 bg-white p-2"
           />
         )}
-        <p className="mt-4 text-sm text-ink/70">Can&rsquo;t scan it? Enter this key by hand instead:</p>
+        <p className="mt-4 text-sm text-ink/70">
+          Can&rsquo;t scan it? Enter this key by hand instead. This is the only time it is shown &mdash;
+          Ovalball does not keep a copy.
+        </p>
         <p className="mt-1 font-mono text-sm break-all text-ink">{secret}</p>
 
         <div className="mt-5">

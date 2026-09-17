@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { createServiceRoleClient } from "@/lib/supabase/service-role"
 
 export type VerifyResult = { ok: true } | { ok: false; error: string }
 
@@ -29,8 +28,7 @@ export async function verifyTotpChallenge(factorId: string, code: string): Promi
   })
 
   if (error) {
-    const service = createServiceRoleClient()
-    await service.rpc("record_mfa_verification_failure", { p_user_id: user.id })
+    await supabase.rpc("record_my_mfa_failure")
     return { ok: false, error: "That code wasn't right. Try the next one your app shows." }
   }
   return { ok: true }

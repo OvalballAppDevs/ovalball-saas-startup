@@ -12,7 +12,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { checkPasswordComposition, PASSWORD_MAX_BYTES, PASSWORD_MIN_LENGTH } from "../../../lib/auth/password-policy.ts"
+import { checkPasswordComposition, PASSWORD_MAX_BYTES, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy"
 
 const ok = (p: string) => checkPasswordComposition(p).ok
 const why = (p: string) => {

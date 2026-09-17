@@ -5358,6 +5358,14 @@
         "reason": "The one canonical issuer for all eight invitation kinds (Phase 2 O.1). It checks the caller's authority for the kind, club, team or child itself, applies the O.1 role ceiling, and returns the link token and human code ONCE -- only their hashes are stored, so this call is the only moment either exists."
       },
       {
+        "signature": "issue_my_first_recovery_codes()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/security/enrol/actions.ts"
+        ],
+        "reason": "Phase 2 F. The first set of recovery codes, at the tail of enrolment. Refuses unless the caller now has a verified factor, so it is the enrolment tail rather than a way to mint codes."
+      },
+      {
         "signature": "leave_fixture_conversation(uuid, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5822,6 +5830,23 @@
         ]
       },
       {
+        "signature": "record_my_mfa_failure()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/security/verify/actions.ts"
+        ],
+        "reason": "Records a rejected authenticator code against the caller, so the attempt limit can count it. Attributed to subject_user_id, because the actor column is set from the session by trigger."
+      },
+      {
+        "signature": "record_my_security_change(text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/security/enrol/actions.ts",
+          "app/(app)/account/security/actions.ts"
+        ],
+        "reason": "Records that the caller changed their own security posture, and writes the matching security event. No user id: whose account it is comes from the session."
+      },
+      {
         "signature": "record_own_date_of_birth(date, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5866,6 +5891,14 @@
         ]
       },
       {
+        "signature": "redeem_my_recovery_code(text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/security/recovery/actions.ts"
+        ],
+        "reason": "Phase 2 G. Consumes one recovery code and removes every authenticator, on the caller's own session -- no elevated client. Never grants AAL2: the session stays AAL1 with no factor, and the person enrols again."
+      },
+      {
         "signature": "referral_data_health()",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5886,6 +5919,14 @@
           "app/(app)/admin/commercial/referrals/data-health/page.tsx",
           "lib/app-context/commercial-intelligence-data.ts"
         ]
+      },
+      {
+        "signature": "regenerate_my_recovery_codes()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/account/security/actions.ts"
+        ],
+        "reason": "Phase 2 G. A replacement set of recovery codes for the CALLER'S OWN account -- it takes no user id and reads auth.uid(). Requires a recent authenticator code (R), enforced inside the function rather than by the server action. Returns the codes once; only their HMACs are kept."
       },
       {
         "signature": "regulatory_coverage_report()",
@@ -6830,6 +6871,14 @@
         "consumers": [
           "app/(app)/messages/[kind]/[id]/document-share.ts"
         ]
+      },
+      {
+        "signature": "sign_out_my_other_devices()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/account/security/actions.ts"
+        ],
+        "reason": "Phase 2 H. Deletes the caller's other auth.sessions rows, keeping the current one, which it identifies from the caller's own token. Revocation takes effect on the next database request rather than at JWT expiry."
       },
       {
         "signature": "single_fixture_team_ids(uuid)",

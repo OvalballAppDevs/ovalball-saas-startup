@@ -67,7 +67,15 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
     ctx.guardianRelationships.length > 0 ||
     ctx.hasGuardianRelationship ||
     ctx.linkedPlayerTeams.length > 0
-  if (!ctx.isSiteAdmin && !hasAnyRealRelationship) {
+  //
+  // ACCOUNT SECURITY IS THE EXCEPTION, and has to be. Everybody with an Ovalball account has account
+  // security -- a password, an authenticator, recovery codes, the devices they are signed in on -- and
+  // Phase 2's upgrade flow asks people to set those up before they have joined anything. Bouncing them
+  // to /welcome would mean the one page they were sent to secure their account is the one page they
+  // cannot reach. The rest of the product stays behind the relationship check, unchanged.
+  const requestPath = (await headers()).get("x-ovalball-pathname") ?? ""
+  const isAccountSecurity = requestPath.startsWith("/account/security")
+  if (!ctx.isSiteAdmin && !hasAnyRealRelationship && !isAccountSecurity) {
     redirect("/welcome")
   }
 

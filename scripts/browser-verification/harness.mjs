@@ -148,7 +148,24 @@ export async function signIn(page, email, { attempts = 3 } = {}) {
       throw new Error(`Login field holds "${typed}", not "${email}" -- refusing to submit.`)
     }
 
-    await page.locator('form button[type="submit"]').first().click()
+    // Slice 6 made PASSWORD the primary method, so the form now opens asking for one and its submit
+    // button stays disabled until a password is typed. This harness signs in by magic link -- that is
+    // the whole point of reading the address out of the mail catcher -- so it takes the same route a
+    // person without a password takes, and switches the form to the link method first.
+    //
+    // Clicking a disabled submit and waiting for a mail that was never requested is what this
+    // otherwise looks like, and the failure reads as a broken login page rather than a changed one.
+    const switchToLink = page.getByRole("button", { name: /email me a link instead/i })
+    if (await switchToLink.count()) {
+      await switchToLink.first().click()
+    }
+
+    const submit = page.locator('form button[type="submit"]').first()
+    await submit.waitFor({ state: "visible", timeout: 15000 })
+    if (await submit.isDisabled()) {
+      throw new Error("The sign-in submit is disabled after switching to the link method.")
+    }
+    await submit.click()
 
     let link
     try {

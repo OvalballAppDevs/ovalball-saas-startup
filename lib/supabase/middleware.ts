@@ -26,6 +26,10 @@ import type { Database } from "@/types/database.types"
  * everyone to re-authenticate over one person's suspension.
  */
 export async function updateSession(request: NextRequest) {
+  // The path, passed through so a server layout can know which route it is rendering. A layout has no
+  // other way to find out, and Slice 6 needs one: Account -> Security has to be reachable by somebody
+  // who has an Ovalball account and nothing else yet, while the rest of the app legitimately is not.
+  request.headers.set("x-ovalball-pathname", request.nextUrl.pathname)
   let response = NextResponse.next({ request })
   const remember = parseRememberCookie(request.cookies.get(REMEMBER_COOKIE_NAME)?.value)
 

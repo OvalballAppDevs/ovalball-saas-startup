@@ -23902,6 +23902,7 @@ export type Database = {
           token: string
         }[]
       }
+      issue_my_first_recovery_codes: { Args: never; Returns: string[] }
       leave_fixture_conversation: {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
         Returns: undefined
@@ -24756,6 +24757,11 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      record_my_mfa_failure: { Args: never; Returns: undefined }
+      record_my_security_change: {
+        Args: { p_change: string }
+        Returns: undefined
+      }
       record_own_date_of_birth: {
         Args: {
           p_date_of_birth: string
@@ -24808,6 +24814,7 @@ export type Database = {
         Args: { p_code?: string; p_token?: string }
         Returns: Json
       }
+      redeem_my_recovery_code: { Args: { p_code: string }; Returns: boolean }
       redeem_recovery_code_for: {
         Args: { p_code: string; p_user_id: string }
         Returns: boolean
@@ -24848,6 +24855,7 @@ export type Database = {
           referral_id: string
         }[]
       }
+      regenerate_my_recovery_codes: { Args: never; Returns: string[] }
       register_referred_club: {
         Args: { p_club_id: string; p_invitation_id: string }
         Returns: boolean
@@ -25793,6 +25801,7 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      sign_out_my_other_devices: { Args: never; Returns: number }
       single_fixture_team_ids: {
         Args: { p_club_id: string }
         Returns: {
