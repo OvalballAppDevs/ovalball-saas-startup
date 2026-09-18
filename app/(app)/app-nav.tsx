@@ -34,7 +34,6 @@ interface AppNavProps {
   activeKey: string
   identityKind: ActiveContextKind
   clubName: string
-  clubLogoUrl: string | null
   roleLabel: string
   personName: string
   personAvatarUrl: string | null
@@ -60,7 +59,6 @@ export function AppNav({
   activeKey,
   identityKind,
   clubName,
-  clubLogoUrl,
   roleLabel,
   personName,
   personAvatarUrl,
@@ -94,7 +92,6 @@ export function AppNav({
         activeKey={activeKey}
         identityKind={identityKind}
         clubName={clubName}
-        clubLogoUrl={clubLogoUrl}
         roleLabel={roleLabel}
         personName={personName}
         personAvatarUrl={personAvatarUrl}

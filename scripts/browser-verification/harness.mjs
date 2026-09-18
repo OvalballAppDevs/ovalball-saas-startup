@@ -162,8 +162,16 @@ export async function signIn(page, email, { attempts = 3 } = {}) {
 
     const submit = page.locator('form button[type="submit"]').first()
     await submit.waitFor({ state: "visible", timeout: 15000 })
+    // Switching method re-renders the form, and the submit is briefly disabled while it does. Reading
+    // the flag on the very next tick therefore measured the render rather than the page: every persona
+    // with a cached session skipped this path entirely, so the flake only surfaced the first time a
+    // brand-new identity signed in. Wait for the state instead of sampling it.
+    const enabledBy = Date.now() + 10000
+    while ((await submit.isDisabled()) && Date.now() < enabledBy) {
+      await page.waitForTimeout(100)
+    }
     if (await submit.isDisabled()) {
-      throw new Error("The sign-in submit is disabled after switching to the link method.")
+      throw new Error("The sign-in submit is still disabled 10s after switching to the link method.")
     }
     await submit.click()
 

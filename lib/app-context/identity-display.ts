@@ -1,9 +1,7 @@
 import type { ActiveContextKind } from "./active-context"
 
-export type IdentityAvatarKind = "club" | "person" | "brand" | "family"
-
 export interface IdentityDisplay {
-  avatarKind: IdentityAvatarKind
+  /** The signed-in person -- or, for a guardian's child context, that child. Never a scope. */
   nameLabel: string
   subLabel: string
   /**
@@ -21,6 +19,15 @@ export interface IdentityDisplay {
    */
   avatarUsesPersonPhoto: boolean
 }
+
+/*
+ * There is no `avatarKind` any more, and its absence is the point. It existed to choose between a
+ * crest, the brand mark, a family glyph and a person -- a choice that only made sense while the block
+ * sometimes named something other than a person. Now that every context names a person, the only
+ * question left is whether that person is the VIEWER, which `avatarUsesPersonPhoto` already answers.
+ * Leaving four variants in a type that can only produce one would be a signpost to a fork in the road
+ * that is no longer there.
+ */
 
 /**
  * What the sidebar identity block (desktop ContextSwitcher + the mobile
@@ -52,7 +59,19 @@ export function resolveIdentityDisplay(
   const personLabel = input.personName || "Ovalball User"
   switch (kind) {
     case "club":
-      return { avatarKind: "club", nameLabel: input.contextLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: false }
+      // THE IDENTITY BLOCK NAMES THE PERSON -- and this was the last place it did not.
+      //
+      // It used to read "Burnley RUFC / Club Admin", so the one line in the shell that answers "who am
+      // I?" answered "which club?" instead. UX-0 observed the consequence directly: a Club Admin was
+      // the only persona in the product whose own name appeared nowhere except a greeting that scrolls
+      // away. The club has not been lost -- it moved to the second line, beside the role, which is
+      // where every other context already puts its scope. The avatar follows the name for the same
+      // reason it does in "team": a crest beside a person's name captions the wrong subject.
+      return {
+        nameLabel: personLabel,
+        subLabel: [input.contextLabel, input.roleLabel].filter(Boolean).join(" · "),
+        avatarUsesPersonPhoto: true,
+      }
     case "family":
       // THE IDENTITY BLOCK NAMES THE PERSON SIGNED IN.
       //
@@ -67,9 +86,9 @@ export function resolveIdentityDisplay(
       // subject IS the signed-in adult. The rule this file was written to
       // enforce -- never draw an adult's face beside a child's name -- is
       // untouched, because no child is being named.
-      return { avatarKind: "person", nameLabel: personLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: true }
+      return { nameLabel: personLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: true }
     case "team":
-      return { avatarKind: "person", nameLabel: personLabel, subLabel: `${input.contextLabel} ${input.roleLabel}`, avatarUsesPersonPhoto: true }
+      return { nameLabel: personLabel, subLabel: `${input.contextLabel} ${input.roleLabel}`, avatarUsesPersonPhoto: true }
     case "parent":
       // The SUBJECT of a child context is the child, not the signed-in
       // adult. This previously returned personLabel, so selecting "Pippa"
@@ -83,18 +102,21 @@ export function resolveIdentityDisplay(
       // shape, roleLabel and all.
       if (input.subjectName) {
         return {
-          avatarKind: "person",
           nameLabel: input.subjectName,
           subLabel: `${input.contextLabel} · ${input.roleLabel}`,
           avatarUsesPersonPhoto: false,
         }
       }
-      return { avatarKind: "person", nameLabel: personLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: true }
+      return { nameLabel: personLabel, subLabel: input.roleLabel, avatarUsesPersonPhoto: true }
     case "player":
       // A player context IS the signed-in person, so their own photo is right.
-      return { avatarKind: "person", nameLabel: personLabel, subLabel: `${input.contextLabel} Player`, avatarUsesPersonPhoto: true }
+      return { nameLabel: personLabel, subLabel: `${input.contextLabel} Player`, avatarUsesPersonPhoto: true }
     case "site_admin":
-      return { avatarKind: "brand", nameLabel: "Ovalball", subLabel: "Site Admin", avatarUsesPersonPhoto: false }
+      // Same rule, and the same reason it is safe to apply here now: the brand mark said "you are in
+      // the platform", which is true but is not who you are -- and since UX-1 the page itself says it,
+      // in its own heading ("Site Admin: Platform"). With the workspace stated where a page states
+      // things, the identity block is free to do its one job.
+      return { nameLabel: personLabel, subLabel: "Site Admin", avatarUsesPersonPhoto: true }
   }
 }
 

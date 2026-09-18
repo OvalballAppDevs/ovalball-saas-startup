@@ -3,14 +3,19 @@
 import { useCallback, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Check, Menu, Settings, X } from "lucide-react"
+import { Check, ChevronsUpDown, Menu, Settings, X } from "lucide-react"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
-import { OvalballMark } from "@/components/brand/ovalball-mark"
-import { ClubAvatar } from "@/components/club/club-avatar"
-import { FamilyAvatar } from "@/components/profile/family-avatar"
 import { UserAvatar } from "@/components/profile/user-avatar"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Sheet,
   SheetClose,
@@ -44,7 +49,6 @@ interface AppMobileNavProps {
   activeKey: string
   identityKind: ActiveContextKind
   clubName: string
-  clubLogoUrl: string | null
   roleLabel: string
   personName: string
   personAvatarUrl: string | null
@@ -69,7 +73,6 @@ export function AppMobileNav({
   activeKey,
   identityKind,
   clubName,
-  clubLogoUrl,
   roleLabel,
   personName,
   personAvatarUrl,
@@ -99,7 +102,8 @@ export function AppMobileNav({
   })
 
   return (
-    <div className="sticky top-0 z-40 flex items-center justify-between border-b border-forest-950/10 bg-forest-950 px-4 py-3 md:hidden">
+    <div className="sticky top-0 z-40 border-b border-forest-950/10 bg-forest-950 md:hidden">
+    <div className="flex items-center justify-between px-4 py-3">
       <OvalballLogo variant="dark" />
       <div className="flex items-center gap-1">
         <MessagesPopover conversations={conversations} unreadCount={messagesUnreadCount} variant="dark" />
@@ -133,15 +137,9 @@ export function AppMobileNav({
           {/* ---------- fixed header: identity, gear, close ---------- */}
           <SheetHeader className="shrink-0 gap-0 border-b border-white/10 p-0">
             <div className="flex items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
-              {identity.avatarKind === "club" ? (
-                <ClubAvatar logoUrl={clubLogoUrl} name={clubName} size="sm" variant="dark" />
-              ) : identity.avatarKind === "brand" ? (
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/10">
-                  <OvalballMark variant="dark" className="h-4 w-6" />
-                </div>
-              ) : identity.avatarKind === "family" ? (
-                <FamilyAvatar variant="dark" />
-              ) : (
+              {/* Resolves identically to the desktop block, because it is the same helper -- and there
+                  is one avatar now, for the same reason there is one there. */}
+              {(
                 <UserAvatar
                   avatarUrl={identity.avatarUsesPersonPhoto ? personAvatarUrl : null}
                   name={identity.avatarUsesPersonPhoto ? personName : identity.nameLabel}
@@ -293,5 +291,93 @@ export function AppMobileNav({
         </Sheet>
       </div>
     </div>
+
+    {/* ---------- the context bar ----------
+
+        UX-0's finding was narrow and specific: on a phone the shell said nothing about who you were or
+        which context you were in, and changing context meant opening the drawer first -- which is the
+        single most common thing a guardian does. Putting it in the top row was the obvious move and the
+        wrong one: at 320px that row already carries a logo, three icon buttons and the only way into
+        navigation, and a fifth item there is how horizontal overflow starts.
+
+        So it is its own row: always visible, always legible, and interactive exactly when there is
+        something to switch to. */}
+    <MobileContextBar
+      contexts={contexts}
+      activeKey={activeKey}
+      nameLabel={identity.nameLabel}
+      subLabel={identity.subLabel}
+    />
+    </div>
+  )
+}
+
+function MobileContextBar({
+  contexts,
+  activeKey,
+  nameLabel,
+  subLabel,
+}: {
+  contexts: SwitchableContext[]
+  activeKey: string
+  nameLabel: string
+  subLabel: string
+}) {
+  const { switchTo, isPending } = useSwitchContextState()
+
+  const lines = (
+    <>
+      <span className="truncate text-sm font-medium text-white">{nameLabel}</span>
+      <span aria-hidden="true" className="shrink-0 text-white/30">
+        ·
+      </span>
+      <span className="truncate text-xs text-white/60">
+        <span className="sr-only">Acting in: </span>
+        {subLabel}
+      </span>
+    </>
+  )
+
+  if (contexts.length <= 1) {
+    return (
+      <div className="flex items-baseline gap-2 border-t border-white/10 px-4 py-2">{lines}</div>
+    )
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        disabled={isPending}
+        aria-label={`Switch context. Currently ${subLabel}`}
+        // min-h-11 rather than the text's natural height: this is a real control on a phone, and the
+        // row it lives in is only as tall as two small lines of type.
+        className="flex min-h-11 w-full items-baseline gap-2 border-t border-white/10 px-4 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset disabled:opacity-60"
+      >
+        {lines}
+        <ChevronsUpDown aria-hidden="true" className="ml-auto size-4 shrink-0 self-center text-white/60" />
+      </DropdownMenuTrigger>
+      {/* Anchored to the trigger and width-capped to the viewport, so a long club name cannot push the
+          menu off the side of a 320px screen. */}
+      <DropdownMenuContent align="start" sideOffset={4} className="max-w-[calc(100vw-1rem)] w-64">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Switch context</DropdownMenuLabel>
+          {contexts.map((c) => (
+            <DropdownMenuItem key={c.key} onClick={() => switchTo(c.key)} className="gap-2">
+              <Check className={cn("size-3.5 shrink-0", c.key === activeKey ? "opacity-100" : "opacity-0")} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{c.switcherLabel}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {c.kind === "family"
+                    ? `${c.playerIds?.length ?? 0} children`
+                    : c.subjectName
+                      ? [c.subjectClubName, c.label].filter(Boolean).join(" · ")
+                      : c.roleLabel}
+                </span>
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

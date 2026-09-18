@@ -631,3 +631,122 @@ flat for clubs and grouped only for Site Admin (UX-5); "Deleted Calendar Events"
 (UX-5); there is still no return path from the public Club Home (UX-6).
 
 **None of these was needed to fix page identity, so none was touched.**
+
+---
+
+# UX-2 — identity block and context control (implemented)
+
+**Presentation and navigation over contexts the server already resolved. No authorisation change, no
+migration, not released.**
+
+## Archaeology
+
+| Question | Answer found |
+|---|---|
+| Where does the list of legitimate contexts come from? | `listSwitchableContexts(ctx)` in `lib/app-context/active-context-rules.ts`, built from real relationships: club-wide roles, non-`view_only` team permissions, each guardian relationship, each linked player team, and `isSiteAdmin` |
+| Where is the active context decided? | `resolveActiveContext(ctx, cookieKey)` — the cookie is looked up **inside** that list |
+| Who decides what the identity block shows? | `resolveIdentityDisplay(kind, …)`, already shared by the desktop sidebar and the mobile drawer |
+| How is context persisted? | `ACTIVE_CONTEXT_COOKIE`, written by the `setActiveContext` server action |
+| Is there a second resolver? | **No**, and UX-2 did not add one — a test now fails if either shell surface starts deriving contexts from raw relationships |
+
+**The tampering question, answered before anything was built.** `setActiveContext` writes whatever key
+it is given, with no validation — which looks alarming and is not, because nothing trusts the cookie.
+`resolveActiveContext` resolves it *against the session's own list* and falls back when it does not
+match. **A forged cookie cannot select a context the person does not hold.** Verified three ways: in a
+unit test, in a "forged Site Admin" test, and in a real browser with a fabricated club id. **No security
+finding; nothing was papered over.**
+
+## The identity decision
+
+`resolveIdentityDisplay` already named the person for family, team, player and (correctly) the child for
+a guardian's child context. **Two kinds did not**, and both are fixed:
+
+| Context | Before | After |
+|---|---|---|
+| club | **Burnley RUFC** / Club Admin | **Morgan Everly** / Burnley RUFC · Club Admin |
+| site_admin | **Ovalball** / Site Admin | **Morgan Everly** / Site Admin |
+
+The club has not been lost — it moved to the second line, beside the role, where every other context
+already put its scope. Site Admin could safely follow the same rule because **UX-1 already made the
+page say it**, in its own heading ("Site Admin: Platform").
+
+`avatarKind` was then **removed**. It existed to choose between a crest, the brand mark, a family glyph
+and a person — a choice that only made sense while the block sometimes named something other than a
+person. `avatarUsesPersonPhoto` already answers the one question left (is this person the viewer?), and
+it still guarantees a guardian's child is never drawn wearing the adult's face.
+
+**Missing display name:** falls back to "Ovalball User". No email is exposed, and no onboarding work was
+pulled forward from UX-8.
+
+## Single-context people — the choice, and why
+
+**No dropdown containing one item.** It teaches nothing and costs a tap. What a single-context person
+was actually missing is the *second line* — which context they are in — and that is now stated plainly,
+with a visually-hidden "Acting in:" so it is not just a dangling fragment to a screen reader. The
+switching affordance appears only when there is somewhere to go.
+
+## Mobile — the UX-0 defect, fixed
+
+The context control is now **its own row beneath the mobile top bar**, always visible, interactive when
+alternatives exist. It is deliberately not *in* the top row: at 320px that row already carries a logo,
+three icon buttons and the only way into navigation, and a fifth item there is how horizontal overflow
+starts. Verified at 320 and 390: 44px touch target, menu anchored inside the viewport, no overflow.
+
+## The multi-context fixture
+
+UX-0 and UX-1 both reported this scenario **NOT OBSERVABLE**. It is now observable.
+
+A disposable local identity, **Morgan Everly**, built only through the canonical tables
+`listSwitchableContexts` already reads — one `club_memberships` row, one `team_permissions` row, two
+`guardians` rows, one `players` row linked to a team, one `site_admins` row. No authority was weakened
+and no impossible relationship was invented; where the Team Directory refused an identity (there is no
+boys team at U10), **the fixture bent to the directory rather than the reverse**.
+
+It yields **seven contexts across all five kinds**: Club · Team · Family (All Children) · Parent ×2 ·
+Player · Site Admin. It is created and torn down by two scripts, and the teardown proves itself —
+`users=0 clubs=0 players=0 site_admins=0`. **It lives outside the repository and nothing permanent
+depends on it**: the ten permanent tests build the same shapes in memory.
+
+## Browser acceptance — 37/37
+
+| Proof | Result |
+|---|---|
+| Control exists, with an explicit accessible name | `Switch context. Currently UX2 Multi RUFC · Club Admin` |
+| Identity block names the person | `ME Morgan Everly / UX2 Multi RUFC · Club Admin` |
+| Contexts enumerated | 7, all five kinds |
+| **Switched into six of them** | identity constant every time; the child contexts correctly name the child |
+| Keyboard | focusable, opens on Enter, `aria-expanded=true`, Escape closes **and returns focus** |
+| **Forged context cookie** | falls back to a legitimate context; the forged key appears nowhere in the page |
+| Mobile 320 / 390 | control present without opening the drawer, 44px, menu inside the viewport, no overflow |
+| Single-context person | no menu of one; own name still the identity |
+| UX-1 compatibility | re-ran UX-1's acceptance: **18/18 still PASS** |
+
+## Accessibility
+
+Explicit accessible name naming the action **and** the current setting; keyboard operable end to end;
+focus visible (a focus ring was added to the trigger, which had none); `aria-expanded` correct; Escape
+dismisses and restores focus; menu semantics come from the shared primitive; **nothing is carried by
+icon alone** — the chevron is `aria-hidden` and the words say everything. The active context is
+announced for single-context people too. **No manual screen-reader session was performed** and none is
+claimed; the ARIA/DOM paths were asserted programmatically in the browser.
+
+## Quality gates
+
+`identity_and_context.test.mts` **16/16** · `page_identity` 16/16 · `parent_player_identity` 9/9 ·
+platform regression **4882 passed, 0 failed, 233 suites** (was 4866/232 — +16 is exactly the new suite)
+· content standard ok · TypeScript clean · build clean · `diff --check` clean · **lint returned to its
+exact baseline: 179 problems, 4 pre-existing errors in 4 untouched files**.
+
+**No migration was created**, and none was needed: every context the control offers already existed.
+
+**One shared-tooling fix, separately identified:** `scripts/browser-verification/harness.mjs` sampled
+the sign-in submit's disabled state on the tick after switching method, so it measured a re-render. Every
+existing persona had a cached session and skipped that path, which is why the flake only appeared the
+first time a brand-new identity signed in. It now waits for the state instead of sampling it.
+
+## Still owned by UX-3 and later
+
+Club Desk hierarchy, the next-match card overlapping the header, the club name clipped at 320px
+(UX-3/UX-4); the broader mobile shell and the hamburger IA (UX-4); club navigation grouping and
+"Deleted Calendar Events" (UX-5); return paths (UX-6); the accessibility sweep beyond what UX-2 changed
+(UX-7); entrance journeys (UX-8). **None was touched.**

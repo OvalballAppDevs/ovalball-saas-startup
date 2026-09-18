@@ -3,9 +3,6 @@
 import Link from "next/link"
 import { Check, ChevronsUpDown, Settings } from "lucide-react"
 
-import { OvalballMark } from "@/components/brand/ovalball-mark"
-import { ClubAvatar } from "@/components/club/club-avatar"
-import { FamilyAvatar } from "@/components/profile/family-avatar"
 import { UserAvatar } from "@/components/profile/user-avatar"
 import {
   DropdownMenu,
@@ -28,7 +25,6 @@ interface ContextSwitcherProps {
   activeKey: string
   identityKind: ActiveContextKind
   clubName: string
-  clubLogoUrl: string | null
   roleLabel: string
   personName: string
   personAvatarUrl: string | null
@@ -47,7 +43,6 @@ export function ContextSwitcher({
   activeKey,
   identityKind,
   clubName,
-  clubLogoUrl,
   roleLabel,
   personName,
   personAvatarUrl,
@@ -63,23 +58,16 @@ export function ContextSwitcher({
     personName,
     subjectName: active?.subjectName ?? null,
   })
-  const identityAvatar =
-    identity.avatarKind === "club" ? (
-      <ClubAvatar logoUrl={clubLogoUrl} name={clubName} size="sm" variant="dark" />
-    ) : identity.avatarKind === "brand" ? (
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/10">
-        <OvalballMark variant="dark" className="h-4 w-6" />
-      </div>
-    ) : identity.avatarKind === "family" ? (
-      <FamilyAvatar variant="dark" />
-    ) : (
-      <UserAvatar
-        avatarUrl={identity.avatarUsesPersonPhoto ? personAvatarUrl : null}
-        name={identity.avatarUsesPersonPhoto ? personName : identity.nameLabel}
-        size="sm"
-        variant="dark"
-      />
-    )
+  // One avatar, because the block now always names a person. The only remaining question is whether
+  // that person is the viewer: a guardian's child is named here but must never wear the adult's face.
+  const identityAvatar = (
+    <UserAvatar
+      avatarUrl={identity.avatarUsesPersonPhoto ? personAvatarUrl : null}
+      name={identity.avatarUsesPersonPhoto ? personName : identity.nameLabel}
+      size="sm"
+      variant="dark"
+    />
+  )
   const nameLabel = identity.nameLabel
   const subLabel = identity.subLabel
 
@@ -100,6 +88,9 @@ export function ContextSwitcher({
     </Link>
   )
 
+  // ONE CONTEXT: no menu, because a dropdown containing a single item teaches nothing and costs a tap.
+  // What a single-context person WAS missing is the second line -- which context they are in -- and
+  // that is now stated plainly rather than implied by whatever the page happens to show.
   if (contexts.length <= 1) {
     return (
       <div className="flex items-center gap-1 border-b border-white/10 pl-5 pr-2">
@@ -107,7 +98,10 @@ export function ContextSwitcher({
           {identityAvatar}
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-white">{nameLabel}</p>
-            <p className="mt-0.5 text-xs text-white/60">{subLabel}</p>
+            <p className="mt-0.5 text-xs text-white/60">
+              <span className="sr-only">Acting in: </span>
+              {subLabel}
+            </p>
           </div>
         </div>
         {gear}
@@ -118,9 +112,15 @@ export function ContextSwitcher({
   return (
     <div className="flex items-center gap-1 border-b border-white/10 pl-5 pr-2">
       <DropdownMenu>
+        {/* UX-0 found this control was an unexplained chevron: nothing said it could be pressed, what
+            pressing it would do, or what it was currently set to. The visible text answers the last of
+            those for someone who can see it; the accessible name has to answer all three, because
+            "Marcus Bell Ovalball UAT RUFC · Club Admin" announced as a button is not an invitation to
+            do anything. */}
         <DropdownMenuTrigger
           disabled={isPending}
-          className="flex min-w-0 flex-1 items-center gap-2.5 py-4 text-left outline-none transition-colors hover:opacity-90 disabled:opacity-60"
+          aria-label={`Switch context. Currently ${subLabel}`}
+          className="flex min-w-0 flex-1 items-center gap-2.5 py-4 text-left outline-none transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset disabled:opacity-60"
         >
           {identityAvatar}
           <div className="min-w-0 flex-1">

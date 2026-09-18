@@ -174,13 +174,18 @@ test("a player context still names the signed-in person -- they ARE the player",
 })
 
 test("a club context is unaffected by the child-subject change", () => {
+  // This assertion's job is isolation: whatever the club block says, the child-subject work must not
+  // be what changed it. UX-2 did change it -- the club used to sit in the person's line and now sits
+  // beside the role, where every other context already put its scope -- so the expectations move with
+  // it while the test keeps doing what it was written to do.
   const identity = resolveIdentityDisplay("club", {
     contextLabel: "Burnley RUFC",
     roleLabel: "Club Admin",
     personName: "Callum Testparent",
     subjectName: null,
   })
-  assert.equal(identity.avatarKind, "club")
-  assert.equal(identity.nameLabel, "Burnley RUFC")
-  assert.equal(identity.subLabel, "Club Admin")
+  assert.equal(identity.nameLabel, "Callum Testparent")
+  assert.match(identity.subLabel, /Burnley RUFC/)
+  assert.match(identity.subLabel, /Club Admin/)
+  assert.equal(identity.avatarUsesPersonPhoto, true)
 })

@@ -96,7 +96,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   const cookieStore = await cookies()
   const contexts = listSwitchableContexts(ctx)
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
-  const { primary, roleLabel, clubName, clubLogoUrl } = buildNavItems(ctx, activeContext)
+  const { primary, roleLabel, clubName } = buildNavItems(ctx, activeContext)
   // ONE UNREAD READ FOR THREE BADGES. getUnreadCounts is the single source:
   // the bell, Messenger and Support each take their own slice of it, so no
   // notification is counted in two places and clearing one badge moves the
@@ -241,7 +241,6 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
               activeKey={activeContext.key}
               identityKind={activeContext.kind}
               clubName={clubName}
-              clubLogoUrl={clubLogoUrl}
               roleLabel={roleLabel}
               personName={personName}
               personAvatarUrl={personAvatarUrl}
@@ -260,7 +259,6 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
             activeKey={activeContext.key}
             identityKind={activeContext.kind}
             clubName={clubName}
-            clubLogoUrl={clubLogoUrl}
             roleLabel={roleLabel}
             personName={personName}
             personAvatarUrl={personAvatarUrl}
