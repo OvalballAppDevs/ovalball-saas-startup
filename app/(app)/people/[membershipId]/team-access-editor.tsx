@@ -57,10 +57,10 @@ export function TeamAccessEditor({
   const [permission, setPermission] = useState(TEAM_STAFF_PERMISSION_OPTIONS[1].value as string)
   const [reason, setReason] = useState("")
 
-  async function handleRemove(id: string) {
+  async function handleRemove(id: string, teamId: string) {
     setBusy(id)
     setError(null)
-    const result = await removeTeamAssignment(id)
+    const result = await removeTeamAssignment(id, teamId)
     setBusy(null)
     if (result.ok) router.refresh()
     else setError(result.error)
@@ -105,7 +105,7 @@ export function TeamAccessEditor({
                 size="sm"
                 className="h-9 text-destructive-text"
                 disabled={busy !== null}
-                onClick={() => handleRemove(role.id)}
+                onClick={() => handleRemove(role.id, role.teamId)}
               >
                 {busy === role.id ? "Removing…" : "Remove"}
               </Button>

@@ -175,8 +175,10 @@ export async function grantTeamAccess(
     p_reason: reason.trim() || undefined,
   })
   if (error) return { ok: false, error: error.message }
-  revalidatePath("/people")
-  revalidatePath(`/people/${membershipId}`)
+  revalidatePath("/people", "layout")
+  // The team's own page lists exactly this relationship, so it is refreshed too.
+  revalidatePath(`/teams/${teamId}`)
+  revalidatePath("/teams")
   return { ok: true }
 }
 
@@ -216,12 +218,24 @@ export async function revokeMembership(membershipId: string, reason: string): Pr
   return { ok: true }
 }
 
-/** Ends a person's Coach, Team Manager and Team Admin roles on one team. */
-export async function removeTeamAssignment(teamPermissionId: string): Promise<MembershipActionResult> {
+/**
+ * Ends a person's Coach, Team Manager and Team Admin roles on one team.
+ *
+ * The team id is carried purely so the TEAM's own page can be refreshed. One
+ * relationship has two legitimate consumers -- the page about the person and the
+ * page about the team -- and revalidating only the one you happened to act from
+ * leaves the other free to serve a cached render of a role that no longer exists.
+ * A hard reload was always correct; this is about the client router cache, which
+ * a person navigating between the two pages would hit and a test using full page
+ * loads would not.
+ */
+export async function removeTeamAssignment(teamPermissionId: string, teamId: string): Promise<MembershipActionResult> {
   const supabase = await createClient()
   const { error } = await supabase.rpc("remove_team_access", { p_team_permission_id: teamPermissionId })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/people", "layout")
+  revalidatePath(`/teams/${teamId}`)
+  revalidatePath("/teams")
   return { ok: true }
 }
 
