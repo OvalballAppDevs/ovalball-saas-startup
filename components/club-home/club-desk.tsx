@@ -55,18 +55,25 @@ export function ClubDeskHeader({
         <CrestPlate club={club} size="md" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-(--club-hero-muted)">{greeting}</p>
-          {/* The club's name IS what this page is -- so it stays the heading, and the workspace word
-              above it is what was missing: until UX-1 a player, a volunteer and a Club Admin all met
-              this same heading with nothing saying which kind of workspace they had landed in. The
-              hero's own colours are inherited rather than overridden, because the club's theme owns
-              them here and the shell does not. */}
+          {/* Three lines, and each says something the other two do not: who is being greeted, which
+              club this is, and what this person is here. The club's name IS what the page is, so it
+              stays the heading.
+
+              The workspace word is announced but not printed. Drawn, it sat between the greeting and
+              the club's own name as a line reading "CLUB" -- above a club crest, a club name and a
+              club role -- and weakened the hierarchy it existed to explain. It still reaches anything
+              that cannot see those three, because it lives inside the heading rather than beside it.
+
+              Colours are inherited, never set here: the club's kit-derived theme owns them through
+              ClubThemeScope, and a component that reached for its own would be a second answer. */}
           <PageIdentity
             workspace={workspace}
             title={club.name}
+            showWorkspace={false}
             className="mt-0.5"
-            eyebrowClassName="text-(--club-hero-muted)"
             titleClassName="mt-0 font-display text-[clamp(2.25rem,1.8rem+2vw,3.5rem)] leading-[0.95] tracking-wide text-balance text-inherit"
           />
+          {/* The role/context detail. It is what this person is AT this club, and it stays. */}
           <p className="mt-1 text-sm text-(--club-hero-muted)">{contextLine}</p>
         </div>
       </div>

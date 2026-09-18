@@ -52,6 +52,18 @@ test("UX-1: every workspace kind has a word, and it is never a role", () => {
   assert.equal(workspaceLabel("site_admin"), "Site Admin")
 })
 
+test("UX-1: the workspace is announced even where it is not printed", () => {
+  // UX-3 stopped drawing the word on the club hero, where a crest, a club name and a club role already
+  // said it three times. Hiding it visually must never hide it from assistive technology -- which is
+  // exactly why the word was put inside the heading rather than left beside it.
+  assert.match(PRIMITIVE, /showWorkspace \?\?|showWorkspace = true/, "the primitive cannot suppress the printed workspace")
+  const heading = PRIMITIVE.slice(PRIMITIVE.indexOf("<h1"), PRIMITIVE.indexOf("</h1>"))
+  assert.match(heading, /sr-only">\{workspace\}: <\/span>/, "the heading stopped carrying the workspace")
+  // The suppression is a prop on the printed row only; the heading is outside that conditional.
+  const printed = PRIMITIVE.slice(PRIMITIVE.indexOf("{showWorkspace &&"), PRIMITIVE.indexOf("<h1"))
+  assert.ok(!/sr-only/.test(printed), "the accessible workspace was put inside the hideable row")
+})
+
 test("UX-1: the workspace reaches assistive technology through the heading, not beside it", () => {
   assert.match(PRIMITIVE, /aria-hidden="true"/, "the visible eyebrow must be hidden from AT")
   assert.match(

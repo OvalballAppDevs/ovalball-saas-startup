@@ -868,3 +868,86 @@ The floating overlays over the bottom of the content, the hamburger information 
 global top bar and the wider mobile shell (**UX-4**); club navigation grouping and "Deleted Calendar
 Events" (**UX-5**); return paths (**UX-6**); the wider accessibility sweep (**UX-7**); entrance
 journeys (**UX-8**). **None was touched.**
+
+
+## UX-3 product-review corrections
+
+Three corrections were raised in review. **Two turned out to be evidence problems rather than code
+problems**, and saying so plainly matters more than quietly changing something.
+
+### 1. The redundant standalone "Club" — removed
+
+The hero read *greeting / CLUB / UX3 BUSY RUFC / Club Admin*. The workspace word sat between the
+greeting and the club's own name, above a club crest and a club role, and weakened the hierarchy it
+existed to explain.
+
+`PageIdentity` gained `showWorkspace`, used `false` on this one surface. **Only the drawing is
+suppressed** — the word still lives inside the `<h1>`, so the accessible name remains
+`Club: UX3 Busy RUFC` and heading-by-heading navigation still lands somewhere that knows which
+workspace it belongs to. The hero now reads:
+
+> Good afternoon, Sam · **UX3 BUSY RUFC** · Club Admin
+
+**"Club Admin" was never removed** and is not affected by this change: it is `contextLine`, a separate
+line below the heading. The review asked for confirmation, and the source and the browser both give it.
+
+### 2. "The club colours have regressed" — they had not
+
+**Cause: the fixture, not the code.** `resolveClubTheme` reads `club_kits` variant `primary` and
+nothing else. The UX-3 busy fixture had no kit row, so the engine correctly fell back to
+`OVALBALL_DEFAULT_KIT` — which is the engine working, and is what the reviewed screenshot showed.
+
+Traced end to end, unchanged by UX-3: **home kit → `resolveClubTheme` (`lib/club-theme/theme.ts`) →
+`clubThemeVariables` → `ClubThemeScope` → `bg-(--club-hero)` in the hero**. The same code renders
+Ovalball UAT RUFC in its own green with white hoops, and always did.
+
+The fixture now carries a real kit, and the suite carries **two clubs in two kits** so the assertion is
+about derivation rather than about a constant: hero A paints `rgb(127, 29, 29)`, hero B
+`rgb(30, 58, 138)`. Measured from **computed style**, not class names — a variable that exists but
+paints nothing would pass a class assertion and fail a person looking at the page.
+
+### 3. "The strip is being used as the club logo" — two established rules, both correct
+
+**Cause, again the fixture.** `CrestPlate` is the pre-existing canonical identity plate, shared with the
+public club page's `ClubBar`. Its contract is already the one the review asked for:
+
+```
+clubs.logo_storage_path → club_directory.logo_storage_path   (resolveClubLogoUrl — the one resolver)
+        ↓  configured logo ALWAYS wins
+   ClubAvatar logoUrl
+        ↓  only when there is none
+   RugbyKit shirt  ← an established fallback, not a substitute
+```
+
+**No club in the local database has a configured logo at all** — `logo_storage_path` is null for every
+one — which is why every screenshot in this programme, including UX-0's, has shown a shirt. It is not a
+UX-3 regression and the rendering path needed no change.
+
+A second established rule surfaced while proving it. A first test crest at 8×8 *still* rendered as a
+shirt, because `ClubAvatar` deliberately gives way to the fallback when a crest would draw below half
+its box: *"a crest smaller than half its box would be a speck on a blank tile"*. The fixture now
+uploads a crest a club could plausibly have uploaded.
+
+**Neither rule was changed.** Both are now pinned by test.
+
+### Permanent coverage added
+
+| Assertion | Proves |
+|---|---|
+| UX3-16…19 | the hero is painted, the kit graphic is genuinely drawn, the crest survives, the hero stays slim |
+| UX3-20 | no printed standalone workspace word — while the heading still carries it |
+| UX3-21 | **a different home kit produces a different hero** |
+| UX3-22 | exactly one canonical theme scope on the page |
+| **UX3-23/24** | **the configured logo is what sits beside the name, and the kit is not standing in for it** |
+| **UX3-25** | a club with no configured logo still falls back to its shirt |
+| **UX3-26** | the two are independent — different themes **and** different logo outcomes |
+| `club_desk_hierarchy.test.mts` | no second resolver, no hard-coded colour, two kits → two themes, a kitless club still readable, a **white** kit still legible |
+
+The crest-plate assertions are scoped to the plate, not the header: the hero's kit pattern is itself an
+SVG, so "is there an SVG in the header" would have answered a question about the background while
+claiming to answer one about the crest — and would have failed on a correctly branded club.
+
+**Final gates:** suite 67 **28 / 28** · `club_desk_hierarchy` **14 / 14** · `page_identity` 17 / 17 ·
+`identity_and_context` 16 / 16 · UX-1 **18 / 18** · UX-2 **37 / 37** · platform regression **4897 passed,
+0 failed, 234 suites** · TypeScript, build, `diff --check` clean · lint **179 problems, 4 pre-existing
+errors — the baseline**. Every fixture, club, identity and uploaded crest removed and verified at zero.

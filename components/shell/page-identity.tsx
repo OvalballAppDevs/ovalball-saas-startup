@@ -25,6 +25,7 @@ export function PageIdentity({
   title,
   description,
   icon,
+  showWorkspace = true,
   className,
   eyebrowClassName,
   titleClassName,
@@ -38,6 +39,15 @@ export function PageIdentity({
   description?: ReactNode
   /** Decorative only. Never the sole carrier of meaning. */
   icon?: ReactNode
+  /**
+   * Whether to PRINT the workspace above the title. It is still announced either way -- the word lives
+   * inside the heading, and this only decides whether it is also drawn.
+   *
+   * False on exactly one surface: the club hero, where the greeting, the club's own name and the
+   * viewer's role already stack into four lines and a fifth reading "CLUB" above a club crest, a club
+   * name and a club role told nobody anything they could not see.
+   */
+  showWorkspace?: boolean
   className?: string
   eyebrowClassName?: string
   titleClassName?: string
@@ -46,12 +56,14 @@ export function PageIdentity({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <div aria-hidden="true" className="flex items-center gap-2.5">
-        {icon}
-        <p className={cn("text-sm font-medium tracking-[0.08em] text-forest-800 uppercase", eyebrowClassName)}>
-          {workspace}
-        </p>
-      </div>
+      {showWorkspace && (
+        <div aria-hidden="true" className="flex items-center gap-2.5">
+          {icon}
+          <p className={cn("text-sm font-medium tracking-[0.08em] text-forest-800 uppercase", eyebrowClassName)}>
+            {workspace}
+          </p>
+        </div>
+      )}
       <h1 id={id} className={cn("mt-2 font-display text-display-l text-ink", titleClassName)}>
         {/* The workspace, for anything that cannot see the eyebrow above. */}
         <span className="sr-only">{workspace}: </span>

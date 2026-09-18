@@ -22,6 +22,8 @@ import { execFileSync } from "node:child_process"
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
+const SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321"
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
 const sql = (q) =>
   execFileSync("docker", ["exec", "-i", CONTAINER, "psql", "-U", "postgres", "-d", "postgres", "-Atq", "-c", q], {
     encoding: "utf8",
@@ -29,8 +31,10 @@ const sql = (q) =>
 
 const TAG = Math.random().toString(36).slice(2, 8)
 const ADMIN = `uat.ux3.admin.${TAG}@ovalball.test`
+const ADMIN_B = `uat.ux3.adminb.${TAG}@ovalball.test`
 const MEMBER = `uat.ux3.member.${TAG}@ovalball.test`
 const SLUG = `ux3-busy-${TAG}`
+const SLUG_B = `ux3-other-${TAG}`
 
 function seed() {
   sql(`
@@ -52,6 +56,13 @@ begin
   insert into public.clubs (directory_id, slug, status) values (v_dir,'${SLUG}','active') returning id into v_club;
   insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
   values (v_club,'Under 12 Boys','${SLUG}-u12','youth','U12','boys','union',true) returning id into v_team;
+
+  -- THE CLUB'S OWN COLOURS. Not decoration for the screenshot: the theme engine reads club_kits
+  -- variant 'primary' and nothing else, so a club without one is themed as Ovalball and a club with
+  -- one is themed as itself. Two clubs with two kits is what makes the assertion about DERIVATION
+  -- rather than about a constant that happens to be green.
+  insert into public.club_kits (club_id, variant, pattern, primary_colour, secondary_colour)
+  values (v_club, 'primary', 'HOOPS', '#7f1d1d', '#fde68a');
 
   -- The admin holds club-wide authority; the member holds none. Neither is given a capability
   -- directly: authority comes from the membership row, exactly as it does for a real person.
@@ -86,6 +97,27 @@ begin
   insert into public.fixture_requests (group_id, requesting_team_id, venue_preference, created_by, status)
   values (v_group, v_team, 'home', v_admin, 'sent');
 end $$;`)
+  // A SECOND club, in a deliberately different kit, administered by a different person. Its only job
+  // is to make the theme assertion mean something: one club proves a colour exists, two prove it came
+  // from the kit.
+  sql(`
+do $$
+declare v_b uuid := gen_random_uuid(); v_dir uuid; v_club uuid;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
+    raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change,
+    email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+  values (v_b,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','${ADMIN_B}','',now(),now(),now(),'{}','{}','','','','','','','','');
+  update public.profiles set first_name='Ash', surname='Lowe', setup_state='COMPLETE' where id = v_b;
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('UX3 Other RUFC ${TAG}','Testbury','Testshire','union','United Kingdom','England',true,'unverified','site_admin_manual','${SLUG_B}')
+  returning id into v_dir;
+  insert into public.clubs (directory_id, slug, status) values (v_dir,'${SLUG_B}','active') returning id into v_club;
+  insert into public.club_kits (club_id, variant, pattern, primary_colour, secondary_colour)
+  values (v_club, 'primary', 'VERTICAL_STRIPES', '#1e3a8a', '#ffffff');
+  insert into public.club_memberships (club_id, user_id, role, status, source)
+  values (v_club, v_b, 'CLUB_ADMIN', 'active', 'SITE_ADMIN_ASSIGNMENT');
+end $$;`)
 }
 
 function teardown() {
@@ -103,10 +135,61 @@ begin
   delete from public.club_memberships where club_id = v_club;
   delete from public.teams where club_id = v_club;
   delete from public.clubs where id = v_club;
+  delete from public.club_kits where club_id = v_club;
   delete from public.club_directory where normalized_key = '${SLUG}';
-  delete from public.profiles where id in (select id from auth.users where email in ('${ADMIN}','${MEMBER}'));
-  delete from auth.users where email in ('${ADMIN}','${MEMBER}');
+
+  select id into v_club from public.clubs where slug = '${SLUG_B}';
+  delete from public.club_kits where club_id = v_club;
+  delete from public.club_memberships where club_id = v_club;
+  delete from public.clubs where id = v_club;
+  delete from public.club_directory where normalized_key = '${SLUG_B}';
+
+  delete from public.profiles where id in (select id from auth.users where email in ('${ADMIN}','${MEMBER}','${ADMIN_B}'));
+  delete from auth.users where email in ('${ADMIN}','${MEMBER}','${ADMIN_B}');
 end $$;`)
+}
+
+/**
+ * A CONFIGURED CLUB LOGO, uploaded the way a club uploads one.
+ *
+ * The distinction this suite exists to protect is that a club's LOGO and a club's KIT are two
+ * different things from two different places: `resolveClubLogoUrl` reads `clubs.logo_storage_path`
+ * (falling back to the directory's), and `resolveClubTheme` reads `club_kits`. `CrestPlate` prefers
+ * the logo and draws the shirt only when there is no logo at all -- an established rule it shares
+ * with the public club page. Every club in the local database happens to have no logo configured,
+ * which is why every screenshot ever taken here showed a shirt; so one is uploaded here, and the
+ * other club is deliberately left without, so both halves of that rule are exercised.
+ */
+/**
+ * A real 160x160 magenta PNG, and the size matters twice over.
+ *
+ * ClubAvatar degrades a BROKEN url to the club's shirt, so an invalid file would fall back to exactly
+ * the thing this test distinguishes it from. And it has a second, deliberate rule: a crest that would
+ * render below half its box gives way to the shirt rather than being shown as a speck on a blank tile.
+ * An 8x8 upload therefore renders as a shirt -- correctly -- and a suite using one would report "the
+ * strip is showing" while the product behaved perfectly. So the fixture uploads a crest a club could
+ * plausibly have uploaded.
+ */
+const LOGO_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAIAAAAErfB6AAABhUlEQVR4nO3RAQkAMAzAsPk3vasYhxKIgEJnZwmb7wWcMjjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4LgHq4NDqp+p9ZIAAAAASUVORK5CYII=",
+  "base64",
+)
+
+async function uploadLogo(path) {
+  const png = LOGO_PNG
+  const res = await fetch(`${SUPABASE}/storage/v1/object/club-logos/${path}`, {
+    method: "POST",
+    headers: { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}`, "content-type": "image/png" },
+    body: png,
+  })
+  if (!res.ok && res.status !== 409) throw new Error(`logo upload failed: ${res.status} ${await res.text()}`)
+}
+
+async function removeLogo(path) {
+  await fetch(`${SUPABASE}/storage/v1/object/club-logos/${path}`, {
+    method: "DELETE",
+    headers: { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}` },
+  }).catch(() => {})
 }
 
 /** Everything the page says, in the order the DOM says it. */
@@ -119,8 +202,11 @@ async function outline(page) {
 }
 const indexOf = (rows, needle) => rows.findIndex((r) => new RegExp(needle, "i").test(r))
 
+const LOGO_PATH = `ux3/${TAG}-crest.png`
 teardown()
 seed()
+await uploadLogo(LOGO_PATH)
+sql(`update public.clubs set logo_storage_path = '${LOGO_PATH}' where slug = '${SLUG}'`)
 const browser = await launch()
 try {
   // ---------------- CLUB ADMIN, BUSY CLUB, DESKTOP ----------------
@@ -168,6 +254,65 @@ try {
   record("UX3-10 the person is still named by the shell, per UX-2",
     /Sam Ridley/.test(await page.locator("body").innerText()))
 
+  // ---------------- THE CLUB STILL LOOKS LIKE ITSELF ----------------
+  //
+  // The hierarchy became operational; the branding must not have become generic as a side effect.
+  // These read COMPUTED styles, not class names: a variable that exists but paints nothing would pass
+  // a class assertion and fail a person looking at the page.
+  const heroPaint = async (p) =>
+    p.evaluate(() => {
+      const header = document.querySelector("main header")
+      if (!header) return null
+      const cs = getComputedStyle(header)
+      const kit = header.querySelector("svg, [aria-hidden] svg, div[class*='absolute']")
+      return {
+        background: cs.backgroundColor,
+        colour: cs.color,
+        kitPainted: kit ? kit.getBoundingClientRect().width > 0 && kit.getBoundingClientRect().height > 0 : false,
+        crest: Boolean(header.querySelector("img, [class*='Crest'], svg")),
+        height: Math.round(header.getBoundingClientRect().height),
+      }
+    })
+
+  const paintA = await heroPaint(page)
+  record("UX3-16 the club hero is painted in a colour, not left to a default surface",
+    Boolean(paintA) && paintA.background !== "rgba(0, 0, 0, 0)" && paintA.background !== "transparent",
+    JSON.stringify(paintA))
+  record("UX3-17 the kit graphic is actually drawn, not merely present in the markup", paintA?.kitPainted === true)
+  record("UX3-18 the crest survived the slimmer hero", paintA?.crest === true)
+  record("UX3-19 and the hero is slimmer than the decoration-first version it replaced",
+    (paintA?.height ?? 999) < 200, `${paintA?.height}px`)
+  // ---------------- THE LOGO IS NOT THE STRIP ----------------
+  //
+  // Two sources, two jobs. `resolveClubLogoUrl` answers "what is this club's logo"; `resolveClubTheme`
+  // answers "what are this club's colours". The shirt is what CrestPlate draws when a club has no
+  // logo at all -- a real rule, shared with the public club page, and not a substitute for one.
+  // Scoped to the CREST PLATE, not the header: the hero's kit pattern is itself an SVG, so asking
+  // "is there an svg in the header" would answer a question about the background while claiming to
+  // answer one about the crest -- and would fail on a correctly-branded club.
+  const identity = await page.evaluate(() => {
+    const plate = document.querySelector("main header span.grid")
+    const img = plate?.querySelector("img")
+    return {
+      imgSrc: img?.getAttribute("src") ?? null,
+      // The shirt is an inline SVG inside the plate; a configured logo is an <img>. Not both.
+      shirtDrawn: Boolean(plate?.querySelector("svg")),
+    }
+  })
+  record("UX3-23 the configured club logo is what sits beside the club's name",
+    Boolean(identity.imgSrc) && /club-logos/.test(decodeURIComponent(identity.imgSrc ?? "")),
+    identity.imgSrc ?? "no image")
+  record("UX3-24 and the kit graphic is not standing in for it while one is configured",
+    identity.shirtDrawn === false, `shirtDrawn=${identity.shirtDrawn}`)
+
+  record("UX3-20 the redundant standalone workspace word is gone from the hero", await page.evaluate(() => {
+    const header = document.querySelector("main header")
+    if (!header) return false
+    // The heading still CARRIES it for assistive technology; what must be absent is a printed line.
+    const printed = Array.from(header.querySelectorAll("p")).map((p) => p.textContent?.trim().toLowerCase())
+    return !printed.includes("club")
+  }))
+
   for (const [label, w] of [["1440", 1440], ["390", 390], ["320", 320]]) {
     await page.setViewportSize({ width: w, height: 900 })
     await page.waitForTimeout(250)
@@ -189,13 +334,47 @@ try {
     !/^Requests$/im.test(memberText))
   record("UX3-14 the same page still renders for them", (await page2.locator("main h1").count()) === 1)
   await ctx2.close()
+
+  // ---------------- TWO CLUBS, TWO KITS ----------------
+  //
+  // One club proves a colour exists. Two prove it came from the kit -- which is the only claim worth
+  // making, because the failure this guards against is a hero that is branded for everybody the same.
+  const ctx3 = await newContext(browser, { width: 1440, height: 900 })
+  const page3 = await ctx3.newPage()
+  await signIn(page3, ADMIN_B)
+  await page3.goto(`${APP}/dashboard`, { waitUntil: "domcontentloaded" })
+  await page3.waitForLoadState("networkidle").catch(() => {})
+  const paintB = await page3.evaluate(() => {
+    const header = document.querySelector("main header")
+    return header ? getComputedStyle(header).backgroundColor : null
+  })
+  record("UX3-21 a different club's home kit produces a different hero",
+    Boolean(paintB) && paintB !== paintA?.background, `A=${paintA?.background} B=${paintB}`)
+  record("UX3-22 and the club theme reaches the page through the one canonical scope", await page3.evaluate(() => {
+    const scope = document.querySelector("[style*='--club-hero']")
+    return Boolean(scope) && document.querySelectorAll("[style*='--club-hero']").length === 1
+  }))
+
+  // Club B has a kit and NO configured logo, which is the other half of the same rule.
+  const identityB = await page3.evaluate(() => {
+    const plate = document.querySelector("main header span.grid")
+    return { imgSrc: plate?.querySelector("img")?.getAttribute("src") ?? null, shirtDrawn: Boolean(plate?.querySelector("svg")) }
+  })
+  record("UX3-25 a club with no configured logo falls back to its shirt, as it always has",
+    identityB.imgSrc === null && identityB.shirtDrawn === true, JSON.stringify(identityB))
+  record("UX3-26 the two are independent: same kit rules, different logo outcome",
+    Boolean(paintB) && paintB !== paintA?.background && identity.imgSrc !== identityB.imgSrc,
+    `themeA=${paintA?.background} themeB=${paintB}`)
+  await ctx3.close()
 } finally {
   await browser.close()
+  await removeLogo(LOGO_PATH)
   teardown()
 }
 
 record("UX3-15 the suite removed the club and both identities it created",
   sql(`select count(*) from public.clubs where slug='${SLUG}'`) === "0" &&
-  sql(`select count(*) from auth.users where email in ('${ADMIN}','${MEMBER}')`) === "0")
+  sql(`select count(*) from auth.users where email in ('${ADMIN}','${MEMBER}','${ADMIN_B}')`) === "0" &&
+  sql(`select count(*) from public.club_kits k join public.clubs c on c.id=k.club_id where c.slug in ('${SLUG}','${SLUG_B}')`) === "0")
 
 process.exit(summarise() ? 0 : 1)
