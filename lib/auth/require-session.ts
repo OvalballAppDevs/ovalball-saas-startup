@@ -2,6 +2,13 @@ import "server-only"
 
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 
+import {
+  decideSession,
+  sessionRefusal,
+  type RequireSessionOptions,
+  type SessionAssurance,
+  type SessionRefusalReason,
+} from "@/lib/auth/session-decision"
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/types/database.types"
 
@@ -23,25 +30,7 @@ import type { Database } from "@/types/database.types"
 
 export type SessionDecision =
   | { ok: true; userId: string; user: User; aal: "aal1" | "aal2"; group: string }
-  | { ok: false; reason: "SIGN_IN_REQUIRED" | "ACCOUNT_UNAVAILABLE" | "MFA_REQUIRED" | "VERIFY_AGAIN" }
-
-export type RequireSessionOptions = {
-  /** Require a second factor even when this person's group is not being enforced yet. */
-  aal?: "aal1" | "aal2"
-  /** Require a TOTP verified within this many minutes (Phase 2 "R"). */
-  recentMinutes?: number
-  /**
-   * For the surfaces whose whole PURPOSE is to reach AAL2 -- /security/enrol and /security/verify.
-   *
-   * This exists to prevent a lockout that would only appear at T1. Once an enforcement group is
-   * switched on, `enforcement_required` is true for exactly the people who have not enrolled yet, so
-   * an unqualified requireSession on the enrolment page would refuse them at the one page that could
-   * fix it, and `sessionRefusal` would send them straight back to it. Nobody in that group could ever
-   * enrol. Identity, session liveness and account state are still enforced here; only the assurance
-   * gate is stood down, and only where standing it up would be circular.
-   */
-  allowAalElevation?: boolean
-}
+  | { ok: false; reason: SessionRefusalReason }
 
 /**
  * `client` lets a caller that already has a request-scoped Supabase client hand it over. This is not
@@ -67,50 +56,12 @@ export async function requireSession(
   const { data, error } = await supabase.rpc("my_session_assurance")
   if (error || !data) return { ok: false, reason: "ACCOUNT_UNAVAILABLE" }
 
-  const assurance = data as {
-    account_usable: boolean
-    session_live: boolean
-    aal: string | null
-    enforcement_required: boolean
-    recent_aal2: boolean
-    enforcement_group: string
-  }
-
-  if (!assurance.session_live) return { ok: false, reason: "SIGN_IN_REQUIRED" }
-  if (!assurance.account_usable) return { ok: false, reason: "ACCOUNT_UNAVAILABLE" }
-
-  const atAal2 = assurance.aal === "aal2"
-  // Either this person's group is being enforced, or the caller asked for AAL2 for this operation --
-  // unless this IS the surface that exists to get them there.
-  if (!options.allowAalElevation && (assurance.enforcement_required || options.aal === "aal2") && !atAal2) {
-    return { ok: false, reason: "MFA_REQUIRED" }
-  }
-  if (options.recentMinutes && !assurance.recent_aal2) {
-    return { ok: false, reason: "VERIFY_AGAIN" }
-  }
-
-  return {
-    ok: true,
-    userId: user.id,
-    user,
-    aal: atAal2 ? "aal2" : "aal1",
-    group: assurance.enforcement_group,
-  }
+  const decided = decideSession(data as SessionAssurance, options)
+  if (!decided.ok) return decided
+  return { ok: true, userId: user.id, user, aal: decided.aal, group: decided.group }
 }
 
-/** What to say, and where to send them. Distinguishing these is Phase 2's explicit UX requirement. */
-export function sessionRefusal(reason: Exclude<SessionDecision, { ok: true }>["reason"]): {
-  message: string
-  href: string
-} {
-  switch (reason) {
-    case "SIGN_IN_REQUIRED":
-      return { message: "Sign in to continue.", href: "/login" }
-    case "ACCOUNT_UNAVAILABLE":
-      return { message: "This account is not available. Contact Ovalball if you think that is wrong.", href: "/login" }
-    case "MFA_REQUIRED":
-      return { message: "Set up your authenticator to continue.", href: "/security/enrol" }
-    case "VERIFY_AGAIN":
-      return { message: "Enter a code from your authenticator to continue.", href: "/security/verify" }
-  }
-}
+// Re-exported so every existing caller keeps one import, and so the rule and the plumbing stay
+// reachable from the same place even though they now live in different files.
+export { decideSession, sessionRefusal }
+export type { RequireSessionOptions, SessionAssurance, SessionRefusalReason }

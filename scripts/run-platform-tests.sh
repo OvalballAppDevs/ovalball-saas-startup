@@ -454,10 +454,13 @@ fi
 # the notice, because the point is that nobody discovers afterwards that the
 # browser evidence was never produced.
 # ---------------------------------------------------------------------------
+# Suite 66 drives no browser -- it speaks HTTP straight at GoTrue, PostgREST and a route handler --
+# but it needs exactly the same live stack, so it is gated and reported here with the others.
 BROWSER_SUITES=(
   63-turnstile-login-recovery
   64-password-recovery-journey
   65-session-boundary-and-signup-challenge
+  66-direct-invocation-boundary
 )
 
 browser_blocked=""

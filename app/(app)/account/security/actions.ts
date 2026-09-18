@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { checkPassword } from "@/lib/auth/password-policy"
 import { guardAction } from "@/lib/auth/action-boundary"
+import { toPublicSubmissionError } from "@/lib/errors/public-error"
 import { createClient } from "@/lib/supabase/server"
 import { MAX_TOTP_FACTORS } from "./constants"
 
@@ -72,7 +73,14 @@ export async function signOutOtherDevices(): Promise<ActionResult> {
   // refresh token stops working on its next request rather than when its JWT happens to expire. The
   // function works out which session is the current one from the caller's own token.
   const { error } = await supabase.rpc("sign_out_my_other_devices")
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    // 42501 is the RPC's own deliberate, user-facing refusal ("Enter a code from your authenticator
+    // first."), which is exactly what this person needs to read. Anything else is an unplanned
+    // Postgres exception naming internal functions and columns, and is logged rather than shown.
+    if (error.code === "42501") return { ok: false, error: error.message }
+    console.error("signOutOtherDevices refused:", error.code ?? error.message)
+    return { ok: false, error: toPublicSubmissionError() }
+  }
   revalidatePath("/account/security")
   return { ok: true }
 }
@@ -90,8 +98,9 @@ export async function setAccountPassword(password: string): Promise<ActionResult
 
   const { error } = await supabase.auth.updateUser({ password })
   if (error) {
-    // GoTrue's own refusals (its native length rule, reuse rules) are surfaced plainly; there is
-    // nothing secret in them and the person needs to know what to change.
+    // PROVIDER_MESSAGE: this is GoTrue, not Postgres. Its refusals are its native length and reuse
+    // rules -- "Password should be at least 12 characters" -- which name nothing internal and are
+    // precisely what the person needs in order to choose a different password.
     return { ok: false, error: error.message }
   }
 

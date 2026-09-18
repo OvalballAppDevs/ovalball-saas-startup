@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { buildGoCardlessAuthorizeUrl } from "@/lib/payments/gocardless/oauth"
+import { requireSession, sessionRefusal } from "@/lib/auth/require-session"
 import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -24,11 +25,14 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.redirect(new URL("/login", request.url))
+  // SLICE 6b.2a -- D.2 layer 2 on a ROUTE HANDLER. This is a GET endpoint anybody can navigate to
+  // directly with a clubId in the query string, so "the layout checked" is not available to it and
+  // never was. getUser() alone answered only "is somebody signed in"; a revoked session's access
+  // token stays cryptographically valid until it expires, and a suspended administrator's session
+  // row may still exist. Neither should be able to start a payment-provider connection.
+  const decision = await requireSession({}, supabase)
+  if (!decision.ok) {
+    return NextResponse.redirect(new URL(sessionRefusal(decision.reason).href, request.url))
   }
 
   const authorized = await hasCapability(supabase, "finance.gocardless.connect", "club", { clubId })

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { exchangeGoCardlessOAuthCode } from "@/lib/payments/gocardless/oauth"
 import { assertGoCardlessEnvironmentSafe } from "@/lib/payments/gocardless/env"
 import { syncGoCardlessVerificationStatus } from "@/lib/payments/gocardless/verification"
+import { requireSession, sessionRefusal } from "@/lib/auth/require-session"
 import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -48,11 +49,12 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return clearCookies(NextResponse.redirect(new URL("/login", request.url)))
+  // D.2 layer 2. The state/cookie pair above proves this browser started the flow; it says nothing
+  // about whether the Ovalball account is still usable by the time the provider sends them back.
+  // Suspension, disablement or a session revocation can all happen during the round trip.
+  const decision = await requireSession({}, supabase)
+  if (!decision.ok) {
+    return clearCookies(NextResponse.redirect(new URL(sessionRefusal(decision.reason).href, request.url)))
   }
 
   try {
@@ -66,7 +68,13 @@ export async function GET(request: NextRequest) {
       p_access_token: token.access_token,
       p_scope: token.scope,
     })
-    if (error) throw new Error(error.message)
+    // Not a rethrow of the raw message: it is a Postgres exception, and the catch below used to
+    // interpolate it straight into a query parameter -- so internal function and column names
+    // reached the browser, the address bar, browser history and any referrer.
+    if (error) {
+      console.error("[gocardless oauth] store_gocardless_connection refused:", error.code ?? error.message)
+      throw new Error("STORE_FAILED")
+    }
 
     // Best-effort immediate sync against the real GoCardless Creditors
     // API. This never fails the connection itself -- the connection is
@@ -84,8 +92,13 @@ export async function GET(request: NextRequest) {
     settingsUrl.searchParams.set("gc_connected", "1")
     return clearCookies(NextResponse.redirect(settingsUrl))
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error."
-    settingsUrl.searchParams.set("gc_error", `Could not complete the GoCardless connection: ${message}`)
+    // The detail is logged, never shown. A person cannot act on a Postgres error string, and putting
+    // one in a URL publishes it further than the page.
+    console.error("[gocardless oauth] connection failed:", error instanceof Error ? error.message : error)
+    settingsUrl.searchParams.set(
+      "gc_error",
+      "Could not complete the GoCardless connection. Please try connecting again.",
+    )
     return clearCookies(NextResponse.redirect(settingsUrl))
   }
 }

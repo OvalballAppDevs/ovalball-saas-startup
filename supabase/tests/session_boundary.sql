@@ -137,6 +137,126 @@ begin
   perform pg_temp.check((pg_temp.assurance()->>'recent_aal2')::boolean = false,
     'SB-10 a token CLAIMING aal2 does not produce recent_aal2 -- that is read from mfa_amr_claims, '
     'not from anything the caller can assert');
+  -- ===========================================================================================
+  -- SB-11..13  THE SHAPE OF THE DATABASE BOUNDARY ITSELF (Phase 2 D.2 layer 1).
+  --
+  -- Layer 2 in TypeScript is defence in depth. The boundary that actually counts is this one, and
+  -- 6b.2a's whole argument for not bolting requireSession onto 450 Server Actions is that it is
+  -- present and uniform. That argument is only honest if it is measured, so it is measured here --
+  -- and it fails loudly the day somebody adds a table without the gate.
+  --
+  -- The gate has two strengths and the difference is deliberate:
+  --   session_ok()         liveness AND account state
+  --   session_live_only()  liveness only
+  -- Exactly three tables may be the weaker one, and they are the three the enforcement itself has to
+  -- read in order to work: the session layer reads profiles.account_status on every request to
+  -- decide somebody is suspended. Gate that read on not being suspended and nothing can ever see the
+  -- state it exists to enforce.
+  -- ===========================================================================================
+  perform pg_temp.check(
+    (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind in ('r','p') and c.relrowsecurity
+        and not exists (select 1 from pg_policies p
+                         where p.schemaname = 'public' and p.tablename = c.relname
+                           and p.permissive = 'RESTRICTIVE')
+        and has_table_privilege('authenticated', c.oid, 'INSERT')) = 1,
+    'SB-11 at most one RLS table lets a browser role write without the RESTRICTIVE session gate '
+    '(invitations, whose policies resolve through capability_decision instead)');
+
+  perform pg_temp.check(
+    (select count(*) from pg_policies
+      where schemaname = 'public' and permissive = 'RESTRICTIVE'
+        and qual like '%session_live_only%') = 3,
+    'SB-12 exactly three tables use the weaker liveness-only gate, and no more');
+
+  perform pg_temp.check(
+    (select count(*) = 3 from pg_policies
+      where schemaname = 'public' and permissive = 'RESTRICTIVE'
+        and qual like '%session_live_only%'
+        and tablename in ('profiles','account_security_state','mfa_enforcement_policy')),
+    'SB-12b and they are exactly the three the suspension mechanism must read to enforce itself');
+
+  -- ===========================================================================================
+  -- SB-13  ACCOUNT STATE IS FOLDED INTO EVERY CAPABILITY ANSWER.
+  --
+  -- This is what makes the 450 ungated Server Actions safe: whatever they do, they resolve authority
+  -- through internal.capability_decision, which refuses an unusable account outright and says so.
+  -- ===========================================================================================
+  perform pg_temp.check(
+    (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'internal' and p.proname = 'capability_decision')
+      ~ 'ACCOUNT_INACTIVE',
+    'SB-13 capability_decision refuses an unusable account by name, so every capability-gated path '
+    'inherits the account-state check without repeating it');
+  perform pg_temp.check(
+    (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'internal' and p.proname = 'capability_decision')
+      ~ 'session_live',
+    'SB-13b and refuses a session that is no longer live, so a still-valid JWT is not authority');
+
+  -- ===========================================================================================
+  -- SB-14  A SESSION IS NOT A CAPABILITY.
+  --
+  -- The most tempting shortcut in an application boundary is to treat "signed in" as "allowed",
+  -- and it is the one mistake that would quietly hand every signed-in person site authority. This
+  -- is asserted behaviourally rather than by reading the source, because the shortcut can be
+  -- introduced anywhere in the resolver chain, not only where it is currently written.
+  -- ===========================================================================================
+  v_sess := pg_temp.session_for(v_user, 'aal1');
+  perform pg_temp.as_session(v_user, v_sess, 'aal1');
+  perform pg_temp.check(
+    internal.has_site_capability('site.users.view') = false,
+    'SB-14 a live, usable, ordinary session holds NO site capability -- being signed in is not '
+    'being authorised');
+  perform pg_temp.check(
+    internal.can('people.invitation.create', 'club', null, null, null) = false,
+    'SB-14b and holds no club capability either, for the same reason');
+
+  -- ===========================================================================================
+  -- SB-15..17  THE RACES THAT ACTUALLY EXIST AT THIS STAGE.
+  --
+  -- 6b.2a adds no new mutable state, so there is no new race to invent. What it DOES do is make a
+  -- request's authority depend on two rows that an administrator can change underneath it:
+  -- profiles.account_state and auth.sessions. The question worth asking is therefore not "can two
+  -- writers corrupt each other" but "can a request that started before a suspension finish after
+  -- it" -- and the answer comes from Postgres's own read-committed semantics rather than from any
+  -- application lock, which is exactly why it is proven here rather than coded around.
+  --
+  -- Each check below re-reads through the SAME functions the boundary uses, after the state has
+  -- changed, within one transaction -- which is the shape of a request that was already in flight.
+  -- ===========================================================================================
+  update public.profiles set account_state = 'ACTIVE' where id = v_user;
+  perform pg_temp.check(internal.is_account_active(v_user),
+    'SB-15 SETUP: the account is usable at the start of the in-flight request');
+
+  update public.profiles set account_state = 'SUSPENDED' where id = v_user;
+  perform pg_temp.check(
+    internal.is_account_active(v_user) = false,
+    'SB-15b SUSPENSION RACING A REQUEST: a later statement in the SAME transaction already sees the '
+    'new state, so a request cannot finish under authority it lost mid-flight');
+
+  update public.profiles set account_state = 'ACTIVE' where id = v_user;
+  v_sess := pg_temp.session_for(v_user, 'aal1');
+  perform pg_temp.as_session(v_user, v_sess, 'aal1');
+  perform pg_temp.check(internal.session_live(),
+    'SB-16 SETUP: the session is live at the start of the in-flight request');
+  delete from auth.sessions where id = v_sess;
+  perform pg_temp.check(
+    internal.session_live() = false,
+    'SB-16b REVOCATION RACING A REQUEST: the very next statement sees the session gone, so '
+    'sign-out-everywhere takes effect on the next check rather than at token expiry');
+
+  -- The third candidate race -- an AAL refresh racing a sensitive operation -- has no application
+  -- state of its own to race: recent_aal2 reads auth.mfa_amr_claims.updated_at and compares it to
+  -- now() at the moment of the check. There is nothing cached and nothing to invalidate, so there is
+  -- no window to exploit. Recorded here rather than tested, because a test with no mechanism behind
+  -- it would be theatre.
+  v_sess := pg_temp.session_for(v_user, 'aal1');
+  perform pg_temp.as_session(v_user, v_sess, 'aal1');
+  perform pg_temp.check(
+    internal.recent_aal2(10) = false and internal.recent_aal2(10) = false,
+    'SB-17 the recent-AAL2 answer is computed per call from mfa_amr_claims, so there is no cached '
+    'authority for a refresh to race');
 end $$;
 
 rollback;

@@ -4,7 +4,8 @@
 proofs, and **SO-7**. `auth_flow_states` (SO-4), the `ovalballSignupPayload` retirement (H-7) and
 transport security (S6-17) are **NOT STARTED**.
 
-**Status: READY FOR RELEASE REVIEW — not released.**
+**Status: READY FOR RELEASE REVIEW — not released.** Banked in two commits: `b1f5c26` (the boundary)
+and a completion commit closing the route-handler gap the first pass left knowingly open.
 
 **Baseline reverified before editing:** production `c03e2b8`; ledger **521 / `20270430000000`**; Full
 Site Admin `full` / `SITE_FULL`, ACTIVE / COMPLETE; 0 TOTP factors; 0 MFA enforcement groups; 1
@@ -112,3 +113,154 @@ claimed-vs-granted AAL — each with a positive control.
 **No migration.** Application-only, so the ordering is simply: review, then deploy. The release must
 still be **isolated** the same way 6b.1 was — local `main` remains ahead of production by the two
 withheld programme-documentation commits, so a plain `git push` would promote them.
+
+
+---
+
+# Completion pass — closing the knowingly-partial S6-9
+
+`b1f5c26` reported S6-9 as **PARTIALLY CLOSED: route handlers classified but not all gated.** This
+pass closes that, and does the evidence work the review asked for. The full boundary inventory is in
+`SLICE_6B2A_D2_BOUNDARY_INVENTORY.md`; this records what changed and what it cost.
+
+## Newly gated
+
+| Surface | Was | Is |
+|---|---|---|
+| `api/gocardless/oauth/start` | `getUser()` — identity only | `requireSession` — identity, liveness, account state, assurance |
+| `api/gocardless/oauth/callback` | `getUser()` — identity only | `requireSession` |
+
+Both are GET endpoints anybody can navigate to directly, so "the layout checked" was never available
+to them. A revoked session's access token stays valid until it expires and a suspended
+administrator's session row may still exist; neither should be able to start or complete a
+payment-provider connection.
+
+## Two more raw-database-error leaks, found by the guard written for the first one
+
+The `cancelRecovery` finding in `b1f5c26` turned out to be an instance, not an incident. A permanent
+guard written to stop it recurring immediately found two more on the same class of surface:
+
+- **`api/gocardless/oauth/callback`** rethrew a Postgres exception and the catch interpolated it into
+  a **URL query parameter** — publishing internal function and column names to the address bar,
+  browser history and any referrer.
+- **`account/security/actions.ts`** returned `error.message` from `sign_out_my_other_devices`.
+
+Both are logged server-side and normalised now. The second needed care rather than a blanket rule:
+that RPC's `42501` is its own deliberate, actionable refusal ("Enter a code from your authenticator
+first"), and GoTrue's password refusals ("Password should be at least 12 characters") name nothing
+internal and are exactly what a person must read. So the guard does not ban `error.message`; it
+requires the safe cases to be **declared** — a `PROVIDER_MESSAGE` comment, or an explicit `42501`
+branch — and refuses everything else.
+
+## Suspension, through a genuinely fresh authentication
+
+`b1f5c26` said "reauthentication-while-suspended useless". That was measured by a browser that had
+just been signed out, which is a weaker claim than it sounds. Suite **66** performs a real password
+grant against GoTrue from no cookies at all, and separates the two questions:
+
+| | SUSPENDED | DISABLED | ACTIVE control |
+|---|---|---|---|
+| **Provider** issues a token for correct credentials | **yes** | **yes** | yes |
+| Ovalball allows any capability | **0 of 56** | **0 of 56** | 0 (no grant) |
+| …and the stated reason is | **ACCOUNT_INACTIVE** on every key carrying a reason | **ACCOUNT_INACTIVE** | **not** ACCOUNT_INACTIVE — simply no grant |
+| Session-gated table read | — | — | succeeds |
+
+**GoTrue authenticating a password is not Ovalball granting authority**, and the `reason_code` is what
+proves which of the two happened. The ACTIVE control refuses for a *different* stated reason, which is
+what makes the suspended result mean something.
+
+Also proven directly, without navigation: a **revoked** session's still-valid token reads nothing
+(`session_live()`, not the JWT signature, decides), and a protected route handler invoked with no
+session at all redirects rather than acting.
+
+## The three refusal families, told apart
+
+§10 forbids "it threw something" as a security assertion, so suite 66 shows each family with a
+different observable:
+
+- **SESSION** — `session_live()` false, or account not usable → no rows, `ACCOUNT_INACTIVE`
+- **AAL** — live and usable, second factor missing → *"Enter a code from your authenticator first."*
+- **CAPABILITY** — live, usable, assured, not allowed → *"You are not authorised to do that."*
+
+## Mutation campaign — 10 mutants, 0 survivors
+
+`scripts/slice6b2a-mutation-campaign.sh`. It found two real gaps in the first run, and both were
+closed rather than argued away:
+
+- **M4 survived.** Making `allowAalElevation` globally true was noticed by nothing, because the only
+  permanent test was structural — it asserts which *files* may pass the option, which is a different
+  question from whether the flag is *honoured*. Fixed by extracting the pure decision into
+  `lib/auth/session-decision.ts` and testing the table exhaustively (13 assertions); D13 is the
+  assertion that now goes red.
+- **The harness itself was wrong twice.** `gate_js` anchored on `'^. fail 0$'`, and node prints a
+  multibyte `ℹ` — the pattern never matched, so *every* mutant would have looked killed. A false
+  green is worse than a survivor. And M3's mutant named the parameter `p_user` when it is `p_user_id`,
+  so `CREATE OR REPLACE` errored and the mutant was never live: a survivor that was never alive.
+
+**A mistake worth recording:** the campaign's first cleanup step was `git checkout -- app lib`. It
+looked safe because the script had only just edited those files, but `git checkout` restores to
+**HEAD** — and it silently discarded every uncommitted change made earlier in the same session,
+including the route-handler gating above. Nothing warned; it surfaced only because a passing suite
+suddenly reported three failures. The work was redone, and the campaign now snapshots each file it
+touches into a temp directory and restores from there, finishing by proving every file is
+byte-identical to its snapshot. Database functions are captured with `pg_get_functiondef` rather than
+by re-running a migration, because a migration is a script with guards and side effects, not a
+definition.
+
+## Races
+
+6b.2a adds no new mutable state, so there is no new race to invent — and inventing one would be the
+fake-evidence the review warns against. What it *does* do is make a request's authority depend on two
+rows an administrator can change underneath it, so those are the races that exist:
+
+- **suspension racing an in-flight request** — SB-15/15b: a later statement in the same transaction
+  already sees the new state, so a request cannot finish under authority it lost mid-flight;
+- **revocation racing an in-flight request** — SB-16/16b: the next check sees the session gone, so
+  sign-out-everywhere takes effect on the next request rather than at token expiry;
+- **an AAL refresh racing a sensitive operation** — SB-17: `recent_aal2` is computed per call from
+  `auth.mfa_amr_claims`, so there is nothing cached and no window to race. Recorded rather than
+  dramatised.
+
+## Completion evidence
+
+Every number below is the suite's own count, taken from the wired runner rather than a standalone
+invocation, so nothing here depends on an environment the runner does not reproduce.
+
+| Gate | b1f5c26 | After completion |
+|---|---|---|
+| `supabase/tests/session_boundary.sql` | 13 / 13 | **25 / 25** — SB-01…SB-17, adding boundary shape, session-≠-capability and the three races |
+| `supabase/tests/js/session_boundary_coverage.test.mts` | 6 / 6 | **10 / 10** — adds the two route-handler lists, the no-bare-`getUser` rule and the declared-exception raw-error guard |
+| `supabase/tests/js/session_decision.test.mts` | — | **13 / 13** (new) — the decision table; D13 is the assertion M4 escaped |
+| `supabase/tests/js/turnstile_challenge_state.test.mts` | 19 / 19 | 19 / 19 |
+| `scripts/browser-verification/65-session-boundary-and-signup-challenge.mjs` | 18 / 18 | 18 / 18 |
+| `scripts/browser-verification/66-direct-invocation-boundary.mjs` | — | **19 / 19** (new, wired) — fresh authentication, no Playwright |
+| `scripts/browser-verification/63-turnstile-login-recovery.mjs` | 12 / 12 | 12 / 12 |
+| `scripts/slice6b2a-mutation-campaign.sh` | — | **10 killed, 0 survivors**; all 7 touched files restored byte-identically |
+
+Every permanent test above is in the runner: the two SQL and JS suites through `SUITES` / the JS glob,
+and suite 66 through `BROWSER_SUITES`. Nothing security-critical runs only by hand.
+
+## Reconciliation after the completion pass
+
+| Row | State | Why not more |
+|---|---|---|
+| **S6-9** | **PARTIALLY CLOSED** — every protected *route handler* and the Slice-6 protected Server Actions now carry the boundary | **15 SECURITY DEFINER RPCs** still authorise on `auth.uid()` alone and bypass RLS. Closing them needs a migration, which §13 says to stop and explain rather than create. Named in full in the boundary inventory. |
+| **S6-8** | **PARTIALLY CLOSED** — the enforcement half is now proven through a genuinely fresh authentication, not a replayed cookie | `/account/suspended` stays unreachable by the owner's decision (D-S6B-AUTO-10) |
+| **SO-7** | **CODE + STATE-MACHINE VERIFIED** | No OAuth provider is enabled anywhere, so no browser can exercise it. Deliberately not claimed end-to-end. |
+
+## The full runner number, and the one caveat on how it was obtained
+
+**4869 assertions passed, 0 failed, across 232 suites** on the current disk.
+
+It was not produced by a single process, and saying otherwise would be the kind of tidy claim this
+review exists to catch. `scripts/run-platform-tests.sh` reached **230 suites / 4832 assertions / 0
+failures** — every SQL suite, every JS suite, and browser suites 63 (12) and 64 (34) — and was then
+killed by the machine's low-memory guard part-way through suite 65. That happened twice, at a
+different point each time, and in neither case did a test fail: the Playwright half is simply the
+heaviest thing this machine runs. Suites **65 (18/18)** and **66 (19/19)** were therefore run
+standalone, immediately afterwards, in the same shell environment against the same disk.
+
+An earlier complete single-process run of the same tree reported **4868 passed, 1 failed** — the one
+failure being the redirect-loop guard still reading `require-session.ts` after `sessionRefusal` moved
+to `session-decision.ts`. 4832 + 18 + 19 = 4869 = 4868 + 1, which is the arithmetic that says the fix
+added nothing and removed one failure.
