@@ -2,6 +2,7 @@
 
 import { hasCompletedProfile } from "@/lib/identity/profile-setup"
 import { hasAllRequiredConsents } from "@/lib/legal/required-consents"
+import { guardAction } from "@/lib/auth/action-boundary"
 import { createClient } from "@/lib/supabase/server"
 import { CURRENT_TERMS_VERSION } from "@/lib/signup/terms"
 import { writeSignupRecords } from "@/lib/signup/complete-signup"
@@ -45,9 +46,10 @@ export async function completeAuthenticatedSignup(
   }
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // D.2 layer 2. This is the OAuth visitor's signup completion, so identity alone is not enough:
+  // a suspended or revoked session must not be able to write a profile and a club request.
+  const gate = await guardAction({}, supabase)
+  const user = gate.ok ? gate.user : null
 
   if (!user) {
     return { ok: false, error: "Your session has expired. Please sign in again." }

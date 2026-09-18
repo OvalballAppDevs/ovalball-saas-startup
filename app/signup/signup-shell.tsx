@@ -21,6 +21,13 @@ import { ClubStep, type ClubStepHandle } from "./steps/club-step"
 import { PersonalDetailsStep } from "./steps/personal-details-step"
 import { ReviewStep } from "./steps/review-step"
 import { submitSignup } from "./submit-signup"
+import {
+  canSubmitProtected,
+  challengeIdle,
+  challengeSpent,
+  challengeVerified,
+  tokenForSubmission,
+} from "@/lib/auth/challenge-state"
 import { completeAuthenticatedSignup } from "./complete-authenticated-signup"
 import { AuthSecurityCheck } from "@/components/auth/auth-security-check"
 import { hasAllRequiredConsents } from "@/lib/legal/required-consents"
@@ -71,8 +78,27 @@ export function SignupShell({
   // link is involved, so neither the OTP send nor its human check applies.
   const isAuthenticated = Boolean(authenticatedEmail)
   const humanCheckRequired = Boolean(turnstileSiteKey) && !isAuthenticated
-  const [humanToken, setHumanToken] = useState<string | null>(null)
-  const [humanPassed, setHumanPassed] = useState(!humanCheckRequired)
+  // SLICE 6b.2 / SO-7. This used to be two useStates for one fact -- a token and a boolean saying the
+  // visitor had cleared the challenge -- which is precisely the shape that locked the platform owner
+  // out of /login (incident 17 September 2026, fixed in cd18ba6). The failure branch of handleSubmit
+  // cleared neither, so a failed signup left `humanPassed` true beside a spent token and every retry
+  // posted something the server had already seen. The hotfix deliberately did not reach this file;
+  // this unit closes it with the SAME rule, from the same module, rather than a second copy of the
+  // reasoning: a token and the permission to submit are one fact and are spent together.
+  const [challenge, setChallenge] = useState(() => challengeIdle(humanCheckRequired))
+  const [challengeNonce, setChallengeNonce] = useState(0)
+  const humanPassed = canSubmitProtected(challenge, humanCheckRequired)
+  const humanToken = tokenForSubmission(challenge, humanCheckRequired)
+
+  /**
+   * A protected attempt has been made, so the token is gone whatever the answer was. Bumping the
+   * nonce remounts the checkpoint, which is what produces a FRESH challenge -- Cloudflare tokens are
+   * single-use, so "try again" without a remount is a guaranteed refusal.
+   */
+  function spendChallenge() {
+    setChallenge(challengeSpent(humanCheckRequired))
+    if (humanCheckRequired) setChallengeNonce((n) => n + 1)
+  }
   const router = useRouter()
   const searchParams = useSearchParams()
   const stepParam = searchParams.get("step")
@@ -168,6 +194,10 @@ export function SignupShell({
       ? await completeAuthenticatedSignup(formState)
       : await submitSignup(formState, humanToken)
 
+    // Unconditional, and before the branches: the attempt spent the token whether it succeeded or
+    // failed. The old code cleared it only on success, which is the defect.
+    spendChallenge()
+
     if (result.ok) {
       if (isAuthenticated) {
         // Nothing to check an inbox for -- the account exists now.
@@ -177,10 +207,6 @@ export function SignupShell({
       setSubmitStatus("sent")
       setHasSubmitted(true)
       setResendCooldown(30)
-      if (humanCheckRequired) {
-        setHumanToken(null)
-        setHumanPassed(false)
-      }
     } else {
       setSubmitStatus("error")
       setSubmitError(result.error)
@@ -315,6 +341,17 @@ export function SignupShell({
                   email={formState.email}
                   onChange={(email) => setFormState((prev) => ({ ...prev, email }))}
                   isAuthenticated={isAuthenticated}
+                  // SO-7: the provider buttons live on THIS step, so the challenge has to live here
+                  // too. Before 6b.2 they were handed a hardcoded null and rendered enabled, so a
+                  // visitor could click "Continue with Google" and be refused by the server for a
+                  // token the page never asked for.
+                  turnstileSiteKey={turnstileSiteKey}
+                  challengeRequired={humanCheckRequired}
+                  challengeKey={`signup-account-${challengeNonce}`}
+                  turnstileToken={humanToken}
+                  humanPassed={humanPassed}
+                  onVerified={(token: string) => setChallenge(challengeVerified(token))}
+                  onChallengeSpent={spendChallenge}
                 />
               )}
 
@@ -358,12 +395,10 @@ export function SignupShell({
             {step === "review" && humanCheckRequired && turnstileSiteKey && (
               <div className="mt-5">
                 <AuthSecurityCheck
+                  key={`signup-review-${challengeNonce}`}
                   siteKey={turnstileSiteKey}
                   action="signup"
-                  onVerified={(token: string) => {
-                    setHumanToken(token)
-                    setHumanPassed(true)
-                  }}
+                  onVerified={(token: string) => setChallenge(challengeVerified(token))}
                 />
               </div>
             )}

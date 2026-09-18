@@ -13,6 +13,7 @@ import { getClubSetupState, isSetupAllowedPath, resumeStep } from "@/lib/club-se
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { getBetaBadgeState } from "@/lib/platform/mode"
 import { getNewSupportTicketCount } from "@/lib/support/badges"
+import { requireSession, sessionRefusal } from "@/lib/auth/require-session"
 import { createClient } from "@/lib/supabase/server"
 
 import { AskOvie } from "@/components/ovie/ask-ovie"
@@ -36,13 +37,26 @@ import { SwitchContextProvider } from "./switch-context-provider"
  */
 export default async function AuthenticatedAppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect("/login")
+  // SLICE 6b.2 -- Phase 2 D.2 enforcement layer 2. This was `getUser()` and a redirect to /login,
+  // which answers only "is anybody signed in". It now asks the one canonical question, which also
+  // covers session liveness, account state and assurance, and says something different for each.
+  //
+  // THIS DOES NOT MAKE T0 INTO T1. requireSession reads `enforcement_required` from
+  // my_session_assurance(), which is `not internal.session_aal_ok()`, so an AAL1 session passes
+  // while no enforcement group is switched on. Asking for AAL2 here instead would redirect every
+  // person on the platform to /security/verify on a platform with zero enrolled factors.
+  //
+  // NO REDIRECT LOOP IS POSSIBLE FROM HERE: every refusal destination -- /login, /security/enrol,
+  // /security/verify -- is outside this route group, so none of them re-enters this layout.
+  //
+  // It is still not the boundary. internal.session_ok() is folded into can(), has_site_capability()
+  // and a RESTRICTIVE policy on every non-public table; this is the early, explainable refusal.
+  const decision = await requireSession({}, supabase)
+  if (!decision.ok) {
+    redirect(sessionRefusal(decision.reason).href)
   }
+  const user = decision.user
 
   const ctx = await getSessionContext(supabase, user)
 

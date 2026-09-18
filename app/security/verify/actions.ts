@@ -1,5 +1,6 @@
 "use server"
 
+import { guardAction } from "@/lib/auth/action-boundary"
 import { createClient } from "@/lib/supabase/server"
 
 export type VerifyResult = { ok: true } | { ok: false; error: string }
@@ -13,10 +14,10 @@ export type VerifyResult = { ok: true } | { ok: false; error: string }
  */
 export async function verifyTotpChallenge(factorId: string, code: string): Promise<VerifyResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Sign in to continue." }
+  // D.2 layer 2: identity AND session liveness AND account state AND assurance,
+  // not identity alone. A direct POST meets this whether or not a layout ran.
+  const gate = await guardAction({ allowAalElevation: true }, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
 
   const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
   if (challengeError || !challenge) return { ok: false, error: "We couldn't start the check. Try again." }

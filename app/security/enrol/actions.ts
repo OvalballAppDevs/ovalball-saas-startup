@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { guardAction } from "@/lib/auth/action-boundary"
 import { createClient } from "@/lib/supabase/server"
 
 import { MAX_TOTP_FACTORS } from "@/app/(app)/account/security/constants"
@@ -24,10 +25,10 @@ export type EnrolStart =
 
 export async function startTotpEnrolment(): Promise<EnrolStart> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Sign in to continue." }
+  // D.2 layer 2: identity AND session liveness AND account state AND assurance,
+  // not identity alone. A direct POST meets this whether or not a layout ran.
+  const gate = await guardAction({ allowAalElevation: true }, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
 
   const { data: existing } = await supabase.auth.mfa.listFactors()
   const verified = (existing?.totp ?? []).filter((f) => f.status === "verified")
@@ -57,10 +58,10 @@ export type EnrolFinish = { ok: true; recoveryCodes: string[] } | { ok: false; e
 /** Verifying the first code is what makes the factor real; the recovery codes follow immediately. */
 export async function confirmTotpEnrolment(factorId: string, code: string): Promise<EnrolFinish> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Sign in to continue." }
+  // D.2 layer 2: identity AND session liveness AND account state AND assurance,
+  // not identity alone. A direct POST meets this whether or not a layout ran.
+  const gate = await guardAction({ allowAalElevation: true }, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error }
 
   const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
   if (challengeError || !challenge) return { ok: false, error: "We couldn't start the check. Try again." }
