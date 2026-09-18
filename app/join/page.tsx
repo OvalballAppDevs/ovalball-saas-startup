@@ -37,17 +37,29 @@ export default async function JoinPage({
 }: {
   searchParams: Promise<{ t?: string; c?: string }>
 }) {
-  const { t } = await searchParams
+  const { t, c } = await searchParams
   const token = t?.trim() || null
+  // A CODE IS A FIRST-CLASS WAY IN, NOT A BLIND ONE.
+  //
+  // `preview_invitation` has always accepted either form, and the canonical
+  // redemption path behind `lib/invitations/redeem.ts` has always redeemed
+  // either, but this page only ever previewed a TOKEN: the
+  // `c` parameter was declared here and never read. So somebody reading a code
+  // down the phone typed it into a box and pressed a button with no idea which
+  // club they were joining or what they were about to be given, while somebody
+  // who clicked a link was told both. Same credential, same authority, two very
+  // different experiences.
+  const code = c?.trim() || null
   const supabase = await createClient()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: preview } = token
-    ? await supabase.rpc("preview_invitation", { p_token: token, p_code: undefined }).maybeSingle()
-    : { data: null }
+  const { data: preview } =
+    token || code
+      ? await supabase.rpc("preview_invitation", { p_token: token ?? undefined, p_code: code ?? undefined }).maybeSingle()
+      : { data: null }
 
   const usable = preview?.state === "usable"
 
@@ -71,15 +83,17 @@ export default async function JoinPage({
       <div className="mx-auto max-w-lg px-4 py-16 md:py-24">
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Invitation</p>
 
-        {token && !preview ? (
+        {(token || code) && !preview ? (
           <>
-            <h1 className="mt-2 font-display text-display-l text-ink">This link can&apos;t be used</h1>
+            <h1 className="mt-2 font-display text-display-l text-ink">
+              {code && !token ? "That code doesn't work" : "This link can't be used"}
+            </h1>
             <p className="mt-3 text-base text-ink/60">
-              It may have been used already, withdrawn, or copied incompletely. Ask whoever invited you to send
-              it again.
+              It may have been used already, withdrawn, or {code && !token ? "typed incorrectly" : "copied incompletely"}. Ask
+              whoever invited you to send it again.
             </p>
           </>
-        ) : token && !usable ? (
+        ) : (token || code) && !usable ? (
           <>
             <h1 className="mt-2 font-display text-display-l text-ink">This invitation is no longer open</h1>
             <p className="mt-3 text-base text-ink/60">
@@ -105,6 +119,7 @@ export default async function JoinPage({
 
         <JoinPanel
           token={token}
+          code={code}
           signedIn={Boolean(user)}
           hasInvitation={Boolean(usable)}
           needsName={Boolean(user) && !hasName}

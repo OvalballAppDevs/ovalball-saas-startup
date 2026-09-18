@@ -22,11 +22,14 @@ const DESTINATION: Record<string, string> = {
 
 export function JoinPanel({
   token,
+  code: previewedCode,
   signedIn,
   hasInvitation,
   needsName,
 }: {
   token: string | null
+  /** A code already in the URL, which the page has previewed. */
+  code: string | null
   signedIn: boolean
   hasInvitation: boolean
   needsName: boolean
@@ -129,11 +132,20 @@ export function JoinPanel({
     )
   }
 
-  // A link that previewed is accepted with one control. Everything else asks for the code.
-  if (hasInvitation && token) {
+  // ANYTHING THAT PREVIEWED IS ACCEPTED WITH ONE CONTROL -- a link or a code.
+  // The code used to go straight from the box to redemption, so the person
+  // typing it never saw which club they were joining or what they were being
+  // given, while somebody clicking a link saw both. The box now takes them to
+  // the same previewed page the link produces.
+  if (hasInvitation && (token || previewedCode)) {
     return (
       <div className="mt-8">
-        <Button type="button" className="h-11 px-6" disabled={pending} onClick={() => submit({ token })}>
+        <Button
+          type="button"
+          className="h-11 px-6"
+          disabled={pending}
+          onClick={() => submit(token ? { token } : { code: previewedCode })}
+        >
           {pending ? "Accepting…" : "Accept Invitation"}
         </Button>
         {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
@@ -146,7 +158,9 @@ export function JoinPanel({
       className="mt-8 rounded-lg border border-ink/10 bg-white p-5"
       onSubmit={(event) => {
         event.preventDefault()
-        submit({ code })
+        // To the previewed page, not straight to redemption. The code is
+        // normalised by the database, so it travels exactly as typed.
+        router.push(`/join?c=${encodeURIComponent(code.trim())}`)
       }}
     >
       <Label htmlFor="invite-code">Invite Code</Label>

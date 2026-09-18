@@ -5,11 +5,19 @@ import { revalidatePath } from "next/cache"
 import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
 import { toPublicSubmissionError } from "@/lib/errors/public-error"
+import type { InvitationShareData } from "@/components/invitations/invitation-share"
+import {
+  describeIntendedOutcome,
+  invitationExpiryLabel,
+  invitationJoinUrl,
+  invitationQrSvg,
+  outcomeLines,
+} from "@/lib/invitations/share"
+import { clubRoleLabel } from "@/lib/permissions/role-labels"
 import { roleKeyLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
-import { getSiteUrl } from "@/lib/site-url"
 
-export type InviteResult = { ok: true; inviteLink: string } | { ok: false; error: string }
+export type InviteResult = { ok: true; share: InvitationShareData } | { ok: false; error: string }
 
 export interface InviteInput {
   clubId: string
@@ -18,7 +26,7 @@ export interface InviteInput {
   declaredRole: string
   /** A role key from `invitationStaffRoleOptions`, never a word invented at the call site. */
   clubRole: string | null
-  teamAssignments: { teamId: string; roleKey: string }[]
+  teamAssignments: { teamId: string; roleKey: string; teamName?: string }[]
 }
 
 export type StaffRoleOption = { roleKey: string; label: string; heldAtTeam: boolean }
@@ -105,7 +113,29 @@ export async function createInvitation(input: InviteInput): Promise<InviteResult
     return { ok: false, error: "That person already has an invitation to this club waiting to be accepted." }
   }
 
-  const inviteLink = `${getSiteUrl()}/join?t=${encodeURIComponent(data.token)}`
+  // The link, the code and the QR are three ways to pass on ONE credential, and
+  // this is the only moment any of them exists: Ovalball stores only their
+  // hashes. Building the share panel's contents here, from what the authority
+  // just returned, is what makes that a product fact rather than a limitation
+  // somebody discovers later.
+  const inviteLink = invitationJoinUrl(data.token)
+  const teamNames = new Map(input.teamAssignments.map((a) => [a.teamId, a.teamName ?? "A team"]))
+  const roleOptions = await invitationStaffRoleOptions()
+  const roleLabels = new Map(roleOptions.map((o) => [o.roleKey, o.label]))
+  const share: InvitationShareData = {
+    url: inviteLink,
+    code: data.code ?? null,
+    qrSvg: await invitationQrSvg(inviteLink),
+    outcome: outcomeLines(
+      describeIntendedOutcome(
+        { roles: clubRoles, teams: teamRoles },
+        (id) => teamNames.get(id) ?? "A team",
+        (key) => roleLabels.get(key) ?? clubRoleLabel(key)
+      )
+    ),
+    expiresLabel: invitationExpiryLabel(data.expires_at ?? null),
+    sentTo: input.email.trim().toLowerCase(),
+  }
 
   // Recipient is resolved from the invitation ROW, not from `input.email`: the address is a property
   // of the invitation this action just created under its own authorization, never an argument the
@@ -124,7 +154,82 @@ export async function createInvitation(input: InviteInput): Promise<InviteResult
   })
 
   revalidatePath("/people")
-  return { ok: true, inviteLink }
+  return { ok: true, share }
+}
+
+/**
+ * RESEND -- WHICH IS A REISSUE, AND THE PRODUCT SAYS SO.
+ *
+ * `resend_invitation` does not email the old secret again, and could not: only
+ * the hashes are stored. It ROTATES both the token and the code, so the previous
+ * link and code stop working the moment it returns, refreshes the expiry from
+ * the kind's own lifetime, keeps the intended outcome and the audit lineage, and
+ * records the resend. That makes it the remedy for a link sent to the wrong
+ * address as well as for one that was lost -- which is worth saying out loud,
+ * because "resend" normally implies the opposite.
+ *
+ * It refuses anything that is not still ISSUED, so a redeemed, revoked or
+ * expired invitation cannot be quietly brought back to life.
+ */
+export async function resendInvitation(invitationId: string): Promise<InviteResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("resend_invitation", { p_invitation_id: invitationId }).maybeSingle()
+  if (error || !data?.token) {
+    console.error("resendInvitation failed:", error)
+    return { ok: false, error: error?.message ?? toPublicSubmissionError() }
+  }
+
+  // The recipient is resolved from the invitation ROW by the email layer, never
+  // from an argument this action could aim somewhere else.
+  const { data: row } = await supabase
+    .from("invitations_admin_view")
+    .select("club_id, invited_email_normalised, intended_outcome")
+    .eq("id", invitationId)
+    .maybeSingle()
+
+  const url = invitationJoinUrl(data.token)
+  if (row?.club_id) {
+    const { data: club } = await supabase.from("clubs").select("club_directory(name)").eq("id", row.club_id).maybeSingle()
+    await sendEmailEvent({
+      supabase,
+      eventKey: "club_invitation",
+      idempotencyKey: `club_invitation:${invitationId}:resend:${data.expires_at}`,
+      recipient: { kind: "access_invitation", invitationId },
+      data: {
+        clubName: (club?.club_directory as unknown as { name: string } | null)?.name ?? "your club",
+        clubLogoUrl: await resolveClubCrestEmailUrl(supabase, row.club_id),
+        inviteToken: data.token,
+        roleLabel: null,
+      },
+    })
+  }
+
+  const roleOptions = await invitationStaffRoleOptions()
+  const roleLabels = new Map(roleOptions.map((o) => [o.roleKey, o.label]))
+  const { data: teams } = row?.club_id
+    ? await supabase.from("teams").select("id, display_name").eq("club_id", row.club_id)
+    : { data: [] }
+  const teamNames = new Map((teams ?? []).map((t) => [t.id, t.display_name]))
+
+  revalidatePath("/people", "layout")
+  return {
+    ok: true,
+    share: {
+      url,
+      code: data.code ?? null,
+      qrSvg: await invitationQrSvg(url),
+      outcome: outcomeLines(
+        describeIntendedOutcome(
+          row?.intended_outcome,
+          (id) => teamNames.get(id) ?? "A team",
+          (key) => roleLabels.get(key) ?? clubRoleLabel(key)
+        )
+      ),
+      expiresLabel: invitationExpiryLabel(data.expires_at ?? null),
+      sentTo: row?.invited_email_normalised ?? null,
+      replacesPrevious: true,
+    },
+  }
 }
 
 /**

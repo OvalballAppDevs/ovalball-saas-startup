@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
+import { InvitationShare, type InvitationShareData } from "@/components/invitations/invitation-share"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,7 +36,7 @@ export function InviteForm({ clubId, clubName, teams, roleOptions }: InviteFormP
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<"idle" | "saving" | "sent" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
-  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [share, setShare] = useState<InvitationShareData | null>(null)
 
   if (!open) {
     return (
@@ -47,7 +48,9 @@ export function InviteForm({ clubId, clubName, teams, roleOptions }: InviteFormP
 
   const teamAssignments = Object.entries(selectedTeams)
     .filter(([, roleKey]) => roleKey)
-    .map(([teamId, roleKey]) => ({ teamId, roleKey }))
+    // The team NAME travels with the assignment so the result panel can say
+    // "Under 12 Boys: Coach" without a second lookup inventing its own wording.
+    .map(([teamId, roleKey]) => ({ teamId, roleKey, teamName: teams.find((t) => t.id === teamId)?.displayName }))
 
   const canSubmit = email.trim().length > 0 && (clubRole || teamAssignments.length > 0)
 
@@ -66,7 +69,7 @@ export function InviteForm({ clubId, clubName, teams, roleOptions }: InviteFormP
     })
     if (result.ok) {
       setStatus("sent")
-      setInviteLink(result.inviteLink)
+      setShare(result.share)
       router.refresh()
     } else {
       setStatus("error")
@@ -74,22 +77,23 @@ export function InviteForm({ clubId, clubName, teams, roleOptions }: InviteFormP
     }
   }
 
-  if (status === "sent" && inviteLink) {
+  if (status === "sent" && share) {
     return (
-      <div className="rounded-lg border border-ink/10 bg-white p-5">
-        <p className="text-sm font-medium text-ink">Invitation created for {email}</p>
-        <p className="mt-1 text-sm text-ink-muted">
-          No email provider is connected yet in development, so share this link with them directly:
-        </p>
-        <code className="mt-2 block truncate rounded-md bg-ink/5 px-3 py-2 text-xs text-ink/70">{inviteLink}</code>
+      <div className="flex flex-col gap-3">
+        {/* THE MOMENT THE CREDENTIAL EXISTS.
+            This used to print the raw link under an apology about development
+            email, and threw the human code away entirely -- so the one artefact
+            a volunteer can read down a phone was generated, hashed and
+            discarded, every time. */}
+        <InvitationShare invitation={share} />
         <Button
           type="button"
           variant="outline"
-          className="mt-3 h-9"
+          className="h-9 self-start"
           onClick={() => {
             setOpen(false)
             setStatus("idle")
-            setInviteLink(null)
+            setShare(null)
             setEmail("")
             setDeclaredRole("")
             setClubRole("")

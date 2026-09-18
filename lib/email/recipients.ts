@@ -40,7 +40,6 @@ import type { Database } from "@/types/database.types"
 
 export type RecipientRef =
   | { kind: "access_invitation"; invitationId: string }
-  | { kind: "club_invitation"; invitationId: string }
   | { kind: "guardian_invitation"; invitationId: string }
   | { kind: "player_account_invitation"; invitationId: string }
   | { kind: "safeguarding_officer"; officerId: string }
@@ -90,17 +89,6 @@ export async function resolveRecipients(
   ref: RecipientRef
 ): Promise<RecipientResolution> {
   switch (ref.kind) {
-    case "club_invitation": {
-      const { data, error } = await supabase
-        .from("invitations")
-        .select("id, invited_email, club_id")
-        .eq("id", ref.invitationId)
-        .maybeSingle()
-      if (error) return { ok: false, reason: `Invitation could not be read: ${error.message}` }
-      if (!data) return { ok: false, reason: "That invitation could not be found." }
-      return one(data.invited_email, data.id, data.club_id)
-    }
-
     case "guardian_invitation": {
       const { data, error } = await supabase
         .from("guardian_invitations")

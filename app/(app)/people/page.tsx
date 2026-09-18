@@ -8,6 +8,7 @@ import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } f
 import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import { clubAdminMembershipAt, getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
+import { describeIntendedOutcome, invitationExpiryLabel, outcomeLines } from "@/lib/invitations/share"
 import { clubRoleLabel, teamPermissionLabel } from "@/lib/permissions/role-labels"
 
 import { invitationStaffRoleOptions } from "./actions"
@@ -17,6 +18,13 @@ import { PendingInvitationRow } from "./pending-invitation-row"
 import { PersonRow, type PersonRowData } from "./person-row"
 
 export const metadata = { title: "Users & Permissions" }
+
+/** The stored states, worded for a person. Derived states are handled beside them. */
+const INVITATION_STATE_LABEL: Record<string, string> = {
+  REDEEMED: "Accepted",
+  REVOKED: "Revoked",
+  EXPIRED: "Expired",
+}
 
 /**
  * "Club Admin" is a strict superset of "Fixture Secretary" authority
@@ -73,7 +81,7 @@ export default async function PeoplePage() {
       supabase.from("teams").select("id, display_name").eq("club_id", clubId).eq("active", true),
       supabase
         .from("invitations_admin_view")
-        .select("id, invited_email_normalised, intended_outcome, expires_at, created_at")
+        .select("id, invited_email_normalised, intended_outcome, expires_at, created_at, issued_by, resend_count, state, use_count, max_uses")
         .eq("club_id", clubId)
         .eq("state", "ISSUED")
         .order("created_at", { ascending: false }),
@@ -134,22 +142,43 @@ export default async function PeoplePage() {
   // Read once, outside the map: an invitation is "expired" relative to a single
   // moment, not to whenever each row happened to be evaluated.
   const now = new Date().getTime()
+  // Who sent each one, from the club's own authorised directory rather than a
+  // second profiles read.
+  const issuerName = new Map((profiles ?? []).map((p) => [p.user_id, [p.first_name, p.surname].filter(Boolean).join(" ")]))
+
   const pendingInvitations = (invitations ?? []).map((inv) => {
-    const outcome = (inv.intended_outcome ?? {}) as { roles?: string[]; teams?: { id: string; roles?: string[] }[] }
-    // Club-wide roles first, then what they get at each named team -- the same
-    // two axes the club chose when it issued the invitation.
-    const clubRoles = (outcome.roles ?? []).filter((r) => !(outcome.teams ?? []).some((t) => (t.roles ?? []).includes(r)))
-    const lines = [
-      ...clubRoles.map((r) => describeRole(r)),
-      ...(outcome.teams ?? []).map((t) => `${teamNameById.get(t.id) ?? "A team"}: ${(t.roles ?? []).map(describeRole).join(", ")}`),
-    ]
+    // The outcome is described from the invitation's OWN record, through the one
+    // shared describer, so a waiting invitation, the panel shown when it was
+    // issued and the panel shown when it is reissued all say the same thing.
+    const lines = outcomeLines(
+      describeIntendedOutcome(inv.intended_outcome, (id) => teamNameById.get(id) ?? "A team", describeRole)
+    )
     const expiresAt = inv.expires_at ? new Date(inv.expires_at) : null
+    const expired = Boolean(expiresAt && expiresAt.getTime() < now)
+    const used = (inv.use_count ?? 0) >= (inv.max_uses ?? 1)
+    // The canonical lifecycle, worded. `state` is the stored value; expiry and
+    // exhaustion are derived from the row exactly as `preview_invitation`
+    // derives them for the recipient, so the club and the person holding the
+    // link are never told two different things.
+    const storedState = inv.state ?? "ISSUED"
+    const status =
+      storedState !== "ISSUED"
+        ? (INVITATION_STATE_LABEL[storedState] ?? storedState)
+        : expired
+          ? "Expired"
+          : used
+            ? "Accepted"
+            : "Pending"
     return {
       id: inv.id as string,
       invitedEmail: (inv.invited_email_normalised as string | null) ?? "Someone",
       outcome: lines,
-      expiresAt: expiresAt ? expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null,
-      expired: Boolean(expiresAt && expiresAt.getTime() < now),
+      expiresAt: invitationExpiryLabel(inv.expires_at),
+      expired,
+      status,
+      issuedBy: inv.issued_by ? issuerName.get(inv.issued_by) || null : null,
+      issuedOn: inv.created_at ? new Date(inv.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : null,
+      resendCount: inv.resend_count ?? 0,
     }
   })
 

@@ -50,7 +50,8 @@ product owner rules that it is not a defect.
 
 | id | finding | found in | owner | status |
 |---|---|---|---|---|
-| L1 | `lib/email/recipients.ts` `club_invitation` branch reads the dead `public.invitations` table | Step 2 | **Step 3 — Invitations & Joining Product Closure** | open |
+| L1 | `lib/email/recipients.ts` `club_invitation` branch read the dead `public.invitations` table | Step 2 | Step 3 | **closed** — deleted as dead code, zero constructors proved |
+| L7 | `accept_invitation` and `get_invitation_preview` are a second, granted role-grant path over the empty `public.invitations` | Step 3 | **the release after this one deploys** | open — contract half of expand→contract |
 | L2 | A Safeguarding Officer nomination in `PENDING_CONFIRMATION` was described two contradictory ways and never as pending | Step 2 manual review preparation | Step 2 | **closed** — one appointment reader, one wording |
 | L3 | The same club role is worded "Fixtures Secretary" in the role catalogue and "Fixture Secretary" everywhere else | Step 2 manual review preparation | presentation mapped in Step 2; **the catalogue key/label inconsistency stays open for its schema owner** | partly open |
 | L4 | The team page told a Team Manager that only a Club Admin can assign people, directly beneath the assign control she may legitimately use | Step 2 manual review preparation | Step 2 | **closed** — the sentence asks the same flags the controls ask |
@@ -324,3 +325,38 @@ still reports the truth:
 
 No sleep, no global timeout change, no weakened assertion, no skip, and no
 product change. Verified under the combined browser load that broke it.
+
+---
+
+## L7 — a second role-grant path, waiting for its contract step
+
+`public.accept_invitation` and `public.get_invitation_preview` are the legacy
+half of the invitation system. They read `public.invitations`, which has held
+zero rows since `issue_invitation` began writing `access_invitations`, and
+`accept_invitation` writes `club_memberships`, `invitation_teams`,
+`access_review_items` and `notifications`. Both are still **granted** —
+`get_invitation_preview` to `anon`.
+
+Nothing can currently be granted through them because their table is empty. That
+is a property of the data, not an authorisation boundary, which is why they are
+recorded rather than left unremarked.
+
+**Step 3 removed the application half** — `app/invite/[token]/`, the only caller
+of either function, with no inbound link and no email template pointing at it.
+
+**The database half is deliberately deferred by one release.** The currently
+deployed application still contains that route; revoking EXECUTE or dropping the
+functions in the same change would strand it between schema states, and the
+programme rule is expand → deploy → contract. The contract step is:
+
+```sql
+revoke execute on function public.accept_invitation(text) from anon, authenticated;
+revoke execute on function public.get_invitation_preview(text) from anon, authenticated;
+drop function public.accept_invitation(text);
+drop function public.get_invitation_preview(text);
+```
+
+to be applied **after this Step 3 release deploys**, not before.
+`public.invitations` itself is retained: it holds no rows, dropping it is not
+required to end its authority, and historical structures are not deleted merely
+because the live path is obsolete.

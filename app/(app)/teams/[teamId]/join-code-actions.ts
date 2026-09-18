@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache"
 
+import type { InvitationShareData } from "@/components/invitations/invitation-share"
 import { toPublicSubmissionError } from "@/lib/errors/public-error"
+import { invitationExpiryLabel, invitationJoinUrl, invitationQrSvg } from "@/lib/invitations/share"
 import { createClient } from "@/lib/supabase/server"
 
 export type TeamJoinCodeRow = {
@@ -13,7 +15,7 @@ export type TeamJoinCodeRow = {
   expiresAt: string
 }
 
-export type CreateJoinCodeResult = { ok: true; code: string } | { ok: false; error: string }
+export type CreateJoinCodeResult = { ok: true; share: InvitationShareData } | { ok: false; error: string }
 export type JoinCodeActionResult = { ok: true } | { ok: false; error: string }
 
 /**
@@ -22,6 +24,15 @@ export type JoinCodeActionResult = { ok: true } | { ok: false; error: string }
  *
  * The code comes back once, from this call, and is never readable again -- only an HMAC of it is
  * stored. So this returns it to the caller and nothing else ever can.
+ *
+ * It also returns a LINK and a QR of that link. A team join code is the same
+ * Slice 5 credential as any other invitation -- one `access_invitations` row,
+ * one `/join` redemption path -- and `issue_invitation` has always handed back
+ * the token alongside the code. Discarding it meant a club could read a code
+ * down the phone but could not put a link in a WhatsApp group or a QR on a
+ * poster at the side of the pitch, which is how a code like this actually
+ * travels. Possession still grants nothing: redemption produces a REQUEST for
+ * somebody at the club to decide.
  */
 export async function createTeamJoinCode(teamId: string): Promise<CreateJoinCodeResult> {
   const supabase = await createClient()
@@ -29,13 +40,24 @@ export async function createTeamJoinCode(teamId: string): Promise<CreateJoinCode
     .rpc("issue_invitation", { p_kind: "TEAM_JOIN_CODE", p_team_id: teamId })
     .maybeSingle()
 
-  if (error || !data?.code) {
+  if (error || !data?.code || !data.token) {
     console.error("createTeamJoinCode failed:", error)
     return { ok: false, error: toPublicSubmissionError() }
   }
 
+  const { data: team } = await supabase.from("teams").select("display_name").eq("id", teamId).maybeSingle()
+  const url = invitationJoinUrl(data.token)
   revalidatePath(`/teams/${teamId}`)
-  return { ok: true, code: data.code }
+  return {
+    ok: true,
+    share: {
+      url,
+      code: data.code,
+      qrSvg: await invitationQrSvg(url),
+      outcome: [`a request to join ${team?.display_name ?? "this team"}`],
+      expiresLabel: invitationExpiryLabel(data.expires_at ?? null),
+    },
+  }
 }
 
 export async function revokeTeamJoinCode(invitationId: string): Promise<JoinCodeActionResult> {

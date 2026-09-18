@@ -249,6 +249,7 @@ SUITES=(
   definer_rpc_session_contract
   email_delivery_result_authority
   users_and_permissions_authority
+  invitation_joining_closure
   club_claim_authority_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences
@@ -466,6 +467,7 @@ BROWSER_SUITES=(
   66-direct-invocation-boundary
   67-club-desk-hierarchy
   68-users-and-permissions
+  69-invitations-and-joining
 )
 
 browser_blocked=""

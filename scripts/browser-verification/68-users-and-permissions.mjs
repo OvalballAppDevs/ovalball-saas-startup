@@ -134,7 +134,10 @@ try {
   // ------------------------------------------------------------------
   record("B1 an invitation nobody has accepted yet is visible at all", main.includes(INVITEE))
   record("B2 and says what it will grant, per team", /Under 12 Boys: Coach/.test(main) && /Under 16 Boys: Team Manager/.test(main))
-  record("B3 and when it runs out", /Expires \d/.test(main))
+  // Step 3 folded the expiry into the row's provenance line -- "Sent by … ·
+  // 18 Sept · expires 25 September 2026" -- rather than giving it a line of its
+  // own, so this asks for the fact rather than for the old sentence.
+  record("B3 and when it runs out", /expires \d+ \w+ \d{4}/i.test(main))
 
   await page.getByRole("button", { name: /^Revoke$/ }).click()
   await page.getByRole("button", { name: /^Confirm$/ }).click()
@@ -162,14 +165,27 @@ try {
   await page.locator("#team-access-role").selectOption("coach")
   await page.locator("#team-access-reason").fill("Stepping up to help with the U16 side.")
   await page.getByRole("button", { name: /^Give Team Role$/ }).click()
-  await page.waitForTimeout(2500)
+  // Wait for the PRODUCT CONDITION -- the role appearing in the held list --
+  // not for a duration. Under the combined browser load of a full platform run
+  // 2.5 seconds was sometimes not enough, and the assertion reported a working
+  // grant as a failure. The wait is allowed to expire: the assertion below still
+  // runs and still reports the truth.
+  await page
+    .locator("section[aria-labelledby=person-team-access] ul li", { hasText: "Under 16 Boys" })
+    .first()
+    .waitFor({ state: "visible", timeout: 20000 })
+    .catch(() => {})
   let held = await heldText()
   record("D1 an existing member can be given a team role from the page about them", /Under 16 Boys/.test(held) && /Coach/.test(held), held.replace(/\s+/g, " "))
   record("D2 and it is a real team_permissions row, not a screen state",
     sql(`select count(*) from public.team_permissions where membership_id = '${membershipId}' and team_id = '${teamU16}' and permission = 'coach'`) === "1")
 
   await page.getByRole("button", { name: /^Remove$/ }).first().click()
-  await page.waitForTimeout(2500)
+  await page
+    .locator("section[aria-labelledby=person-team-access] ul li", { hasText: "Under 16 Boys" })
+    .first()
+    .waitFor({ state: "detached", timeout: 20000 })
+    .catch(() => {})
   held = await heldText()
   record("D3 and taken away again from the same place", !/Under 16 Boys/.test(held))
 

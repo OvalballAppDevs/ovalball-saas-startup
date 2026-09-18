@@ -4,6 +4,8 @@ import { useState, useTransition } from "react"
 
 import { Button } from "@/components/ui/button"
 
+import { InvitationShare, type InvitationShareData } from "@/components/invitations/invitation-share"
+
 import { createTeamJoinCode, revokeTeamJoinCode, type TeamJoinCodeRow } from "./join-code-actions"
 
 /**
@@ -18,7 +20,7 @@ import { createTeamJoinCode, revokeTeamJoinCode, type TeamJoinCodeRow } from "./
  * who can reach this page is a standing key to a children's team.
  */
 export function JoinCodeSection({ teamId, codes }: { teamId: string; codes: TeamJoinCodeRow[] }) {
-  const [issued, setIssued] = useState<string | null>(null)
+  const [issued, setIssued] = useState<InvitationShareData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, start] = useTransition()
 
@@ -30,7 +32,7 @@ export function JoinCodeSection({ teamId, codes }: { teamId: string; codes: Team
         setError(result.error)
         return
       }
-      setIssued(result.code)
+      setIssued(result.share)
     })
   }
 
@@ -51,14 +53,14 @@ export function JoinCodeSection({ teamId, codes }: { teamId: string; codes: Team
         appears as a join request for someone at the club to accept or decline.
       </p>
 
+      {/* THE SAME PANEL EVERY OTHER INVITATION USES.
+          A team join code is the same Slice 5 credential as a staff invitation --
+          one access_invitations row, one /join redemption. Printing it as a bare
+          string here, while a club invitation got a link and a QR elsewhere, made
+          two things that are one thing look like two products. */}
       {issued && (
-        <div className="mt-4 rounded-lg bg-mint-100 px-4 py-4">
-          <p className="text-sm font-medium text-forest-950">Write this down now.</p>
-          <p className="mt-2 font-mono text-2xl tracking-[0.18em] text-forest-950">{issued}</p>
-          <p className="mt-2 text-sm text-forest-950/80">
-            Ovalball stores only a one-way hash of this code, so it cannot be shown again. If it is
-            lost, revoke it and make a new one.
-          </p>
+        <div className="mt-4">
+          <InvitationShare invitation={issued} />
         </div>
       )}
 
