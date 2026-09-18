@@ -4,11 +4,16 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
+  Building2,
   CalendarDays,
   ChevronDown,
   Ellipsis,
   LifeBuoy,
+  MessageSquare,
   Receipt,
+  Settings,
+  ShieldCheck,
+  Shirt,
   Users,
   type LucideIcon,
 } from "lucide-react"
@@ -32,11 +37,16 @@ import type { NavItem } from "./app-nav"
  * the session already had, and every route re-checks authorization itself.
  */
 const ICONS: Record<string, LucideIcon> = {
+  Building2,
   CalendarDays,
-  Users,
-  Receipt,
-  LifeBuoy,
   Ellipsis,
+  LifeBuoy,
+  MessageSquare,
+  Receipt,
+  Settings,
+  ShieldCheck,
+  Shirt,
+  Users,
 }
 
 export function NavSections({

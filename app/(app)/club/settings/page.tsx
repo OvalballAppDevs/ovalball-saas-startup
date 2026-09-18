@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import Link from "next/link"
-import { Building2, CalendarSync, ChevronRight, MapPin, Users, LayoutGrid, ShieldCheck, CreditCard, Receipt, Newspaper } from "lucide-react"
+import { Building2, CalendarSync, ChevronRight, CreditCard, KeyRound, LayoutGrid, MapPin, Newspaper, Receipt, ShieldCheck, Users } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { hasCapability } from "@/lib/permissions/has-capability"
+import { resolveClubSettingsNavCapabilities } from "./resolve-nav-capabilities"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -54,25 +54,37 @@ export default async function ClubSettingsHubPage() {
   // Fixture Secretary}, the identical set the historical Teams nav item
   // used, and nothing broader (unlike fixture.view/club.view, which
   // ordinary club members also hold).
-  const [canProfile, canVenues, canPitches, canRollover, canPitchAllocation, canPlayerMoves, canGuardians, canSubscriptionConfigure, canSubscriptionViewFinance, canOvalballBilling] = clubId
-    ? await Promise.all([
-        hasCapability(supabase, "club.profile.edit", "club", { clubId }),
-        hasCapability(supabase, "venue.venue.manage", "club", { clubId }),
-        hasCapability(supabase, "venue.pitch.manage", "club", { clubId }),
-        hasCapability(supabase, "team.handover.prepare", "club", { clubId }),
-        hasCapability(supabase, "fixture.edit", "club", { clubId }),
-        hasCapability(supabase, "manage_fixture_callups", "club", { clubId }),
-        hasCapability(supabase, "club.guardians.manage", "club", { clubId }),
-        hasCapability(supabase, "finance.subscription.configure", "club", { clubId }),
-        hasCapability(supabase, "finance.subscription.view", "club", { clubId }),
-        hasCapability(supabase, "finance.platform_billing.view", "club", { clubId }),
-      ])
-    : [false, false, false, false, false, false, false, false, false, false]
-  const canNews = clubId ? await hasCapability(supabase, "club.news.manage", "club", { clubId }) : false
-  const canTeams = canProfile || canPitches
-  const canSubscriptions = canSubscriptionConfigure || canSubscriptionViewFinance
+  // THE ONE CANONICAL RESOLUTION, CONSUMED RATHER THAN REPEATED.
+  //
+  // This hub used to derive its own list of ten capability checks. Two were missing from it --
+  // people.capability.manage and safeguarding.officer.nominate -- so a Club Admin who held both saw
+  // neither Permissions nor Safeguarding Officer here, while the tab strip on /club and /club/venues
+  // showed them and both pages rendered perfectly when their URL was typed. A hidden finished feature
+  // is worse than a missing one, because nobody looks for it.
+  //
+  // It also asked club.guardians.manage where the shared resolver asks family.relationship.approve,
+  // which is the same drift in a second place.
+  const caps = await resolveClubSettingsNavCapabilities(supabase, clubId)
+  const {
+    canProfile,
+    canVenues,
+    canPitchAllocation,
+    canPlayerMoves,
+    canGuardians,
+    canPermissions,
+    canSafeguarding,
+    canRollover,
+    canSubscriptions,
+    canOvalballBilling,
+    canNews,
+    canTeams,
+  } = caps
 
-  if (!canProfile && !canTeams && !canVenues && !canRollover && !canPitchAllocation && !canGuardians && !canSubscriptions && !canOvalballBilling && !canNews)
+
+  if (
+    !canProfile && !canTeams && !canVenues && !canRollover && !canPitchAllocation && !canGuardians &&
+    !canPermissions && !canSafeguarding && !canSubscriptions && !canOvalballBilling && !canNews
+  )
     redirect("/dashboard")
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"
@@ -119,6 +131,20 @@ export default async function ClubSettingsHubPage() {
       icon: ShieldCheck,
       title: "Guardians & Players",
       description: "Guardian relationships, duplicate-player review, and player-record safeguarding.",
+    },
+    // The two the hub used to resolve for itself, and so never showed. Both pages were finished and
+    // both rendered when their URL was typed; only the door was missing.
+    canPermissions && {
+      href: "/club/permissions",
+      icon: KeyRound,
+      title: "Permissions",
+      description: "What each person at this club may do, beyond what their role already allows.",
+    },
+    canSafeguarding && {
+      href: "/club/settings/safeguarding",
+      icon: ShieldCheck,
+      title: "Safeguarding Officer",
+      description: "Who holds the club's Safeguarding Officer appointment, and how it is changed.",
     },
     canSubscriptions && {
       href: "/club/settings/subscriptions",

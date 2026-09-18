@@ -1,3 +1,5 @@
+import type { ClubSettingsNavCapabilities } from "@/app/(app)/club/settings/resolve-nav-capabilities"
+
 import type { SwitchableContext } from "./active-context"
 import { canManageClubFixturesAnywhere, isViewOnlyEverywhere, manageableTeams, type SessionContext } from "./session-context"
 
@@ -33,23 +35,41 @@ export interface NavSection {
  */
 const SITE_ADMIN_SECTIONS: { key: string; label: string; icon: string; hrefs: string[] }[] = [
   {
-    key: "rugby",
-    label: "Rugby Operations",
-    icon: "CalendarDays",
-    hrefs: ["/admin/fixtures", "/calendar", "/admin/competitions", "/admin/seasons", "/admin/lookups", "/admin/scheduling-defaults"],
+    key: "access",
+    label: "Users & Permissions",
+    icon: "Users",
+    hrefs: ["/admin/users", "/admin/permissions", "/admin/site-admins"],
   },
   {
     key: "clubs",
-    label: "Clubs & People",
-    icon: "Users",
+    label: "Clubs & Teams",
+    icon: "Building2",
+    hrefs: ["/admin/clubs", "/admin/claims", "/admin/team-directory", "/admin/documents"],
+  },
+  {
+    key: "rugby",
+    label: "Fixtures & Competitions",
+    icon: "CalendarDays",
     hrefs: [
-      "/admin/clubs",
-      "/admin/claims",
-      "/admin/team-directory",
-      "/admin/users",
-      "/admin/permissions",
-      "/admin/documents",
+      "/admin/fixtures",
+      "/admin/competitions",
+      "/calendar",
+      "/admin/seasons",
+      "/admin/scheduling-defaults",
+      "/admin/lookups",
     ],
+  },
+  {
+    key: "safeguarding",
+    label: "Safeguarding",
+    icon: "ShieldCheck",
+    hrefs: ["/admin/safeguarding"],
+  },
+  {
+    key: "comms",
+    label: "Communications & Support",
+    icon: "LifeBuoy",
+    hrefs: ["/admin/support", "/admin/messages", "/admin/email"],
   },
   {
     key: "commercial",
@@ -58,17 +78,55 @@ const SITE_ADMIN_SECTIONS: { key: string; label: string; icon: string; hrefs: st
     hrefs: ["/admin/commercial"],
   },
   {
-    key: "system",
-    label: "Support & System",
-    icon: "LifeBuoy",
-    hrefs: [
-      "/admin/support",
-      "/admin/messages",
-      "/admin/email",
-      "/admin/system-health",
-      "/admin/releases",
-      "/admin/site-admins",
-    ],
+    // Not a job anybody signs in to do. Keeping platform maintenance out of the jobs above is the
+    // whole point of grouping: a console that lists System Health beside Claims is a route list.
+    key: "platform",
+    label: "Platform & Maintenance",
+    icon: "Settings",
+    hrefs: ["/admin/system-health", "/admin/releases"],
+  },
+]
+
+/**
+ * THE CLUB'S OWN GROUPING, by the job somebody came to do.
+ *
+ * Club navigation was nine flat links, which is where "People" and "Deleted Calendar Events" sat at
+ * the same level -- one of them a daily job and the other a recycle bin. The groups below are the
+ * jobs; the destinations inside them are exactly what `buildNavItems` already decided this person may
+ * see, so grouping adds no destination and removes none.
+ */
+const CLUB_SECTIONS: { key: string; label: string; icon: string; hrefs: string[] }[] = [
+  {
+    key: "access",
+    label: "Users & Permissions",
+    icon: "Users",
+    hrefs: ["/people", "/club/permissions", "/club/join-requests", "/club/settings/guardians", "/club/settings/safeguarding"],
+  },
+  {
+    key: "teams",
+    label: "Teams",
+    icon: "Shirt",
+    hrefs: ["/teams"],
+  },
+  {
+    key: "rugby",
+    label: "Fixtures & Calendar",
+    icon: "CalendarDays",
+    hrefs: ["/fixtures/management", "/calendar", "/partner-clubs", "/club/player-moves"],
+  },
+  {
+    key: "comms",
+    label: "Communications",
+    icon: "MessageSquare",
+    hrefs: ["/messages", "/documents"],
+  },
+  {
+    key: "management",
+    label: "Club Management",
+    icon: "Settings",
+    // The bin lives here, with the other things you go looking for on purpose, rather than beside the
+    // jobs people arrive to do.
+    hrefs: ["/club/training", "/club/settings", "/club/calendar/deleted-events"],
   },
 ]
 
@@ -86,6 +144,37 @@ const SITE_ADMIN_SECTIONS: { key: string; label: string; icon: string; hrefs: st
  * oddly-placed link instead of a silently unreachable one.
  */
 export function buildSiteAdminSections(items: NavItem[]): { top: NavItem[]; sections: NavSection[] } {
+  return groupNavItems(items, SITE_ADMIN_SECTIONS)
+}
+
+/**
+ * The same grouping, over the club's catalogue. One function rather than two, because two would be
+ * the very drift Step 0 found: the moment the rule for "what happens to a destination nobody mapped"
+ * exists twice, the two answers stop matching.
+ */
+export function buildClubSections(items: NavItem[], activeTeamId?: string | null): { top: NavItem[]; sections: NavSection[] } {
+  // A team context's own destinations are addressed by the team's id, so its group is assembled for
+  // the team actually being operated as rather than declared as a constant. Everything else -- the
+  // fixtures, the calendar, the messages a team manager also holds -- falls into the club groups
+  // below, because they are the same jobs at a narrower scope.
+  const spec = activeTeamId
+    ? [
+        {
+          key: "team",
+          label: "Team",
+          icon: "Shirt",
+          hrefs: [`/teams/${activeTeamId}`, `/teams/${activeTeamId}/player-requests`],
+        },
+        ...CLUB_SECTIONS,
+      ]
+    : CLUB_SECTIONS
+  return groupNavItems(items, spec)
+}
+
+function groupNavItems(
+  items: NavItem[],
+  spec: { key: string; label: string; icon: string; hrefs: string[] }[]
+): { top: NavItem[]; sections: NavSection[] } {
   const byHref = new Map(items.map((i) => [i.href, i]))
   const top: NavItem[] = []
   const claimed = new Set<string>()
@@ -97,9 +186,9 @@ export function buildSiteAdminSections(items: NavItem[]): { top: NavItem[]; sect
   }
 
   const sections: NavSection[] = []
-  for (const spec of SITE_ADMIN_SECTIONS) {
+  for (const group of spec) {
     const sectionItems: NavItem[] = []
-    for (const href of spec.hrefs) {
+    for (const href of group.hrefs) {
       const item = byHref.get(href)
       if (item) {
         sectionItems.push(item)
@@ -107,7 +196,7 @@ export function buildSiteAdminSections(items: NavItem[]): { top: NavItem[]; sect
       }
     }
     if (sectionItems.length > 0) {
-      sections.push({ key: spec.key, label: spec.label, icon: spec.icon, items: sectionItems })
+      sections.push({ key: group.key, label: group.label, icon: group.icon, items: sectionItems })
     }
   }
 
@@ -131,7 +220,16 @@ export function buildSiteAdminSections(items: NavItem[]): { top: NavItem[]; sect
  */
 export function buildNavItems(
   ctx: SessionContext,
-  activeContext: SwitchableContext
+  activeContext: SwitchableContext,
+  /**
+   * The canonical club capability decisions, already resolved once for this request by
+   * `resolveClubSettingsNavCapabilities`. Navigation consumes them rather than re-deriving them:
+   * Step 0 found the Club Settings hub doing exactly that and silently hiding two finished features
+   * from a Club Admin who held their capabilities. One destination, one authority rule.
+   *
+   * Null where a context has no club (Site Admin, a family view spanning clubs).
+   */
+  clubNav: ClubSettingsNavCapabilities | null = null
 ): { primary: NavItem[]; roleLabel: string; clubName: string; clubLogoUrl: string | null } {
   const items: NavItem[] = [{ href: "/dashboard", label: "Dashboard" }]
   const viewOnly = isViewOnlyEverywhere(ctx)
@@ -196,8 +294,21 @@ export function buildNavItems(
     return { primary: parentItems, roleLabel: activeContext.roleLabel, clubName: activeContext.label, clubLogoUrl: activeContext.logoUrl }
   }
 
+  // THE TEAM ITSELF, FOR THE PEOPLE WHO RUN IT.
+  //
+  // Step 0 found a legitimate Team Manager could reach their own team only by typing its URL: the
+  // teams LIST is club-authority-gated and refuses them, and nothing else pointed at the team. The
+  // destination comes from the ACTIVE context -- the team this session has already been resolved
+  // into -- so it can never name a team the person does not hold, and a multi-team identity sees the
+  // one they are operating as rather than a list of all of them.
+  if (inTeamContext && activeContext.id) {
+    items.push({ href: `/teams/${activeContext.id}`, label: activeContext.label })
+  }
+
+  // Calendar keeps the team's name ONLY where the team page is not already carrying it; two adjacent
+  // links reading "Under 12 Boys" would say nothing about which is which.
   const calendarLabel = inTeamContext
-    ? activeContext.label
+    ? "Calendar"
     : viewOnly && ctx.teamPermissions.length === 1
       ? ctx.teamPermissions[0].teamDisplayName
       : "Calendar"
@@ -260,6 +371,21 @@ export function buildNavItems(
       }
       if (activeContext.kind === "club" && activeContext.roleLabel === "Club Admin") {
         items.push({ href: "/people", label: "People" })
+        // USERS & PERMISSIONS, IN ONE PLACE.
+        //
+        // These three were the Step 0 finding in miniature: People was in the navigation, Permissions
+        // was hidden behind a hub that re-derived its own capability list, and Join Requests was
+        // linked from nowhere at all. All three are the same job -- who may do what here -- and the
+        // grouping below puts them together under that name.
+        //
+        // The decisions come from the canonical resolver, not from a role string: a Club Admin who
+        // does not hold people.capability.manage does not get Permissions, and somebody who is not a
+        // Club Admin at all never reaches this branch.
+        if (clubNav?.canPermissions) items.push({ href: "/club/permissions", label: "Permissions" })
+        items.push({ href: "/club/join-requests", label: "Join Requests" })
+        if (clubNav?.canGuardians) items.push({ href: "/club/settings/guardians", label: "Guardians & Players" })
+        if (clubNav?.canSafeguarding) items.push({ href: "/club/settings/safeguarding", label: "Safeguarding Officer" })
+        if (clubNav?.canTeams) items.push({ href: "/teams", label: "Teams" })
         // SIDE PROJECT 2 -- Training Management (Section 5): a dedicated
         // primary nav section, not buried inside Calendar/Pitch
         // Allocation/Club Settings. club.training.manage is Club-Admin-only
@@ -272,6 +398,10 @@ export function buildNavItems(
         // training -- Club-Admin-gated exactly like Training Management
         // above (the page/view itself re-checks real RLS regardless).
         items.push({ href: "/club/calendar/deleted-events", label: "Deleted Calendar Events" })
+        // The club administration hub, named. Until now the only door to venues, the season handover,
+        // the club profile and the rest was a 16px unlabelled gear beside the identity block -- which
+        // is a fine shortcut and a poor entrance.
+        items.push({ href: "/club/settings", label: "Club Settings" })
       }
     }
   }
@@ -304,6 +434,9 @@ export function buildNavItems(
       { href: "/admin/releases", label: "Release & Platform Mode" },
       // Money across every club: only with commercial visibility.
       { href: "/admin/commercial", label: "Commercial", needs: ["site.commercial.view"] },
+      // Step 0 found this finished surface -- Safeguarding Officer capability control across every
+      // club -- linked from nothing but its own action file.
+      { href: "/admin/safeguarding", label: "Safeguarding Officers", needs: ["site.users.view"] },
     ]
     for (const section of siteSections) {
       if (!section.needs || section.needs.some(holds)) items.push({ href: section.href, label: section.label })

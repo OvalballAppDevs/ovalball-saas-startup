@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation"
 import { cookies, headers } from "next/headers"
 
-import { ACTIVE_CONTEXT_COOKIE, isFamilyFacingContext, listSwitchableContexts, resolveActiveContext } from "@/lib/app-context/active-context"
-import { buildNavItems, buildSiteAdminSections } from "@/lib/app-context/build-nav-items"
+import { ACTIVE_CONTEXT_COOKIE, activeClubId, isFamilyFacingContext, listSwitchableContexts, resolveActiveContext } from "@/lib/app-context/active-context"
+import { buildClubSections, buildNavItems, buildSiteAdminSections } from "@/lib/app-context/build-nav-items"
 import { getMessengerRows } from "@/lib/app-context/messenger-rows"
 import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
 import { getRecentNotifications } from "@/lib/app-context/notifications"
@@ -11,6 +11,8 @@ import { resolvePersonalAvatarUrl } from "@/lib/app-context/personal-avatar"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { getClubSetupState, isSetupAllowedPath, resumeStep } from "@/lib/club-setup/state"
 import { hasCapability } from "@/lib/permissions/has-capability"
+
+import { resolveClubSettingsNavCapabilities } from "./club/settings/resolve-nav-capabilities"
 import { getBetaBadgeState } from "@/lib/platform/mode"
 import { getNewSupportTicketCount } from "@/lib/support/badges"
 import { requireSession, sessionRefusal } from "@/lib/auth/require-session"
@@ -96,7 +98,16 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   const cookieStore = await cookies()
   const contexts = listSwitchableContexts(ctx)
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
-  const { primary, roleLabel, clubName } = buildNavItems(ctx, activeContext)
+  // ONE RESOLUTION, THREE CONSUMERS.
+  //
+  // `resolveClubSettingsNavCapabilities` is the canonical club decision, and `hasCapability` batches
+  // every question about one scope into a single request-cached `my_capabilities` call -- so asking it
+  // here costs one round trip and gives navigation, the Club Settings hub and the club page the same
+  // answers. Step 0's one confirmed regression was the hub deciding this for itself and hiding two
+  // finished features from somebody who held their capabilities.
+  const navClubId = activeClubId(ctx, activeContext)
+  const clubNavCapabilities = navClubId ? await resolveClubSettingsNavCapabilities(supabase, navClubId) : null
+  const { primary, roleLabel, clubName } = buildNavItems(ctx, activeContext, clubNavCapabilities)
   // ONE UNREAD READ FOR THREE BADGES. getUnreadCounts is the single source:
   // the bell, Messenger and Support each take their own slice of it, so no
   // notification is counted in two places and clearing one badge moves the
@@ -199,10 +210,18 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   // navigation untouched. Both the sidebar and the drawer receive the same
   // two structures, so the two surfaces cannot drift into different
   // taxonomies.
-  const { top: navTop, sections: navSections } =
-    activeContext.kind === "site_admin"
+  // Grouping is applied to the ALREADY capability-filtered list, never instead of filtering it. Both
+  // the sidebar and the drawer receive the same two structures, so the two surfaces cannot drift into
+  // different taxonomies -- and a club now gets the same treatment Site Admin has had all along.
+  // Setup is deliberately left flat: a half-built club has four destinations and grouping them would
+  // be ceremony.
+  const { top: navTop, sections: navSections } = setupInProgress
+    ? { top: [] as typeof navPrimary, sections: [] }
+    : activeContext.kind === "site_admin"
       ? buildSiteAdminSections(navPrimary)
-      : { top: [] as typeof navPrimary, sections: [] }
+      : activeContext.kind === "club" || activeContext.kind === "team"
+        ? buildClubSections(navPrimary, activeContext.kind === "team" ? activeContext.id : null)
+        : { top: [] as typeof navPrimary, sections: [] }
 
   return (
     <SwitchContextProvider>
