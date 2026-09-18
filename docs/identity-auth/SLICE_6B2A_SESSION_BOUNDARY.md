@@ -338,3 +338,38 @@ written — rather than by inventing a role.
 A third finding, the `internal` schema grant surface, is recorded for a later unit in
 `SLICE_6B2A_INTERNAL_SCHEMA_PERIMETER.md` with a cheap regression guard
 (`supabase/tests/js/api_schema_perimeter.test.mts`) and **no production configuration change**.
+
+---
+
+# Correction, made at release time: the SO-7 defect was live, not latent
+
+This record said, in two places, that the social-signup null-token defect was **latent rather than
+live** because *"no OAuth provider is configured locally, and production has none enabled (`external`
+lists `email` only)"*.
+
+**That is wrong.** Measured against production at release time, on 18 September:
+
+```
+external providers enabled: {'google': True, 'email': True}
+```
+
+and the served `/signup` page renders **Continue with Google**.
+
+So for as long as `app/signup/steps/account-step.tsx` handed `SocialAuthButtons` a hardcoded
+`turnstileToken={null}` while leaving the buttons enabled, a person choosing Google on signup met a
+server-side challenge refusal. The defect was **live in production**, and this release repairs it
+rather than pre-empting it.
+
+The earlier measurement was either taken before Google was switched on or was simply wrong; the
+conversation does not contain enough to say which, and it does not matter to the correction. What
+matters is that the severity stated in the release review was understated, and the record should not
+be left saying so.
+
+**Verified in the served bundle at release time, without a provider UAT:** the client chunk that
+renders *Continue with Google* contains **zero** occurrences of the `turnstileToken:null` literal, and
+does reference the challenge token prop. No Google sign-in was performed, no provider setting was
+changed, and no production Auth configuration was touched.
+
+**SO-7 status is unchanged in substance and corrected in its reason:** it remains
+**CODE + STATE-MACHINE VERIFIED, REAL PROVIDER UAT PENDING** — not because no provider is enabled, but
+because provider UAT was outside this release's authority.
