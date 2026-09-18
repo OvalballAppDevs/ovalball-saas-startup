@@ -4,6 +4,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { clubRoleLabel } from "@/lib/permissions/role-labels"
 
 import { decideJoinRequest } from "./actions"
 
@@ -46,7 +47,11 @@ export function JoinRequestRow({ request }: { request: JoinRequestData }) {
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">{request.name}</p>
           <p className="text-xs text-ink-muted">
-            {request.requestedRole ? `Says they are: ${request.requestedRole}` : "No role given"} &middot; asked{" "}
+            {/* `requested_role` is a `club_memberships.role` value, so it gets the
+                canonical wording rather than being printed raw -- it read "Says
+                they are: BASIC_USER" on a screen an administrator uses to decide
+                whether to let somebody into their club. */}
+            {request.requestedRole ? `Asked to join as: ${clubRoleLabel(request.requestedRole)}` : "No role given"} &middot; asked{" "}
             {new Date(request.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
           </p>
         </div>

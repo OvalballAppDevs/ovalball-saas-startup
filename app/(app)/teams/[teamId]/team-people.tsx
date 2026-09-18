@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { TEAM_STAFF_PERMISSION_OPTIONS } from "@/lib/permissions/role-labels"
 
 import {
   approveTeamJoinRequest,
@@ -52,11 +53,8 @@ export interface ClubMemberOption {
 }
 
 /** Kept for the assignment control, which still speaks in single permissions. */
-const PERMISSION_OPTIONS = [
-  { value: "team_admin", label: "Team Admin" },
-  { value: "coach", label: "Coach" },
-  { value: "manager", label: "Manager" },
-] as const
+/** The canonical three, not a fourth local copy of their wording. */
+const PERMISSION_OPTIONS = TEAM_STAFF_PERMISSION_OPTIONS
 
 type TabKey = "coach" | "guardian" | "player" | "requests"
 

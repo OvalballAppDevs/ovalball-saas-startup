@@ -20,6 +20,8 @@ export interface MemberCapability {
 export interface ClubMember {
   userId: string
   name: string
+  /** So a row whose person has no name recorded is still identifiable. */
+  email: string
   roleLabel: string
   capabilities: MemberCapability[]
 }
@@ -110,7 +112,9 @@ export function ClubPermissionsPanel({ clubId, members }: { clubId: string; memb
             >
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium text-ink">{member.name}</span>
-                <span className="block text-xs text-ink-muted">{member.roleLabel}</span>
+                <span className="block truncate text-xs text-ink-muted">
+                  {[member.roleLabel, member.email].filter(Boolean).join(" · ")}
+                </span>
               </span>
               <span className="text-xs text-ink-muted">
                 {granted} of {member.capabilities.length} allowed

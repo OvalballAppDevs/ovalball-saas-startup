@@ -119,11 +119,64 @@ export async function createInvitation(input: InviteInput): Promise<InviteResult
   return { ok: true, inviteLink }
 }
 
-export async function revokeInvitation(invitationId: string): Promise<{ ok: boolean; error?: string }> {
+/**
+ * THE CANONICAL REVOCATION, AGAINST THE TABLE THE INVITATION IS ACTUALLY IN.
+ *
+ * This used to write `status = 'revoked'` straight into `public.invitations`.
+ * That table is not where invitations live: `issue_invitation` -- the authority
+ * `createInvitation` above has called since Slice 5 -- writes
+ * `public.access_invitations`, and `public.invitations` has held zero rows ever
+ * since. So the update matched nothing, returned no error, and the button
+ * reported success. It was never reachable anyway, because the page listing
+ * pending invitations read the same empty table and therefore never drew a row.
+ *
+ * `revoke_invitation` is the authority: it checks the caller may revoke THIS
+ * invitation, records who revoked it and why, and refuses to revoke one that
+ * has already been redeemed. A reason is required, so one is always sent.
+ */
+export async function revokeInvitation(invitationId: string, reason: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()
-  const { error } = await supabase.from("invitations").update({ status: "revoked" }).eq("id", invitationId)
+  const { error } = await supabase.rpc("revoke_invitation", {
+    p_invitation_id: invitationId,
+    p_reason: reason.trim() || "Withdrawn by the club.",
+  })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/people")
+  return { ok: true }
+}
+
+/**
+ * GIVES AN EXISTING MEMBER A ROLE AT ONE TEAM, FROM THE PAGE ABOUT THAT PERSON.
+ *
+ * `set_team_access` is not new and is not unused: `assignTeamMember` on
+ * /teams/[teamId] has called it since the team surface was built. What was
+ * missing was the CLUB-scope way in. A Club Admin looking at one person could
+ * see every team role they held and change none of them, because the only place
+ * a team role could be given was the page for one team, one team at a time --
+ * so "give Nadia Coach at the U14s" started by working out which page the U14s
+ * were on. The same authority, reached from the person instead of the team.
+ *
+ * Nothing is validated here. The permission comes from the canonical team role
+ * list and the database decides whether this caller may set it on this team --
+ * it refuses self-assignment, refuses to let Team Administration hand out or
+ * reassign Team Admin, and enforces the adult-record rule for staff roles.
+ */
+export async function grantTeamAccess(
+  membershipId: string,
+  teamId: string,
+  permission: string,
+  reason: string
+): Promise<MembershipActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("set_team_access", {
+    p_membership_id: membershipId,
+    p_team_id: teamId,
+    p_permission: permission,
+    p_reason: reason.trim() || undefined,
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/people")
+  revalidatePath(`/people/${membershipId}`)
   return { ok: true }
 }
 
@@ -168,7 +221,7 @@ export async function removeTeamAssignment(teamPermissionId: string): Promise<Me
   const supabase = await createClient()
   const { error } = await supabase.rpc("remove_team_access", { p_team_permission_id: teamPermissionId })
   if (error) return { ok: false, error: error.message }
-  revalidatePath("/people")
+  revalidatePath("/people", "layout")
   return { ok: true }
 }
 

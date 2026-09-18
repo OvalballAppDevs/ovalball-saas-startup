@@ -280,12 +280,34 @@ export async function getSessionContext(
   }
 }
 
+/**
+ * The club-wide administrator role, named once so that the surfaces asking
+ * "is this session a Club Admin, and where?" all ask the same question of the
+ * same value rather than each spelling the membership role out again.
+ */
+const clubAdminRole: ClubRole = "CLUB_ADMIN"
+
 export function isClubAdminAnywhere(ctx: SessionContext): boolean {
-  return ctx.clubMemberships.some((m) => m.role === "CLUB_ADMIN")
+  return ctx.clubMemberships.some((m) => m.role === clubAdminRole)
+}
+
+/**
+ * THIS session's Club Admin membership of ONE named club, or null.
+ *
+ * The people surfaces resolve the active context to a club and then have to
+ * check that the session is actually that club's Club Admin there -- never
+ * merely a Club Admin somewhere, which was a real, live-confirmed leak (Parent
+ * View could see and edit every member of a club the account administered).
+ * Both the Users & Permissions centre and the page about one person need the
+ * identical answer, so they ask for it here instead of each rebuilding it.
+ */
+export function clubAdminMembershipAt(ctx: SessionContext, clubId: string | null): ClubMembershipContext | null {
+  if (!clubId) return null
+  return ctx.clubMemberships.find((m) => m.clubId === clubId && m.role === clubAdminRole) ?? null
 }
 
 export function canManageClubFixturesAnywhere(ctx: SessionContext): boolean {
-  return ctx.clubMemberships.some((m) => m.role === "CLUB_ADMIN" || m.role === "FIXTURE_SECRETARY")
+  return ctx.clubMemberships.some((m) => m.role === clubAdminRole || m.role === "FIXTURE_SECRETARY")
 }
 
 /**
@@ -296,7 +318,7 @@ export function canManageClubFixturesAnywhere(ctx: SessionContext): boolean {
  * can_manage_club_fixtures check.
  */
 export function manageableClubId(ctx: SessionContext): string | null {
-  return ctx.clubMemberships.find((m) => m.role === "CLUB_ADMIN" || m.role === "FIXTURE_SECRETARY")?.clubId ?? null
+  return ctx.clubMemberships.find((m) => m.role === clubAdminRole || m.role === "FIXTURE_SECRETARY")?.clubId ?? null
 }
 
 /** Teams this user has any explicit write authority over (not view_only). */

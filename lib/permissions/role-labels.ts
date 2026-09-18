@@ -66,6 +66,24 @@ export const TEAM_PERMISSION_OPTIONS: { value: TeamPermissionValue; label: strin
 ]
 
 /**
+ * THE ROLES A CLUB HANDS OUT, WHICH IS THE FULL LIST MINUS ONE.
+ *
+ * `view_only` is deliberately absent, and this is a FILTER of the canonical list
+ * rather than a shorter copy of it, so a future role cannot appear in one and
+ * not the other. What it excludes is what a parent or player holds at a team,
+ * which arrives through guardianship and squad membership -- offering it beside
+ * Coach and Manager invites an administrator to create a relationship by picking
+ * its label. The team surface at /teams/[teamId] has always offered exactly
+ * these for that reason; it kept its own copy of their wording, which is how it
+ * could have drifted from the canonical labels without anything noticing.
+ */
+export type TeamStaffPermission = Exclude<TeamPermissionValue, "view_only">
+
+export const TEAM_STAFF_PERMISSION_OPTIONS = TEAM_PERMISSION_OPTIONS.filter(
+  (o): o is { value: TeamStaffPermission; label: string } => o.value !== "view_only"
+)
+
+/**
  * Safe lookups for a value read back from the database as a plain
  * `string` (every real caller's actual situation, per the note above) --
  * falls back to the raw value itself rather than throwing or rendering

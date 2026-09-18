@@ -74,8 +74,14 @@ export default async function ClubPermissionsPage() {
   // returns the viewer's own row, so every other person would show as "Club member".
   const { data: directoryRows } = memberIds.length
     ? await supabase.rpc("get_club_member_directory", { p_club_id: clubId })
-    : { data: [] as { user_id: string; first_name: string | null; surname: string | null }[] }
+    : { data: [] as { user_id: string; first_name: string | null; surname: string | null; email: string | null }[] }
   const nameById = new Map((directoryRows ?? []).map((p) => [p.user_id, [p.first_name, p.surname].filter(Boolean).join(" ")]))
+  // A permissions screen has to say WHO each row is about. Somebody who has not
+  // filled their name in yet showed as the bare fallback "Club member", and two
+  // of those in a list are indistinguishable -- so the address they signed up
+  // with is carried through as the secondary line. It comes from the same
+  // authorised directory call as the name, never from a second lookup.
+  const emailById = new Map((directoryRows ?? []).map((p) => [p.user_id, p.email ?? ""]))
   const { data: club } = await supabase.from("clubs").select("club_directory(name)").eq("id", clubId).maybeSingle()
 
   const byUser = new Map<string, ClubMember["capabilities"]>()
@@ -96,6 +102,7 @@ export default async function ClubPermissionsPage() {
     .map((userId) => ({
       userId,
       name: nameById.get(userId) || "Club member",
+      email: emailById.get(userId) ?? "",
       roleLabel: roleLabelByUser.get(userId) ?? "Club member",
       capabilities: byUser.get(userId) ?? [],
     }))

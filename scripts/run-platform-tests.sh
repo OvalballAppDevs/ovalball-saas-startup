@@ -248,6 +248,7 @@ SUITES=(
   session_boundary
   definer_rpc_session_contract
   email_delivery_result_authority
+  users_and_permissions_authority
   club_claim_authority_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences
@@ -464,6 +465,7 @@ BROWSER_SUITES=(
   65-session-boundary-and-signup-challenge
   66-direct-invocation-boundary
   67-club-desk-hierarchy
+  68-users-and-permissions
 )
 
 browser_blocked=""

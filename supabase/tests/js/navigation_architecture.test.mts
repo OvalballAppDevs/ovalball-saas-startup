@@ -142,7 +142,7 @@ test("desktop and mobile are grouped from the same structure", () => {
 test("maintenance is grouped, never prime navigation", () => {
   const { top, sections } = buildClubSections([
     { href: "/dashboard", label: "Dashboard" },
-    { href: "/people", label: "People" },
+    { href: "/people", label: "Overview" },
     { href: "/club/calendar/deleted-events", label: "Deleted Calendar Events" },
     { href: "/club/settings", label: "Club Settings" },
   ])
@@ -164,7 +164,7 @@ test("Site Admin platform maintenance is not a job group", () => {
 test("nothing a person may see is ever dropped by grouping", () => {
   const items = [
     { href: "/dashboard", label: "Dashboard" },
-    { href: "/people", label: "People" },
+    { href: "/people", label: "Overview" },
     { href: "/some/unmapped/route", label: "Unmapped" },
   ]
   const { top, sections } = buildClubSections(items)

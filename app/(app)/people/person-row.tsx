@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -14,13 +15,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+import { CLUB_ROLE_LABEL } from "@/lib/permissions/role-labels"
+
 import { revokeMembership, updateMembershipRole } from "./actions"
 
-const CLUB_ROLE_LABEL: Record<string, string> = {
-  BASIC_USER: "Member",
-  CLUB_ADMIN: "Club Admin",
-  FIXTURE_SECRETARY: "Fixture Secretary",
-}
+/*
+ * The role wording comes from `lib/permissions/role-labels.ts`. This file used
+ * to keep its own copy of the same three strings -- a second answer to "what is
+ * this role called" sitting next to the control that changes it, which is the
+ * exact drift the convergence programme exists to remove.
+ */
 
 export interface PersonRowData {
   membershipId: string
@@ -136,6 +140,17 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
           ))}
         </div>
       )}
+
+      {/* The row says what this person holds; it never said why, and the team
+          roles above it were text rather than something you could change. Both
+          answers live one click away, on the page about this person, rather
+          than being crammed into a list row that has to stay scannable. */}
+      <Link
+        href={`/people/${person.membershipId}`}
+        className="mt-2 inline-block rounded-sm text-xs font-medium text-forest-800 underline underline-offset-2 outline-none hover:text-forest-950 focus-visible:ring-2 focus-visible:ring-pitch-400"
+      >
+        Access &amp; Teams<span className="sr-only"> for {person.name}</span>
+      </Link>
 
       {error && <p className="mt-2 text-xs text-destructive-text">{error}</p>}
     </li>

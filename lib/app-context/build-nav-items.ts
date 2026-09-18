@@ -370,7 +370,15 @@ export function buildNavItems(
         items.push({ href: "/documents", label: "Documents" })
       }
       if (activeContext.kind === "club" && activeContext.roleLabel === "Club Admin") {
-        items.push({ href: "/people", label: "People" })
+        // The landing page of the Users & Permissions group. It was called
+        // "People", which named the longest list on it rather than the question
+        // it answers, and sat as a sibling of Permissions and Join Requests as
+        // though it were a fourth thing of the same kind. It is the way in to
+        // all of them, so it is the group's Overview -- the same shape the Club
+        // Settings tab strip already uses for a hub's own landing page. The
+        // page's heading stays "Users & Permissions", because a page title
+        // should name the concept rather than the nav position.
+        items.push({ href: "/people", label: "Overview" })
         // USERS & PERMISSIONS, IN ONE PLACE.
         //
         // These three were the Step 0 finding in miniature: People was in the navigation, Permissions
