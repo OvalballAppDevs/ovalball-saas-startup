@@ -1,6 +1,30 @@
 #!/usr/bin/env node
 // =====================================================================
-// STEP 2 MANUAL REVIEW FIXTURE -- ONE DISPOSABLE BUSY CLUB, LOCAL ONLY.
+// THE CANONICAL LOCAL UAT REVIEW WORLD.
+//
+// Established for the Step 2 manual review and then made PERMANENT: these are
+// the product owner's standing review personas for the rest of the convergence
+// programme, not per-step scaffolding. The point is continuity -- reviewing
+// navigation, then permissions, then fixtures, then Match Centre and
+// recognising the SAME people in the SAME club each time is how you can see
+// whether Ovalball itself is converging. A fresh cast per slice destroys that.
+//
+// So: reuse and ENRICH this world rather than standing up a parallel one. A
+// later step needing fixtures, training, availability, messages, competitions or
+// another child adds them HERE, through canonical product writes. A genuinely
+// new persistent identity is justified only when no existing persona can
+// legitimately represent the context, and is then documented in the canonical
+// directory alongside the rest:
+//
+//   docs/product/STEP_2_MANUAL_REVIEW_WALKTHROUGH.md
+//
+// `down` is NOT ordinary post-review cleanup -- see the guard on it.
+//
+// AUTOMATED TESTS MUST NOT DEPEND ON THIS. Every suite seeds and cleans its own
+// isolated fixtures; permanent manual-review data and automated-test data are
+// separate concepts, and a suite that reads whichever row happens to sort first
+// is broken by definition. `recipient_audience_engine.sql` was exactly that and
+// was corrected rather than accommodated.
 //
 // The product owner reviews Step 2 by hand, in Chrome, against a running
 // local stack. A quiet club renders almost every Users & Permissions surface
@@ -17,11 +41,15 @@
 // through the RPC that owns it, in the review Club Admin's own session.
 //
 //   node scripts/review-fixtures/step2-review-club.mjs up
-//   node scripts/review-fixtures/step2-review-club.mjs down
 //   node scripts/review-fixtures/step2-review-club.mjs report
+//   node scripts/review-fixtures/step2-review-club.mjs down --destroy-the-canonical-review-world
 //
-// `down` removes exactly what `up` created. Run it only when the review is
-// finished.
+// EVERYTHING HERE IS LOCAL AND DISPOSABLE IN THE SENSE THAT IT IS NOT
+// PRODUCTION -- never in the sense that it is throwaway. No production data is
+// touched, no production identity is created, every address is
+// review.step2.*@ovalball.test, and no authority is ever widened to make a
+// demonstration easier: every grant below is made by the product's own RPC in
+// the review Club Admin's session.
 // =====================================================================
 
 import { execFileSync } from "node:child_process"
@@ -305,8 +333,128 @@ function report() {
     order by 1`))
 }
 
+/**
+ * HOW DOES THE REVIEW WORLD DIFFER FROM THE STATE IT WAS BUILT IN?
+ *
+ * Not "is it corrupt". A permanent review world is SUPPOSED to change: the
+ * product owner reviews by using the product, and approving a join request or
+ * revoking an invitation is the review working, not damage. This reports
+ * differences so they can be SEEN; deciding what any of them means is the
+ * owner's, and reverting one is never automatic.
+ *
+ * That distinction was learned the hard way here. During Step 2's review
+ * preparation this club showed four Coach assignments nobody had scripted, and
+ * they were removed through `remove_team_access` as though they were drift from
+ * a stray test. The timestamps later lined up with the owner's own Chrome
+ * session. The lesson is in the wording of this command: it prints, it does not
+ * fix, and it says out loud that a difference may be somebody's real work.
+ *
+ * BASELINE = the state `up` creates. Nothing more is claimed for it.
+ */
+const BASELINE = {
+  "review.step2.admin@ovalball.test": { role: "CLUB_ADMIN", teams: "-" },
+  "review.step2.applicant@ovalball.test": { role: "BASIC_USER", teams: "-" },
+  "review.step2.coach@ovalball.test": { role: "BASIC_USER", teams: "Under 12 Boys coach, Under 14 Girls manager" },
+  "review.step2.guardian@ovalball.test": { role: "BASIC_USER", teams: "-" },
+  "review.step2.manager@ovalball.test": { role: "BASIC_USER", teams: "Men's 1st Team manager" },
+  "review.step2.member@ovalball.test": { role: "BASIC_USER", teams: "-" },
+  "review.step2.officer@ovalball.test": { role: "BASIC_USER", teams: "-" },
+  "review.step2.overridden@ovalball.test": { role: "BASIC_USER", teams: "-" },
+  "review.step2.secretary@ovalball.test": { role: "FIXTURE_SECRETARY", teams: "-" },
+  "review.step2.volunteer@ovalball.test": { role: "BASIC_USER", teams: "-" },
+}
+const BASELINE_STATE = [
+  ["a waiting invitation", `select count(*) from public.access_invitations where club_id = $C and state = 'ISSUED'`, "1"],
+  ["a pending club join request", `select count(*) from public.club_join_requests where club_id = $C and status = 'pending'`, "1"],
+  ["a pending player join request", `select count(*) from public.player_club_join_requests where club_id = $C and status = 'pending'`, "1"],
+  ["one direct capability grant", `select count(*) from public.capability_overrides where club_id = $C and status = 'active' and effect = 'grant'`, "1"],
+  ["a Safeguarding Officer awaiting confirmation", `select count(*) from public.role_assignments where club_id = $C and role_key = 'SAFEGUARDING_OFFICER' and confirmation_state = 'PENDING_CONFIRMATION'`, "1"],
+  ["an active Volunteer", `select count(*) from public.role_assignments where club_id = $C and role_key = 'VOLUNTEER' and state = 'ACTIVE'`, "1"],
+  ["three teams", `select count(*) from public.teams where club_id = $C and active`, "3"],
+]
+
+function verify() {
+  const clubId = sql(`select c.id from public.clubs c join public.club_directory d on d.id = c.directory_id
+                      where d.normalized_key = ${q(KEY)}`)
+  if (!clubId) {
+    console.error("The canonical review world is NOT installed. Run `up`.")
+    process.exit(1)
+  }
+  const problems = []
+  const actual = new Map()
+  for (const line of sql(`
+    select u.email || '|' || m.role || '|' ||
+           coalesce((select string_agg(t.display_name || ' ' || tp.permission, ', ' order by t.display_name)
+                     from public.team_permissions tp join public.teams t on t.id = tp.team_id
+                     where tp.membership_id = m.id), '-')
+    from public.club_memberships m join auth.users u on u.id = m.user_id
+    where m.club_id = ${q(clubId)}`).split(String.fromCharCode(10)).filter(Boolean)) {
+    const [email, role, teams] = line.split("|")
+    actual.set(email, { role, teams })
+  }
+  for (const [email, want] of Object.entries(BASELINE)) {
+    const got = actual.get(email)
+    if (!got) problems.push(`${email} is missing from the club entirely`)
+    else if (got.role !== want.role) problems.push(`${email} holds ${got.role}, baseline says ${want.role}`)
+    else if (got.teams !== want.teams) problems.push(`${email} team roles are "${got.teams}", baseline says "${want.teams}"`)
+  }
+  for (const email of actual.keys()) {
+    if (!(email in BASELINE)) problems.push(`${email} is in the club but not in the baseline`)
+  }
+  for (const [what, query, want] of BASELINE_STATE) {
+    const got = sql(query.replace("$C", q(clubId)))
+    if (got !== want) problems.push(`${what}: found ${got}, baseline says ${want}`)
+  }
+  if (problems.length === 0) {
+    console.log("The canonical review world is exactly as `up` built it.")
+    return
+  }
+  console.log("The canonical review world differs from the state `up` built:")
+  console.log("")
+  for (const p of problems) console.log(`  - ${p}`)
+  console.log("")
+  console.log("THIS IS NOT NECESSARILY A PROBLEM. Approving a join request, revoking an")
+  console.log("invitation or changing somebody's role is what reviewing the product looks")
+  console.log("like, and those changes belong to whoever made them.")
+  console.log("")
+  console.log("Ask before putting anything back. If something genuinely does need")
+  console.log("restoring, use the canonical transition -- remove_team_access,")
+  console.log("set_primary_club_role, issue_invitation -- never a raw delete, and never by")
+  console.log("rebuilding the world: every id would change and every URL written down")
+  console.log("anywhere would stop working.")
+}
+
 const cmd = process.argv[2]
-if (cmd === "up") { console.log(JSON.stringify(up(), null, 2)); report() }
-else if (cmd === "down") down()
-else if (cmd === "report") report()
-else console.log("usage: step2-review-club.mjs up|down|report")
+if (cmd === "up") {
+  console.log(JSON.stringify(up(), null, 2))
+  report()
+} else if (cmd === "down") {
+  // A GUARD, BECAUSE THE DEFAULT ANSWER IS NO.
+  //
+  // This world is standing review data now. Running teardown "to tidy up after
+  // the tests" would quietly destroy the continuity the whole arrangement
+  // exists for, and rebuilding it is not equivalent -- every id changes, so
+  // every URL written down anywhere stops working. It takes an explicit,
+  // unmistakable flag.
+  if (!process.argv.includes("--destroy-the-canonical-review-world")) {
+    console.error(
+      [
+        "Refusing to tear down the canonical local UAT review world.",
+        "",
+        "These personas are permanent local review data for the whole convergence",
+        "programme, documented in docs/product/STEP_2_MANUAL_REVIEW_WALKTHROUGH.md.",
+        "They are NOT test fixtures and this is NOT post-test cleanup: every",
+        "automated suite seeds and cleans its own.",
+        "",
+        "If a later step needs more, ENRICH this world rather than replacing it.",
+        "",
+        "If the product owner has actually asked for it to be destroyed:",
+        "  node scripts/review-fixtures/step2-review-club.mjs down --destroy-the-canonical-review-world",
+      ].join("\n")
+    )
+    process.exit(1)
+  }
+  down()
+} else if (cmd === "report") report()
+else if (cmd === "verify") verify()
+else console.log("usage: step2-review-club.mjs up|report|verify|down --destroy-the-canonical-review-world")

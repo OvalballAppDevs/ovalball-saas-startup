@@ -1,5 +1,38 @@
 # Convergence programme ledger
 
+## Standing policy — persistent local UAT personas
+
+**Established during Convergence Step 2.**
+
+**Canonical documentation:** `docs/product/STEP_2_MANUAL_REVIEW_WALKTHROUGH.md`
+— the one place persona identities and local sign-in instructions are written
+down. Every future manual-review document links to it instead of repeating it.
+
+**Policy: REUSE AND EXTEND. DO NOT RECREATE PER STEP. DO NOT TEAR DOWN AS NORMAL
+TEST CLEANUP.**
+
+The point is continuity of judgement. Reviewing navigation, then permissions,
+then fixtures, then Match Centre against **the same people in the same club** is
+how the product owner can see whether Ovalball itself is converging; a fresh cast
+per slice destroys that signal. So the people, the club, the teams and the roles
+keep their names between steps, a later step that needs more **enriches this
+world** through canonical product writes rather than standing up a parallel one,
+and a genuinely new persistent identity is added to that same directory only when
+no existing persona can legitimately represent the context.
+
+Two boundaries that follow from it:
+
+- **Permanent manual-review data and automated-test fixtures are separate
+  concepts.** Every suite seeds and cleans its own; none may depend on ambient
+  persistent data. Where the two collided, the *test* was corrected — see L5.
+- **A walkthrough either restores what it changed through canonical transitions,
+  or says plainly that the action changes the review world for good.** The
+  canonical Club Admin is never left demoted, the only example of a role or state
+  is never destroyed, and a fixture is never put back by bypassing a state
+  machine.
+
+---
+
 Findings that are real, reproducible, and **deliberately not fixed where they
 were found**. Each one names the step that owns it, so that the next person
 reaches it through the programme rather than by tripping over it.
@@ -13,7 +46,8 @@ product owner rules that it is not a defect.
 | L2 | A Safeguarding Officer nomination in `PENDING_CONFIRMATION` is described two contradictory ways and never as pending | Step 2 manual review preparation | awaiting product owner's ruling | open |
 | L3 | The same club role is worded "Fixtures Secretary" in the role catalogue and "Fixture Secretary" everywhere else | Step 2 manual review preparation | awaiting product owner's ruling | open |
 | L4 | The team page tells a Team Manager that only a Club Admin can assign people, directly beneath the assign control she may legitimately use | Step 2 manual review preparation | **Step 4 — Teams** (provisional) | open |
-| L5 | `recipient_audience_engine.sql` picks its subject from whatever the database happens to contain, so an unrelated club appearing changes its verdict | Step 2 manual review preparation | test quality — awaiting product owner's ruling | open |
+| L6 | `64-password-recovery-journey` S6B1-02 reads a link's `href` immediately after revealing the panel it lives in, and fails under concurrent load | Step 2 persona-policy work | test reliability — awaiting product owner's ruling | open |
+| L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
 ---
 
@@ -179,11 +213,56 @@ from public.club_memberships where role = 'CLUB_ADMIN' and status = 'active' lim
 
 so `v_own_team_id` and `v_own_club_id` can afterwards describe two different clubs.
 
-**Why it is not fixed here.** Changing a test to accommodate a fixture is how a
-suite stops meaning anything, and the instruction for this gate was explicitly not
-to weaken tests. The right correction is for the suite to seed its own club and
-people the way every other suite in the set does, and that is its own small unit
-of work for the product owner to schedule.
+### Closed — the suite names its subjects
 
-**Until then:** the suite passes on a database without the review club, and fails
-while the review club is installed. Removing the review fixture restores it.
+Fixed without weakening a single assertion and without removing or hiding the
+review personas. Using the seeded UAT world was always the intent; choosing
+*whoever sorted first in it* was not. Each subject is now resolved from the
+seeded identity that was meant to play the part — `uat.team.manager@ovalball.test`
+as the team-only staff member — and everything else hangs off that one anchor:
+
+- the club is **that person's** club, and the Club Admin is **that club's** Club
+  Admin. The old code overwrote `v_own_club_id` with whichever club the first
+  Club Admin in the database belonged to, so sections B and C could be asking
+  about a different club from section A's team;
+- the sibling team is one at the same club the person **demonstrably does not
+  manage**, instead of any other team — picking any other team was a coin toss
+  that a person with roles at two teams would have lost while behaving correctly;
+- the foreign club is one the Club Admin has no membership of, chosen by id;
+- the ordinary guardian is the seeded `uat.guardian.one@ovalball.test`, not "any
+  active guardian who is not an admin", which any other club's parent satisfied;
+- the skip message now names **which** prerequisite is missing.
+
+Result: **14/14 pass with the persistent review club installed**, selecting
+exactly the same subject and team as the historical runs before that club
+existed.
+
+---
+
+## L6 — an assertion that races the page it is reading
+
+`scripts/browser-verification/64-password-recovery-journey.mjs`:
+
+```js
+const reveal = page.getByRole("button", { name: /sign in with email/i })
+if (await reveal.isVisible().catch(() => false)) await reveal.click()
+const link = page.getByRole("link", { name: /forgot|forgotten/i }).first()
+record("S6B1-02 …", (await link.getAttribute("href").catch(() => null)) === "/forgot-password")
+```
+
+`getAttribute` on a locator that has not resolved returns null through the
+`catch`, and null is not `/forgot-password`, so the assertion fails **silently as
+a product defect** when it is really a timing loss. There is no wait for the
+revealed panel.
+
+Observed: the suite failed this one assertion (33 passed, 1 failed) inside a full
+platform run while a second browser suite and a review session were sharing the
+dev server, and passed **34/34** on an isolated re-run minutes later with no code
+change in between. Nothing in the Step 2 or persona-policy work touches the login
+page.
+
+**The fix is a wait, not a retry** — `await link.waitFor({ state: "attached" })`
+before reading the attribute — and it is left for the owner to schedule because
+changing a security suite's timing is not something to slip into a documentation
+commit. It is the same family as L5: an assertion whose verdict depends on
+something other than the behaviour it claims to test.

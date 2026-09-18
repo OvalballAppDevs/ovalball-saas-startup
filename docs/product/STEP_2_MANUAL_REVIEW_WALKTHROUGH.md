@@ -1,8 +1,32 @@
 # Step 2 — manual Chrome review walkthrough
 
-Everything below is **local and disposable**. No production data is involved and
-no production identity was created. The review club and every person in it exists
-only in the local Supabase instance.
+> ## This file is the canonical local UAT persona directory
+>
+> The identities and club below were established for the Step 2 review and are
+> now **permanent review personas for the rest of the convergence programme**.
+> They are not per-step scaffolding.
+>
+> **Future manual-review documents must link here rather than copy this.** They
+> say *"Review persona: Club Admin — use the canonical local UAT Club Admin
+> documented in STEP_2_MANUAL_REVIEW_WALKTHROUGH.md"* and then give only their
+> own START URL, NEW DATA FOR THIS STEP, WALKTHROUGH and WHAT TO JUDGE. Login
+> instructions are written down once, here.
+>
+> **Reuse and enrich; do not recreate.** A later step needing fixtures, training,
+> availability, another child, messages or competitions adds them to *this* world
+> through canonical product writes. A new persistent identity is justified only
+> when no existing persona can legitimately represent the context — a second Club
+> Admin for two-admin security flows, a Player, a Governing Body administrator —
+> and is then added to the table below.
+>
+> **Do not tear this down as ordinary cleanup.** Automated suites create and
+> clean their own isolated fixtures and must never read ambient review data;
+> `recipient_audience_engine.sql` did, and was corrected rather than
+> accommodated. The teardown command refuses without an explicit destroy flag.
+
+Everything below is **local**. No production data is involved and no production
+identity was created. The club and every person in it exists only in the local
+Supabase instance.
 
 ---
 
@@ -62,15 +86,34 @@ Every address below is `@ovalball.test` and begins `review.step2.`
 | Safeguarding nomination | Priya Devlin, **PENDING_CONFIRMATION**, zero authority granted |
 | Guardian link | Marta Ferreira → Leo Ferreira, active, Leo in the U12 squad |
 
-**Managing the fixture**
+**Managing the review world**
 
 ```
 node scripts/review-fixtures/step2-review-club.mjs report   # what is installed
-node scripts/review-fixtures/step2-review-club.mjs up       # rebuild it
-node scripts/review-fixtures/step2-review-club.mjs down     # remove it (AFTER the review)
+node scripts/review-fixtures/step2-review-club.mjs verify   # how it differs from the state `up` built
+node scripts/review-fixtures/step2-review-club.mjs up       # build it (ids change — see the warning below)
+node scripts/review-fixtures/step2-review-club.mjs down --destroy-the-canonical-review-world
 ```
 
-It is left installed and running. Nothing will be torn down until you say so.
+`verify` **reports, it never fixes**. A difference is not automatically a
+problem: approving a join request or revoking an invitation is what reviewing the
+product looks like, and those changes belong to whoever made them.
+
+> ### Which actions here change the review world permanently
+>
+> Rebuilding with `up` is **not** a way to undo something. Every id is
+> regenerated, so every URL written down in this document stops working.
+>
+> | Section | Effect |
+> |---|---|
+> | **C** club role change | Reversible in the same control. The walkthrough tells you to put it back, and you should. |
+> | **D** team role add/remove | Reversible in the same control. |
+> | **F** revoking the invitation | **Permanent.** The invitation is gone for good. Ask me to issue a fresh one — that is one `issue_invitation` call, not a rebuild. |
+> | **G** approving or declining either join request | **Permanent.** The request is decided and cannot be un-decided; approving the club request also makes Rowan Ashby an active member. Ask me to seed a fresh request. |
+> | **K2** removing club access | **Permanent** if you confirm. The walkthrough tells you to open the dialog and cancel. |
+>
+> None of these is a reason to hold back — it is your review world. Just tell me
+> what you used up and I will replenish it through the canonical path.
 
 ---
 
@@ -288,8 +331,10 @@ and the Revoke button could never be drawn**. It now reads
 (no token hash, no code). The per-team roles you can see are the invitation's own
 `intended_outcome` — what redemption will actually apply.
 
-**To verify revocation** — this invitation is safe to revoke; the fixture rebuilds
-it with `up`.
+**To verify revocation** — revoking is **permanent**: rebuilding the world with
+`up` would regenerate every id and break every URL in this document, so it is not
+an undo. Revoke it if you want to see the journey, and tell me — reissuing one
+invitation is a single `issue_invitation` call.
 
 1. **Revoke** → **Confirm**
 2. The row leaves the queue.
