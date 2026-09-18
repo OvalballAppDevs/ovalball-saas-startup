@@ -2,7 +2,9 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 
+import { PageIdentity } from "@/components/shell/page-identity"
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
+import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import { getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 import { teamPermissionLabel } from "@/lib/permissions/role-labels"
@@ -102,11 +104,17 @@ export default async function PeoplePage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club</p>
-      <h1 className="mt-2 font-display text-display-l text-ink">People</h1>
-      <p className="mt-2 max-w-md text-sm text-ink-muted">
-        Who has access to {clubName}, what they can do, and which teams they&apos;re assigned to.
-      </p>
+      {/* This page already had the shape UX-1 generalises -- workspace above task -- and moving it
+          onto the shared primitive is what makes the eyebrow reach assistive technology instead of
+          being decorative text a screen reader announces adrift from the heading. */}
+      <PageIdentity
+        workspace={workspaceLabel("club")}
+        title="People"
+        className="mt-0"
+        titleClassName="mt-2"
+        descriptionClassName="mt-2 max-w-md"
+        description={<>Who has access to {clubName}, what they can do, and which teams they&apos;re assigned to.</>}
+      />
 
       {/* Guardian requests live next to People because that is what they
           are: a decision about which adult gets access to a child. The page

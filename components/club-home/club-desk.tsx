@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { BookOpen, ExternalLink, PenLine } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
+import { PageIdentity } from "@/components/shell/page-identity"
 import type { ClubDesk, FamilyClub } from "@/lib/club-public/club-desk"
 import { publishedDate } from "@/lib/club-public/format"
 import { articlePath, clubHomePath } from "@/lib/club-content/vocabulary"
@@ -30,9 +31,12 @@ export function ClubDeskHeader({
   greeting,
   contextLine,
   nextMatch,
+  workspace,
 }: {
   club: ClubDesk["club"]
   greeting: string
+  /** Which kind of workspace this desk is, from the already-resolved active context. */
+  workspace: string
   /** e.g. "Under 12 Boys, Coach" or "Club Admin". */
   contextLine: string
   nextMatch: { label: string; when: string; href: string } | null
@@ -47,7 +51,18 @@ export function ClubDeskHeader({
         <CrestPlate club={club} size="md" />
         <div className="min-w-0 flex-1 sm:max-w-[62%]">
           <p className="text-sm font-medium text-(--club-hero-muted)">{greeting}</p>
-          <h1 className="mt-0.5 font-display text-[clamp(2.25rem,1.8rem+2vw,3.5rem)] leading-[0.95] tracking-wide text-balance">{club.name}</h1>
+          {/* The club's name IS what this page is -- so it stays the heading, and the workspace word
+              above it is what was missing: until UX-1 a player, a volunteer and a Club Admin all met
+              this same heading with nothing saying which kind of workspace they had landed in. The
+              hero's own colours are inherited rather than overridden, because the club's theme owns
+              them here and the shell does not. */}
+          <PageIdentity
+            workspace={workspace}
+            title={club.name}
+            className="mt-0.5"
+            eyebrowClassName="text-(--club-hero-muted)"
+            titleClassName="mt-0 font-display text-[clamp(2.25rem,1.8rem+2vw,3.5rem)] leading-[0.95] tracking-wide text-balance text-inherit"
+          />
           <p className="mt-1 text-sm text-(--club-hero-muted)">{contextLine}</p>
         </div>
         {nextMatch && (

@@ -4,6 +4,8 @@ import { cookies } from "next/headers"
 import { CalendarDays, Inbox } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
+import { PageIdentity } from "@/components/shell/page-identity"
+import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import { ClubDeskHeader, ClubRail, PinnedNotices, YourClubs } from "@/components/club-home/club-desk"
 import { ClubThemeScope } from "@/components/club-home/primitives"
 import { ACTIVE_CONTEXT_COOKIE, isFamilyFacingContext, resolveActiveContext, type SwitchableContext } from "@/lib/app-context/active-context"
@@ -243,7 +245,7 @@ export default async function DashboardPage() {
     return (
       <ClubThemeScope theme={desk.club.theme} className="min-h-0 bg-transparent">
         <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
-          <ClubDeskHeader club={desk.club} greeting={`${greeting()}, ${ctx.firstName ?? "there"}`} contextLine={contextLine} nextMatch={nextMatch} />
+          <ClubDeskHeader club={desk.club} greeting={`${greeting()}, ${ctx.firstName ?? "there"}`} contextLine={contextLine} nextMatch={nextMatch} workspace={workspaceLabel(dashboardContext.kind)} />
           <div className="mt-8 grid gap-12 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
             <div className="min-w-0 [&>section:first-child]:mt-0">{work}</div>
             <aside aria-label="Club news and notices" className="min-w-0">
@@ -270,7 +272,11 @@ export default async function DashboardPage() {
         ) : (
           dashboardContext.kind !== "site_admin" && <ClubAvatar logoUrl={dashboardContext.logoUrl} name={data.clubDisplayName} size="md" />
         )}
-        <h1 className="font-display text-display-l text-ink">{data.clubDisplayName}</h1>
+        {/* The workspace word is what a guardian, a player and a club member were all missing here:
+            the heading told them WHICH club or family, never which kind of place they were in. The
+            role stays on its own line below -- a role describes what you may do, and is deliberately
+            not promoted into the page's identity. */}
+        <PageIdentity workspace={workspaceLabel(dashboardContext.kind)} title={data.clubDisplayName} className="mt-0" titleClassName="mt-0.5" />
       </div>
       <p className="mt-1 text-sm text-ink-muted">{displayRoleLabel}</p>
       <div className={familyClubs.length ? "mt-8 grid gap-12 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10" : "mt-8"}>

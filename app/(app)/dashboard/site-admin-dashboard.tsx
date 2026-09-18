@@ -12,6 +12,8 @@ import {
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { UpdatedAt } from "@/components/dashboard/updated-at"
 import { BetaBadge } from "@/components/platform/beta-badge"
+import { PageIdentity } from "@/components/shell/page-identity"
+import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import type { CommercialCardsData, ReferralIntelligenceData } from "@/lib/app-context/commercial-intelligence-data"
 import type { BetaBadgeState } from "@/lib/platform/mode"
 import {
@@ -75,19 +77,20 @@ export function SiteAdminDashboard({
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-12">
       {/* ---------- command centre header ---------- */}
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <Gauge aria-hidden="true" className="size-5 text-forest-800" />
-            <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">
-              Site Admin
-            </p>
-          </div>
-          <h1 className="mt-2 font-display text-display-l text-ink">Platform</h1>
-          <p className="mt-2 max-w-xl text-sm text-ink-muted">
-            {firstName ? `${firstName} — everything ` : "Everything "}
-            Ovalball is doing right now, across every club.
-          </p>
-        </div>
+        {/* The reference case for the whole shell: this page already said which workspace it was and
+            what it was, and UX-1 changed only WHERE that structure lives -- so the platform dashboard
+            must look exactly as it did while every other surface catches up to it. */}
+        <PageIdentity
+          workspace={workspaceLabel("site_admin")}
+          title="Platform"
+          icon={<Gauge aria-hidden="true" className="size-5 text-forest-800" />}
+          description={
+            <>
+              {firstName ? `${firstName} — everything ` : "Everything "}
+              Ovalball is doing right now, across every club.
+            </>
+          }
+        />
 
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap items-center gap-2">

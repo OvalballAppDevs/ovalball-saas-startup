@@ -531,3 +531,103 @@ Found during UX-0, **none critical, none exploitable, none blocking**:
    not read as still carrying it.
 
 **Nothing found in UX-0 meets CRITICAL + EXPLOITABLE + RELEVANT TO THE CURRENT PRODUCT PATH.**
+
+---
+
+# UX-1 — page identity (implemented)
+
+**Presentation only. No authorisation change, no migration, no route change, not released.**
+
+## What changed
+
+UX-0 found that three of five personas met the same `<h1>` — the club's name — so the page said which
+club and never which workspace or which page. Site Admin was already doing it right. UX-1 makes that
+one pattern the shell's, through one primitive rather than a sixth hand-rolled copy.
+
+| File | Change |
+|---|---|
+| `lib/app-context/workspace-label.ts` | **new** — maps the already-resolved `ActiveContextKind` to a word. Reads nothing, decides nothing |
+| `components/shell/page-identity.tsx` | **new** — the one place a page says what it is |
+| `app/(app)/dashboard/site-admin-dashboard.tsx` | the reference case, moved onto the primitive with no visual change |
+| `components/club-home/club-desk.tsx` | the branded hero gains the workspace word; the club's theme still owns its colours |
+| `app/(app)/dashboard/page.tsx` | the fallback header (family, player, team, club) derives its word from the live context |
+| `app/(app)/people/page.tsx` | already had the shape; moved onto the primitive so the eyebrow reaches assistive technology |
+| `app/(app)/teams/[teamId]/page.tsx` | same, with the "Folded" chip kept beside it |
+| `supabase/tests/js/page_identity.test.mts` | **new** — 16 assertions, auto-discovered by the runner |
+
+**Three hand-rolled copies of this pattern existed before UX-1** (Site Admin, People, the team page),
+each repeating the same class strings. There is now one.
+
+## Before → after, measured in a real browser
+
+| Persona | Viewport | Before (UX-0) | After |
+|---|---|---|---|
+| Full Site Admin | 1440 / 390 / 320 | `Platform` | **`Site Admin: Platform`** (unchanged visually) |
+| Club Admin | 1440 / 390 / 320 | `Ovalball UAT RUFC` | **`Club: Ovalball UAT RUFC`** |
+| Club Admin → People | 1440 / 390 / 320 | `People` | **`Club: People`** |
+| Guardian | 1440 / 390 / 320 | `All Children` | **`Family: All Children`** |
+| Player | 1440 / 390 / 320 | `Ovalball UAT RUFC` | **`Player: Ovalball UAT RUFC`** |
+| Team volunteer | 1440 / 390 / 320 | `Ovalball UAT RUFC` | **`Club: Ovalball UAT RUFC`** |
+
+The strings quoted are the **accessible names** actually read out of the rendered `<h1>`. A player and
+a team volunteer still land on the same club, and now say so differently — which is the distinction
+UX-0 recorded as missing.
+
+**18 persona × viewport × page combinations, all PASS**: exactly one `<h1>`, accessible name carries
+the workspace, `scrollWidth === innerWidth` at 1440, 390 and 320, navigation intact
+(20 / 9 / 6 / 6 / 3 links unchanged per persona).
+
+## Accessibility
+
+- **Exactly one `<h1>` per page**, asserted in the browser and pinned by test.
+- **The eyebrow is a `<p>`, never a heading** — a heading above the page heading would invert the
+  document outline. Pinned by test.
+- **The eyebrow is `aria-hidden`, and the real workspace text lives inside the `<h1>`** as visually
+  hidden text. Without that, assistive technology hears the workspace twice when reading linearly and
+  not at all when navigating heading-by-heading. The accessible name is now e.g. "Club: People",
+  announced once, correct however the page is reached.
+- **Nothing is carried by icon or colour alone** — the Site Admin gauge is decorative and the words
+  say everything.
+- **Document titles were already correct** and were not touched: `app/layout.tsx` has a title template
+  and 101 routes in `(app)` declare their own.
+- A real improvement fell out of this: on mobile the club name in the hero is **visually clipped**
+  (a pre-existing defect, recorded below) — but the accessible name is complete, so a screen-reader
+  user now gets the full club name that a sighted user does not.
+
+## Quality gates
+
+| Gate | Result |
+|---|---|
+| `page_identity.test.mts` | **16 / 16** |
+| Platform regression (all SQL + JS) | **4866 passed, 0 failed, 232 suites** — was 4850 / 231, so +16 is exactly the new suite |
+| `content_standard` | ok — 1036 files, the new copy included |
+| TypeScript | clean |
+| Build | clean |
+| `git diff --check` | clean |
+| Lint | **4 errors, all pre-existing, in 4 untouched files** (`recovery-flow.tsx`, `club-step.tsx`, `activity-card.tsx`, `messaging-panel.tsx`); 179 problems, unchanged by UX-1 |
+| Browser acceptance | 18 / 18 PASS |
+
+No migration was created and no database rehearsal was run: UX-1 touches no schema.
+
+## A vocabulary decision, made deliberately
+
+UX-0's illustration used "CLUB DESK" as the workspace word. **It was not adopted.** That phrase appears
+nowhere in the product — only in the UX-0 document itself — and inventing user-facing vocabulary is a
+product decision, not a presentation one. Every word UX-1 uses is either already on screen ("Site
+Admin" above the platform dashboard, "Club" above People) or is the noun the product's own routes
+already use (`/teams` → Team, `/player` → Player). "Family" is the word the code itself already uses
+for this context (`FamilyAvatar`, `isFamilyFacingContext`).
+
+Naming the club workspace is a live question — it belongs with the wider terminology work UX-0 raised
+in §15.7, for the owner to settle.
+
+## Still owned by UX-2 and later — deliberately untouched
+
+The identity block still names the **scope** rather than the person in club contexts (UX-2); the
+context switcher is still an unlabelled ⇅ and still absent from the mobile header (UX-2); the Club Desk
+is still decoration-first with stacked empty states and the next-match card still **overlaps the
+header** (UX-3); the club name is still **visually clipped at 320px** (UX-3/UX-4); navigation is still
+flat for clubs and grouped only for Site Admin (UX-5); "Deleted Calendar Events" is still top-level
+(UX-5); there is still no return path from the public Club Home (UX-6).
+
+**None of these was needed to fix page identity, so none was touched.**

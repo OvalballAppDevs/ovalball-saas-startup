@@ -1,5 +1,8 @@
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
+
+import { PageIdentity } from "@/components/shell/page-identity"
+import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import { cookies } from "next/headers"
 import { ChevronLeft, ChevronRight, Newspaper } from "lucide-react"
 
@@ -150,13 +153,16 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         Teams
       </Link>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Team</p>
+      {/* A team page IS the team, so its canonical display name stays the heading. The page already
+          carried the workspace word; moving it onto the shared primitive is what makes it reach a
+          screen reader as part of the heading rather than as text stranded above it. "Folded" stays
+          beside the eyebrow because it qualifies the team, not the page. */}
+      <div className="mt-4 flex flex-wrap items-start gap-3">
+        <PageIdentity workspace={workspaceLabel("team")} title={team.display_name} className="mt-0" />
         {!team.active && (
-          <span className="rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-medium text-ink-muted">Folded</span>
+          <span className="mt-0.5 rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-medium text-ink-muted">Folded</span>
         )}
       </div>
-      <h1 className="mt-2 font-display text-display-l text-ink">{team.display_name}</h1>
 
       <div className="mt-8">
         {canManage ? (
