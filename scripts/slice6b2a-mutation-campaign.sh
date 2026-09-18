@@ -265,6 +265,100 @@ end \$\$;" >/dev/null
 kill_check "M16 invitation email boundary removed while the gate stays" gate_sql "$CONTRACT_SUITE"
 restore_fn public accept_guardian_invitation
 
+# =====================================================================================================
+# M17-M21 -- the email delivery-result AUTHORISATION fix (20270502000000).
+#
+# A different question from M11-M16. Those ask whether a dead session is refused; these ask whether a
+# perfectly LIVE one is kept to its own deliveries.
+# =====================================================================================================
+EMAIL_MUTANTS=(
+  "public.record_email_delivery_result"
+  "public.claim_email_delivery"
+)
+for q in "${EMAIL_MUTANTS[@]}"; do
+  snapshot_fn "${q%%.*}" "${q##*.}" || echo "  WARNING: could not snapshot $q"
+done
+DB_MUTANTS+=("${EMAIL_MUTANTS[@]}")
+
+EMAIL_SUITE=supabase/tests/email_delivery_result_authority.sql
+
+record_result_body() { # record_result_body <authority-clause> <where-clause>
+  sql "create or replace function public.record_email_delivery_result(p_delivery_id uuid, p_status text, p_provider text default null, p_provider_reference text default null, p_error_code text default null, p_error_message text default null, p_suppression_reason text default null) returns void language plpgsql security definer set search_path to 'public' as \$\$
+begin
+  if auth.uid() is null then
+    raise exception 'Email delivery results may only be recorded by an authenticated session.' using errcode = '42501';
+  end if;
+  perform internal.require_live_session();
+  $1
+  update public.email_deliveries
+  set status = p_status,
+      provider = coalesce(p_provider, provider),
+      provider_reference = coalesce(p_provider_reference, provider_reference),
+      error_code = p_error_code,
+      error_message = p_error_message,
+      suppression_reason = p_suppression_reason,
+      attempts = attempts + case when p_status in ('sent','failed') then 1 else 0 end,
+      sent_at = case when p_status = 'sent' then now() else sent_at end,
+      failed_at = case when p_status = 'failed' then now() else failed_at end
+  where id = p_delivery_id $2;
+end \$\$;" >/dev/null
+}
+
+# ---------------------------------------------------------------- M17
+echo "M17 remove the delivery-result authority boundary entirely"
+record_result_body "" ""
+kill_check "M17 delivery-result authority removed" gate_sql "$EMAIL_SUITE"
+restore_fn public record_email_delivery_result
+
+# ---------------------------------------------------------------- M18
+# The subtle one: the check is still there and still mentions initiated_by, but it accepts anybody
+# who is signed in. A structural grep for "initiated_by" would call this fixed.
+echo "M18 treat any live authenticated caller as the claimant"
+record_result_body "if not exists (select 1 from public.email_deliveries d where d.id = p_delivery_id and (d.initiated_by is not null or auth.uid() is not null)) then
+    raise exception 'That delivery is not yours to record a result for.' using errcode = '42501';
+  end if;" ""
+kill_check "M18 any live caller treated as claimant" gate_sql "$EMAIL_SUITE"
+restore_fn public record_email_delivery_result
+
+# ---------------------------------------------------------------- M19
+echo "M19 stop the claim recording who claimed it"
+sql "create or replace function public.claim_email_delivery(p_event_key text, p_idempotency_key text, p_occurrence_key text, p_recipient_kind text, p_recipient_ref uuid default null, p_recipient_email text default null, p_club_id uuid default null, p_subject text default null) returns uuid language plpgsql security definer set search_path to 'public' as \$\$
+declare v_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Email delivery may only be claimed by an authenticated session.' using errcode = '42501';
+  end if;
+  perform internal.require_live_session();
+  insert into public.email_deliveries (event_key, idempotency_key, occurrence_key, recipient_kind, recipient_ref, recipient_email, club_id, subject)
+  values (p_event_key, p_idempotency_key, p_occurrence_key, p_recipient_kind, p_recipient_ref, p_recipient_email, p_club_id, p_subject)
+  on conflict (idempotency_key) do nothing
+  returning id into v_id;
+  return v_id;
+end \$\$;" >/dev/null
+kill_check "M19 claim ownership binding removed" gate_sql "$EMAIL_SUITE"
+restore_fn public claim_email_delivery
+
+# ---------------------------------------------------------------- M20
+# Authority kept at the guard, dropped from the UPDATE's own WHERE. A TOCTOU-shaped mutant: the check
+# and the write must agree, or a terminal row is writable in the gap between them.
+echo "M20 keep the guard, drop the binding from the write itself"
+record_result_body "if not exists (select 1 from public.email_deliveries d where d.id = p_delivery_id) then
+    raise exception 'That delivery is not yours to record a result for.' using errcode = '42501';
+  end if;" ""
+kill_check "M20 terminal result overwritable by a non-claimant" gate_sql "$EMAIL_SUITE"
+restore_fn public record_email_delivery_result
+
+# ---------------------------------------------------------------- M21
+# There is no caller-supplied ownership argument, and there must never be one. This mutant introduces
+# the shape anyway -- authority derived from what the caller says rather than from the row.
+echo "M21 trust a caller-supplied provider value as authority"
+record_result_body "if not exists (select 1 from public.email_deliveries d where d.id = p_delivery_id
+      and (d.initiated_by = auth.uid() or p_provider = 'zeptomail')) then
+    raise exception 'That delivery is not yours to record a result for.' using errcode = '42501';
+  end if;" ""
+kill_check "M21 caller-supplied value accepted as authority" gate_sql "$EMAIL_SUITE"
+restore_fn public record_email_delivery_result
+
 echo
 echo "=== proving every mutated database function is byte-identical to its snapshot ==="
 DB_DIRTY=0

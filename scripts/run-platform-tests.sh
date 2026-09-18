@@ -247,6 +247,7 @@ SUITES=(
   # session can be in -- including the one that must NOT refuse, T0 with AAL1.
   session_boundary
   definer_rpc_session_contract
+  email_delivery_result_authority
   club_claim_authority_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences

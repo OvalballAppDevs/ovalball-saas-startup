@@ -312,3 +312,29 @@ as such rather than either pretended closed or left looking like an open securit
 
 **CODE + STATE-MACHINE VERIFIED. REAL PROVIDER UAT PENDING THE SOCIAL-PROVIDER UNIT.** No OAuth
 provider is configured locally or enabled in production, and none was configured for this work.
+
+---
+
+# The defect the S6-9 review found next door
+
+Reviewing the contract migration surfaced an **authorisation** defect in one of the functions it had
+just touched: `record_email_delivery_result` let any live authenticated caller rewrite any
+`email_deliveries` row whose id they knew. That is not a session-liveness defect — a revoked or
+suspended caller was already refused by `20270501000000` — and it is deliberately **not** absorbed into
+S6-9. It is recorded as its own defect, with its own migration
+(`20270502000000_a_delivery_result_belongs_to_its_claimant.sql`) and its own unit record,
+`SLICE_6B2A_EMAIL_DELIVERY_RESULT_AUTHORITY.md`.
+
+It was reproduced before it was fixed: on a production-shaped database at ledger 521, a stranger wrote
+`sent/forged` onto somebody else's delivery. It is closed by binding the result to the claim the
+architecture already had — `email_deliveries.initiated_by`, which `claim_test_email_send` has always
+written — rather than by inventing a role.
+
+| Closure question | Answer |
+|---|---|
+| Browser-callable SECURITY DEFINER mutation paths bypassing canonical session/account-state enforcement | **0** (one declared public-by-design path) |
+| Browser callers able to mutate an email delivery outside their legitimate authority | **0** |
+
+A third finding, the `internal` schema grant surface, is recorded for a later unit in
+`SLICE_6B2A_INTERNAL_SCHEMA_PERIMETER.md` with a cheap regression guard
+(`supabase/tests/js/api_schema_perimeter.test.mts`) and **no production configuration change**.
