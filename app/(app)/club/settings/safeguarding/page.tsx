@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
+import { PENDING_CONFIRMATION_EXPLANATION } from "@/lib/permissions/role-presentation"
+import { resolveClubSafeguardingAppointments } from "@/lib/safeguarding/club-appointments"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -45,7 +47,19 @@ export default async function SafeguardingOfficerPage() {
     hasCapability(supabase, "safeguarding.conversation.start", "club", { clubId }),
   ])
 
-  const { data: officerRows } = await supabase.rpc("get_club_safeguarding_officers", { p_club_id: clubId })
+  // TWO RECORDS, AND THIS PAGE USED TO READ ONLY ONE.
+  //
+  // `get_club_safeguarding_officers` returns the CONTACT register -- the name and
+  // address a club publishes -- which is written by the invite-an-outsider path.
+  // Nominating an EXISTING member goes through the 4G state machine in
+  // `role_assignments` and writes no contact row, so every such nomination was
+  // invisible here and the page told the club it had no Safeguarding Officer at
+  // all. That is not "no officer yet"; it is "an appointment is in progress and
+  // this screen cannot see it", and it was the screen that owns the appointment.
+  const [{ data: officerRows }, appointments] = await Promise.all([
+    supabase.rpc("get_club_safeguarding_officers", { p_club_id: clubId }),
+    resolveClubSafeguardingAppointments(supabase, clubId),
+  ])
   const officers: OfficerData[] = (officerRows ?? []).map((o) => ({
     id: o.id,
     officerType: o.officer_type as "primary" | "deputy",
@@ -55,8 +69,16 @@ export default async function SafeguardingOfficerPage() {
     pendingInvitationId: o.pending_invitation_id,
   }))
 
-  const primary = officers.find((o) => o.officerType === "primary")
-  const deputy = officers.find((o) => o.officerType === "deputy")
+  const pending = appointments.filter((a) => a.confirmationState === "PENDING_CONFIRMATION")
+  const confirmed = appointments.filter((a) => a.confirmationState !== "PENDING_CONFIRMATION")
+  const heldFor = (type: string) =>
+    officers.some((o) => o.officerType === type) || appointments.some((a) => a.officerType === type)
+  // "No primary officer" and "nominate a primary officer" now ask the same
+  // question of the same two records, so the page cannot offer to nominate
+  // somebody it is already showing as nominated.
+  const primary = heldFor("primary")
+  const deputy = heldFor("deputy")
+  const officerTypeLabel = (t: string) => (t === "deputy" ? "Deputy Safeguarding Officer" : "Safeguarding Officer")
 
   const clubName = activeContext.kind === "club" ? activeContext.label : "Club"
 
@@ -75,6 +97,54 @@ export default async function SafeguardingOfficerPage() {
           <p className="text-sm font-medium text-ink">No primary Safeguarding Officer</p>
           <p className="mt-1 text-sm text-ink/70">This club currently has no active primary Safeguarding Officer.</p>
         </div>
+      )}
+
+      {/* THE MIDDLE OF THE STATE MACHINE, VISIBLE AT LAST.
+          A nomination is neither "nobody" nor "the Safeguarding Officer". It is a
+          named person the club has put forward, waiting on Ovalball, holding none
+          of the authority yet -- and all three of those facts are stated here
+          rather than left to be inferred from a screen that showed nothing. */}
+      {pending.length > 0 && (
+        <section className="mt-8" aria-labelledby="pending-appointments">
+          <h2 id="pending-appointments" className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
+            Awaiting Confirmation
+          </h2>
+          <ul className="mt-3 flex flex-col gap-3">
+            {pending.map((a) => (
+              <li key={a.assignmentId} className="rounded-lg border border-amber-500/40 bg-amber-50 px-4 py-3.5">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-medium text-ink">
+                    {a.personName ?? a.email ?? "A club member"} &mdash; {officerTypeLabel(a.officerType)}
+                  </p>
+                  <p className="text-xs font-medium text-ink/70">Pending confirmation</p>
+                </div>
+                <p className="mt-1 text-sm text-ink/70">{PENDING_CONFIRMATION_EXPLANATION}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* A confirmed appointment made from inside the club has no contact row of
+          its own, so it would otherwise be as invisible as a pending one. */}
+      {confirmed.length > 0 && (
+        <section className="mt-6" aria-labelledby="confirmed-appointments">
+          <h2 id="confirmed-appointments" className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
+            Confirmed Appointments
+          </h2>
+          <ul className="mt-3 flex flex-col gap-3">
+            {confirmed.map((a) => (
+              <li key={a.assignmentId} className="rounded-lg border border-ink/10 bg-white px-4 py-3.5">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-medium text-ink">
+                    {a.personName ?? a.email ?? "A club member"} &mdash; {officerTypeLabel(a.officerType)}
+                  </p>
+                  <p className="text-xs font-medium text-forest-800">{a.state === "SUSPENDED" ? "Suspended" : "Confirmed"}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <div className="mt-6 flex flex-col gap-3">

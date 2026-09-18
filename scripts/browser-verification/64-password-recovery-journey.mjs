@@ -215,9 +215,37 @@ try {
     )
 
     await page.goto(`${APP}/login`, { waitUntil: "domcontentloaded" })
+
+    // THIS ASSERTION USED TO RACE THE PAGE IT READS.
+    //
+    // The login form is a client component, so on domcontentloaded the reveal
+    // button does not exist yet: an immediate isVisible() returned false, the
+    // reveal was skipped, the link was never rendered, and getAttribute's catch
+    // turned that into null -- which is not "/forgot-password", so a timing loss
+    // was reported as a missing security affordance. It failed inside a full
+    // platform run sharing the dev server and passed alone minutes later with no
+    // code change, which is the signature.
+    //
+    // The fix is to wait for the PRODUCT CONDITIONS the assertion is about, not
+    // for a duration. Both waits are allowed to fail: the assertion below still
+    // runs and still reports the truth, so a genuine regression can never be
+    // waited away, and no timeout anywhere else is loosened to hide it.
     const reveal = page.getByRole("button", { name: /sign in with email/i }).first()
+    await reveal.waitFor({ state: "visible", timeout: 15000 }).catch(() => {})
     if (await reveal.isVisible().catch(() => false)) await reveal.click()
+
     const link = page.getByRole("link", { name: /forgot|forgotten/i }).first()
+    await page
+      .waitForFunction(
+        () =>
+          Array.from(document.querySelectorAll("a")).some(
+            (a) => /forgot/i.test(a.textContent ?? "") && a.getAttribute("href") === "/forgot-password",
+          ),
+        undefined,
+        { timeout: 15000 },
+      )
+      .catch(() => {})
+
     record(
       "S6B1-02 and Sign In's forgotten-password link points at it",
       (await link.getAttribute("href").catch(() => null)) === "/forgot-password",

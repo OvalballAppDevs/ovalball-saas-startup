@@ -5,6 +5,7 @@ import { ShieldCheck } from "lucide-react"
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
+import { roleAssignmentLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
 
 import { GROUPS } from "./groups"
@@ -54,16 +55,22 @@ export default async function ClubPermissionsPage() {
     p_capability_keys: GROUPS.flatMap((g) => g.items.map((i) => i.key)),
   })
   // Club roles from the canonical role assignments (club_memberships.role is compatibility only).
+  //
+  // `confirmation_state` is selected because it is PART of the role, not a detail
+  // beside it. Without it this row read "Safeguarding Officer" for a person whose
+  // nomination is still sitting in PENDING_CONFIRMATION conferring nothing --
+  // telling the club an appointment was settled while the page that owns the
+  // appointment said the club had none. One canonical state, worded in one place.
   const { data: roleRows } = await supabase
     .from("role_assignments")
-    .select("user_id, role_key, role_definitions(label)")
+    .select("user_id, role_key, confirmation_state, role_definitions(label)")
     .eq("club_id", clubId)
     .is("team_id", null)
     .eq("state", "ACTIVE")
 
   const roleLabelByUser = new Map<string, string>()
   for (const r of roleRows ?? []) {
-    const label = r.role_definitions?.label ?? r.role_key
+    const label = roleAssignmentLabel(r.role_key, r.role_definitions?.label, r.confirmation_state)
     const existing = roleLabelByUser.get(r.user_id)
     // A club role outranks the plain Member role when someone holds both.
     if (!existing || existing === "Member") roleLabelByUser.set(r.user_id, label)

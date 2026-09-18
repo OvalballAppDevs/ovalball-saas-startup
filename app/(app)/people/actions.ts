@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
 import { toPublicSubmissionError } from "@/lib/errors/public-error"
+import { roleKeyLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
 import { getSiteUrl } from "@/lib/site-url"
 
@@ -34,9 +35,16 @@ export async function invitationStaffRoleOptions(): Promise<StaffRoleOption[]> {
     console.error("invitation_staff_role_options failed:", error)
     return []
   }
+  // The catalogue's own wording, except where the product has settled on a
+  // different one: it spells the club's fixtures role "Fixtures Secretary" and
+  // every other surface in Ovalball says "Fixture Secretary", so somebody
+  // inviting a Fixture Secretary was offered a differently-named role from the
+  // one they would later see on the person's row. Mapped in presentation only --
+  // the key is untouched, nothing authorises off the string, and the catalogue
+  // stays the authority for every role whose wording is not in dispute.
   return (data ?? []).map((row) => ({
     roleKey: row.role_key,
-    label: row.label,
+    label: roleKeyLabel(row.role_key, row.label),
     heldAtTeam: row.held_at_team,
   }))
 }

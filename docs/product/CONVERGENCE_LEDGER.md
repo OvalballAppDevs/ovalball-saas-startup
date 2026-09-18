@@ -30,6 +30,14 @@ Two boundaries that follow from it:
   canonical Club Admin is never left demoted, the only example of a role or state
   is never destroyed, and a fixture is never put back by bypassing a state
   machine.
+- **Unexplained review-world state is REPORTED, never "fixed".** It may be the
+  product owner's own manual Chrome work. State changes only when the owner asks
+  for it, or when a walkthrough names a record as mutable and the owner performs
+  the action. This rule exists because it was broken: four Coach assignments on
+  the review club were removed as though they were drift from a stray test, and
+  the timestamps later lined up with a real session in the review Club Admin's
+  own account. `step2-review-club.mjs verify` therefore prints differences and
+  fixes nothing.
 
 ---
 
@@ -43,10 +51,10 @@ product owner rules that it is not a defect.
 | id | finding | found in | owner | status |
 |---|---|---|---|---|
 | L1 | `lib/email/recipients.ts` `club_invitation` branch reads the dead `public.invitations` table | Step 2 | **Step 3 — Invitations & Joining Product Closure** | open |
-| L2 | A Safeguarding Officer nomination in `PENDING_CONFIRMATION` is described two contradictory ways and never as pending | Step 2 manual review preparation | awaiting product owner's ruling | open |
-| L3 | The same club role is worded "Fixtures Secretary" in the role catalogue and "Fixture Secretary" everywhere else | Step 2 manual review preparation | awaiting product owner's ruling | open |
-| L4 | The team page tells a Team Manager that only a Club Admin can assign people, directly beneath the assign control she may legitimately use | Step 2 manual review preparation | **Step 4 — Teams** (provisional) | open |
-| L6 | `64-password-recovery-journey` S6B1-02 reads a link's `href` immediately after revealing the panel it lives in, and fails under concurrent load | Step 2 persona-policy work | test reliability — awaiting product owner's ruling | open |
+| L2 | A Safeguarding Officer nomination in `PENDING_CONFIRMATION` was described two contradictory ways and never as pending | Step 2 manual review preparation | Step 2 | **closed** — one appointment reader, one wording |
+| L3 | The same club role is worded "Fixtures Secretary" in the role catalogue and "Fixture Secretary" everywhere else | Step 2 manual review preparation | presentation mapped in Step 2; **the catalogue key/label inconsistency stays open for its schema owner** | partly open |
+| L4 | The team page told a Team Manager that only a Club Admin can assign people, directly beneath the assign control she may legitimately use | Step 2 manual review preparation | Step 2 | **closed** — the sentence asks the same flags the controls ask |
+| L6 | `64-password-recovery-journey` S6B1-02 read a link's `href` immediately after revealing the panel it lives in, and failed under concurrent load | Step 2 persona-policy work | test reliability | **closed** — it waits for the product condition |
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
 ---
@@ -110,12 +118,39 @@ product that it has nominated somebody and is waiting.
 capabilities — the ordinary member figure, identical to every other member of the
 review club. Nothing was granted.
 
-**Why it is not fixed here.** It was found while preparing the manual Chrome
-review, after the Step 2 unit was banked, and the instruction for that gate was
-to prepare and stop. It is a presentation decision about a statutory appointment
-and belongs to the product owner, not to a tidy-up.
+### Closed — one appointment reader, one wording
 
-Reproduce: review walkthrough section **H**.
+The product owner ruled this a Step 2 defect. Fixed in presentation only; the
+state machine and the authority behind it are untouched.
+
+**The canonical appointment state is `public.role_assignments`** — `role_key =
+'SAFEGUARDING_OFFICER'`, with `state` and `confirmation_state`. That is where
+`internal.enter_safeguarding_nomination` writes and what
+`confirm_safeguarding_officer` takes the id of.
+`public.club_safeguarding_officers` is a **contact register**, written by the
+invite-an-outsider path, and nominating an existing member writes no row in it —
+which is exactly why the page reading only the register saw nothing.
+
+- `lib/safeguarding/club-appointments.ts` is the one club-scope reader of the
+  appointment. It resolves nothing and decides nothing; RLS decides who may see
+  it and the state is reported as stored.
+- `lib/permissions/role-presentation.ts` is the one place the state becomes
+  words: **"Safeguarding Officer — Pending confirmation"**, with a single shared
+  sentence explaining that the club has nominated somebody, Ovalball has not
+  confirmed it, and they hold no Safeguarding Officer authority meanwhile.
+- `/club/settings/safeguarding` now shows **Awaiting Confirmation** and
+  **Confirmed Appointments** sections, and no longer offers to nominate somebody
+  it is already showing as nominated.
+- `/club/permissions` selects `confirmation_state` and takes its caption from the
+  same authority, so `PENDING_CONFIRMATION` and `CONFIRMED` are distinguishable
+  on sight.
+
+Regression cover: `users_and_permissions_authority.sql` **E1–E6** (including E4,
+which proves the guarantee by comparing the nominee's decision to an ordinary
+member's capability by capability), four structural assertions in
+`users_and_permissions_architecture.test.mts`, and **I1–I5** in browser suite 68.
+
+Reproduce: review walkthrough section **G**.
 
 ---
 
@@ -131,10 +166,23 @@ Secretary" on Permissions and in the invite form's club-role menu. The role key
 itself is spelled both ways too: `FIXTURES_SECRETARY` in `role_definitions`,
 `FIXTURE_SECRETARY` in `role_capability_defaults` and `club_memberships`.
 
-**Why it is not fixed here.** The label lives in a database table, so correcting
-it is a migration, and Step 2 deliberately added none. Which spelling is right is
-a product decision — "Fixture Secretary" is the majority usage and the one
-`role-labels.ts` already settled on, but the catalogue is the older authority.
+### Presentation mapped in Step 2 — the schema inconsistency stays open
+
+The product owner ruled: use the established product term, add **no migration**,
+and do not create a second role identity.
+
+`lib/permissions/role-presentation.ts` maps **`FIXTURES_SECRETARY` →
+"Fixture Secretary"** and nothing else; every role whose catalogue wording is not
+in dispute keeps it, and an unknown key falls back to the key rather than to a
+guess. Applied at the two places the catalogue label reached a person: the
+permissions grid's role caption and `invitation_staff_role_options`, which feeds
+the Invite Someone menu and the waiting-invitation descriptions. The key is
+untouched and nothing authorises off the string.
+
+**Still open for the schema/auth cleanup owner:** the key itself is
+`FIXTURES_SECRETARY` in `public.role_definitions` and `FIXTURE_SECRETARY` in
+`public.club_memberships` and `public.role_capability_defaults`. That is one role
+with two identifiers, and presentation cannot fix it.
 
 Reproduce: review walkthrough section **A** (Gordon Pike) then section **F**.
 
@@ -261,8 +309,18 @@ dev server, and passed **34/34** on an isolated re-run minutes later with no cod
 change in between. Nothing in the Step 2 or persona-policy work touches the login
 page.
 
-**The fix is a wait, not a retry** — `await link.waitFor({ state: "attached" })`
-before reading the attribute — and it is left for the owner to schedule because
-changing a security suite's timing is not something to slip into a documentation
-commit. It is the same family as L5: an assertion whose verdict depends on
-something other than the behaviour it claims to test.
+### Closed — it waits for the product condition, not for a duration
+
+Two waits, both of which are allowed to fail so that the assertion still runs and
+still reports the truth:
+
+- the reveal button is waited for before it is clicked, because the login form is
+  a client component and on `domcontentloaded` it does not exist yet — the old
+  code's `isVisible()` returned false, the reveal was skipped, and the link was
+  therefore never rendered at all;
+- then the page is waited on until an anchor exists whose text matches
+  *forgot* and whose `href` is `/forgot-password` — the exact condition the
+  assertion is about.
+
+No sleep, no global timeout change, no weakened assertion, no skip, and no
+product change. Verified under the combined browser load that broke it.

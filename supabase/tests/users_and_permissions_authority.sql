@@ -95,6 +95,8 @@ declare
   v_view_key text := 'fixture.fixture.view';
   d record; e text; v_inv uuid; v_tp uuid; v_n int;
   v_explained_create boolean; v_explained_view boolean;
+  v_nomination jsonb; v_conf_state text; v_ra_state text; v_same boolean;
+  v_key_iter text; v_a boolean; v_b boolean; v_stranger_member uuid; v_m_stranger uuid;
 begin
   v_club := pg_temp.club('Home');
   v_other_club := pg_temp.club('Away');
@@ -106,6 +108,10 @@ begin
   v_m_admin := pg_temp.member(v_club, v_admin, 'CLUB_ADMIN');
   v_m_member := pg_temp.member(v_club, v_member, 'BASIC_USER');
   perform pg_temp.member(v_other_club, v_outsider, 'CLUB_ADMIN');
+  -- A second ordinary member, so "the nominee is treated exactly like a member" is a comparison
+  -- against a real person rather than against an assumption.
+  v_stranger_member := pg_temp.person('Plain');
+  v_m_stranger := pg_temp.member(v_club, v_stranger_member, 'BASIC_USER');
 
   -- ===================================================================================================
   -- A. explain_access -- who may ask, and about whom.
@@ -230,6 +236,58 @@ begin
                                 where id = v_inv and state = 'REVOKED' and revoked_by = v_admin
                                   and revocation_reason = 'Withdrawn by the club.'),
                         'C5 a club admin revokes it, and who revoked it and why are both recorded');
+
+  -- ===================================================================================================
+  -- E. The Safeguarding Officer appointment is a STATE, and it confers nothing until it is confirmed.
+  --
+  -- Two records answer two different questions and one screen was reading only one of them.
+  -- public.club_safeguarding_officers is a CONTACT register, written by the invite-an-outsider path.
+  -- public.role_assignments is the APPOINTMENT -- the 4G state machine, which is why
+  -- confirm_safeguarding_officer takes an ASSIGNMENT id. Nominating an existing member writes the
+  -- second and not the first, so the page that owns the appointment saw nothing and told the club it
+  -- had no Safeguarding Officer, while the permissions grid captioned the same person "Safeguarding
+  -- Officer" outright. Pinned here so the state cannot go quiet again.
+  -- ===================================================================================================
+  perform pg_temp.as_person(v_admin);
+  v_nomination := public.nominate_club_safeguarding_officer(v_club, v_member, 'primary', 'Review of the appointment state.');
+  perform pg_temp.check(v_nomination ->> 'outcome' = 'PENDING_CONFIRMATION',
+                        'E1 nominating an active member enters PENDING_CONFIRMATION rather than appointing them');
+
+  select ra.confirmation_state, ra.state into v_conf_state, v_ra_state
+  from public.role_assignments ra
+  where ra.club_id = v_club and ra.user_id = v_member and ra.role_key = 'SAFEGUARDING_OFFICER';
+  perform pg_temp.check(v_conf_state = 'PENDING_CONFIRMATION' and v_ra_state = 'ACTIVE',
+                        'E2 and the canonical appointment carries that state on the assignment itself');
+
+  perform pg_temp.check(not exists (select 1 from public.club_safeguarding_officers where club_id = v_club),
+                        'E3 and writes NO contact-register row, which is why a page reading only that register saw nothing');
+
+  -- The guarantee itself, stated as the comparison that actually proves it: the nominee's answers are
+  -- identical to an ordinary member's, capability by capability. "Grants nothing" is not a claim about
+  -- an empty table -- it is that nothing changed for this person.
+  v_same := true;
+  foreach v_key_iter in array array['fixture.fixture.view', 'fixture.fixture.create', 'fixture.fixture.edit',
+                                    'fixture.fixture.cancel', 'calendar.event.view', 'calendar.event.manage',
+                                    'training.plan.manage', 'fixture.import.run']
+  loop
+    select (internal.capability_decision(v_member, v_key_iter, 'club', v_club, null, null, false, false)).allowed into v_a;
+    select (internal.capability_decision(v_stranger_member, v_key_iter, 'club', v_club, null, null, false, false)).allowed into v_b;
+    if v_a is distinct from v_b then v_same := false; end if;
+  end loop;
+  perform pg_temp.check(v_same,
+                        'E4 a pending Safeguarding Officer resolves exactly as an ordinary member does, capability by capability');
+
+  perform pg_temp.check(
+    exists (select 1 from public.role_assignments ra
+            where ra.club_id = v_club and ra.user_id = v_member and ra.role_key = 'SAFEGUARDING_OFFICER'
+              and ra.confirmation_state is not null),
+    'E5 the appointment state is readable, so a club surface can show that somebody is waiting');
+
+  perform pg_temp.check(
+    (select count(*) from pg_constraint
+     where conrelid = 'public.role_assignments'::regclass and contype = 'c'
+       and pg_get_constraintdef(oid) like '%SAFEGUARDING_OFFICER%confirmation_state%') = 1,
+    'E6 and only a Safeguarding Officer may carry one, by CHECK constraint rather than convention');
 
   -- ===================================================================================================
   -- D. The shape the defect grew in.

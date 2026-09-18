@@ -7,7 +7,7 @@ import { cookies } from "next/headers"
 import { ChevronLeft, ChevronRight, Newspaper } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
-import { getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
+import { getSessionContext } from "@/lib/app-context/session-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 import { compactTeamLabel, fullTeamLabel } from "@/lib/teams/compact-label"
@@ -232,8 +232,28 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         />
       )}
 
-      {!isClubAdminAnywhere(ctx) && !ctx.isSiteAdmin && (
-        <p className="mt-6 text-xs text-ink-muted">Only this club&apos;s Club Admin can edit team details or assign people.</p>
+      {/* THE SENTENCE FOLLOWS THE SAME DECISION THE CONTROLS DO.
+          This used to read "Only this club's Club Admin can edit team details or
+          assign people", gated on isClubAdminAnywhere -- a SESSION-WIDE flag, and
+          nothing to do with authority at this team. A Team Manager therefore read
+          that she could not assign people directly beneath the assign control she
+          is genuinely entitled to use, because the roster section is gated
+          properly on team.roster.manage. One question, two answers, and the wrong
+          one in the more visible place.
+          It now asks the identical flags the sections themselves ask, so the
+          explanation cannot contradict what is on the screen, and it names only
+          what is actually withheld. No role is mentioned: naming "Club Admin"
+          here is what let copy drift away from the capability engine in the first
+          place, and a club that moves team.roster.manage onto another role would
+          have been lied to all over again. */}
+      {(!canManage || !canManagePeople) && (
+        <p className="mt-6 text-xs text-ink-muted">
+          {canManagePeople
+            ? "You can manage who is in this team. Changing the team's own details is done by the club."
+            : canManage
+              ? "You can change this team's details. Assigning people to it is done by the club."
+              : "You can see this team, but changing its details or who is in it is done by the club."}
+        </p>
       )}
     </div>
   )

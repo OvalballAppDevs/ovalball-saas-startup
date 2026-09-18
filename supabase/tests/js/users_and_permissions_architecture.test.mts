@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 
 import { explainDecision, decisionRemedy, type AccessDecision } from "@/lib/permissions/access-explanation"
+import { roleAssignmentLabel, roleKeyLabel, PENDING_CONFIRMATION_EXPLANATION } from "@/lib/permissions/role-presentation"
 import { CLUB_ROLE_LABEL, TEAM_PERMISSION_LABEL, TEAM_STAFF_PERMISSION_OPTIONS } from "@/lib/permissions/role-labels"
 
 /**
@@ -144,4 +145,73 @@ test("a remedy is offered only where this club can actually act", () => {
 
 test("the club role labels the centre relies on are the three the database constrains", () => {
   assert.deepEqual(Object.keys(CLUB_ROLE_LABEL).sort(), ["BASIC_USER", "CLUB_ADMIN", "FIXTURE_SECRETARY"])
+})
+
+
+/* ------------------------------------------------------------------------- *
+ * The Step 2 review corrections.
+ * ------------------------------------------------------------------------- */
+
+test("a Safeguarding Officer appointment is worded with its state, never as though it were settled", () => {
+  assert.equal(
+    roleAssignmentLabel("SAFEGUARDING_OFFICER", "Safeguarding Officer", "PENDING_CONFIRMATION"),
+    "Safeguarding Officer — Pending confirmation",
+    "a nomination confers nothing until Ovalball confirms it, and the label has to carry that"
+  )
+  assert.equal(roleAssignmentLabel("SAFEGUARDING_OFFICER", "Safeguarding Officer", "CONFIRMED"), "Safeguarding Officer")
+  assert.notEqual(
+    roleAssignmentLabel("SAFEGUARDING_OFFICER", "Safeguarding Officer", "PENDING_CONFIRMATION"),
+    roleAssignmentLabel("SAFEGUARDING_OFFICER", "Safeguarding Officer", "CONFIRMED"),
+    "the two states must be distinguishable on sight"
+  )
+  // Every other role has no confirmation state at all -- a CHECK constraint, not a convention.
+  assert.equal(roleAssignmentLabel("CLUB_ADMIN", "Club Admin", null), "Club Admin")
+})
+
+test("the appointment state is read from one place, and that place is the state machine", () => {
+  const reader = code("lib/safeguarding/club-appointments.ts")
+  assert.match(reader, /from\("role_assignments"\)/, "the appointment lives in role_assignments, not the contact register")
+  assert.match(reader, /confirmation_state/, "and its state is what makes it an appointment rather than a grant")
+
+  const page = code("app/(app)/club/settings/safeguarding/page.tsx")
+  assert.match(page, /resolveClubSafeguardingAppointments/,
+    "the page that owns the appointment must read it; reading only get_club_safeguarding_officers made every nomination invisible")
+  assert.doesNotMatch(page, /from\("role_assignments"\)/,
+    "and must consume the shared reader rather than opening a second one")
+
+  const grid = code("app/(app)/club/permissions/page.tsx")
+  assert.match(grid, /confirmation_state/, "the permissions grid captioned a pending nominee as the Safeguarding Officer outright")
+  assert.match(grid, /roleAssignmentLabel/, "so it takes its wording from the same authority")
+})
+
+test("the pending-appointment explanation has exactly one wording", () => {
+  assert.match(PENDING_CONFIRMATION_EXPLANATION, /Ovalball to confirm/)
+  assert.match(PENDING_CONFIRMATION_EXPLANATION, /no Safeguarding Officer authority/)
+  const page = readFileSync("app/(app)/club/settings/safeguarding/page.tsx", "utf8")
+  assert.doesNotMatch(page, /waiting for Ovalball to confirm/i,
+    "the sentence is imported, not retyped -- two copies is how the two screens disagreed in the first place")
+})
+
+test("the club's fixtures role is worded the way the product words it everywhere", () => {
+  // The catalogue says "Fixtures Secretary" and every other Ovalball surface says
+  // "Fixture Secretary". Mapped in presentation; no migration, no second role identity.
+  assert.equal(roleKeyLabel("FIXTURES_SECRETARY", "Fixtures Secretary"), "Fixture Secretary")
+  assert.equal(roleKeyLabel("CLUB_ADMIN", "Club Admin"), "Club Admin", "a role whose wording is not in dispute keeps the catalogue's")
+  assert.equal(roleKeyLabel("SOMETHING_NEW", null), "SOMETHING_NEW", "an unknown role falls back to its key, never to a guess")
+  assert.match(code("app/(app)/people/actions.ts"), /roleKeyLabel\(row\.role_key, row\.label\)/,
+    "the invite form offered a differently-named role from the one the person's row would later show")
+})
+
+test("explanatory copy about who may act never names a role instead of asking the capability", () => {
+  // L4: the team page told a Team Manager that "Only this club's Club Admin can
+  // ... assign people", directly beneath an assign control she was entitled to
+  // use -- because the sentence was gated on a session-wide flag while the
+  // control was gated on team.roster.manage. One question, two answers.
+  const page = code("app/(app)/teams/[teamId]/page.tsx")
+  assert.doesNotMatch(page, /isClubAdminAnywhere/,
+    "a session-wide role flag must not decide what a page says about authority at THIS team")
+  assert.doesNotMatch(page, /Only this club['\u2019]s Club Admin can/,
+    "copy that names a role cannot follow the capability engine when the club moves that capability")
+  assert.match(page, /\{\(!canManage \|\| !canManagePeople\)/,
+    "the explanation asks the same flags the controls ask, so the two cannot contradict each other")
 })

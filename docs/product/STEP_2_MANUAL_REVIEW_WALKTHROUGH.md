@@ -148,11 +148,13 @@ what is waiting, then who is here, then how to add someone, then the specialist
 screens? **There is no search box**; nine people fit on a screen and a real club
 of two hundred would not. Is that a Step 2 gap or a later one?
 
-> **Observation (L3):** Gordon Pike reads **Fixture Secretary** here and
-> **Fixtures Secretary** on Permissions (section F) and in the Invite Someone
-> menu. One role, two spellings, because the catalogue label lives in the
-> database and the app's canonical wording disagrees with it. Fixing it is a
-> migration, so Step 2 did not.
+> **Corrected since the first pass (L3):** Gordon Pike used to read **Fixture
+> Secretary** here and **Fixtures Secretary** on Permissions and in the Invite
+> Someone menu. One role, two spellings. The established product term is now
+> mapped in presentation at both places — no migration, no second role identity,
+> the catalogue key untouched. The remaining inconsistency is underneath: the key
+> is `FIXTURES_SECRETARY` in one table and `FIXTURE_SECRETARY` in two others,
+> which is recorded in the ledger for its schema owner.
 
 ---
 
@@ -272,9 +274,24 @@ with **Remove** beside it.
   every team, so this records who is doing the job rather than widening what they
   may do. A Team Admin or a Site Admin doing the same thing is refused.
 
+**Corrected since the first pass (L4) — check this while you are on the team page**
+
+Sign in as **Sian Lowry** and open **Men's 1st Team**. The page used to end with
+*"Only this club's Club Admin can edit team details or assign people"* —
+immediately beneath an assign control she is genuinely entitled to use, because
+the sentence was gated on a session-wide role flag while the control was gated on
+`team.roster.manage`.
+
+It now reads: *"You can manage who is in this team. Changing the team's own
+details is done by the club."* The explanation asks the same flags the controls
+ask, and **names no role at all** — naming "Club Admin" is what let the copy drift
+from the capability engine, and a club that moved that capability elsewhere would
+have been told the same untruth again.
+
 **Judge**
-Is the person the right place to do this from, or should it stay on the team? Is
-"Reason" in the right place, and should it be required?
+Is the person the right place to add a team role from, or should it stay on the
+team? Is "Reason" in the right place, and should it be required? Does the new
+sentence tell a Team Manager something true and useful?
 
 ---
 
@@ -378,48 +395,44 @@ rows sit inline with the club join requests?
 
 ---
 
-## H. Safeguarding Officer — and a finding
+## H. Safeguarding Officer — corrected
 
 **Start:** <http://localhost:3000/club/settings/safeguarding>
 
 **What the fixture contains.** **Priya Devlin** was nominated as primary
 Safeguarding Officer through the real RPC
-(`nominate_club_safeguarding_officer`), which returned:
+(`nominate_club_safeguarding_officer`), which returned `PENDING_CONFIRMATION` —
+*"Nominated. Ovalball must confirm the appointment before it grants anything."*
+Nothing was mutated to stage it and the state machine is untouched.
 
-> `PENDING_CONFIRMATION` — *"Nominated. Ovalball must confirm the appointment
-> before it grants anything."*
+**What was wrong, and is now fixed (L2).** The appointment lives in
+`role_assignments` — the 4G state machine, which is why
+`confirm_safeguarding_officer` takes an **assignment** id.
+`club_safeguarding_officers` is a separate **contact register**, written only by
+the invite-an-outsider path. This page read only the register, so it announced
+*"No primary Safeguarding Officer"*; `/club/permissions` read the assignment
+without its confirmation state and captioned Priya **"Safeguarding Officer"**
+outright. Two screens, one state, two contradictory claims, and neither said
+*waiting*.
 
-Nothing was mutated to stage this. The state machine is untouched.
+**What you should see now**
 
-**The guarantee holds.** On **/club/permissions**, Priya resolves at **2 of 10
-allowed** — the ordinary member figure, identical to Marta, Sian and Tomas. The
-nomination granted **zero** Safeguarding Officer authority. There is no checkbox
-anywhere that appoints a Safeguarding Officer, and nothing bypasses
-nomination → PENDING_CONFIRMATION → AN‑6 confirmation → ACTIVE.
+- Here: an **Awaiting Confirmation** section naming Priya as **Safeguarding
+  Officer — Pending confirmation**, with one sentence: *"Nominated by the club and
+  waiting for Ovalball to confirm the appointment. Until it is confirmed they hold
+  no Safeguarding Officer authority."* The page no longer offers to nominate a
+  primary officer it is already showing as nominated.
+- On **/club/permissions**: Priya captioned **"Safeguarding Officer — Pending
+  confirmation"**, and still **2 of 10 allowed** — the ordinary member figure,
+  identical to Marta, Sian and Tomas.
 
-**The finding — please rule on this (ledger L2).** The *middle* state is never
-described:
-
-- **/club/settings/safeguarding**, the page that owns the appointment, says
-  **"No primary Safeguarding Officer — this club currently has no active primary
-  Safeguarding Officer."** The nomination is not shown at all.
-- **/club/permissions** captions Priya plainly **"Safeguarding Officer"**, because
-  it reads the active role assignment without looking at `confirmation_state` —
-  as though the appointment were settled.
-
-Two screens, the same state, two contradictory descriptions, and neither says
-*awaiting confirmation*. A club cannot learn from the product that it has
-nominated somebody and is waiting.
-
-I have **not** fixed this. It was found while preparing this review, after the
-Step 2 unit was banked, and it is a presentation decision about a statutory
-appointment. Tell me whether it is a Step 2 correction or a later step's.
+There is one reader of the appointment and one wording for its state, so the two
+screens cannot disagree again.
 
 **Judge**
-Is "grants nothing, and says nothing" acceptable, or must the pending state be
-visible before Step 2 is accepted?
-
----
+Does *"Safeguarding Officer — Pending confirmation"* read correctly to you, or do
+you want different words? Is the explanation in the right place and the right
+length? Is there anywhere else an appointment ought to be visible?
 
 ## I. Team scope — the same concept, none of the club's authority
 
@@ -448,12 +461,11 @@ refused **by the server**, not merely unlinked:
 | `/people/8a68e003-fac2-41d6-8fa3-2b90d4884d78` (Tomas) | → `/dashboard` |
 | `/club/permissions` | → `/dashboard` |
 
-> **Finding (ledger L4).** At the bottom of the team page she reads *"Only this
-> club's Club Admin can edit team details or assign people."* — directly beneath
-> an assign control she is genuinely entitled to use. The authority is right
-> throughout; the sentence is wrong, and it is gated on a session-wide flag rather
-> than on the capability the roster section itself checks. Recorded, not fixed:
-> it is copy on the team surface and Step 4 owns Teams.
+> **Corrected since the first pass (L4).** The page used to end with *"Only this
+> club's Club Admin can edit team details or assign people"* — directly beneath
+> an assign control she is genuinely entitled to use. It now reads *"You can
+> manage who is in this team. Changing the team's own details is done by the
+> club."*, gated on the same flags as the controls and naming no role.
 
 **Judge**
 Is "Team" the right sidebar label for a person with one team? Should a Team
@@ -539,16 +551,13 @@ told *why* somebody can or cannot do each thing.
 
 ---
 
-## What I am waiting on
+## What is still open
 
-Three findings need your ruling. All are recorded in
-`docs/product/CONVERGENCE_LEDGER.md`.
+`docs/product/CONVERGENCE_LEDGER.md` holds the programme ledger.
 
 | | | |
 |---|---|---|
-| **L2** | A Safeguarding Officer nomination in `PENDING_CONFIRMATION` is described two contradictory ways, and never as pending | Step 2 correction, or later? |
-| **L3** | "Fixtures Secretary" in the role catalogue vs "Fixture Secretary" everywhere else | Which spelling, and is a migration in scope? |
-| **L4** | The team page tells a Team Manager only a Club Admin can assign people, beneath a control she may use | Step 2, or Step 4 with Teams? |
+| **L1** | The dead `club_invitation` email branch in `lib/email/recipients.ts` — zero callers, reads the empty `public.invitations` | **Step 3 — Invitations & Joining Product Closure** |
+| **L3** | The *presentation* is fixed; underneath, one role still has two keys — `FIXTURES_SECRETARY` in `role_definitions`, `FIXTURE_SECRETARY` in `club_memberships` and `role_capability_defaults` | schema/auth cleanup owner |
 
-**L1** — the dead `club_invitation` email branch — is already assigned to **Step 3
-— Invitations & Joining Product Closure** and needs no ruling.
+**L2, L4, L5 and L6 are closed.**

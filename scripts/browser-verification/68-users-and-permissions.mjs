@@ -79,6 +79,8 @@ function teardown() {
       where tp.membership_id = m.id and m.user_id = u.id and u.email like '${MINE}';
     delete from public.role_assignments ra using public.club_memberships m, auth.users u
       where ra.membership_id = m.id and m.user_id = u.id and u.email like '${MINE}';
+    delete from public.club_safeguarding_officers o using auth.users u
+      where o.user_id = u.id and u.email like '${MINE}';
     delete from public.club_memberships m using auth.users u
       where m.user_id = u.id and u.email like '${MINE}';
     delete from public.invitation_teams it using public.access_invitations i
@@ -206,6 +208,59 @@ try {
   record("G3 somebody can still be invited", (await page.getByRole("button", { name: /Invite someone/i }).count()) === 1)
   record("G4 and a join request can still be approved or declined",
     (await page.getByRole("button", { name: /^Approve$/ }).count()) >= 1 && (await page.getByRole("button", { name: /^Decline$/ }).count()) >= 1)
+
+  // ------------------------------------------------------------------
+  // I. The Safeguarding Officer appointment says which state it is in.
+  //
+  // A nomination of an existing member enters the 4G state machine in
+  // role_assignments and writes NO contact-register row. The page that owns the
+  // appointment read only the register, so it announced that the club had no
+  // Safeguarding Officer; the permissions grid read the assignment without its
+  // confirmation state and captioned the same person "Safeguarding Officer"
+  // outright. Two screens, one state, two contradictory claims, and neither said
+  // "waiting".
+  // ------------------------------------------------------------------
+  sql(`
+    select set_config('request.jwt.claims', json_build_object('sub','${adminId}','role','authenticated')::text, true);
+    select 1 from public.nominate_club_safeguarding_officer('${clubId}', '${memberId}', 'primary', 'Browser suite: appointment state.');`)
+
+  await page.goto(`${APP}/club/settings/safeguarding`, { waitUntil: "domcontentloaded" })
+  await page.waitForLoadState("networkidle").catch(() => {})
+  const safeguarding = await page.locator("main").innerText()
+  record("I1 a nomination is visible on the page that owns the appointment", new RegExp(`Newmember${TAG}`).test(safeguarding))
+  record("I2 and is described as waiting, not as the officer", /Pending confirmation/i.test(safeguarding) && /Awaiting Confirmation/i.test(safeguarding))
+  record("I3 and says plainly that it confers nothing yet", /no Safeguarding Officer authority/i.test(safeguarding))
+
+  await page.goto(`${APP}/club/permissions`, { waitUntil: "domcontentloaded" })
+  await page.waitForLoadState("networkidle").catch(() => {})
+  const grid = await page.locator("main").innerText()
+  // The nominee's own row: their name plus the two lines beneath it, which is
+  // where the grid puts the role caption and the allowed count.
+  const gridLines = grid.split("\n")
+  const at = gridLines.findIndex((l) => new RegExp(`Newmember${TAG}`).test(l))
+  const nomineeRow = gridLines.slice(at, at + 3).join(" / ")
+  record("I4 and the permissions grid says the same thing, not that the appointment is settled",
+    /Pending confirmation/i.test(nomineeRow), nomineeRow.trim())
+  record("I5 the nominee still resolves as an ordinary member would -- the appointment granted nothing",
+    /2 of 10 allowed/.test(nomineeRow))
+
+  // ------------------------------------------------------------------
+  // J. A team page cannot tell somebody they may not do what it is
+  //    offering them. The sentence and the control now ask the same flags.
+  // ------------------------------------------------------------------
+  const tmCtx = await newContext(browser, { width: 1440, height: 1000 })
+  const tmPage = await tmCtx.newPage()
+  await signIn(tmPage, "uat.team.manager@ovalball.test")
+  await tmPage.goto(`${APP}/teams/${teamU12}`, { waitUntil: "domcontentloaded" })
+  await tmPage.waitForLoadState("networkidle").catch(() => {})
+  const teamText = await tmPage.locator("main").innerText()
+  record("J1 an authorised Team Manager is offered the assign control on her own team",
+    /Assign an existing club member/i.test(teamText))
+  record("J2 and is not told that only a Club Admin may assign people",
+    !/Only this club.{0,3}s Club Admin can/i.test(teamText))
+  record("J3 and what she genuinely cannot do is named without naming a role",
+    !/Club Admin/.test(teamText.split("Team News")[1] ?? teamText.slice(-400)) || /done by the club/i.test(teamText),
+    (teamText.match(/You can [^\n]+/) ?? ["(no explanation shown)"])[0])
 
   // ------------------------------------------------------------------
   // H. Hiding is never the boundary: an ordinary member is refused by the
