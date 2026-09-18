@@ -463,6 +463,7 @@ BROWSER_SUITES=(
   64-password-recovery-journey
   65-session-boundary-and-signup-challenge
   66-direct-invocation-boundary
+  67-club-desk-hierarchy
 )
 
 browser_blocked=""

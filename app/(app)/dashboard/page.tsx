@@ -6,7 +6,7 @@ import { CalendarDays, Inbox } from "lucide-react"
 import { ClubAvatar } from "@/components/club/club-avatar"
 import { PageIdentity } from "@/components/shell/page-identity"
 import { workspaceLabel } from "@/lib/app-context/workspace-label"
-import { ClubDeskHeader, ClubRail, PinnedNotices, YourClubs } from "@/components/club-home/club-desk"
+import { ClubDeskHeader, ClubRail, NextMatchCard, PinnedNotices, YourClubs } from "@/components/club-home/club-desk"
 import { ClubThemeScope } from "@/components/club-home/primitives"
 import { ACTIVE_CONTEXT_COOKIE, isFamilyFacingContext, resolveActiveContext, type SwitchableContext } from "@/lib/app-context/active-context"
 import { buildNavItems } from "@/lib/app-context/build-nav-items"
@@ -151,9 +151,42 @@ export default async function DashboardPage() {
   // Who the viewer is at this club: the team (when it is not the club itself) and their role.
   const contextLine = [dashboardContext.key !== "none" && dashboardContext.label !== desk?.club.name ? dashboardContext.label : null, displayRoleLabel].filter(Boolean).join(", ")
 
+  // THE ORDER OF THIS PAGE IS THE PRODUCT.
+  //
+  // UX-0's finding was not that anything here was wrong, it was that the page was arranged
+  // decoration-first: a branded band, then a promotional next-match card inside it, and only then the
+  // urgent notice telling somebody a pitch had closed. The sections below are unchanged in what they
+  // show and who may see it -- every one of them is still gated exactly as it was -- and changed only
+  // in the order they are met:
+  //
+  //   attention  -> what is waiting on THIS person: urgent notices, then requests
+  //   next       -> the next thing anyone is playing
+  //   the week   -> everything else scheduled
+  //   family     -> the children this context is about
+  //   club work  -> player movements and the rest
+  //
+  // Requests moved up past the family panel for the same reason: a request is somebody waiting for an
+  // answer, and a family panel is a standing view.
   const work = (
     <>
       <PinnedNotices notices={notices.pinned} />
+
+      {/* Requests come before everything else that is not urgent: they are the part of this page that
+          is waiting on this person rather than merely informing them. */}
+      {data.outstandingRequests.length > 0 && (
+        <section className="mt-6 first:mt-0">
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Requests</h2>
+          <ul className="mt-4 flex flex-col gap-2">
+            {data.outstandingRequests.map((r) => (
+              <RequestListRow key={r.id} request={r} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Only on the desk, where the hero it used to live inside is. Elsewhere the week's list is
+          already the first thing and a single-fixture card above it would just repeat its top row. */}
+      {desk && <NextMatchCard nextMatch={nextMatch} />}
 
       {/* One coherent family section for Guardian/Player contexts, reading
           the same canonical loader the agenda uses so the two can never
@@ -190,40 +223,39 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* Requests come before the week: they are the part that is waiting on this person. */}
-      {data.outstandingRequests.length > 0 && (
-        <section className="mt-10 first:mt-0">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Requests</h2>
-          <ul className="mt-4 flex flex-col gap-2">
-            {data.outstandingRequests.map((r) => (
-              <RequestListRow key={r.id} request={r} />
-            ))}
-          </ul>
-        </section>
-      )}
+      {/* THE WEEK, MINUS THE ONE ALREADY ANSWERED ABOVE.
+          `nextMatch` is drawn from this very list, so once it has its own card the first row here was
+          the same fixture twice, three lines apart. The card answers "what is next"; this answers
+          "what else". When there is nothing else, the section goes rather than announcing an empty
+          week that the card above has just contradicted. */}
+      {(() => {
+        const rest = desk && nextMatch ? data.thisWeekFixtures.filter((f) => f.id !== next?.id) : data.thisWeekFixtures
+        if (desk && nextMatch && rest.length === 0) return null
+        return (
+          <section className="mt-10">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">This Week</h2>
+              <Link href="/calendar" className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
+                View Calendar
+              </Link>
+            </div>
 
-      <section className="mt-10">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">This Week</h2>
-          <Link href="/calendar" className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950">
-            View Calendar
-          </Link>
-        </div>
-
-        {data.thisWeekFixtures.length === 0 ? (
-          <EmptyState
-            icon={<CalendarDays className="size-5 text-ink-muted" />}
-            title="Nothing scheduled this week"
-            body="Fixtures for your team(s) in the next 7 days will show up here."
-          />
-        ) : (
-          <ul className="mt-4 flex flex-col gap-2">
-            {data.thisWeekFixtures.map((f) => (
-              <FixtureListRow key={f.id} fixture={f} />
-            ))}
-          </ul>
-        )}
-      </section>
+            {rest.length === 0 ? (
+              <EmptyState
+                icon={<CalendarDays className="size-5 text-ink-muted" />}
+                title="Nothing scheduled this week"
+                body="Fixtures for your team(s) in the next 7 days will show up here."
+              />
+            ) : (
+              <ul className="mt-4 flex flex-col gap-2">
+                {rest.map((f) => (
+                  <FixtureListRow key={f.id} fixture={f} />
+                ))}
+              </ul>
+            )}
+          </section>
+        )
+      })()}
 
       {data.recentPlayerMovements.length > 0 && dashboardContext.clubId && (
         <PlayerMovementsLog clubId={dashboardContext.clubId} rows={data.recentPlayerMovements} />
@@ -245,7 +277,7 @@ export default async function DashboardPage() {
     return (
       <ClubThemeScope theme={desk.club.theme} className="min-h-0 bg-transparent">
         <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
-          <ClubDeskHeader club={desk.club} greeting={`${greeting()}, ${ctx.firstName ?? "there"}`} contextLine={contextLine} nextMatch={nextMatch} workspace={workspaceLabel(dashboardContext.kind)} />
+          <ClubDeskHeader club={desk.club} greeting={`${greeting()}, ${ctx.firstName ?? "there"}`} contextLine={contextLine} workspace={workspaceLabel(dashboardContext.kind)} />
           <div className="mt-8 grid gap-12 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
             <div className="min-w-0 [&>section:first-child]:mt-0">{work}</div>
             <aside aria-label="Club news and notices" className="min-w-0">

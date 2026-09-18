@@ -1,6 +1,6 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { BookOpen, ExternalLink, PenLine } from "lucide-react"
+import { BookOpen, ChevronRight, ExternalLink, PenLine } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
 import { PageIdentity } from "@/components/shell/page-identity"
@@ -25,12 +25,17 @@ import { FOCUS_LIGHT, TEXT_LINK } from "./primitives"
  * public page, so being signed in still feels like being at your club.
  */
 
-/** The branded band: crest, club, who you are here, and your next match. */
+/**
+ * The branded band: crest, club, and who you are here.
+ *
+ * It no longer carries the next match. Branding earns its place at the top of a club's own page, but
+ * it should introduce the page rather than be the page, and every piece of INFORMATION it used to hold
+ * competed with the club's name for the same row.
+ */
 export function ClubDeskHeader({
   club,
   greeting,
   contextLine,
-  nextMatch,
   workspace,
 }: {
   club: ClubDesk["club"]
@@ -39,7 +44,6 @@ export function ClubDeskHeader({
   workspace: string
   /** e.g. "Under 12 Boys, Coach" or "Club Admin". */
   contextLine: string
-  nextMatch: { label: string; when: string; href: string } | null
 }) {
   return (
     <header className="relative isolate overflow-hidden rounded-3xl bg-(--club-hero) text-(--club-hero-fg) ring-1 ring-black/10">
@@ -47,9 +51,9 @@ export function ClubDeskHeader({
         pattern={club.theme.pattern}
         className="absolute inset-y-0 right-0 -z-10 h-full w-[45%] [mask-image:linear-gradient(to_right,transparent,black_55%)] md:w-[34%]"
       />
-      <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:gap-6 md:p-7">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6 md:p-6">
         <CrestPlate club={club} size="md" />
-        <div className="min-w-0 flex-1 sm:max-w-[62%]">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-(--club-hero-muted)">{greeting}</p>
           {/* The club's name IS what this page is -- so it stays the heading, and the workspace word
               above it is what was missing: until UX-1 a player, a volunteer and a Club Admin all met
@@ -65,18 +69,46 @@ export function ClubDeskHeader({
           />
           <p className="mt-1 text-sm text-(--club-hero-muted)">{contextLine}</p>
         </div>
-        {nextMatch && (
-          <Link
-            href={nextMatch.href}
-            className="block rounded-2xl bg-(--club-hero-accent) px-4 py-3 text-(--club-on-hero-accent) shadow-sm ring-1 ring-black/10 outline-none hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-(--club-focus-hero) sm:ml-auto sm:max-w-64"
-          >
-            <span className="block text-xs font-semibold">Your Next Match</span>
-            <span className="mt-0.5 block text-sm font-semibold">{nextMatch.label}</span>
-            <span className="block text-sm">{nextMatch.when}</span>
-          </Link>
-        )}
       </div>
     </header>
+  )
+}
+
+/**
+ * UP NEXT.
+ *
+ * This used to live INSIDE the hero, pulled to the right with `sm:ml-auto` and capped at 16rem. Two
+ * things followed from that, and both were reported. On a phone the flex row stacked, so a card sitting
+ * on the club's colours read as part of the banner rather than as the next thing anyone is playing --
+ * the "overlap" in the UX-0 audit. And the club's name, sharing the row, was capped at 62% of it and
+ * clipped mid-word at 320px.
+ *
+ * So it is a sibling now, in the page flow, directly under the hero and above everything else: the
+ * first ordinary thing on the page, because "what is happening next" is what a club member opens this
+ * page to find. The hero keeps the crest, the kit and the name -- the club still looks like itself --
+ * and stops being asked to carry information as well.
+ */
+export function NextMatchCard({ nextMatch }: { nextMatch: { label: string; when: string; href: string } | null }) {
+  if (!nextMatch) return null
+  return (
+    <section aria-labelledby="desk-next" className="mt-4">
+      <h2 id="desk-next" className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
+        Up Next
+      </h2>
+      <Link
+        href={nextMatch.href}
+        className={cn(
+          FOCUS_LIGHT,
+          "mt-3 flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-(--club-border) bg-(--club-tint) px-4 py-3 text-ink hover:border-ink/30",
+        )}
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold">{nextMatch.label}</span>
+          <span className="mt-0.5 block text-sm text-ink/75">{nextMatch.when}</span>
+        </span>
+        <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
+      </Link>
+    </section>
   )
 }
 
@@ -111,8 +143,11 @@ export function ClubRail({ desk, notices }: { desk: ClubDesk; notices: ClubDesk[
   const { club, news, manageHref } = desk
   return (
     <div className="grid gap-8">
-      <RailSection id="desk-notices" title="Club Notices">
-        {notices.length ? (
+      {/* A club with no notices had a card announcing that, above a card announcing it had no news,
+          above two promotional cards -- so the prime secondary column told a Club Admin four times
+          that there was nothing here. An empty section now collapses instead. */}
+      {notices.length > 0 && (
+        <RailSection id="desk-notices" title="Club Notices">
           <ul className="grid gap-3">
             {notices.map((n) => (
               <li key={n.id}>
@@ -120,11 +155,13 @@ export function ClubRail({ desk, notices }: { desk: ClubDesk; notices: ClubDesk[
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink-muted">No notices from the club right now.</p>
-        )}
-      </RailSection>
+        </RailSection>
+      )}
 
+      {/* News survives an empty club ONLY for somebody who can do something about it: the Manage News
+          entry point is how a Club Admin publishes the first story, and hiding the section would hide
+          the door. For everybody else an empty news section collapses like any other. */}
+      {(news.length > 0 || manageHref) && (
       <RailSection
         id="desk-news"
         title="Club News"
@@ -162,7 +199,7 @@ export function ClubRail({ desk, notices }: { desk: ClubDesk; notices: ClubDesk[
             ))}
           </ul>
         ) : (
-          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink-muted">The club has not published any news yet.</p>
+          <p className="rounded-2xl border border-dashed border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink-muted">Nothing published yet. Add the club&apos;s first story below.</p>
         )}
         {manageHref && (
           <Link href={manageHref} className={cn(FOCUS_LIGHT, "mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg border border-ink/15 bg-white px-4 text-sm font-semibold text-ink hover:border-ink/35")}>
@@ -171,6 +208,7 @@ export function ClubRail({ desk, notices }: { desk: ClubDesk; notices: ClubDesk[
           </Link>
         )}
       </RailSection>
+      )}
 
       <section aria-labelledby="desk-hub" className="rounded-2xl border border-(--club-border) bg-(--club-tint) p-5">
         <div className="flex items-center gap-2">

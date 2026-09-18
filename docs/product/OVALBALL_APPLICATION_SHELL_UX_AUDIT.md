@@ -750,3 +750,121 @@ Club Desk hierarchy, the next-match card overlapping the header, the club name c
 (UX-3/UX-4); the broader mobile shell and the hamburger IA (UX-4); club navigation grouping and
 "Deleted Calendar Events" (UX-5); return paths (UX-6); the accessibility sweep beyond what UX-2 changed
 (UX-7); entrance journeys (UX-8). **None was touched.**
+
+---
+
+# UX-3 — Club landing information hierarchy (implemented)
+
+**Presentation over existing data and actions. No authorisation change, no migration, not released.**
+
+## Archaeology
+
+| Area | Source | Gated by | Empty state | Judgement |
+|---|---|---|---|---|
+| Hero: crest, kit, club name, greeting, role line | `ClubDeskHeader` ← `loadClubDesk` → `loadPublicClub` | active context | n/a | decorative + orientation |
+| **Next match** | derived in `page.tsx` from `thisWeekFixtures` | the same team scope as the week | hidden | **was decorative, is now information** |
+| Urgent notices | `splitDeskNotices(desk.notices).pinned` | RLS as the signed-in person | already collapsed | operational |
+| Requests | `getDashboardData().outstandingRequests` | `myTeamIds`; **skipped entirely for family-facing contexts** | already collapsed | operational |
+| This Week | `getDashboardData().thisWeekFixtures` | `getTeamsForActiveContext` | empty state | operational |
+| Family panel | `FamilyPanel` | `isFamilyFacingContext(kind)` | own | operational |
+| Player movements | `data.recentPlayerMovements` | data + `clubId` | hidden | operational |
+| Club Notices (rail) | `splitDeskNotices(...).rail` | RLS | **card saying "none"** | informational |
+| Club News (rail) | `listPublishedArticles` / `getLeadArticle` | RLS, incl. members-only | **card saying "none"** | informational |
+| Manage News | `deskManageHref` ← `hasCapability("club.news.manage")` / `("team.news.manage")` | **capability, never a role string** | hidden | operational |
+| Rugby Hub / View Club Page | static | none | always | discovery |
+
+## What changed, and why
+
+**1. The next match left the hero.** It was a `sm:ml-auto` sibling of the club's name inside a flex row,
+with the name capped at `sm:max-w-[62%]` to share it. Two reported defects came from that one decision:
+on a phone the row stacked so a card on the club's colours read as part of the banner (the "overlap"),
+and the club name was clipped mid-word at 320px. It is now `NextMatchCard` — an ordinary section, first
+in the flow. **The club-name clipping is fixed, and it was fixed by the component UX-3 owns.**
+
+**2. Requests moved above the schedule and the family panel.** A request is somebody waiting for an
+answer; a panel is a standing view.
+
+**3. This Week lists what is *left*.** `nextMatch` is drawn from `thisWeekFixtures`, so once it had its
+own card the first row below was the same fixture three lines later. The card answers "what is next",
+the section answers "what else", and when there is nothing else the section goes rather than announcing
+an empty week the card has just contradicted.
+
+**4. Empty club information collapses.** A club with nothing to say used to say so twice, above two
+promotional cards. News survives an empty club **only for somebody who can publish** — hiding it
+outright would hide the only door to the first story — and that condition is `manageHref`, which is a
+capability resolved on the server.
+
+**5. The hero slimmed** (`p-7` → `p-6`, `gap-5` → `gap-4`, width cap removed): 232px → 159px at 1440.
+
+## Before → after, in DOM order
+
+| Persona / state | Before | After |
+|---|---|---|
+| **Club Admin, busy** | `Club: UX3 Busy RUFC › Your Next Match › Urgent: Pitch 2 closed › This Week › …` | `Club: UX3 Busy RUFC › Urgent: Pitch 2 closed › Requests › Review › Up Next › This Week › Club Notices › Club News` |
+| **Club Admin, sparse** | `… › This Week › Club Notices › Club News › Manage News › Rugby Hub › View Club Page` | `Up Next › Club News › Manage News › Rugby Hub › View Club Page` |
+| **Team volunteer, sparse** | `… › This Week › Club Notices › Club News › Rugby Hub › View Club Page` | `… › This Week › Rugby Hub › View Club Page` |
+| Guardian / Player | unchanged | unchanged (no desk) |
+
+The team volunteer case is the clearest: two cards telling them a club they cannot administer has
+nothing to say, gone — and **Manage News was never offered to them**, before or after, because that has
+always been a capability.
+
+## Visual judgement
+
+**What draws the eye first, busy club:** the red-badged **Urgent** notice, then Requests with its
+*Review* action. Before, it was a green promotional card inside a large branded band.
+
+**Can a user distinguish "needs attention" from "club information"?** Yes, and by structure rather than
+colour: attention is the left column above the schedule, information is the right rail, and the
+urgent notice carries a **text** badge, not a colour alone.
+
+**Does it still feel like their club?** Yes. Crest, kit pattern and club name are untouched; the band is
+simply shorter and no longer asked to carry information as well.
+
+**Is the first mobile viewport useful?** At 320px it now contains the context bar, the hero, the urgent
+notice, Requests and Up Next. Before, it contained the hero, the promotional card, and a clipped club
+name.
+
+**Still wrong, and not UX-3's:** "Ask Ovie" and the avatar bubble still float over the bottom of the
+content (**UX-4**).
+
+## Sparse and busy
+
+Both were exercised. The busy state is a **disposable, self-cleaning club** built through canonical
+tables — one urgent notice, three ordinary notices, four stories (one members-only), three fixtures and
+a real outstanding fixture request — and it is now a **permanent wired suite**, so the layout is never
+again judged only against a nearly empty club.
+
+## A finding recorded, not fixed
+
+The dashboard's **"Requests" means inter-club fixture requests**, not club join requests. A pending
+`player_club_join_requests` row — arguably the clearest "waiting on a Club Admin" there is — appears
+nowhere on this page. Surfacing it needs a new server-authorised projection, so per the brief it is
+**identified rather than added**. Owner: Slice 8 / 7e alongside the join-request approval surface.
+
+## Accessibility
+
+Heading order follows the new visual order, and DOM order **is** the tested order. `Up Next` is a
+labelled `<section>` with its own `<h2>`; urgency is carried by the word "Urgent", not by colour; the
+card is a single link with the fixture and its time as its accessible name; the chevron is
+`aria-hidden`. One `<h1>` survives. Touch targets on the card are ≥ 56px.
+
+## Tests and gates
+
+| Gate | Result |
+|---|---|
+| `67-club-desk-hierarchy.mjs` (**new, wired**) | **17 / 17** — ordering read from the live DOM, busy club, ordinary member, three viewports, self-cleaning |
+| `club_desk_hierarchy.test.mts` (**new**) | **8 / 8** — the next match cannot move back into the header; empty sections collapse; **no role-string branches**; capability still resolved server-side |
+| `page_identity` (UX-1) · `identity_and_context` (UX-2) | 16 / 16 · 16 / 16 |
+| UX-1 browser acceptance re-run | **18 / 18 PASS** |
+| UX-2 browser acceptance re-run | **37 / 37 PASS** |
+| Platform regression | **4890 passed, 0 failed, 234 suites** (was 4882 / 233 — +8 is exactly the new JS suite) |
+| TypeScript · build · `diff --check` | clean |
+| Lint | **179 problems, 4 pre-existing errors in 4 untouched files — the baseline, unchanged** |
+
+## Still owned by UX-4 and later
+
+The floating overlays over the bottom of the content, the hamburger information architecture, the
+global top bar and the wider mobile shell (**UX-4**); club navigation grouping and "Deleted Calendar
+Events" (**UX-5**); return paths (**UX-6**); the wider accessibility sweep (**UX-7**); entrance
+journeys (**UX-8**). **None was touched.**
