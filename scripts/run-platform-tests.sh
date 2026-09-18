@@ -246,6 +246,7 @@ SUITES=(
   # Slice 6b.2: Phase 2 D.2 enforcement layer 2, driven through every state a real
   # session can be in -- including the one that must NOT refuse, T0 with AAL1.
   session_boundary
+  definer_rpc_session_contract
   club_claim_authority_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences

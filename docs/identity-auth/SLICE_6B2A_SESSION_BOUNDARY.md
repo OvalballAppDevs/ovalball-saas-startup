@@ -264,3 +264,51 @@ An earlier complete single-process run of the same tree reported **4868 passed, 
 failure being the redirect-loop guard still reading `require-session.ts` after `sessionRefusal` moved
 to `session-decision.ts`. 4832 + 18 + 19 = 4869 = 4868 + 1, which is the arithmetic that says the fix
 added nothing and removed one failure.
+
+---
+
+# S6-9, closed
+
+The completion pass left S6-9 partially closed and named what remained: browser-callable SECURITY
+DEFINER functions that mutate state and bypass RLS. A narrow contract migration was authorised for
+exactly that, and the full record is in `SLICE_6B2A_DEFINER_RPC_SESSION_CONTRACT.md`.
+
+Two things changed in the accounting.
+
+**The set was 26, not 15.** The earlier figure came from a single direct-body regex and undercounted.
+Re-derived from first principles as a fixpoint over the call graph, eleven more appeared — including
+`redeem_my_recovery_code`, which can strip every MFA factor from an account, and
+`accept_site_admin_invitation`. Reporting fifteen and closing fifteen would have left those open while
+the ledger said the work was done.
+
+**Twenty-five are gated; one is a declared public exception.** `submit_public_support_ticket` is the
+anon-callable contact form, and gating it would refuse the people it exists for.
+
+| Closure criterion | Count |
+|---|---|
+| Protected route handlers without a direct session boundary | **0** |
+| Protected Slice-6 Server Actions without the required direct boundary | **0** |
+| Browser-callable SECURITY DEFINER mutation paths bypassing canonical session/account-state enforcement | **0** (one declared public exception, named and tested) |
+
+**S6-9: CLOSED.**
+
+## S6-8, classified against the original requirement
+
+The original requirement has two halves. The **enforcement** half — suspended or disabled means no
+usable Ovalball session or authority — is now proven at every layer: the proxy terminates the session,
+`requireSession` refuses at layer 2, the RESTRICTIVE policy refuses 209 tables, and as of this
+migration the definer RPCs refuse too, through a genuinely fresh authentication rather than a replayed
+cookie. That half is **met**.
+
+The **presentation** half — that `/account/suspended` is where a suspended person lands — is not, and
+will not be. The owner's decision (D-S6B-AUTO-10) is that the fail-closed model stands: the session is
+ended rather than carried in a degraded state, so nothing routes to that page. That is a superseded
+presentation assumption in the Phase 2 text, not a hole in the authority boundary, and it is recorded
+as such rather than either pretended closed or left looking like an open security gap.
+
+**S6-8: enforcement CLOSED; the `/account/suspended` destination remains intentionally unreachable.**
+
+## SO-7, unchanged
+
+**CODE + STATE-MACHINE VERIFIED. REAL PROVIDER UAT PENDING THE SOCIAL-PROVIDER UNIT.** No OAuth
+provider is configured locally or enabled in production, and none was configured for this work.

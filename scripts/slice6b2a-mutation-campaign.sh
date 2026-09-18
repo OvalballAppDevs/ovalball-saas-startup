@@ -158,6 +158,126 @@ perl -0pi -e 's/    console\.error\("cancelRecovery refused:", error\.code \?\? 
 kill_check "M10 raw DB error to the browser" gate_js supabase/tests/js/session_boundary_coverage.test.mts
 restore "app/(app)/account/security/recovery-actions.ts"
 
+# =====================================================================================================
+# M11-M16 -- the Slice 6b.2a CONTRACT MIGRATION.
+#
+# These mutants live in the database, not in the repository, so they are snapshotted with
+# pg_get_functiondef and replayed from that exact definition. Re-running the migration would be the
+# wrong restore: a migration is a script with guards and side effects, not a definition.
+# =====================================================================================================
+DB_MUTANTS=(
+  "public.touch_last_active"
+  "public.mark_announcement_read"
+  "public.accept_guardian_invitation"
+  "internal.require_live_session"
+  "internal.is_account_active"
+)
+for q in "${DB_MUTANTS[@]}"; do
+  snapshot_fn "${q%%.*}" "${q##*.}" || echo "  WARNING: could not snapshot $q"
+done
+
+CONTRACT_SUITE=supabase/tests/definer_rpc_session_contract.sql
+
+# ---------------------------------------------------------------- M11
+echo "M11 drop the session gate from a self-service RPC"
+sql "create or replace function public.touch_last_active() returns void language sql security definer set search_path to 'public' as \$\$
+  update public.profiles set last_active_at = now() where id = auth.uid();
+\$\$;" >/dev/null
+kill_check "M11 self-service RPC ungated" gate_sql "$CONTRACT_SUITE"
+restore_fn public touch_last_active
+
+# ---------------------------------------------------------------- M12
+echo "M12 drop the session gate from a messaging/notification RPC"
+sql "create or replace function public.mark_announcement_read(p_announcement_id uuid) returns void language plpgsql security definer set search_path to 'public','internal','pg_temp' as \$\$
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in.' using errcode = '42501';
+  end if;
+  update public.messenger_announcement_deliveries
+  set read_at = coalesce(read_at, now())
+  where announcement_id = p_announcement_id and recipient_user_id = auth.uid() and status = 'delivered';
+  update public.notifications
+  set read_at = coalesce(read_at, now())
+  where user_id = auth.uid() and type = 'announcement_received'
+    and (data ->> 'announcement_id') = p_announcement_id::text;
+end \$\$;" >/dev/null
+kill_check "M12 notification RPC ungated" gate_sql "$CONTRACT_SUITE"
+restore_fn public mark_announcement_read
+
+# ---------------------------------------------------------------- M13
+echo "M13 drop the session gate from invitation acceptance"
+sql "create or replace function public.accept_guardian_invitation(p_token text) returns table(invitation_id uuid, club_id uuid, team_id uuid) language plpgsql security definer set search_path to 'public' as \$\$
+declare inv public.guardian_invitations; v_email text;
+begin
+  select * into inv from public.guardian_invitations where token = p_token for update;
+  if not found then raise exception 'Invitation not found.'; end if;
+  if inv.status <> 'pending' then raise exception 'This invitation is no longer available.'; end if;
+  if inv.expires_at < now() then
+    update public.guardian_invitations set status = 'expired' where id = inv.id;
+    raise exception 'This invitation has expired.';
+  end if;
+  select email into v_email from auth.users where id = auth.uid();
+  if v_email is null or lower(v_email) <> lower(inv.invited_email) then
+    raise exception 'This invitation was sent to a different email address.' using errcode = '42501';
+  end if;
+  update public.guardian_invitations set status = 'accepted', accepted_by = auth.uid(), accepted_at = now() where id = inv.id;
+  return query select inv.id, inv.club_id, inv.team_id;
+end \$\$;" >/dev/null
+kill_check "M13 invitation acceptance ungated" gate_sql "$CONTRACT_SUITE"
+restore_fn public accept_guardian_invitation
+
+# ---------------------------------------------------------------- M14
+echo "M14 make the session gate always pass"
+sql "create or replace function internal.require_live_session(p_allow_aal_elevation boolean default false) returns void language plpgsql stable security definer set search_path = '' as \$\$
+begin
+  return;
+end \$\$;" >/dev/null
+kill_check "M14 session gate stood down globally" gate_sql "$CONTRACT_SUITE"
+restore_fn internal require_live_session
+
+# ---------------------------------------------------------------- M15
+echo "M15 make every account read as active"
+sql "create or replace function internal.is_account_active(p_user_id uuid) returns boolean language sql stable security definer set search_path = '' as \$\$
+  select p_user_id is not null;
+\$\$;" >/dev/null
+kill_check "M15 account state ignored" gate_sql "$CONTRACT_SUITE"
+restore_fn internal is_account_active
+
+# ---------------------------------------------------------------- M16
+# The one the structural tests cannot see: the session gate is kept, and the ORIGINAL authority --
+# the exact-email match on a real invitation -- is dropped. A suite that only proved "refused when
+# revoked" would call this a pass.
+echo "M16 keep the session gate, drop the invitation's email boundary"
+sql "create or replace function public.accept_guardian_invitation(p_token text) returns table(invitation_id uuid, club_id uuid, team_id uuid) language plpgsql security definer set search_path to 'public' as \$\$
+declare inv public.guardian_invitations;
+begin
+  perform internal.require_live_session();
+  select * into inv from public.guardian_invitations where token = p_token for update;
+  if not found then raise exception 'Invitation not found.'; end if;
+  if inv.status <> 'pending' then raise exception 'This invitation is no longer available.'; end if;
+  if inv.expires_at < now() then
+    update public.guardian_invitations set status = 'expired' where id = inv.id;
+    raise exception 'This invitation has expired.';
+  end if;
+  update public.guardian_invitations set status = 'accepted', accepted_by = auth.uid(), accepted_at = now() where id = inv.id;
+  return query select inv.id, inv.club_id, inv.team_id;
+end \$\$;" >/dev/null
+kill_check "M16 invitation email boundary removed while the gate stays" gate_sql "$CONTRACT_SUITE"
+restore_fn public accept_guardian_invitation
+
+echo
+echo "=== proving every mutated database function is byte-identical to its snapshot ==="
+DB_DIRTY=0
+for q in "${DB_MUTANTS[@]}"; do
+  live="$(docker exec -i "$CONTAINER" psql -U postgres -d postgres -Atq -c \
+    "select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+      where n.nspname='${q%%.*}' and p.proname='${q##*.}' limit 1")"
+  if [ "$live" != "$(cat "$SNAP_DIR/${q%%.*}.${q##*.}.sql")" ]; then
+    echo "  NOT RESTORED: $q"; DB_DIRTY=1
+  fi
+done
+[ "$DB_DIRTY" -eq 0 ] && echo "all ${#DB_MUTANTS[@]} mutated database functions restored exactly"
+
 echo
 echo "=== proving every mutated file is byte-identical to its snapshot ==="
 if verify_restored "${MUTATED[@]}"; then
@@ -171,4 +291,4 @@ rm -rf "$SNAP_DIR"
 echo
 echo "killed: $PASS    survived: $SURVIVED"
 if [ "$SURVIVED" -gt 0 ]; then printf '  SURVIVOR: %s\n' "${SURVIVORS[@]}"; fi
-[ "$SURVIVED" -eq 0 ] && [ "$DIRTY" -eq 0 ]
+[ "$SURVIVED" -eq 0 ] && [ "$DIRTY" -eq 0 ] && [ "$DB_DIRTY" -eq 0 ]

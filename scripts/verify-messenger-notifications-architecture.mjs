@@ -69,12 +69,24 @@ if (!notificationsTableDef) {
 //    channel must never gate another channel or the underlying domain
 //    event.
 // ---------------------------------------------------------------------
+// Judged PER FUNCTION BODY, not per file. The property being protected is that ONE piece of code
+// creates an in-app notification while consulting email channel state -- and that can only happen
+// inside a single body. A file-level test also fires when a migration happens to replace two
+// unrelated functions, one of which writes a notification and another of which touches
+// email_deliveries, which says nothing at all about whether Email OFF suppresses an in-app
+// notification. Slice 6b.2a's session-contract migration is exactly that shape. Narrowing the
+// window to the body keeps every real wiring caught and stops the guard reporting adjacency.
 for (const file of migrationFiles) {
   const source = read(file)
-  const mentionsNotificationsInsert = /insert into public\.notifications/i.test(source)
-  const mentionsEmailEvents = /\bemail_events\b|\bemail_deliveries\b|\bemail_event_active\b/i.test(source)
-  if (mentionsNotificationsInsert && mentionsEmailEvents) {
-    problems.push(`${file} both inserts into public.notifications AND references the email delivery-policy tables/functions in the same file -- verify by hand that in-app notification creation does not check email_events.active (it must not: Email OFF must never suppress the in-app notification).`)
+  // Split on each function definition so a body is weighed on its own; index 0 is everything
+  // outside any function (plain DDL/DML), which is still checked.
+  const blocks = source.split(/(?=create\s+(?:or\s+replace\s+)?function\b)/i)
+  for (const block of blocks) {
+    const mentionsNotificationsInsert = /insert into public\.notifications/i.test(block)
+    const mentionsEmailEvents = /\bemail_events\b|\bemail_deliveries\b|\bemail_event_active\b/i.test(block)
+    if (mentionsNotificationsInsert && mentionsEmailEvents) {
+      problems.push(`${file} has a single definition that both inserts into public.notifications AND references the email delivery-policy tables/functions -- verify by hand that in-app notification creation does not check email_events.active (it must not: Email OFF must never suppress the in-app notification).`)
+    }
   }
 }
 
