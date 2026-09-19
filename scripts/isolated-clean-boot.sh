@@ -164,11 +164,51 @@ begin
 
   raise notice 'PASS clean boot: the migration chain installs from empty and Step 4''s objects are correct';
 end $$;
+
+-- =====================================================================================================
+-- SLICE 7e (Convergence Step 5). The four migrations this step adds, asserted from empty rather than
+-- assumed to have applied because the chain did not error. Two of them DELETE something -- the
+-- is_site_admin helper, and the old history predicates -- and a migration that removes an object is
+-- exactly the kind that passes on a database where the object was never there and fails on a real one.
+-- =====================================================================================================
+do $$
+begin
+  if to_regprocedure('public.site_search_users(text,text,text,text,int,int)') is null then
+    raise exception 'CLEAN BOOT: AB.3 site_search_users does not exist';
+  end if;
+  if has_function_privilege('anon', 'public.site_search_users(text,text,text,text,int,int)', 'EXECUTE') then
+    raise exception 'CLEAN BOOT: anon can search every account on the platform';
+  end if;
+
+  if to_regprocedure('public.site_player_team_memberships(uuid)') is null then
+    raise exception 'CLEAN BOOT: the per-person roster read does not exist';
+  end if;
+  -- The point of that migration was that the fix was NOT a wider policy.
+  if exists (select 1 from pg_policies
+              where schemaname = 'public' and tablename = 'player_team_memberships'
+                and coalesce(qual,'') like '%has_site_capability%') then
+    raise exception 'CLEAN BOOT: the roster RLS policy was widened; the definer read exists so it need not be';
+  end if;
+
+  if to_regprocedure('public.site_account_history(uuid)') is null then
+    raise exception 'CLEAN BOOT: the account timeline does not exist';
+  end if;
+
+  if exists (select 1 from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+              where ns.nspname = 'internal' and p.proname = 'is_site_admin') then
+    raise exception 'CLEAN BOOT: internal.is_site_admin still exists after the retirement migration';
+  end if;
+  if pg_get_viewdef('public.admin_club_overview'::regclass, true) !~ 'site\.clubs\.view' then
+    raise exception 'CLEAN BOOT: admin_club_overview is not gated on site.clubs.view';
+  end if;
+
+  raise notice 'PASS clean boot: Slice 7e''s objects are correct from empty, including what it removed';
+end $$;
 SQL
 STATUS=$?
 
 echo "-- running the estate's own assertions against the fresh database"
-for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard; do
+for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement; do
   out=$(boot_psql -q -f - < "$REPO/supabase/tests/$suite.sql" 2>&1)
   fails=$(printf '%s' "$out" | grep -c "FAIL" || true)
   passes=$(printf '%s' "$out" | grep -c "PASS" || true)

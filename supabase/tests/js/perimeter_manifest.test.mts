@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
 
 /**
@@ -45,6 +45,7 @@ interface ViewEntry {
 interface Signature {
   signature: string
   schema?: string
+  consumers?: string[]
 }
 interface Manifest {
   exposed_api_schemas: string[]
@@ -106,6 +107,60 @@ function accessMap(kinds: string): Map<string, Access> {
   }
   return map
 }
+
+/**
+ * SLICE 7e. The manifest declares, for most browser-callable functions, the
+ * application file that calls them -- and nothing had ever checked.
+ *
+ * Building Slice 7e's screens found seventeen declarations that described the
+ * design's intent rather than the code's state: `site_revoke_sessions` was
+ * recorded as consumed by `app/(app)/admin/users/actions.ts`, which is the CSV
+ * export and had never called it, and four more named files that Convergence
+ * Step 3 had deleted. A reviewer reading the manifest would reasonably conclude
+ * the function had a caller and that the named file was where to look.
+ *
+ * A false declaration is worse than no declaration, so this checks all of them.
+ * The entries that predate the check belong to other slices and are declared in
+ * a baseline that may only SHRINK -- the same shape as the role-literal
+ * baseline, and for the same reason: weakening the check until the estate passes
+ * would leave nothing checking anything.
+ */
+test("every consumer the manifest declares exists and calls the function", () => {
+  const baseline: { known_drift: string[] } = JSON.parse(
+    readFileSync(path.join(ROOT, "supabase/security/manifest-consumer-baseline.json"), "utf8")
+  )
+  const allowed = new Set(baseline.known_drift)
+  const drift: string[] = []
+
+  for (const group of ["anon_public_rpc", "authenticated_public"] as const) {
+    for (const entry of manifest.functions[group]) {
+      const consumers = (entry as { consumers?: string[] }).consumers
+      if (!consumers) continue
+      const name = entry.signature.split("(")[0]
+      for (const consumer of consumers) {
+        const file = path.join(ROOT, consumer)
+        const calls = existsSync(file) && readFileSync(file, "utf8").includes(name)
+        if (!calls) drift.push(`${name} -> ${consumer}`)
+      }
+    }
+  }
+
+  const unexpected = drift.filter((d) => !allowed.has(d)).sort()
+  assert.deepEqual(
+    unexpected,
+    [],
+    `The manifest declares a consumer that does not call the function. Point it at the file that does, ` +
+      `or remove the declaration -- do not add it to the baseline, which may only shrink.`
+  )
+
+  const fixed = [...allowed].filter((d) => !drift.includes(d)).sort()
+  assert.deepEqual(
+    fixed,
+    [],
+    `These baseline entries are no longer drifting and must be deleted from ` +
+      `supabase/security/manifest-consumer-baseline.json, so the list keeps shrinking: ${fixed.join(", ")}`
+  )
+})
 
 test("the internal schema is never exposed through the API", () => {
   const config = readFileSync(path.join(ROOT, "supabase/config.toml"), "utf8")

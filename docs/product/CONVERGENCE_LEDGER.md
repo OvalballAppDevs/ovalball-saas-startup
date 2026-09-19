@@ -61,8 +61,31 @@ product owner rules that it is not a defect.
 | L12 | The "I've Saved Them" button at the end of TOTP enrolment did nothing | reported live during Stage 0.2 | Identity/Auth 6b | **closed** — with a browser regression that presses it |
 | L10 | Stage 0 — production TOTP availability and enrolment | Step 5 recovery | product owner | **closed** — factor verified, codes issued, boundary proved locally |
 | L11 | The `(app)` auth gate redirects to `/login` without a `next`, so a deep link into the application is lost at sign-in | Stage 0.2 navigation verification | **Step 4 family — Identity/Auth 6b** | open |
+| L13 | A Site Admin could change a player's team placement without being able to read one | Step 5 (Slice 7e, building AB.1's Team Memberships tab) | Step 5 | **closed** — a narrow per-person definer read, and the roster RLS policy deliberately left alone |
+| L14 | Seven of the sixteen master-control event types were displayed by no timeline at all | Step 5 (Slice 7e browser verification) | Step 5 | **closed** — the timelines discriminate on the scope column, and a fourth carries account decisions |
+| L15 | `supabase/security/perimeter-manifest.json` declared consumer files that did not call the function, four of them deleted routes | Step 5 (Slice 7e) | Step 5 for its own rows; **each other slice for theirs** | partly open — Slice 7's are true and checked; fourteen remain in a shrink-only baseline |
+| L16 | `internal.is_site_admin()` survived the Slice 4/7 retirement inside a view's `WHERE` clause, where the policy and function guards do not look | Step 5 (Slice 7e) | Step 5 | **closed** — `admin_club_overview` gates on `site.clubs.view`; the helper is dropped |
+| L17 | Any signed-in account can read every club's `notes` and `official_email`; `anon` is column-restricted and `authenticated` is not | Step 5, measuring a declared perimeter bypass | **Step 6 — the Site Admin club surface** | open — measured, not fixed |
 
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
+
+---
+
+## Convergence Step 5 — what it closed, and where the record is
+
+Step 5 is Identity/Auth **Slice 7e**: Site Admin master control reaching a
+person. The authority model was built and verified in 7a–7d and almost none of it
+reached a screen — seventeen of twenty-three master-control RPCs had no caller
+anywhere in the product.
+
+| | |
+|---|---|
+| Implementation and the four findings | `docs/identity-auth/SLICE_7E_IMPLEMENTATION_REPORT.md` |
+| Release plan, including L7's contract half | `docs/identity-auth/SLICE_7E_RELEASE_PLAN.md` |
+| Why 7e waited, kept as the record | `docs/identity-auth/SLICE_7E_REQUIREMENT_RECOVERY.md` (superseded) |
+
+**Nothing was released.** Step 5 banks locally; S7-13 — a second Full Site Admin
+in production — remains an owner action and is untouched.
 
 ---
 
@@ -698,3 +721,133 @@ The ten-minute boundary is exercised by ageing the `auth.mfa_amr_claims` row
 GoTrue itself wrote — the record the predicate reads — rather than by sleeping or
 by asserting an AAL2 that never happened. Secrets created by the harness are
 destroyed with it.
+
+---
+
+## L13 — a Site Admin could change a roster placement they could not read
+
+Found while building AB.1's Team Memberships tab, which needed both halves at
+once for the first time.
+
+`public.site_set_player_team_membership` lets a Site Admin add, end or move a
+player's place on a team. `public.player_team_memberships` is readable only
+through `team.roster.view` at **team** scope, `is_own_linked_player`, or
+`is_active_player_guardian`. A Full Site Admin holds none of those for a club
+they are not a member of — which is deliberate, and is the whole shape of Slice
+7: Site Admin is a set of explicit site-scoped capabilities, never a blanket RLS
+bypass.
+
+The consequence is that "move this player to Under 14" was performable blind.
+That is how somebody gets moved twice, or moved out of a team they were never in.
+
+**The fix is not a wider policy**, and that distinction is the finding. Adding a
+site clause to `player_team_memberships_select` would have handed every roster on
+the platform to every administrator holding any site read capability, including
+Support profiles that have no business with a child's team placement.
+`20270505000000` adds one narrow per-person definer read instead, gated on
+`site.users.view`, answering only about the subject's own linked player or a
+child they actively guard. `S7E-21` and `S7E-22` assert the policy is *still*
+narrow, so a later simplification cannot quietly widen it.
+
+---
+
+## L14 — the timelines could not see the events their own slice writes
+
+Found by the browser suite, which added a club membership through the product and
+then looked for it on the Membership History tab.
+
+`site_add_club_membership` emits `site.membership_added`.
+`site_membership_history` matched `membership.%`, `site.club_%` and `club.%`.
+Neither matches the other, and nothing had ever read the output, because until
+Slice 7e the timelines had no screen — the reconciliation's own words were that
+they "answer a question no screen asks".
+
+Across the master-control family, **seven of the sixteen event types were
+displayed by nothing**: `site.membership_added`, `site.membership_transitioned`,
+`site.role_revoked`, `account.password_reset_forced`, `account.setup_resent`,
+`session.revoked_by_admin`, the four `site_admin.*` grant events and
+`user.created`. "Why is this person no longer a Club Admin" and "who ended their
+sessions on the 3rd" were unanswerable inside the product while the rows sat in
+`security_events` the whole time.
+
+`20270507000000` makes the membership and team timelines discriminate on the
+**scope column** — an event carrying a `team_id` is team history, one without is
+membership history — rather than on the shape of the event name. A name is a
+label and drifts; `club_id`/`team_id`/`player_id` are what the event is about, so
+a new event type is covered the day it is written. `site_account_history` is
+added for what is none of those, and surfaces on Audit History.
+
+The general lesson, and the reason this is in the ledger rather than only in the
+slice report: **a read that nothing reads is not verified by anything.** Both
+halves existed and passed their own tests for two slices.
+
+---
+
+## L15 — the perimeter manifest declared consumers that did not exist
+
+`supabase/security/perimeter-manifest.json` records, for most browser-callable
+functions, the application file that calls them. Nothing had ever checked those
+declarations. Seventeen described the design's intent rather than the code's
+state — `site_revoke_sessions` was recorded as consumed by
+`app/(app)/admin/users/actions.ts`, which is the CSV export — and four named
+files Convergence Step 3 had deleted.
+
+A false declaration is worse than no declaration: a reviewer reading the manifest
+would conclude the function had a caller and that the named file was where to
+look.
+
+Slice 7's declarations are now true, and
+`supabase/tests/js/perimeter_manifest.test.mts` checks every one. The fourteen
+that predate the check belong to other slices and are declared in
+`supabase/security/manifest-consumer-baseline.json`, **which may only shrink** —
+the same shape as the role-literal baseline. Weakening the check until the
+existing estate passed would have left nothing checking anything.
+
+---
+
+## L16 — `is_site_admin` survived retirement inside a view
+
+The perimeter manifest has carried this as a declared legacy bypass since Slice
+1: *"internal.is_site_admin() in RLS and definer functions (Phase 1: 140
+policies) — retire in Slice 7 with explicit site capabilities."*
+
+Slices 4 and 7a–7d took policies to 0 and functions to 0, and every guard agreed.
+One reference survived, in the **`WHERE` clause of `admin_club_overview`** — and
+it survived precisely because the guards that drove the retirement count policies
+and function bodies, and a view is neither.
+
+It mattered rather than being tidy. `is_site_admin()` answers "is there an active
+row in `site_admins`", which is true for a Read-Only Site Admin, a Message
+Moderator and a Club Data Admin alike — the undifferentiated authority the seven
+profiles exist to replace. The gate is now `site.clubs.view`.
+
+With nothing left calling it, `20270506000000` **drops** the helper rather than
+leaving it as a convenience, and `S7E-32` extends the retirement guard to view
+definitions so the next helper cannot hide in the same place.
+
+---
+
+## L17 — the club directory is column-restricted for strangers and not for members
+
+`supabase/security/perimeter-manifest.json` has carried this as a declared legacy
+bypass since Slice 1: *"authenticated reads every `club_directory` column
+(`notes`, `official_email`) because Site Admin pages select `*` — column-restrict
+when Site Admin reads move to site-capability RPCs (Slice 7)."*
+
+Slice 7e moved the **user** reads behind `site_search_users`, which is what made
+it worth measuring the club half rather than leaving it as a sentence.
+
+`anon` is already restricted to 17 public directory facts. `authenticated` holds
+SELECT on **every column**, and `club_directory_select` admits any live session
+to every active row. So any signed-in Ovalball account can read
+`notes` for **1,385** clubs and `official_email` for **29**.
+
+Severity is genuinely low: directory research provenance and a club's published
+contact address, not personal data. It is recorded anyway, because the manifest
+says this exposure should not exist and nothing had checked whether it still did.
+
+**It is not fixed here.** Column-restricting `authenticated` means giving the
+Site Admin club pages their own reads, and those pages — `app/(app)/admin/clubs/*`
+— are the Site Admin **club** surface, which Convergence Step 6 owns. Fixing it
+from Users & Access would be reaching into another step's territory to make a
+number look better, which is exactly what this ledger exists to prevent.

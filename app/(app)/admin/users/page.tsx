@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 
 import { Pagination } from "../pagination"
 import { ExportUsersButton } from "./export-button"
-import { buildAdminUserQuery, mapAdminUserRow } from "./query"
+import { searchAdminUsers } from "./query"
 import { accessLabel, parseAdminUserQuery, type AdminUserRow } from "./types"
 import { UserFilters } from "./user-filters"
 
@@ -42,12 +42,8 @@ export default async function AdminUsersPage({
   // administrator who can read this page cannot create identities. The page
   // behind the link and the RPC behind that both ask again.
   const canCreateUsers = (await mySiteCapabilities(supabase)).has("site.users.create")
-  const from = (query.page - 1) * query.size
-  const to = from + query.size - 1
-
-  const { data, count, error } = await buildAdminUserQuery(supabase, query).range(from, to)
-  const rows = (data ?? []).map(mapAdminUserRow)
-  const total = count ?? 0
+  // SLICE 7e (AB.3): the named RPC, not a filter string assembled here.
+  const { rows, total, error } = await searchAdminUsers(supabase, query, query.page, query.size)
   const totalPages = Math.max(1, Math.ceil(total / query.size))
 
   return (

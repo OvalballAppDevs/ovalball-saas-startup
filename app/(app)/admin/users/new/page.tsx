@@ -6,7 +6,7 @@ import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-ad
 import { requireSiteCapability } from "@/lib/auth/require-capability"
 import { createClient } from "@/lib/supabase/server"
 
-import { CreateUserForm } from "./create-user-form"
+import { CreateUserForm, type WizardOptions } from "./create-user-form"
 
 export const metadata = { title: "Create User" }
 
@@ -38,7 +38,7 @@ export default async function CreateUserPage() {
         email and choose their own password and authenticator — you never see either, and there is no link to copy.
       </p>
 
-      <CreateUserForm />
+      <CreateUserForm options={await loadWizardOptions(supabase)} />
 
       <p className="mt-6 text-xs text-ink-muted">
         Looking for somebody who already has an account?{" "}
@@ -48,4 +48,40 @@ export default async function CreateUserPage() {
       </p>
     </div>
   )
+}
+
+/**
+ * SLICE 7e (S7-6). AB.4's Assignments step needs the same catalogues the Users &
+ * Access tabs use, loaded on the server so the browser never has to be trusted
+ * with "which clubs exist". Every one of these reads through ordinary RLS; none
+ * of them is authority, and the RPC re-decides each assignment on its own
+ * capability regardless of what this form offered.
+ */
+async function loadWizardOptions(supabase: Awaited<ReturnType<typeof createClient>>): Promise<WizardOptions> {
+  const [clubRows, teamRows, playerRows, roleRows] = await Promise.all([
+    supabase.from("clubs").select("id, club_directory(name)"),
+    supabase.from("teams").select("id, display_name, clubs(club_directory(name))").eq("active", true),
+    supabase.from("players").select("id, first_name, surname").eq("active", true).limit(500),
+    supabase.from("role_definitions").select("role_key, label, scope").eq("visible", true),
+  ])
+
+  const roles = roleRows.data ?? []
+  return {
+    clubs: (clubRows.data ?? []).map((row) => ({
+      id: row.id,
+      name: (row.club_directory as { name: string } | null)?.name ?? "(unnamed club)",
+    })),
+    teams: (teamRows.data ?? []).map((row) => ({
+      id: row.id,
+      name: row.display_name ?? "(unnamed team)",
+      clubName: ((row.clubs as { club_directory: { name: string } | null } | null)?.club_directory?.name) ?? "",
+    })),
+    players: (playerRows.data ?? []).map((row) => ({
+      id: row.id,
+      name: [row.first_name, row.surname].filter(Boolean).join(" "),
+    })),
+    // A CLUB_OR_TEAM role (Volunteer) legitimately belongs in both lists.
+    clubRoles: roles.filter((r) => r.scope === "CLUB" || r.scope === "CLUB_OR_TEAM").map((r) => ({ key: r.role_key, label: r.label })),
+    teamRoles: roles.filter((r) => r.scope === "TEAM" || r.scope === "CLUB_OR_TEAM").map((r) => ({ key: r.role_key, label: r.label })),
+  }
 }

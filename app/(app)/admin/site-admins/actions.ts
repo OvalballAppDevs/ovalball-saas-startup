@@ -300,3 +300,59 @@ export async function revokeActiveSiteAdmin(targetUserId: string, reason: string
   revalidatePath(`/admin/users/${targetUserId}`)
   return { ok: true }
 }
+
+/**
+ * SLICE 7e -- the second half of the two-administrator rule (S7-8).
+ *
+ * Slice 7c built this completely: `site_admin_grant_requests` with its full
+ * state machine, a requester-is-not-decider constraint, a decider-is-not-target
+ * constraint, a 72-hour expiry, and five RPCs. The reconciliation still recorded
+ * it as IMPLEMENTED — NOT ENFORCED, and the reason was not the rule. It was that
+ * nothing in the product could raise a request or decide one, so the only way to
+ * make somebody a Site Admin was the older invitation path and the rule guarded
+ * a door nobody used.
+ *
+ * Both halves are now reachable, and deliberately from different screens: a
+ * request is raised on the subject's own record, and decided here. The RPCs
+ * refuse the requester and the target regardless of which screen asks, so the
+ * separation is a courtesy to the administrator rather than the boundary.
+ *
+ * AN-3 is worth restating rather than working around: with only one Full Site
+ * Admin in production, no approval is possible. That is the rule working. The
+ * answer is a second administrator (T1 in the bootstrap sequence), never a way
+ * to approve one's own request.
+ */
+export async function approveSiteAdminGrant(requestId: string, reason: string): Promise<ActionResult> {
+  return decideSiteAdminGrant("site_approve_site_admin_grant", requestId, reason)
+}
+
+export async function rejectSiteAdminGrant(requestId: string, reason: string): Promise<ActionResult> {
+  return decideSiteAdminGrant("site_reject_site_admin_grant", requestId, reason)
+}
+
+async function decideSiteAdminGrant(
+  rpc: "site_approve_site_admin_grant" | "site_reject_site_admin_grant",
+  requestId: string,
+  reason: string,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const auth = await requireSiteAdmin(supabase, ["full"])
+  if (!auth.ok) return { ok: false, error: auth.error }
+  if (reason.trim().length < MIN_REASON) {
+    return { ok: false, error: `Give a fuller reason — at least ${MIN_REASON} characters, so the record makes sense later.` }
+  }
+
+  const { error } = await supabase.rpc(rpc, { p_request_id: requestId, p_reason: reason.trim() })
+  if (error) {
+    console.error(`${rpc} failed:`, error)
+    // The refusals that matter here are the two-person ones -- "you raised
+    // this" and "this is about you" -- and both are written to be read.
+    if (error.code === "42501" || error.code === "22023" || error.code === "23514" || error.code === "P0002") {
+      return { ok: false, error: error.message }
+    }
+    return { ok: false, error: toPublicSubmissionError() }
+  }
+  revalidatePath("/admin/site-admins")
+  revalidatePath("/admin/users")
+  return { ok: true }
+}

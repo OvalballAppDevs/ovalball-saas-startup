@@ -630,6 +630,25 @@ returns boolean language sql stable security definer set search_path to 'public'
 $legacy$;
 grant execute on function pg_temp.legacy_can_manage_player(uuid) to public;
 
+-- internal.is_site_admin() was DROPPED by Identity/Auth Slice 7e (20270506000000), for the same reason
+-- and by the same rule as can_manage_player above: the perimeter manifest had carried it as a declared
+-- legacy bypass since Slice 1, Slices 4 and 7a-7d took policies and functions referencing it to zero,
+-- and the last reference turned out to be hiding in admin_club_overview's WHERE clause where the
+-- counting guards do not look. With nothing left calling it, a zero-caller authority helper is a hazard
+-- rather than a convenience.
+--
+-- Its exact body lives on here so FA13a and FA13b still measure the real HISTORICAL answer. Without it
+-- the legacy expression raises, allowed_for reads that as "nobody", and the shadow comparison reports
+-- every role as newly permitted -- which is how a retirement can look like a widening.
+create or replace function pg_temp.legacy_is_site_admin()
+returns boolean language sql stable security definer set search_path to 'public' as $legacy$
+  select internal.is_account_active(auth.uid()) and exists (
+    select 1 from public.site_admins sa
+    where sa.user_id = auth.uid() and sa.status = 'active'
+  );
+$legacy$;
+grant execute on function pg_temp.legacy_is_site_admin() to public;
+
 do $$
 declare v_c1 text := quote_literal(pg_temp.f('C1')); v_club text := quote_literal(pg_temp.f('clubA'));
         v_team text := quote_literal(pg_temp.f('teamA1')); v_req text := quote_literal(pg_temp.f('REQ_first'));
@@ -643,13 +662,13 @@ begin
   -- person act on this child", which is exactly the question CLAUDE.md warns must not be answered that
   -- way. Its body is inlined here instead, so this comparison still measures the real historical
   -- answer and the schema no longer carries a way to ask it.
-  v_legacy := pg_temp.allowed_for('internal.is_site_admin() or internal.is_active_player_guardian(' || v_c1 || ') or pg_temp.legacy_can_manage_player(' || v_c1 || ')');
+  v_legacy := pg_temp.allowed_for('pg_temp.legacy_is_site_admin() or internal.is_active_player_guardian(' || v_c1 || ') or pg_temp.legacy_can_manage_player(' || v_c1 || ')');
   v_new := pg_temp.allowed_for('exists (select 1 from public.players where id = ' || v_c1 || ') or exists (select 1 from public.player_staff_view where id = ' || v_c1 || ')');
   perform pg_temp.check(pg_temp.shadow(v_legacy, v_new) = '+SO',
     'FA13a seeing a child: the Safeguarding Officer gains the minimal view (T, J.6); the Fixtures Secretary keeps names through team operations only (D-4a-1) -- ' || pg_temp.shadow(v_legacy, v_new));
 
   -- S2 asking a child's guardians for missing information. Same retired helper, same inlined body.
-  v_legacy := pg_temp.allowed_for('pg_temp.legacy_can_manage_player(' || v_c1 || ') or internal.is_site_admin()');
+  v_legacy := pg_temp.allowed_for('pg_temp.legacy_can_manage_player(' || v_c1 || ') or pg_temp.legacy_is_site_admin()');
   v_new := pg_temp.succeeds_for('select public.request_player_playing_pathway(' || v_c1 || ')');
   perform pg_temp.check(pg_temp.shadow(v_legacy, v_new) = '-FS,-SITE',
     'FA13b asking for missing information: the Fixtures Secretary and a Site Admin without a club role lose it (J.6 player.pathway.request CO/TM/CA, no site master) -- ' || pg_temp.shadow(v_legacy, v_new));

@@ -223,7 +223,13 @@ begin
             and (has_table_privilege('anon', c.oid, 'TRUNCATE') or has_table_privilege('authenticated', c.oid, 'TRUNCATE'))) = 0
      and (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname in ('public','internal') and has_function_privilege('anon', p.oid, 'EXECUTE')
-            and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) = 20 then
+            and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) = 19 then
+    -- 20 became 19 in Identity/Auth Slice 7e: internal.is_site_admin was DROPPED. It had been
+    -- anon-executable since Slice 1 because policies a signed-out visitor reaches evaluate it
+    -- transitively; with 0 policies, 0 functions and 0 views left referencing it, the helper went
+    -- rather than being left for somebody to find before the canonical resolver. A shrink is still a
+    -- change to this perimeter, which is why this number is declared rather than computed.
+    --
     -- 19 became 20 in Identity/Auth Slice 6b.2b: public.create_auth_flow_state is anon-executable by
     -- design (Phase 2 X SO-4). A signup has no session -- that is the whole point of the journey it
     -- carries -- so the context has to be written before anybody has authenticated. It returns only a

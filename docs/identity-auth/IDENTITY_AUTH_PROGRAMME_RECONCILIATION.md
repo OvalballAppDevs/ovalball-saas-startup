@@ -205,7 +205,7 @@ Columns: **ID** · **Requirement** · **Original owner** · **Later decision** �
 | S1-12 | `security_events` + `audit_log` immutable | 1 | `audit_immutability.sql` | wired | audit_log 7,563 rows intact | PRODUCTION VERIFIED | — | |
 | S1-13 | Audit redaction rules applied | 1 | `audit_redaction_rules` | `audit_immutability` | present | PRODUCTION VERIFIED | — | |
 | S1-14 | `emit_security_event` refuses secret-shaped metadata | 1 | `internal.emit_security_event` | `security_events_no_secrets` | 116 event types | PRODUCTION VERIFIED | — | |
-| S1-15 | **`scripts/verify-service-role-usage.mjs` + `service_role_usage.test.mts`** | 1 | neither exists | none | — | **MISSED** | needs an owner | AO **C12**. `perimeter_manifest.test.mts` mentions service_role but does not assert the Z-11 allow-list |
+| S1-15 | **`service_role_usage.test.mts`** | 1 | `supabase/tests/js/service_role_usage.test.mts` | wired (glob), 6 tests | — | **CLOSED by Convergence Step 5** | — | AO **C12**. Named allow-list of the two modules holding the key and the seven call sites importing the factory; asserts none is a client component, no `NEXT_PUBLIC_` alias exists, and each holder carries its own authorisation reasoning |
 | S1-16 | `verify-perimeter-manifest` / `verify-no-client-table-writes` / `derive-perimeter` scripts | 1 | superseded by `perimeter_manifest.test.mts`, `no_client_table_writes.test.mts` | wired | — | SUPERSEDED BY RECORDED DECISION | — | Equivalent coverage under different names; substitution is legitimate |
 | S1-17 | `verify-person-name-null-safety.mjs` (AO A6) | 1 | absent | none | — | **MISSED** | needs an owner | |
 | S1-18 | Browser `40a-public-surfaces-anon` | 1 | absent | none | — | **MISSED** | needs an owner | AO D4's first item |
@@ -296,16 +296,20 @@ Columns: **ID** · **Requirement** · **Original owner** · **Later decision** �
 
 ### D.7 Slice 7 — Site Admin master control
 
+**"CLOSED by Slice 7e" means closed in code and proved locally, NOT released.**
+Step 5 banks without a production deployment; those rows become PRODUCTION
+VERIFIED when the release actually happens, and not before.
+
 | ID | Requirement | Owner | Artefact | Test | Production | Status | Remaining | Notes |
 |---|---|---|---|---|---|---|---|---|
 | S7-1 | PG-15 = 0 | 7d | 20270418 | `authority_helper_retirement` | **0** | PRODUCTION VERIFIED | — | |
 | S7-2 | PG-16 = 0 | 7d | 20270419 | same | **0** | PRODUCTION VERIFIED | — | |
-| S7-3 | Presentation-role authority retired (beyond plan) | 7 (extension) | 20270421 | PG-15+/PG-16+ | 0 | PRODUCTION VERIFIED | — | D-S7-AUTO-1 |
-| S7-4 | Q.3 master-control RPCs | 7a | 20 RPCs | `site_master_control` (62) | present, **unusable** (§B) | REGRESSED | owner (TOTP) | |
-| S7-5 | **Users & Access detail tabs (AB.1, 13 tabs)** | 7a | **no tabs**; 5 panels | browser 62 | live | PARTIALLY IMPLEMENTED | Slice 7 closure | **17 of 23 RPCs have no UI caller** — see §K |
-| S7-6 | Create User (Q.2) | 7b | RPC + `/admin/users/new` | browser 62 (18) | live, blocked by §B | PARTIALLY IMPLEMENTED | Slice 7 closure | AB.4 requires a 3-step wizard with an **Assignments** step; delivered as a single-step form (RPC supports assignments) |
-| S7-7 | AB.3 `site_search_users` RPC | 7a | **absent** | none | — | **MISSED** | Slice 7 closure | Users & Access search uses a view query, not the named RPC |
-| S7-8 | Two-admin Site Admin grant | 7c | 5 RPCs + gate | `site_admin_grant_and_lockout` (29) | live | IMPLEMENTED — NOT ENFORCED | AN-3 | **no UI exists to raise or approve a grant** |
+| S7-3 | Presentation-role authority retired (beyond plan) | 7 (extension) | 20270421, 20270506 | PG-15+/PG-16+ | 0 | PRODUCTION VERIFIED; **extended by Slice 7e** | — | D-S7-AUTO-1. 7e found the last `is_site_admin()` reference inside `admin_club_overview`'s WHERE clause, replaced it with `site.clubs.view` and dropped the helper (ledger L16) |
+| S7-4 | Q.3 master-control RPCs | 7a | 20 RPCs | `site_master_control` (62) | present, **unusable** (§B) | **CLOSED by Slice 7e** — the AAL2 boundary is proved end to end (`71-recent-aal2-authority`) and every RPC now has a caller | — | |
+| S7-5 | **Users & Access detail tabs (AB.1, 13 tabs)** | 7a | 13 tabs, URL-addressed | browser 73 (33) | live | **CLOSED by Slice 7e** | — | the 17 orphaned RPCs now have callers; `site_admin_master_control_reachability.test.mts` holds it |
+| S7-6 | Create User (Q.2) | 7b | RPC + `/admin/users/new` | browser 73 (T-60..T-64) | live | **CLOSED by Slice 7e** | — | AB.4's three steps; `p_intended` is finally sent |
+| S7-7 | AB.3 `site_search_users` RPC | 7a | `20270504000000` | `site_admin_users_access_closure` (37) | live | **CLOSED by Slice 7e** | — | authorises first, filters as data, refuses an unknown sort |
+| S7-8 | Two-admin Site Admin grant | 7c | 5 RPCs + gate + UI | `site_admin_grant_and_lockout` (29), browser 73 (T-30..T-34) | live | **CLOSED by Slice 7e (UI half)** | AN-3 | raise on the person's record, decide on Site Admin Management |
 | S7-9 | `site_admin_lockout_guard` suite | 7 | `site_admin_grant_and_lockout.sql` | wired | — | PRODUCTION VERIFIED | — | renamed; covers revoke, delete and quiet demotion |
 | S7-10 | AI #36/#37/#41 profile matrix | 7 | `site_admin_profile_matrix` (generated) | wired | — | PRODUCTION VERIFIED | — | |
 | S7-11 | Races R9, R16 | 7 | `site_admin_races.test.mts` | wired (glob) | — | PRODUCTION VERIFIED | — | |

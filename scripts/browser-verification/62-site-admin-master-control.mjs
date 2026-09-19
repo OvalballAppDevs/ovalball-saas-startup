@@ -13,10 +13,10 @@
 // end and the removal is asserted, so the suite is repeatable.
 // =====================================================================
 
-import { createHmac } from "node:crypto"
 import { execFileSync } from "node:child_process"
 
 import { launch, newContext, signIn, APP, measure, record, summarise } from "./harness.mjs"
+import { totp } from "../security/totp.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
 const TAG = Math.random().toString(36).slice(2, 8)
@@ -49,28 +49,10 @@ async function asSiteAdmin(email) {
   return { ctx, page }
 }
 
-/** RFC 4648 base32 -- how an authenticator secret is written. */
-function base32Decode(str) {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-  let bits = ""
-  for (const ch of str.replace(/=+$/, "").toUpperCase()) {
-    const v = alphabet.indexOf(ch)
-    if (v >= 0) bits += v.toString(2).padStart(5, "0")
-  }
-  const bytes = []
-  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2))
-  return Buffer.from(bytes)
-}
-
-/** RFC 6238. The same six digits the person's phone would be showing. */
-function totp(secret, atMs = Date.now()) {
-  const counter = Math.floor(atMs / 1000 / 30)
-  const buf = Buffer.alloc(8)
-  buf.writeBigUInt64BE(BigInt(counter))
-  const digest = createHmac("sha1", base32Decode(secret)).update(buf).digest()
-  const offset = digest[digest.length - 1] & 0x0f
-  return ((digest.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).toString().padStart(6, "0")
-}
+// The TOTP implementation this file used to carry is now scripts/security/totp.mjs,
+// checked against the RFC 6238 test vectors and shared with the AAL2 suites. Two
+// copies of an authentication primitive is one too many: they drift, and the one
+// that drifts is the one nobody is testing.
 
 /**
  * Enrols an authenticator through the product and verifies it with a REAL
@@ -168,10 +150,29 @@ try {
       await page.keyboard.press("ControlOrMeta+a")
       await page.keyboard.type(value)
     }
+    /**
+     * SLICE 7e: Create User is AB.4's three steps -- Identity, Assignments,
+     * Review -- rather than one form. The RPC has always accepted intended
+     * assignments and nothing ever sent it any; the wizard closes S7-6.
+     *
+     * Everything this suite asserts about Create User is unchanged in substance:
+     * the reason still gates the submit, the refusal without a recent
+     * authenticator is still the refusal, and the setup link is still never
+     * shown. Only the walk to the button is longer, so it is a helper rather
+     * than three copies.
+     */
+    const advanceToReview = async () => {
+      await page.getByRole("button", { name: /Continue to Assignments/i }).first().click()
+      await page.locator("#cu-assignment-kind").waitFor({ state: "visible", timeout: 20000 })
+      await page.getByRole("button", { name: /Continue to Review/i }).first().click()
+      await page.getByRole("button", { name: /^Create User$/ }).first().waitFor({ state: "visible", timeout: 20000 })
+    }
+
     await formReady()
     await fill("Email Address", NEW_EMAIL)
     await fill("First Name", "Aoife")
     await fill("Surname", "Kelly")
+    await advanceToReview()
 
     const submit = page.getByRole("button", { name: /^Create User$/ }).first()
     const disabledWithoutReason = await submit.isDisabled()
@@ -211,6 +212,7 @@ try {
     await fill("Email Address", NEW_EMAIL)
     await fill("First Name", "Aoife")
     await fill("Surname", "Kelly")
+    await advanceToReview()
     const reason0 = page.getByRole("textbox", { name: /Reason/i }).first()
     await reason0.click()
     await page.keyboard.type("Their club asked us to set them up; they cannot receive the signup email at work.")
@@ -256,6 +258,7 @@ try {
     await fill("Email Address", NEW_EMAIL)
     await fill("First Name", "Someone")
     await fill("Surname", "Else")
+    await advanceToReview()
     const reason2 = page.getByRole("textbox", { name: /Reason/i }).first()
     await reason2.click()
     await page.keyboard.type("Creating the same person a second time by mistake.")
@@ -277,7 +280,10 @@ try {
     // 4. Account status now needs a reason, and records it
     // -----------------------------------------------------------------
     const userId = sql(`select id::text from public.profiles where email = '${NEW_EMAIL}'`)
-    await page.goto(`${APP}/admin/users/${userId}`, { waitUntil: "domcontentloaded" })
+    // SLICE 7e: a person's record is AB.1's thirteen tabs and the tab is in the
+    // URL, so account status is addressed rather than scrolled to. The control
+    // and its rules are unchanged.
+    await page.goto(`${APP}/admin/users/${userId}?tab=security`, { waitUntil: "domcontentloaded" })
     await page.waitForLoadState("networkidle").catch(() => {})
 
     await page.getByRole("button", { name: /^Suspend Account$/ }).first().click()

@@ -131,7 +131,32 @@ production's own ledger with that population: **0 of 9 live sessions denied**.
 | `SLICE_6_PRODUCTION_RELEASE_REPORT.md` | The release itself, the eight defects it found, and every deferred step — verdict **IDENTITY/AUTH SLICE 6 — PRODUCTION VERIFIED** |
 | `../security/BREAK_GLASS.md` | What to do when no Full Site Admin can sign in. A gate on enforcement, not a routine tool; **not yet rehearsed**, which is why T3 is deferred |
 
-**Slice 7 is not started.**
+## Slice 7 — Site Admin master control and Users & Access
+
+**Released and production verified on 17 September 2026**, commits `bf5ce97` … `cc16441`, thirteen
+migrations. Production at **520 migrations**, tip `20270429000000`.
+
+| Document | What it is |
+|---|---|
+| `SLICE_7_IMPLEMENTATION_REPORT.md` | What 7a–7d built: the master-control preamble, the twenty Q.3 RPCs, the two-administrator grant, the presentation-role retirement |
+| `SLICE_7_PRODUCTION_RELEASE_REPORT.md` | The release itself — verdict **IDENTITY/AUTH SLICE 7 — PRODUCTION VERIFIED** |
+| `SITE_ADMIN_BOOTSTRAP.md` | AN-3: how a second Full Site Admin is created. **Still an owner action (S7-13).** |
+
+## Slice 7e — the closure: master control reaches a person
+
+**Delivered and proved locally at Convergence Step 5. NOT RELEASED.**
+
+The authority model was complete; the operator interface was not. Seventeen of the twenty-three
+master-control RPCs had no caller anywhere in the product, so the two-administrator rule could not be
+performed at all and three provenance timelines answered a question no screen asked.
+
+| Document | What it is |
+|---|---|
+| `SLICE_7E_REQUIREMENT_RECOVERY.md` | **Superseded.** Kept as the record of why 7e waited on Stage 0 rather than being built against a boundary that could not be positively tested |
+| `SLICE_7E_IMPLEMENTATION_REPORT.md` | All thirteen Slice 7 rows reconciled, what was built, and the four defects the work found (ledger L13–L16) |
+| `SLICE_7E_RELEASE_PLAN.md` | The release that has not happened: order, the one production check to make first, verification, rollback, and L7's contract half |
+
+Four migrations, `20270504000000` … `20270507000000`. **S7-13 remains with the owner.**
 
 ## Provenance
 

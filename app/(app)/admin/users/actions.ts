@@ -4,8 +4,10 @@ import { createClient } from "@/lib/supabase/server"
 
 import { requireSiteAdmin } from "../require-site-admin"
 import { accessLabel } from "./types"
-import { buildAdminUserQuery, mapAdminUserRow } from "./query"
+import { searchAllAdminUsers } from "./query"
 import type { AdminUserQuery } from "./types"
+
+const EXPORT_CEILING = 10_000
 
 export type ExportCsvResult = { ok: true; csv: string; filename: string } | { ok: false; error: string }
 
@@ -21,10 +23,18 @@ export async function exportUsersCsv(query: AdminUserQuery): Promise<ExportCsvRe
   const auth = await requireSiteAdmin(supabase)
   if (!auth.ok) return { ok: false, error: auth.error }
 
-  const { data, error } = await buildAdminUserQuery(supabase, query)
-  if (error || !data) return { ok: false, error: "Couldn't generate the export. Please try again." }
+  // SLICE 7e: the export walks site_search_users' pages so it asks the same
+  // question the screen asked. `truncated` is surfaced rather than swallowed --
+  // a short CSV that looks complete is worse than an error.
+  const { rows, truncated, error } = await searchAllAdminUsers(supabase, query)
+  if (error) return { ok: false, error: "Couldn't generate the export. Please try again." }
+  if (truncated) {
+    return {
+      ok: false,
+      error: `That filter matches more than ${EXPORT_CEILING.toLocaleString()} people. Narrow it and export again.`,
+    }
+  }
 
-  const rows = data.map(mapAdminUserRow)
   const lines = [CSV_COLUMNS.join(",")]
   for (const row of rows) {
     const accountStatus = row.isSiteAdmin

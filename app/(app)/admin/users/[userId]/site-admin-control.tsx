@@ -23,9 +23,9 @@ import { revokeSiteAdmin } from "./actions"
  * gets worse while a form is filled in. It needs a reason, because that is
  * what the audit line says to whoever reads it later.
  */
-export function SiteAdminControl({ userId, isSiteAdmin, isSelf }: { userId: string; isSiteAdmin: boolean; isSelf: boolean }) {
+export function SiteAdminControl({ userId, holdsSiteAdmin, isSelf }: { userId: string; holdsSiteAdmin: boolean; isSelf: boolean }) {
   const MIN_REASON = 10
-  const [current, setCurrent] = useState(isSiteAdmin)
+  const [current, setCurrent] = useState(holdsSiteAdmin)
   const [confirming, setConfirming] = useState(false)
   const [reason, setReason] = useState("")
   const [working, setWorking] = useState(false)

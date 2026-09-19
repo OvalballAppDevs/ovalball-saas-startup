@@ -1,8 +1,27 @@
 # Convergence Step 5 / Identity-Auth Slice 7 — requirement recovery
 
-**Status: BLOCKED before implementation.** The blocker is an owner action in the
-Supabase dashboard, not an engineering problem, and it is load-bearing for every
-remaining row. Evidence below.
+> **SUPERSEDED — kept as the record of why 7e waited.**
+>
+> This document was written while Slice 7e was blocked, and its reasoning was
+> right at the time: every remaining row went through
+> `internal.require_recent_aal2`, and with zero TOTP factors anywhere there was
+> no positive path to test, so building the screens first would have shipped
+> thirteen tabs of controls nobody could operate.
+>
+> That is no longer the state. Stage 0.3 proved the AAL2 boundary end to end
+> against a real factor (`71-recent-aal2-authority`, banked `7885fc6`), and the
+> implementation and its findings are in
+> **`SLICE_7E_IMPLEMENTATION_REPORT.md`**, which supersedes the status table
+> below. §4's prediction that `site_search_users` was the one row buildable
+> without a factor turned out to be right, and §3's argument for not building it
+> alone turned out to be right as well: it was written in the same pass as the
+> screen that calls it.
+>
+> **S7-13 (the AN-3 bootstrap) remains an owner action and is unchanged.**
+
+**Status at the time of writing: BLOCKED before implementation.** The blocker was
+an owner action in the Supabase dashboard, not an engineering problem, and it was
+load-bearing for every remaining row. Evidence below.
 
 Recovered from `IDENTITY_AUTH_PROGRAMME_RECONCILIATION.md` §D.7,
 `IDENTITY_AUTH_CLOSURE_LEDGER.md` and the live schema — not from any

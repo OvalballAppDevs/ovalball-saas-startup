@@ -362,6 +362,10 @@ SUITES=(
   # Slice 7c: a Site Admin grant takes two people by every route, and the last
   # Full Site Admin cannot be revoked, deleted or quietly demoted.
   site_admin_grant_and_lockout
+  # Slice 7e: the closure -- AB.3's search exists and authorises first, the roster
+  # a Site Admin can change is one it can read without widening the policy, and
+  # is_site_admin is retired including where the counting guards do not look.
+  site_admin_users_access_closure
   # Slice 7, AI #36/#37/#41: the master-control surface is discovered from the
   # catalogue, so an RPC added later without the preamble fails this by default.
   site_admin_profile_matrix
@@ -462,6 +466,13 @@ fi
 # Suite 66 drives no browser -- it speaks HTTP straight at GoTrue, PostgREST and a route handler --
 # but it needs exactly the same live stack, so it is gated and reported here with the others.
 BROWSER_SUITES=(
+  # SLICE 7e wired this one. It is Slice 7's own browser evidence -- S7-07 is what
+  # the reconciliation cites for AN-8, "the setup link is never shown" -- and it
+  # had never been in the release runner, so that evidence rested on somebody's
+  # memory of having run it once. Convergence Step 5 changed the journey it walks
+  # (Create User became AB.4's three steps, a person's record became AB.1's
+  # thirteen tabs) and the suite caught both, which is the argument for wiring it.
+  62-site-admin-master-control
   63-turnstile-login-recovery
   64-password-recovery-journey
   65-session-boundary-and-signup-challenge
@@ -472,6 +483,7 @@ BROWSER_SUITES=(
   70-production-csp
   71-recent-aal2-authority
   72-totp-enrolment-journey
+  73-users-access-detail-tabs
 )
 
 browser_blocked=""

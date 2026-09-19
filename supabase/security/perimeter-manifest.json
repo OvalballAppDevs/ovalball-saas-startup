@@ -3830,11 +3830,6 @@
         "reason": "Evaluated by row policies when anon reads: club_contacts, clubs, teams."
       },
       {
-        "signature": "is_site_admin()",
-        "schema": "internal",
-        "reason": "Evaluated by row policies when anon reads: club_contacts, club_directory, clubs, competition_editions, competitions, platform_plans, teams."
-      },
-      {
         "signature": "organised_edition_ids()",
         "schema": "internal",
         "reason": "Evaluated by row policies when anon reads: competition_group_members, competition_groups, competition_match_fixtures, competition_matches, competition_participants, competition_rounds, competition_stages. Computed once per statement as an InitPlan; returns only the caller's own organisable editions, which for anon is always empty."
@@ -6901,10 +6896,18 @@
         ]
       },
       {
+        "signature": "site_account_history(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/[userId]/page.tsx"
+        ],
+        "reason": "Phase 2 AB.1 Audit History, added by Slice 7e. Read-only provenance from security_events, gated on site.users.view. Exists because seven master-control event types -- account state, sessions, password resets, setup invitations, Site Admin grants, the creation of the identity -- were emitted by Slices 7a-7c and displayed by no timeline at all, so 'who ended their sessions on the 3rd, and why' had no answer inside the product."
+      },
+      {
         "signature": "site_add_club_membership(uuid, uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3 master control. Puts somebody into a club with no invitation and no pre-existing relationship -- which is the point of master control, and why it is audited. Requires site.memberships.manage at SITE scope, a recent authenticator code, a reason of at least ten characters, and refuses a self-target. Delegates to internal.admit_club_member, so every canonical rule still applies."
       },
@@ -6955,7 +6958,7 @@
         "signature": "site_assign_club_role(uuid, uuid, text, text, jsonb)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3. Gives a club role, creating the membership if there is none. Delegates to internal.grant_role, so the minor prohibition, the D-S5-1 age gate and the Safeguarding Officer PENDING_CONFIRMATION rule all still apply to a Site Admin."
       },
@@ -6963,7 +6966,7 @@
         "signature": "site_assign_team_role(uuid, uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3 master control. Appoints somebody to a team role and, where no club membership exists, admits one through internal.admit_club_member first -- a team role has to hang from a club membership. Requires site.team_roles.manage (SITE_FULL only), recent AAL2, a reason of at least ten characters, and refuses a self-target. Delegates to internal.grant_role, so the minor prohibitions and the Safeguarding Officer confirmation rule still apply to a Site Admin."
       },
@@ -6979,7 +6982,7 @@
         "signature": "site_end_guardian_relationship(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3 master control. Revokes a guardian relationship with a reason; never deletes it, so the record that the link existed survives for safeguarding. Requires site.family.manage."
       },
@@ -6995,7 +6998,7 @@
         "signature": "site_force_password_reset(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3 master control, bounded by L2: no Site Admin path sets, sees or chooses a password. Marks the account as requiring a reset and ends its sessions; the person resets it themselves through recovery. Requires site.users.security.manage."
       },
@@ -7003,7 +7006,7 @@
         "signature": "site_link_guardian(uuid, uuid, text, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3 master control. Creates a canonical ACTIVE guardians row with source SITE_ADMIN_ASSIGNMENT for a family link that cannot be repaired by the family themselves. Requires site.family.manage (SITE_FULL only). Refuses linking a player's own account as their guardian, and refuses to record CLUB_VERIFIED -- a Site Admin attests SITE_VERIFIED or records UNVERIFIED."
       },
@@ -7014,6 +7017,14 @@
           "app/(app)/admin/users/[userId]/page.tsx"
         ],
         "reason": "Phase 2 Q.3 inspection. Read-only provenance timeline from security_events, gated on site.users.view."
+      },
+      {
+        "signature": "site_player_team_memberships(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/[userId]/page.tsx"
+        ],
+        "reason": "Phase 2 AB.1 Team Memberships tab, added by Slice 7e. site_set_player_team_membership let a Site Admin change a roster placement they could not read, because player_team_memberships' RLS answers to team.roster.view at TEAM scope and a platform administrator holds no such thing. This is the narrow read that closes that asymmetry WITHOUT widening the roster policy: one person at a time, only their own linked player or a child they actively guard, gated on site.users.view."
       },
       {
         "signature": "site_register_created_identity(uuid, text, text, date, text, jsonb)",
@@ -7035,7 +7046,7 @@
         "signature": "site_request_site_admin_grant(uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/site-admins/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Slice 7c. Raises a PENDING request to make somebody a Site Admin; grants nothing by itself. Requires site.admins.manage, recent AAL2, a reason of at least ten characters, and refuses a self-target."
       },
@@ -7051,7 +7062,7 @@
         "signature": "site_revoke_invitation(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3 master control. Authorises at site scope and then delegates to public.revoke_invitation, which re-decides authority itself -- the Slice 5 revocation remains the only code that revokes an invitation. Requires site.invitations.manage."
       },
@@ -7059,7 +7070,7 @@
         "signature": "site_revoke_role_assignment(uuid, text, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3. Revokes a role through the canonical transition, which carries the last-Club-Admin guard; the override is explicit and recorded."
       },
@@ -7067,7 +7078,7 @@
         "signature": "site_revoke_sessions(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3 master control. Ends every live session for an account through internal.revoke_all_sessions. Runs the revocation inside the definer rather than handing the work to a service-role client, so no elevated client sits in the request path. Requires site.users.security.manage."
       },
@@ -7085,10 +7096,18 @@
         "consumer": "app/(app)/admin/safeguarding/actions.ts"
       },
       {
+        "signature": "site_search_users(text, text, text, text, integer, integer)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/users/query.ts"
+        ],
+        "reason": "Phase 2 AB.3, added by Slice 7e. The one search behind Site Admin Users & Access, replacing a PostgREST filter expression that the application assembled from typed input. Authorises on site.users.view before reading anything, takes every filter as data with no dynamic SQL, refuses an unrecognised sort rather than defaulting it, caps a page at 100 rows and returns total_count with the page. A read, so deliberately no AAL2 -- the ten-minute authenticator rule belongs on the master-control mutations, and putting it on a search would train administrators to keep a code ready for looking things up."
+      },
+      {
         "signature": "site_set_account_state(uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/actions.ts"
         ],
         "reason": "Phase 2 Q.3 master control. Moves an account between ACTIVE, SUSPENDED and DISABLED. Deliberately asks for a DIFFERENT capability per state: site.users.disable for DISABLED, site.users.security.manage otherwise, because switching an account off permanently is a larger act than suspending it and User Access holds only the second."
       },
@@ -7096,7 +7115,7 @@
         "signature": "site_set_capability_override(uuid, text, text, uuid, uuid, text, text, timestamp with time zone)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/permissions/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3, granted_level = SITE. Delegates to public.set_capability_override, which owns the override rules; the wrapper exists for the master-control preamble, because a per-person exception to the whole capability model is exactly the operation that should need a recent authenticator code and a readable reason."
       },
@@ -7104,7 +7123,7 @@
         "signature": "site_set_player_team_membership(uuid, uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3 / M.3 master control. Adds, ends or moves a player's place in a team. Delegates to the canonical archive/move functions and calls internal.assert_player_team_pathway_compatible on an add, so the governing-body age-grade and pathway rules are not bypassed by platform authority."
       },
@@ -7120,7 +7139,7 @@
         "signature": "site_transition_club_membership(uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/users/actions.ts"
+          "app/(app)/admin/users/[userId]/master-control.ts"
         ],
         "reason": "Phase 2 Q.3. Moves a membership to ACTIVE, SUSPENDED or REVOKED through the canonical transition, which marks a Site Admin suspension as SITE level so a club cannot lift it afterwards."
       },
@@ -7776,7 +7795,6 @@
       "is_full_site_admin()",
       "is_message_blocked(uuid, uuid)",
       "is_own_linked_player(uuid)",
-      "is_site_admin()",
       "master_control_club(uuid, boolean)",
       "master_control_preamble(text, text, uuid)",
       "master_control_target(uuid)",
@@ -8508,7 +8526,6 @@
       "is_club_fixture_administrator(uuid)",
       "is_full_site_admin()",
       "is_own_linked_player(uuid)",
-      "is_site_admin()",
       "may_ask_club_allocation(uuid)",
       "may_complete_player_profile(uuid)",
       "may_resolve_join_request(uuid, uuid)",
@@ -8696,10 +8713,10 @@
     "anon_write_policies": "none may admit anonymous callers without an authority helper"
   },
   "known_legacy_bypasses": [
-    "internal.is_site_admin() in RLS and definer functions (Phase 1: 140 policies) \u2014 retire in Slice 7 with explicit site capabilities.",
-    "admin_club_overview row gate uses internal.is_site_admin() \u2014 replace with site.clubs.view in Slice 7.",
-    "authenticated reads every club_directory column (notes, official_email) because Site Admin pages select * as authenticated \u2014 column-restrict when Site Admin reads move to site-capability RPCs (Slice 7).",
-    "Identity/Auth Slice 3 removed the Site Admin club/team bypass from internal.has_capability; Site Admin authority is site capabilities (K rule 7). Remaining is_site_admin() RLS/function references retire in Slice 7."
+    "RETIRED by Slice 7e (20270506000000): internal.is_site_admin() is gone. Phase 1 counted 140 policies using it; Slices 4 and 7a-7d took that to 0, the last reference was admin_club_overview's WHERE clause, and the helper itself was dropped rather than left for somebody to find before the canonical resolver.",
+    "RETIRED by Slice 7e: admin_club_overview's row gate is now internal.has_site_capability('site.clubs.view'). Being in site_admins was never an answer to what a Read-Only or Message Moderator profile may read.",
+    "authenticated holds SELECT on EVERY club_directory column, including notes and official_email, because the Site Admin club pages select *. anon is already column-restricted to the 17 public facts; authenticated is not. Measured during Convergence Step 5: club_directory_select admits any live session to every active row, which is 1,385 rows carrying notes and 29 carrying an official email. Low severity -- directory research provenance and a club's published contact address -- but it is exposure this manifest itself says should not exist. Slice 7e moved the USER reads behind site_search_users; the CLUB reads have not moved, and doing so is the Site Admin club surface's own pass (Convergence Step 6). Recorded as ledger L17 rather than fixed opportunistically.",
+    "Identity/Auth Slice 3 removed the Site Admin club/team bypass from internal.has_capability; Site Admin authority is site capabilities (K rule 7). As of Slice 7e there are no remaining is_site_admin() references of any kind."
   ],
   "append_only_history": {
     "reason": "Phase 2 Y.14/Y.15 and AO B1: audit and security history is append-only. No application role writes either store directly; every append comes from a trusted database function or trigger owned by postgres, and attribution is derived from the request JWT.",

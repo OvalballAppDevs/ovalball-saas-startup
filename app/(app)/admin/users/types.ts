@@ -4,8 +4,19 @@ export { PAGE_SIZES, DEFAULT_PAGE_SIZE }
 export type { PageSize }
 
 export type SortKey = "name-asc" | "name-desc" | "newest" | "oldest" | "club"
-export type AccessFilter = "all" | "site_admin" | "club_admin" | "fixtures_admin" | "team_admin" | "view_only" | "no_access"
-export type StatusFilter = "all" | "active" | "pending" | "no_access" | "suspended"
+/**
+ * The runtime list is the source and the type is derived from it, rather than the
+ * two being written out separately and kept in step by hand. `site_search_users`
+ * refuses a filter value it does not recognise, so the list that validates a URL
+ * parameter and the list the type permits have to be the same list -- and the
+ * authority guard is right that a second copy of these strings in this file is a
+ * copy waiting to disagree with the first.
+ */
+export const ACCESS_FILTERS = ["all", "site_admin", "club_admin", "fixtures_admin", "team_admin", "view_only", "no_access"] as const
+export type AccessFilter = (typeof ACCESS_FILTERS)[number]
+
+export const STATUS_FILTERS = ["all", "active", "pending", "no_access", "suspended"] as const
+export type StatusFilter = (typeof STATUS_FILTERS)[number]
 
 export interface TeamRole {
   teamId: string
@@ -64,6 +75,21 @@ export interface AdminUserQuery {
   size: PageSize
 }
 
+export const SORT_KEYS: readonly SortKey[] = ["name-asc", "name-desc", "newest", "oldest", "club"]
+
+/**
+ * SLICE 7e. These three used to be a bare cast of whatever was in the URL --
+ * `(get("access") as AccessFilter) ?? "all"` -- which typechecked and then let
+ * an unrecognised value fall through every `switch` arm, silently applying no
+ * filter at all. A person who mistyped a bookmarked URL got the whole platform
+ * back and no indication that their filter had been ignored. `site_search_users`
+ * now REFUSES a value it does not recognise, so the mapping has to be a real
+ * one: anything unknown becomes the documented default rather than a cast.
+ */
+function oneOf<T extends string>(value: string | undefined, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback
+}
+
 export function parseAdminUserQuery(searchParams: Record<string, string | string[] | undefined>): AdminUserQuery {
   const get = (key: string) => {
     const v = searchParams[key]
@@ -72,9 +98,9 @@ export function parseAdminUserQuery(searchParams: Record<string, string | string
   const size = Number(get("size"))
   return {
     q: get("q")?.trim() ?? "",
-    access: (get("access") as AccessFilter) ?? "all",
-    status: (get("status") as StatusFilter) ?? "all",
-    sort: (get("sort") as SortKey) ?? "name-asc",
+    access: oneOf(get("access"), ACCESS_FILTERS, "all"),
+    status: oneOf(get("status"), STATUS_FILTERS, "all"),
+    sort: oneOf(get("sort"), SORT_KEYS, "name-asc"),
     page: Math.max(1, Number(get("page")) || 1),
     size: PAGE_SIZES.includes(size as PageSize) ? (size as PageSize) : DEFAULT_PAGE_SIZE,
   }

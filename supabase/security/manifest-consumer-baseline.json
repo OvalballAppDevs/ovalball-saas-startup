@@ -1,0 +1,25 @@
+{
+  "contract": "supabase/security/perimeter-manifest.json declares, for many browser-callable functions, the application file that calls them. Nothing ever checked those declarations, and Slice 7e found seventeen of them describing the design's intent rather than the code's state -- including four naming files that had been deleted. The test in supabase/tests/js/perimeter_manifest.test.mts now checks every declaration and allows exactly the entries below. THIS LIST MAY ONLY SHRINK. A new entry means a new false declaration, which is worse than none: a reviewer reading the manifest would believe the function has a caller and that the caller is the place to look.",
+  "why_these_are_here": "They predate the check and belong to slices other than 7e. On this project a defect found outside the current slice's scope is recorded and left for the slice that owns the code, rather than fixed opportunistically -- so they are declared here, visibly, instead of being quietly corrected or the check being weakened until they pass.",
+  "known_drift": [
+    "accept_invitation -> app/invite/[token]/accept-button.tsx",
+    "approve_privileged_recovery -> app/(app)/account/security/actions.ts",
+    "cancel_privileged_recovery -> app/(app)/account/security/actions.ts",
+    "decide_club_claim -> app/(app)/admin/claims/actions.ts",
+    "delete_permission_group -> app/(app)/admin/permissions/actions.ts",
+    "get_invitation_preview -> app/invite/[token]/page.tsx",
+    "has_capability -> lib/permissions/has-capability.ts",
+    "invite_player_account -> app/(app)/parent/children/actions.ts",
+    "issue_invitation -> app/(app)/club/people/actions.ts",
+    "my_site_capabilities -> app/(app)/layout.tsx",
+    "redeem_invitation -> app/join/actions.ts",
+    "request_privileged_recovery -> app/(app)/account/security/actions.ts",
+    "resend_invitation -> app/(app)/club/people/actions.ts",
+    "submit_club_claim -> app/signup/submit-signup.ts"
+  ],
+  "notes": {
+    "app/invite/[token]/": "Deleted by Convergence Step 3, which replaced the two-route invitation entry with /join. accept_invitation and get_invitation_preview are the legacy pair Step 3's ledger entry L7 retires in the contract half of its expand/contract -- so the right fix is the retirement, not a new consumer path.",
+    "app/(app)/club/people/actions.ts": "Never existed under that path; the club-scope issuing surface is app/(app)/people/actions.ts as of Convergence Step 2.",
+    "the rest": "Functions reached through a differently-named wrapper, a shared helper, or a file that has since been split. Each is a one-line correction for the slice that owns it."
+  }
+}

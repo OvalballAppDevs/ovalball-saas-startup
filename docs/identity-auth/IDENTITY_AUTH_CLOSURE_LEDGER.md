@@ -13,10 +13,10 @@ a reason. Nothing is "absorbed" into a later slice to make a unit look complete.
 
 | Unit | Scope | Status | Prerequisite |
 |---|---|---|---|
-| **STAGE 0** | Production TOTP availability, then enrolment by the existing legitimate administrator | **IN PROGRESS — owner action required** | — |
-| **SLICE 6b** | Close missed/regressed Slice 6 authentication requirements | Not started | Stage 0 |
-| **SLICE 7e** | Close missed/partial Slice 7 Users & Access product requirements | Not started | Stage 0 |
-| **TEST / PERIMETER CLOSURE** | Wire and run the security estate; close AO C6/C10/C12 and the unwired-suite drift | Not started | — (may run in parallel) |
+| **STAGE 0** | Production TOTP availability, then enrolment by the existing legitimate administrator | **CLOSED LOCALLY** — the AAL2 boundary is proved end to end against a real factor (`71-recent-aal2-authority`, `72-totp-enrolment-journey`, banked `7885fc6`). Production enrolment itself remains an owner action | — |
+| **SLICE 6b** | Close missed/regressed Slice 6 authentication requirements | Largely delivered across Convergence Steps 3–5; **L11 (a deep link is dropped at sign-in) is still open and is 6b's** | Stage 0 |
+| **SLICE 7e** | Close missed/partial Slice 7 Users & Access product requirements | **DELIVERED, NOT RELEASED** — see `SLICE_7E_IMPLEMENTATION_REPORT.md` and `SLICE_7E_RELEASE_PLAN.md`. S7-5, S7-6, S7-7 and S7-8's UI half are closed in code and proved locally | Stage 0 |
+| **TEST / PERIMETER CLOSURE** | Wire and run the security estate; close AO C6/C10/C12 and the unwired-suite drift | **AO C12 / S1-15 closed by Convergence Step 5** (`service_role_usage.test.mts`). C6, C10 and the unwired-suite drift are still open | — (may run in parallel) |
 | **AN-3 / T1+** | Second Full Site Admin, break-glass rehearsal, then enforcement stages | Not started | Stage 0, then each stage's own gate |
 | **SLICE 8** | Club People & Access, as originally designed | Not started | The four units above |
 
@@ -72,10 +72,19 @@ for deferment** (§Q items 16–19 plus the regressed rows).
 
 | Reconciliation row | Original owner | Closure owner | Item |
 |---|---|---|---|
-| S7-5 | Slice 7a | 7e | AB.1 detail tabs; **17 of 23 master-control RPCs have no UI** |
-| S7-6 | Slice 7b | 7e | AB.4 Create User wizard — Assignments step |
-| S7-7 | Slice 7a | 7e | `site_search_users` |
-| S7-8 (UI half) | Slice 7c | 7e | Screens to raise and approve a Site Admin grant; the rule exists and is unusable without them |
+| S7-5 | Slice 7a | 7e | AB.1 detail tabs; **17 of 23 master-control RPCs have no UI** — **CLOSED**: thirteen URL-addressed tabs, every RPC given a caller, held permanently by `site_admin_master_control_reachability.test.mts` |
+| S7-6 | Slice 7b | 7e | AB.4 Create User wizard — Assignments step — **CLOSED**: three steps, and `p_intended` is finally sent |
+| S7-7 | Slice 7a | 7e | `site_search_users` — **CLOSED**: `20270504000000` |
+| S7-8 (UI half) | Slice 7c | 7e | Screens to raise and approve a Site Admin grant — **CLOSED**: raised on the person's record, decided on Site Admin Management |
+
+**Four things 7e found on the way, all recorded in `docs/product/CONVERGENCE_LEDGER.md`:**
+
+| | |
+|---|---|
+| **L13** | A Site Admin could change a player's team placement without being able to read one. Closed with a narrow per-person definer read; the roster RLS policy deliberately left alone |
+| **L14** | Seven of the sixteen master-control event types were displayed by no timeline at all. Closed by discriminating on the scope column and adding `site_account_history` |
+| **L15** | The perimeter manifest declared consumer files that did not call the function, four of them deleted routes. Slice 7's are true and checked; fourteen remain in a shrink-only baseline for their own slices |
+| **L16** | `internal.is_site_admin()` survived the Slice 4/7 retirement inside a view's `WHERE` clause. Closed, and the helper dropped |
 
 ---
 
@@ -86,7 +95,7 @@ for deferment** (§Q items 16–19 plus the regressed rows).
 | §Q-22 | Slice 1 (runner) | Test closure | 105 unwired SQL suites triaged — wire, delete with a reason, or record superseded. Start with the twelve `gocardless_*_regression` suites guarding Phase 1 P0-4 |
 | S1-8 | Slice 1 (AO C6) | Test closure | `function_search_path_mutable` advisor 73 → 0 |
 | S1-10 | Slice 1 (AO C10) | Test closure | `pg_trgm` out of `public` |
-| S1-15 | Slice 1 (AO C12) | Test closure | Service-role usage guard |
+| S1-15 | Slice 1 (AO C12) | **CLOSED by Convergence Step 5** | Service-role usage guard — `supabase/tests/js/service_role_usage.test.mts`, a named allow-list of the two modules holding the key and the seven call sites importing the factory |
 | S1-17, S1-18 | Slice 1 | Test closure | Person-name null-safety script; browser `40a-public-surfaces-anon` |
 | S3-7 | Slice 3 | Test closure | Permanent performance gate (K.5) |
 | §P | all | Test closure | Sweep the 161 wired suites for vacuous positive controls |

@@ -7,86 +7,120 @@ import type { Database } from "@/types/database.types"
 import type { AdminUserQuery, AdminUserRow, MembershipSummary, PendingRequestSummary } from "./types"
 
 /**
- * Shared by the list page and the CSV export action, mirroring
- * admin/clubs/query.ts's own reasoning: "export exactly what's currently
- * filtered" only holds if both read the identical query. Queries
- * admin_user_overview (security_invoker), so this is exactly as
- * permissive as profiles/club_memberships' own RLS -- nothing here is a
- * second authorization mechanism.
+ * SLICE 7e (AB.3). This used to build the search itself:
+ *
+ *   q.or(`first_name.ilike.%${escaped}%,surname.ilike.%${escaped}%,...`)
+ *
+ * -- a filter EXPRESSION assembled in application code out of a typed value and
+ * handed to PostgREST as a string, with the escaping done here. It read a
+ * security_invoker view so it was not a hole, but it meant the one screen that
+ * can see every account on the platform answered "who can be searched, and by
+ * what" in TypeScript. The brief named an RPC for it (AB.3) and Slice 7 never
+ * wrote one; `public.site_search_users` is that RPC, and this is now a thin
+ * call to it.
+ *
+ * The list page and the CSV export still share one path, for the same reason
+ * they always did: "export exactly what's currently filtered" is only true if
+ * both ask the same question.
  */
-export function buildAdminUserQuery(supabase: SupabaseClient<Database>, query: AdminUserQuery) {
-  let q = supabase.from("admin_user_overview").select("*", { count: "exact" })
 
-  if (query.q.length >= 2) {
-    const escaped = query.q.replace(/[%_]/g, (c) => `\\${c}`)
-    q = q.or(
-      `first_name.ilike.%${escaped}%,surname.ilike.%${escaped}%,email.ilike.%${escaped}%,club_names.ilike.%${escaped}%,team_names.ilike.%${escaped}%`
-    )
+/** One page of results, plus the total the same query saw. */
+export interface AdminUserPage {
+  rows: AdminUserRow[]
+  total: number
+  error: boolean
+}
+
+type SearchRow = Database["public"]["Functions"]["site_search_users"]["Returns"][number]
+
+export async function searchAdminUsers(
+  supabase: SupabaseClient<Database>,
+  query: AdminUserQuery,
+  page: number,
+  size: number
+): Promise<AdminUserPage> {
+  const { data, error } = await supabase.rpc("site_search_users", {
+    p_query: query.q,
+    p_access: query.access,
+    p_status: query.status,
+    p_sort: query.sort,
+    p_limit: size,
+    p_offset: (page - 1) * size,
+  })
+
+  if (error) {
+    console.error("site_search_users failed:", error)
+    return { rows: [], total: 0, error: true }
   }
 
-  switch (query.access) {
-    case "site_admin":
-      q = q.eq("is_site_admin", true)
-      break
-    case "club_admin":
-      q = q.eq("has_club_admin", true)
-      break
-    case "fixtures_admin":
-      q = q.eq("has_fixtures_admin", true)
-      break
-    case "team_admin":
-      q = q.eq("has_team_admin", true)
-      break
-    case "view_only":
-      q = q.eq("has_active_membership", true).eq("has_club_admin", false).eq("has_fixtures_admin", false).eq("has_team_admin", false)
-      break
-    case "no_access":
-      q = q.eq("has_active_membership", false).eq("is_site_admin", false)
-      break
+  const rows = (data ?? []) as SearchRow[]
+  return {
+    rows: rows.map(mapSearchRow),
+    // total_count is carried on every row and is identical across the page;
+    // an empty page legitimately means zero.
+    total: rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0,
+    error: false,
   }
+}
 
-  switch (query.status) {
-    case "active":
-      q = q.eq("has_active_membership", true)
-      break
-    case "pending":
-      q = q.eq("has_pending_request", true)
-      break
-    case "no_access":
-      q = q.eq("has_active_membership", false).eq("has_pending_request", false).eq("is_site_admin", false)
-      break
-    case "suspended":
-      q = q.eq("account_status", "suspended")
-      break
+/**
+ * The export wants everything the current filter matches, not one page. The RPC
+ * caps a single call at 100 rows on purpose, so this walks the pages rather than
+ * asking for an unbounded result set -- and stops at a declared ceiling instead
+ * of looping for as long as the platform is large, returning `truncated` so the
+ * caller can say so out loud rather than hand over a short file that looks
+ * complete.
+ */
+const EXPORT_PAGE = 100
+const EXPORT_CEILING = 10_000
+
+export async function searchAllAdminUsers(
+  supabase: SupabaseClient<Database>,
+  query: AdminUserQuery
+): Promise<{ rows: AdminUserRow[]; truncated: boolean; error: boolean }> {
+  const rows: AdminUserRow[] = []
+  for (let page = 1; rows.length < EXPORT_CEILING; page += 1) {
+    const result = await searchAdminUsers(supabase, query, page, EXPORT_PAGE)
+    if (result.error) return { rows, truncated: false, error: true }
+    rows.push(...result.rows)
+    if (result.rows.length < EXPORT_PAGE || rows.length >= result.total) {
+      return { rows, truncated: false, error: false }
+    }
   }
-
-  switch (query.sort) {
-    case "name-desc":
-      q = q.order("first_name", { ascending: false }).order("surname", { ascending: false })
-      break
-    case "newest":
-      q = q.order("user_created_at", { ascending: false })
-      break
-    case "oldest":
-      q = q.order("user_created_at", { ascending: true })
-      break
-    case "club":
-      q = q.order("club_names", { ascending: true, nullsFirst: false })
-      break
-    case "name-asc":
-    default:
-      q = q.order("first_name", { ascending: true }).order("surname", { ascending: true })
-      break
-  }
-
-  return q
+  return { rows, truncated: true, error: false }
 }
 
 /**
  * Same honesty-over-force-unwrap reasoning as admin/clubs/query.ts's
- * mapAdminClubRow: a view's generated Row type marks every column
- * nullable even though most are logically always populated.
+ * mapAdminClubRow: the generated Row type marks every column nullable even
+ * though most are logically always populated.
  */
+function mapSearchRow(row: SearchRow): AdminUserRow {
+  return mapAdminUserRow({
+    user_id: row.user_id,
+    first_name: row.first_name,
+    surname: row.surname,
+    email: row.email,
+    user_created_at: row.user_created_at,
+    is_site_admin: row.is_site_admin,
+    memberships: row.memberships,
+    pending_requests: row.pending_requests,
+    club_names: row.club_names,
+    team_names: row.team_names,
+    has_active_membership: row.has_active_membership,
+    has_club_admin: row.has_club_admin,
+    has_fixtures_admin: row.has_fixtures_admin,
+    has_team_admin: row.has_team_admin,
+    has_pending_request: row.has_pending_request,
+    account_state: row.account_state,
+    // The view carries two columns this RPC deliberately does not return:
+    // `account_status` is the two-valued compatibility column account_state
+    // replaced, and `highest_role` is a sort key nothing displays.
+    account_status: null,
+    highest_role: null,
+  })
+}
+
 export function mapAdminUserRow(row: Database["public"]["Views"]["admin_user_overview"]["Row"]): AdminUserRow {
   return {
     userId: row.user_id ?? "",

@@ -22,14 +22,26 @@ SUITE() { docker exec -i supabase_db_ovalball-saas-startup psql -U postgres -d p
 MIG() { docker exec -i supabase_db_ovalball-saas-startup psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 -f - < "supabase/migrations/$1" >/dev/null 2>&1; }
 SURV=0; N=0
 
-mutant() { # name  suite  mutate_sql  restore_migration
-  local name="$1" suite="$2" sql="$3" mig="$4"
+mutant() { # name  suite  mutate_sql  restore_migration  [extra_cleanup_sql]
+  #
+  # `extra_cleanup_sql` exists because re-running the owning migration only puts back what that
+  # migration creates. A mutant that INVENTS an object -- a policy under a new name, or a function the
+  # estate has since dropped -- has to remove it itself, or the campaign reports success and leaves the
+  # estate broken for whatever runs next. That has happened twice: once with a policy, and once with
+  # internal.is_site_admin() after Slice 7e retired it.
+  local name="$1" suite="$2" sql="$3" mig="$4" cleanup="${5:-}"
   N=$((N+1))
   printf 'M%-2s %-46s ' "$N" "$name"
   local applied; applied=$(printf '%s' "$sql" | P)
-  if echo "$applied" | grep -qi "^ERROR"; then echo "SKIP (would not apply: $(echo "$applied" | head -1))"; MIG "$mig"; return; fi
+  if echo "$applied" | grep -qi "^ERROR"; then
+    echo "SKIP (would not apply: $(echo "$applied" | head -1))"
+    MIG "$mig"
+    [ -n "$cleanup" ] && printf '%s' "$cleanup" | P >/dev/null
+    return
+  fi
   local out; out=$(SUITE "$suite")
   MIG "$mig"
+  [ -n "$cleanup" ] && printf '%s' "$cleanup" | P >/dev/null
   if echo "$out" | grep -q "FAIL\|ERROR"; then echo "caught"; else echo "*** SURVIVED ***"; SURV=$((SURV+1)); fi
 }
 
@@ -78,16 +90,23 @@ begin
 end \$\$;" "20270417000000_master_control_preamble_and_club.sql"
 
 # ---- M5: the Site Admin label comes back into one policy --------------------------------------------
-# NOTE: this mutant CREATES a policy under a new name. Re-running the owning migration restores the
-# original policy but knows nothing about the invented one, so the mutant drops its own. The first
-# run of this campaign did not, and left club_aliases carrying an extra write policy that
+# NOTE: this mutant CREATES things the owning migration knows nothing about, so it must remove them
+# itself. Re-running 20270418000000 restores the original policy but not the invented one; the first
+# run of this campaign missed that and left club_aliases carrying an extra write policy that
 # site_master_control's SMC-11b counted and failed on -- after the campaign had reported success.
+#
+# SLICE 7e added the second half of the same trap. internal.is_site_admin() no longer exists -- it was
+# dropped by 20270506000000 once nothing referenced it -- so this mutant now RESURRECTS a function as
+# well as inventing a policy, and the owning migration cannot know to drop it either. Without the drop
+# below, a campaign run would leave the retired helper standing and
+# site_admin_users_access_closure's S7E-33 would fail afterwards, again after a reported success.
 mutant "one policy asks is_site_admin() again" authority_helper_retirement "
 create or replace function internal.is_site_admin() returns boolean language sql stable security definer set search_path='' as \$\$ select false \$\$;
 drop policy if exists club_aliases_insert on public.club_aliases;
 create policy club_aliases_insert on public.club_aliases for insert to authenticated
   with check (internal.is_site_admin() or internal.has_site_capability('site.directory.manage'));" \
-"20270418000000_retire_site_admin_from_policies.sql"
+"20270418000000_retire_site_admin_from_policies.sql" \
+"drop function if exists internal.is_site_admin();"
 
 # ---- M6: an approval can be replayed ----------------------------------------------------------------
 mutant "the grant approval is not consumed" site_admin_grant_and_lockout "

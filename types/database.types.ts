@@ -25820,6 +25820,15 @@ export type Database = {
           team_id: string
         }[]
       }
+      site_account_history: {
+        Args: { p_user_id: string }
+        Returns: {
+          actor_user_id: string
+          at: string
+          detail: string
+          entry: string
+        }[]
+      }
       site_add_club_membership: {
         Args: { p_club_id: string; p_reason: string; p_user_id: string }
         Returns: string
@@ -25963,6 +25972,20 @@ export type Database = {
           entry: string
         }[]
       }
+      site_player_team_memberships: {
+        Args: { p_user_id: string }
+        Returns: {
+          club_name: string
+          ended_at: string
+          joined_at: string
+          membership_id: string
+          player_id: string
+          player_name: string
+          status: string
+          team_id: string
+          team_name: string
+        }[]
+      }
       site_register_created_identity: {
         Args: {
           p_dob?: string
@@ -26017,6 +26040,35 @@ export type Database = {
           created_at: string
           message_id: string
           sender_user_id: string
+        }[]
+      }
+      site_search_users: {
+        Args: {
+          p_access?: string
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: {
+          account_state: string
+          club_names: string
+          email: string
+          first_name: string
+          has_active_membership: boolean
+          has_club_admin: boolean
+          has_fixtures_admin: boolean
+          has_pending_request: boolean
+          has_team_admin: boolean
+          is_site_admin: boolean
+          memberships: Json
+          pending_requests: Json
+          surname: string
+          team_names: string
+          total_count: number
+          user_created_at: string
+          user_id: string
         }[]
       }
       site_set_account_state: {

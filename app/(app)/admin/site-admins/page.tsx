@@ -5,6 +5,7 @@ import { requireActiveSiteAdmin } from "@/lib/app-context/require-active-site-ad
 import { createClient } from "@/lib/supabase/server"
 
 import { AdminRow, type ActiveSiteAdminData } from "./admin-row"
+import { GrantRequestRow, type GrantRequestData } from "./grant-request-row"
 import { InviteSiteAdminForm } from "./invite-form"
 import { PendingInvitationRow, type PendingSiteAdminInvitationData } from "./pending-invitation-row"
 import { profileLabel } from "./profiles"
@@ -84,6 +85,47 @@ export default async function SiteAdminsPage() {
     }))
   }
 
+  /**
+   * SLICE 7e (S7-8). The queue the two-administrator rule needed and never had.
+   * Every active Site Admin can SEE it -- the rule is not a secret, and an
+   * administrator who cannot decide a request can still tell the requester it is
+   * waiting. Only a Full Site Admin gets the buttons, and the RPC re-decides that
+   * along with "not you" and "not about you".
+   */
+  const { data: requestRows } = await supabase
+    .from("site_admin_grant_requests")
+    .select("id, target_user_id, profile_key, reason, requested_by, created_at, expires_at")
+    .eq("state", "PENDING")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: true })
+
+  const requestPeopleIds = [
+    ...new Set((requestRows ?? []).flatMap((r) => [r.target_user_id, r.requested_by])),
+  ]
+  const { data: requestPeople } =
+    requestPeopleIds.length > 0
+      ? await supabase.from("admin_user_overview").select("user_id, email, first_name, surname").in("user_id", requestPeopleIds)
+      : { data: [] as { user_id: string | null; email: string | null; first_name: string | null; surname: string | null }[] }
+  const personById = new Map((requestPeople ?? []).map((r) => [r.user_id, r]))
+  const displayName = (id: string) => {
+    const row = personById.get(id)
+    return [row?.first_name, row?.surname].filter(Boolean).join(" ").trim() || "Unnamed user"
+  }
+
+  const pendingGrants: GrantRequestData[] = (requestRows ?? []).map((row) => ({
+    id: row.id,
+    targetUserId: row.target_user_id,
+    targetName: displayName(row.target_user_id),
+    targetEmail: personById.get(row.target_user_id)?.email ?? null,
+    profileKey: row.profile_key,
+    reason: row.reason,
+    requestedByName: displayName(row.requested_by),
+    requestedBySelf: row.requested_by === user.id,
+    targetIsSelf: row.target_user_id === user.id,
+    createdAt: row.created_at ?? new Date(0).toISOString(),
+    expiresAt: row.expires_at ?? new Date(0).toISOString(),
+  }))
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
       <div className="flex items-center gap-2.5">
@@ -107,6 +149,23 @@ export default async function SiteAdminsPage() {
           revoking, or changing a Site Admin&apos;s profile requires Full Site Admin access.
         </p>
       )}
+
+      <div className="mt-8">
+        <p className="text-sm font-medium text-ink">Waiting On A Second Administrator ({pendingGrants.length})</p>
+        <p className="mt-1 max-w-xl text-sm text-ink-muted">
+          Making somebody a Site Admin takes two people. A request grants nothing until a second administrator &mdash;
+          not whoever raised it, and not the person it is about &mdash; approves it, and it runs out after 72 hours if
+          nobody does.
+        </p>
+        <ul className="mt-3 flex flex-col gap-2">
+          {pendingGrants.map((request) => (
+            <GrantRequestRow key={request.id} request={request} />
+          ))}
+          {pendingGrants.length === 0 && (
+            <p className="text-sm text-ink-muted">Nothing is waiting. Requests are raised from a person&apos;s own record.</p>
+          )}
+        </ul>
+      </div>
 
       <div className="mt-8">
         <p className="text-sm font-medium text-ink">Active Site Admins ({activeAdmins.length})</p>
