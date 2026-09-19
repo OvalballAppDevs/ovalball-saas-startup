@@ -212,6 +212,83 @@ function up() {
   return { clubId, teams, ids, playerId, nomination, inviteeEmail }
 }
 
+/**
+ * CONVERGENCE STEP 6 — enrich, never rebuild.
+ *
+ * Step 6 reviews club onboarding and canonical club/venue/team data, and the
+ * review club had a crest, a kit and three teams but NO GROUND — so every venue,
+ * pitch, address and fixture-location surface rendered an empty state.
+ *
+ * This is additive and idempotent. It never calls `down()`, never touches a
+ * person, a team, a role or a membership, and skips anything already present, so
+ * the product owner's own manual changes survive it.
+ *
+ * EVERY WRITE GOES THROUGH THE CANONICAL RPCs, as the review Club Admin. That is
+ * not ceremony: Step 6 found that the seed files insert venue rows directly and
+ * produce a row the product cannot produce — a full structured address with no
+ * derived display line — which was then read as a product defect. A fixture that
+ * bypasses the product's own writers will keep manufacturing findings like that.
+ */
+function enrich() {
+  const clubId = sql(`select c.id from public.clubs c
+                      join public.club_directory d on d.id = c.directory_id
+                      where d.normalized_key = ${q(KEY)} limit 1`)
+  if (!clubId) {
+    console.error(`No "${CLUB_NAME}" found. Run \`up\` first — this command enriches, it does not create.`)
+    process.exit(1)
+  }
+  const adminId = sql(`select id from public.profiles where email = ${q(E("admin"))}`)
+  if (!adminId) {
+    console.error("The review Club Admin is missing; the world is incomplete.")
+    process.exit(1)
+  }
+
+  const existing = Number(sql(`select count(*) from public.venues where club_id = ${q(clubId)}`))
+  if (existing > 0) {
+    console.log(`${CLUB_NAME} already has ${existing} venue(s) — nothing to add.`)
+    return
+  }
+
+  /** One statement, as the review Club Admin, through the product's own authority. */
+  const asAdmin = (statement) =>
+    sql(`do $$
+         begin
+           perform set_config('request.jwt.claims',
+             jsonb_build_object('sub', ${q(adminId)}, 'role', 'authenticated')::text, true);
+           set local role authenticated;
+           ${statement}
+           reset role;
+         end $$;`)
+
+  // The default home ground, with a structured address and two pitches — a club
+  // with more than one pitch is what makes allocation and "which pitch?" real.
+  asAdmin(`
+    declare v_venue uuid;
+    begin
+      v_venue := public.create_venue(${q(clubId)}, 'Claro Road', 'Turn in past the clubhouse; visitor parking on the left.', true);
+      perform public.set_venue_address(v_venue, 'Claro Road', '', 'Harrogate', 'North Yorkshire', 'HG1 4AF', 'United Kingdom');
+      perform public.create_club_pitch(${q(clubId)}, 'Main Pitch', 'Floodlit, posts up all season.', v_venue);
+      perform public.create_club_pitch(${q(clubId)}, 'Second Pitch', 'Used for minis on Sunday mornings.', v_venue);
+    end;`)
+
+  // A SECOND ground, so "default venue" is a choice rather than the only option
+  // and a fixture can be put at the wrong one.
+  asAdmin(`
+    declare v_venue uuid;
+    begin
+      v_venue := public.create_venue(${q(clubId)}, 'Pannal Playing Fields', 'Council pitches; no clubhouse.', false);
+      perform public.set_venue_address(v_venue, 'Station Road', '', 'Pannal', 'North Yorkshire', 'HG3 1JR', 'United Kingdom');
+      perform public.create_club_pitch(${q(clubId)}, 'Pannal Pitch', null, v_venue);
+    end;`)
+
+  const venues = sql(`select count(*) from public.venues where club_id = ${q(clubId)}`)
+  const pitches = sql(`select count(*) from public.club_pitches where club_id = ${q(clubId)}`)
+  const derived = sql(`select count(*) from public.venues
+                        where club_id = ${q(clubId)} and address is not null`)
+  console.log(`${CLUB_NAME}: ${venues} venue(s), ${pitches} pitch(es), ${derived} with a derived address line.`)
+  console.log("Added through create_venue / set_venue_address / create_club_pitch as the review Club Admin.")
+}
+
 function down({ quiet = false } = {}) {
   // Ordered by dependency, and scoped to this review club and its identities only.
   sql(`
@@ -455,6 +532,7 @@ if (cmd === "up") {
     process.exit(1)
   }
   down()
-} else if (cmd === "report") report()
+} else if (cmd === "enrich") enrich()
+else if (cmd === "report") report()
 else if (cmd === "verify") verify()
-else console.log("usage: step2-review-club.mjs up|report|verify|down --destroy-the-canonical-review-world")
+else console.log("usage: step2-review-club.mjs up|enrich|report|verify|down --destroy-the-canonical-review-world")

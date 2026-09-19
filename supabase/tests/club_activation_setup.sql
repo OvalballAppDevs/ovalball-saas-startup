@@ -127,7 +127,7 @@ begin
   -- =================================================================
   -- D. Step 2 -- venue, structured address, pitch
   -- =================================================================
-  v_venue_a := public.create_venue(v_club_a, 'Setup A Ground', '', 'BB11 1AA', '', true);
+  v_venue_a := public.create_venue(v_club_a, 'Setup A Ground', '', true);
 
   select * into r from public.club_setup_requirements(v_club_a);
   if r.has_default_venue and not r.default_venue_has_address and not r.default_venue_has_pitch then
@@ -182,7 +182,7 @@ begin
 
   -- A pitch at a venue that is NOT the default does not satisfy the
   -- requirement -- the requirement is about the home ground specifically.
-  v_venue_a2 := public.create_venue(v_club_a, 'Setup A Second Ground', '', 'BB11 2BB', '', false);
+  v_venue_a2 := public.create_venue(v_club_a, 'Setup A Second Ground', '', false);
   perform public.set_club_pitch_venue(v_pitch, v_venue_a2);
   select * into r from public.club_setup_requirements(v_club_a);
   if not r.default_venue_has_pitch then
@@ -195,7 +195,7 @@ begin
   -- The cross-club hole. Club B's venue must be unreachable from club A's
   -- pitch, through the RPC and through the direct table update alike.
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin_b, 'role','authenticated')::text, true);
-  v_venue_b := public.create_venue(v_club_b, 'Setup B Ground', '', 'BB12 1CC', '', true);
+  v_venue_b := public.create_venue(v_club_b, 'Setup B Ground', '', true);
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin_a, 'role','authenticated')::text, true);
   begin

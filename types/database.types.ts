@@ -22840,11 +22840,9 @@ export type Database = {
       }
       create_venue: {
         Args: {
-          p_address: string
           p_club_id: string
           p_directions: string
           p_name: string
-          p_postcode: string
           p_set_default: boolean
         }
         Returns: string
@@ -25933,6 +25931,53 @@ export type Database = {
         Args: { p_profile_key: string; p_reason: string; p_user_id: string }
         Returns: undefined
       }
+      site_club_directory_record: {
+        Args: { p_directory_id: string }
+        Returns: {
+          active: boolean
+          address: string | null
+          admin_verification_status: string
+          bio: string | null
+          constituent_body: string | null
+          constituent_body_id: string | null
+          country: string
+          county: string | null
+          created_at: string
+          created_by: string | null
+          external_id: string | null
+          facebook_url: string | null
+          geocode_source: string | null
+          geocode_status: string
+          geocoded_at: string | null
+          home_ground: string | null
+          id: string
+          latitude: number | null
+          logo_storage_path: string | null
+          longitude: number | null
+          name: string
+          nation: string
+          normalized_key: string
+          notes: string | null
+          official_email: string | null
+          postcode: string | null
+          region: string | null
+          rugby_code: string
+          source: string
+          source_updated_at: string | null
+          source_url: string | null
+          town: string | null
+          updated_at: string
+          updated_by: string | null
+          verification_status: string
+          website: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "club_directory"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       site_end_guardian_relationship: {
         Args: { p_reason: string; p_relationship_id: string }
         Returns: undefined
@@ -26456,13 +26501,7 @@ export type Database = {
         Returns: undefined
       }
       update_venue: {
-        Args: {
-          p_address: string
-          p_directions: string
-          p_id: string
-          p_name: string
-          p_postcode: string
-        }
+        Args: { p_directions: string; p_id: string; p_name: string }
         Returns: undefined
       }
       upsert_club_kit: {

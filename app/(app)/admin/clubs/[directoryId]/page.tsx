@@ -20,6 +20,7 @@ import { ProfileForm } from "./profile-form"
 import { ClubDetailTabs } from "./tabs"
 import { TeamsPanel } from "./teams-panel"
 import { getSiteUrl } from "@/lib/site-url"
+import { resolveClubLogoPathFrom } from "@/lib/app-context/club-logo"
 
 
 /** Practically unreachable (admin_club_overview is a superset view of the club_directory row we already confirmed exists), kept only as an honest fallback rather than a non-null assertion. */
@@ -58,7 +59,18 @@ export default async function AdminClubDetailPage({
   if (!activeSiteAdmin.ok) redirect("/dashboard")
   const ctx = activeSiteAdmin.ctx
 
-  const { data: directory } = await supabase.from("club_directory").select("*").eq("id", directoryId).maybeSingle()
+  // STEP 6 (L17): club_directory's private columns -- notes, official_email, the
+  // research provenance -- are no longer readable by every session, so this page
+  // reads its record through site_club_directory_record, which is gated on the
+  // same site.clubs.view capability the club list is gated on and returns one
+  // row per call.
+  //
+  // Not admin_club_overview, despite this page's older comment calling that "a
+  // superset view of the club_directory row": it renames id to directory_id,
+  // replaces active with its own flags, and omits admin_verification_status,
+  // constituent_body_id, created_at and updated_at.
+  const { data: directoryRows } = await supabase.rpc("site_club_directory_record", { p_directory_id: directoryId })
+  const directory = directoryRows?.[0]
   if (!directory) notFound()
 
   const { data: club } = await supabase.from("clubs").select("*").eq("directory_id", directoryId).maybeSingle()
@@ -109,7 +121,8 @@ export default async function AdminClubDetailPage({
   // Fallback order matches every other surface's coalesce: the activated
   // club's own upload wins, then the canonical directory crest a Site
   // Admin set (even pre-activation), then a legacy imported path.
-  const logoPath = club?.logo_storage_path ?? directory.logo_storage_path
+  // Step 6: the canonical rule rather than a hand-written chain.
+  const logoPath = resolveClubLogoPathFrom(club?.logo_storage_path, directory.logo_storage_path)
   const logoUrl = logoPath ? supabase.storage.from("club-logos").getPublicUrl(logoPath).data.publicUrl : null
   const logoProvenance: "imported" | "uploaded" | "canonical" | "none" = club?.logo_storage_path
     ? "uploaded"

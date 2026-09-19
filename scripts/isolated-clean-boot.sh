@@ -204,11 +204,59 @@ begin
 
   raise notice 'PASS clean boot: Slice 7e''s objects are correct from empty, including what it removed';
 end $$;
+
+-- =====================================================================================================
+-- CONVERGENCE STEP 6. Five migrations, and three of them REMOVE or NARROW something -- a dropped
+-- function signature, a revoked table grant, a view's security mode. Those are exactly the migrations
+-- that pass on a database where the thing was never there, so they are asserted from empty explicitly.
+-- =====================================================================================================
+do $$
+declare v_writers text;
+begin
+  -- A fixture's pitch is at the fixture's ground.
+  if position('does not belong to the selected venue' in pg_get_functiondef('public.update_fixture_pitch'::regproc)) = 0
+     or position('not at that venue' in pg_get_functiondef('public.update_fixture_venue'::regproc)) = 0 then
+    raise exception 'CLEAN BOOT: the fixture writers do not enforce pitch-belongs-to-venue';
+  end if;
+
+  -- One writer for a venue address, and the old signatures gone rather than left as overloads.
+  if to_regprocedure('public.create_venue(uuid,text,text,text,text,boolean)') is not null
+     or to_regprocedure('public.update_venue(uuid,text,text,text,text)') is not null then
+    raise exception 'CLEAN BOOT: an address-writing venue signature survived';
+  end if;
+  select coalesce(string_agg(p.proname, ', ' order by p.proname), '(none)') into v_writers
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname in ('public','internal') and p.prokind = 'f'
+    and p.prosrc ~ 'update\s+public\.venues' and p.prosrc ~ '(address_line_1|address\s*=|postcode\s*=)';
+  if v_writers <> 'set_venue_address' then
+    raise exception 'CLEAN BOOT: a venue address must have one writer; found %', v_writers;
+  end if;
+
+  -- L17: a session is not authority over every club's private columns.
+  if has_table_privilege('authenticated', 'public.club_directory', 'SELECT') then
+    raise exception 'CLEAN BOOT: authenticated holds a table-wide SELECT on club_directory (L17)';
+  end if;
+  if has_column_privilege('authenticated', 'public.club_directory', 'notes', 'SELECT')
+     or has_column_privilege('authenticated', 'public.club_directory', 'official_email', 'SELECT') then
+    raise exception 'CLEAN BOOT: club_directory private columns are readable by every session (L17)';
+  end if;
+  if not has_column_privilege('authenticated', 'public.club_directory', 'latitude', 'SELECT') then
+    raise exception 'CLEAN BOOT: the revoke went too far -- opponent search and the partner map read latitude';
+  end if;
+  if (select coalesce(array_to_string(reloptions, ','), '') from pg_class where oid = 'public.admin_club_overview'::regclass) like '%security_invoker=true%' then
+    raise exception 'CLEAN BOOT: admin_club_overview is security_invoker and would lose the private columns';
+  end if;
+  if to_regprocedure('public.site_club_directory_record(uuid)') is null then
+    raise exception 'CLEAN BOOT: the directory editor''s narrow read does not exist';
+  end if;
+
+  raise notice 'PASS clean boot: Step 6''s objects are correct from empty, including what they revoked';
+end $$;
 SQL
 STATUS=$?
 
 echo "-- running the estate's own assertions against the fresh database"
-for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement; do
+for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy; do
   out=$(boot_psql -q -f - < "$REPO/supabase/tests/$suite.sql" 2>&1)
   fails=$(printf '%s' "$out" | grep -c "FAIL" || true)
   passes=$(printf '%s' "$out" | grep -c "PASS" || true)

@@ -78,9 +78,11 @@ on conflict (slug) do nothing;
 -- Venue: real coordinates and a postcode, because the weather seam will
 -- need exactly this and a venue without them cannot be forecast.
 -- ---------------------------------------------------------------------
-insert into public.venues (club_id, name, slug, address_line_1, town, county, postcode, country, latitude, longitude, is_default_home, active)
+-- `address` is the DERIVED display line set_venue_address maintains; see the
+-- note in local_uat_fixture_operations.sql.
+insert into public.venues (club_id, name, slug, address_line_1, town, county, postcode, country, address, latitude, longitude, is_default_home, active)
 select c.id, 'Ovalball UAT Ground', 'ovalball-uat-ground', 'Belvedere Road', 'Burnley', 'Lancashire', 'BB10 2LS', 'United Kingdom',
-       53.7890, -2.2300, true, true
+       'Belvedere Road, Burnley, Lancashire', 53.7890, -2.2300, true, true
 from public.clubs c where c.slug = 'ovalball-uat-rufc'
 on conflict (slug) do nothing;
 

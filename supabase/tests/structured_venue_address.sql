@@ -60,7 +60,7 @@ begin
   -- These are the components the client extracts from a getAddress.io
   -- result: line_1, line_2 (+line_3 folded in), town_or_city, county, and
   -- the postcode the lookup was keyed on, plus the provider's own id.
-  v_provider := public.create_venue(v_club, 'Provider Ground', '', 'BB11 3JA', '', false);
+  v_provider := public.create_venue(v_club, 'Provider Ground', '', false);
   perform public.set_venue_address(
     v_provider,
     '1 Belvedere Road', 'Towneley Park', 'Burnley', 'Lancashire', 'BB11 3JA',
@@ -81,7 +81,7 @@ begin
   -- =================================================================
   -- B. Manual input lands in the SAME canonical shape
   -- =================================================================
-  v_manual := public.create_venue(v_club, 'Manual Ground', '', 'BB12 0AA', '', false);
+  v_manual := public.create_venue(v_club, 'Manual Ground', '', false);
   perform public.set_venue_address(
     v_manual, 'Holden Road', '', 'Burnley', 'Lancashire', 'BB12 0AA', 'United Kingdom'
   );

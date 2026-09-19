@@ -371,14 +371,35 @@
         ]
       },
       "authenticated": {
-        "select": "all",
+        "select": [
+          "active",
+          "bio",
+          "constituent_body",
+          "country",
+          "county",
+          "facebook_url",
+          "geocode_status",
+          "home_ground",
+          "id",
+          "latitude",
+          "logo_storage_path",
+          "longitude",
+          "name",
+          "nation",
+          "postcode",
+          "region",
+          "rugby_code",
+          "town",
+          "verification_status",
+          "website"
+        ],
         "insert": "all",
         "update": "all",
         "write_consumers": [
           "app/(app)/admin/clubs/actions.ts"
         ],
         "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Convergence Step 6, ledger L17. `authenticated` used to hold a TABLE-level SELECT here, which silently overrode the 17-column grant that was also present, so any signed-in account could read `notes` and `official_email` for all 1,395 clubs. The table grant is revoked; this column list is the 17 public directory facts plus latitude/longitude/geocode_status, which Ovie opponent search, the competitions workspace and the Partner Clubs map legitimately read. notes, official_email, address, the research provenance (source, source_url, source_updated_at, external_id), normalized_key, geocoding audit columns and admin_verification_status are Site Admin only, reached through admin_club_overview and site_club_directory_record. INSERT/UPDATE stay table-level because RLS already gates every write on site.directory.manage."
       }
     },
     "club_directory_research_proposals": {
@@ -3470,15 +3491,16 @@
   },
   "views": {
     "admin_club_overview": {
-      "classification": "ADMIN_PROJECTION",
-      "security_invoker": true,
+      "classification": "CAPABILITY_GATED_PROJECTION",
+      "security_invoker": false,
       "anon": {
         "select": "none"
       },
       "authenticated": {
         "select": "all"
       },
-      "reason": "Site Admin Club Management. Rows now gated to Site Admins inside the view (legacy is_site_admin gate, replaced by site.clubs.view in Slice 7)."
+      "reason": "Site Admin Club Management. Rows now gated to Site Admins inside the view (legacy is_site_admin gate, replaced by site.clubs.view in Slice 7).",
+      "owner_rights_reason": "Convergence Step 6, ledger L17. Deliberately OWNER-RIGHTS. Its only WHERE clause is internal.has_site_capability('site.clubs.view'), so the capability is the boundary -- which is what keeps the private club_directory columns it projects reachable for a Site Admin now that the base table is no longer column-wide readable by every session. Same shape as Slice 7e's definer reads, expressed as a view because one already existed and re-deriving it as an RPC would have been a second projection of the same rows."
     },
     "admin_fixture_overview": {
       "classification": "ADMIN_PROJECTION",
@@ -4573,12 +4595,13 @@
         ]
       },
       {
-        "signature": "create_venue(uuid, text, text, text, text, boolean)",
+        "signature": "create_venue(uuid, text, text, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/club/actions.ts",
           "app/(app)/club/setup/actions.ts"
-        ]
+        ],
+        "reason": "Convergence Step 6. Names a venue and sets its default flag. The address parameters were REMOVED: create_venue and update_venue wrote the derived single-line venues.address directly and never touched the structured columns, so editing a venue in Club Settings left address_line_1/town/county stale. set_venue_address is now the only writer of a venue address."
       },
       {
         "signature": "current_platform_mode()",
@@ -6979,6 +7002,14 @@
         "reason": "Phase 2 Slice 7c. Moves a Site Admin between profiles. A move UP TO SITE_FULL goes through the two-admin gate because it grants the authority the rule exists to protect; a move down or sideways is a reduction and one administrator may do it."
       },
       {
+        "signature": "site_club_directory_record(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/clubs/[directoryId]/page.tsx"
+        ],
+        "reason": "Convergence Step 6, ledger L17. The Site Admin directory editor's read of ONE club_directory row including the private columns, gated on site.clubs.view. Exists because closing L17 took the table-wide SELECT away from every session and this is the one surface that legitimately needs notes, official_email and the research provenance. Not admin_club_overview: that view renames id to directory_id, replaces active with its own flags, and omits admin_verification_status, constituent_body_id, created_at and updated_at."
+      },
+      {
         "signature": "site_end_guardian_relationship(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7447,11 +7478,12 @@
         ]
       },
       {
-        "signature": "update_venue(uuid, text, text, text, text)",
+        "signature": "update_venue(uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/club/actions.ts"
-        ]
+        ],
+        "reason": "Convergence Step 6. A venue's name and directions. No longer an address writer -- see create_venue. The old five-argument signature was dropped rather than left as an overload PostgREST would still route to."
       },
       {
         "signature": "upsert_club_kit(uuid, text, text, text, text, text)",

@@ -82,7 +82,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_site_admin::text, 'role', 'authenticated')::text, true);
 
   update public.club_directory set admin_verification_status = 'VERIFIED' where id = v_dir_claimed;
-  select admin_verification_status into v_status from public.club_directory where id = v_dir_claimed;
+  select admin_verification_status into v_status from public.site_club_directory_record(v_dir_claimed);
   if v_status = 'VERIFIED' then
     raise notice 'PASS B1: Site Admin can set VERIFIED';
   else
@@ -90,7 +90,7 @@ begin
   end if;
 
   update public.club_directory set admin_verification_status = 'FAILED' where id = v_dir_claimed;
-  select admin_verification_status into v_status from public.club_directory where id = v_dir_claimed;
+  select admin_verification_status into v_status from public.site_club_directory_record(v_dir_claimed);
   if v_status = 'FAILED' then
     raise notice 'PASS B2: Site Admin can set FAILED (club not deleted/deactivated by this alone)';
   else
@@ -103,7 +103,7 @@ begin
   end if;
 
   update public.club_directory set admin_verification_status = 'TBD' where id = v_dir_claimed;
-  select admin_verification_status into v_status from public.club_directory where id = v_dir_claimed;
+  select admin_verification_status into v_status from public.site_club_directory_record(v_dir_claimed);
   if v_status = 'TBD' then
     raise notice 'PASS B4: Site Admin can set TBD';
   else
@@ -113,7 +113,7 @@ begin
   -- Refresh (new read in the same session) preserves the value.
   update public.club_directory set admin_verification_status = 'VERIFIED' where id = v_dir_claimed;
   perform pg_sleep(0);
-  select admin_verification_status into v_status from public.club_directory where id = v_dir_claimed;
+  select admin_verification_status into v_status from public.site_club_directory_record(v_dir_claimed);
   if v_status = 'VERIFIED' then
     raise notice 'PASS C: a fresh read after the write still shows the persisted value';
   else
@@ -135,7 +135,7 @@ begin
   -- =================================================================
   update public.club_directory set admin_verification_status = 'VERIFIED' where id = v_dir_claimed;
   update public.club_directory set constituent_body_id = (select id from public.constituent_bodies limit 1) where id = v_dir_claimed;
-  select admin_verification_status into v_status from public.club_directory where id = v_dir_claimed;
+  select admin_verification_status into v_status from public.site_club_directory_record(v_dir_claimed);
   if v_status = 'VERIFIED' then
     raise notice 'PASS E: changing Constituent Body does not reset verification status';
   else
@@ -156,6 +156,9 @@ begin
     raise exception 'FAIL F: a Club Admin updated club_directory.admin_verification_status';
   end if;
   reset role;
+  -- Read as the suite owner: this checks the EFFECT of a denied write. Reading it
+  -- through site_club_directory_record would return no rows for a persona without
+  -- site.clubs.view, which is correct behaviour that reads as "changed to NULL".
   select admin_verification_status into v_status from public.club_directory where id = v_dir_claimed;
   if v_status = 'VERIFIED' then
     raise notice 'PASS F2: the value is unchanged after the denied Club Admin attempt';
@@ -196,7 +199,7 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_site_admin::text, 'role', 'authenticated')::text, true);
   update public.club_directory set admin_verification_status = 'VERIFIED' where id = v_dir_unclaimed;
-  select admin_verification_status into v_status from public.club_directory where id = v_dir_unclaimed;
+  select admin_verification_status into v_status from public.site_club_directory_record(v_dir_unclaimed);
   if v_status = 'VERIFIED' and not exists (select 1 from public.clubs where directory_id = v_dir_unclaimed) then
     raise notice 'PASS I: an unclaimed club''s directory row can be verified without creating a clubs row, and remains unclaimed';
   else

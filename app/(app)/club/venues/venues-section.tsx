@@ -27,8 +27,16 @@ import {
 type PitchWithVenue = ClubPitch & { venueId: string | null }
 
 /** Safe, structured directions link -- built from address/postcode text, never a stored arbitrary URL (Section 19 of the venue instruction). */
+function venueAddressLine(venue: ClubVenue): string {
+  // `address` is the derived line set_venue_address maintains. A row written
+  // any other way (a seed, a historical import) can have the structured parts
+  // and no derived line, so this falls back to them rather than showing a
+  // postcode on its own.
+  return venue.address ?? [venue.line1, venue.line2, venue.town, venue.county].filter(Boolean).join(", ")
+}
+
 function directionsHref(venue: ClubVenue): string | null {
-  const query = [venue.address, venue.postcode].filter(Boolean).join(", ") || venue.name
+  const query = [venueAddressLine(venue), venue.postcode].filter(Boolean).join(", ") || venue.name
   if (!query.trim()) return null
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
@@ -128,7 +136,15 @@ function VenuesTab({
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState("")
-  const [address, setAddress] = useState("")
+  // STEP 6: the structured parts, not one joined line. The picker has always
+  // handed back line1/line2/town/county; this used to join them and throw the
+  // structure away, which is how update_venue came to write a display line over
+  // a venue whose structured columns then went stale.
+  const [line1, setLine1] = useState("")
+  const [line2, setLine2] = useState("")
+  const [town, setTown] = useState("")
+  const [county, setCounty] = useState("")
+  const [country, setCountry] = useState("United Kingdom")
   const [postcode, setPostcode] = useState("")
   const [directions, setDirections] = useState("")
   const [setDefault, setSetDefault] = useState(false)
@@ -141,7 +157,11 @@ function VenuesTab({
 
   function resetForm() {
     setName("")
-    setAddress("")
+    setLine1("")
+    setLine2("")
+    setTown("")
+    setCounty("")
+    setCountry("United Kingdom")
     setPostcode("")
     setDirections("")
     setSetDefault(false)
@@ -151,7 +171,11 @@ function VenuesTab({
   function startEdit(v: ClubVenue) {
     setEditingId(v.id)
     setName(v.name)
-    setAddress(v.address ?? "")
+    setLine1(v.line1 ?? "")
+    setLine2(v.line2 ?? "")
+    setTown(v.town ?? "")
+    setCounty(v.county ?? "")
+    setCountry(v.country ?? "United Kingdom")
     setPostcode(v.postcode ?? "")
     setDirections(v.directions ?? "")
     setFormError(null)
@@ -160,7 +184,13 @@ function VenuesTab({
   async function handleAdd() {
     setPending(true)
     setFormError(null)
-    const result = await createVenue({ clubId, name, address, postcode, directions, setDefault })
+    const result = await createVenue({
+      clubId,
+      name,
+      directions,
+      setDefault,
+      address: { line1, line2, town, county, postcode, country },
+    })
     setPending(false)
     if (!result.ok) {
       setFormError(result.error)
@@ -175,7 +205,12 @@ function VenuesTab({
     if (!editingId) return
     setPending(true)
     setFormError(null)
-    const result = await updateVenue({ id: editingId, name, address, postcode, directions })
+    const result = await updateVenue({
+      id: editingId,
+      name,
+      directions,
+      address: { line1, line2, town, county, postcode, country },
+    })
     setPending(false)
     if (!result.ok) {
       setFormError(result.error)
@@ -183,7 +218,22 @@ function VenuesTab({
     }
     setVenues((prev) =>
       prev.map((v) =>
-        v.id === editingId ? { ...v, name: name.trim(), address: address.trim() || null, postcode: postcode.trim() || null, directions: directions.trim() || null } : v
+        v.id === editingId
+          ? {
+              ...v,
+              name: name.trim(),
+              // Mirrors what set_venue_address derives, so the optimistic row
+              // and the next server read agree.
+              address: [line1, line2, town, county].map((x) => x.trim()).filter(Boolean).join(", ") || null,
+              line1: line1.trim() || null,
+              line2: line2.trim() || null,
+              town: town.trim() || null,
+              county: county.trim() || null,
+              country: country.trim() || null,
+              postcode: postcode.trim() || null,
+              directions: directions.trim() || null,
+            }
+          : v
       )
     )
     setEditingId(null)
@@ -220,7 +270,7 @@ function VenuesTab({
         <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Venues</p>
         {!readOnly && !adding && (
           <Button type="button" size="sm" className="h-8" onClick={() => setAdding(true)}>
-            Add venue
+            Add Venue
           </Button>
         )}
       </div>
@@ -238,7 +288,10 @@ function VenuesTab({
                   <AddressLookupField
                     search={lookupVenueAddress}
                     onSelect={(picked) => {
-                      setAddress([picked.address, picked.town, picked.county].filter(Boolean).join(", "))
+                      setLine1(picked.line1)
+                      setLine2(picked.line2)
+                      setTown(picked.town)
+                      setCounty(picked.county)
                       setPostcode(picked.postcode)
                     }}
                   />
@@ -252,8 +305,20 @@ function VenuesTab({
                       <Input value={postcode} onChange={(e) => setPostcode(e.target.value)} className="mt-1.5 h-9 border-ink/15 bg-white" />
                     </div>
                     <div className="sm:col-span-2">
-                      <Label className="text-ink/80">Address</Label>
-                      <Input value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1.5 h-9 border-ink/15 bg-white" />
+                      <Label className="text-ink/80">Address Line 1</Label>
+                      <Input value={line1} onChange={(e) => setLine1(e.target.value)} className="mt-1.5 h-9 border-ink/15 bg-white" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label className="text-ink/80">Address Line 2 (Optional)</Label>
+                      <Input value={line2} onChange={(e) => setLine2(e.target.value)} className="mt-1.5 h-9 border-ink/15 bg-white" />
+                    </div>
+                    <div>
+                      <Label className="text-ink/80">Town</Label>
+                      <Input value={town} onChange={(e) => setTown(e.target.value)} className="mt-1.5 h-9 border-ink/15 bg-white" />
+                    </div>
+                    <div>
+                      <Label className="text-ink/80">County</Label>
+                      <Input value={county} onChange={(e) => setCounty(e.target.value)} className="mt-1.5 h-9 border-ink/15 bg-white" />
                     </div>
                     <div className="sm:col-span-2">
                       <Label className="text-ink/80">Directions / Notes (Optional)</Label>
@@ -281,8 +346,18 @@ function VenuesTab({
                 </div>
               ) : (
                 <>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-2">
+                  {/*
+                    Step 6: stacks below `sm`. The action group is 343px wide and
+                    was `shrink-0`, so on a 320px screen it pushed the whole page
+                    sideways -- measured at scrollWidth 388. Wrapping the actions
+                    keeps every control reachable instead of putting the last one
+                    off-screen.
+                  */}
+                  <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-start">
+                    {/* `w-full` matters in the stacked layout: a column flex child is
+                        sized by its content, so `min-w-0` alone does not bound the
+                        name and address and they push the page instead. */}
+                    <div className="flex w-full min-w-0 items-start gap-2 sm:w-auto">
                       <MapPin className="mt-0.5 size-4 shrink-0 text-ink-muted" />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -291,13 +366,15 @@ function VenuesTab({
                             <span className="shrink-0 rounded-full bg-pitch-600/12 px-2 py-0.5 text-[11px] font-medium text-forest-800">Default</span>
                           )}
                         </div>
-                        {(venue.address || venue.postcode) && (
-                          <p className="truncate text-xs text-ink-muted">{[venue.address, venue.postcode].filter(Boolean).join(", ")}</p>
+                        {(venueAddressLine(venue) || venue.postcode) && (
+                          <p className="truncate text-xs text-ink-muted">
+                            {[venueAddressLine(venue), venue.postcode].filter(Boolean).join(", ")}
+                          </p>
                         )}
                         {venue.directions && <p className="truncate text-xs text-ink-muted">{venue.directions}</p>}
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1 sm:shrink-0 sm:flex-nowrap">
                       {directionsHref(venue) && (
                         <a
                           href={directionsHref(venue)!}
@@ -353,7 +430,10 @@ function VenuesTab({
           <AddressLookupField
             search={lookupVenueAddress}
             onSelect={(picked) => {
-              setAddress([picked.address, picked.town, picked.county].filter(Boolean).join(", "))
+              setLine1(picked.line1)
+              setLine2(picked.line2)
+              setTown(picked.town)
+              setCounty(picked.county)
               setPostcode(picked.postcode)
             }}
           />
@@ -372,9 +452,27 @@ function VenuesTab({
             </div>
             <div className="sm:col-span-2">
               <Label htmlFor="venue-address" className="text-ink/80">
-                Address
+                Address Line 1
               </Label>
-              <Input id="venue-address" placeholder="e.g. Coal Clough Lane, Burnley" value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
+              <Input id="venue-address" placeholder="e.g. Coal Clough Lane" value={line1} onChange={(e) => setLine1(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="venue-address-2" className="text-ink/80">
+                Address Line 2 (Optional)
+              </Label>
+              <Input id="venue-address-2" value={line2} onChange={(e) => setLine2(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
+            </div>
+            <div>
+              <Label htmlFor="venue-town" className="text-ink/80">
+                Town
+              </Label>
+              <Input id="venue-town" placeholder="e.g. Burnley" value={town} onChange={(e) => setTown(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
+            </div>
+            <div>
+              <Label htmlFor="venue-county" className="text-ink/80">
+                County
+              </Label>
+              <Input id="venue-county" value={county} onChange={(e) => setCounty(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
             </div>
             <div className="sm:col-span-2">
               <Label htmlFor="venue-directions" className="text-ink/80">

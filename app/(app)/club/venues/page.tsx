@@ -46,7 +46,7 @@ export default async function ClubVenuesPage() {
   const [{ data: venues }, { data: pitches }] = await Promise.all([
     supabase
       .from("venues")
-      .select("id, name, address, postcode, directions, active, is_default_home")
+      .select("id, name, address, address_line_1, address_line_2, town, county, country, postcode, directions, active, is_default_home")
       .eq("club_id", activeClub)
       .order("name"),
     supabase
@@ -60,6 +60,11 @@ export default async function ClubVenuesPage() {
     id: v.id,
     name: v.name,
     address: v.address,
+    line1: v.address_line_1,
+    line2: v.address_line_2,
+    town: v.town,
+    county: v.county,
+    country: v.country,
     postcode: v.postcode,
     directions: v.directions,
     active: v.active,

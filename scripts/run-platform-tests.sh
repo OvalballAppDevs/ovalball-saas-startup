@@ -366,6 +366,11 @@ SUITES=(
   # a Site Admin can change is one it can read without widening the policy, and
   # is_site_admin is retired including where the counting guards do not look.
   site_admin_users_access_closure
+  # Convergence Step 6: a fixture's pitch must be at the fixture's ground (the rule
+  # training already had), a venue address has exactly one writer, and L17 -- a
+  # session is not authority over every club's private directory columns.
+  club_venue_pitch_integrity
+  club_directory_privacy
   # Slice 7, AI #36/#37/#41: the master-control surface is discovered from the
   # catalogue, so an RPC added later without the preamble fails this by default.
   site_admin_profile_matrix
@@ -484,6 +489,9 @@ BROWSER_SUITES=(
   71-recent-aal2-authority
   72-totp-enrolment-journey
   73-users-access-detail-tabs
+  # Convergence Step 6: a venue address entered as structure in the real form,
+  # read back from the canonical columns, at 1440 / 390 / 320.
+  74-club-venue-and-address
 )
 
 browser_blocked=""

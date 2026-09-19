@@ -122,15 +122,15 @@ export async function createVenueWithPitches(input: {
     return { ok: false, error: "Your home venue needs at least one pitch." }
   }
 
-  // The canonical creator. `p_address` is its legacy display line -- left
-  // empty here because set_venue_address regenerates it from the structured
-  // parts on the very next call, and writing a hand-built string first
-  // would just be a value with a two-line lifetime.
+  // The canonical creator names the venue; set_venue_address on the next line
+  // owns the address, all of it. Step 6 took the address parameters off this
+  // function entirely, because create_venue and update_venue used to write the
+  // DERIVED single-line column directly and leave the structured columns stale
+  // -- so a venue created correctly here became wrong the moment somebody
+  // edited it in Club Settings.
   const { data: venueId, error: venueError } = await r.supabase.rpc("create_venue", {
     p_club_id: r.clubId,
     p_name: name,
-    p_address: "",
-    p_postcode: input.postcode.trim(),
     p_directions: "",
     p_set_default: input.makeDefault,
   })

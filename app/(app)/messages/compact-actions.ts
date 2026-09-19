@@ -5,6 +5,7 @@ import { loadThreadMessages, type ThreadScope } from "@/lib/messenger/thread"
 import type { ThreadMessage } from "@/lib/messenger/thread-types"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
 import { createClient } from "@/lib/supabase/server"
+import { resolveClubLogoPath, resolveClubLogoPathFrom } from "@/lib/app-context/club-logo"
 
 /**
  * OPENING A CONVERSATION FROM THE COMPACT MESSENGER.
@@ -140,10 +141,15 @@ export async function openCompactConversation(
       id,
       title: theirName,
       context: `${teamLabel(mine) ?? "Your team"} vs ${teamLabel(theirs) ?? theirName}`,
-      otherClubLogoUrl: logoUrl(supabase, theirs?.clubs?.logo_storage_path ?? theirDirectory?.logo_storage_path),
+      otherClubLogoUrl: logoUrl(
+        supabase,
+        // Step 6: the one rule, named. An unclaimed opponent has no `clubs`
+        // row, so the fallback is the directory the FIXTURE points at.
+        resolveClubLogoPathFrom(theirs?.clubs?.logo_storage_path, theirDirectory?.logo_storage_path)
+      ),
       myClubName: mine?.clubs?.club_directory?.name ?? "Ovalball",
       myTeamName: teamLabel(mine),
-      myClubLogoUrl: logoUrl(supabase, mine?.clubs?.logo_storage_path ?? mine?.clubs?.club_directory?.logo_storage_path),
+      myClubLogoUrl: logoUrl(supabase, mine?.clubs ? resolveClubLogoPath(mine.clubs) : null),
       status: f.status ?? "",
       href: `/messages/fixture/${id}`,
       presenceTopic: `presence:f:${f.conversation_id ?? id}`,
@@ -178,10 +184,10 @@ export async function openCompactConversation(
       id,
       title: theirs?.clubs?.club_directory?.name ?? r.fixture_request_groups?.raw_opponent_text ?? "Opponent",
       context: `Fixture request · ${teamLabel(mine) ?? "Your team"} vs ${teamLabel(theirs) ?? r.fixture_request_groups?.raw_opponent_text ?? "Opponent"}`,
-      otherClubLogoUrl: logoUrl(supabase, theirs?.clubs?.logo_storage_path ?? theirs?.clubs?.club_directory?.logo_storage_path),
+      otherClubLogoUrl: logoUrl(supabase, theirs?.clubs ? resolveClubLogoPath(theirs.clubs) : null),
       myClubName: mine?.clubs?.club_directory?.name ?? "Ovalball",
       myTeamName: teamLabel(mine),
-      myClubLogoUrl: logoUrl(supabase, mine?.clubs?.logo_storage_path ?? mine?.clubs?.club_directory?.logo_storage_path),
+      myClubLogoUrl: logoUrl(supabase, mine?.clubs ? resolveClubLogoPath(mine.clubs) : null),
       status: r.status,
       href: `/messages/request/${id}`,
       presenceTopic: `presence:r:${id}`,
@@ -259,10 +265,10 @@ export async function openCompactConversation(
       id,
       title: theirs?.club_directory?.name ?? "Club",
       context: "Club message",
-      otherClubLogoUrl: logoUrl(supabase, theirs?.logo_storage_path ?? theirs?.club_directory?.logo_storage_path),
+      otherClubLogoUrl: logoUrl(supabase, theirs ? resolveClubLogoPath(theirs) : null),
       myClubName: mine?.club_directory?.name ?? "Ovalball",
       myTeamName: null,
-      myClubLogoUrl: logoUrl(supabase, mine?.logo_storage_path ?? mine?.club_directory?.logo_storage_path),
+      myClubLogoUrl: logoUrl(supabase, mine ? resolveClubLogoPath(mine) : null),
       status: cc.status,
       href: `/messages/club/${id}`,
       presenceTopic: `presence:c:${cc.id}`,

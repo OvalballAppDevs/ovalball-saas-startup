@@ -307,7 +307,7 @@ a refusal reads as the product being broken rather than as the rule being kept.
 | `scripts/browser-verification/73-users-access-detail-tabs.mjs` | 41 assertions, real AAL2, canonical state re-read after every claimed change |
 | `scripts/browser-verification/62-site-admin-master-control.mjs` | 18/18 — **now wired into the release runner**, see below |
 | `scripts/isolated-clean-boot.sh` | the four new migrations asserted from empty, including what they remove |
-| `scripts/slice7e-rehearsal.sh` | **PASS** — the four applied one at a time from the 524-migration production tip, each dry-run in a rolled-back transaction first |
+|  `scripts/migration-rehearsal.sh` (was `slice7e-rehearsal.sh`; generalised at Step 6) | **PASS** — the four applied one at a time from the 524-migration production tip, each dry-run in a rolled-back transaction first |
 
 ### What the rehearsal measured
 

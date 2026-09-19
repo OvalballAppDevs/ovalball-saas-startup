@@ -51,8 +51,11 @@ order by d.created_at
 limit 1
 on conflict (slug) do nothing;
 
-insert into public.venues (club_id, name, slug, address_line_1, town, county, postcode, country, is_default_home, active)
-select c.id, 'Lightfoot Green', 'preston-grasshoppers-lightfoot-green', 'Lightfoot Lane', 'Preston', 'Lancashire', 'PR4 0TA', 'United Kingdom', true, true
+-- `address` is the DERIVED display line set_venue_address maintains. A seed that
+-- writes the structured parts and omits it creates a row the product cannot
+-- create, which Convergence Step 6 spent a while reading as a product defect.
+insert into public.venues (club_id, name, slug, address_line_1, town, county, postcode, country, address, is_default_home, active)
+select c.id, 'Lightfoot Green', 'preston-grasshoppers-lightfoot-green', 'Lightfoot Lane', 'Preston', 'Lancashire', 'PR4 0TA', 'United Kingdom', 'Lightfoot Lane, Preston, Lancashire', true, true
 from public.clubs c where c.slug = 'preston-grasshoppers-uat'
 on conflict (slug) do nothing;
 

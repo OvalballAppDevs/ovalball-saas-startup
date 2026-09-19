@@ -49,11 +49,11 @@ begin
   -- =================================================================
   -- A. Stable venue identity through a rename
   -- =================================================================
-  v_venue := public.create_venue(v_club, 'VP Home Ground', '', 'BB11 1AA', '', true);
+  v_venue := public.create_venue(v_club, 'VP Home Ground', '', true);
   perform public.set_venue_address(v_venue, 'Ground Lane', '', 'Burnley', 'Lancashire', 'BB11 1AA', 'United Kingdom');
   v_pitch := public.create_club_pitch(v_club, 'Main Pitch', null, v_venue);
 
-  perform public.update_venue(v_venue, 'VP Home Ground (Renamed)', 'Ground Lane', 'BB11 1AA', '');
+  perform public.update_venue(v_venue, 'VP Home Ground (Renamed)', '');
   select id, name into r from public.venues where id = v_venue;
   if r.id = v_venue and r.name = 'VP Home Ground (Renamed)' then
     raise notice 'PASS 1 (A): renaming a venue keeps its id';
@@ -82,7 +82,7 @@ begin
   -- =================================================================
   -- C. Exactly one default home venue
   -- =================================================================
-  v_venue2 := public.create_venue(v_club, 'VP Second Ground', '', 'BB11 2BB', '', true);
+  v_venue2 := public.create_venue(v_club, 'VP Second Ground', '', true);
   select count(*) into v_count from public.venues where club_id = v_club and is_default_home;
   if v_count = 1 then
     raise notice 'PASS 4 (C): creating a second default leaves exactly one';
@@ -122,7 +122,7 @@ begin
   -- E. Cross-club is refused in both directions
   -- =================================================================
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin2, 'role','authenticated')::text, true);
-  v_venue_b := public.create_venue(v_club2, 'VP Other Ground', '', 'BB12 1CC', '', true);
+  v_venue_b := public.create_venue(v_club2, 'VP Other Ground', '', true);
 
   begin
     perform public.rename_club_pitch(v_pitch, 'Stolen Pitch');
@@ -161,7 +161,7 @@ begin
   returning id into v_fixture;
 
   -- Rename both, then re-read through the fixture.
-  perform public.update_venue(v_venue, 'VP Home Ground (Again)', 'Ground Lane', 'BB11 1AA', '');
+  perform public.update_venue(v_venue, 'VP Home Ground (Again)', '');
   perform public.rename_club_pitch(v_pitch, 'Main Pitch (Again)');
 
   select f.id, f.venue_id, f.pitch_id, v.name as vname, p.display_name as pname, p.venue_id as pvenue
@@ -325,7 +325,7 @@ begin
   --    cannot produce two grounds
   -- =================================================================
   begin
-    perform public.create_venue(v_club, 'VP Second Ground', '', 'BB11 2BB', '', false);
+    perform public.create_venue(v_club, 'VP Second Ground', '', false);
     raise notice 'FAIL 24 (L): a duplicate venue name was accepted';
   exception when others then
     raise notice 'PASS 24 (L): a duplicate venue name is refused';

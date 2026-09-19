@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { resolveClubLogoPathFrom } from "@/lib/app-context/club-logo"
 import type { Database } from "@/types/database.types"
 
 import type { AdminClubQuery, AdminClubRow } from "./types"
@@ -115,7 +116,8 @@ export function mapAdminClubRow(row: Database["public"]["Views"]["admin_club_ove
     postcode: row.postcode,
     verificationStatus: row.verification_status ?? "",
     directoryActive: row.directory_active ?? false,
-    logoStoragePath: row.logo_storage_path ?? row.directory_logo_storage_path,
+    // Step 6: the canonical rule, not a fifth hand-written `??` chain.
+    logoStoragePath: resolveClubLogoPathFrom(row.logo_storage_path, row.directory_logo_storage_path),
     slug: row.slug,
     clubStatus: row.club_status,
     isActivated: row.is_activated ?? false,

@@ -3,7 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
-import { resolveClubLogoPath } from "@/lib/app-context/club-logo"
+import { resolveClubLogoPathFrom } from "@/lib/app-context/club-logo"
 import { createClient } from "@/lib/supabase/server"
 
 type DirectoryRow = {
@@ -122,7 +122,7 @@ export async function getPartnerClubsMapData(callerClubId: string): Promise<MapC
       // same shape resolveClubLogoPath expects from the reverse-joined
       // `clubs` embed, rather than duplicating the ?? logic inline.
       logoUrl: (() => {
-        const path = resolveClubLogoPath({ logo_storage_path: row.clubs?.logo_storage_path ?? null, club_directory: { logo_storage_path: row.logo_storage_path } })
+        const path = resolveClubLogoPathFrom(row.clubs?.logo_storage_path, row.logo_storage_path)
         return path ? supabase.storage.from("club-logos").getPublicUrl(path).data.publicUrl : null
       })(),
       slug: slugByDirectoryId.get(row.id) ?? null,

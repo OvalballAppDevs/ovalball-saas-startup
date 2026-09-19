@@ -15,6 +15,7 @@ import { ConversationThread, type ThreadMessage } from "./conversation-thread"
 import { FixtureResultPanel, type FixtureResultData } from "./fixture-result-panel"
 import { KickoffInlineEdit } from "./kickoff-inline-edit"
 import { FixtureConversationHeader } from "./presence-panel"
+import { resolveClubLogoPath } from "@/lib/app-context/club-logo"
 
 const STATUS_LABELS: Record<string, string> = {
   sent: "Awaiting response",
@@ -133,10 +134,10 @@ export default async function ConversationThreadPage({
       myTeamName: teamLabel(myTeam, myTeam ? (requestAliasByTeamId.get(myTeam.id) ?? null) : null) ?? "Your team",
       myClubName: myTeam?.clubs?.club_directory?.name ?? "Ovalball",
       myClubId: myTeam?.club_id ?? null,
-      myClubLogoUrl: logoUrl(supabase, myTeam?.clubs?.logo_storage_path ?? myTeam?.clubs?.club_directory?.logo_storage_path),
+      myClubLogoUrl: logoUrl(supabase, myTeam?.clubs ? resolveClubLogoPath(myTeam.clubs) : null),
       opponentName: teamLabel(opponentTeam, opponentTeam ? (requestAliasByTeamId.get(opponentTeam.id) ?? null) : null) ?? r.fixture_request_groups?.raw_opponent_text ?? "Opponent",
       opponentClubName: opponentTeam?.clubs?.club_directory?.name ?? "Ovalball",
-      opponentClubLogoUrl: logoUrl(supabase, opponentTeam?.clubs?.logo_storage_path ?? opponentTeam?.clubs?.club_directory?.logo_storage_path),
+      opponentClubLogoUrl: logoUrl(supabase, opponentTeam?.clubs ? resolveClubLogoPath(opponentTeam.clubs) : null),
       date: r.fixture_request_groups?.proposed_date ?? null,
       kickoffTime: null,
       status: r.status,
@@ -177,10 +178,10 @@ export default async function ConversationThreadPage({
       myTeamName: "",
       myClubName: myClub?.club_directory?.name ?? "Ovalball",
       myClubId: iAmRequesting ? cc.requesting_club_id : cc.recipient_club_id,
-      myClubLogoUrl: logoUrl(supabase, myClub?.logo_storage_path ?? myClub?.club_directory?.logo_storage_path),
+      myClubLogoUrl: logoUrl(supabase, myClub ? resolveClubLogoPath(myClub) : null),
       opponentName: "",
       opponentClubName: opponentClub?.club_directory?.name ?? "Ovalball",
-      opponentClubLogoUrl: logoUrl(supabase, opponentClub?.logo_storage_path ?? opponentClub?.club_directory?.logo_storage_path),
+      opponentClubLogoUrl: logoUrl(supabase, opponentClub ? resolveClubLogoPath(opponentClub) : null),
       date: null,
       kickoffTime: null,
       status: cc.status,
@@ -299,10 +300,10 @@ export default async function ConversationThreadPage({
       myTeamName: teamLabel(myTeam, myTeam ? (fixtureAliasByTeamId.get(myTeam.id) ?? null) : null) ?? "Your team",
       myClubName: myTeam?.clubs?.club_directory?.name ?? "Ovalball",
       myClubId: myTeam?.club_id ?? null,
-      myClubLogoUrl: logoUrl(supabase, myTeam?.clubs?.logo_storage_path ?? myTeam?.clubs?.club_directory?.logo_storage_path),
+      myClubLogoUrl: logoUrl(supabase, myTeam?.clubs ? resolveClubLogoPath(myTeam.clubs) : null),
       opponentName: teamLabel(opponentTeam, opponentTeam ? (fixtureAliasByTeamId.get(opponentTeam.id) ?? null) : null) ?? fRow.raw_opposition_text,
       opponentClubName: opponentTeam?.clubs?.club_directory?.name ?? fRow.raw_opposition_text ?? "Opponent",
-      opponentClubLogoUrl: logoUrl(supabase, opponentTeam?.clubs?.logo_storage_path ?? opponentTeam?.clubs?.club_directory?.logo_storage_path),
+      opponentClubLogoUrl: logoUrl(supabase, opponentTeam?.clubs ? resolveClubLogoPath(opponentTeam.clubs) : null),
       date: fRow.kickoff_date,
       kickoffTime: fRow.kickoff_time,
       status: fRow.status,

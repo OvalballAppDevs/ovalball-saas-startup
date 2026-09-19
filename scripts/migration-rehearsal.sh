@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =====================================================================================================
-# PRODUCTION-SHAPED REHEARSAL -- Convergence Step 5 / Slice 7e
+# PRODUCTION-SHAPED REHEARSAL -- any step's migrations, from any baseline tip
 #
 # WHY THIS IS NOT THE CLEAN BOOT. `scripts/isolated-clean-boot.sh` proves the whole chain installs from
 # EMPTY. That is a different question from the one a release asks, which is: applied to a database that
@@ -22,21 +22,35 @@
 # WHAT IT CREATES AND DESTROYS: one disposable Supabase project, on its own ports, destroyed at the end.
 # It refuses to run if the derived project id has not actually changed.
 #
-#   scripts/slice7e-rehearsal.sh
+#   scripts/migration-rehearsal.sh <baseline-tip> <migration.sql> [migration.sql ...]
+#
+# e.g.  scripts/migration-rehearsal.sh 20270503000000 20270504000000_site_search_users.sql ...
+#
+# Generalised at Convergence Step 6. It was written for Slice 7e with its four migrations hard-coded,
+# and Step 6 needed the same thing for six -- so rather than a second copy that would drift from the
+# first, the baseline and the list became arguments. Nothing else about it changed.
 # =====================================================================================================
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CANONICAL_ID="$(grep -E '^project_id' "$REPO/supabase/config.toml" | head -1 | sed -E 's/.*"(.*)".*/\1/')"
 BOOT_ID="${CANONICAL_ID}-rehearsal"
-WORKDIR="${TMPDIR:-/tmp}/ovalball-slice7e-rehearsal"
-BASELINE_TIP="20270503000000"
-STEP_MIGRATIONS=(
-  20270504000000_site_search_users.sql
-  20270505000000_site_admin_can_read_the_roster_it_can_change.sql
-  20270506000000_retire_is_site_admin.sql
-  20270507000000_the_timelines_can_see_their_own_events.sql
-)
+WORKDIR="${TMPDIR:-/tmp}/ovalball-migration-rehearsal"
+
+if [ "$#" -lt 2 ]; then
+  echo "usage: $0 <baseline-tip> <migration.sql> [migration.sql ...]" >&2
+  echo "  baseline-tip   the migration version production is currently at" >&2
+  exit 2
+fi
+BASELINE_TIP="$1"; shift
+STEP_MIGRATIONS=("$@")
+
+for m in "${STEP_MIGRATIONS[@]}"; do
+  if [ ! -f "$REPO/supabase/migrations/$m" ]; then
+    echo "REFUSING: $m is not in supabase/migrations" >&2
+    exit 2
+  fi
+done
 
 if [ "$BOOT_ID" = "$CANONICAL_ID" ]; then
   echo "REFUSING: the disposable project id is identical to the canonical one ($CANONICAL_ID)." >&2
@@ -99,11 +113,16 @@ measure() {
       || '|' || (select count(*) from public.club_memberships)
       || '|' || (select count(*) from public.role_assignments)
       || '|' || (select count(*) from public.site_admins)
+      || '|' || (select count(*) from public.clubs)
+      || '|' || (select count(*) from public.venues)
+      || '|' || (select count(*) from public.club_pitches)
+      || '|' || (select count(*) from public.teams)
+      || '|' || (select count(*) from public.fixtures)
       || '|' || (select coalesce((select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='internal' and p.proname='is_site_admin'),0))"
 }
 
 BEFORE="$(measure)"
-echo "-- baseline measured: site_* fns|policies|capabilities|profiles|memberships|role_assignments|site_admins|is_site_admin"
+echo "-- baseline measured: site_* fns|policies|capabilities|profiles|memberships|role_assignments|site_admins|clubs|venues|pitches|teams|fixtures|is_site_admin"
 echo "   $BEFORE"
 
 STATUS=0
@@ -138,18 +157,26 @@ echo ""
 echo "-- delta"
 python3 - "$BEFORE" "$AFTER" <<'PY'
 import sys
-labels = ["site_* functions","policies","capabilities","profiles","club_memberships","role_assignments","site_admins","internal.is_site_admin"]
+labels = ["site_* functions","policies","capabilities","profiles","club_memberships","role_assignments",
+          "site_admins","clubs","venues","club_pitches","teams","fixtures","internal.is_site_admin"]
 before = sys.argv[1].split("|"); after = sys.argv[2].split("|")
+if len(before) != len(labels) or len(after) != len(labels):
+    print(f"   FAIL: the measure emits {len(before)} values and there are {len(labels)} labels -- "
+          f"a misaligned report is worse than none")
+    sys.exit(1)
 bad = []
 for label, b, a in zip(labels, before, after):
     mark = "" if b == a else f"   <-- {int(a) - int(b):+d}"
     print(f"   {label:<24} {b:>5} -> {a:>5}{mark}")
     # NOBODY'S ACCESS CHANGES. A schema migration that moves a membership, a role or an
     # administrator is doing something it did not say it was doing.
-    if label in ("profiles","club_memberships","role_assignments","site_admins") and b != a:
+    # People's access AND the canonical club/venue/pitch/team/fixture records. A schema migration that
+    # creates or removes one of these is doing something it did not say it was doing.
+    if label in ("profiles","club_memberships","role_assignments","site_admins",
+                 "clubs","venues","club_pitches","teams","fixtures") and b != a:
         bad.append(label)
 if bad:
-    print("   FAIL: these are people's access and must not move: " + ", ".join(bad))
+    print("   FAIL: these are people's access or canonical club data and must not move: " + ", ".join(bad))
     sys.exit(1)
 PY
 [ $? -ne 0 ] && STATUS=1
@@ -166,8 +193,9 @@ done
 
 echo ""
 if [ "$STATUS" = "0" ]; then
-  echo "REHEARSAL: PASS -- four migrations applied one at a time from the production tip, each dry-run first,"
-  echo "           and no membership, role, profile or administrator moved."
+  echo "REHEARSAL: PASS -- ${#STEP_MIGRATIONS[@]} migration(s) applied one at a time from $BASELINE_TIP, each"
+  echo "           dry-run first, and no membership, role, profile, administrator, club, venue, pitch,"
+  echo "           team or fixture moved."
 else
   echo "REHEARSAL: FAIL"
 fi

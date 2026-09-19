@@ -222,7 +222,35 @@ test("views: security mode and access match the manifest; no unlisted owner-righ
     if (!entry) continue
     const invoker = ["true", "on", "1"].includes(mode)
     if (invoker !== entry.security_invoker) problems.push(`${view}: security_invoker ${invoker}, manifest ${entry.security_invoker}`)
-    if (!invoker && entry.classification !== "PUBLIC_PROJECTION") problems.push(`${view}: owner-rights view that is not a public projection`)
+    // An owner-rights view runs with the DEFINER's privileges, so the caller's
+    // own RLS and column grants stop applying and the view itself becomes the
+    // boundary. Two shapes are legitimate, and the difference is what the view
+    // is protecting rather than what it is called:
+    //
+    //   PUBLIC_PROJECTION           deliberately public data, so there is no
+    //                               boundary to lose.
+    //   CAPABILITY_GATED_PROJECTION private data behind a capability in the
+    //                               view's OWN definition -- the same shape as
+    //                               Slice 7e's definer reads. Added by
+    //                               Convergence Step 6 for admin_club_overview,
+    //                               which had to become owner-rights so a Site
+    //                               Admin could still read the club_directory
+    //                               columns that L17 closed to every session.
+    //
+    // The classification is not taken on trust: the gate is read out of the
+    // view's definition below, so labelling an ungated view this way fails.
+    if (!invoker && entry.classification !== "PUBLIC_PROJECTION" && entry.classification !== "CAPABILITY_GATED_PROJECTION") {
+      problems.push(`${view}: owner-rights view that is neither a public projection nor capability-gated`)
+    }
+    if (!invoker && entry.classification === "CAPABILITY_GATED_PROJECTION") {
+      // rows() splits psql output on newlines, and a view definition is many
+      // lines -- taking the first one reads `SELECT cd.id AS directory_id,` and
+      // finds no capability in a view that plainly has one.
+      const definition = rows(`select pg_get_viewdef('public.${view}'::regclass, true)`).map((r) => r.join(" ")).join("\n")
+      if (!/has_site_capability|internal\.can\(|has_capability/.test(definition)) {
+        problems.push(`${view}: declared CAPABILITY_GATED_PROJECTION but its definition calls no capability helper`)
+      }
+    }
     const anon = map.get(`${view}|anon|SELECT`) ?? "none"
     if (!sameAccess(anon, entry.anon.select)) problems.push(`${view}: anon SELECT ${JSON.stringify(anon)}, manifest ${JSON.stringify(entry.anon.select)}`)
     for (const priv of ["INSERT", "UPDATE", "DELETE"]) {

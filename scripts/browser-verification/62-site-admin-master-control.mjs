@@ -218,19 +218,30 @@ try {
     await page.keyboard.type("Their club asked us to set them up; they cannot receive the signup email at work.")
     await page.getByRole("button", { name: /^Create User$/ }).first().click()
 
-    const created = await page
-      .getByText(/Account created/i)
-      .first()
-      .waitFor({ state: "visible", timeout: 20000 })
-      .then(() => true)
-      .catch(() => false)
-    if (!created) {
-      const shown = await page.locator("body").innerText()
-      record("S7-06 POSITIVE CONTROL: with a fresh authenticator code, the identity is created", false,
-        shown.replace(/\s+/g, " ").slice(0, 300))
-    } else {
-      record("S7-06 POSITIVE CONTROL: with a fresh authenticator code, the identity is created", true)
-    }
+    // WAIT FOR EITHER OUTCOME, not just the happy one.
+    //
+    // This used to wait 20s for "Account created" and, on timeout, dump the whole
+    // body -- which is the page shell, so a failure printed the navigation and
+    // told you nothing about what went wrong. It failed once in a full batch and
+    // passed alone immediately afterwards, which is the signature this estate has
+    // seen before (ledger L6) and the reason the detail below names the route, the
+    // refusal text and whether the row actually landed.
+    //
+    // The timeout is 45s rather than 20s because the work behind the button is a
+    // service-role auth identity, a master-control RPC and an invitation issue --
+    // not because a race is being waited out. The assertion still requires the
+    // real outcome.
+    const outcome = await Promise.race([
+      page.getByText(/Account created/i).first().waitFor({ state: "visible", timeout: 45000 }).then(() => "created"),
+      page.locator(".text-destructive-text").first().waitFor({ state: "visible", timeout: 45000 }).then(() => "refused"),
+    ]).catch(() => "nothing")
+    const refusalText = (await page.locator(".text-destructive-text").allInnerTexts().catch(() => [])).join(" ")
+    const landed = sql(`select count(*) from public.profiles where email = '${NEW_EMAIL}'`)
+    record(
+      "S7-06 POSITIVE CONTROL: with a fresh authenticator code, the identity is created",
+      outcome === "created",
+      `${outcome} at ${new URL(page.url()).pathname}; profiles=${landed}${refusalText ? `; "${refusalText.slice(0, 120)}"` : ""}`
+    )
 
     // PG-10 / Q.2 step 7: the plaintext never reaches the administrator, and
     // there is deliberately no Copy Setup Link.

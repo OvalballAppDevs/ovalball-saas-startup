@@ -65,7 +65,8 @@ product owner rules that it is not a defect.
 | L14 | Seven of the sixteen master-control event types were displayed by no timeline at all | Step 5 (Slice 7e browser verification) | Step 5 | **closed** — the timelines discriminate on the scope column, and a fourth carries account decisions |
 | L15 | `supabase/security/perimeter-manifest.json` declared consumer files that did not call the function, four of them deleted routes | Step 5 (Slice 7e) | Step 5 for its own rows; **each other slice for theirs** | partly open — Slice 7's are true and checked; fourteen remain in a shrink-only baseline |
 | L16 | `internal.is_site_admin()` survived the Slice 4/7 retirement inside a view's `WHERE` clause, where the policy and function guards do not look | Step 5 (Slice 7e) | Step 5 | **closed** — `admin_club_overview` gates on `site.clubs.view`; the helper is dropped |
-| L17 | Any signed-in account can read every club's `notes` and `official_email`; `anon` is column-restricted and `authenticated` is not | Step 5, measuring a declared perimeter bypass | **Step 6 — the Site Admin club surface** | open — measured, not fixed |
+| L17 | Any signed-in account can read every club's `notes` and `official_email`; `anon` is column-restricted and `authenticated` is not | Step 5, measuring a declared perimeter bypass | Step 6 | **closed** — table grant revoked, capability-gated reads, 19 assertions |
+| L18 | `62-site-admin-master-control` failed 5 assertions in one full batch and passed 18/18 alone, twice, immediately afterwards | Step 6 final gate | test reliability | open — **not root-caused**; diagnostics added, passed the next batch |
 
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
@@ -851,3 +852,39 @@ Site Admin club pages their own reads, and those pages — `app/(app)/admin/club
 — are the Site Admin **club** surface, which Convergence Step 6 owns. Fixing it
 from Users & Access would be reaching into another step's territory to make a
 number look better, which is exactly what this ledger exists to prevent.
+
+---
+
+## L18 — suite 62 failed a batch and could not be made to fail again
+
+Recorded rather than quietly re-run, because this estate has been here before
+(L6) and the rule learned there was that **a batch failure is the signal**.
+
+On the first Step 6 confirming run, `62-site-admin-master-control` reported 7
+passed and 5 failed. The five were consecutive from `S7-06` — the positive
+control that Create User actually creates an identity — and everything
+downstream of it, which is the shape of the preceding step having silently not
+worked rather than five independent faults. `profiles=0`, so nothing was created.
+
+**It has not been root-caused.** Against it:
+
+- `71-recent-aal2-authority` (18) and `72-totp-enrolment-journey` (10) passed in
+  the same batch, so the AAL2 boundary and the enrolment journey were both
+  working;
+- `73-users-access-detail-tabs` (41) passed in the same batch, and it performs
+  the same authenticator enrolment on the same shared UAT administrator and
+  creates identities through the same RPC;
+- suite 62 then passed **18/18 standalone, twice**, and **18/18 in the next full
+  batch**.
+
+What was done: the failure was made diagnosable rather than papered over. The
+assertion used to wait 20 seconds for "Account created" and, on timeout, print
+the whole page body — which is the navigation shell, so the failure told you
+nothing. It now races the success and refusal conditions, and its detail names
+the route, the refusal text and whether the row actually landed. The timeout is
+45 seconds because the work behind the button is a service-role auth identity, a
+master-control RPC and an invitation issue — not to wait out a race, and the
+assertion still requires the real outcome.
+
+**This is open.** The next occurrence will say where it was and what it saw,
+which is what the current evidence could not.
