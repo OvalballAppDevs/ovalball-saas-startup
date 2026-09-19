@@ -19,6 +19,7 @@ import {
   tokenForSubmission,
 } from "@/lib/auth/challenge-state"
 import { AuthDivider, SocialAuthButtons } from "@/components/auth/social-auth-buttons"
+import { safeNextPath } from "@/lib/auth/safe-next"
 import { hasAnyOAuthProvider } from "@/lib/auth/oauth-providers"
 import { REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember-constants"
 
@@ -132,7 +133,14 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
       return
     }
     // A second factor still to present goes to the challenge; otherwise straight on.
-    window.location.assign(result.needsMfa ? "/security/verify" : (searchParams.get("next") ?? "/dashboard"))
+    // THROUGH THE GUARD, NOT AROUND IT.
+    //
+    // This read `next` straight off the query string and assigned it, so
+    // /login?next=https://evil.example was an open redirect on the password
+    // path -- while the callback beside it had validated the same value since
+    // Slice 5. `safe-next.ts` warned in its own header that two copies of an
+    // open-redirect guard is how one of them drifts; this was the drift.
+    window.location.assign(result.needsMfa ? "/security/verify" : safeNextPath(searchParams.get("next")))
   }
 
   async function sendLink() {
@@ -230,6 +238,14 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
       )}
 
       <SocialAuthButtons
+        // WITHOUT THIS, GOOGLE SIGN-IN ENDED ON THE PUBLIC HOMEPAGE.
+        //
+        // No `next` reached the OAuth start, so it encoded the old default --
+        // "/" -- into its own callback URL, and the callback delivered a
+        // freshly authenticated person to the marketing site. The same
+        // validated destination the password and link paths use now goes with
+        // the provider round trip.
+        next={safeNextPath(searchParams.get("next"))}
         turnstileToken={humanToken}
         ready={humanPassed}
         challengeRequired={securityCheckActive}

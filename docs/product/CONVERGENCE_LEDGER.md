@@ -55,7 +55,7 @@ product owner rules that it is not a defect.
 | L2 | A Safeguarding Officer nomination in `PENDING_CONFIRMATION` was described two contradictory ways and never as pending | Step 2 manual review preparation | Step 2 | **closed** — one appointment reader, one wording |
 | L3 | The same club role is worded "Fixtures Secretary" in the role catalogue and "Fixture Secretary" everywhere else | Step 2 manual review preparation | presentation mapped in Step 2; **the catalogue key/label inconsistency stays open for its schema owner** | partly open |
 | L4 | The team page told a Team Manager that only a Club Admin can assign people, directly beneath the assign control she may legitimately use | Step 2 manual review preparation | Step 2 | **closed** — the sentence asks the same flags the controls ask |
-| L6 | `64-password-recovery-journey` S6B1-02 read a link's `href` immediately after revealing the panel it lives in, and failed under concurrent load | Step 2 persona-policy work | test reliability | **closed** — it waits for the product condition |
+| L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **REOPENED in Step 4** — the wait was necessary but not sufficient |
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
 ---
@@ -360,3 +360,38 @@ to be applied **after this Step 3 release deploys**, not before.
 `public.invitations` itself is retained: it holds no rows, dropping it is not
 required to end its authority, and historical structures are not deleted merely
 because the live path is obsolete.
+
+---
+
+## L6 — reopened, and a correction
+
+**I reported this closed in Step 3. That was premature and I was wrong.**
+
+The fix I made was real and is still in place: the assertion waits for the reveal
+button to become visible and then for an anchor to exist with the expected
+`href`, instead of reading the attribute the instant after a click. On that
+evidence -- three standalone runs at 34/34 and one full platform run at 34/34 --
+I called it deterministic.
+
+It is not. Across the three full platform runs in Step 4 it failed twice
+(33 passed, 1 failed) and passed once, while passing 34/34 every time it is run
+alone, including immediately after each batch failure. So the waits removed one
+race and something else load-sensitive remains.
+
+**What it is not.** The enforcing CSP added in 6b.2d was the obvious suspect --
+`next dev` does not nonce its own hot-reload scripts, so an enforcing policy
+breaks hydration on the dev server that every browser gate runs against. That was
+real, and it is why the policy is now enforced in production and report-only in
+development. But the suite failed again after that change, so the CSP was not the
+cause of this.
+
+**What it costs.** One assertion, about whether `/login`'s forgotten-password
+link carries `href="/forgot-password"`. The route exists and its own journey is
+covered by the other 33 assertions in the same suite, so the security property is
+not unevidenced -- but a gate that reports a product defect when the machine is
+busy is a gate nobody will trust, which is the whole point of the ledger entry.
+
+**Not fixed in Step 4**, because Step 4 is an authentication slice and tuning a
+security suite's timing under load is its own piece of work with its own
+evidence. Recorded honestly instead: **the last full platform run was 5180
+passed, 1 failed, and this is the one.**
