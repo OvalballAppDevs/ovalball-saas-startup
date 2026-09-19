@@ -58,6 +58,7 @@ product owner rules that it is not a defect.
 | L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **root cause found and fixed in Step 4** — visibility was the wrong readiness signal |
 | L8 | An enforced nonce-bound CSP left the application un-hydrated | Step 4 (6b.2d) | Step 4 | **closed** — the cause was ours, not the framework's |
 | L9 | A true clean boot needed `supabase db reset`, which would destroy the persistent review world | Step 4 | Step 4 | **closed** — `scripts/isolated-clean-boot.sh` |
+| L11 | The `(app)` auth gate redirects to `/login` without a `next`, so a deep link into the application is lost at sign-in | Stage 0.2 navigation verification | **Step 4 family — Identity/Auth 6b** | open |
 | L10 | Slice 7's remaining work (7e) cannot be built or proved until production TOTP is enabled and the Full Site Admin enrols | Step 5 recovery | **product owner — Supabase dashboard (Stage 0)** | **open — verified still unsatisfied, see STAGE_0_VERIFICATION.md** |
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
@@ -588,3 +589,39 @@ would have been locked out.
 Full evidence and the unblock steps are in
 `docs/identity-auth/STAGE_0_VERIFICATION.md`. Nothing was changed in production
 and nothing was compensated for in code.
+
+---
+
+## L11 — a deep link into the application is dropped at sign-in
+
+Found while verifying the route a Full Site Admin uses to enrol a TOTP factor.
+
+Probed read-only against production:
+
+```
+/account/security  307 -> https://ovalball.co.uk/login
+/security/enrol    307 -> https://ovalball.co.uk/login?next=/security/enrol
+/account           307 -> https://ovalball.co.uk/login
+/people            307 -> https://ovalball.co.uk/login
+```
+
+`/security/enrol` sits outside the authenticated layout and preserves where the
+person was going. Everything behind the `(app)` layout does not: its gate sends
+them to `/login` with no `next`, so after signing in they land on the dashboard
+and have to navigate again. Step 4 made `safeNextPath` the single authority for
+where a login finishes and proved that a legitimate continuation survives —
+this is the other half, a gate that never offers one.
+
+**Not a security defect.** Nothing is exposed and nothing is bypassed; Step 4's
+rule that an unsafe or absent continuation falls back to the dashboard is exactly
+what happens. It is a product-experience defect: every bookmark, every emailed
+deep link and every shared URL into the application costs the recipient a second
+navigation.
+
+**Not fixed here**, because the instruction for this piece of work was to verify
+and record without modifying anything. It belongs with the Identity/Auth 6b
+family that owns the post-login destination.
+
+**Practical consequence today:** somebody following a link straight to
+`/account/security` while signed out should expect to arrive at the dashboard
+after signing in. `/security/enrol` round-trips correctly.
