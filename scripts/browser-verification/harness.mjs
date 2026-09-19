@@ -24,6 +24,7 @@ import os from "node:os"
 import path from "node:path"
 
 import { chromium } from "playwright-core"
+import { totpForSubmission } from "../security/totp.mjs"
 
 export const EXE =
   process.env.HOME +
@@ -236,6 +237,99 @@ async function waitForSignInLink(email, since) {
 }
 
 /** Who does the APPLICATION think is signed in? Read from the product, not the cookie. */
+/**
+ * Enrol an authenticator through the product, and PROVE it worked.
+ *
+ * ONE IMPLEMENTATION, replacing the copies that lived in suites 62 and 73.
+ *
+ * WHY IT ASSERTS (Convergence Step 6, ledger L18). The previous versions ended
+ * like this:
+ *
+ *     await page.getByRole("button", { name: /saved them/i })
+ *       .waitFor({ state: "visible", timeout: 30000 }).catch(() => {})
+ *     if (await saved.isVisible().catch(() => false)) await saved.click()
+ *     return secret
+ *
+ * If verification failed, the `catch` swallowed it, the immediate `isVisible()`
+ * returned false, no click happened, and the helper RETURNED NORMALLY. The suite
+ * then went on to perform master-control operations with no AAL2, the preamble
+ * correctly refused every one, and five downstream assertions failed while the
+ * one thing that had actually gone wrong was never reported. The suite then died
+ * on an empty user id.
+ *
+ * Reproduced exactly by submitting a code the server rejects: same seven passes,
+ * same five failures, same crash.
+ *
+ * So this now fails at the point of failure, carrying the on-screen reason, and
+ * confirms a VERIFIED factor exists in GoTrue before returning — the database is
+ * the ground truth, not the absence of an error on screen.
+ *
+ * It also resets the identity's factors first. Suites 62 and 73 are the only two
+ * of the nineteen that use the shared Full Site Admin and touch MFA at all, and
+ * both clean up after themselves — but an INTERRUPTED run leaves a factor
+ * behind, and the next run then enrols against unexpected state. Resetting makes
+ * the precondition deterministic instead of depending on the previous run having
+ * finished.
+ */
+export async function enrolAuthenticator(page, { email, sql }) {
+  if (!email || typeof sql !== "function") {
+    throw new Error("enrolAuthenticator needs the identity's email and a sql() so it can prove the outcome")
+  }
+  const userId = sql(`select id from public.profiles where email = '${email}'`)
+  if (!userId) throw new Error(`enrolAuthenticator: no profile for ${email}`)
+
+  // Deterministic precondition, so an interrupted previous run cannot poison this one.
+  sql(`delete from auth.mfa_amr_claims a using auth.sessions s where a.session_id = s.id and s.user_id = '${userId}';
+       delete from auth.mfa_challenges c using auth.mfa_factors f where c.factor_id = f.id and f.user_id = '${userId}';
+       delete from auth.mfa_factors where user_id = '${userId}';
+       delete from public.account_recovery_codes where user_id = '${userId}';`)
+
+  await page.goto(`${APP}/security/enrol`, { waitUntil: "domcontentloaded" })
+  await page.waitForLoadState("networkidle").catch(() => {})
+
+  const start = page.getByRole("button", { name: /start setup|set up|begin/i }).first()
+  await start.waitFor({ state: "visible", timeout: 30000 }).catch(() => {})
+  if (await start.isVisible().catch(() => false)) await start.click()
+
+  await page.locator("#totp-code").waitFor({ state: "visible", timeout: 30000 })
+
+  // Read from the element, not from page text: the key is rendered in a
+  // `break-all` mono paragraph, so innerText wraps it mid-string.
+  const shown = (await page.locator("p.font-mono").first().textContent()) ?? ""
+  const secret = shown.replace(/\s+/g, "").toUpperCase()
+  if (!/^[A-Z2-7]{16,}$/.test(secret)) {
+    throw new Error(`enrolAuthenticator: no authenticator secret was shown (got ${JSON.stringify(shown.slice(0, 40))})`)
+  }
+
+  const { code } = await totpForSubmission(secret)
+  await page.locator("#totp-code").fill(code)
+  await page.getByRole("button", { name: /verify & continue|verify/i }).first().click()
+
+  const done = page.getByRole("button", { name: /saved them/i }).first()
+  const reached = await done
+    .waitFor({ state: "visible", timeout: 30000 })
+    .then(() => true)
+    .catch(() => false)
+
+  if (!reached) {
+    const onScreen = (await page.locator(".text-destructive-text").allInnerTexts().catch(() => [])).join(" ")
+    throw new Error(
+      `enrolAuthenticator: verification did not reach the recovery-code screen at ` +
+        `${new URL(page.url()).pathname}${onScreen ? ` -- "${onScreen.slice(0, 160)}"` : " -- no error shown"}`
+    )
+  }
+
+  await done.click()
+  await page.waitForLoadState("networkidle").catch(() => {})
+
+  // GROUND TRUTH. A screen without an error is not evidence that a factor exists.
+  const verified = sql(`select count(*) from auth.mfa_factors where user_id = '${userId}' and status = 'verified'`)
+  if (verified !== "1") {
+    throw new Error(`enrolAuthenticator: expected exactly one verified factor for ${email}, found ${verified}`)
+  }
+  return secret
+}
+
 export async function whoAmI(page) {
   await page.goto(`${APP}/account`, { waitUntil: "domcontentloaded" })
   await page.waitForLoadState("networkidle").catch(() => {})

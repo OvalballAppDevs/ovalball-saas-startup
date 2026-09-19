@@ -105,6 +105,30 @@ canonical writer, because that is what a convergence step is allowed to move.
 
 ---
 
+## End-to-end proof references (§28)
+
+Added by the closure pass. Every row below is now walked in a real browser, not
+only asserted in SQL.
+
+| Rows | Proved by |
+|---|---|
+| 6, 7 · crest upload and the directory fallback | `76-branding-propagation` S6BR-01/02/10/11/20, `75-first-club-setup-journey` S6S-10 |
+| 9, 10 · kit and theme | `75` S6S-11, `76` S6BR-30/31 |
+| 11–17, 19 · venue creation, structured address, postcode, default ground | `75` S6S-20/21, `74-club-venue-and-address` S6B-10/11/12 |
+| 21, 22 · address redisplay and directions | `74` S6B-20/21 |
+| 23, 28 · pitch created with its venue | `75` S6S-22/23 |
+| 29–34 · teams listed and confirmed | `75` S6S-30/31 |
+| 35–37 · setup entry, the bounded screen, resume | `75` S6S-01/02/03/04/05/06/07/13 |
+| 38, 39 · server-derived requirements and completion | `75` S6S-12/40/43 |
+| 41, 42 · fixture venue and pitch | `club_venue_pitch_integrity` S6VP-01…13 |
+| 48, 49 · Site Admin club list and record | `76` S6BR-10/11 |
+| 51 · public Club Home | `76` S6BR-01/10/20/30/31/40 |
+
+Accessibility for the changed surfaces is `77-step6-accessibility` (19
+assertions: axe on all three setup steps and the Club Settings venue editor,
+semantics, keyboard order, validation focus, and the address combobox at 1440 /
+390 / 320).
+
 ## Count
 
 | | |

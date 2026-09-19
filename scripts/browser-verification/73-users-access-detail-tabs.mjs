@@ -30,8 +30,7 @@
 
 import { execFileSync } from "node:child_process"
 
-import { launch, newContext, signIn, APP, measure, record, summarise } from "./harness.mjs"
-import { totp } from "../security/totp.mjs"
+import { launch, newContext, signIn, APP, enrolAuthenticator, measure, record, summarise } from "./harness.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
 const TAG = Math.random().toString(36).slice(2, 8)
@@ -121,25 +120,6 @@ async function asSiteAdmin(browser) {
   await signIn(page, FULL)
   await ctx.addCookies([{ name: "ovalball_ctx", value: "site_admin", url: APP }])
   return { ctx, page }
-}
-
-/** Enrols through the product and verifies with a real code. Nothing is stubbed. */
-async function enrolAuthenticator(page) {
-  await page.goto(`${APP}/security/enrol`, { waitUntil: "domcontentloaded" })
-  await page.waitForLoadState("networkidle").catch(() => {})
-  const start = page.getByRole("button", { name: /start setup/i }).first()
-  if (await start.isVisible().catch(() => false)) await start.click()
-  await page.locator("#totp-code").waitFor({ state: "visible", timeout: 30000 })
-  const shown = (await page.locator("p.font-mono").first().textContent()) ?? ""
-  const secret = shown.replace(/\s+/g, "").toUpperCase()
-  if (!/^[A-Z2-7]{16,}$/.test(secret)) throw new Error("no authenticator secret was shown")
-  await page.locator("#totp-code").fill(totp(secret))
-  await page.getByRole("button", { name: /verify & continue/i }).click()
-  const saved = page.getByRole("button", { name: /saved them/i }).first()
-  await saved.waitFor({ state: "visible", timeout: 30000 }).catch(() => {})
-  if (await saved.isVisible().catch(() => false)) await saved.click()
-  await page.waitForURL(/\/dashboard/, { timeout: 20000 }).catch(() => {})
-  return secret
 }
 
 /** Opens one tab of the subject's record and returns what it says. */
@@ -241,7 +221,7 @@ try {
   // -------------------------------------------------------------------
   // C. With AAL2, the controls actually move canonical state.
   // -------------------------------------------------------------------
-  await enrolAuthenticator(page)
+  await enrolAuthenticator(page, { email: FULL, sql })
   record("T-20 the administrator now holds a verified authenticator",
     sql(`select count(*) from auth.mfa_factors where user_id = '${adminId}' and status = 'verified'`) === "1")
 
@@ -399,7 +379,7 @@ try {
     // THE TWO-PERSON RULE, COMPLETED. Approving is a master-control operation,
     // so this administrator needs their own recent authenticator -- the rule is
     // not relaxed for the second person.
-    await enrolAuthenticator(secondPage)
+    await enrolAuthenticator(secondPage, { email: SECOND, sql })
     await secondPage.goto(`${APP}/admin/site-admins`, { waitUntil: "domcontentloaded" })
     await secondPage.waitForLoadState("networkidle").catch(() => {})
     const queueForSecond = await secondPage.locator("main").innerText()

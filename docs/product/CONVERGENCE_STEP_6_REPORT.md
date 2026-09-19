@@ -172,11 +172,81 @@ That choice is deliberate: Step 6 found that the seed files insert venue rows
 directly and produce a row the product cannot produce, which was then read as a
 product defect. The seeds were corrected too.
 
+## 22a. The closure pass
+
+Four acceptance items were outstanding when Step 6 was first banked at `9a1bf21`.
+All four are now closed, and the work sits on top of that commit rather than
+rewriting it.
+
+### L18 — root-caused, not re-run
+
+Reproduced deterministically by submitting a code the server rejects: the same
+seven passes, the same five failures, the same crash. The cause was
+`enrolAuthenticator` swallowing a failed TOTP verification and returning as
+though it had succeeded, so a prerequisite failure surfaced as five unrelated
+downstream ones. What made verification fail is that a TOTP code is bound to a
+30-second period and the submission gap widens under a full batch.
+
+Fixed with `totpForSubmission` (a wait on the algorithm's own period boundary,
+bounded at under one period — not a sleep, retry or widened timeout) and one
+shared, self-asserting `enrolAuthenticator` in the harness that resets factor
+state first and confirms a verified factor in GoTrue before returning. The same
+sabotage now stops at the prerequisite naming the reason. Full detail in ledger
+**L18**.
+
+### §52 — first-time setup, end to end
+
+`75-first-club-setup-journey`, 34 assertions on an isolated disposable club:
+the entry-authority matrix (founder, coach, member, guardian, an established
+club's admin), resume from server state, crest upload, kit, structured address
+with its pitch, team confirmation, server-authoritative completion, idempotency,
+re-login, and all three steps at 390 and 320.
+
+**One correction worth keeping**: the first version asserted that an ordinary
+member sees the bounded "not ready yet" screen. They do not, and should not —
+`listSwitchableContexts` says outright that a plain `BASIC_USER` has no
+"operate as" mode, so there is no active club context for the gate to key on. The
+assertion was testing something the design never promised. The coach persona was
+given a real team role (which *does* carry a context), and the member and guardian
+now assert the narrower truth: not dragged into a founder journey, and granted
+nothing by visiting it.
+
+### §57 — branding propagation
+
+`76-branding-propagation`, 14 assertions. One canonical change, then every
+surface that displays the club's identity: the public Club Home, the Site Admin
+club record and the Site Admin club list. The directory fallback before, the
+club's own crest after, the fallback again on removal, the theme through
+`club_kits → resolveClubTheme → clubThemeVariables`, and visibility after an
+ordinary refresh with no cache workaround.
+
+### §59 — accessibility
+
+`77-step6-accessibility`, 19 assertions: axe (WCAG 2.0/2.1 A and AA) on all three
+setup steps and the Club Settings venue editor, one h1, every address field
+programmatically labelled, the pitch field named without a visible label, no
+unnamed icon-only control, tab order through the address fields, a validation
+failure that explains itself without navigating away, and the address combobox
+at 1440 / 390 / 320 with manual entry always reachable.
+
+**Two serious violations exist and are reported rather than hidden**, both
+`color-contrast` and both pre-existing: the Away-kit editor's dimmed state in
+`kit-section.tsx` (last changed in `0a0b9ec`) and the notification count badge in
+the app shell, which appears on every authenticated page in the product. Neither
+file is in the Step 6 commit or working tree. They are declared in a shrink-only
+baseline in the suite, so Step 6 introduces none and a new one fails. **Both are
+findings for the surfaces that own them**, not fixed here.
+
+Also found: `07-accessibility.mjs` reads axe from
+`/Users/Devs/.claude/jobs/e976849c/…`, a job directory that no longer exists. That
+suite is not in the release runner and covers messaging surfaces this step does
+not touch, so it is recorded rather than fixed.
+
 ## 23. Test totals
 
 | Gate | Result |
 |---|---|
-| **FULL PLATFORM + FULL BROWSER** | **5436 passed, 0 failed across 247 suites** |
+| **FULL PLATFORM + FULL BROWSER** | **5503 passed, 0 failed across 247 suites** (closure batch 1) |
 | `club_venue_pitch_integrity` | 21 assertions (venue/pitch correlation + venue address authority) |
 | `club_directory_privacy` | 19 assertions (L17) |
 | `club_canonical_resolvers.test.mts` | 4 tests (logo and theme convergence guards) |
@@ -185,10 +255,12 @@ product defect. The seeds were corrected too.
 | Production-shaped rehearsal | PASS, 6 migrations one at a time |
 | TypeScript · build · content standard · `diff --check` · lint · authority guards | clean |
 
-**One caveat, recorded as ledger L18 rather than smoothed over.** Suite 62 failed
-five assertions in one batch, then passed 18/18 standalone twice and 18/18 in the
-next full batch. It is **not root-caused**; the suite now reports the route, the
-refusal and whether the row landed, so the next occurrence is diagnosable.
+| `75-first-club-setup-journey` | 34 assertions (§52) |
+| `76-branding-propagation` | 14 assertions (§57) |
+| `77-step6-accessibility` | 19 assertions (§59) |
+
+**L18 is closed** — reproduced, root-caused, fixed, protected and proved. See
+§22a and ledger L18.
 
 ## 24–26. Functionality
 

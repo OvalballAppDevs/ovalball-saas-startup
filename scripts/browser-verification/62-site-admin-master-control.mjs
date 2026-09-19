@@ -15,8 +15,7 @@
 
 import { execFileSync } from "node:child_process"
 
-import { launch, newContext, signIn, APP, measure, record, summarise } from "./harness.mjs"
-import { totp } from "../security/totp.mjs"
+import { launch, newContext, signIn, APP, enrolAuthenticator, measure, record, summarise } from "./harness.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
 const TAG = Math.random().toString(36).slice(2, 8)
@@ -53,37 +52,6 @@ async function asSiteAdmin(email) {
 // checked against the RFC 6238 test vectors and shared with the AAL2 suites. Two
 // copies of an authentication primitive is one too many: they drift, and the one
 // that drifts is the one nobody is testing.
-
-/**
- * Enrols an authenticator through the product and verifies it with a REAL
- * code, computed from the secret the page shows with the standard algorithm.
- * Nothing is stubbed and no code is read out of the database.
- *
- * This is not scaffolding to get past a gate -- it is how master control is
- * actually reached. Every Q.3 RPC requires a second factor passed in the last
- * ten minutes, so an administrator who has merely signed in cannot do any of
- * it, which S7-06a below asserts before this runs.
- */
-async function enrolAuthenticator(page) {
-  await page.goto(`${APP}/security/enrol`, { waitUntil: "domcontentloaded" })
-  await page.waitForLoadState("networkidle").catch(() => {})
-  const start = page.getByRole("button", { name: /start setup/i }).first()
-  if (await start.isVisible().catch(() => false)) await start.click()
-  await page.locator("#totp-code").waitFor({ state: "visible", timeout: 30000 })
-  // Read from the element, not from the page text. The key is rendered in a
-  // `break-all` mono paragraph, so innerText wraps it mid-string and a
-  // "sixteen or more contiguous base32 characters" match finds only a fragment.
-  const shown = (await page.locator("p.font-mono").first().textContent()) ?? ""
-  const secret = shown.replace(/\s+/g, "").toUpperCase()
-  if (!/^[A-Z2-7]{16,}$/.test(secret)) throw new Error(`no authenticator secret was shown (got ${JSON.stringify(shown.slice(0, 40))})`)
-  await page.locator("#totp-code").fill(totp(secret))
-  await page.getByRole("button", { name: /verify & continue/i }).click()
-  await page.getByRole("button", { name: /saved them/i }).waitFor({ state: "visible", timeout: 30000 }).catch(() => {})
-  const saved = page.getByRole("button", { name: /saved them/i }).first()
-  if (await saved.isVisible().catch(() => false)) await saved.click()
-  await page.waitForLoadState("networkidle").catch(() => {})
-  return secret
-}
 
 const browser = await launch()
 
@@ -204,7 +172,7 @@ try {
     )
 
     // So the administrator does what the message asks, with a real code.
-    await enrolAuthenticator(page)
+    await enrolAuthenticator(page, { email: FULL, sql })
 
     await page.goto(`${APP}/admin/users/new`, { waitUntil: "domcontentloaded" })
     await page.waitForLoadState("networkidle").catch(() => {})

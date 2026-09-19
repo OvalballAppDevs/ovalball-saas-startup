@@ -492,6 +492,15 @@ BROWSER_SUITES=(
   # Convergence Step 6: a venue address entered as structure in the real form,
   # read back from the canonical columns, at 1440 / 390 / 320.
   74-club-venue-and-address
+  # Convergence Step 6 §52: the first-time club setup journey end to end, the
+  # entry-authority matrix, resume, server-authoritative completion, 390 and 320.
+  75-first-club-setup-journey
+  # Convergence Step 6 §57: one canonical branding change, every surface that
+  # displays the club identity, plus the fallback and the theme.
+  76-branding-propagation
+  # Convergence Step 6 §59: axe, keyboard, focus and semantics on every surface
+  # this step materially changed, with pre-existing violations declared not hidden.
+  77-step6-accessibility
 )
 
 browser_blocked=""

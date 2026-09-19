@@ -66,7 +66,7 @@ product owner rules that it is not a defect.
 | L15 | `supabase/security/perimeter-manifest.json` declared consumer files that did not call the function, four of them deleted routes | Step 5 (Slice 7e) | Step 5 for its own rows; **each other slice for theirs** | partly open — Slice 7's are true and checked; fourteen remain in a shrink-only baseline |
 | L16 | `internal.is_site_admin()` survived the Slice 4/7 retirement inside a view's `WHERE` clause, where the policy and function guards do not look | Step 5 (Slice 7e) | Step 5 | **closed** — `admin_club_overview` gates on `site.clubs.view`; the helper is dropped |
 | L17 | Any signed-in account can read every club's `notes` and `official_email`; `anon` is column-restricted and `authenticated` is not | Step 5, measuring a declared perimeter bypass | Step 6 | **closed** — table grant revoked, capability-gated reads, 19 assertions |
-| L18 | `62-site-admin-master-control` failed 5 assertions in one full batch and passed 18/18 alone, twice, immediately afterwards | Step 6 final gate | test reliability | open — **not root-caused**; diagnostics added, passed the next batch |
+| L18 | `62-site-admin-master-control` failed 5 assertions in one full batch and passed 18/18 alone | Step 6 final gate | Step 6 closure | **closed** — root cause reproduced deterministically; the enrolment helper swallowed a failed verification |
 
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
@@ -855,7 +855,88 @@ number look better, which is exactly what this ledger exists to prevent.
 
 ---
 
-## L18 — suite 62 failed a batch and could not be made to fail again
+## L18 — CLOSED: a helper that swallowed the failure it was there to catch
+
+### Reproduction, before any fix
+
+The failure was made to happen on demand rather than waited for. Submitting a
+code the server rejects reproduced it **exactly**: the same seven passes, the
+same five failures (`S7-06`, `S7-08`, `S7-09`, `S7-10`, `S7-11`), and the same
+crash immediately afterwards at `Suspend Account` — because section 4 uses the id
+of an identity that was never created.
+
+### Root cause
+
+`enrolAuthenticator` ended like this:
+
+```js
+await page.getByRole("button", { name: /saved them/i })
+  .waitFor({ state: "visible", timeout: 30000 }).catch(() => {})
+if (await saved.isVisible().catch(() => false)) await saved.click()
+return secret
+```
+
+If TOTP verification failed, the `catch` swallowed it, the immediate
+`isVisible()` returned false, nothing was clicked, and **the helper returned
+normally**. The suite then performed master-control operations with no AAL2, the
+preamble correctly refused every one, and five downstream assertions reported
+while the thing that had actually gone wrong was never mentioned.
+
+What made verification fail on that run is the second half: a TOTP code is bound
+to a 30-second period, and the code was computed, typed, submitted and validated
+across a gap that widens under a full browser batch. Cross a period boundary and
+the code is stale — which is roughly the proportion of a period the gap occupies,
+and matches "fails occasionally in a batch, passes alone".
+
+### Fix
+
+- **`totpForSubmission`** returns a code with a guaranteed remaining lifetime,
+  waiting for the next period only when the current one has too little left. That
+  is a wait on a quantity the algorithm defines, bounded at under one period —
+  not an arbitrary sleep, not a retry, not a widened timeout.
+- **One `enrolAuthenticator`, in the harness**, replacing the copies in suites 62
+  and 73. It resets the identity's factor state first, so an interrupted previous
+  run cannot poison the next; it throws with the on-screen reason if verification
+  does not reach the recovery-code screen; and it confirms a **verified factor in
+  GoTrue** before returning, because a screen without an error is not evidence.
+
+### Permanent protection, proved
+
+Re-running the same sabotage against the fixed helper now stops at the
+prerequisite:
+
+```
+Error: enrolAuthenticator: verification did not reach the recovery-code screen
+at /security/enrol -- "That code wasn't right. Try the next one your app shows."
+```
+
+One failure, naming the unmet prerequisite, instead of five downstream ones.
+
+### Proof after
+
+18/18 standalone ×5 · 41/41 for suite 73 ×2 · both orderings (73→62 and 62→73)
+· and the full batches below.
+
+### The shared-administrator audit (§3)
+
+Nineteen browser suites sign in as `uat.fullsiteadmin@ovalball.test`. Only **two**
+touch MFA state — 62 and 73 — and both reset it. The order dependence was
+therefore never in normal operation; it was in an **interrupted** run, which
+happened repeatedly while Steps 5 and 6 were being developed. The reset that now
+precedes every enrolment removes it, without forcing any suite to run first.
+
+### Was it resource pressure? (§4)
+
+No — and the distinction is the point. Memory pressure in this session produced
+**stalls**: navigations that never returned and suites that hung for fifteen
+minutes. L18 produced five deterministic assertion failures and a crash, with the
+suite running to the point where it needed an identity that did not exist. Those
+are different signatures, and the reproduction above causes the second one with
+no memory pressure at all.
+
+---
+
+## L18 — the original record (superseded by the closure above)
 
 Recorded rather than quietly re-run, because this estate has been here before
 (L6) and the rule learned there was that **a batch failure is the signal**.
