@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -17,7 +16,6 @@ import { confirmTotpEnrolment, startTotpEnrolment } from "./actions"
  * show them again. The copy says so plainly rather than letting somebody assume they can come back.
  */
 export function EnrolFlow() {
-  const router = useRouter()
   const [step, setStep] = useState<"start" | "scan" | "saved">("start")
   const [factorId, setFactorId] = useState("")
   const [qr, setQr] = useState("")
@@ -130,14 +128,19 @@ export function EnrolFlow() {
           </li>
         ))}
       </ul>
-      <Button
-        type="button"
-        className="mt-5 h-11 px-6"
-        onClick={() => {
-          router.push("/dashboard")
-          router.refresh()
-        }}
-      >
+      {/* A FULL NAVIGATION, NOT A CLIENT PUSH FOLLOWED BY A REFRESH.
+          This was `router.push("/dashboard")` and then `router.refresh()` on the
+          next line. The refresh re-renders the route the person is still on and
+          cancels the push that has not landed yet, so the button did nothing at
+          all -- no navigation, no error, nothing to react to. It was reported
+          exactly that way: "it just doesn't click".
+          A full navigation also happens to be what this moment needs. The
+          session has just gained a verified second factor, and every server
+          component downstream should be rendered against that new state rather
+          than against a client cache from before it existed -- which is what the
+          `refresh()` was reaching for in the first place. The sibling flow in
+          account/security/security-manager.tsx already navigates this way. */}
+      <Button type="button" className="mt-5 h-11 px-6" onClick={() => window.location.assign("/dashboard")}>
         I&rsquo;ve Saved Them
       </Button>
     </div>

@@ -58,6 +58,7 @@ product owner rules that it is not a defect.
 | L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **root cause found and fixed in Step 4** — visibility was the wrong readiness signal |
 | L8 | An enforced nonce-bound CSP left the application un-hydrated | Step 4 (6b.2d) | Step 4 | **closed** — the cause was ours, not the framework's |
 | L9 | A true clean boot needed `supabase db reset`, which would destroy the persistent review world | Step 4 | Step 4 | **closed** — `scripts/isolated-clean-boot.sh` |
+| L12 | The "I've Saved Them" button at the end of TOTP enrolment did nothing | reported live during Stage 0.2 | Identity/Auth 6b | **closed** |
 | L11 | The `(app)` auth gate redirects to `/login` without a `next`, so a deep link into the application is lost at sign-in | Stage 0.2 navigation verification | **Step 4 family — Identity/Auth 6b** | open |
 | L10 | Slice 7's remaining work (7e) cannot be built or proved until production TOTP is enabled and the Full Site Admin enrols | Step 5 recovery | **product owner — Supabase dashboard (Stage 0)** | **open — verified still unsatisfied, see STAGE_0_VERIFICATION.md** |
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
@@ -625,3 +626,38 @@ family that owns the post-login destination.
 **Practical consequence today:** somebody following a link straight to
 `/account/security` while signed out should expect to arrive at the dashboard
 after signing in. `/security/enrol` round-trips correctly.
+
+---
+
+## L12 — the button at the end of enrolment did nothing
+
+Reported live, mid-enrolment: *"it won't let me click the 'I've saved them'
+button it just doesn't click."*
+
+```js
+onClick={() => {
+  router.push("/dashboard")
+  router.refresh()          // <- cancels the push above
+}}
+```
+
+`router.refresh()` re-renders the route the person is still on, and it ran on the
+very next line, before the pushed navigation had landed. The push was discarded.
+No navigation, no error, nothing to react to — which is exactly how it was
+described.
+
+**Nothing was at stake.** The factor is verified and the recovery codes are
+issued and hashed **before** this screen is drawn; the button is the last step of
+the journey and not part of it. Production confirmed it read-only at the time:
+one `totp` factor `verified`, ten recovery codes issued and unused. The person
+was already enrolled while looking at a button that appeared broken.
+
+**Fixed** with a full navigation, `window.location.assign("/dashboard")`, which
+is how the sibling flow in `account/security/security-manager.tsx` already moves
+between these pages. It also happens to be what this moment needs: the session
+has just gained a verified second factor, and the pages downstream should render
+against that state rather than a client cache from before it existed — which is
+what the `refresh()` was reaching for.
+
+Worth keeping in mind: `push()` immediately followed by `refresh()` is a silent
+footgun. This was the only occurrence in the authentication flows.
