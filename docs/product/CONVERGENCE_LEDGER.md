@@ -58,6 +58,7 @@ product owner rules that it is not a defect.
 | L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **root cause found and fixed in Step 4** — visibility was the wrong readiness signal |
 | L8 | An enforced nonce-bound CSP left the application un-hydrated | Step 4 (6b.2d) | Step 4 | **closed** — the cause was ours, not the framework's |
 | L9 | A true clean boot needed `supabase db reset`, which would destroy the persistent review world | Step 4 | Step 4 | **closed** — `scripts/isolated-clean-boot.sh` |
+| L10 | Slice 7's remaining work (7e) cannot be built or proved until production TOTP is enabled and the Full Site Admin enrols | Step 5 recovery | **product owner — Supabase dashboard (Stage 0)** | open |
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
 ---
@@ -543,3 +544,26 @@ live behaviour; and the estate's own suites run against the fresh database —
 and the review world verified unchanged.
 
 Steps 5–21 can now say **run isolated clean boot** without threatening it.
+
+---
+
+## L10 — Slice 7 is waiting on one setting, not on engineering
+
+Step 5's requirement recovery is in
+`docs/identity-auth/SLICE_7E_REQUIREMENT_RECOVERY.md`. The short version:
+
+Every Q.3 master-control RPC passes through `internal.master_control_preamble`,
+which calls `internal.require_recent_aal2(interval '10 minutes')`. Production has
+**0 TOTP factors**, because TOTP enrolment has never been switched on in the
+Supabase Auth settings. So those RPCs raise for everybody, including the Full
+Site Admin — which is exactly what S7-4 already records as *present, unusable*.
+
+The checked-in closure ledger makes **Stage 0 the prerequisite for Slice 7e**,
+and Stage 0.1 is a dashboard change by the platform owner. Building 7e's user
+interface first would ship thirteen tabs of controls nobody can operate, and
+would make every test a denial-only test — which the programme does not count as
+authority coverage.
+
+**To unblock:** enable TOTP enrol/verify in production Auth settings (max factors
+3), then enrol the existing Full Site Admin at `/account/security`. Verification
+afterwards is read-only and can be done here.
