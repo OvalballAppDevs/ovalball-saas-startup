@@ -58,7 +58,7 @@ product owner rules that it is not a defect.
 | L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **root cause found and fixed in Step 4** — visibility was the wrong readiness signal |
 | L8 | An enforced nonce-bound CSP left the application un-hydrated | Step 4 (6b.2d) | Step 4 | **closed** — the cause was ours, not the framework's |
 | L9 | A true clean boot needed `supabase db reset`, which would destroy the persistent review world | Step 4 | Step 4 | **closed** — `scripts/isolated-clean-boot.sh` |
-| L10 | Slice 7's remaining work (7e) cannot be built or proved until production TOTP is enabled and the Full Site Admin enrols | Step 5 recovery | **product owner — Supabase dashboard (Stage 0)** | open |
+| L10 | Slice 7's remaining work (7e) cannot be built or proved until production TOTP is enabled and the Full Site Admin enrols | Step 5 recovery | **product owner — Supabase dashboard (Stage 0)** | **open — verified still unsatisfied, see STAGE_0_VERIFICATION.md** |
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
 ---
@@ -567,3 +567,24 @@ authority coverage.
 **To unblock:** enable TOTP enrol/verify in production Auth settings (max factors
 3), then enrol the existing Full Site Admin at `/account/security`. Verification
 afterwards is read-only and can be done here.
+
+---
+
+## L10 update — Stage 0 verified, and it is not there yet
+
+The owner reported Stage 0 complete. Read-only verification against the linked
+production project says otherwise, and the authorisation is explicit that the
+statement alone does not prove the boundary.
+
+**Zero factor rows of any kind** — not one verified, not one unverified, and no
+`security_events` row mentioning mfa, factor or totp. Enrolment writes the factor
+row before verification confirms it, so even an abandoned enrolment leaves a
+trace. Nothing did.
+
+**Enforcement is still off** across all six groups, which is the important
+safety fact: had it been switched on with zero factors, every privileged account
+would have been locked out.
+
+Full evidence and the unblock steps are in
+`docs/identity-auth/STAGE_0_VERIFICATION.md`. Nothing was changed in production
+and nothing was compensated for in code.
