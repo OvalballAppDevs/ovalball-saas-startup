@@ -135,7 +135,9 @@ try {
   // ------------------------------------------------------------------
   await go("/people")
   await page.getByRole("button", { name: /^Resend$/ }).first().click()
-  await page.waitForTimeout(3500)
+  // Wait for the reissued credential to appear, not for a duration: the share
+  // panel is what the resend produces, so it is the readiness signal.
+  await page.locator("#invitation-code").waitFor({ state: "visible", timeout: 20000 }).catch(() => {})
   const afterResend = await page.locator("main").innerText()
   const newCode = await page.locator("#invitation-code").inputValue()
   const newLink = await page.locator("#invitation-link").inputValue()
@@ -197,7 +199,15 @@ try {
   record("F1 the invitation can still be revoked", (await page.getByRole("button", { name: /^Revoke$/ }).count()) >= 1)
   await page.getByRole("button", { name: /^Revoke$/ }).first().click()
   await page.getByRole("button", { name: /^Confirm$/ }).click()
-  await page.waitForTimeout(2500)
+  // Wait for the row to GO, not for a duration. A revalidating server action
+  // takes as long as the machine is busy, and 2.5 seconds was enough right up
+  // until a full batch made it not -- the third time this exact pattern has
+  // failed in these suites and the last place it survived.
+  await page
+    .locator("li", { hasText: INVITEE })
+    .first()
+    .waitFor({ state: "detached", timeout: 20000 })
+    .catch(() => {})
   record("F2 and revoking still takes it out of the queue", !(await page.locator("main").innerText()).includes(INVITEE))
   record("F3 against the canonical row, with who and why recorded",
     sql(`select state || '|' || (revoked_by is not null)::text from public.access_invitations

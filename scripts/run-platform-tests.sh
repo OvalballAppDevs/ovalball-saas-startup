@@ -470,6 +470,8 @@ BROWSER_SUITES=(
   68-users-and-permissions
   69-invitations-and-joining
   70-production-csp
+  71-recent-aal2-authority
+  72-totp-enrolment-journey
 )
 
 browser_blocked=""

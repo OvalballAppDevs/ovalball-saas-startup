@@ -58,9 +58,10 @@ product owner rules that it is not a defect.
 | L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **root cause found and fixed in Step 4** — visibility was the wrong readiness signal |
 | L8 | An enforced nonce-bound CSP left the application un-hydrated | Step 4 (6b.2d) | Step 4 | **closed** — the cause was ours, not the framework's |
 | L9 | A true clean boot needed `supabase db reset`, which would destroy the persistent review world | Step 4 | Step 4 | **closed** — `scripts/isolated-clean-boot.sh` |
-| L12 | The "I've Saved Them" button at the end of TOTP enrolment did nothing | reported live during Stage 0.2 | Identity/Auth 6b | **closed** |
+| L12 | The "I've Saved Them" button at the end of TOTP enrolment did nothing | reported live during Stage 0.2 | Identity/Auth 6b | **closed** — with a browser regression that presses it |
+| L10 | Stage 0 — production TOTP availability and enrolment | Step 5 recovery | product owner | **closed** — factor verified, codes issued, boundary proved locally |
 | L11 | The `(app)` auth gate redirects to `/login` without a `next`, so a deep link into the application is lost at sign-in | Stage 0.2 navigation verification | **Step 4 family — Identity/Auth 6b** | open |
-| L10 | Slice 7's remaining work (7e) cannot be built or proved until production TOTP is enabled and the Full Site Admin enrols | Step 5 recovery | **product owner — Supabase dashboard (Stage 0)** | **open — verified still unsatisfied, see STAGE_0_VERIFICATION.md** |
+
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
 ---
@@ -661,3 +662,39 @@ what the `refresh()` was reaching for.
 
 Worth keeping in mind: `push()` immediately followed by `refresh()` is a silent
 footgun. This was the only occurrence in the authentication flows.
+
+---
+
+## L10 closed — Stage 0, and what the boundary actually is
+
+Production now holds one **verified** TOTP factor and ten issued recovery codes,
+confirmed read-only. Stage 0.1 and 0.2 are done.
+
+Stage 0.3 — the part that matters — was proved **locally**, because proving it
+means holding an AAL2 session and the owner's production session is not mine to
+drive. `scripts/browser-verification/71-recent-aal2-authority.mjs`, **18/18**,
+with a real factor enrolled, challenged and verified through GoTrue's own API
+using a code computed from the secret it returns.
+
+What it establishes, and the distinction is the whole point:
+
+| | |
+|---|---|
+| AAL1 + full site authority | **refused** |
+| A verified factor that exists but was not presented **on this session** | **still refused** |
+| AAL2 | **succeeds**, with a real change to canonical state |
+| The same AAL2 session, verification aged to 11 minutes | **refused** |
+| …aged to 9 minutes | allowed — the window belongs to the verification, not the session |
+| A fresh code | restores it |
+| AAL2 **without** the capability | **refused** — MFA is not a substitute for authority |
+| A revoked session whose JWT has not expired | **refused** |
+
+Until a factor existed anywhere, this gate could only be observed from one side:
+everything was refused, and a suite that only ever sees refusals cannot tell a
+working boundary from a broken feature. That is why Stage 0 was worth waiting
+for rather than working around.
+
+The ten-minute boundary is exercised by ageing the `auth.mfa_amr_claims` row
+GoTrue itself wrote — the record the predicate reads — rather than by sleeping or
+by asserting an AAL2 that never happened. Secrets created by the harness are
+destroyed with it.
