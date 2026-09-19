@@ -1,4 +1,4 @@
-# Slice 6b.2 — stage 2: post-login destination and transport security
+# Slice 6b.2 — stages 2 and 3
 
 **Convergence Step 4.** Banked independently. **Not released.** Step 5 / Slice 7
 not started. The L7 contract migration is untouched.
@@ -218,3 +218,105 @@ covered by `users_and_permissions_authority.sql` E1–E6.
 | S6-14, S6-24 | AN-3 / T1+ |
 | 7e master control, Slices 8/9/10 | as designed |
 | **L7 contract migration** | **the release after Step 3 deploys** — retained, untouched |
+
+
+---
+
+# Stage 3 — SO-4, H-7, L6 and the CSP decision
+
+## 9. 6b.2b — SO-4, delivered
+
+**The defect, verbatim from the reconciliation:** *"Onboarding context in
+`auth_flow_states`; OAuth `state` carries only an opaque id" — MISSED, table
+exists, 0 application references; context still rides in `ovalballSignupPayload`
+user metadata (Phase 1 H-7)."*
+
+`public.auth_flow_states` shipped in Slice 5 with exactly the right shape and
+nothing ever called it. Its `kind` CHECK already enumerated the design's
+purposes — INVITATION, CLAIM, SIGNUP, LINK_IDENTITY, SETUP — and RLS was on with
+**no policies at all**, which is the designed shape: reachable only through
+definer functions that did not exist yet.
+
+**Migration `20270503000000`** adds those two functions and nothing else. No new
+table, no second carrier, no schema change beyond them.
+
+| property | where it lives |
+|---|---|
+| unguessable id | 256 bits, base64url, **only its SHA-256 stored** |
+| server-authored | RLS on, zero policies, definer functions only |
+| bounded purpose | table CHECK, narrowed again to the purposes Slice 6 owns |
+| expiry | one hour, the table's own default |
+| single use | one UPDATE with `consumed_at is null` in its WHERE clause |
+| identity binding | consumption stamps `auth.uid()` |
+| session liveness | `internal.session_ok()`, **not** just `auth.uid()` |
+| purpose confusion | the kind is in the WHERE clause; a mismatch is "no such state" |
+| fail closed | every refusal returns NULL — expired, used, wrong purpose and never-existed are indistinguishable |
+| auditable | `auth.flow_state_consumed`, carrying the kind and never the payload |
+
+**Only SIGNUP is migrated.** `internal.auth_flow_kind_is_active` refuses the
+other four, because a half-wired purpose would be a second onboarding carrier
+beside the first.
+
+**Two existing security gates caught omissions on the first full run, and both
+were real:**
+
+- **RPC-30** (the S6-9 closure) flagged `consume_auth_flow_state` as a
+  browser-callable definer mutator outside the session gate. It checked
+  `auth.uid()` only, so a revoked session with an unexpired JWT could have spent
+  a state. Now gated on `internal.session_ok()`.
+- **P1 / V6** flagged `create_auth_flow_state` as a new anon-executable definer
+  function and `consume_auth_flow_state` as a new event writer. Both are
+  deliberate and are now **declared**, narrowly and with reasons, in the three
+  perimeter suites — the creator must be anon-callable because a signup has no
+  session; the consumer is authenticated-only and gated.
+
+## 10. 6b.2c — H-7, the writer retired
+
+`ovalballSignupPayload` is **no longer written**. `submitSignup` sends no
+`data` to `signInWithOtp` at all — not a smaller payload, not a reference —
+because leaving anything there would keep the shape alive.
+
+The **reader** survives for exactly one release, clearly marked, as the contract
+half: somebody who started the wizard before this deploys has their answers in
+metadata and would otherwise be stranded mid-signup. Since nothing writes it, no
+new pre-auth authoring surface exists from the moment this ships.
+
+## 11. L6 — closed, with root cause
+
+**Visibility was the wrong readiness signal.** The forgotten-password link is
+rendered by a client component whose method state starts in password mode, so it
+exists only after hydration *and* the reveal. Next server-renders the reveal
+button, so it is visible and looks clickable **before any handler is attached**;
+a click landing in that window does nothing, and under batch load that window is
+wide enough to hit. The fix waits for what the reveal *produces* — the password
+field — and re-issues the click if it did not appear, at most three times.
+
+**Evidence:** 3/3 standalone at 34/34, plus 34/34 inside a full platform batch —
+the environment that failed it twice.
+
+The same anti-pattern was found and fixed in suite 68's revoke assertion, which
+waited 2.5 seconds instead of waiting for the row to go.
+
+## 12. The two blockers
+
+**L8 — the CSP cannot be enforced yet.** Nonce-bound `script-src` with
+`'strict-dynamic'` leaves this Next version's application **un-hydrated**: the
+framework emits inline bootstrap scripts without the nonce, and `'strict-dynamic'`
+then refuses the chunks they would have loaded. Both documented noncing routes
+were implemented and tested against a production build. The policy therefore
+ships **report-only**; the transport headers are **enforced**. The three ways
+forward are materially different security positions and the checked-in design
+does not settle which — so it is recorded, not chosen unattended.
+
+**L9 — clean boot cannot run without destroying the review world.** The project's
+mechanism is `supabase db reset`, which rebuilds the working database holding the
+canonical personas and the owner's own review changes. A disposable database was
+attempted; 338 of 524 migrations applied, with the failures traceable to the
+hand-built bootstrap rather than the chain — a proof of the harness, not of the
+migrations. **6b.2b is implemented and tested but NOT clean-boot verified.**
+
+## 13. Status
+
+**SLICE 6 — NOT COMPLETE.** 6b.2b and 6b.2c are delivered and tested; 6b.2d is
+delivered as transport headers plus a report-only policy; L6 is closed. The slice
+cannot be called complete while L8 is undecided and L9 unproven.

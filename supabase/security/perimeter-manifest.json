@@ -3737,6 +3737,11 @@
         "consumer": "lib/email/brand.ts"
       },
       {
+        "signature": "create_auth_flow_state(text, jsonb)",
+        "reason": "Identity/Auth Slice 6b.2b, Phase 2 X SO-4: the signup wizard's context is written before anybody has authenticated, because a signup has no session -- that is the journey, not a shortcut. It replaces ovalballSignupPayload in user_metadata (Phase 1 H-7), which was authorable pre-auth for any address. It returns only a fresh opaque id, reads nothing, discloses nothing about any existing account, refuses any purpose this slice has not migrated, and bounds the payload it will store. Spending the state is consume_auth_flow_state, which is authenticated-only and sits behind the canonical session gate.",
+        "consumer": "app/signup/submit-signup.ts"
+      },
+      {
         "signature": "current_platform_mode()",
         "reason": "Public platform mode on public pages.",
         "consumer": "lib/platform/mode.ts"
@@ -4405,6 +4410,13 @@
         "consumer": "app/(app)/admin/safeguarding/actions.ts"
       },
       {
+        "signature": "consume_auth_flow_state(text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/signup/complete-signup.ts"
+        ]
+      },
+      {
         "signature": "correct_club_rugby_code(uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4416,6 +4428,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/messages/new/announcement/actions.ts"
+        ]
+      },
+      {
+        "signature": "create_auth_flow_state(text, jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/signup/submit-signup.ts"
         ]
       },
       {
@@ -7942,9 +7961,11 @@
       "confirm_gocardless_refund(text, text, integer)",
       "confirm_mixed_boundary_rollover(uuid, boolean, text, text)",
       "confirm_rollover_team_proposal(uuid, text, text, text, text, text)",
+      "consume_auth_flow_state(text, text)",
       "copy_regulatory_content_set_to_season(uuid, uuid, text)",
       "correct_club_rugby_code(uuid, text, text)",
       "create_announcement(text, uuid, text, uuid, text, text, text, jsonb, boolean)",
+      "create_auth_flow_state(text, jsonb)",
       "create_canonical_team_type(text, text, text, text, boolean, text)",
       "create_club_competition(text, text, uuid, uuid)",
       "create_club_pitch(uuid, text, text, uuid)",
@@ -8675,9 +8696,9 @@
     "anon_write_policies": "none may admit anonymous callers without an authority helper"
   },
   "known_legacy_bypasses": [
-    "internal.is_site_admin() in RLS and definer functions (Phase 1: 140 policies) — retire in Slice 7 with explicit site capabilities.",
-    "admin_club_overview row gate uses internal.is_site_admin() — replace with site.clubs.view in Slice 7.",
-    "authenticated reads every club_directory column (notes, official_email) because Site Admin pages select * as authenticated — column-restrict when Site Admin reads move to site-capability RPCs (Slice 7).",
+    "internal.is_site_admin() in RLS and definer functions (Phase 1: 140 policies) \u2014 retire in Slice 7 with explicit site capabilities.",
+    "admin_club_overview row gate uses internal.is_site_admin() \u2014 replace with site.clubs.view in Slice 7.",
+    "authenticated reads every club_directory column (notes, official_email) because Site Admin pages select * as authenticated \u2014 column-restrict when Site Admin reads move to site-capability RPCs (Slice 7).",
     "Identity/Auth Slice 3 removed the Site Admin club/team bypass from internal.has_capability; Site Admin authority is site capabilities (K rule 7). Remaining is_site_admin() RLS/function references retire in Slice 7."
   ],
   "append_only_history": {

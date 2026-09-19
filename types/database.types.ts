@@ -22532,6 +22532,10 @@ export type Database = {
         Args: { p_assignment_id: string; p_reason: string }
         Returns: undefined
       }
+      consume_auth_flow_state: {
+        Args: { p_flow_id: string; p_kind: string }
+        Returns: Json
+      }
       copy_regulatory_content_set_to_season: {
         Args: {
           p_content_set_id: string
@@ -22556,6 +22560,10 @@ export type Database = {
           p_sender_identity_type: string
           p_title?: string
         }
+        Returns: string
+      }
+      create_auth_flow_state: {
+        Args: { p_kind: string; p_payload: Json }
         Returns: string
       }
       create_canonical_team_type: {

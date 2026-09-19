@@ -548,7 +548,20 @@ begin
       or has_function_privilege('anon', p.oid, 'execute'))
     and p.prosrc ~* '(^|[^a-zA-Z_])(insert|update|delete|merge)\s'
     and ('public.'||p.proname) not in (select qname from closure)
-    and p.proname <> 'submit_public_support_ticket';
+    and p.proname <> 'submit_public_support_ticket'
+    -- DECLARED, NARROW, AND FOR A REASON THAT CANNOT BE DESIGNED AWAY.
+    --
+    -- Identity/Auth 6b.2b (SO-4): `create_auth_flow_state` writes the signup
+    -- wizard's context, and a signup has no session -- that is the journey. It
+    -- cannot sit behind a session gate without ceasing to do its job, exactly as
+    -- `submit_public_support_ticket` cannot.
+    --
+    -- What keeps the exception narrow is the other half of the pair:
+    -- `consume_auth_flow_state`, which SPENDS that state, IS gated and is not in
+    -- this list. Creating costs an attacker one row they cannot read back;
+    -- spending it requires a live session. This suite caught the omission the
+    -- first time consumption was written without the gate.
+    and p.proname <> 'create_auth_flow_state';
 
   perform pg_temp.check(v_count = 0,
     'RPC-30 S6-9 CLOSURE: no browser-callable SECURITY DEFINER mutation path bypasses the canonical '

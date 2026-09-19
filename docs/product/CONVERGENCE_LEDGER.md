@@ -55,7 +55,9 @@ product owner rules that it is not a defect.
 | L2 | A Safeguarding Officer nomination in `PENDING_CONFIRMATION` was described two contradictory ways and never as pending | Step 2 manual review preparation | Step 2 | **closed** — one appointment reader, one wording |
 | L3 | The same club role is worded "Fixtures Secretary" in the role catalogue and "Fixture Secretary" everywhere else | Step 2 manual review preparation | presentation mapped in Step 2; **the catalogue key/label inconsistency stays open for its schema owner** | partly open |
 | L4 | The team page told a Team Manager that only a Club Admin can assign people, directly beneath the assign control she may legitimately use | Step 2 manual review preparation | Step 2 | **closed** — the sentence asks the same flags the controls ask |
-| L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **REOPENED in Step 4** — the wait was necessary but not sufficient |
+| L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **root cause found and fixed in Step 4** — visibility was the wrong readiness signal |
+| L8 | An enforced nonce-bound CSP leaves the application un-hydrated on this Next version | Step 4 (6b.2d) | **product owner decision** | open — policy ships report-only |
+| L9 | A true clean boot needs `supabase db reset`, which would destroy the persistent review world | Step 4 | **product owner decision** | open |
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
 ---
@@ -395,3 +397,80 @@ busy is a gate nobody will trust, which is the whole point of the ledger entry.
 security suite's timing under load is its own piece of work with its own
 evidence. Recorded honestly instead: **the last full platform run was 5180
 passed, 1 failed, and this is the one.**
+
+---
+
+## L6 — root cause, and the correction to my correction
+
+**Found.** The assertion needs `/login`'s forgotten-password link, which only
+exists once React has hydrated *and* the form has been revealed -- `usePassword`
+is client state that starts true, so the link is rendered by the component, not
+by the server.
+
+The wait I added in Step 3 waited for the reveal button to be **visible**. Next
+server-renders that button, so it is on screen and looks clickable **before any
+handler is attached**, and a click landing in that window does nothing at all.
+Under a full batch the window is wide enough to hit. Visibility was the wrong
+readiness signal: it proves the markup arrived, not that the application is
+listening.
+
+**Fixed** by waiting for what the reveal *produces* -- the password field -- and
+re-issuing the click if it did not appear. That is not retrying until lucky: it
+re-sends an interaction that provably had no effect, at most three times.
+
+**Stress evidence:** 3/3 standalone at 34/34 after the fix, plus the full batch.
+The two earlier Step 3 claims of closure were made on weaker evidence and were
+wrong; this entry records that rather than quietly replacing it.
+
+---
+
+## L8 — an enforced CSP leaves the application dead
+
+`script-src` bound to a per-request nonce with `'strict-dynamic'` is the right
+policy and this Next version will not cooperate with it. Both documented routes
+were implemented and tested against a **production build**:
+
+- `x-nonce` on the forwarded request, which is how the framework's example passes
+  the value to components;
+- a `Content-Security-Policy` header on the **request**, which is the header the
+  framework is documented to parse the nonce out of.
+
+Neither produced nonced script tags. The result is un-nonced inline bootstrap
+scripts, `'strict-dynamic'` then refusing the chunks they would have loaded, and
+a production build that serves correct HTML and **never hydrates** -- verified by
+`70-production-csp.mjs`, which asserts a real interaction rather than a status
+code, and which failed exactly as designed.
+
+**Shipped state:** the policy is sent `Content-Security-Policy-Report-Only` in
+both environments, so violations stay visible and nothing can break. **The
+transport headers are enforced** and always were safe --
+`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+`Cross-Origin-Opener-Policy`, `Permissions-Policy`, and HSTS in production.
+
+**Why this is a decision and not a bug to grind out.** The three ways forward are
+materially different security positions: allow inline script and lose the point
+of the directive; enforce everything except `script-src`; or find this version's
+actual noncing contract, which may mean a framework upgrade. The checked-in
+design does not settle it, and taking that decision unattended is exactly what
+§40 says not to do.
+
+---
+
+## L9 — clean boot versus the persistent review world
+
+Slice 6b.2b adds a migration, so a clean empty rebuild is mandatory before it can
+be called verified. The project's mechanism is `npx supabase db reset`, which
+rebuilds the **working** local database -- the one holding the canonical review
+world and the product owner's own review changes, which three standing
+instructions say to preserve and not to repair.
+
+A disposable database was attempted instead: `create database`, GoTrue's schema
+dumped in, then the full chain. 338 of 524 migrations applied; the failures are
+artefacts of the hand-built bootstrap (objects the dumped `auth`/`storage` schema
+already contained) rather than of the chain, but that is a proof of my harness,
+not of the migrations, and it is not good enough to call a clean boot.
+
+**Needs the owner's call:** authorise a `db reset` once the review world has been
+inspected, or stand up a second local Supabase stack for boot proofs. Until then
+**6b.2b is implemented and tested but NOT clean-boot verified**, and Slice 6 is
+therefore not complete.

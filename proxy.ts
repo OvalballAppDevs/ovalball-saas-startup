@@ -14,6 +14,20 @@ export async function proxy(request: NextRequest) {
   // render its inline scripts without a nonce, and the policy below would blank
   // the application -- silently, and only in the browser.
   const nonce = crypto.randomUUID().replace(/-/g, "")
+  const isProduction = process.env.NODE_ENV === "production"
+  const policy = contentSecurityPolicy(nonce, isProduction, false)
+
+  // NEXT LEARNS THE NONCE FROM THE REQUEST'S OWN CSP HEADER, NOT FROM x-nonce.
+  //
+  // This was wrong first time and the production gate caught it. `x-nonce` is
+  // the convention for passing the value on to components; the framework's
+  // automatic noncing of its OWN bootstrap and chunk tags comes from parsing a
+  // `Content-Security-Policy` header on the REQUEST. Without it Next emitted
+  // un-nonced inline scripts, `'strict-dynamic'` then refused the chunks those
+  // scripts would have loaded, and the application served HTML that never
+  // hydrated -- a page that looks completely normal until somebody presses
+  // something.
+  request.headers.set("Content-Security-Policy", policy)
   request.headers.set("x-nonce", nonce)
 
   const response = await updateSession(request)
@@ -43,11 +57,26 @@ export async function proxy(request: NextRequest) {
   // both public and authenticated pages, which is where it was verified.
   // Report-only keeps the violations visible locally without pretending the dev
   // server is what ships.
-  const isProduction = process.env.NODE_ENV === "production"
-  response.headers.set(
-    isProduction ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only",
-    contentSecurityPolicy(nonce, isProduction)
-  )
+  // REPORT-ONLY EVERYWHERE, FOR NOW, AND THAT IS A DELIBERATE STOP.
+  //
+  // The transport headers below are enforced and always were safe. The POLICY is
+  // not, and the production gate is what proved it: with `script-src` bound to a
+  // per-request nonce, this Next version emits inline bootstrap scripts without
+  // that nonce, `'strict-dynamic'` then refuses the chunks they would have
+  // loaded, and the application serves HTML that never hydrates -- a page that
+  // looks entirely normal until somebody presses something.
+  //
+  // Both documented routes were tried: `x-nonce` on the forwarded request, and
+  // the `Content-Security-Policy` request header the framework is meant to parse
+  // the nonce out of. Neither produced nonced script tags here.
+  //
+  // The three ways forward are materially different security positions --
+  // allow inline script and lose the directive's point, enforce everything but
+  // `script-src`, or find the framework's actual noncing contract for this
+  // version -- and the checked-in design does not settle which. So the policy
+  // ships REPORT-ONLY, where it still surfaces violations and cannot break
+  // anybody, and the decision is recorded rather than taken quietly at 3am.
+  response.headers.set("Content-Security-Policy-Report-Only", policy)
   for (const [name, value] of staticSecurityHeaders(isProduction)) {
     response.headers.set(name, value)
   }

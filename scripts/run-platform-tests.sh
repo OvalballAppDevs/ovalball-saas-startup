@@ -250,6 +250,7 @@ SUITES=(
   email_delivery_result_authority
   users_and_permissions_authority
   invitation_joining_closure
+  auth_flow_state_authority
   club_claim_authority_matrix
   fixture_staging_fidelity
   notification_mandatory_and_preferences
@@ -468,6 +469,7 @@ BROWSER_SUITES=(
   67-club-desk-hierarchy
   68-users-and-permissions
   69-invitations-and-joining
+  70-production-csp
 )
 
 browser_blocked=""

@@ -141,7 +141,14 @@ try {
 
   await page.getByRole("button", { name: /^Revoke$/ }).click()
   await page.getByRole("button", { name: /^Confirm$/ }).click()
-  await page.waitForTimeout(2500)
+  // Wait for the row to GO, not for a duration -- the same lesson L6 taught, in
+  // the same file. A revalidating server action takes as long as the machine is
+  // busy, and 2.5 seconds was enough right up until a full batch made it not.
+  await page
+    .locator("li", { hasText: INVITEE })
+    .first()
+    .waitFor({ state: "detached", timeout: 20000 })
+    .catch(() => {})
   main = await page.locator("main").innerText()
   record("B4 and revoking it takes it out of the queue", !main.includes(INVITEE))
   record("B5 and the database records who revoked it and why",

@@ -417,7 +417,16 @@ begin
                                              -- account writes no row at all. The caller supplies an email
                                              -- and learns nothing -- the function returns void either way
                                              -- and anon cannot read security_events back.
-                                             'record_password_reset_requested'))
+                                             'record_password_reset_requested',
+                                             -- Slice 6b.2b (SO-4): consuming an onboarding flow state.
+                                             -- The caller supplies an opaque id and the purpose it
+                                             -- expects, and controls neither the event nor the actor:
+                                             -- the event type is a literal in the body, the actor is
+                                             -- auth.uid(), and the metadata carries the row id and the
+                                             -- kind -- never the payload, which is asserted separately
+                                             -- by auth_flow_state_authority E2. It is authenticated-only
+                                             -- and behind the canonical session gate.
+                                             'consume_auth_flow_state'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

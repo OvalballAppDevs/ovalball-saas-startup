@@ -60,7 +60,7 @@ test("no wildcard, and no plain-http origin in production", () => {
   // version of this assertion failed the moment the runner loaded the real
   // environment. What must hold is that production never names one, and
   // `upgrade-insecure-requests` is there to catch anything that slips through.
-  const shipped = contentSecurityPolicy(NONCE, true)
+  const shipped = contentSecurityPolicy(NONCE, true, true)
   const httpOrigins = (shipped.match(/http:\/\/[a-z0-9.:-]+/g) ?? []).filter((o) => !o.startsWith("http://127.") && !o.startsWith("http://localhost"))
   assert.deepEqual(httpOrigins, [], "a production policy must name no plain-http origin")
   assert.match(shipped, /upgrade-insecure-requests/)
@@ -82,8 +82,11 @@ test("upgrade-insecure-requests and HSTS are production only", () => {
   // On a local http origin either of these takes the developer's stack away:
   // one upgrades the Supabase calls to https, the other pins localhost in the
   // browser long after the experiment is over.
-  assert.doesNotMatch(contentSecurityPolicy(NONCE, false), /upgrade-insecure-requests/)
-  assert.match(contentSecurityPolicy(NONCE, true), /upgrade-insecure-requests/)
+  assert.doesNotMatch(contentSecurityPolicy(NONCE, false, true), /upgrade-insecure-requests/)
+  assert.match(contentSecurityPolicy(NONCE, true, true), /upgrade-insecure-requests/)
+  // And never in a report-only policy, which cannot upgrade anything and makes
+  // the browser say so on every page load.
+  assert.doesNotMatch(contentSecurityPolicy(NONCE, true, false), /upgrade-insecure-requests/)
   const names = (production: boolean) => staticSecurityHeaders(production).map(([n]) => n)
   assert.ok(!names(false).includes("Strict-Transport-Security"))
   assert.ok(names(true).includes("Strict-Transport-Security"))

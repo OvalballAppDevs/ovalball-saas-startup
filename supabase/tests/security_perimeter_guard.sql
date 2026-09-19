@@ -35,6 +35,12 @@ declare
     -- id, and an unknown token previews nothing rather than saying so.
     'preview_invitation(text, text)',
     'active_email_logo_path()',
+    -- Identity/Auth Slice 6b.2b, Phase 2 X SO-4. A signup has no session, so the wizard's context
+    -- has to be written before anybody has authenticated -- that is the journey, not a shortcut.
+    -- It returns only a fresh opaque id, reads nothing, discloses nothing about any existing
+    -- account, and refuses any purpose this slice has not migrated. Spending that state is a
+    -- separate function, is NOT offered to anon, and is gated on session liveness.
+    'create_auth_flow_state(text, jsonb)',
     'current_platform_mode()',
     'get_guardian_invitation_preview(text)',
     'get_invitation_preview(text)',

@@ -6,7 +6,7 @@ import { sendEmailEvent } from "@/lib/email/send"
 import type { Database } from "@/types/database.types"
 import type { ClubSelection, PersonalDetails } from "@/lib/signup/types"
 import { getSiteUrl } from "@/lib/site-url"
-import { clearSignupBinding, signupBindingMatches } from "@/lib/signup/signup-binding"
+import { clearSignupBinding, readSignupFlowId, signupBindingMatches } from "@/lib/signup/signup-binding"
 import { hasCompletedProfile } from "@/lib/identity/profile-setup"
 import { policyAcknowledgements, termsAgreementVersion } from "@/lib/legal/required-consents"
 
@@ -45,20 +45,66 @@ export async function completeSignupIfNeeded(
     return { completed: false }
   }
 
-  const payload = extractPayload(user)
-  if (!payload) {
-    // No signup payload on this user (e.g. they authenticated some other
-    // way that isn't this wizard) -- nothing for this function to do.
-    return { completed: false }
+  // SO-4: THE CANONICAL PATH. The browser holds an opaque flow id in an httpOnly
+  // cookie; the answers are server-side. `consume_auth_flow_state` hands them
+  // back exactly once, for the purpose they were created for, binds the row to
+  // this session, and returns null for anything expired, already used, aimed at
+  // a different purpose or simply invented -- all four answering identically, so
+  // there is no shape for a prober to read.
+  const flowId = await readSignupFlowId()
+  let payload: SignupRecordsPayload | null = null
+  if (flowId) {
+    const { data } = await supabase.rpc("consume_auth_flow_state", { p_flow_id: flowId, p_kind: "SIGNUP" })
+    payload = coercePayload(data)
   }
 
-  if (!(await signupBindingMatches(user.user_metadata?.ovalballSignupPayload?.bindingHash))) {
+  // LEGACY, FOR ONE RELEASE ONLY -- the contract half of SO-4/H-7.
+  //
+  // Somebody who started the wizard before this deployed has their answers in
+  // `user_metadata` and the old binding cookie, and stranding them mid-signup to
+  // tidy a file up is not a trade worth making. Nothing writes this any more:
+  // `submitSignup` sends no metadata at all, so no NEW payload can ever appear
+  // here and the pre-auth authoring surface is already gone. Delete this branch
+  // in the release after this one.
+  if (!payload) {
+    const legacy = extractPayload(user)
+    if (legacy && (await signupBindingMatches(user.user_metadata?.ovalballSignupPayload?.bindingHash))) {
+      payload = legacy
+    }
+  }
+
+  if (!payload) {
+    // Nothing to complete: this user authenticated some other way, or their
+    // context has already been consumed by an earlier callback.
     return { completed: false }
   }
 
   const result = await writeSignupRecords(supabase, user, payload)
   if (result.completed) await clearSignupBinding()
   return result
+}
+
+/**
+ * The same minimal structural check `extractPayload` applies, against what the
+ * flow state returned rather than against metadata.
+ *
+ * It is still only a shape check, and for the same reason: every table
+ * `writeSignupRecords` touches inserts either a row owned by this user or a
+ * request awaiting human review, so there is no path from a malformed payload to
+ * an elevated permission. This guards against garbage, not escalation.
+ */
+function coercePayload(raw: unknown): SignupRecordsPayload | null {
+  if (!raw || typeof raw !== "object") return null
+  const { personal, club, rugbyCode, termsVersion } = raw as Record<string, unknown>
+  if (!personal || typeof personal !== "object") return null
+  if (!club || typeof club !== "object" || !("kind" in club)) return null
+  if (typeof termsVersion !== "string") return null
+  return {
+    personal: personal as PersonalDetails,
+    club: club as ClubSelection,
+    rugbyCode: typeof rugbyCode === "string" ? rugbyCode : null,
+    termsVersion,
+  }
 }
 
 export interface SignupRecordsPayload {

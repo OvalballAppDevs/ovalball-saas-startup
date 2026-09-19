@@ -230,9 +230,32 @@ try {
     // for a duration. Both waits are allowed to fail: the assertion below still
     // runs and still reports the truth, so a genuine regression can never be
     // waited away, and no timeout anywhere else is loosened to hide it.
+    // VISIBILITY WAS THE WRONG READINESS SIGNAL, AND THAT WAS THE ROOT CAUSE.
+    //
+    // The login form is a client component whose method state starts in password
+    // mode, so the forgotten-password link only exists once React has hydrated
+    // AND the form has been revealed. Waiting for the reveal button to be
+    // VISIBLE does not wait for either: Next server-renders that button, so it
+    // is on screen and clickable-looking before any handler is attached, and a
+    // click that lands in that window does nothing at all. Under a full batch
+    // the window is wide enough to hit, which is why this failed in a batch and
+    // passed alone every single time.
+    //
+    // The password field is what the reveal PRODUCES, so it is the real signal.
+    // Clicking again when it has not appeared is re-issuing an interaction that
+    // provably did not take effect -- not retrying until lucky, and bounded.
     const reveal = page.getByRole("button", { name: /sign in with email/i }).first()
     await reveal.waitFor({ state: "visible", timeout: 15000 }).catch(() => {})
-    if (await reveal.isVisible().catch(() => false)) await reveal.click()
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await reveal.click().catch(() => {})
+      const revealed = await page
+        .locator('input[type="password"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 5000 })
+        .then(() => true)
+        .catch(() => false)
+      if (revealed) break
+    }
 
     const link = page.getByRole("link", { name: /forgot|forgotten/i }).first()
     await page

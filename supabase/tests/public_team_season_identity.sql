@@ -223,7 +223,14 @@ begin
             and (has_table_privilege('anon', c.oid, 'TRUNCATE') or has_table_privilege('authenticated', c.oid, 'TRUNCATE'))) = 0
      and (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname in ('public','internal') and has_function_privilege('anon', p.oid, 'EXECUTE')
-            and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) = 19 then
+            and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) = 20 then
+    -- 19 became 20 in Identity/Auth Slice 6b.2b: public.create_auth_flow_state is anon-executable by
+    -- design (Phase 2 X SO-4). A signup has no session -- that is the whole point of the journey it
+    -- carries -- so the context has to be written before anybody has authenticated. It returns only a
+    -- fresh opaque id, reads nothing, tells the caller nothing about any existing account, and
+    -- refuses any purpose this slice has not migrated, so it is neither an oracle nor a way in.
+    -- Spending that state is a different function and is NOT offered to anon.
+    --
     -- 18 became 19 in Identity/Auth Slice 6b.1: public.record_password_reset_requested is
     -- anon-executable by design (Phase 2 G), because asking for a password reset is something a
     -- signed-OUT person does and the event has to be written before any session exists. It returns

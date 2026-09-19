@@ -48,7 +48,12 @@ function supabaseOrigins(): string[] {
   }
 }
 
-export function contentSecurityPolicy(nonce: string, isProduction = process.env.NODE_ENV === "production"): string {
+export function contentSecurityPolicy(
+  nonce: string,
+  isProduction = process.env.NODE_ENV === "production",
+  /** Report-only ignores `upgrade-insecure-requests` and says so in the console. */
+  enforced = false
+): string {
   const supabase = supabaseOrigins()
   const directives: [string, string[]][] = [
     ["default-src", ["'self'"]],
@@ -69,7 +74,9 @@ export function contentSecurityPolicy(nonce: string, isProduction = process.env.
   ]
   // Production only, for the same reason HSTS is: on a local http origin this
   // upgrades the Supabase calls to https and the whole stack stops answering.
-  if (isProduction) directives.push(["upgrade-insecure-requests", []])
+  // Only when the policy is actually enforced: a report-only policy cannot
+  // upgrade anything, and the browser logs a notice about it on every page.
+  if (isProduction && enforced) directives.push(["upgrade-insecure-requests", []])
   return directives.map(([name, values]) => (values.length ? `${name} ${values.join(" ")}` : name)).join("; ")
 }
 
