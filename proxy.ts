@@ -15,7 +15,7 @@ export async function proxy(request: NextRequest) {
   // the application -- silently, and only in the browser.
   const nonce = crypto.randomUUID().replace(/-/g, "")
   const isProduction = process.env.NODE_ENV === "production"
-  const policy = contentSecurityPolicy(nonce, isProduction, false)
+  const policy = contentSecurityPolicy(nonce, isProduction, isProduction)
 
   // NEXT LEARNS THE NONCE FROM THE REQUEST'S OWN CSP HEADER, NOT FROM x-nonce.
   //
@@ -57,26 +57,19 @@ export async function proxy(request: NextRequest) {
   // both public and authenticated pages, which is where it was verified.
   // Report-only keeps the violations visible locally without pretending the dev
   // server is what ships.
-  // REPORT-ONLY EVERYWHERE, FOR NOW, AND THAT IS A DELIBERATE STOP.
+  // ENFORCED IN PRODUCTION, REPORT-ONLY IN DEVELOPMENT.
   //
-  // The transport headers below are enforced and always were safe. The POLICY is
-  // not, and the production gate is what proved it: with `script-src` bound to a
-  // per-request nonce, this Next version emits inline bootstrap scripts without
-  // that nonce, `'strict-dynamic'` then refuses the chunks they would have
-  // loaded, and the application serves HTML that never hydrates -- a page that
-  // looks entirely normal until somebody presses something.
+  // Next reads the nonce out of the REQUEST's own `content-security-policy`
+  // header (see `app-render`'s getScriptNonceFromHeader) and stamps it onto the
+  // script tags it generates. That works -- once every route that needs it is
+  // rendered per request. A statically prerendered page has no request and so no
+  // nonce, which is how `/login` came to serve correct markup that never
+  // hydrated while every dynamic page around it was fine.
   //
-  // Both documented routes were tried: `x-nonce` on the forwarded request, and
-  // the `Content-Security-Policy` request header the framework is meant to parse
-  // the nonce out of. Neither produced nonced script tags here.
-  //
-  // The three ways forward are materially different security positions --
-  // allow inline script and lose the directive's point, enforce everything but
-  // `script-src`, or find the framework's actual noncing contract for this
-  // version -- and the checked-in design does not settle which. So the policy
-  // ships REPORT-ONLY, where it still surfaces violations and cannot break
-  // anybody, and the decision is recorded rather than taken quietly at 3am.
-  response.headers.set("Content-Security-Policy-Report-Only", policy)
+  // `next dev` stays report-only: it injects hot-reload and error-overlay
+  // scripts the framework does not nonce, so enforcing there refuses the dev
+  // server rather than the product.
+  response.headers.set(isProduction ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only", policy)
   for (const [name, value] of staticSecurityHeaders(isProduction)) {
     response.headers.set(name, value)
   }

@@ -5,6 +5,23 @@ import { AuthShell, AuthSwitchLink } from "@/components/auth/auth-shell"
 import { LoginForm } from "./login-form"
 
 /**
+ * RENDERED PER REQUEST, SO THE CONTENT SECURITY POLICY CAN NONCE IT.
+ *
+ * This page was statically prerendered, and that is a CSP hole with no warning
+ * attached: Next stamps its per-request nonce onto its own script tags at render
+ * time, and HTML produced at BUILD time has no request and therefore no nonce.
+ * With a nonce-bound `script-src`, an un-nonced bootstrap script is refused, and
+ * `'strict-dynamic'` then refuses the chunks it would have loaded -- so the page
+ * served correct markup and never hydrated. `/login` was the only route in the
+ * build where that was true, which is exactly why it was hard to see: every
+ * dynamic page around it worked.
+ *
+ * The cost is one prerendered page. Sign In runs a Turnstile challenge and a
+ * client form, so it was never a cache win worth a dead authentication surface.
+ */
+export const dynamic = "force-dynamic"
+
+/**
  * Sign In -- for people who already have an Ovalball account.
  *
  * Shares AuthShell with Get Started so the two read as one product, while

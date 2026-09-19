@@ -56,8 +56,8 @@ product owner rules that it is not a defect.
 | L3 | The same club role is worded "Fixtures Secretary" in the role catalogue and "Fixture Secretary" everywhere else | Step 2 manual review preparation | presentation mapped in Step 2; **the catalogue key/label inconsistency stays open for its schema owner** | partly open |
 | L4 | The team page told a Team Manager that only a Club Admin can assign people, directly beneath the assign control she may legitimately use | Step 2 manual review preparation | Step 2 | **closed** — the sentence asks the same flags the controls ask |
 | L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **root cause found and fixed in Step 4** — visibility was the wrong readiness signal |
-| L8 | An enforced nonce-bound CSP leaves the application un-hydrated on this Next version | Step 4 (6b.2d) | **product owner decision** | open — policy ships report-only |
-| L9 | A true clean boot needs `supabase db reset`, which would destroy the persistent review world | Step 4 | **product owner decision** | open |
+| L8 | An enforced nonce-bound CSP left the application un-hydrated | Step 4 (6b.2d) | Step 4 | **closed** — the cause was ours, not the framework's |
+| L9 | A true clean boot needed `supabase db reset`, which would destroy the persistent review world | Step 4 | Step 4 | **closed** — `scripts/isolated-clean-boot.sh` |
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
 ---
@@ -474,3 +474,72 @@ not of the migrations, and it is not good enough to call a clean boot.
 inspected, or stand up a second local Supabase stack for boot proofs. Until then
 **6b.2b is implemented and tested but NOT clean-boot verified**, and Slice 6 is
 therefore not complete.
+
+---
+
+## L8 — closed, and the cause was ours
+
+Next 16.3.3 does support this. `app-render` reads the request's own
+`content-security-policy` header and extracts the nonce from `script-src`
+(`getScriptNonceFromHeader`), then stamps it onto the script tags it generates.
+The proxy was already sending that header. Two things in **Ovalball** stopped it
+working, and both are fixed.
+
+**1. `/login` was statically prerendered.** A page generated at build time has no
+request and therefore no nonce, so its bootstrap scripts shipped un-nonced;
+`'strict-dynamic'` then refused the chunks they would have loaded, and the page
+served correct HTML that never hydrated. It was the only static route in the
+build, which is exactly why it was hard to see — every dynamic page around it was
+fine. Proved by comparing the served HTML: `/`, `/join` and `/signup` all carried
+`nonce="…"`, `/login` carried none. It is now `force-dynamic`, with the reason in
+the file.
+
+**2. The theme script had no nonce.** `next-themes` injects an inline
+anti-flash script before paint, and it accepts a `nonce` prop that nothing was
+passing. It was the single remaining refusal on every page. The root layout now
+reads `x-nonce` and hands it over.
+
+**Shipped:** the policy is **ENFORCED in production** —
+`script-src 'self' 'nonce-…' 'strict-dynamic' https://challenges.cloudflare.com`,
+no `'unsafe-inline'`, no `'unsafe-eval'`, no wildcard — and report-only in
+development, where `next dev` injects hot-reload scripts the framework does not
+nonce.
+
+**Proof:** `70-production-csp.mjs`, **32/32** against a real production build.
+Per-route nonce presence, zero violations on public and authenticated pages, the
+application hydrating and responding to a real interaction under enforcement, and
+no inline script served without the nonce that authorises it.
+
+`style-src 'unsafe-inline'` remains, deliberately and separately: Tailwind and
+React emit inline style *attributes* during hydration and there is no nonce path
+for that form. Inline CSS is not script execution, script protection is
+independent of it, and this is recorded as a hardening item for a later security
+owner rather than an endpoint.
+
+---
+
+## L9 — closed, with a permanent harness
+
+`scripts/isolated-clean-boot.sh` boots a **second Supabase project** through the
+CLI's own path: a derived config with a different project id and every port
+shifted, its own containers, the real `supabase/migrations` and the real seed.
+`supabase start` on an empty project *is* the clean boot — the CLI creates the
+database, installs the Supabase base schema, applies every migration in order and
+seeds it.
+
+The earlier hand-built attempt is exactly what this replaces: it invented a
+bootstrap schema, 338 of 524 migrations applied, and every failure traced to the
+harness rather than to Ovalball.
+
+**The guard:** the script refuses to run if the derived project id has not
+actually changed, and every command names the disposable project explicitly. The
+canonical review world is never a target.
+
+**Result:** migration chain from empty **PASS**; Step 4's objects verified for
+existence, RLS, policy count, SECURITY DEFINER, pinned `search_path`, grants and
+live behaviour; and the estate's own suites run against the fresh database —
+`auth_flow_state_authority` 28/0, `definer_rpc_session_contract` 37/0,
+`security_perimeter_guard` 6/0. The disposable project is destroyed afterwards
+and the review world verified unchanged.
+
+Steps 5–21 can now say **run isolated clean boot** without threatening it.

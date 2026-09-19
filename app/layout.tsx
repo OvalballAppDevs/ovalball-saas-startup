@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import { headers } from "next/headers"
 import { Bebas_Neue, Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
@@ -74,11 +75,14 @@ export const viewport: Viewport = {
   themeColor: "#014527",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // The per-request nonce the proxy minted, read back so the one inline script
+  // this application ships can carry it.
+  const nonce = (await headers()).get("x-nonce") ?? undefined
   return (
     <html
       lang="en"
@@ -98,7 +102,13 @@ export default function RootLayout({
           variant (globals.css's own .dark block exists but is unused by design), so scoping
           the whole document is the actual fix, not a broader version of the same one. */}
       <body className="brand-light-scope">
-        <ThemeProvider>{children}</ThemeProvider>
+        {/* The theme script runs before paint to stop a flash of the wrong
+            colours, which means it is an INLINE script -- and under a nonce-bound
+            script-src an un-nonced inline script is refused. next-themes takes
+            the nonce, so it is handed the one the proxy minted for this request.
+            Without it the theme script is the single thing the policy blocks on
+            every page, and the only visible symptom is a flash. */}
+        <ThemeProvider nonce={nonce}>{children}</ThemeProvider>
       </body>
     </html>
   )

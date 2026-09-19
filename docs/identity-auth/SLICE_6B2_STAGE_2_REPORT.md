@@ -317,6 +317,77 @@ migrations. **6b.2b is implemented and tested but NOT clean-boot verified.**
 
 ## 13. Status
 
-**SLICE 6 — NOT COMPLETE.** 6b.2b and 6b.2c are delivered and tested; 6b.2d is
-delivered as transport headers plus a report-only policy; L6 is closed. The slice
-cannot be called complete while L8 is undecided and L9 unproven.
+**Superseded by stage 4 below.**
+
+
+---
+
+# Stage 4 — L8 and L9 closed
+
+## 14. L8 — the cause was ours, and the CSP is now enforced
+
+The framework contract was recovered from the installed source rather than from
+documentation for another version. **Next 16.3.3 / React 19.2.4**, App Router:
+`app-render.js` reads `headers['content-security-policy']` (falling back to the
+report-only header) and extracts the nonce with `getScriptNonceFromHeader`. The
+proxy was already sending it. Two things in **Ovalball** defeated it.
+
+| | expected framework path | actual Ovalball path | divergence |
+|---|---|---|---|
+| **1** | every route renders per request, so Next can stamp the nonce | **`/login` was statically prerendered** | HTML built before any request has no nonce; `'strict-dynamic'` then refuses the chunks its un-nonced bootstrap would load, and the page serves correct markup that never hydrates |
+| **2** | every inline script carries the nonce | **`next-themes`' anti-flash script had none** | the one remaining refusal on every page |
+
+Proved rather than assumed: the served HTML showed `nonce="…"` on `/`, `/join`
+and `/signup` and **none** on `/login`, the only static route in the build.
+
+Fixes: `force-dynamic` on `/login` with the reason in the file, and the root
+layout reads `x-nonce` and passes it to `ThemeProvider`, which has always
+accepted one.
+
+**Enforced in production.** `script-src 'self' 'nonce-…' 'strict-dynamic'
+https://challenges.cloudflare.com` — no `'unsafe-inline'`, no `'unsafe-eval'`, no
+wildcard. Report-only in development only, where `next dev` injects hot-reload
+scripts the framework does not nonce.
+
+**`70-production-csp.mjs`: 32/32** against a real production build — enforced
+header present, per-route nonce presence, the nonce differing per request, zero
+violations on public *and* authenticated pages, the application hydrating and
+responding to a real interaction, and no inline script served without a nonce.
+
+The negative proof was rewritten after getting it wrong: injecting a script from
+`page.evaluate` proves nothing, because `'strict-dynamic'` deliberately trusts
+scripts inserted by trusted script. The real boundary is parser-inserted inline
+script, and that it is enforced was demonstrated live — the theme script was
+refused on every page until it was given the nonce.
+
+## 15. L9 — a permanent isolated clean-boot harness
+
+`scripts/isolated-clean-boot.sh`. A second Supabase project through the CLI's own
+path: derived config, different project id, every port shifted, its own
+containers, the real migrations and seed. `supabase start` on an empty project is
+the clean boot. It refuses to run if the derived project id has not changed, and
+every command names the disposable project explicitly.
+
+**PASS.** Chain applies from empty; Step 4's objects verified for existence, RLS,
+zero policies, SECURITY DEFINER, pinned `search_path`, grants and live behaviour;
+and the estate's suites run against the fresh database —
+`auth_flow_state_authority` 28/0, `definer_rpc_session_contract` 37/0,
+`security_perimeter_guard` 6/0. Destroyed afterwards; review world verified
+unchanged.
+
+## 16. H-7 final classification
+
+Every remaining `ovalballSignupPayload` occurrence: **two**, both in
+`lib/signup/complete-signup.ts` — the compatibility reader and its shape check.
+**Zero writers anywhere.** New signups do not touch it; it exists only for a
+wizard already in flight when this deploys, and is the declared contract item for
+the following release.
+
+## 17. Gates
+
+**5241 passed, 0 failed across 241 suites.** Browser 63–70 all green. Build,
+TypeScript, content standard and `diff --check` clean; lint at the established 4
+files, none of them touched by this work.
+
+**SLICE 6 — TECHNICALLY COMPLETE.** Manual localhost review deferred by explicit
+authorisation.
