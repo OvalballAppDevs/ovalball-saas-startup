@@ -372,3 +372,64 @@ export async function decideJoinRequest(
   revalidatePath("/people")
   return { ok: true }
 }
+
+/**
+ * ADDITIONAL CLUB ROLES — the ones that are not the primary seat.
+ *
+ * `set_primary_club_role` decides one three-way seat: Member, Fixture
+ * Secretary or Club Admin. A person is not only one of those. Volunteer is a
+ * canonical club role that `role_definitions` says a Club Admin may assign
+ * (`assignable_by = {SITE,CLUB}`), and until now no screen could.
+ *
+ * This calls `assign_role`, the canonical primitive, which enforces the
+ * delegation ceiling itself -- and refuses Safeguarding Officer outright,
+ * because an officer is nominated and accepts rather than being assigned.
+ * Nothing here decides anything; a role this caller may not give is refused by
+ * the database with 42501 whether or not the control was shown.
+ */
+export async function assignAdditionalRole(
+  membershipId: string,
+  roleKey: string,
+  teamId: string | null,
+  reason: string,
+): Promise<MembershipActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("assign_role", {
+    p_membership_id: membershipId,
+    p_role_key: roleKey,
+    p_team_id: teamId as unknown as string,
+    p_reason: reason.trim() || undefined,
+  })
+  if (error) return { ok: false, error: error.message || "That role could not be given." }
+  revalidatePath(`/people/${membershipId}`)
+  revalidatePath("/people")
+  return { ok: true }
+}
+
+/**
+ * Ends ONE role assignment.
+ *
+ * Deliberately narrow: it names the assignment, not the person. Removing
+ * somebody's Coach role at one team must leave their Team Manager role at
+ * another, their membership, their family relationships and any unrelated
+ * explicit grant exactly as they were -- which is what
+ * `transition_role_assignment` already guarantees, and what
+ * `supabase/tests/step8_operational_access.sql` section D proves.
+ */
+export async function endRoleAssignment(
+  membershipId: string,
+  assignmentId: string,
+  reason: string,
+): Promise<MembershipActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("transition_role_assignment", {
+    p_assignment_id: assignmentId,
+    p_to_state: "REVOKED",
+    p_reason: reason.trim() || undefined,
+    p_allow_no_club_admin: false,
+  })
+  if (error) return { ok: false, error: error.message || "That role could not be removed." }
+  revalidatePath(`/people/${membershipId}`)
+  revalidatePath("/people")
+  return { ok: true }
+}

@@ -148,6 +148,59 @@ test("4. a context the identity does not hold cannot be selected", () => {
   )
 })
 
+/**
+ * X-4 — STALE CONTEXT INVALIDATION.
+ *
+ * The reconciliation records X-4 as PARTIALLY IMPLEMENTED with the remaining
+ * work being "no test names the stale case explicitly", and it is deliberately
+ * NOT the same case as test 4. A forged cookie names a context the session
+ * never had. A STALE one names a context the session genuinely DID have and
+ * has since lost -- the Club Admin role was removed, the membership was
+ * suspended, the team was folded -- while the browser is still carrying the
+ * cookie from before. It is the likelier of the two by far, because nothing
+ * about losing a role reaches into somebody's browser to tidy up after it.
+ *
+ * Slice 8 makes this case common on purpose: removing one role is now something
+ * a Club Admin does from Users & Permissions, and the person it happened to may
+ * be looking at the club right then.
+ */
+test("4c. X-4: a context this session HELD YESTERDAY and no longer holds does not resolve", () => {
+  // Yesterday: a Club Admin at c-1, with a cookie naming it.
+  const before = session({ clubMemberships: [club("c-1", "UX2 Multi RUFC")] })
+  const held = resolveActiveContext(before, "club:c-1")
+  assert.equal(held.key, "club:c-1", "the precondition failed: this context was never held")
+
+  // Today: the role is gone. The cookie in the browser has not changed.
+  const after = session({ clubMemberships: [] })
+  const stale = resolveActiveContext(after, "club:c-1")
+
+  assert.notEqual(stale.key, "club:c-1", "a removed club authority still resolved from a stale cookie")
+  assert.equal(stale.key, "none", "a session with nothing left resolved to something other than the fallback")
+  // The fallback is deliberately shaped like a club context with no club in it
+  // -- the shell always has something to render -- so the assertion that
+  // matters is that it carries no club, not that it is a different kind.
+  assert.equal(stale.clubId, null, "a stale cookie leaked a club id the session no longer has")
+  assert.equal(stale.label, "Ovalball", "the fallback still named a club the session has lost")
+})
+
+test("4d. X-4: a stale cookie falls back to a context the session really has, not to nothing usable", () => {
+  // Club Admin at c-1 and c-2 yesterday; c-1 removed today.
+  const after = session({ clubMemberships: [club("c-2", "UX2 Other RUFC")] })
+  const stale = resolveActiveContext(after, "club:c-1")
+  assert.equal(stale.clubId, "c-2")
+  assert.ok(
+    listSwitchableContexts(after).some((c) => c.key === stale.key),
+    "the fallback landed outside the session's own contexts",
+  )
+})
+
+test("4e. X-4: losing the LAST context leaves a stale cookie resolving to nothing scoped", () => {
+  const after = session({ clubMemberships: [] })
+  const stale = resolveActiveContext(after, "club:c-1")
+  assert.equal(stale.clubId, null)
+  assert.equal(stale.playerId, null, "a session with nothing left still carried a subject through")
+})
+
 test("4b. a forged Site Admin context does not make a session a Site Admin", () => {
   const ctx = session({ clubMemberships: [club("c-1", "UX2 Multi RUFC")] })
   const forged = resolveActiveContext(ctx, "site_admin")

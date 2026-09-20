@@ -388,6 +388,12 @@ SUITES=(
   # functions themselves rather than of the screen that usually calls them.
   fixture_availability_summary
   fixture_search_and_venue_authority
+  # Convergence Step 8: the server side of operational access management --
+  # one spelling for one role, presets as exact capability deltas, removing one
+  # role leaving the rest standing, suspension defeating a grant that still
+  # exists, the club timeline's scope, and a Site Admin who administers a club
+  # without becoming a member of it.
+  step8_operational_access
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
@@ -566,6 +572,26 @@ BROWSER_SUITES=(
   # Convergence Step 6 §59: axe, keyboard, focus and semantics on every surface
   # this step materially changed, with pre-existing violations declared not hidden.
   77-step6-accessibility
+  # CONVERGENCE STEP 8 / SLICE 8. The contract names browser 47 and 48 by
+  # number: 47 is the Club People & Access lifecycle in a real browser, 48 is
+  # the acceptance boundary -- "a Club Admin cannot reach site controls or other
+  # clubs, directly or via UI; delegation ceilings proven". They are wired in
+  # with the commit that writes them, which is what verify-browser-suite-registry
+  # now enforces.
+  47-club-people-and-access
+  48-club-access-boundary
+  # L25 DISPOSITIONS MADE BY STEP 8, for the three suites in its own domain
+  # that its archaeology proved still describe the product. 58 and 59 were
+  # green on the first run (30 and 48 assertions). 52 was green on its
+  # assertions and its TEARDOWN was broken -- it died on a foreign key after
+  # reporting success, the same shape Step 7 found in suite 37 -- so it was
+  # fixed and now cleans up what it creates. The other six suites in this
+  # domain are declared UNVERIFIED or SUPERSEDED with their measurements in
+  # scripts/browser-verification/suite-registry.json; none was registered
+  # without being run.
+  52-roster-authority
+  58-club-admin-authority
+  59-club-misc-authority
 )
 
 browser_blocked=""

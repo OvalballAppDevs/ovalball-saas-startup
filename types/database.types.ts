@@ -1717,6 +1717,80 @@ export type Database = {
           },
         ]
       }
+      capability_preset_capabilities: {
+        Row: {
+          capability_key: string
+          preset_key: string
+          sort_order: number
+        }
+        Insert: {
+          capability_key: string
+          preset_key: string
+          sort_order?: number
+        }
+        Update: {
+          capability_key?: string
+          preset_key?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capability_preset_capabilities_capability_key_fkey"
+            columns: ["capability_key"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "capability_preset_capabilities_preset_key_fkey"
+            columns: ["preset_key"]
+            isOneToOne: false
+            referencedRelation: "capability_presets"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      capability_presets: {
+        Row: {
+          created_at: string
+          description: string
+          key: string
+          label: string
+          role_key: string
+          scope_type: string
+          sort_order: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          key: string
+          label: string
+          role_key: string
+          scope_type: string
+          sort_order?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          key?: string
+          label?: string
+          role_key?: string
+          scope_type?: string
+          sort_order?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capability_presets_role_key_fkey"
+            columns: ["role_key"]
+            isOneToOne: false
+            referencedRelation: "role_definitions"
+            referencedColumns: ["role_key"]
+          },
+        ]
+      }
       club_aliases: {
         Row: {
           alias: string
@@ -16886,6 +16960,7 @@ export type Database = {
         Row: {
           assignable_by: string[]
           bundle_key: string
+          is_primary_seat: boolean
           label: string
           minor_prohibited: boolean
           requires_base_role: string[] | null
@@ -16896,6 +16971,7 @@ export type Database = {
         Insert: {
           assignable_by: string[]
           bundle_key: string
+          is_primary_seat?: boolean
           label: string
           minor_prohibited?: boolean
           requires_base_role?: string[] | null
@@ -16906,6 +16982,7 @@ export type Database = {
         Update: {
           assignable_by?: string[]
           bundle_key?: string
+          is_primary_seat?: boolean
           label?: string
           minor_prohibited?: boolean
           requires_base_role?: string[] | null
@@ -22084,6 +22161,19 @@ export type Database = {
         Args: { p_announcement_id: string }
         Returns: string
       }
+      apply_capability_preset: {
+        Args: {
+          p_club_id: string
+          p_preset_key: string
+          p_reason?: string
+          p_user_id: string
+        }
+        Returns: {
+          capability_key: string
+          outcome: string
+          override_id: string
+        }[]
+      }
       apply_payment_status_transition: {
         Args: {
           p_charge_date?: string
@@ -22350,6 +22440,40 @@ export type Database = {
         Returns: undefined
       }
       clear_team_alias: { Args: { p_team_id: string }; Returns: undefined }
+      club_access_history: {
+        Args: {
+          p_club_id: string
+          p_limit?: number
+          p_subject_user_id?: string
+        }
+        Returns: {
+          actor_name: string
+          actor_user_id: string
+          at: string
+          capability_key: string
+          event_type: string
+          outcome: string
+          reason: string
+          role_key: string
+          subject_name: string
+          subject_user_id: string
+          team_id: string
+          team_name: string
+        }[]
+      }
+      club_capability_presets: {
+        Args: { p_club_id: string }
+        Returns: {
+          capability_keys: string[]
+          capability_labels: string[]
+          description: string
+          label: string
+          may_apply: boolean
+          preset_key: string
+          role_key: string
+          scope_type: string
+        }[]
+      }
       club_credit_balance_pence: {
         Args: { p_club_id: string }
         Returns: number
@@ -23063,12 +23187,12 @@ export type Database = {
       fixture_availability_summary: {
         Args: { p_fixture_ids: string[] }
         Returns: {
-          attending_count: number | null
-          awaiting_count: number | null
+          attending_count: number
+          awaiting_count: number
           fixture_id: string
-          squad_count: number | null
-          unavailable_count: number | null
-          unsure_count: number | null
+          squad_count: number
+          unavailable_count: number
+          unsure_count: number
         }[]
       }
       fixture_communication_counts: {

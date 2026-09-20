@@ -38,16 +38,13 @@
     "41-release-version-sitewide": "RELEASE AND PLATFORM MODE PROGRAMME, NOT YET RECONCILED. UNVERIFIED against the current schema.",
     "42-identity-foundation-perimeter": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
     "43-public-season-team-names": "CLUB DIGITAL HOME PROGRAMME, NOT YET RECONCILED -- see 40-club-digital-home.",
-    "44-canonical-memberships": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
-    "45-capability-foundation": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
-    "46-family-authority": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
-    "51-role-negative-smoke": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
-    "52-roster-authority": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
+    "44-canonical-memberships": "MESSAGING/IDENTITY PROGRAMME, NOT YET RECONCILED. Measured at Step 8: aborts after 2 assertions on a UI click timeout. Its scope spans memberships, roles AND family relationships, so it is only partly covered by Step 8's SQL estate and no honest single disposition was available without family-domain work Step 8 does not own. Status UNVERIFIED; the measurement is recorded so the next reader starts from evidence.",
+    "45-capability-foundation": "SUPERSEDED by the SQL estate, which runs in the canonical gate and asserts the same foundation far more thoroughly: capability_precedence_truth_table.sql (50 assertions over the full rule 0-8 order), capability_scope_isolation.sql (22) and step8_operational_access.sql (69). Measured at Step 8: this suite aborts after 4 assertions waiting for a club allow that the current screen no longer renders the way it expects. The authority it guarded is guarded; the browser journey it walked no longer exists.",
+    "46-family-authority": "FAMILY DOMAIN, NOT YET RECONCILED. Measured at Step 8: 13 of 14 assertions pass; F1 (a Site Admin seeing a person's family relationships) fails with HTTP 200. That is a real single finding in a domain Step 8 does not own -- family relationships are a relationship, not an administrative role shortcut -- so it is recorded rather than repaired here. Status UNVERIFIED.",
+    "51-role-negative-smoke": "SUPERSEDED by role_assignment_ceilings.sql (28 assertions, in the canonical gate, covering exactly which role each level may and may not give) and by 48-club-access-boundary's persona refusals. Measured at Step 8: this suite hangs after one assertion and had to be killed at ten minutes. Its negatives are asserted; its replayed server actions are not a journey anybody walks.",
     "56-messaging-authority": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
-    "57-safeguarding-authority": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
-    "58-club-admin-authority": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
-    "59-club-misc-authority": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
-    "60-invitation-journeys": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment.",
+    "57-safeguarding-authority": "SAFEGUARDING DOMAIN, NOT YET RECONCILED. Measured at Step 8: hangs and was killed at ten minutes having recorded zero assertions, so nothing is known about what it would prove. Step 8 preserved the safeguarding rules rather than rebuilding them (step8_operational_access.sql section J, 7 assertions) and deliberately did not mutate the persistent review world's pending nomination to make a suite green. Status UNVERIFIED.",
+    "60-invitation-journeys": "INVITATION DOMAIN (Slice 5), NOT YET RECONCILED. Measured at Step 8: 15 of 16 assertions pass; G2 (a code typed in lower case being accepted, so the normaliser does the work rather than the person) fails. Slice 5 owns invitations and Step 8 was explicitly instructed not to redesign them, so the finding is recorded rather than fixed. Status UNVERIFIED.",
     "61-auth-security": "IDENTITY PROGRAMME, NOT YET RECONCILED -- see 39-identity-containment."
   }
 }

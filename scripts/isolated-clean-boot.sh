@@ -299,11 +299,77 @@ begin
 
   raise notice 'PASS clean boot: Step 7''s objects are correct from empty, including what they publish';
 end $$;
+
+-- =====================================================================================================
+-- CONVERGENCE STEP 8 / SLICE 8. Four migrations, and every one of them is the kind whose mistake is
+-- invisible until somebody is given authority they should not have: a preset catalogue that could carry
+-- a key a club may not delegate, a club timeline that could reach another club or publish forensic
+-- fields, a role catalogue label, and the seat rule moving out of a plpgsql literal into the catalogue.
+-- =====================================================================================================
+do $$
+declare v_bad text; v_seat text; v_def text;
+begin
+  -- A preset may only carry what a club could have granted one at a time.
+  if to_regprocedure('public.apply_capability_preset(uuid,text,uuid,text)') is null then
+    raise exception 'CLEAN BOOT: the preset applier does not exist';
+  end if;
+  select string_agg(distinct pc.capability_key, ', ') into v_bad
+  from public.capability_preset_capabilities pc
+  left join public.capabilities c on c.key = pc.capability_key
+  join public.capability_presets p on p.key = pc.preset_key
+  where c.key is null or c.status <> 'ACTIVE' or not c.delegable or c.safeguarding_sensitive
+     or c.domain in ('people', 'finance') or c.key like 'site.%'
+     or not (p.scope_type = any (c.valid_scopes));
+  if v_bad is not null then
+    raise exception 'CLEAN BOOT: a preset carries capabilities it must not: %', v_bad;
+  end if;
+  if (select count(*) from public.capability_presets where status = 'ACTIVE') <> 3 then
+    raise exception 'CLEAN BOOT: the three presets the design names are not all present from empty';
+  end if;
+  -- And it must go through set_capability_override rather than writing overrides itself.
+  if position('set_capability_override' in pg_get_functiondef('public.apply_capability_preset(uuid,text,uuid,text)'::regprocedure)) = 0 then
+    raise exception 'CLEAN BOOT: the preset applier writes overrides itself instead of calling the canonical function';
+  end if;
+
+  -- The club timeline is scoped to one club and publishes no forensic field.
+  if to_regprocedure('public.club_access_history(uuid,uuid,integer)') is null then
+    raise exception 'CLEAN BOOT: the club access timeline does not exist';
+  end if;
+  select pg_get_function_result('public.club_access_history(uuid,uuid,integer)'::regprocedure) into v_def;
+  if v_def like '%ip_hash%' or v_def like '%user_agent_hash%' or v_def like '%request_id%'
+     or v_def like '%metadata%' or v_def like '%impersonation%' then
+    raise exception 'CLEAN BOOT: the club timeline publishes a forensic field: %', v_def;
+  end if;
+  if position('e.club_id = p_club_id' in pg_get_functiondef('public.club_access_history(uuid,uuid,integer)'::regprocedure)) = 0 then
+    raise exception 'CLEAN BOOT: the club timeline is not scoped to the club it was asked about';
+  end if;
+  if has_function_privilege('anon', 'public.club_access_history(uuid,uuid,integer)', 'EXECUTE') then
+    raise exception 'CLEAN BOOT: anon can execute the club access timeline';
+  end if;
+
+  -- One spelling for one role, in every catalogue a person reads.
+  if exists (select 1 from public.role_definitions where label like '%Fixtures%')
+     or exists (select 1 from public.capability_bundles where label like '%Fixtures%') then
+    raise exception 'CLEAN BOOT: a catalogue still says "Fixtures" where the product says "Fixture"';
+  end if;
+
+  -- The seat rule lives in the catalogue, and the function reads it.
+  select string_agg(role_key, ',' order by role_key) into v_seat
+    from public.role_definitions where is_primary_seat;
+  if v_seat is distinct from 'CLUB_ADMIN,FIXTURES_SECRETARY,MEMBER' then
+    raise exception 'CLEAN BOOT: the primary seat is %', coalesce(v_seat, '(none)');
+  end if;
+  if position('is_primary_seat' in pg_get_functiondef('internal.apply_primary_club_role'::regproc)) = 0 then
+    raise exception 'CLEAN BOOT: apply_primary_club_role does not read the catalogue for the seat';
+  end if;
+
+  raise notice 'PASS clean boot: Step 8''s objects are correct from empty, and grant nothing a club could not grant by hand';
+end $$;
 SQL
 STATUS=$?
 
 echo "-- running the estate's own assertions against the fresh database"
-for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority; do
+for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access; do
   out=$(boot_psql -q -f - < "$REPO/supabase/tests/$suite.sql" 2>&1)
   fails=$(printf '%s' "$out" | grep -c "FAIL" || true)
   passes=$(printf '%s' "$out" | grep -c "PASS" || true)

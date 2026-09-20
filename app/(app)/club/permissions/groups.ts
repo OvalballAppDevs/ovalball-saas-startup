@@ -25,6 +25,14 @@ export const GROUPS: { title: string; blurb: string; items: { key: string; label
     ],
   },
   {
+    title: "Pitch Allocation",
+    blurb: "Deciding which team plays on which pitch, and when.",
+    items: [
+      { key: "venue.pitch_allocation.view", label: "View Pitch Allocation", description: "See how the club's pitches are arranged on a match day." },
+      { key: "venue.pitch_allocation.manage", label: "Manage Pitch Allocation", description: "Arrange which team plays on which pitch." },
+    ],
+  },
+  {
     title: "Calendar and Events",
     blurb: "What appears on the club's calendar.",
     items: [

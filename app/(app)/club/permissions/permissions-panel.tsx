@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 
-import { clearClubCapability, setClubCapability } from "./actions"
+import { applyClubPreset, clearClubCapability, setClubCapability } from "./actions"
 import { GROUPS } from "./groups"
 
 export interface MemberCapability {
@@ -15,6 +15,22 @@ export interface MemberCapability {
   overrideLevel: string | null
   /** Whether the person viewing may change this answer (the database decides; this only shows it). */
   editable: boolean
+}
+
+/**
+ * A NAMED JOB, rather than a list of switches (V-3 / AC.Presets).
+ *
+ * A club does not think "allow venue.pitch_allocation.view and .manage". It
+ * thinks "Nadia is doing the pitch allocation this season". `mayApply` is
+ * answered by the database asking the same question the write will ask, so the
+ * screen never offers a button that then refuses.
+ */
+export interface CapabilityPreset {
+  presetKey: string
+  label: string
+  description: string
+  capabilityLabels: string[]
+  mayApply: boolean
 }
 
 export interface ClubMember {
@@ -33,8 +49,8 @@ export interface ClubMember {
  * particular coach may cancel a match; `fixture.cancel` is how the database
  * writes that down, not how the decision is described to the person making
  * it. The groups (./groups.ts) match how the work is actually divided at a club --
- * fixtures, training, the calendar -- rather than the shape of the
- * capability catalogue.
+ * fixtures, training, pitch allocation, the calendar -- rather than the shape
+ * of the capability catalogue.
  *
  * THE SOURCE OF EACH ANSWER IS SHOWN, because "allowed" has two very
  * different meanings. Allowed by their ROLE disappears the day they stop
@@ -61,10 +77,26 @@ function lockReason(state: MemberCapability): string | null {
   return "You cannot change this permission."
 }
 
-export function ClubPermissionsPanel({ clubId, members }: { clubId: string; members: ClubMember[] }) {
+export function ClubPermissionsPanel({
+  clubId,
+  members,
+  presets,
+}: {
+  clubId: string
+  members: ClubMember[]
+  presets: CapabilityPreset[]
+}) {
   const [openMember, setOpenMember] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+
+  function applyPreset(userId: string, presetKey: string) {
+    setError(null)
+    startTransition(async () => {
+      const result = await applyClubPreset(userId, presetKey, clubId)
+      if (!result.ok) setError(result.error)
+    })
+  }
 
   function apply(userId: string, key: string, effect: "grant" | "deny") {
     setError(null)
@@ -123,6 +155,34 @@ export function ClubPermissionsPanel({ clubId, members }: { clubId: string; memb
 
             {open && (
               <div className="border-t border-ink/8 px-4 py-3">
+                {presets.length > 0 && (
+                  <section className="rounded-lg bg-ink/[0.03] px-3 py-3">
+                    <h3 className="text-sm font-medium text-ink">Give them a job</h3>
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      Everything that job needs, allowed in one go. Each permission is recorded separately, so you
+                      can still change any one of them below afterwards.
+                    </p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {presets.map((preset) => (
+                        <button
+                          key={preset.presetKey}
+                          type="button"
+                          disabled={pending || !preset.mayApply}
+                          title={
+                            preset.mayApply
+                              ? `${preset.description} Allows: ${preset.capabilityLabels.join(", ")}.`
+                              : "You cannot give a permission you do not hold yourself."
+                          }
+                          onClick={() => applyPreset(member.userId, preset.presetKey)}
+                          className="min-h-11 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-medium text-ink outline-none hover:bg-pitch-50 focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:opacity-50"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {GROUPS.map((group) => {
                   const rows = group.items
                     .map((item) => ({ item, state: member.capabilities.find((c) => c.capabilityKey === item.key) }))

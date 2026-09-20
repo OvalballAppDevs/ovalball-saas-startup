@@ -8,10 +8,13 @@ import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } f
 import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import { clubAdminMembershipAt, getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
 import { explainDecision, decisionRemedy, type AccessDecision } from "@/lib/permissions/access-explanation"
+import { accessEventSentence } from "@/lib/permissions/access-event-sentence"
 import { clubRoleLabel, teamPermissionLabel } from "@/lib/permissions/role-labels"
+import { CONFIRMABLE_ROLE_KEY, PENDING_CONFIRMATION_EXPLANATION, additionalRoleDescription, roleKeyLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
 
 import { GROUPS } from "../../club/permissions/groups"
+import { AdditionalRoles, type AssignableRole, type HeldRole } from "./additional-roles"
 import { TeamAccessEditor } from "./team-access-editor"
 
 export const metadata = { title: "Person Access" }
@@ -71,6 +74,7 @@ export default async function PersonAccessPage({ params }: { params: Promise<{ m
   // Belt and braces over RLS: the row must belong to the club this session is
   // actually administering, not merely be one RLS would return.
   if (!membership || membership.club_id !== clubId) notFound()
+  const isSelfMembership = membership.user_id === user.id
 
   const [{ data: directory }, { data: teamPerms }, { data: teams }] = await Promise.all([
     supabase.rpc("get_club_member_directory", { p_club_id: clubId }),
@@ -78,9 +82,67 @@ export default async function PersonAccessPage({ params }: { params: Promise<{ m
     supabase.from("teams").select("id, display_name").eq("club_id", clubId).eq("active", true).order("display_name"),
   ])
 
+  // EVERY ROLE THIS PERSON HOLDS, from the canonical assignments rather than
+  // from the compatibility column on the membership. The club-wide seat
+  // (Member / Fixture Secretary / Club Admin) is shown above and is not
+  // repeated here; what is left is everything else a person can be.
+  // `is_primary_seat` comes from the catalogue, which is also what
+  // internal.apply_primary_club_role reads. Naming the three seat roles here
+  // instead would put an authority list in a page, and two copies of one rule
+  // is how the seat and the additive roles come to disagree.
+  const { data: assignmentRows } = await supabase
+    .from("role_assignments")
+    .select("id, role_key, team_id, confirmation_state, teams(display_name), role_definitions(label, is_primary_seat)")
+    .eq("membership_id", membershipId)
+    .eq("state", "ACTIVE")
+
+  const heldRoles: HeldRole[] = (assignmentRows ?? [])
+    .filter(
+      (r) =>
+        !((r.role_definitions as unknown as { is_primary_seat: boolean } | null)?.is_primary_seat && r.team_id === null)
+    )
+    .map((r) => ({
+      assignmentId: r.id,
+      roleKey: r.role_key,
+      roleLabel: roleKeyLabel(r.role_key, (r.role_definitions as unknown as { label: string } | null)?.label ?? null),
+      teamName: (r.teams as unknown as { display_name: string } | null)?.display_name ?? null,
+      // A Safeguarding Officer appointment is not ended from here: it is
+      // confirmed or withdrawn through the appointment that owns it, and
+      // offering Remove beside it would suggest otherwise.
+      removable: r.role_key !== CONFIRMABLE_ROLE_KEY && !isSelfMembership,
+      pendingNote:
+        r.role_key === CONFIRMABLE_ROLE_KEY && r.confirmation_state === "PENDING_CONFIRMATION"
+          ? PENDING_CONFIRMATION_EXPLANATION
+          : null,
+    }))
+    .sort((a, b) => a.roleLabel.localeCompare(b.roleLabel))
+
+  // What the catalogue says this club may give, minus what is already held and
+  // minus the seat roles. Safeguarding Officer is deliberately absent: the
+  // database refuses to assign it, because an officer is nominated and accepts.
+  const { data: catalogueRoles } = await supabase
+    .from("role_definitions")
+    .select("role_key, label, scope, assignable_by, is_primary_seat")
+    .order("role_key")
+  const heldKeys = new Set(heldRoles.map((r) => r.roleKey))
+  const assignableRoles: AssignableRole[] = (catalogueRoles ?? [])
+    .filter(
+      (r) =>
+        (r.assignable_by ?? []).includes("CLUB") &&
+        r.role_key !== CONFIRMABLE_ROLE_KEY &&
+        !r.is_primary_seat &&
+        r.scope !== "TEAM" &&
+        !heldKeys.has(r.role_key)
+    )
+    .map((r) => ({
+      roleKey: r.role_key,
+      label: roleKeyLabel(r.role_key, r.label),
+      description: additionalRoleDescription(r.role_key),
+    }))
+
   const profile = (directory ?? []).find((p) => p.user_id === membership.user_id)
   const name = [profile?.first_name, profile?.surname].filter(Boolean).join(" ") || profile?.email || "This person"
-  const isSelf = membership.user_id === user.id
+  const isSelf = isSelfMembership
   const roleLabel = membership.role ? clubRoleLabel(membership.role) : "No club role recorded"
 
   const held = (teamPerms ?? [])
@@ -123,6 +185,26 @@ export default async function PersonAccessPage({ params }: { params: Promise<{ m
 
   const allowedCount = explained.filter((e) => e.decision?.allowed).length
 
+  // HOW IT GOT THIS WAY (Slice 8's club audit timeline).
+  //
+  // A READ of public.security_events, which internal.refuse_history_rewrite()
+  // already makes append-only -- not a second log, because an audit trail is
+  // the one thing that can least afford two versions. It is scoped to this club
+  // by the RPC and filtered to this person here, and it deliberately carries no
+  // ip hash, user agent hash, request id or raw metadata: those are forensic
+  // fields for a Site Admin surface, not for a club screen.
+  const { data: historyRows } = await supabase.rpc("club_access_history", {
+    p_club_id: clubId,
+    p_subject_user_id: membership.user_id,
+    p_limit: 25,
+  })
+  const history = (historyRows ?? []).map((h) => ({
+    at: h.at,
+    what: accessEventSentence(h.event_type, h.capability_key, h.role_key, h.team_name),
+    by: h.actor_name,
+    reason: h.reason,
+  }))
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <Link href="/people" className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-800 hover:text-forest-950">
@@ -163,6 +245,13 @@ export default async function PersonAccessPage({ params }: { params: Promise<{ m
           </p>
         </div>
       </section>
+
+      <AdditionalRoles
+        membershipId={membership.id}
+        personName={name}
+        held={heldRoles}
+        assignable={assignableRoles}
+      />
 
       <TeamAccessEditor
         membershipId={membership.id}
@@ -211,6 +300,37 @@ export default async function PersonAccessPage({ params }: { params: Promise<{ m
           <KeyRound aria-hidden="true" className="size-4" />
           Change Permissions
         </Link>
+      </section>
+
+      <section className="mt-8" aria-labelledby="person-history">
+        <h2 id="person-history" className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
+          How It Got This Way
+        </h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Every change to {name}&rsquo;s access at {clubName}, most recent first, and who made it.
+        </p>
+        <ul className="mt-3 flex flex-col gap-2">
+          {history.length === 0 && (
+            <li className="rounded-lg border border-dashed border-ink/15 px-4 py-3 text-sm text-ink-muted">
+              Nothing recorded yet.
+            </li>
+          )}
+          {history.map((entry, index) => (
+            <li key={`${entry.at}-${index}`} className="rounded-lg border border-ink/10 bg-white px-4 py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <p className="text-sm text-ink">{entry.what}</p>
+                <p className="text-xs text-ink-muted">
+                  <time dateTime={entry.at}>
+                    {new Date(entry.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </time>
+                </p>
+              </div>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {[`by ${entry.by}`, entry.reason].filter(Boolean).join(" · ")}
+              </p>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   )

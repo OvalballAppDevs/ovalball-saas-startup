@@ -426,7 +426,16 @@ begin
                                              -- kind -- never the payload, which is asserted separately
                                              -- by auth_flow_state_authority E2. It is authenticated-only
                                              -- and behind the canonical session gate.
-                                             'consume_auth_flow_state'))
+                                             'consume_auth_flow_state',
+                                             -- Slice 8: applying a named capability preset. The caller
+                                             -- supplies a person, a preset key and a club, and controls
+                                             -- neither the event nor the actor: the event type is the
+                                             -- literal 'override.preset_applied' in the body, the actor
+                                             -- comes from internal.actor(), and the per-capability events
+                                             -- are emitted by set_capability_override, which this function
+                                             -- calls rather than reimplements. The metadata carries the
+                                             -- preset key and label and nothing about the person.
+                                             'apply_capability_preset'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

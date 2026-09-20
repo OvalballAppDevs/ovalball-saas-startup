@@ -9,7 +9,7 @@ import { roleAssignmentLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
 
 import { GROUPS } from "./groups"
-import { ClubPermissionsPanel, type ClubMember } from "./permissions-panel"
+import { ClubPermissionsPanel, type CapabilityPreset, type ClubMember } from "./permissions-panel"
 
 export const metadata = { title: "Club Permissions" }
 
@@ -91,6 +91,18 @@ export default async function ClubPermissionsPage() {
   const emailById = new Map((directoryRows ?? []).map((p) => [p.user_id, p.email ?? ""]))
   const { data: club } = await supabase.from("clubs").select("club_directory(name)").eq("id", clubId).maybeSingle()
 
+  // The named jobs this club can hand out, and whether THIS person may hand
+  // each one out. The database answers both, asking the same question the
+  // write will ask -- so the screen cannot offer a button that then refuses.
+  const { data: presetRows } = await supabase.rpc("club_capability_presets", { p_club_id: clubId })
+  const presets: CapabilityPreset[] = (presetRows ?? []).map((p) => ({
+    presetKey: p.preset_key,
+    label: p.label,
+    description: p.description,
+    capabilityLabels: p.capability_labels ?? [],
+    mayApply: p.may_apply === true,
+  }))
+
   const byUser = new Map<string, ClubMember["capabilities"]>()
   for (const r of rows ?? []) {
     const list = byUser.get(r.user_id) ?? []
@@ -133,7 +145,7 @@ export default async function ClubPermissionsPage() {
         Ovalball sets the ceiling. Where Ovalball has switched something off, allowing it here has no effect.
       </p>
 
-      <ClubPermissionsPanel clubId={clubId} members={members} />
+      <ClubPermissionsPanel clubId={clubId} members={members} presets={presets} />
     </div>
   )
 }

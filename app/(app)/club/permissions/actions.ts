@@ -45,3 +45,32 @@ export async function clearClubCapability(overrideId: string): Promise<Delegatio
   revalidatePath("/club/permissions")
   return { ok: true }
 }
+
+/**
+ * Applies a named preset -- a whole job -- to one person at one club.
+ *
+ * The preset is DATA. `apply_capability_preset` loops it and calls
+ * `set_capability_override` once per capability, so every ceiling, age rule,
+ * Volunteer prohibition and audit event is identical to granting them one at a
+ * time. Because the RPC is one transaction, a refusal on any capability aborts
+ * all of them: a club never ends up having handed out half a job.
+ *
+ * This action therefore adds no authority of its own, and there is deliberately
+ * no "force" or "partial" variant for it to become one.
+ */
+export async function applyClubPreset(
+  userId: string,
+  presetKey: string,
+  clubId: string,
+): Promise<DelegationResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("apply_capability_preset", {
+    p_user_id: userId,
+    p_preset_key: presetKey,
+    p_club_id: clubId,
+    p_reason: null as unknown as string,
+  })
+  if (error) return { ok: false, error: error.message || "That preset could not be applied." }
+  revalidatePath("/club/permissions")
+  return { ok: true }
+}

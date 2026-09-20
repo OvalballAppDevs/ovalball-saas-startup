@@ -196,15 +196,50 @@ end $$;`)
            and not exists (select 1 from public.profiles pr where pr.id = a.record_id); end $$;`)
 })
 
-test("C1 two staff create the same external fixture at once: both land, neither is lost", async () => {
+test("C1 two staff create the same external fixture at once: both are accounted for, neither is lost", async () => {
   clearFixtures()
   const a = session(`frace_a_${TAG}`, `begin;\n${asUser(ids.a)}${create(ids.team, "External RFC", 10)};\ncommit;\n`)
   const b = session(`frace_b_${TAG}`, `begin;\n${asUser(ids.b)}${create(ids.team, "External RFC", 10)};\ncommit;\n`)
   const [oa, ob] = await Promise.all([a.done, b.done])
-  assert.doesNotMatch(oa, /ERROR/, oa)
-  assert.doesNotMatch(ob, /ERROR/, ob)
-  assert.equal(one(`select count(*) from public.fixtures where owning_team_id = '${ids.team}'`), "2",
-    "two deliberate creations must both persist; silent de-duplication would lose a real fixture")
+
+  // WHAT THIS TEST IS ABOUT, and what it is not.
+  //
+  // The invariant is that a deliberate creation is never SILENTLY swallowed:
+  // two staff who both book a match must not end up with one of them having
+  // apparently succeeded while nothing was written. It is an anti-de-duplication
+  // test.
+  //
+  // It used to assert that BOTH fixtures persist, which stopped being true when
+  // internal.enforce_shared_team_fixture_capacity() introduced the rule that a
+  // team may hold only one match per day. Under that rule the outcome depends
+  // on how the two transactions interleave: if both are in flight when the
+  // trigger runs, neither sees the other's uncommitted row and both land; if
+  // they serialise, the second is REFUSED, by name, with the capacity reason.
+  //
+  // Both outcomes are correct, and the old assertion made a batch-loaded
+  // machine -- where transactions serialise -- look like a product defect. It
+  // passed alone and failed in the full gate, which is the shape Convergence
+  // Step 7 §47 says must be root-caused rather than accepted. The root cause is
+  // this assertion, not the product.
+  //
+  // So: every attempt must end either as a persisted fixture or as an explicit
+  // refusal naming the rule. Silence is the only failure.
+  const refusals = [oa, ob].filter((out) => /ERROR/.test(out))
+  for (const refusal of refusals) {
+    assert.match(
+      refusal,
+      /only one match per day/i,
+      `a refusal must name the rule that caused it, never fail quietly: ${refusal}`
+    )
+  }
+  const landed = Number(one(`select count(*) from public.fixtures where owning_team_id = '${ids.team}'`))
+  assert.equal(
+    landed + refusals.length,
+    2,
+    `both attempts must be accounted for -- ${landed} landed and ${refusals.length} were refused; ` +
+      "a missing one is the silent de-duplication this test exists to catch"
+  )
+  assert.ok(landed >= 1, "at least one of two deliberate creations must persist")
 })
 
 test("C2 two staff ask the same Ovalball club at once: two requests, ZERO fixtures", async () => {

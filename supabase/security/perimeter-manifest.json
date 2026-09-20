@@ -3487,6 +3487,26 @@
         "select": "all",
         "select_reason": "Phase 2 Y.17 / G. A factor reset or email change awaiting its 24-hour period. The target can see their own -- being told is the defence against a social-engineered recovery, and it is how they cancel it. Guardians see a child's MINOR_MFA_RESET; site.users.security.manage sees all. Writes are RPCs under the two-person rule."
       }
+    },
+    "capability_presets": {
+      "classification": "REFERENCE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "The catalogue of named jobs a club can hand out (Slice 8 / V-3). It describes work, not anybody's permissions -- every row is the same for every club -- and it is read-only to every browser role: the catalogue changes by migration, like the capability catalogue it names. RLS additionally limits reads to ACTIVE presets."
+      }
+    },
+    "capability_preset_capabilities": {
+      "classification": "REFERENCE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Which canonical capability keys each preset carries. Reference data with no person in it, read-only to every browser role, and a migration-time guard refuses any key a club could not have granted by hand."
+      }
     }
   },
   "views": {
@@ -7526,6 +7546,27 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/player/join/actions.ts"
+        ]
+      },
+      {
+        "signature": "apply_capability_preset(uuid, text, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/permissions/actions.ts"
+        ]
+      },
+      {
+        "signature": "club_capability_presets(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/permissions/page.tsx"
+        ]
+      },
+      {
+        "signature": "club_access_history(uuid, uuid, integer)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/people/[membershipId]/page.tsx"
         ]
       }
     ],

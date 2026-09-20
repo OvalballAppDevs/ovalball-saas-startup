@@ -70,3 +70,18 @@ export function isAwaitingConfirmation(confirmationState?: string | null): boole
  */
 export const PENDING_CONFIRMATION_EXPLANATION =
   "Nominated by the club and waiting for Ovalball to confirm the appointment. Until it is confirmed they hold no Safeguarding Officer authority."
+
+/**
+ * What a club is told an additional role means, in the moment they are choosing it.
+ *
+ * Presentation only, in the file that already owns role wording, so that a
+ * page does not carry a role name of its own. An unrecognised role gets the
+ * general sentence rather than a guess about what it confers -- the capability
+ * engine decides that, and this is only the caption on a select.
+ */
+export function additionalRoleDescription(roleKey: string): string {
+  if (roleKey === "VOLUNTEER") {
+    return "Helps out across the club. Read-only until you allow something on the permissions screen."
+  }
+  return "A club-wide role from Ovalball's role catalogue."
+}

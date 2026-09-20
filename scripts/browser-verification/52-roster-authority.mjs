@@ -88,6 +88,14 @@ begin
   delete from public.guardian_link_requests where club_id = v_club or requested_by_user_id = any(v_people);
   delete from public.guardians where player_id = any(v_players);
   delete from public.player_team_memberships where player_id = any(v_players);
+  -- AND BY TEAM, not only by player. A run that placed a player this suite did
+  -- not create -- or that crashed between creating a placement and recording
+  -- the player id -- leaves a membership whose team this teardown then cannot
+  -- delete, so the cleanup dies on a foreign key AFTER reporting every
+  -- assertion as passed. That is the shape Step 7 found in suite 37 and Step 8
+  -- found here: a suite that says it cleaned up and did not.
+  delete from public.player_team_memberships
+   where team_id in (select id from public.teams where club_id in (v_club, v_far));
   delete from public.players where id = any(v_players);
   delete from public.role_assignments where club_id in (v_club, v_far);
   delete from public.club_memberships where club_id in (v_club, v_far);

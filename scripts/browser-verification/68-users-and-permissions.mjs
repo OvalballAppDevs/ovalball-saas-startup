@@ -203,8 +203,18 @@ try {
   const explanations = (mainPerson.match(/, because /g) ?? []).length
   record("E1 every permission this club decides carries the rule that decided it", explanations >= 10, `${explanations} explanations`)
   record("E2 in product language, never a reason code", !/ROLE_BUNDLE|DEFAULT_DENY|EXPLICIT_/.test(mainPerson))
+  // THE TOTAL IS READ, NOT WRITTEN DOWN. This assertion used to name the
+  // catalogue's size -- "2 of 10 allowed" -- and Convergence Step 8 added a
+  // Pitch Allocation group, so a suite that had been right became wrong about
+  // a screen that had not broken. That is the same failure mode as suites 15
+  // and 19 disagreeing about the Control Centre's columns in Step 7. What the
+  // assertion is actually about is that an ordinary member is allowed TWO
+  // things, whatever size the club's catalogue happens to be.
+  const personCount = mainPerson.match(/(\d+) of (\d+) allowed/)
+  const catalogueSize = personCount ? Number(personCount[2]) : 0
   record("E3 and the count agrees with the permissions grid's own count for this person",
-    /2 of 10 allowed/.test(mainPerson), (mainPerson.match(/\d+ of \d+ allowed/) ?? ["none"])[0])
+    personCount !== null && Number(personCount[1]) === 2 && catalogueSize === explanations,
+    (mainPerson.match(/\d+ of \d+ allowed/) ?? ["none"])[0])
 
   // ------------------------------------------------------------------
   // F. The doors that must not close when a queue empties.
@@ -265,7 +275,7 @@ try {
   record("I4 and the permissions grid says the same thing, not that the appointment is settled",
     /Pending confirmation/i.test(nomineeRow), nomineeRow.trim())
   record("I5 the nominee still resolves as an ordinary member would -- the appointment granted nothing",
-    /2 of 10 allowed/.test(nomineeRow))
+    new RegExp(`2 of ${catalogueSize} allowed`).test(nomineeRow), nomineeRow.trim())
 
   // The club admin's session is finished. J and H are two other people,
   // asked separately, so none of the three is kept alive for the others.

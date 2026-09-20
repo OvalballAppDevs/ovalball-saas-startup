@@ -180,6 +180,42 @@ suppressed, and the declared set may only get smaller.
 
 ---
 
+## Convergence Step 8 — READY FOR PRODUCT REVIEW
+
+**Identity/Auth Slice 8 + operational role management.**
+
+| | |
+|---|---|
+| status | **READY FOR PRODUCT REVIEW** |
+| FUNCTIONS BEFORE | **77** |
+| FUNCTIONS AFTER | **85** |
+| FUNCTIONS LOST | **0** |
+| released | **no** |
+| pushed | **no** |
+| Step 9 | not started |
+
+Final accepted gate — one stable tree, one complete run, unsplit:
+
+```
+6495 passed, 0 failed across 255 suites.
+```
+
+| | |
+|---|---|
+| browser suites | **49 / 49**, 1,210 assertions |
+| FAIL · KILL · CRASH · EMPTY | **0 · 0 · 0 · 0** |
+| memory floor across 50 checkpoints | **2,378 MB** |
+| browsers surviving between suites | **0**, at every checkpoint |
+
+Step 8 added **no new authority**. It made canonical authority reachable by the
+person the design says owns it, and proved it is reachable by nobody else.
+
+Full record: `docs/product/CONVERGENCE_STEP_8_REPORT.md`, with
+`CONVERGENCE_STEP_8_ARCHAEOLOGY.md` and
+`CONVERGENCE_STEP_8_FUNCTIONALITY_MATRIX.md`.
+
+---
+
 ## Convergence Step 7 — TECHNICALLY ACCEPTED
 
 | | |
@@ -233,7 +269,7 @@ product owner rules that it is not a defect.
 | L1 | `lib/email/recipients.ts` `club_invitation` branch read the dead `public.invitations` table | Step 2 | Step 3 | **closed** — deleted as dead code, zero constructors proved |
 | L7 | `accept_invitation` and `get_invitation_preview` are a second, granted role-grant path over the empty `public.invitations` | Step 3 | **the release after this one deploys** | open — contract half of expand→contract |
 | L2 | A Safeguarding Officer nomination in `PENDING_CONFIRMATION` was described two contradictory ways and never as pending | Step 2 manual review preparation | Step 2 | **closed** — one appointment reader, one wording |
-| L3 | The same club role is worded "Fixtures Secretary" in the role catalogue and "Fixture Secretary" everywhere else | Step 2 manual review preparation | presentation mapped in Step 2; **the catalogue key/label inconsistency stays open for its schema owner** | partly open |
+| L3 | The same club role is worded "Fixtures Secretary" in the role catalogue and "Fixture Secretary" everywhere else | Step 2 manual review preparation | presentation mapped in Step 2; **the LABEL half closed by Step 8**, which owns the club role catalogue; **the KEY half is Slice 10's** | **partly open** — `role_definitions.label` and `capability_bundles.label` now both say "Fixture Secretary", with a migration guard that no catalogue a person reads may drift into the plural. What remains is one role with two IDENTIFIERS (`FIXTURES_SECRETARY` in `role_definitions`, `FIXTURE_SECRETARY` in `club_memberships` and `role_capability_defaults`); Slice 10 drops those columns, which is what removes the second identifier. Renaming an identifier is not a presentation fix. |
 | L4 | The team page told a Team Manager that only a Club Admin can assign people, directly beneath the assign control she may legitimately use | Step 2 manual review preparation | Step 2 | **closed** — the sentence asks the same flags the controls ask |
 | L6 | `64-password-recovery-journey` S6B1-02 fails intermittently under full batch load | Step 2 persona-policy work | test reliability | **root cause found and fixed in Step 4** — visibility was the wrong readiness signal |
 | L8 | An enforced nonce-bound CSP left the application un-hydrated | Step 4 (6b.2d) | Step 4 | **closed** — the cause was ours, not the framework's |
@@ -253,7 +289,7 @@ product owner rules that it is not a defect.
 | L22 | The application-shell unread badge sets `bg-pitch-600 text-white`, about 3.1:1, on every authenticated page — bypassing the dark-on-green pair `globals.css` already adopted site-wide | Step 6, root-caused in Step 7 | **whichever step owns the application shell** | open — declared, shrink-only, reported on every run |
 | L23 | Training recurrence offers "this occurrence" and "the series" but not "this and all future occurrences" | Step 7 (§28) | **Training Management** | open — deferred rather than built, because it changes the recurrence model |
 | L24 | The browser gate held every persona of a suite alive until the browser closed, so a four-persona suite peaked 460MB above a five-persona one that disposed as it went | Step 7 closure §1 | Step 7 closure | **closed** — personas are disposed when their questions are answered; measured 1351MB → 975MB on the worst case |
-| L25 | Thirty-one further numbered browser suites exist outside the release runner, inherited from the messaging, release-smoke and identity programmes | Step 7 closure §4 | **each owning programme, by domain** | **open** — all thirty-one are DECLARED `UNVERIFIED` in `scripts/browser-verification/suite-registry.json` and the gate fails if a thirty-second appears undeclared. They are **not** to be wired in wholesale: each needs archaeology and a deliberate disposition of VERIFIED + canonical gate / RETIRED / SUPERSEDED / SPECIAL-PURPOSE. Carried until every one of the thirty-one has an explicit durable disposition. **No suite may silently disappear.** |
+| L25 | Thirty-one further numbered browser suites exist outside the release runner, inherited from the messaging, release-smoke and identity programmes | Step 7 closure §4 | **each owning programme, by domain** | **open — 31 before Step 8, 5 dispositioned by Step 8, 26 remaining.** Step 8 ran every one of the nine suites in its own domain rather than judging them by name. **VERIFIED + canonical gate:** `52-roster-authority` (17 assertions — green on its assertions, its teardown died on a foreign key after reporting success, fixed), `58-club-admin-authority` (30, green first run), `59-club-misc-authority` (48, green first run). **SUPERSEDED:** `45-capability-foundation` (aborts after 4; superseded by `capability_precedence_truth_table.sql` 50, `capability_scope_isolation.sql` 22 and `step8_operational_access.sql` 69, all in the gate), `51-role-negative-smoke` (hangs, killed at ten minutes; superseded by `role_assignment_ceilings.sql` 28 and suite 48). **Still UNVERIFIED, with measurements recorded rather than a forced disposition:** `44-canonical-memberships` (aborts after 2), `46-family-authority` (13 of 14; F1 fails — family domain), `57-safeguarding-authority` (hangs, 0 assertions), `60-invitation-journeys` (15 of 16; G2 fails — Slice 5 domain). The remaining 22 belong to other programmes and were deliberately not mass-registered. |
 | L26 | `69-invitations-and-joining` revoked the team join code it issued but never deleted the row, because its sweep matched on an email address a `TEAM_JOIN_CODE` does not have; twenty-two revoked rows had accumulated | Step 7 closure §6 | Step 7 closure → **invitation / test-fixture hygiene** | **open** — accumulation is stopped and the twenty-two historical rows were swept by the corrected teardown during the accepted gate run (verified: zero `REVOKED` `TEAM_JOIN_CODE` rows remain; the one surviving `ISSUED` row is the review world's own, untouched). What stays open is **scope**: the sweep matches a marker the suite writes, not the disposable fixture that owns the row, and no regression proves it can never widen. The eventual fix must clean **only records owned by the disposable test fixture** — never a broad destructive cleanup. |
 | L27 | `03-u18-bypass` and `08-announcement-realtime` imported `@supabase/supabase-js` by absolute path into one developer machine's checkout, and eight suites resolved axe-core five different ways | Step 7 closure §5 | Step 7 closure | **closed** — both machine-specific imports removed in `488c0ea` (verified in the banked tree: each now imports the bare specifier), one `axeSource()` in the harness serves all eight call sites, and `scripts/verify-browser-suite-registry.mjs` **permanently** fails the gate on any absolute path or any per-suite axe resolution. The guard is the regression: it is what found these two. |
 | L28 | The runner printed `ok` for suites that exited non-zero, so an OOM kill and a crash both read as a clean run | Step 7 closure §3 | Step 7 closure → pre-Step-8 harness closure | **CLOSED** — root cause: the classification asked the suite's OUTPUT before asking the operating system, and the crash branch carried `b_ok > 0`, so a non-zero exit with no recorded passes fell through and printed `ok`. The decision now lives in `scripts/browser-verification/suite-exit-truth.sh`, which the runner **sources** rather than restating, and exit status is asked first: `KILL` (137) · `FAIL` (the suite named its own false assertions) · `CRASH` (any other non-zero, with no pass-count condition) · `EMPTY` (exit 0 having proved nothing) · `ok`. Assertion accounting is kept as an additional invariant, not replaced. Regression: `supabase/tests/js/runner_exit_truth.test.mts`, 11 assertions driving real child processes at exit 0 / 1 / 137 / throw / silent-zero and sweeping 36 status×pass×fail combinations. |
@@ -1340,6 +1376,19 @@ imports and axe resolution.
 
 `L28` runner exit truth — `ok` now means the process exited zero, and a
 permanent regression drives real child processes to prove it.
+
+### Closed, or moved on, in Step 8
+
+`L3`'s **label half** — the role catalogue and the bundle catalogue now both say
+"Fixture Secretary", guarded. The **key half** (one role, two identifiers) stays
+open and is **Slice 10's**, which drops the columns that carry the second one.
+
+`V-3` (Volunteer presets) and `X-4` (stale context invalidation) — both were
+Slice 8 rows in the identity programme's reconciliation, and both are closed:
+three presets applied through `set_capability_override`, and three tests that
+name the stale case rather than the forged one.
+
+`L25` — **31 before Step 8, 5 dispositioned, 26 remaining.**
 
 ### Protected assets — the discrepancy was never real
 
