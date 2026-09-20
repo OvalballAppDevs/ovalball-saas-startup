@@ -39,6 +39,186 @@ Two boundaries that follow from it:
   own account. `step2-review-club.mjs verify` therefore prints differences and
   fixes nothing.
 
+### Recorded review-world state — preserved, reported, not repaired
+
+The review club is **Step 2 Review RFC** (`step2-review-rfc`). It carries
+everything accumulated since Step 2, including the fixture season Step 7 added
+through `step2-review-club.mjs enrich-fixtures`.
+
+Three differences from the state `up` builds were measured at Step 7 closure.
+All three are one continuous session on **2026-09-18** by
+`review.step2.admin@ovalball.test` — the review administrator's own account —
+performed through legitimate product transitions:
+
+| what changed | when |
+|---|---|
+| a club join request from `review.step2.applicant@ovalball.test` (`BASIC_USER`) approved | 16:20:51 |
+| a player join request for **Mina** approved and placed in **Under 14 Girls** | 16:21:10 |
+| a `TEAM_JOIN_CODE` invitation issued | 16:26:44 |
+
+**This is review-world drift and evidence of the product being used. It is not
+test corruption.** Nothing was put back, and the baseline inside
+`step2-review-club.mjs` was deliberately left alone, because moving it would
+erase the record that a real person used the product.
+
+**Automated tests remain independent of this world.** Every suite seeds and
+cleans its own fixtures under its own tag prefix; no permanent test depends on
+the review club, and the review club is never destroyed or reseeded to make a
+test pass.
+
+---
+
+## Standing policy — acceptance evidence, and the machinery that produces it
+
+**Established at Convergence Step 7 acceptance.** These are programme rules, not
+Step 7 rules. They apply to every convergence step that follows.
+
+### 1. Acceptance evidence is ONE complete, unsplit, canonical gate run
+
+A step's final acceptance evidence is a single invocation of
+`scripts/run-platform-tests.sh` covering everything it covers.
+
+Grouped or individual suite reruns are legitimate **diagnostic** evidence and
+are how a failure gets root-caused. They **must never be assembled into a final
+green acceptance result.** A green that was composed rather than observed is not
+the same claim, and the difference is invisible in the artefact afterwards,
+which is exactly why the rule has to be about how the evidence was produced.
+
+### 2. A permanent test registers itself
+
+There is **one** list of what the canonical gate runs: `BROWSER_SUITES` in
+`scripts/run-platform-tests.sh`. `scripts/verify-browser-suite-registry.mjs`
+reads that list **from the runner itself** rather than keeping a copy, and
+requires every numbered suite in `scripts/browser-verification/` to be either in
+it or explicitly classified in `scripts/browser-verification/suite-registry.json`
+with a reason.
+
+**Independent human-curated lists that can silently drift are prohibited.** A
+permanent suite deliberately outside a gate must carry an explicit
+classification, and adding a suite while forgetting the runner fails the gate on
+the commit that adds it — the only moment anyone still remembers why.
+
+The four dispositions a suite outside the gate may hold:
+
+| | |
+|---|---|
+| **VERIFIED + canonical gate** | reconciled against the current schema and wired in |
+| **RETIRED** | the behaviour it guarded no longer exists |
+| **SUPERSEDED** | another suite now guards it; the successor is named |
+| **SPECIAL-PURPOSE** | deliberately excluded, with the reason (e.g. it tests the harness, not the product) |
+
+**No suite may silently disappear.** Deleting one is a disposition too, and it
+is recorded.
+
+### 3. A persona is not a permanent live browser context
+
+A persona is a **logical test identity**, not a browser that stays open for the
+length of a suite. Open its context when it is needed, use it, dispose it, move
+to the next.
+
+Keep two or more contexts alive **only** where the test genuinely requires
+concurrent actors. Measured at Step 7 closure, on this application:
+
+| | contexts | simultaneously held | peak procs | peak RSS |
+|---|---|---|---|---|
+| `31-competition-creator` before | 4 | **4** | 12 | **~1351 MB** |
+| `31-competition-creator` after | 4 | **≤2** | 10 | **~975 MB** |
+| `65-session-boundary-and-signup-challenge` | 5 | **≤1** | 10 | **~891 MB** |
+
+Suite 65 opens *more* contexts than suite 31 did and peaked ~460 MB lower. The
+Step 7 OOM problem was **not** browser-process leakage and **not** accidental
+suite-level parallelism — both were checked and neither existed. It was
+materially worsened by unnecessary simultaneous contexts **inside** individual
+suites.
+
+### 4. Intentional product concurrency is never serialised to save memory
+
+Optimise **infrastructure lifetime, never product semantics.** Simultaneous
+actors are preserved wherever the behaviour under test is simultaneous:
+
+- an organiser observing an opponent's response in the session that issued it;
+- a sender observing a recipient's notification or unread badge;
+- any genuine race or concurrency test.
+
+A test that is serialised to reduce memory has stopped testing the thing it was
+written for, and nothing about the run says so afterwards.
+
+### 5. Resource preflight, and never a skipped gate
+
+The measured minimum for beginning a clean full batch is **1200 MB genuinely
+available** (`scripts/browser-verification/resource.mjs`), replacing the earlier
+800 MB, which a machine could pass and still be killed. Availability is read as
+`vm_stat` free + inactive + speculative — **not** `os.freemem()`, which ignores
+reclaimable inactive pages and reads catastrophically low on a machine that is
+coping.
+
+A machine that cannot safely begin a clean full gate **reports that before**
+producing ambiguous partial evidence. The preflight and the crash diagnostics
+(`KILL`, `CRASH`, the per-suite resource reading) are preserved. **The gate is
+never skipped, and green is never fabricated.**
+
+### 6. Process hygiene
+
+The invariant is **zero browser processes surviving between suites**, checked at
+every runner checkpoint. Failure paths must dispose pages, contexts, browsers
+and any suite-owned child process — `launch()` registers what it opened and
+closes it on uncaught throw or signal, so a suite with no `finally` cannot cost
+the run a browser. Shared outer-runner infrastructure (the dev server, the
+Supabase stack, the mail catcher) has explicit ownership and is never disposed
+by a suite.
+
+### 7. Accessibility
+
+Every accessibility suite resolves axe through the canonical project-local
+helper, `axeSource()` in `scripts/browser-verification/harness.mjs`. **No new
+per-suite axe path logic**, and no absolute path into any machine's checkout —
+both are enforced by the registry guard.
+
+The accessibility baseline is **SHRINK-ONLY**. Declared pre-existing violations
+are **debt, not accepted design**: they are reported on every run, never
+suppressed, and the declared set may only get smaller.
+
+---
+
+## Convergence Step 7 — TECHNICALLY ACCEPTED
+
+| | |
+|---|---|
+| status | **TECHNICALLY ACCEPTED** |
+| product checkpoint | `58182c7` |
+| harness / closure checkpoint | `488c0ea` |
+| FUNCTIONS BEFORE | **88** |
+| FUNCTIONS AFTER | **88** |
+| FUNCTIONS LOST | **0** |
+| released | **no** |
+| pushed | **no** |
+
+Final accepted gate run — one invocation, unsplit:
+
+```
+6256 passed, 0 failed across 252 suites.
+```
+
+| | |
+|---|---|
+| browser suites | **44 / 44** |
+| browser assertions | **1061** |
+| FAIL | **0** |
+| KILL | **0** |
+| CRASH | **0** |
+| missing suites | **0** |
+
+Measured across the batch at 45 checkpoints: available memory never fell below
+2442 MB and ended higher than it started; **zero** browser processes survived
+between suites at every checkpoint.
+
+Full closure record: `docs/product/CONVERGENCE_STEP_7_CLOSURE.md`.
+Step 7's own report and functionality matrix: `CONVERGENCE_STEP_7_REPORT.md`,
+`CONVERGENCE_STEP_7_FUNCTIONALITY_MATRIX.md`.
+
+**Completed Fixture Operations work is not reopened in later steps** unless a
+regression or a genuinely new requirement requires it.
+
 ---
 
 Findings that are real, reproducible, and **deliberately not fixed where they
@@ -73,10 +253,10 @@ product owner rules that it is not a defect.
 | L22 | The application-shell unread badge sets `bg-pitch-600 text-white`, about 3.1:1, on every authenticated page — bypassing the dark-on-green pair `globals.css` already adopted site-wide | Step 6, root-caused in Step 7 | **whichever step owns the application shell** | open — declared, shrink-only, reported on every run |
 | L23 | Training recurrence offers "this occurrence" and "the series" but not "this and all future occurrences" | Step 7 (§28) | **Training Management** | open — deferred rather than built, because it changes the recurrence model |
 | L24 | The browser gate held every persona of a suite alive until the browser closed, so a four-persona suite peaked 460MB above a five-persona one that disposed as it went | Step 7 closure §1 | Step 7 closure | **closed** — personas are disposed when their questions are answered; measured 1351MB → 975MB on the worst case |
-| L25 | Thirty-one further numbered browser suites exist outside the release runner, inherited from the messaging, release-smoke and identity programmes | Step 7 closure §7 | **each owning programme** | open — every one is now DECLARED in `scripts/browser-verification/suite-registry.json` with its reason, and the gate fails if a thirty-second appears undeclared |
-| L26 | `69-invitations-and-joining` revoked the team join code it issued but never deleted the row, because its sweep matched on an email address a join code does not have | Step 7 closure §6 | Step 7 closure | **closed** — twenty-two accumulated rows; the suite now sweeps by the marker it writes |
-| L27 | Two suites imported `@supabase/supabase-js` by an absolute path into one machine's checkout, and eight resolved axe-core five different ways | Step 7 closure §8 | Step 7 closure | **closed** — one `axeSource()` in the harness, and `verify-browser-suite-registry.mjs` fails the gate on any absolute path in a suite |
-| L28 | The runner printed `ok` for a suite that exited non-zero having recorded only passes, so an OOM kill and a crash both read as a clean run | Step 7 closure §4 | Step 7 closure | **closed** — `KILL` and `CRASH` are named, counted separately from `FAIL`, and carry the resource reading |
+| L25 | Thirty-one further numbered browser suites exist outside the release runner, inherited from the messaging, release-smoke and identity programmes | Step 7 closure §4 | **each owning programme, by domain** | **open** — all thirty-one are DECLARED `UNVERIFIED` in `scripts/browser-verification/suite-registry.json` and the gate fails if a thirty-second appears undeclared. They are **not** to be wired in wholesale: each needs archaeology and a deliberate disposition of VERIFIED + canonical gate / RETIRED / SUPERSEDED / SPECIAL-PURPOSE. Carried until every one of the thirty-one has an explicit durable disposition. **No suite may silently disappear.** |
+| L26 | `69-invitations-and-joining` revoked the team join code it issued but never deleted the row, because its sweep matched on an email address a `TEAM_JOIN_CODE` does not have; twenty-two revoked rows had accumulated | Step 7 closure §6 | Step 7 closure → **invitation / test-fixture hygiene** | **open** — accumulation is stopped and the twenty-two historical rows were swept by the corrected teardown during the accepted gate run (verified: zero `REVOKED` `TEAM_JOIN_CODE` rows remain; the one surviving `ISSUED` row is the review world's own, untouched). What stays open is **scope**: the sweep matches a marker the suite writes, not the disposable fixture that owns the row, and no regression proves it can never widen. The eventual fix must clean **only records owned by the disposable test fixture** — never a broad destructive cleanup. |
+| L27 | `03-u18-bypass` and `08-announcement-realtime` imported `@supabase/supabase-js` by absolute path into one developer machine's checkout, and eight suites resolved axe-core five different ways | Step 7 closure §5 | Step 7 closure | **closed** — both machine-specific imports removed in `488c0ea` (verified in the banked tree: each now imports the bare specifier), one `axeSource()` in the harness serves all eight call sites, and `scripts/verify-browser-suite-registry.mjs` **permanently** fails the gate on any absolute path or any per-suite axe resolution. The guard is the regression: it is what found these two. |
+| L28 | The runner printed `ok` for suites that exited non-zero, so an OOM kill and a crash both read as a clean run | Step 7 closure §3 | **Step 8 or the next harness pass** | **OPEN — not closed by the green run.** `488c0ea` names `KILL` (exit 137) and `CRASH` (non-zero exit after recorded passes), counted separately from `FAIL` and printed with the resource reading. But the invariant `ok == exit zero` is **not** enforced: a suite exiting non-zero having recorded **zero** `PASS` lines still falls through and prints `ok`. It is counted as a failure by the "recorded no assertions" branch, so the gate goes red — the printed word is wrong, not the verdict. Closing requires (a) the `CRASH` branch to drop its `b_ok > 0` condition so any non-zero exit is a suite failure, and (b) a permanent regression asserting the runner's classification against synthetic suites that exit 0 / 1 / 137 / crash silently. **Do not infer closure from a green gate.** |
 
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
@@ -1115,3 +1295,70 @@ earlier crash left behind.
 The standing lesson: **a permanent suite that nothing runs is not protection,
 it is a document that has stopped being true.** Wiring a suite in is part of
 writing it.
+
+---
+
+## Programme carry-forward as at Step 7 acceptance
+
+Everything open, in one place, with its owner. **None of these is a Step 8
+requirement unless the master programme assigns it there.**
+
+### Open ledger items
+
+| id | one line | owner |
+|---|---|---|
+| **L3** | one club role, two spellings — presentation mapped, the catalogue key/label inconsistency remains | the catalogue's schema owner |
+| **L7** | `accept_invitation` / `get_invitation_preview` are a second granted role-grant path over the empty `public.invitations` | **the release after this one deploys** — the contract half of expand→contract |
+| **L11** | the `(app)` auth gate redirects to `/login` without a `next`, so a deep link is lost at sign-in | Step 4 family — Identity/Auth 6b |
+| **L15** | fourteen perimeter-manifest consumer declarations belonging to other slices, in a shrink-only baseline | each owning slice |
+| **L22** | the application-shell unread badge is ~3.1:1 on every authenticated page | **Application Shell / UX owner** |
+| **L23** | training recurrence has no "this and all future occurrences" | **Training Management** |
+| **L25** | thirty-one numbered suites outside the release runner, all declared `UNVERIFIED` | **each owning programme, by domain** |
+| **L26** | `TEAM_JOIN_CODE` cleanup is marker-scoped, not fixture-scoped, and unregressed | invitation / test-fixture hygiene |
+| **L28** | `ok == exit zero` is not enforced, and the runner's classification has no regression | Step 8 or the next harness pass |
+
+### Owner actions
+
+| | |
+|---|---|
+| **S7-13** | a second Full Site Admin in production — untouched, owner action |
+
+### Deferred product work, named rather than built
+
+| | |
+|---|---|
+| Existing Step 6 contrast debt | the owning UX surfaces — shrink-only, reported every run |
+| Parent/Player availability **response** experience | later Parent/Player work. Step 7 built the availability **display** only and did not pull the response journey forward |
+| Polls, Kudos, post-match community write-ups, Players'/Parents'/Coaches'/Opposition Player, work-ethic and Beast awards, award configuration, badges, voting eligibility | later Match Centre Community / Rewards work. The fixture data and API surfaces support them; none is implemented |
+
+### Closed in the Step 7 closure pass
+
+`L19` away-ground suggestion · `L20` pitch-allocation split square · `L21`
+twenty-seven unwired suites · `L24` persona context lifetime · `L27` absolute
+imports and axe resolution.
+
+### Protected assets — the discrepancy was never real
+
+Step 6 §27 recorded the two protected logo files as `NEEDS OWNER REVIEW` on an
+apparent hash mismatch. **There is no discrepancy and there never was**: Step 6
+compared each file's **`git hash-object`** digest — which prefixes
+`blob <size>\0` before hashing, and is therefore *not* the file's SHA-1 —
+against a canonical record holding the **plain SHA-1**.
+
+Re-measured at Step 7 acceptance, read-only:
+
+| | `Ovalball Square Logo.png` | `Overball Logo Low Res.png` |
+|---|---|---|
+| plain SHA-1 | `be2bef0c978869aaa73e474cd5abdf5aec1fff6c` | `bdd3224871f0561d971f93f519764f0502092504` |
+| canonical record | `be2bef0c…` ✅ | `bdd32248…` ✅ |
+| `git hash-object` | `aca33ffc9812cb3e65f29232bb73140bdcced288` | `1a4f167526fec91375ac8f337f61feca0fd80fff` |
+| bytes | 1,151,454 | 1,140,858 |
+| git | untracked (`??`), never staged | untracked (`??`), never staged |
+
+**No byte or provenance discrepancy is proved by that evidence.** The canonical
+record needs no update. Both files remain untouched and untracked, and are not
+to be modified.
+
+The standing lesson: **compare like with like.** `git hash-object` is not SHA-1
+of a file, and a digest is meaningless without the algorithm that produced it
+named beside it.

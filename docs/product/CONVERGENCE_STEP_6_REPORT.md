@@ -272,7 +272,7 @@ not touch, so it is recorded rather than fixed.
 
 Four moved; none lost. Detail and reasoning in the matrix.
 
-## 27. Protected logo provenance — NEEDS OWNER REVIEW
+## 27. Protected logo provenance — RESOLVED AT STEP 7 ACCEPTANCE
 
 Recorded at Step 6 start and **left untouched**. Neither file was modified,
 restored, staged or written to.
@@ -291,6 +291,30 @@ mtimes predate this session by ten days and both files are untracked, so nothing
 in Steps 4–6 could have changed them. The canonical protected-hash record has
 **not** been updated, and no investigation involving replacing either file was
 attempted.
+
+> **RESOLVED at Step 7 acceptance. There was no discrepancy.**
+>
+> The measurements above are correct; the *comparison* was not. The row is
+> labelled "SHA-1 (`git hash-object`)", and `git hash-object` prefixes
+> `blob <size>\0` before hashing — so it is **not** the file's SHA-1. The
+> canonical record holds the **plain** SHA-1, and that parenthesis was the whole
+> of it.
+>
+> Re-measured read-only at Step 7 acceptance:
+>
+> | | `Ovalball Square Logo.png` | `Overball Logo Low Res.png` |
+> |---|---|---|
+> | plain SHA-1 | `be2bef0c978869aaa73e474cd5abdf5aec1fff6c` | `bdd3224871f0561d971f93f519764f0502092504` |
+> | canonical record | matches | matches |
+>
+> Every other digest, both sizes and both mtimes agree with the table above.
+> **No byte or provenance discrepancy is proved by this evidence**, the
+> canonical record needs no update, and both files remain untouched and
+> untracked. Step 6 was right to refuse to investigate it; what it was missing
+> was that there was nothing to investigate.
+>
+> See `docs/product/CONVERGENCE_LEDGER.md` — "Protected assets — the
+> discrepancy was never real", and `CONVERGENCE_STEP_7_REPORT.md` §33b.
 
 ## 28. Step 7 handoff
 

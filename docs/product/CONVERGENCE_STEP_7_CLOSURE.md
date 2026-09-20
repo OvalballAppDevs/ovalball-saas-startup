@@ -182,6 +182,17 @@ status, so a suite killed by the kernel after recording twenty passes printed
   finish; that is not a clean run and must never print `ok`.
 - `FAIL` — an assertion about the product was false.
 
+**What this still does not enforce — L28 stays OPEN.** The invariant
+`ok == exit zero` is not yet true. A suite that exits non-zero having recorded
+**zero** `PASS` lines falls past the `CRASH` branch — which requires at least
+one recorded pass — and prints `ok`. The "recorded no assertions" branch then
+counts it as a failure, so the gate still goes red; the printed word is wrong,
+not the verdict. Closing L28 needs the `CRASH` branch to drop that condition, so
+that **any** non-zero exit is a suite failure, and a permanent regression
+asserting the runner's classification against synthetic suites that exit 0, 1,
+137, and crash silently. **A green gate does not prove this**, which is exactly
+why it is carried rather than assumed.
+
 ---
 
 ## 4. A numbered suite cannot silently exist outside the gate
@@ -310,7 +321,19 @@ whichever step owns the shell) and one `.opacity-45` caption on club setup step
 
 ## 9. Step 7 — TECHNICALLY ACCEPTED
 
-Step 7 is recorded **TECHNICALLY ACCEPTED** at `58182c7`, on the evidence above.
+Step 7 is recorded **TECHNICALLY ACCEPTED** by the product owner on the evidence
+above.
+
+| | |
+|---|---|
+| product checkpoint | `58182c7` |
+| harness / closure checkpoint | `488c0ea` |
+| FUNCTIONS BEFORE | **88** |
+| FUNCTIONS AFTER | **88** |
+| FUNCTIONS LOST | **0** |
+
+Completed Fixture Operations work is not reopened in later steps unless a
+regression or a genuinely new requirement requires it.
 
 The closure changes in this pass are harness, runner and record only, and are
 banked separately from Step 7 itself so that the product commit and the
