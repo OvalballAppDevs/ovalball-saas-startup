@@ -527,6 +527,9 @@ await go(`/fixtures/${awayFixture}?from=${encodeURIComponent(awayBack)}`)
 const awayLink = page.locator("main a").first()
 record("§K and it comes back to the away view it was opened from",
   (await awayLink.getAttribute("href"))?.includes("ha=Away"), await awayLink.getAttribute("href"))
+// The desktop journey is over. The mobile checks below open their own
+// sessions, so the desktop one is not carried through them.
+await ctx.close()
 
 // =====================================================================
 // §37 MOBILE -- the surfaces this step materially changed

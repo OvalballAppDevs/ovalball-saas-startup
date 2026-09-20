@@ -10,7 +10,7 @@
 import fs from "node:fs"
 import path from "node:path"
 
-import { launch, newContext, signIn, APP, record, recordAxe, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, recordAxe, summarise, axeSource } from "./harness.mjs"
 
 const SHOTS = process.env.SHOT_DIR ?? path.resolve(import.meta.dirname, "../../.screenshots")
 fs.mkdirSync(SHOTS, { recursive: true })
@@ -102,8 +102,6 @@ for (const width of [320, 360, 390, 430, 834]) {
 // ---------------------------------------------------------------------
 // §64 ACCESSIBILITY on the redesigned surfaces, desktop
 // ---------------------------------------------------------------------
-const axeSource = (await import("node:fs")).readFileSync(
-  new URL("../../node_modules/axe-core/axe.min.js", import.meta.url), "utf8")
 
 const a11yCtx = await newContext(browser, { width: 1512, height: 950 })
 const a11y = await a11yCtx.newPage()
@@ -112,7 +110,7 @@ await signIn(a11y, "uat.coach@ovalball.test")
 for (const surface of SURFACES) {
   await a11y.goto(`${APP}${surface.path}`, { waitUntil: "domcontentloaded" })
   await a11y.waitForLoadState("networkidle").catch(() => {})
-  await a11y.addScriptTag({ content: axeSource })
+  await a11y.addScriptTag({ content: axeSource() })
   const violations = await a11y.evaluate(async () => {
     const results = await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] })
     return results.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))

@@ -222,6 +222,9 @@ await page.waitForLoadState("networkidle").catch(() => {})
 await page.getByRole("link", { name: "Import Fixtures" }).click()
 await page.waitForURL(/\/fixtures\/import/, { timeout: 60000 }).catch(() => {})
 record("§43 clicking Import Fixtures lands on the import wizard, not the planner", page.url().includes("/fixtures/import"), page.url())
+// The planner persona is finished. The next three checks are three separate
+// people asking three separate questions -- nothing here needs two at once.
+await ctx.close()
 
 // ---------------------------------------------------------------------
 // §53 SITE ADMIN GETS A CLUB CHOOSER, NOT A SILENT REDIRECT
@@ -246,6 +249,8 @@ await admin.waitForLoadState("networkidle").catch(() => {})
 record("§53 choosing a club opens that club's planner under the normal checks",
   (await admin.locator("table").count()) > 0 || admin.url().includes("/fixtures"), admin.url())
 
+await adminCtx.close()
+
 // And an ordinary member cannot reach another club's planner by naming it.
 const outsiderCtx = await newContext(browser, { width: 1280, height: 900 })
 const outsider = await outsiderCtx.newPage()
@@ -254,6 +259,7 @@ await outsider.goto(`${APP}/fixtures/planner?club=${someClub}`, { waitUntil: "do
 await outsider.waitForLoadState("networkidle").catch(() => {})
 record("§53 naming a club in the URL is not a way into it",
   !outsider.url().includes("/fixtures/planner"), `sent to ${outsider.url()}`)
+await outsiderCtx.close()
 
 world.cleanup()
 await browser.close()

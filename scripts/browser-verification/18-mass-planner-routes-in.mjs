@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process"
 import { writeFileSync, mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { launch, newContext, signIn, APP, record, recordAxe, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, recordAxe, summarise, axeSource } from "./harness.mjs"
 import { ensureFixtureWorld } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
@@ -153,13 +153,13 @@ record("§74 a phone gets a labelled card editor instead",
   (await mobile.locator("article").count()) >= 1 &&
     (await mobile.locator('input[aria-label^="Opposition Club, row"], article input').count()) >= 1,
   `${await mobile.locator("article").count()} cards`)
+// The phone check is done with. A viewport is not a second actor.
+await mobileCtx.close()
 
 // ---------------------------------------------------------------------
 // ACCESSIBILITY
 // ---------------------------------------------------------------------
-const axeSource = (await import("node:fs")).readFileSync(
-  new URL("../../node_modules/axe-core/axe.min.js", import.meta.url), "utf8")
-await page.addScriptTag({ content: axeSource })
+await page.addScriptTag({ content: axeSource() })
 const violations = await page.evaluate(async () => {
   const results = await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] })
   return results.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))

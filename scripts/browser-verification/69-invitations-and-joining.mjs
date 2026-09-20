@@ -42,11 +42,28 @@ const clubId = sql(`select c.id from public.clubs c join public.club_directory d
                      where d.normalized_key = 'ovalball-uat-rufc' limit 1`)
 const teamU12 = sql(`select id from public.teams where club_id = '${clubId}' and age_group = 'U12' and squad_designation is null limit 1`)
 
+// The marker the suite writes on anything it issues without an email address,
+// so its own sweep can find it again. Nothing else in the product writes it.
+const CLEANUP_REASON = "browser suite cleanup"
+
 function teardown() {
   sql(`
     delete from public.invitation_teams it using public.access_invitations i
       where it.invitation_id = i.id and i.invited_email_normalised like '${MINE}';
     delete from public.access_invitations where invited_email_normalised like '${MINE}';`)
+  // A TEAM JOIN CODE HAS NO INVITED EMAIL, so the sweep above never reached
+  // one. E4 revoked the code it issued -- which is the security property it
+  // was asserting -- and then left the row, so every run of this suite added
+  // another REVOKED row to the automated UAT club for good. Twenty-two had
+  // accumulated before anyone counted them. Revoking is the product
+  // behaviour; deleting the row is the suite cleaning up after itself, and
+  // the two are not the same obligation.
+  sql(`
+    delete from public.invitation_teams it using public.access_invitations i
+      where it.invitation_id = i.id and i.kind = 'TEAM_JOIN_CODE'
+        and i.revocation_reason = '${CLEANUP_REASON}';
+    delete from public.access_invitations
+      where kind = 'TEAM_JOIN_CODE' and revocation_reason = '${CLEANUP_REASON}';`)
 }
 
 teardown()
@@ -157,6 +174,9 @@ try {
   // backwards: the list IS the non-disclosure.
   record("C6 and offers the possibilities rather than naming which one it was",
     /used already, withdrawn, or/i.test(joinText) && !/this code was (revoked|replaced|reissued)/i.test(joinText))
+  // The signed-out visitor has finished. Everything after this is the club's
+  // own side of the same invitations, seen by the person who issued them.
+  await anon.close()
 
   // ------------------------------------------------------------------
   // D. The invitation's lifecycle is the canonical one, worded.
@@ -187,7 +207,7 @@ try {
     const created = sql(`select id from public.access_invitations where kind = 'TEAM_JOIN_CODE' and team_id = '${teamU12}'
                          and state = 'ISSUED' order by created_at desc limit 1`)
     if (created) sql(`update public.access_invitations set state = 'REVOKED', revoked_at = now(),
-                        revocation_reason = 'browser suite cleanup' where id = '${created}'`)
+                        revocation_reason = '${CLEANUP_REASON}' where id = '${created}'`)
   } else {
     record("E1 a team join code is presented in the same panel as every other invitation", false, "no join-code control was offered")
   }

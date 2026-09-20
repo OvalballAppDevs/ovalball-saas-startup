@@ -22,6 +22,7 @@
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 
 import { chromium } from "playwright-core"
 import { totpForSubmission } from "../security/totp.mjs"
@@ -32,8 +33,78 @@ export const EXE =
 export const APP = process.env.APP_URL || "http://localhost:3000"
 export const MAILPIT = process.env.MAILPIT_URL || "http://127.0.0.1:54324"
 
+/**
+ * THE ONE PLACE AXE IS RESOLVED.
+ *
+ * Eight suites each found their own way to axe-core, and one of them had once
+ * been written with an absolute path into the job directory it happened to be
+ * generated in -- a directory that no longer exists, so the check it performed
+ * silently stopped being performed. A path that is right on one machine and
+ * absent on the next is not a dependency, it is a coincidence.
+ *
+ * `import.meta.resolve` asks Node the same question the runtime asks, so it
+ * answers correctly from wherever the repository is checked out, and
+ * `scripts/verify-browser-suite-registry.mjs` fails the gate if a suite
+ * reaches for axe any other way.
+ */
+let axeCache = null
+export function axeSource() {
+  if (axeCache === null) {
+    axeCache = fs.readFileSync(fileURLToPath(import.meta.resolve("axe-core/axe.min.js")), "utf8")
+  }
+  return axeCache
+}
+
+/**
+ * A CRASH IN ONE SUITE MUST NOT BECOME THE NEXT SUITE'S PROBLEM.
+ *
+ * Thirty-one of the gate's suites have no `finally`, so an assertion that
+ * throws halfway through leaves the browser running and the suite's own
+ * cleanup unrun. Playwright tidies up after a clean exit; it does not tidy up
+ * after an uncaught throw that never reaches an exit. Rather than ask
+ * forty-four scripts to remember, `launch()` registers what it opened and this
+ * closes it on every way out.
+ *
+ * It deliberately does NOT swallow the error. The suite still fails, loudly,
+ * with its own stack; what changes is that it stops costing the run a browser.
+ */
+const openBrowsers = new Set()
+let guardInstalled = false
+
+function installCrashGuard() {
+  if (guardInstalled) return
+  guardInstalled = true
+
+  const closeAll = async () => {
+    for (const b of openBrowsers) {
+      try {
+        await b.close()
+      } catch {
+        // A browser that has already gone is the outcome we wanted.
+      }
+    }
+    openBrowsers.clear()
+  }
+
+  const die = (label) => async (err) => {
+    console.error(`\nHARNESS: ${label} -- closing ${openBrowsers.size} browser(s) before exit`)
+    if (err) console.error(err)
+    await closeAll()
+    process.exit(label === "interrupted" ? 130 : 1)
+  }
+
+  process.on("uncaughtException", die("uncaught exception"))
+  process.on("unhandledRejection", die("unhandled rejection"))
+  process.on("SIGINT", die("interrupted"))
+  process.on("SIGTERM", die("interrupted"))
+}
+
 export async function launch() {
-  return chromium.launch({ executablePath: EXE, headless: true })
+  installCrashGuard()
+  const browser = await chromium.launch({ executablePath: EXE, headless: true })
+  openBrowsers.add(browser)
+  browser.on("disconnected", () => openBrowsers.delete(browser))
+  return browser
 }
 
 /**

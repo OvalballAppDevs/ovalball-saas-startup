@@ -287,6 +287,12 @@ record("issue: the organiser sees the change request under Needs Attention", (aw
 const orgNotified = sql(`select count(*) from notifications n join auth.users u on u.id=n.user_id where u.email='uat.coach@ovalball.test' and n.type='competition_match_response' and n.data->>'edition_id'='${EDITION}'`)
 record("issue: the organiser is notified of the answer", Number(orgNotified) >= 1, orgNotified)
 
+// The organiser and Preston had to be alive together: the organiser has to see
+// the consequence of Preston's answer in the session that issued the match.
+// That exchange is over, so neither persona is kept past it.
+await prestonCtx.close()
+await ctx.close()
+
 // ---------------------------------------------------------------------
 // PUBLIC PAGE
 // ---------------------------------------------------------------------
@@ -302,6 +308,7 @@ await anon.goto(`${APP}/competitions/${slug}?view=tables`, { waitUntil: "domcont
 record("public: tables show both groups", (await anon.getByRole("heading", { name: /Group [AB]/ }).count()) === 2)
 await anon.goto(`${APP}/competitions/${slug}?view=bracket`, { waitUntil: "domcontentloaded" })
 record("public: the bracket shows the final by places", (await anon.locator("main").innerText()).includes("Group A 1st"))
+await anonCtx.close()
 
 // ---------------------------------------------------------------------
 // TEAM STAFF ARE NOT ORGANISERS
@@ -314,6 +321,8 @@ for (const path of ["/fixtures/competitions", "/fixtures/competitions/new", `/fi
   await tm.waitForLoadState("networkidle").catch(() => {})
   record(`team staff: a Team Manager cannot open ${path.replace(EDITION, "<edition>")}`, !tm.url().includes("/fixtures/competitions"), tm.url().replace(APP, ""))
 }
+
+await tmCtx.close()
 
 record("no uncaught page errors", pageErrors.length === 0, pageErrors.slice(0, 2).join(" | "))
 await browser.close()

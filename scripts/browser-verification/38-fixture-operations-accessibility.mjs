@@ -13,12 +13,9 @@
 // The one competition this suite seeds is removed at the end.
 
 import { execFileSync } from "node:child_process"
-import { createRequire } from "node:module"
-import { launch, newContext, signIn, APP, record, recordAxe, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, recordAxe, summarise, axeSource } from "./harness.mjs"
 import { ensureFixtureWorld } from "./fixture-world.mjs"
 
-const require = createRequire(import.meta.url)
-const AXE = require.resolve("axe-core/axe.min.js")
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
 
@@ -78,7 +75,7 @@ const settle = async () => {
 }
 
 async function axe(target, label, context = null) {
-  await target.addScriptTag({ path: AXE })
+  await target.addScriptTag({ content: axeSource() })
   const result = await target.evaluate(async (ctxSelector) => {
     const r = await axe.run(ctxSelector ? document.querySelector(ctxSelector) : document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] }, resultTypes: ["violations"] })
     return r.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))
@@ -195,6 +192,7 @@ for (const view of ["", "?view=results", "?view=tables", "?view=bracket"]) {
 await anon.goto(`${APP}/competitions/${slug}`, { waitUntil: "domcontentloaded" })
 const unlabelled = await anon.locator("form select").evaluateAll((s) => s.filter((x) => !x.labels || x.labels.length === 0).length)
 record("labels: every public filter has a visible label", unlabelled === 0, `${unlabelled} unlabelled`)
+await anonCtx.close()
 
 record("hydration: every page visited renders the same ids on the server and in the browser", hydration.length === 0, hydration.slice(0, 2).join(" | "))
 world.cleanup()

@@ -11,7 +11,7 @@
 import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
-import { launch, newContext, signIn, APP, record, recordAxe, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, recordAxe, summarise, axeSource } from "./harness.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
@@ -199,15 +199,15 @@ const overflow = await mobile.evaluate(() => ({
 }))
 record("no horizontal overflow on the Control Centre at 390px",
   overflow.content <= overflow.viewport, `content ${overflow.content}px in ${overflow.viewport}px`)
+// The phone check is done with. A viewport is not a second actor.
+await mobileCtx.close()
 
 // ---------------------------------------------------------------------
 // ACCESSIBILITY -- the new band, grouping and empty state included
 // ---------------------------------------------------------------------
-const axeSource = (await import("node:fs")).readFileSync(
-  new URL("../../node_modules/axe-core/axe.min.js", import.meta.url), "utf8")
 await page.goto(`${APP}/fixtures/management`, { waitUntil: "domcontentloaded" })
 await page.waitForLoadState("networkidle").catch(() => {})
-await page.addScriptTag({ content: axeSource })
+await page.addScriptTag({ content: axeSource() })
 const violations = await page.evaluate(async () => {
   const results = await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] })
     return results.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))

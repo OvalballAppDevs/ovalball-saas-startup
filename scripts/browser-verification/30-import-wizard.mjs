@@ -159,12 +159,16 @@ record("xlsx: the file name is carried into the step bar", (await steps.innerTex
 // ---------------------------------------------------------------------
 // TEAM STAFF DO NOT IMPORT
 // ---------------------------------------------------------------------
+// The importer's session is finished; the refusal below is a different person
+// on their own, so the two never need to be alive together.
+await ctx.close()
 const tmCtx = await newContext(browser)
 const tm = await tmCtx.newPage()
 await signIn(tm, "uat.team.manager@ovalball.test")
 await tm.goto(`${APP}/fixtures/import`, { waitUntil: "domcontentloaded" })
 await tm.waitForLoadState("networkidle").catch(() => {})
 record("team staff: a Team Manager is sent away from Import Fixtures", !tm.url().includes("/fixtures/import"), tm.url().replace(APP, ""))
+await tmCtx.close()
 
 record("no uncaught page errors", pageErrors.length === 0, pageErrors.slice(0, 2).join(" | "))
 sql(`delete from fixture_import_batches where id='${batchId}'`)

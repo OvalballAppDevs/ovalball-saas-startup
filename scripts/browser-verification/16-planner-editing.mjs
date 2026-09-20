@@ -167,6 +167,10 @@ await page.waitForTimeout(300)
 record("§11 selection can be cleared",
   !/fixtures selected/i.test(await page.locator("body").innerText()))
 
+// The club planner's session is finished before the site one begins: these are
+// two people looking at two screens, not one interaction needing both.
+await ctx.close()
+
 // SITE ADMIN KEEPS THE MEET COLUMN, and it is still inline-editable there --
 // asserted where it now lives rather than deleted along with the club
 // assertion, so the field is not quietly left untested by a layout change.

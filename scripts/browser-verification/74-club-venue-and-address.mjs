@@ -150,6 +150,10 @@ try {
   record("S6B-31 and pitches are children of that venue, never a free-text duplicate", pitchCount === "0",
     `${pitchCount} to start with`)
 
+  // The desktop session has asked everything it came to ask; the width checks
+  // below sign in for themselves rather than running beside it.
+  await ctx.close()
+
   // ------------------------------------------------------------------
   // E. 390 and 320 (§58).
   // ------------------------------------------------------------------

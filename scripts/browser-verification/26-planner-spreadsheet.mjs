@@ -10,8 +10,7 @@
 // against real canonical data. Nothing sets a React value directly.
 
 import { execFileSync } from "node:child_process"
-import { readFileSync } from "node:fs"
-import { launch, newContext, signIn, APP, record, recordAxe, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, recordAxe, summarise, axeSource } from "./harness.mjs"
 import { ensureFixtureWorld, ensureSecondVenue } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
@@ -385,11 +384,10 @@ await page.keyboard.press("Escape")
 // ---------------------------------------------------------------------
 // §19 ACCESSIBILITY with a live selection and the menu open
 // ---------------------------------------------------------------------
-const axeSource = readFileSync(new URL("../../node_modules/axe-core/axe.min.js", import.meta.url), "utf8")
 await selectCell("Our Team, row 2")
 await cell("Venue, row 4").click({ modifiers: ["Shift"] })
 await cell("Venue, row 3").click({ button: "right" })
-await page.addScriptTag({ content: axeSource })
+await page.addScriptTag({ content: axeSource() })
 const violations = await page.evaluate(async () => {
   const results = await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] })
     return results.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))

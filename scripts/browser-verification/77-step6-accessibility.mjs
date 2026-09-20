@@ -17,13 +17,10 @@
 // =====================================================================
 
 import { execFileSync } from "node:child_process"
-import fs from "node:fs"
-import path from "node:path"
 
-import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, summarise, axeSource } from "./harness.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
-const AXE = fs.readFileSync(path.resolve(import.meta.dirname, "../../node_modules/axe-core/axe.min.js"), "utf8")
 const TAG = Math.random().toString(36).slice(2, 7)
 const KEY = `s6-a11y-${TAG}`
 const PASSWORD = `A11y!${TAG}aA9`
@@ -135,7 +132,7 @@ const PRE_EXISTING = new Set([
 
 /** axe, scoped to the WCAG rules the programme accepts against. */
 async function audit(page, label) {
-  await page.addScriptTag({ content: AXE })
+  await page.addScriptTag({ content: axeSource() })
   const violations = await page.evaluate(async () => {
     const r = await window.axe.run(document, {
       runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] },
@@ -271,6 +268,10 @@ try {
   record("S6A-12 and does not navigate away from the step, so entered data is not lost",
     afterInvalid.stillOnStep.includes("/club/setup"), afterInvalid.stillOnStep)
 
+  // Finished with the wide session. Each width below opens its own, so only
+  // one of them is ever alive at a time.
+  await ctx.close()
+
   // ------------------------------------------------------------------
   // D. THE ADDRESS AUTOCOMPLETE, explicitly (§22), at three widths.
   // ------------------------------------------------------------------
@@ -316,7 +317,7 @@ try {
     await signIn(sp, "uat.coach@ovalball.test")
     await sp.goto(`${APP}/club/venues`, { waitUntil: "domcontentloaded" })
     await sp.waitForLoadState("networkidle").catch(() => {})
-    await sp.addScriptTag({ content: AXE })
+    await sp.addScriptTag({ content: axeSource() })
     const violations = await sp.evaluate(async () => {
       const r = await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } })
       return r.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))

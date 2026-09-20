@@ -51,6 +51,14 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-training-centre-shared.mjs"; th
   exit 1
 fi
 
+# A permanent browser suite cannot exist outside this file's BROWSER_SUITES
+# without a written declaration, and no suite may resolve axe-core or any
+# absolute path for itself. Step 7 found twenty-seven suites nobody was
+# running; this is what stops the twenty-eighth.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-browser-suite-registry.mjs"; then
+  exit 1
+fi
+
 # Event Centre is the third of the same family, and carries the same rule --
 # plus the one-row-per-event property its whole span model rests on.
 if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-event-centre-shared.mjs"; then
@@ -581,16 +589,69 @@ if [[ -n "$browser_blocked" ]]; then
   done
   echo "        No browser evidence was produced by this run. Do not report it as if there were."
 else
+  BV_DIR="$(dirname "${BASH_SOURCE[0]}")/browser-verification"
+
+  # RESOURCE PREFLIGHT.
+  #
+  # Step 7's gate was killed by the kernel three times and the output looked
+  # like a gate that stopped for no reason. A reader could not tell an
+  # application failure from a machine that had nothing left before the first
+  # suite started. This states which one it is, in advance, and does NOT
+  # refuse to run: a gate that silently declined would be worse.
+  node -e '
+    import("./scripts/browser-verification/resource.mjs").then((r) => {
+      console.log(r.preflightReport())
+    })
+  ' || true
+
   for b in "${BROWSER_SUITES[@]}"; do
-    b_output=$(node "$(dirname "${BASH_SOURCE[0]}")/browser-verification/$b.mjs" 2>&1)
+    b_output=$(node "$BV_DIR/$b.mjs" 2>&1)
+    b_status=$?
     b_ok=$(grep -c '^PASS' <<<"$b_output")
     b_bad=$(grep -c '^FAIL' <<<"$b_output")
     total_pass=$((total_pass + b_ok))
     total_fail=$((total_fail + b_bad))
-    if [[ "$b_bad" -gt 0 ]]; then
+
+    # A CRASH IN SUITE N MUST NOT POISON SUITE N+1.
+    #
+    # Playwright kills its own browser when the node process exits cleanly,
+    # but a suite killed by the kernel takes its browser's parent away without
+    # taking the browser. One orphan holds hundreds of megabytes and makes the
+    # NEXT suite look like the one with the problem, which is how a resource
+    # fault gets reported as an application defect. Only this gate's own
+    # browser build is ever touched -- never a browser a person is using.
+    b_orphans=$(pgrep -f 'ms-playwright' 2>/dev/null | wc -l | tr -d ' ')
+    if [[ "$b_orphans" -gt 0 ]]; then
+      pkill -f 'ms-playwright' 2>/dev/null || true
+      sleep 1
+    fi
+
+    # OOM KILL IS NOT A TEST RESULT.
+    #
+    # 137 through a shell, or 139/134 for a browser that died under memory
+    # pressure. Counting any of these as an assertion failure sends somebody
+    # looking for a defect that does not exist, so they are named and counted
+    # separately from FAIL.
+    if [[ "$b_status" -eq 137 ]]; then
+      failed_suites+=("$b (OOM KILL -- the kernel stopped it; not a test result)")
+      total_fail=$((total_fail + 1))
+      printf '  KILL  %-34s OOM KILL after %s assertions -- the machine, not the product\n' "$b" "$b_ok"
+      node -e '
+        import("./scripts/browser-verification/resource.mjs").then((r) => {
+          console.log("          " + r.formatResources(r.readResources()))
+        })
+      ' || true
+    elif [[ "$b_bad" -gt 0 ]]; then
       failed_suites+=("$b")
       printf '  FAIL  %-34s %s passed, %s failed\n' "$b" "$b_ok" "$b_bad"
       grep '^FAIL' <<<"$b_output" | head -12 | sed 's/^/          /'
+    elif [[ "$b_status" -ne 0 && "$b_ok" -gt 0 ]]; then
+      # Exited non-zero having recorded only passes: the suite did not finish.
+      # That is a crash, not a clean run, and it must never print "ok".
+      failed_suites+=("$b (exited $b_status after $b_ok assertions without finishing)")
+      total_fail=$((total_fail + 1))
+      printf '  CRASH %-34s exited %s after %s assertions\n' "$b" "$b_status" "$b_ok"
+      tail -6 <<<"$b_output" | sed 's/^/          /'
     else
       printf '  ok    %-34s %s passed\n' "$b" "$b_ok"
       # A suite that asserted nothing has not proved anything, and a silent
@@ -600,6 +661,14 @@ else
         total_fail=$((total_fail + 1))
       fi
       grep '^NOTE' <<<"$b_output" | sed 's/^/          /'
+    fi
+
+    if [[ -n "${BROWSER_RESOURCE_TRACE:-}" ]]; then
+      node -e '
+        import("./scripts/browser-verification/resource.mjs").then((r) => {
+          console.log("          " + r.formatResources(r.readResources()))
+        })
+      ' || true
     fi
   done
 fi

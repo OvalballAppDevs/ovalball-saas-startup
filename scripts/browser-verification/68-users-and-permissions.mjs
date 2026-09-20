@@ -267,6 +267,10 @@ try {
   record("I5 the nominee still resolves as an ordinary member would -- the appointment granted nothing",
     /2 of 10 allowed/.test(nomineeRow))
 
+  // The club admin's session is finished. J and H are two other people,
+  // asked separately, so none of the three is kept alive for the others.
+  await context.close()
+
   // ------------------------------------------------------------------
   // J. A team page cannot tell somebody they may not do what it is
   //    offering them. The sentence and the control now ask the same flags.
@@ -284,6 +288,7 @@ try {
   record("J3 and what she genuinely cannot do is named without naming a role",
     !/Club Admin/.test(teamText.split("Team News")[1] ?? teamText.slice(-400)) || /done by the club/i.test(teamText),
     (teamText.match(/You can [^\n]+/) ?? ["(no explanation shown)"])[0])
+  await tmCtx.close()
 
   // ------------------------------------------------------------------
   // H. Hiding is never the boundary: an ordinary member is refused by the
@@ -297,6 +302,7 @@ try {
   record("H1 a member who is not a club admin is sent away from another person's access page",
     !new URL(plainPage.url()).pathname.startsWith("/people/"), new URL(plainPage.url()).pathname)
   record("H2 and sees none of that person's permissions", !/What They Can Do/.test(await plainPage.locator("main").innerText()))
+  await plain.close()
 } finally {
   teardown()
   await browser.close()

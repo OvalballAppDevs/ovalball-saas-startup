@@ -15,7 +15,7 @@
 import fs from "node:fs"
 import path from "node:path"
 
-import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, summarise, axeSource } from "./harness.mjs"
 
 const SHOTS = process.env.SHOT_DIR ?? path.resolve(import.meta.dirname, "../../.screenshots")
 fs.mkdirSync(SHOTS, { recursive: true })
@@ -169,8 +169,6 @@ for (const width of [1280, 390]) {
 // ---------------------------------------------------------------------
 // §AS ACCESSIBILITY at AA on the Hub and the safety guides
 // ---------------------------------------------------------------------
-const axeSource = (await import("node:fs")).readFileSync(
-  new URL("../../node_modules/axe-core/axe.min.js", import.meta.url), "utf8")
 
 const a11yCtx = await newContext(browser, { width: 1280, height: 950 })
 const a11y = await a11yCtx.newPage()
@@ -179,7 +177,7 @@ await signIn(a11y, WHO)
 for (const [path, name] of [...HUB.slice(0, 6), ...SAFETY, ["/rugby-hub/safeguarding/contact", "Safeguarding Contact"]]) {
   await a11y.goto(`${APP}${path}`, { waitUntil: "domcontentloaded" })
   await a11y.waitForLoadState("networkidle").catch(() => {})
-  await a11y.addScriptTag({ content: axeSource })
+  await a11y.addScriptTag({ content: axeSource() })
   const violations = await a11y.evaluate(async () => {
     const results = await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] })
     return results.violations.map((v) => `${v.id} (${v.nodes.length}): ${v.nodes[0]?.target?.join(" ")}`)

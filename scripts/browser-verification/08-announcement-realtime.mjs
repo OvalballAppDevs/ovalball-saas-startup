@@ -9,7 +9,7 @@
 // re-reading anything.
 
 import { launch, newContext, signIn, record, summarise } from "./harness.mjs"
-import { createClient as createSb } from "/Users/Devs/ovalball-saas-startup/node_modules/@supabase/supabase-js/dist/index.mjs"
+import { createClient as createSb } from "@supabase/supabase-js"
 
 const URL = "http://127.0.0.1:54321"
 const KEY = "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
