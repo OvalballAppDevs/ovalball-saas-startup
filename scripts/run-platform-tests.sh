@@ -374,6 +374,12 @@ SUITES=(
   # Slice 7, AI #36/#37/#41: the master-control surface is discovered from the
   # catalogue, so an RPC added later without the preamble fails this by default.
   site_admin_profile_matrix
+  # Convergence Step 7: how many have answered, counted only over the squads the
+  # caller may actually read -- and ABSENT, never zero, where they may not; and
+  # Fixture Search privacy plus the venue/pitch writers' refusals, asked of the
+  # functions themselves rather than of the screen that usually calls them.
+  fixture_availability_summary
+  fixture_search_and_venue_authority
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
@@ -471,6 +477,57 @@ fi
 # Suite 66 drives no browser -- it speaks HTTP straight at GoTrue, PostgREST and a route handler --
 # but it needs exactly the same live stack, so it is gated and reported here with the others.
 BROWSER_SUITES=(
+  # CONVERGENCE STEP 7 WIRED THE FIXTURE-OPERATIONS SUITES IN.
+  #
+  # Twenty-seven of them existed and not one was in this list, which began at
+  # 62 -- so every fixture-operations browser claim in the programme rested on
+  # somebody having run a suite by hand at some point. When Step 7 ran them,
+  # twelve were failing: nine because they read records that had silently gone
+  # from the automated UAT club, two because they asserted a Control Centre
+  # column model that a redesign had replaced (while suite 19 asserted the
+  # replacement, so two permanent tests disagreed about one screen), and one
+  # because its cleanup died on an append-only table and left competitions
+  # behind for the next suite to trip over. None of that was visible, because
+  # nothing ran them.
+  #
+  # They are ordered as they are grouped below, and they run sequentially like
+  # the rest: heavy infrastructure is never run concurrently with itself here.
+  10-fixture-opposition
+  14-training-cancellation
+  15-fixture-planner
+  16-planner-editing
+  17-mass-planner-clipboard
+  18-mass-planner-routes-in
+  19-control-centre
+  20-planner-persona-matrix
+  # 21 and 28 assert no wall-clock threshold -- every timing line is recorded as
+  # OBSERVED and always passes, so they cannot fail the gate for a busy machine.
+  # What they still catch is a crash, and the runner flags a suite that records
+  # nothing, which is the failure mode they are worth having for.
+  21-planner-performance
+  22-planner-lookups-and-routes
+  23-fixture-ops-viewports
+  26-planner-spreadsheet
+  27-planner-shared-team-universe
+  28-planner-grid-performance
+  29-fixture-editor
+  30-import-wizard
+  31-competition-creator
+  # Scale correctness rather than wall-clock: a competition with many
+  # participants still generates the right matches.
+  32-competition-scale
+  33-knockout-draw
+  34-planner-away-ground-request
+  35-competition-match-editing
+  36-public-competition
+  37-competition-quick-create-isolation
+  38-fixture-operations-accessibility
+  53-fixture-authority
+  54-competition-authority
+  55-venue-training-authority
+  # Step 7's own: the return path out of Match Centre, the period stepper,
+  # match type, the availability summary, and the three end-to-end journeys.
+  78-fixture-operations-journey
   # SLICE 7e wired this one. It is Slice 7's own browser evidence -- S7-07 is what
   # the reconciliation cites for AN-8, "the setup link is never shown" -- and it
   # had never been in the release runner, so that evidence rested on somebody's

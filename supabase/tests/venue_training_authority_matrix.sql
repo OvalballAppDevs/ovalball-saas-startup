@@ -337,9 +337,23 @@ begin
     'VT-I3 as is an anonymous read of the venues table');
   perform pg_temp.check(pg_temp.count_as(null, format('select count(*) from public.public_venues where id = %L',v_venue)) = 1,
     'VT-I4 while public.public_venues DOES serve the venue name anonymously -- a public fixture has to say where it is');
+  -- NAMED, NOT COUNTED. This asserted "three columns", which passed for any
+  -- three and failed for a deliberate fourth without saying which. Convergence
+  -- Step 7 added is_default_home and only_pitch_name so that a visiting club is
+  -- told which ground is the main one and -- where there is exactly one pitch
+  -- on it -- which pitch. The set is now named, which is both stricter and
+  -- legible: a future column has to be added here on purpose.
   perform pg_temp.check(
-    (select count(*) from information_schema.columns where table_schema='public' and table_name='public_venues') = 3,
-    'VT-I5 and that projection carries three columns, not the venue row');
+    (select string_agg(column_name, ',' order by column_name) from information_schema.columns
+     where table_schema='public' and table_name='public_venues')
+    = 'club_id,id,is_default_home,name,only_pitch_name',
+    'VT-I5 and that projection publishes exactly its declared columns, not the venue row');
+  -- The one thing it must never carry, whatever else is added.
+  perform pg_temp.check(
+    not exists (select 1 from information_schema.columns
+                where table_schema='public' and table_name='public_venues'
+                  and column_name in ('address','postcode','address_line_1','latitude','longitude')),
+    'VT-I6 and it never publishes a venue address, postcode or pin');
 
   -- ---------------------------------------------------------------------------------------------
   -- VT-J  attacks: the write paths refuse, not merely the capability helpers

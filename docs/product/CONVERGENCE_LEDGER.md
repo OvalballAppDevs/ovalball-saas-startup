@@ -67,6 +67,11 @@ product owner rules that it is not a defect.
 | L16 | `internal.is_site_admin()` survived the Slice 4/7 retirement inside a view's `WHERE` clause, where the policy and function guards do not look | Step 5 (Slice 7e) | Step 5 | **closed** — `admin_club_overview` gates on `site.clubs.view`; the helper is dropped |
 | L17 | Any signed-in account can read every club's `notes` and `official_email`; `anon` is column-restricted and `authenticated` is not | Step 5, measuring a declared perimeter bypass | Step 6 | **closed** — table grant revoked, capability-gated reads, 19 assertions |
 | L18 | `62-site-admin-master-control` failed 5 assertions in one full batch and passed 18/18 alone | Step 6 final gate | Step 6 closure | **closed** — root cause reproduced deterministically; the enrolment helper swallowed a failed verification |
+| L19 | The away-ground and away-pitch suggestion read `public.venues`, which RLS refuses for another club — so the branch was dead and the absence read as "nothing to suggest" | Step 7 (suites 29, 34) | Step 7 | **closed** — `public_venues` carries the two facts a visiting club is told, and both consumers read it |
+| L20 | Pitch Allocation clamped an over-capacity booking into the last lane, so two teams on one pitch at one time rendered in one square with the lower card hidden | Step 7 (reproduced from the live report) | Step 7 | **closed** — presentation only; lanes counted from the bookings, rule extracted and asserted |
+| L21 | Twenty-seven fixture-operations browser suites existed and none was in the release runner; twelve of them were failing | Step 7 archaeology | Step 7 | **closed** — all twenty-seven green and wired in; suites state their own preconditions |
+| L22 | The application-shell unread badge sets `bg-pitch-600 text-white`, about 3.1:1, on every authenticated page — bypassing the dark-on-green pair `globals.css` already adopted site-wide | Step 6, root-caused in Step 7 | **whichever step owns the application shell** | open — declared, shrink-only, reported on every run |
+| L23 | Training recurrence offers "this occurrence" and "the series" but not "this and all future occurrences" | Step 7 (§28) | **Training Management** | open — deferred rather than built, because it changes the recurrence model |
 
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
@@ -969,3 +974,139 @@ assertion still requires the real outcome.
 
 **This is open.** The next occurrence will say where it was and what it saw,
 which is what the current evidence could not.
+
+---
+
+## PROTECTED LOGO PROVENANCE — CLOSED, and the discrepancy was never real
+
+**Step 6 reported a provenance discrepancy that does not exist.** It compared
+the two protected logo files against the canonical record `be2bef0c…` /
+`bdd32248…` and found `aca33ffc…` / `1a4f1675…`, then correctly refused to
+investigate further and carried the mismatch forward for owner review.
+
+The two numbers are the same bytes under two different algorithms.
+`git hash-object` prefixes `blob <size>\0` before hashing, so it is **not** the
+file's SHA-1. The canonical record is the plain SHA-1; Step 6's table said so
+in its own header — "SHA-1 (`git hash-object`)" — and that parenthesis was the
+whole of it.
+
+Measured at Step 7, on untouched files:
+
+| | `Ovalball Square Logo.png` | `Overball Logo Low Res.png` |
+|---|---|---|
+| plain SHA-1 | `be2bef0c978869aaa73e474cd5abdf5aec1fff6c` | `bdd3224871f0561d971f93f519764f0502092504` |
+| `git hash-object` | `aca33ffc9812cb3e65f29232bb73140bdcced288` | `1a4f167526fec91375ac8f337f61feca0fd80fff` |
+| SHA-256 | `fc5abb60…` | `3f77df40…` |
+| MD5 | `4315467b…` | `f2be0801…` |
+| size | 1,151,454 | 1,140,858 |
+| mtime | 2026-09-09 23:32:50 | 2026-09-09 23:32:50 |
+
+Every other digest, both sizes and both mtimes match Step 6's own table
+exactly, and the plain SHA-1 matches the canonical record exactly. **The files
+are byte-identical to what the canonical record describes, and always were.**
+
+Neither file was read into, written to, staged, restored or replaced at any
+point, in Step 6 or Step 7. The canonical record needs no update. The lesson is
+a small one and worth keeping: a hash is only comparable to another hash of the
+same algorithm, and `git hash-object` is not SHA-1 of the file.
+
+---
+
+## L19 — the away ground suggestion had nothing to read
+
+`lib/fixtures/venue-defaults.ts` has always said that an away fixture suggests
+the opposition's default ground and, where that ground has exactly one pitch,
+that pitch. The rule was right. The branch was dead.
+
+Both consumers — `lib/fixtures/club-catalogue.ts` for the Season Planner and
+`lib/fixtures/fixture-editor.ts` for the Edit Fixture sheet — resolved it by
+reading `public.venues` through the caller's own client. `venues_select`
+answers `internal.can_view_venue`, which is `venue.venue.view` **at that club**,
+so a fixture secretary arranging a match at Preston could not read Preston's
+venue rows. That is correct; they are not Preston's staff.
+
+**RLS does not refuse. It returns nothing.** `defaultGround` and `onlyPitch`
+stayed empty, the code fell through to the Club Directory's free-text
+`home_ground`, and the ground still appeared — so nothing looked broken. The
+pitch silently never did, and nobody had noticed because the two suites that
+asserted it were not in the release runner.
+
+**CLOSED.** `public_venues` — the projection that exists to tell a visiting
+club where to turn up — gained `is_default_home` and `only_pitch_name`, and
+both consumers read it. `only_pitch_name` is null unless a ground has exactly
+one active pitch, so a club's pitch layout is not enumerated, and the migration
+asserts the exact published column set so a later `ALTER` cannot widen it
+silently.
+
+This is the third place in two steps where **a feature depending on a read it
+is not authorised for returned no rows and the absence read as "there is
+nothing to show"**. L17 was the first, the availability summary below was the
+second, and this was the third. It is worth stating as a standing hazard rather
+than as three incidents.
+
+---
+
+## L20 — the split square: two teams, one pitch, one card
+
+Reported as a presentation fault on Pitch Allocation. Reproduced, and it was
+one.
+
+`assignLanes` ended `Math.min(lane, laneCount - 1)`: a fixture needing a lane
+beyond the pitch's configured capacity was clamped into the **last** lane. The
+comment said "so it still renders somewhere rather than being silently
+dropped"; what it did was render it in the same square as the booking already
+there, with the lower card invisible underneath. An ordinary one-lane pitch
+never reached the lane code at all, so a genuine double-booking drew both cards
+at identical coordinates.
+
+**CLASSIFICATION: PRESENTATION.** The allocation had correctly placed both
+fixtures on the pitch, the canonical `pitch_id` on each was right, and
+`detectConflicts` had already flagged the clash. No canonical id was changed.
+
+**CLOSED.** Lanes are counted from the bookings and the row grows to fit —
+which is what the training layer immediately beside it had done all along. The
+pitch's declared `lane_count` keeps the job it is for, deciding what counts as
+a conflict, and the caption still states the declared capacity: a one-lane
+pitch that has been double-booked is still a one-lane pitch. The rule moved to
+`lib/pitch-allocation/lanes.ts` so that it could be asserted at all; it was
+private to a client component, which is exactly why it survived to a live
+report. `supabase/tests/js/pitch_allocation_lanes.test.mts`, eleven assertions,
+the first of which is the reproduced case.
+
+---
+
+## L21 — twenty-seven suites, none of them in the gate
+
+The release runner's `BROWSER_SUITES` list began at 62. Twenty-seven
+fixture-operations browser suites existed and not one of them ran, so every
+fixture-operations browser claim in the programme rested on somebody having run
+a suite by hand at some point.
+
+When Step 7 ran them, **twelve were failing**, and none of the failures was a
+product regression introduced by anybody:
+
+- nine read records — four canonical teams, every pitch at the UAT ground, a
+  Rugby League tenant — that had gone from the automated test club, and
+  reported the absence as a product defect ("2 of 10 rows ready");
+- two asserted the **pre-redesign** Control Centre column model while suite 19
+  asserted the model that replaced it, so two permanent tests disagreed about
+  one screen for as long as it took somebody to run both;
+- one crashed at module load on an empty uuid, having read a training session a
+  previous run had left behind;
+- one counted active competition editions platform-wide and compared them with
+  a lookup correctly scoped to one rugby code, so the Union/League isolation
+  rule working read as a failure;
+- one had a cleanup that deleted from `audit_log`, which is append-only — the
+  raise aborted the cleanup **before** it removed the competitions it had
+  created, so it reported success and left platform data behind for the next
+  suite to trip over.
+
+**CLOSED.** All twenty-seven are green and in the release runner. The suites
+state their own preconditions through one shared, self-cleaning helper
+(`scripts/browser-verification/fixture-world.mjs`), sweep their own tag prefix
+before seeding so a crashed run cannot poison the next, and reclaim rows an
+earlier crash left behind.
+
+The standing lesson: **a permanent suite that nothing runs is not protection,
+it is a document that has stopped being true.** Wiring a suite in is part of
+writing it.

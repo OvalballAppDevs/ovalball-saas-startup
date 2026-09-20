@@ -70,9 +70,17 @@ export function buildAdminFixtureQuery(supabase: SupabaseClient<Database>, query
     )
   }
 
-  const today = new Date().toISOString().slice(0, 10)
-  if (query.date === "upcoming") q = q.gte("kickoff_date", today)
-  else if (query.date === "past") q = q.lt("kickoff_date", today)
+  // AN EXPLICIT WINDOW WINS OVER THE BUCKET, it does not add to it. Both are
+  // predicates on the same column, so applying both would silently intersect
+  // "this week" with "upcoming" and quietly drop the first half of the week a
+  // person is standing in.
+  if (query.fromDate && query.toDate) {
+    q = q.gte("kickoff_date", query.fromDate).lte("kickoff_date", query.toDate)
+  } else {
+    const today = new Date().toISOString().slice(0, 10)
+    if (query.date === "upcoming") q = q.gte("kickoff_date", today)
+    else if (query.date === "past") q = q.lt("kickoff_date", today)
+  }
 
   if (query.status !== "all") q = q.eq("status", query.status)
   if (query.code !== "all") q = q.eq("rugby_code", query.code)
@@ -87,6 +95,10 @@ export function buildAdminFixtureQuery(supabase: SupabaseClient<Database>, query
   if (query.seasonId) q = q.eq("season_id", query.seasonId)
   if (query.teamId) q = q.eq("owning_team_id", query.teamId)
   if (query.homeAway !== "all") q = q.eq("home_away", query.homeAway)
+  // Match type is a plain server-side predicate like the rest -- never a
+  // filter applied to the current page after the fact, which would disagree
+  // with the "N fixtures match" count beside it.
+  if (query.gameType !== "all") q = q.eq("game_type", query.gameType)
 
   switch (query.sort) {
     case "date-desc":
@@ -298,6 +310,13 @@ export interface FixtureAttentionCounts {
   soon: number
   incomplete: number
   resultsOutstanding: number
+  /**
+   * Home fixtures with no ground recorded. A canonical state -- `venue_id is
+   * null` on a fixture whose owning side is at home -- and one a club can
+   * actually act on, unlike most of what could be counted here. An away
+   * fixture legitimately has no venue record of ours, so it is never counted.
+   */
+  venueMissing: number
 }
 
 export async function countFixtureAttention(
@@ -321,9 +340,15 @@ export async function countFixtureAttention(
     competitionEditionId: null,
     teamId: null,
     homeAway: "all",
+    gameType: "all",
+    // The window is a filter like any other. A band that counted only the
+    // week somebody happened to be looking at would say "0 results
+    // outstanding" on a quiet week and mean nothing by it.
+    fromDate: null,
+    toDate: null,
   }
 
-  const [soon, incomplete, results] = await Promise.all([
+  const [soon, incomplete, results, venueMissing] = await Promise.all([
     buildAdminFixtureQuery(supabase, unfiltered, clubId)
       .gte("kickoff_date", today)
       .lte("kickoff_date", inAWeek)
@@ -342,11 +367,69 @@ export async function countFixtureAttention(
       .eq("result_status", "none")
       .neq("status", "Cancelled")
       .limit(1),
+    // NOT AN INVENTED STATUS. A home fixture with no venue_id is a canonical
+    // state of the fixture itself, and it is the one a club can do something
+    // about: somebody has to say which ground. An away fixture has no venue
+    // record of ours by design, so counting it would turn a correct state into
+    // a permanent warning nobody can clear.
+    buildAdminFixtureQuery(supabase, unfiltered, clubId)
+      .gte("kickoff_date", today)
+      .eq("home_away", "Home")
+      .is("venue_id", null)
+      .neq("status", "Cancelled")
+      .limit(1),
   ])
 
   return {
     soon: soon.count ?? 0,
     incomplete: incomplete.count ?? 0,
     resultsOutstanding: results.count ?? 0,
+    venueMissing: venueMissing.count ?? 0,
   }
+}
+
+/**
+ * HOW MANY HAVE ANSWERED -- for the rows on screen, in one call.
+ *
+ * `public.fixture_availability_summary` authorises per fixture on
+ * `team.attendance.view`, the same capability that governs the underlying
+ * rows, and returns NULL counts rather than zeroes where the caller holds
+ * none. That distinction is the whole point and it survives to the UI: a row
+ * with `availability === null` renders nothing, and never "0 of 0 replied",
+ * which a viewer would reasonably read as "nobody has answered".
+ *
+ * Batched like attachClubLogos and attachTeamAliases: one round trip keyed off
+ * the ids already on the page, never a call per row.
+ */
+export interface FixtureAvailability {
+  squad: number
+  attending: number
+  unavailable: number
+  unsure: number
+  awaiting: number
+}
+
+export async function attachAvailability(supabase: SupabaseClient<Database>, rows: AdminFixtureRow[]): Promise<AdminFixtureRow[]> {
+  const ids = rows.map((r) => r.id).filter(Boolean)
+  if (ids.length === 0) return rows
+
+  const { data, error } = await supabase.rpc("fixture_availability_summary", { p_fixture_ids: ids })
+  // A failure here must not take the fixture list with it: availability is a
+  // useful line on a card, and the card's subject is the fixture.
+  if (error || !data) return rows
+
+  const byId = new Map<string, FixtureAvailability>()
+  for (const row of data) {
+    if (row.squad_count === null || row.squad_count === undefined) continue
+    byId.set(row.fixture_id, {
+      squad: row.squad_count,
+      attending: row.attending_count ?? 0,
+      unavailable: row.unavailable_count ?? 0,
+      unsure: row.unsure_count ?? 0,
+      awaiting: row.awaiting_count ?? 0,
+    })
+  }
+  if (byId.size === 0) return rows
+
+  return rows.map((r) => ({ ...r, availability: byId.get(r.id) ?? null }))
 }

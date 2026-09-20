@@ -32,6 +32,8 @@ export interface FilterableLane {
   ageGroup: string | null
   gender: string | null
   squadDesignation: string | null
+  /** Whether anything is scheduled for this lane at all. Optional so a caller with no such information is treated as having something -- silence is never inferred. */
+  hasActivity?: boolean
 }
 
 export interface FilterGroup<T extends FilterableLane> {
@@ -139,4 +141,31 @@ export function groupAndSortLanes<T extends FilterableLane>(lanes: T[]): FilterG
     result.push({ key, label: FILTER_GROUP_LABEL[key], lanes: [...list].sort((a, b) => compareWithinGroup(key, a, b)) })
   }
   return result
+}
+
+/**
+ * SPLIT A LANE SET INTO THE ONES WITH SOMETHING IN THEM AND THE REST.
+ *
+ * A club running eighteen sides, four of which have nothing scheduled, was
+ * offered all eighteen with equal weight -- so the useful choices were diluted
+ * by choices that lead to an empty board.
+ *
+ * "Quiet" is NOT "deleted", "inactive" or "hidden". Every lane stays in the
+ * product, in its own canonical group, reachable through an explicit control;
+ * a team with no fixtures yet is the normal state of a team that has just been
+ * created, and making it disappear would be a worse defect than the clutter.
+ *
+ * Two lanes are never treated as quiet whatever their flag says: the one
+ * currently selected (a filter that hides the filter you are using is a bug),
+ * and any lane whose `hasActivity` was never supplied -- absence of
+ * information is not evidence of absence.
+ */
+export function partitionLanesByActivity<T extends FilterableLane>(lanes: T[], activeLaneId: string | null): { busy: T[]; quiet: T[] } {
+  const busy: T[] = []
+  const quiet: T[] = []
+  for (const lane of lanes) {
+    if (lane.hasActivity === false && lane.id !== activeLaneId) quiet.push(lane)
+    else busy.push(lane)
+  }
+  return { busy, quiet }
 }

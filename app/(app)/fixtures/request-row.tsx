@@ -126,7 +126,7 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
   if (status === "done") {
     return (
       <li className="rounded-lg border border-ink/10 bg-white/50 px-4 py-3.5 text-sm text-ink-muted">
-        {request.direction === "incoming" && request.requester ? `${request.ourSide ?? request.teamDisplayName} v ${request.requester}` : `${request.teamDisplayName} vs ${request.opponentText}`} &mdash; updated.
+        {request.direction === "incoming" && request.requester ? `${request.ourSide ?? request.teamDisplayName} v ${request.requester}` : `${request.teamDisplayName} v ${request.opponentText}`} &mdash; updated.
       </li>
     )
   }

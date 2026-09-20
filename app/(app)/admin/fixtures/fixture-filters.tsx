@@ -6,7 +6,7 @@ import { useEffect, useState } from "react"
 import { ALL_FIXTURE_STATUSES, FIXTURE_STATUS_LABEL } from "@/lib/fixtures/status"
 
 import { SOURCE_LABEL } from "./format"
-import type { AdminFixtureQuery, CompetitionFilterOption, SeasonFilterOption, TeamFilterOption } from "./types"
+import { GAME_TYPE_OPTIONS, type AdminFixtureQuery, type CompetitionFilterOption, type SeasonFilterOption, type TeamFilterOption } from "./types"
 
 export function FixtureFilters({
   query,
@@ -143,6 +143,23 @@ export function FixtureFilters({
           <option value="Home">Home</option>
           <option value="Away">Away</option>
         </select>
+        {/* MATCH TYPE. Canonical on the fixture as `game_type`, and until now
+            expressed nowhere on this surface -- so "show me the league games"
+            could not be asked, despite every row carrying the answer. The
+            options are GAME_TYPE_OPTIONS, the one taxonomy. */}
+        <select
+          value={query.gameType}
+          onChange={(e) => updateParams({ gameType: e.target.value })}
+          aria-label="Match type"
+          className="h-9 rounded-full border border-ink/15 bg-white px-3 text-sm text-ink/70 outline-none focus-visible:border-pitch-600"
+        >
+          <option value="all">Any match type</option>
+          {GAME_TYPE_OPTIONS.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
         <select
           value={query.status}
           onChange={(e) => updateParams({ status: e.target.value })}
@@ -210,12 +227,19 @@ export function FixtureFilters({
             ))}
           </select>
         )}
+        {/* Every filter this toolbar can set, not the seven it used to list:
+            choosing only a team, a season or Home/Away applied a filter with
+            no way offered to clear it. */}
         {(query.q ||
           query.date !== "upcoming" ||
           query.status !== "all" ||
           query.code !== "all" ||
           query.source !== "all" ||
           query.resultStatus !== "all" ||
+          query.gameType !== "all" ||
+          query.homeAway !== "all" ||
+          query.seasonId ||
+          query.teamId ||
           query.competitionEditionId) && (
           <button
             type="button"

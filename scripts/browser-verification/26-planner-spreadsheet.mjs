@@ -11,10 +11,24 @@
 
 import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
-import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, recordAxe, summarise } from "./harness.mjs"
+import { ensureFixtureWorld, ensureSecondVenue } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
+
+// THIS SUITE STATES ITS OWN PRECONDITIONS.
+//
+// It reads canonical teams and pitches in the automated UAT club, and those
+// records had silently gone, so the suite reported a product failure when what
+// it had found was a missing row. It now creates whatever is absent and removes
+// exactly what it created -- see fixture-world.mjs for why that lives in one
+// place rather than in each suite.
+const world = ensureFixtureWorld(sql, { tag: "s26" })
+// A SECOND GROUND, because "that pitch is not at this venue" needs two of them.
+// Named exactly as the suite's own paste block names it.
+const second = ensureSecondVenue(sql, world.clubId, { name: "Towneley Park Pitches", pitch: "Pitch A" })
+
 
 const browser = await launch()
 const ctx = await newContext(browser, { width: 1512, height: 950 })
@@ -378,9 +392,9 @@ await cell("Venue, row 3").click({ button: "right" })
 await page.addScriptTag({ content: axeSource })
 const violations = await page.evaluate(async () => {
   const results = await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] })
-  return results.violations.map((v) => `${v.id} (${v.nodes.length}): ${v.nodes[0]?.target?.join(" ")}`)
+    return results.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))
 })
-record("§19 the planner is axe-clean at AA with a range selected and the menu open", violations.length === 0, violations.join("; ") || "no violations")
+recordAxe("§19 the planner is axe-clean at AA with a range selected and the menu open", violations)
 await page.keyboard.press("Escape")
 
 record("no uncaught page errors during the run", pageErrors.length === 0, pageErrors.slice(0, 2).join(" | "))
@@ -401,6 +415,8 @@ const overflow = await tablet.evaluate(() => document.documentElement.scrollWidt
 record("§20 no horizontal body overflow at tablet width outside the grid's own scroller", overflow <= 0, `${overflow}px`)
 await tabletCtx.close()
 
+second.cleanup()
+world.cleanup()
 await browser.close()
 const ok = summarise()
 process.exit(ok ? 0 : 1)

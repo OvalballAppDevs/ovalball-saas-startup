@@ -14,12 +14,23 @@
 
 import { execFileSync } from "node:child_process"
 import { createRequire } from "node:module"
-import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, recordAxe, summarise } from "./harness.mjs"
+import { ensureFixtureWorld } from "./fixture-world.mjs"
 
 const require = createRequire(import.meta.url)
 const AXE = require.resolve("axe-core/axe.min.js")
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
+
+// THIS SUITE STATES ITS OWN PRECONDITIONS.
+//
+// It reads canonical teams and pitches in the automated UAT club, and those
+// records had silently gone, so the suite reported a product failure when what
+// it had found was a missing row. It now creates whatever is absent and removes
+// exactly what it created -- see fixture-world.mjs for why that lives in one
+// place rather than in each suite.
+const world = ensureFixtureWorld(sql, { tag: "s38" })
+
 const UUID = /^[0-9a-f-]{36}$/
 const firstId = (q) => sql(q).split("\n").map((l) => l.trim()).find((l) => UUID.test(l))
 
@@ -70,10 +81,9 @@ async function axe(target, label, context = null) {
   await target.addScriptTag({ path: AXE })
   const result = await target.evaluate(async (ctxSelector) => {
     const r = await axe.run(ctxSelector ? document.querySelector(ctxSelector) : document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] }, resultTypes: ["violations"] })
-    return r.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, sample: v.nodes[0]?.target?.join(" ") ?? "" }))
+    return r.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))
   }, context)
-  const serious = result.filter((v) => v.impact === "serious" || v.impact === "critical")
-  record(`axe: ${label} has no serious or critical WCAG 2.1 AA violation`, serious.length === 0, serious.map((v) => `${v.id}(${v.nodes}) ${v.sample}`).join(" | ") || `${result.length} minor`)
+  recordAxe(`axe: ${label} has no serious or critical WCAG 2.1 AA violation`, result)
   return result
 }
 
@@ -187,6 +197,7 @@ const unlabelled = await anon.locator("form select").evaluateAll((s) => s.filter
 record("labels: every public filter has a visible label", unlabelled === 0, `${unlabelled} unlabelled`)
 
 record("hydration: every page visited renders the same ids on the server and in the browser", hydration.length === 0, hydration.slice(0, 2).join(" | "))
+world.cleanup()
 await browser.close()
 cleanup()
 cleaned = true

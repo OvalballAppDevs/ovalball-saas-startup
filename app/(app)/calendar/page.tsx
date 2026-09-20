@@ -9,6 +9,7 @@ import { getTeamsForActiveContext } from "@/lib/app-context/my-teams"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { resolveCalendarSeasonContext, clampIsoToRange } from "@/lib/calendar/season-context"
 import { buildCalendarLanes } from "@/lib/calendar/build-lanes"
+import { fixtureTitle } from "@/lib/fixtures/presentation"
 import { extendLanesWithReferencedGroups, loadOpponentGroupLabels, resolveMyFixtureSide } from "@/lib/calendar/resolve-entry-participant"
 import { miniRugbyGroupLabel } from "@/lib/mini-rugby/group-label"
 import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/team-identity.server"
@@ -1528,10 +1529,13 @@ function SeasonWeekEvent({ entry }: { entry: SeasonGridEvent }) {
   // time recorded is all-day -- neither is "Time TBC", which claims a time
   // exists and has not been decided.
   const time = entry.spanNote ? "Runs" : entry.time ? String(entry.time).slice(0, 5) : isEvent ? "All day" : "Time TBC"
+  // THE HOME SIDE IS NAMED FIRST. This used to print the owning team first
+  // whichever way round the match was, so an away fixture read as though the
+  // club were at home. lib/fixtures/presentation.ts owns that rule now.
   const title = isEvent
     ? entry.teamDisplayName || "Club Event"
     : isFixture
-      ? `${entry.teamDisplayName} v ${entry.opposition || "Opposition to be confirmed"}`
+      ? fixtureTitle({ homeAway: entry.homeAway, ownLabel: entry.teamDisplayName, oppositionLabel: entry.opposition })
       : entry.teamDisplayName || "Training"
   const isAway = entry.homeAway === "Away"
   const isHome = entry.homeAway === "Home"

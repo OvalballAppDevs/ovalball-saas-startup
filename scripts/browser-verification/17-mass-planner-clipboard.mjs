@@ -12,9 +12,20 @@
 
 import { execFileSync } from "node:child_process"
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { ensureFixtureWorld } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
+
+// THIS SUITE STATES ITS OWN PRECONDITIONS.
+//
+// It reads canonical teams and pitches in the automated UAT club, and those
+// records had silently gone, so the suite reported a product failure when what
+// it had found was a missing row. It now creates whatever is absent and removes
+// exactly what it created -- see fixture-world.mjs for why that lives in one
+// place rather than in each suite.
+const world = ensureFixtureWorld(sql, { tag: "s17" })
+
 
 // Run-unique so a second run never collides with the first run's fixtures
 // (and so the cleanup at the end can find exactly its own rows).
@@ -247,5 +258,6 @@ record("QA cleanup removed only this run's own rows",
   Number(sql(`select count(*) from public.fixtures where notes='${TAG}'`)) === 0,
   `${batches.length} planner batches removed`)
 
+world.cleanup()
 await browser.close()
 summarise()

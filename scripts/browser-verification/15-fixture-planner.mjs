@@ -6,9 +6,26 @@
 
 import { execFileSync } from "node:child_process"
 import { launch, newContext, signIn, APP, measure, record, summarise } from "./harness.mjs"
+import { ensureFixtureWorld, seedFixturesAtScale } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
+
+// THIS SUITE STATES ITS OWN PRECONDITIONS.
+//
+// It reads canonical teams and pitches in the automated UAT club, and those
+// records had silently gone, so the suite reported a product failure when what
+// it had found was a missing row. It now creates whatever is absent and removes
+// exactly what it created -- see fixture-world.mjs for why that lives in one
+// place rather than in each suite.
+const world = ensureFixtureWorld(sql, { tag: "s15" })
+// PAGINATION IS A THRESHOLD BEHAVIOUR, so the suite brings the threshold.
+// It used to assert "more than 100 fixtures are paginated" against whatever
+// happened to be in the database -- two, on a clean one -- and reported the
+// resulting "2 matched, 2 rendered" as a product failure.
+const SCALE_TAG = `SCALE-${Date.now()}`
+const scale = seedFixturesAtScale(sql, { clubId: world.clubId, count: 130, tag: SCALE_TAG, sweepPrefix: "SCALE-" })
+
 
 const CLUB = { email: "uat.coach@ovalball.test", path: "/fixtures/management" }
 const SITE = { email: "uat.fullsiteadmin@ovalball.test", path: "/admin/fixtures" }
@@ -33,7 +50,18 @@ async function openAs(who, suffix = "") {
   return { ctx, page, ms: Date.now() - started }
 }
 
-const EXPECTED_COLUMNS = ["Date", "Kick Off Time", "Meet", "H/A", "Opposition", "Status"]
+// THE CANONICAL COLUMN MODEL, AS IT NOW IS.
+//
+// This list used to name "Kick Off Time" and "Meet" as club columns. The
+// Control Centre redesign merged the kick-off INTO the Date cell (one question,
+// one column) and moved Meet and Source to Site Admin, which genuinely spans
+// clubs and import sources. Suite 19 asserts the merged model; this suite went
+// on asserting the one before it, and because neither suite was in the release
+// runner, two permanent tests disagreed about the same screen for as long as
+// it took somebody to run both.
+const CLUB_COLUMNS = ["Date", "Our Team", "H/A", "Opposition", "Venue", "Result", "Status"]
+/** Site Admin keeps the columns that only mean something ACROSS clubs and codes. */
+const SITE_COLUMNS = ["Date", "Code", "Meet", "Owning Team", "H/A", "Opposition", "Venue", "Result", "Status", "Source"]
 
 // =====================================================================
 // CLUB SCOPE
@@ -42,9 +70,14 @@ const club = await openAs(CLUB)
 const clubHeaders = await club.page.evaluate(() =>
   [...document.querySelectorAll("thead th")].map((h) => h.textContent.trim()),
 )
-const missing = EXPECTED_COLUMNS.filter((c) => !clubHeaders.includes(c))
+const missing = CLUB_COLUMNS.filter((c) => !clubHeaders.includes(c))
 record("§15 the planner shows the canonical column model", missing.length === 0,
   missing.length ? `missing: ${missing.join(", ")}` : clubHeaders.join(" | "))
+// The merge, asserted as a property rather than left implied: a club's own
+// Control Centre states the kick-off under the date, and does not spend a
+// second primary column saying it again.
+record("§3 a club's grid does not carry Kick Off Time as its own column",
+  !clubHeaders.includes("Kick Off Time"), clubHeaders.join(" | "))
 
 record("§16 the owning side is named 'Our Team' for a club", clubHeaders.includes("Our Team"),
   clubHeaders.find((h) => /team/i.test(h)) ?? "(none)")
@@ -106,7 +139,8 @@ const siteHeaders = await site.page.evaluate(() =>
   [...document.querySelectorAll("thead th")].map((h) => h.textContent.trim()),
 )
 record("§5 Site Admin renders the same Control Centre columns",
-  EXPECTED_COLUMNS.every((c) => siteHeaders.includes(c)), siteHeaders.join(" | "))
+  SITE_COLUMNS.every((c) => siteHeaders.includes(c)),
+  SITE_COLUMNS.filter((c) => !siteHeaders.includes(c)).join(", ") || siteHeaders.join(" | "))
 record("§16 the owning side is named for Site Admin's own vantage",
   siteHeaders.includes("Owning Team"), siteHeaders.find((h) => /team/i.test(h)) ?? "(none)")
 
@@ -178,5 +212,7 @@ for (const width of [320, 360, 390, 430, 834]) {
 }
 
 await club.ctx.close()
+scale.cleanup()
+world.cleanup()
 await browser.close()
 process.exit(summarise() ? 0 : 1)

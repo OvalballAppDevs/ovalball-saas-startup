@@ -20,6 +20,7 @@ import type { FieldAuthority, FixtureEditorModel, FixtureEditorPatch, Opposition
 import { FIXTURE_TYPE_OPTIONS, competitionApplies } from "@/lib/fixtures/fixture-type"
 import { applyDefaultableChange, defaultVenue, type ClubGrounds, type DefaultableState } from "@/lib/fixtures/venue-defaults"
 import { cn } from "@/lib/utils"
+import { fixtureTitle } from "@/lib/fixtures/presentation"
 
 /**
  * EDIT FIXTURE -- ONE EDITOR, WHEREVER A FIXTURE IS OPENED.
@@ -233,7 +234,9 @@ function EditorBody({
 function describe(model: FixtureEditorModel): string {
   const team = model.options.ourTeams.find((t) => t.id === model.values.ourTeamId)?.label ?? model.ourTeam.label
   const opp = model.values.opponentClubName ?? model.values.rawOppositionText
-  return `${team} v ${opp}`
+  // The confirmation after a save names the fixture the way every other
+  // surface names it -- home side first -- rather than in editor order.
+  return fixtureTitle({ homeAway: model.values.homeAway, ownLabel: team, oppositionLabel: opp })
 }
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import type { SessionContext } from "@/lib/app-context/session-context"
 
 import type { AgendaEvent, AttendanceResponse } from "./agenda-model"
 import { dedupeAgendaEvents } from "./agenda-model"
+import { fixtureTitle as canonicalFixtureTitle } from "@/lib/fixtures/presentation"
 
 /**
  * Reads the canonical fixtures/training_sessions/player_fixture_attendance
@@ -85,9 +86,19 @@ export function resolveFamilyScope(ctx: SessionContext, activeContext: Switchabl
   return []
 }
 
+/**
+ * This function used to BE the home-first rule, written inline and reachable
+ * from nowhere else, while six other surfaces printed the owning team first
+ * whatever the answer was. The rule now lives in lib/fixtures/presentation.ts
+ * and this calls it, so the family agenda and every other fixture surface can
+ * no longer disagree about which side is named first.
+ */
 function fixtureTitle(row: { home_away: string | null; raw_opposition_text: string | null; opponentName: string | null; ownTeamName: string }): string {
-  const opponent = row.opponentName ?? row.raw_opposition_text ?? "Opposition to be confirmed"
-  return row.home_away === "Away" ? `${opponent} v ${row.ownTeamName}` : `${row.ownTeamName} v ${opponent}`
+  return canonicalFixtureTitle({
+    homeAway: row.home_away,
+    ownLabel: row.ownTeamName,
+    oppositionLabel: row.opponentName ?? row.raw_opposition_text,
+  })
 }
 
 /**

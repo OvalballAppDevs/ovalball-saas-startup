@@ -10,9 +10,20 @@
 
 import { execFileSync } from "node:child_process"
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { ensureFixtureWorld } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
+
+// THIS SUITE STATES ITS OWN PRECONDITIONS.
+//
+// It reads canonical teams and pitches in the automated UAT club, and those
+// records had silently gone, so the suite reported a product failure when what
+// it had found was a missing row. It now creates whatever is absent and removes
+// exactly what it created -- see fixture-world.mjs for why that lives in one
+// place rather than in each suite.
+const world = ensureFixtureWorld(sql, { tag: "s22" })
+
 
 const browser = await launch()
 const ctx = await newContext(browser, { width: 1512, height: 950 })
@@ -161,7 +172,16 @@ record("§36 Pitch depends on a venue and says so",
 // ---------------------------------------------------------------------
 // §34 COMPETITION -- real editions only
 // ---------------------------------------------------------------------
-const dbEditions = Number(sql("select count(distinct c.name) from public.competition_editions e join public.competitions c on c.id=e.competition_id where e.active"))
+// COUNTED THE WAY THE LOOKUP IS SCOPED.
+//
+// This counted every active edition on the platform and compared it with a
+// lookup that is correctly scoped to the planning club's own rugby code -- so
+// the moment a Rugby League competition existed anywhere, a Union planner
+// offering nothing (which is the isolation rule working) read as a failure.
+// Union and League are strictly isolated; a count that ignores that is asking
+// the wrong question.
+const plannerCode = sql(`select d.rugby_code from public.clubs c join public.club_directory d on d.id=c.directory_id where c.slug='ovalball-uat-rufc'`) || "union"
+const dbEditions = Number(sql(`select count(distinct c.name) from public.competition_editions e join public.competitions c on c.id=e.competition_id where e.active and c.rugby_code='${plannerCode}'`))
 await openCell("Competition, row 1")
 opts = await optionsFor("Competition, row 1", { allowEmpty: dbEditions === 0 })
 // The right answer when a club has no active competitions is an EMPTY
@@ -235,5 +255,6 @@ await outsider.waitForLoadState("networkidle").catch(() => {})
 record("§53 naming a club in the URL is not a way into it",
   !outsider.url().includes("/fixtures/planner"), `sent to ${outsider.url()}`)
 
+world.cleanup()
 await browser.close()
 summarise()

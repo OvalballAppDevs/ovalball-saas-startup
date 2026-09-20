@@ -21634,17 +21634,23 @@ export type Database = {
         Row: {
           club_id: string | null
           id: string | null
+          is_default_home: boolean | null
           name: string | null
+          only_pitch_name: string | null
         }
         Insert: {
           club_id?: string | null
           id?: string | null
+          is_default_home?: boolean | null
           name?: string | null
+          only_pitch_name?: never
         }
         Update: {
           club_id?: string | null
           id?: string | null
+          is_default_home?: boolean | null
           name?: string | null
+          only_pitch_name?: never
         }
         Relationships: [
           {
@@ -23053,6 +23059,17 @@ export type Database = {
       fail_directory_verification_run: {
         Args: { p_error: string; p_run_id: string }
         Returns: undefined
+      }
+      fixture_availability_summary: {
+        Args: { p_fixture_ids: string[] }
+        Returns: {
+          attending_count: number | null
+          awaiting_count: number | null
+          fixture_id: string
+          squad_count: number | null
+          unavailable_count: number | null
+          unsure_count: number | null
+        }[]
       }
       fixture_communication_counts: {
         Args: { p_fixture_id: string }

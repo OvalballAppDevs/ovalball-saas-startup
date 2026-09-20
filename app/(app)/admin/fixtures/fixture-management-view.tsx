@@ -1,20 +1,23 @@
 import Link from "next/link"
-import { AlertTriangle, CalendarClock, ClipboardList, ShieldCheck, Table2, Trophy, Upload } from "lucide-react"
+import { AlertTriangle, CalendarClock, ClipboardList, MapPin, ShieldCheck, Table2, Trophy, Upload } from "lucide-react"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { FixtureEditorProvider } from "@/components/fixtures/fixture-editor-provider"
+import { parseFixtureWindow } from "@/lib/fixtures/date-window"
+import { buildFixtureReturn } from "@/lib/fixtures/return-context"
 import type { Database } from "@/types/database.types"
 
 import { ExportClubFixturesButton } from "../../fixtures/export-button"
 import { Pagination } from "../pagination"
 import { AddFixtureDialog } from "./add-fixture-dialog"
 import { ExportFixturesButton } from "./export-button"
+import { FixtureDateNavigator } from "./fixture-date-navigator"
 import { FixtureFilters } from "./fixture-filters"
 import { FixtureTableRow } from "./fixture-table-row"
 import { MobileFixtureCard } from "./mobile-fixture-card"
 import { PlannerStateProvider } from "./planner-state"
 import { PlannerToolbar } from "./planner-toolbar"
-import { attachClubLogos, attachGroupLabels, attachTeamAliases, buildAdminFixtureQuery, countFixtureAttention, mapAdminFixtureRow, type FixtureAttentionCounts } from "./query"
+import { attachAvailability, attachClubLogos, attachGroupLabels, attachTeamAliases, buildAdminFixtureQuery, countFixtureAttention, mapAdminFixtureRow, type FixtureAttentionCounts } from "./query"
 import { parseAdminFixtureQuery, type AdminFixtureQuery } from "./types"
 
 export interface FixtureManagementScope {
@@ -49,6 +52,15 @@ export async function FixtureManagementView({
   headerExtra?: React.ReactNode
 }) {
   const query: AdminFixtureQuery = parseAdminFixtureQuery(searchParams)
+
+  // WHAT A FIXTURE OPENED FROM HERE SHOULD COME BACK TO.
+  //
+  // Built once, server-side, from the parameters actually on this request --
+  // not re-derived per row in the browser, which is how two rows on one screen
+  // end up disagreeing about where "back" is. Filtered to this surface's own
+  // parameters by lib/fixtures/return-context.ts before it is put in a link.
+  const returnTo = buildFixtureReturn(scope.basePath, toSearchParams(searchParams))
+
   const from = (query.page - 1) * query.size
   const to = from + query.size - 1
 
@@ -56,7 +68,13 @@ export async function FixtureManagementView({
   // Group labels resolve LAST so a Mini-Rugby Group's real display identity
   // always wins over a plain team alias on the same anchor team id -- the
   // same precedence Calendar and Pitch Allocation already use.
-  const rows = await attachGroupLabels(supabase, await attachTeamAliases(supabase, await attachClubLogos(supabase, (data ?? []).map(mapAdminFixtureRow))))
+  // Availability last, and independent of the identity enrichment above: it
+  // adds a field rather than correcting one, and a failure in it must leave
+  // the fixture list intact.
+  const rows = await attachAvailability(
+    supabase,
+    await attachGroupLabels(supabase, await attachTeamAliases(supabase, await attachClubLogos(supabase, (data ?? []).map(mapAdminFixtureRow)))),
+  )
   const total = count ?? 0
   const totalPages = Math.max(1, Math.ceil(total / query.size))
 
@@ -182,7 +200,16 @@ export async function FixtureManagementView({
 
       <AttentionBand counts={attention} basePath={scope.basePath} />
 
+      {/* WHEN, BEFORE WHAT. A fixture secretary's first question is almost
+          always about a period -- this weekend, next week -- and the answer
+          used to require sorting an unbounded list. The stepper sits above the
+          filters because it is navigation, not a filter: it changes which part
+          of the season is on screen, and the filters then narrow it. */}
       <div className="mt-5">
+        <FixtureDateNavigator window={parseFixtureWindow(query.fromDate, query.toDate)} basePath={scope.basePath} />
+      </div>
+
+      <div className="mt-4">
         <FixtureFilters
           query={query}
           competitionOptions={competitionOptions}
@@ -278,6 +305,7 @@ export async function FixtureManagementView({
                 key={row.id}
                 row={row}
                 clubScoped={clubScoped}
+                returnTo={returnTo}
               />
             ))}
           </tbody>
@@ -288,7 +316,7 @@ export async function FixtureManagementView({
       <ul className="mt-3 flex flex-col gap-2.5 md:hidden">
         {rows.map((row) => (
           <li key={row.id}>
-            <MobileFixtureCard row={row} clubScoped={clubScoped} />
+            <MobileFixtureCard row={row} clubScoped={clubScoped} returnTo={returnTo} />
           </li>
         ))}
         {rows.length === 0 && !error && (
@@ -305,6 +333,20 @@ export async function FixtureManagementView({
       </PlannerStateProvider>
     </div>
   )
+}
+
+/**
+ * Next's searchParams is a plain record whose values may be repeated;
+ * URLSearchParams is what the return-context module reasons about. One
+ * conversion, here, rather than a second idea of what a query string is.
+ */
+function toSearchParams(searchParams: Record<string, string | string[] | undefined>): URLSearchParams {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value === undefined) continue
+    for (const v of Array.isArray(value) ? value : [value]) params.append(key, v)
+  }
+  return params
 }
 
 /**
@@ -342,10 +384,21 @@ function AttentionBand({ counts, basePath }: { counts: FixtureAttentionCounts; b
       href: `${basePath}?date=past&resultStatus=none&sort=date-desc`,
       tone: counts.resultsOutstanding > 0 ? "text-amber-900" : "text-ink-muted",
     },
+    {
+      // A canonical state, not an invented one: a home fixture with no ground
+      // recorded. It is the most actionable thing on this band -- somebody has
+      // to say which pitch, and until they do nobody can travel to it.
+      key: "venue",
+      icon: MapPin,
+      value: counts.venueMissing,
+      label: "at home, with no ground set",
+      href: `${basePath}?date=upcoming&ha=Home&sort=date-asc`,
+      tone: counts.venueMissing > 0 ? "text-amber-900" : "text-ink-muted",
+    },
   ]
 
   return (
-    <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
+    <div className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
       {items.map(({ key, icon: Icon, value, label, href, tone }) => (
         <Link
           key={key}
@@ -379,9 +432,14 @@ function EmptyState({ query, scope }: { query: AdminFixtureQuery; scope: Fixture
     query.code !== "all" ||
     query.source !== "all" ||
     query.resultStatus !== "all" ||
+    query.gameType !== "all" ||
     Boolean(query.competitionEditionId) ||
+    Boolean(query.seasonId) ||
     Boolean(query.teamId) ||
-    query.homeAway !== "all"
+    query.homeAway !== "all" ||
+    // A window is a filter: an empty week is "nothing this week", which is a
+    // different situation from a club that has arranged nothing at all.
+    Boolean(query.fromDate && query.toDate)
 
   if (filtered) {
     return (

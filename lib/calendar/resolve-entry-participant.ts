@@ -57,6 +57,12 @@ export async function extendLanesWithReferencedGroups(
       memberTeamIds,
       primaryTeamId: memberTeamIds[0] ?? null,
       canCreate: hasClubFixtureAuthority || memberTeamIds.some((id) => manageableTeamIds.has(id)),
+      // By construction this lane exists BECAUSE a real fixture or training
+      // row on the caller's own side referenced it, so it is never a quiet
+      // lane -- and must never be filed behind the filter's "nothing
+      // scheduled" control, which is exactly where a default of false would
+      // put the group whose fixture the person is looking at.
+      hasActivity: true,
       category: null,
       ageGroup: null,
       gender: null,

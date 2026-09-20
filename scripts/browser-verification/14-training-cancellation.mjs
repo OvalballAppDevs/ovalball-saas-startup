@@ -17,9 +17,51 @@ const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim
 
 const ACTOR = { email: "uat.coach@ovalball.test" }   // Club Admin
 
-const sessionId = sql(
-  "select id from public.training_sessions where notes = 'QA-NOTIF training session' limit 1;",
-)
+// THE SESSION THIS SUITE CANCELS IS THIS SUITE'S OWN.
+//
+// It used to read a training session left behind by an earlier run
+// (`notes = 'QA-NOTIF training session'`). When that row went, `sessionId` came
+// back empty and the very next statement interpolated it straight into a
+// `where id = ''`, so the suite died at module load with "invalid input syntax
+// for type uuid" -- before a browser had even started, and while the release
+// runner counted it as a suite that recorded no assertions.
+//
+// It now creates a session on the team whose roster has real families behind
+// it (the recipient resolution below needs one), and removes it at the end.
+// The prefix is swept first so a crashed run cannot leave one behind.
+const TAG = `QA-TRAINING-${Date.now()}`
+sql(`delete from public.training_sessions where notes like 'QA-TRAINING-%'`)
+
+const trainingTeam = sql(`
+  select t.id from public.teams t
+  join public.clubs c on c.id = t.club_id
+  where c.slug = 'ovalball-uat-rufc' and t.display_name = 'Under 12 Boys' and t.active
+  limit 1;`)
+if (!/^[0-9a-f-]{36}$/.test(trainingTeam)) {
+  console.error("Missing UAT data: the automated club's Under 12 Boys team, with a roster, is needed")
+  process.exit(1)
+}
+const sessionId = sql(`
+  insert into public.training_sessions (club_id, team_id, session_date, start_time, end_time, notes, status, source)
+  select t.club_id, t.id, (current_date + 10)::date, '18:00'::time, '19:30'::time, '${TAG}', 'PLANNED', 'MANUAL'
+  from public.teams t where t.id = '${trainingTeam}'
+  returning id;`).split("\n").map((l) => l.trim()).find((l) => /^[0-9a-f-]{36}$/.test(l))
+if (!sessionId) {
+  console.error("Could not seed a training session for this run")
+  process.exit(1)
+}
+let sessionCleaned = false
+function cleanupSession() {
+  if (sessionCleaned) return
+  sessionCleaned = true
+  try {
+    sql(`delete from public.player_fixture_attendance where training_session_id = '${sessionId}'`)
+    sql(`delete from public.training_sessions where id = '${sessionId}'`)
+  } catch (e) {
+    console.error("training session cleanup failed:", e)
+  }
+}
+process.on("exit", cleanupSession)
 const week = sql(
   `select to_char(date_trunc('week', session_date), 'YYYY-MM-DD')
    from public.training_sessions where id = '${sessionId}';`,

@@ -6,6 +6,7 @@ import { ChevronLeft, ShieldCheck, Trophy } from "lucide-react"
 import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext } from "@/lib/app-context/active-context"
 import { ClubAvatar } from "@/components/club/club-avatar"
 import { getSessionContext } from "@/lib/app-context/session-context"
+import { FIXTURE_RETURN_PARAM, resolveFixtureReturn } from "@/lib/fixtures/return-context"
 import { createClient } from "@/lib/supabase/server"
 
 import { AuditLog } from "../../clubs/[directoryId]/audit-log"
@@ -23,8 +24,15 @@ import { OwningTeamEditor } from "./owning-team-editor"
 import { SwapHomeAwayButton } from "./swap-home-away-button"
 import { VenuePitchSection } from "./venue-pitch-section"
 
-export default async function AdminFixtureDetailPage({ params }: { params: Promise<{ fixtureId: string }> }) {
+export default async function AdminFixtureDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ fixtureId: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { fixtureId } = await params
+  const carriedReturn = (await searchParams)[FIXTURE_RETURN_PARAM]
   const supabase = await createClient()
   const {
     data: { user },
@@ -177,11 +185,26 @@ export default async function AdminFixtureDetailPage({ params }: { params: Promi
   // Slice 4F: site.messages.moderate rather than the role literal (J.10 line 521).
   const canSeeMessageContent = ctx.siteCapabilities.includes("site.messages.moderate") || isInvolvedClub
 
+  const carried = resolveFixtureReturn(carriedReturn)
+  const ownControlCentre = activeIsSiteAdmin ? "/admin/fixtures" : "/fixtures/management"
+  // A carried value is honoured only when it names a Control Centre this
+  // viewer can actually reach: a Club Admin sent to /admin/fixtures would be
+  // bounced to the dashboard by that route's own guard, which is a worse
+  // answer than ignoring a stale parameter.
+  const backTo = carried.href.startsWith(ownControlCentre)
+    ? carried
+    : { href: ownControlCentre, label: "Fixture Control Centre" }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
-      <Link href={activeIsSiteAdmin ? "/admin/fixtures" : "/fixtures/management"} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
-        <ChevronLeft className="size-4" />
-        Fixture management
+      {/* Back to the Control Centre this person actually reaches -- Site
+          Admin's global one only while they are operating as Site Admin -- and
+          to the FILTERED view they came from when one was carried. The same
+          allowlist Match Centre uses, so there is one idea of where a fixture
+          goes back to rather than two. */}
+      <Link href={backTo.href} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
+        <ChevronLeft className="size-4" aria-hidden="true" />
+        {backTo.label}
       </Link>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

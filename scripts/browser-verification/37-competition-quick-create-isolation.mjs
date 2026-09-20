@@ -12,9 +12,20 @@
 
 import { execFileSync } from "node:child_process"
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { ensureFixtureWorld, ensureLeagueClub } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
+
+// THIS SUITE STATES ITS OWN PRECONDITIONS.
+//
+// It reads canonical teams and pitches in the automated UAT club, and those
+// records had silently gone, so the suite reported a product failure when what
+// it had found was a missing row. It now creates whatever is absent and removes
+// exactly what it created -- see fixture-world.mjs for why that lives in one
+// place rather than in each suite.
+const world = ensureFixtureWorld(sql, { tag: "s37" })
+
 const UUID = /^[0-9a-f-]{36}$/
 const firstId = (q) => sql(q).split("\n").map((l) => l.trim()).find((l) => UUID.test(l))
 
@@ -22,10 +33,18 @@ const TAG = Date.now().toString(36).slice(-5).toUpperCase()
 const UNION_NAME = `Lancashire U12 Cup ${TAG}`
 const LEAGUE_NAME = `Cumbria U12 Nines ${TAG}`
 const unionTeam = sql("select t.id from teams t join clubs c on c.id=t.club_id where c.slug='ovalball-uat-rufc' and t.display_name='Under 12 Boys' and t.active limit 1")
-const leagueTeam = sql("select t.id from teams t join clubs c on c.id=t.club_id join club_directory d on d.id=c.directory_id where d.rugby_code='league' and t.rugby_code='league' and t.active order by t.created_at limit 1")
+// THE ONE THING THIS SUITE CANNOT ASK WITHOUT: a Rugby League tenant.
+//
+// The local world has none, and the suite used to exit(1) with "Missing UAT
+// data" -- which the runner counted as a suite that recorded no assertions, so
+// the code-isolation rule went unproved rather than reported as unprovable.
+// A suite whose whole subject is a second rugby code creates that code's club
+// itself, and removes it.
+const league = ensureLeagueClub(sql, TAG)
+const leagueTeam = league.teamId
 const unionOpp = sql("select id from club_directory where rugby_code='union' and active and not exists (select 1 from clubs c where c.directory_id=club_directory.id) order by name offset 200 limit 1")
 if (!unionTeam || !leagueTeam || !unionOpp) {
-  console.error("Missing UAT data: a Union team, a League team and an external Union club are needed")
+  console.error("Missing UAT data: a Union team and an external Union club are needed")
   process.exit(1)
 }
 const unionOppName = sql(`select name from club_directory where id='${unionOpp}'`)
@@ -38,9 +57,16 @@ const leagueFixture = firstId(`insert into fixtures (owning_team_id, home_away, 
 
 function cleanup() {
   sql(`delete from fixtures where notes='iso-${TAG}'`)
+  league.cleanup()
   for (const name of [UNION_NAME, LEAGUE_NAME]) {
     sql(`delete from competition_editions where competition_id in (select id from competitions where name='${name}')`)
-    sql(`delete from audit_log where table_name='competitions' and record_id in (select id from competitions where name='${name}')`)
+    // NO audit_log DELETE. `internal.refuse_history_rewrite` makes that table
+    // append-only, so the statement raises -- and because this whole cleanup
+    // runs inside one try/catch on process exit, the raise aborted it BEFORE
+    // the competitions themselves were removed. Two League competitions were
+    // left behind by a run that reported success, and the next suite along
+    // read them as real platform data and failed. A test's audit trail is
+    // evidence like any other and is meant to survive the test.
     sql(`delete from competitions where name='${name}'`)
   }
 }
@@ -113,6 +139,7 @@ if (leagueRow.endsWith("no edition")) {
 }
 
 record("no uncaught page errors", pageErrors.length === 0, pageErrors.slice(0, 2).join(" | "))
+world.cleanup()
 await browser.close()
 cleanup()
 cleaned = true

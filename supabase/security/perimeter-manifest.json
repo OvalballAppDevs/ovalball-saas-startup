@@ -3691,9 +3691,13 @@
         ]
       },
       "authenticated": {
-        "select": "all"
+        "select": "all",
+        "consumers": [
+          "lib/fixtures/club-catalogue.ts",
+          "lib/fixtures/fixture-editor.ts"
+        ]
       },
-      "reason": "Slice 4E: the only anonymous projection of a venue -- id, name and owning club, and nothing else. It exists so that anon needs no grant on public.venues at all; before 4E anon held column-level SELECT on the venues table, which a table-level privilege test reports as FALSE and is therefore easy to miss."
+      "reason": "Slice 4E: the only anonymous projection of a venue. It exists so that anon needs no grant on public.venues at all; before 4E anon held column-level SELECT on the venues table, which a table-level privilege test reports as FALSE and is therefore easy to miss. Convergence Step 7 added is_default_home and only_pitch_name: a visiting club has to be told which ground is the main one and, where there is exactly one pitch on it, which pitch. only_pitch_name is NULL for a ground with none or with several, so a club's pitch layout is never enumerated. The migration asserts the exact published column set (club_id, id, is_default_home, name, only_pitch_name) and that the view stays owner-rights, so a later ALTER cannot widen it silently. Signed-in consumers read it too, because venues_select answers venue.venue.view AT THAT CLUB -- a fixture secretary arranging an away match cannot read the other club's venue rows, and RLS returns nothing rather than refusing, which is how the away ground and pitch suggestion was dead for as long as it was."
     },
     "role_capability_defaults": {
       "classification": "PRIVATE",
@@ -4852,6 +4856,14 @@
         "signature": "fail_directory_verification_run(uuid, text)",
         "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
         "consumers": []
+      },
+      {
+        "signature": "fixture_availability_summary(uuid[])",
+        "category": "APPLICATION_RPC",
+        "note": "Availability counts for operational fixture surfaces. Authorises per fixture on team.attendance.view -- the same capability player_fixture_attendance RLS answers -- and returns NO ROW for a fixture the caller holds none on, so it is neither a zero nor a way to learn that a fixture id exists. Batch bounded at 200.",
+        "consumers": [
+          "app/(app)/admin/fixtures/query.ts"
+        ]
       },
       {
         "signature": "fixture_communication_counts(uuid)",
@@ -8080,6 +8092,7 @@
       "export_finance_rows(uuid, date)",
       "extend_club_trial(uuid, integer, text)",
       "fail_directory_verification_run(uuid, text)",
+      "fixture_availability_summary(uuid[])",
       "fixture_communication_counts(uuid)",
       "fixture_editable_fields(uuid)",
       "fixture_notification_recipients(uuid)",

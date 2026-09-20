@@ -37,7 +37,7 @@ export async function buildCalendarLanes(
   boardContext: SwitchableContext
 ): Promise<CalendarLanes> {
   const teamIds = scopedTeams.map((t) => t.id)
-  let lanes: Omit<Lane, "primaryTeamId" | "canCreate">[] = []
+  let lanes: Omit<Lane, "primaryTeamId" | "canCreate" | "hasActivity">[] = []
   const teamToGroup = new Map<string, { id: string; label: string }>()
   // Section 15/16: "Mini-Rugby Group", never "Shared" -- labelled by the one
   // canonical group label, through the same membership read the Planner uses.
@@ -98,13 +98,59 @@ export async function buildCalendarLanes(
     await singleFixtureTeamIdsAcrossClubs(supabase, await teamClubIds(supabase, teamIds)),
   )
   const hasClubFixtureAuthority = Boolean(activeManageableClub)
+
+  // WHICH LANES HAVE ANYTHING IN THEM.
+  //
+  // A club running eighteen sides, four of which have never had a fixture
+  // booked, was offered all eighteen equally in the team filter -- so the
+  // choice a person actually wanted was buried among choices that would show
+  // them an empty week whichever one they picked.
+  //
+  // This resolves the FACT (does this lane have any fixture or training session
+  // at all) and nothing more. The decision about what to do with it belongs to
+  // the filter, which keeps every lane reachable behind an explicit control --
+  // a legitimate team must never vanish from the product for being quiet, and
+  // a newly created team with nothing scheduled yet is the normal case, not an
+  // error. Deliberately not season-scoped: a lane with fixtures next month is
+  // not a quiet lane merely because this week is empty.
+  const activeTeamIds = await teamIdsWithActivity(supabase, teamIds)
+
   const fullLanes: Lane[] = lanes.map((l) => {
     const primaryTeamId = l.memberTeamIds[0] ?? null
     const canCreate = hasClubFixtureAuthority || l.memberTeamIds.some((id) => manageableTeamIds.has(id))
-    return { ...l, primaryTeamId, canCreate }
+    return { ...l, primaryTeamId, canCreate, hasActivity: l.memberTeamIds.some((id) => activeTeamIds.has(id)) }
   })
 
   return { fullLanes, teamToGroup, seenGroupIds, groupIds, hasClubFixtureAuthority, manageableTeamIds }
+}
+
+/**
+ * The teams among these that have any fixture or training session recorded.
+ *
+ * Two bounded reads keyed on ids already in hand, not a per-lane count: the
+ * question is "is there anything", so `select id ... in (...)` and a Set is
+ * enough, and a count per lane would be one round trip per team on a page that
+ * already renders a season.
+ *
+ * Both reads go through the caller's own client, so RLS applies: a lane whose
+ * fixtures this viewer cannot see reads as quiet for them, which is correct --
+ * it is exactly as empty as the board they are about to be shown.
+ */
+async function teamIdsWithActivity(supabase: SupabaseClient<Database>, teamIds: string[]): Promise<Set<string>> {
+  if (teamIds.length === 0) return new Set()
+  const [fixtures, training] = await Promise.all([
+    supabase.from("fixtures").select("owning_team_id, opponent_team_id").or(`owning_team_id.in.(${teamIds.join(",")}),opponent_team_id.in.(${teamIds.join(",")})`),
+    supabase.from("training_sessions").select("team_id").in("team_id", teamIds),
+  ])
+  const withActivity = new Set<string>()
+  for (const row of fixtures.data ?? []) {
+    if (row.owning_team_id) withActivity.add(row.owning_team_id)
+    if (row.opponent_team_id) withActivity.add(row.opponent_team_id)
+  }
+  for (const row of training.data ?? []) {
+    if (row.team_id) withActivity.add(row.team_id)
+  }
+  return withActivity
 }
 
 /** The clubs the scoped teams belong to -- usually exactly one. */

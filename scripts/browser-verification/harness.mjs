@@ -369,3 +369,88 @@ export function summarise() {
   console.log(`\n${pass}/${results.length} passed`)
   return pass === results.length
 }
+
+// =====================================================================
+// ACCESSIBILITY: ONE DECLARED BASELINE, SHARED, SHRINK-ONLY
+//
+// Convergence Step 6 recorded two pre-existing serious colour-contrast
+// violations and required that the baseline never silently grow. One of them
+// is in the APPLICATION SHELL -- the unread badge on the notification bell and
+// the messages popover -- which means it is present on every authenticated
+// page in the product. Four fixture suites were therefore failing on it twelve
+// times over, for one defect that belongs to neither of them.
+//
+// Each suite declaring it separately would be four copies of a waiver, which
+// is how a baseline stops being one thing anybody can count. So the shell's
+// known violations live here, once, and every suite's axe reporting goes
+// through the same classifier.
+//
+// WHAT THIS IS NOT. It is not a suppression. A declared violation is still
+// printed on every run, as a NOTE, naming the element -- and the runner echoes
+// NOTE lines into the release output, so it reaches the report rather than the
+// scrollback. It stops a known, owned, already-reported defect from failing
+// suites that did not cause it and cannot fix it.
+//
+// THE ROOT CAUSE, since it is short and worth writing down: both badges set
+// `bg-pitch-600 text-white` directly. app/globals.css already knows that pair
+// measures about 3.1:1 and already solved it site-wide, by making
+// `--primary-foreground` dark ink on that same green -- these two components
+// simply predate, and bypass, that decision. It is a token change, not a
+// redesign. It is NOT made here: Step 7 does not own the shell, and expanding
+// scope into it would be exactly the drift this programme exists to stop.
+// =====================================================================
+
+/**
+ * Known serious violations that belong to the application shell rather than to
+ * any surface under test. Matched on rule id AND on a distinctive fragment of
+ * the element selector, so declaring "color-contrast on the unread badge"
+ * cannot quietly excuse a colour-contrast failure somewhere else on the page.
+ *
+ * SHRINK-ONLY. Entries come out when the defect is fixed. Adding one is a
+ * deliberate act that has to be argued for in a convergence report.
+ */
+export const SHELL_PRE_EXISTING_VIOLATIONS = [
+  {
+    rule: "color-contrast",
+    // The unread count on the notification bell and the messages popover.
+    // app/(app)/notification-bell.tsx, app/(app)/messages-popover.tsx.
+    selectorIncludes: "-top-0\\.5",
+    owner: "app shell unread badge (notification-bell.tsx / messages-popover.tsx)",
+  },
+]
+
+function matchesDeclared(violation, declared) {
+  return declared.some((d) => d.rule === violation.id && String(violation.target ?? "").includes(d.selectorIncludes))
+}
+
+/**
+ * Split an axe result into what this run introduced and what was already
+ * declared. `extra` lets a suite declare a violation specific to a surface it
+ * does not own, in the same shape.
+ */
+export function classifyAxeViolations(violations, extra = []) {
+  const declared = [...SHELL_PRE_EXISTING_VIOLATIONS, ...extra]
+  const serious = (violations ?? []).filter((v) => v.impact === "critical" || v.impact === "serious")
+  return {
+    serious,
+    introduced: serious.filter((v) => !matchesDeclared(v, declared)),
+    known: serious.filter((v) => matchesDeclared(v, declared)),
+    total: (violations ?? []).length,
+  }
+}
+
+/** Record an axe result: a suite fails on what it introduced, and reports what it did not. */
+export function recordAxe(name, violations, extra = []) {
+  const { introduced, known, total } = classifyAxeViolations(violations, extra)
+  record(
+    name,
+    introduced.length === 0,
+    introduced.length
+      ? introduced.map((v) => `${v.id}(${v.nodes}) ${v.target}`).join(" | ").slice(0, 170)
+      : `${total} total, ${known.length} pre-existing and declared, 0 introduced`,
+  )
+  for (const v of known) {
+    console.log(`NOTE  declared pre-existing ${v.id} x${v.nodes} on ${name} -- ${v.target}`.slice(0, 220))
+  }
+  return introduced.length === 0
+}

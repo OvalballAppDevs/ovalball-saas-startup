@@ -7,9 +7,13 @@
 // CSS viewport directly, and the page is asked to report its own innerWidth
 // so the number under test is the one the page actually saw.
 
-import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import fs from "node:fs"
+import path from "node:path"
 
-const SHOTS = process.env.SHOT_DIR ?? "/Users/Devs/.claude/jobs/e976849c/tmp"
+import { launch, newContext, signIn, APP, record, recordAxe, summarise } from "./harness.mjs"
+
+const SHOTS = process.env.SHOT_DIR ?? path.resolve(import.meta.dirname, "../../.screenshots")
+fs.mkdirSync(SHOTS, { recursive: true })
 const browser = await launch()
 
 const SURFACES = [
@@ -111,9 +115,9 @@ for (const surface of SURFACES) {
   await a11y.addScriptTag({ content: axeSource })
   const violations = await a11y.evaluate(async () => {
     const results = await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] })
-    return results.violations.map((v) => `${v.id} (${v.nodes.length}): ${v.nodes[0]?.target?.join(" ")}`)
+    return results.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))
   })
-  record(`§64 ${surface.name} is axe-clean at AA`, violations.length === 0, violations.join("; ") || "no violations")
+  recordAxe(`§64 ${surface.name} is axe-clean at AA`, violations)
 }
 
 // §64: the actions menu and a lookup cell must both be reachable and

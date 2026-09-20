@@ -10,6 +10,9 @@
 // three, and the first load of each route is discarded because it is
 // measuring the compiler, not the page.
 
+import fs from "node:fs"
+import path from "node:path"
+
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
 
 const browser = await launch()
@@ -17,7 +20,8 @@ const ctx = await newContext(browser, { width: 1512, height: 950 })
 const page = await ctx.newPage()
 await signIn(page, "uat.coach@ovalball.test")
 
-const SHOTS = process.env.SHOT_DIR ?? "/Users/Devs/.claude/jobs/e976849c/tmp"
+const SHOTS = process.env.SHOT_DIR ?? path.resolve(import.meta.dirname, "../../.screenshots")
+fs.mkdirSync(SHOTS, { recursive: true })
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
 
 async function measureRoute(label, path) {

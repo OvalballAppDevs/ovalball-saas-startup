@@ -60,6 +60,12 @@ export function ExportClubFixturesButton() {
     seasonId: null,
     teamId: null,
     homeAway: "all" as const,
+    // An export is deliberately not narrowed by match type or by the window
+    // the person happens to be looking at -- it is the club's fixture list,
+    // not their current screen.
+    gameType: "all" as const,
+    fromDate: null,
+    toDate: null,
       sort: "date-asc",
       page: 1,
       size: 100,

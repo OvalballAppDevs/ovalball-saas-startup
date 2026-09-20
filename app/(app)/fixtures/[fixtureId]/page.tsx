@@ -12,6 +12,7 @@ import { ParticipantList } from "@/components/fixtures/match-centre/participant-
 import { getFixtureForecast } from "@/lib/weather/fixture-forecast"
 
 import { CommunicationPanel } from "./communication-panel"
+import { FIXTURE_RETURN_PARAM, resolveFixtureReturn } from "@/lib/fixtures/return-context"
 import { getMatchCentreContext } from "@/lib/app-context/match-centre-data"
 import { resolvePersonalAvatarUrls } from "@/lib/app-context/personal-avatar"
 import { createClient } from "@/lib/supabase/server"
@@ -65,8 +66,22 @@ export const metadata = { title: "Match Centre" }
  *      and writes in, with the staff announcement composer folded into the
  *      same section rather than standing as a second card
  */
-export default async function FixtureMatchCentrePage({ params }: { params: Promise<{ fixtureId: string }> }) {
+export default async function FixtureMatchCentrePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ fixtureId: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { fixtureId } = await params
+  // WHERE THIS PERSON CAME FROM, IF IT IS SOMEWHERE A FIXTURE IS OPENED FROM.
+  //
+  // Resolved through lib/fixtures/return-context.ts, which admits only the
+  // surfaces on its own list and rebuilds the query from the parameters that
+  // surface already parses. Anything else -- an external URL, an unknown
+  // internal path, a stale one, a fragment, a foreign parameter -- resolves to
+  // /fixtures, which is where this link always used to go.
+  const back = resolveFixtureReturn((await searchParams)[FIXTURE_RETURN_PARAM])
   const supabase = await createClient()
   const {
     data: { user },
@@ -153,8 +168,8 @@ export default async function FixtureMatchCentrePage({ params }: { params: Promi
           (confirmed overlapping via getBoundingClientRect during UAT), an
           inaccessible, unclickable control. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/fixtures" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
-          <ArrowLeft className="size-3.5" /> Fixtures
+        <Link href={back.href} className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
+          <ArrowLeft className="size-3.5" aria-hidden="true" /> {back.label}
         </Link>
         {/* The route back to the record. Presentation only -- Fixture
             Management enforces its own authority on arrival -- but offered

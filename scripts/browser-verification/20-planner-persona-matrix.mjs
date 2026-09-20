@@ -13,9 +13,20 @@
 
 import { execFileSync } from "node:child_process"
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { ensureFixtureWorld } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
+
+// THIS SUITE STATES ITS OWN PRECONDITIONS.
+//
+// It reads canonical teams and pitches in the automated UAT club, and those
+// records had silently gone, so the suite reported a product failure when what
+// it had found was a missing row. It now creates whatever is absent and removes
+// exactly what it created -- see fixture-world.mjs for why that lives in one
+// place rather than in each suite.
+const world = ensureFixtureWorld(sql, { tag: "s20" })
+
 
 const TAG = `PERSONA-${Date.now()}`
 
@@ -34,7 +45,15 @@ const PERSONAS = [
   // fixtures through Request a Fixture and never reach the Planner, however
   // many teams they run (fixture_bulk_planning_authority.sql).
   { email: "uat.team.manager@ovalball.test", name: "Team Manager", mayPlan: false, mayCreateMany: false, mayRequestOne: true },
-  { email: "uat.team.admin@ovalball.test", name: "Team Admin", mayPlan: false, mayCreateMany: false, mayRequestOne: true },
+  // TEAM ADMIN IS NOT A ROLE ANY MORE. The identity/auth programme retired it
+  // as a visible primary role; team administration became a scoped capability
+  // bundle assignable to a Team Manager or a Coach. This identity kept its
+  // legacy name and holds no team-scoped fixture authority, so it is offered
+  // Request a Fixture exactly as any other ordinary member is -- which is to
+  // say, not at all. The row is kept rather than deleted precisely because the
+  // retirement is worth asserting: if a "Team Admin" ever regains single-fixture
+  // authority by virtue of its name, this fails.
+  { email: "uat.team.admin@ovalball.test", name: "Legacy Team Admin identity (role retired)", mayPlan: false, mayCreateMany: false, mayRequestOne: false },
   { email: "uat.adult.player@ovalball.test", name: "Adult player", mayPlan: false, mayCreateMany: false, mayRequestOne: false },
   { email: "uat.player.self@ovalball.test", name: "Self-managing player", mayPlan: false, mayCreateMany: false },
   { email: "uat.guardian.one@ovalball.test", name: "Guardian", mayPlan: false, mayCreateMany: false, mayRequestOne: false },
@@ -180,5 +199,6 @@ sql(`delete from public.capability_overrides where user_id='${coachId}'
 record("QA cleanup removed only this run's own override",
   Number(sql(`select count(*) from public.capability_overrides where reason='planner persona matrix'`)) === 0)
 
+world.cleanup()
 await browser.close()
 summarise()

@@ -93,14 +93,33 @@ function matchable(t: { id: string; rugby_code: string; category: string; age_gr
   }
 }
 
+/**
+ * A club's grounds, for the editor's venue and pitch defaults.
+ *
+ * VENUES COME FROM THE PUBLIC PROJECTION, and this is the whole of the fix for
+ * "Away suggests the opposition's primary ground" never suggesting anything.
+ * The read used to be `public.venues`, whose policy answers `venue.venue.view`
+ * AT THAT CLUB -- so when this was called for the OPPOSITION (which is the
+ * only case the away default exists for) it returned no rows, and RLS returns
+ * no rows rather than refusing. `defaultVenue` then correctly concluded there
+ * was no primary ground and suggested nothing, and the away branch of a rule
+ * that has been in the code all along had never once fired.
+ *
+ * `public_venues` is the projection for exactly this question -- what a
+ * visiting club is told about where to turn up -- and it contains our own
+ * club's grounds too, so the home case is unchanged.
+ */
 export async function clubGrounds(supabase: Supabase, clubId: string | null): Promise<ClubGrounds> {
   if (!clubId) return { venues: [], pitches: [] }
   const [{ data: venues }, { data: pitches }] = await Promise.all([
-    supabase.from("venues").select("id, name, is_default_home, active").eq("club_id", clubId).eq("active", true).order("name"),
+    supabase.from("public_venues").select("id, name, is_default_home").eq("club_id", clubId).order("name"),
     supabase.from("club_pitches").select("id, display_name, venue_id, active").eq("club_id", clubId).eq("active", true).order("sort_order"),
   ])
   return {
-    venues: (venues ?? []).map((v) => ({ id: v.id, name: v.name, isDefaultHome: v.is_default_home, active: v.active })),
+    // The projection contains only active venues, so every row here is active.
+    venues: (venues ?? [])
+      .filter((v): v is { id: string; name: string; is_default_home: boolean | null } => Boolean(v.id && v.name))
+      .map((v) => ({ id: v.id, name: v.name, isDefaultHome: v.is_default_home ?? false, active: true })),
     pitches: (pitches ?? []).map((p) => ({ id: p.id, name: p.display_name, venueId: p.venue_id, active: p.active })),
   }
 }

@@ -289,6 +289,122 @@ function enrich() {
   console.log("Added through create_venue / set_venue_address / create_club_pitch as the review Club Admin.")
 }
 
+/**
+ * STEP 7 -- FIXTURE OPERATIONS EXAMPLES, ADDED TO THIS WORLD RATHER THAN BESIDE IT.
+ *
+ * The review club already has people, roles, teams and two grounds. What it had
+ * no examples of was the thing Step 7 is about: a season with fixtures in it, at
+ * different grounds, of different kinds, some played and some not, so that the
+ * Control Centre, the Calendar, Fixture Search, Match Centre and Pitch
+ * Allocation all have something real to show.
+ *
+ * Written through the canonical writers as the review Club Admin, so every
+ * record is one the product itself would have created -- never a direct insert
+ * that skips a rule and then reads as a product defect later.
+ *
+ * IDEMPOTENT AND NON-DESTRUCTIVE. If the club already has fixtures, this adds
+ * nothing and says so: the product owner's own fixtures are review material,
+ * not something for a script to tidy.
+ */
+function enrichFixtures() {
+  const clubId = sql(`select c.id from public.clubs c
+                      join public.club_directory d on d.id = c.directory_id
+                      where d.normalized_key = ${q(KEY)} limit 1`)
+  if (!clubId) {
+    console.error(`No "${CLUB_NAME}" found. Run \`up\` first.`)
+    process.exit(1)
+  }
+  const adminId = sql(`select id from public.profiles where email = ${q(E("admin"))}`)
+  if (!adminId) {
+    console.error("The review Club Admin is missing; the world is incomplete.")
+    process.exit(1)
+  }
+
+  const existing = Number(sql(`select count(*) from public.fixtures f
+    join public.teams t on t.id = f.owning_team_id where t.club_id = ${q(clubId)}`))
+  if (existing > 0) {
+    console.log(`${CLUB_NAME} already has ${existing} fixture(s) -- nothing added. Those are review material, not clutter.`)
+    return
+  }
+
+  const asAdmin = (statement) =>
+    sql(`do $$
+         begin
+           perform set_config('request.jwt.claims',
+             jsonb_build_object('sub', ${q(adminId)}, 'role', 'authenticated')::text, true);
+           set local role authenticated;
+           ${statement}
+           reset role;
+         end $$;`)
+
+  const u12 = sql(`select id from public.teams where club_id = ${q(clubId)} and display_name = 'Under 12 Boys' limit 1`)
+  const u14g = sql(`select id from public.teams where club_id = ${q(clubId)} and display_name = 'Under 14 Girls' limit 1`)
+  const mens = sql(`select id from public.teams where club_id = ${q(clubId)} and display_name like 'Men%' limit 1`)
+  const claro = sql(`select id from public.venues where club_id = ${q(clubId)} and name = 'Claro Road' limit 1`)
+  const pannal = sql(`select id from public.venues where club_id = ${q(clubId)} and name = 'Pannal Playing Fields' limit 1`)
+  const mainPitch = sql(`select id from public.club_pitches where venue_id = ${q(claro)} and display_name = 'Main Pitch' limit 1`)
+  const secondPitch = sql(`select id from public.club_pitches where venue_id = ${q(claro)} and display_name = 'Second Pitch' limit 1`)
+  const pannalPitch = sql(`select id from public.club_pitches where venue_id = ${q(pannal)} limit 1`)
+  if (!u12 || !claro || !mainPitch) {
+    console.error("The review club is missing the teams or grounds these fixtures hang on. Run `enrich` first.")
+    process.exit(1)
+  }
+
+  // Opponents from the real Club Directory -- never invented names. One of them
+  // is an Ovalball tenant where possible, so "ask the other club" is reviewable.
+  const opponents = sql(`select string_agg(id::text, ',') from (
+      select id from public.club_directory
+      where active and rugby_code = 'union' and id <> (select directory_id from public.clubs where id = ${q(clubId)})
+      order by name limit 4) x`).split(",").filter(Boolean)
+
+  /**
+   * Six fixtures: two match days at the default ground on the same morning (so
+   * Pitch Allocation has something to arrange and a clash to show), one at the
+   * second ground, one away, one already played with a real recorded result,
+   * and one still to be determined -- which is what the Control Centre's
+   * attention band is for.
+   *
+   * `create_fixture` returns the row it made, so the result on the past fixture
+   * is recorded through `submit_fixture_result` on that id -- the canonical
+   * writer, not an UPDATE that would skip the rule.
+   */
+  const plan = [
+    { team: u12, side: "Home", day: 7, time: "10:30", type: "League Fixture", venue: claro, pitch: mainPitch, status: "Booked" },
+    { team: u14g || u12, side: "Home", day: 7, time: "10:30", type: "League Fixture", venue: claro, pitch: secondPitch, status: "Booked" },
+    { team: mens || u12, side: "Home", day: 14, time: "14:00", type: "Cup Fixture", venue: pannal || claro, pitch: pannalPitch || mainPitch, status: "Booked" },
+    { team: u12, side: "Away", day: 21, time: "11:00", type: "Friendly", venue: null, pitch: null, status: "Booked" },
+    { team: u12, side: "Home", day: -14, time: "10:30", type: "League Fixture", venue: claro, pitch: mainPitch, status: "Booked", result: [24, 17] },
+    { team: u14g || u12, side: "Home", day: 28, time: null, type: "Friendly", venue: claro, pitch: null, status: "To Be Determined" },
+  ]
+
+  let created = 0
+  plan.forEach((f, i) => {
+    const opponentDir = opponents[i % Math.max(1, opponents.length)] ?? null
+    const opponentName = opponentDir ? sql(`select name from public.club_directory where id = ${q(opponentDir)}`) : "Visiting club"
+    // The result is recorded in the same authenticated block that created the
+    // fixture, so it is the review Club Admin's own action throughout.
+    asAdmin(`
+      declare v_fixture uuid;
+      begin
+        v_fixture := (public.create_fixture(
+          ${q(f.team)}, ${q(f.side)}, ${q(opponentName)},
+          (current_date + ${f.day})::date, ${q(f.status)},
+          null, ${q(opponentDir)},
+          ${f.time ? `'${f.time}'::time` : "null"},
+          ${q(f.type)}, ${q(f.venue)}, ${q(f.pitch)},
+          'Step 7 review example.', null, null, null, null
+        ) ->> 'fixtureId')::uuid;
+        ${f.result ? `perform public.submit_fixture_result(v_fixture, ${f.result[0]}, ${f.result[1]});` : ""}
+      end;`)
+    created += 1
+  })
+
+  const total = sql(`select count(*) from public.fixtures f join public.teams t on t.id = f.owning_team_id where t.club_id = ${q(clubId)}`)
+  console.log(`${CLUB_NAME}: ${created} fixture(s) arranged, ${total} now on the club.`)
+  console.log("Home and away, three match types, two grounds, one played and one still to be determined.")
+  console.log("Created through public.create_fixture as the review Club Admin.")
+}
+
 function down({ quiet = false } = {}) {
   // Ordered by dependency, and scoped to this review club and its identities only.
   sql(`
@@ -533,6 +649,7 @@ if (cmd === "up") {
   }
   down()
 } else if (cmd === "enrich") enrich()
+else if (cmd === "enrich-fixtures") enrichFixtures()
 else if (cmd === "report") report()
 else if (cmd === "verify") verify()
-else console.log("usage: step2-review-club.mjs up|enrich|report|verify|down --destroy-the-canonical-review-world")
+else console.log("usage: step2-review-club.mjs up|enrich|enrich-fixtures|report|verify|down --destroy-the-canonical-review-world")

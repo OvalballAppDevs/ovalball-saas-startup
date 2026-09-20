@@ -21,9 +21,20 @@
 
 import { execFileSync } from "node:child_process"
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { ensureFixtureWorld } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
+
+// THIS SUITE STATES ITS OWN PRECONDITIONS.
+//
+// It reads canonical teams and pitches in the automated UAT club, and those
+// records had silently gone, so the suite reported a product failure when what
+// it had found was a missing row. It now creates whatever is absent and removes
+// exactly what it created -- see fixture-world.mjs for why that lives in one
+// place rather than in each suite.
+const world = ensureFixtureWorld(sql, { tag: "s27" })
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** An INSERT ... RETURNING id, read as ids -- psql also prints its "INSERT 0 n" status line. */
 const ids = (q) => sql(q).split("\n").map((l) => l.trim()).filter((l) => UUID.test(l))
@@ -171,10 +182,23 @@ for (const query of ["U7", "U8", "7/8", "Tags"]) {
   record(`§14 the Club Admin finds the real member teams by "${query}"`, wants.every((w) => texts.includes(w)), texts.join(", "))
   record(`§14 and "${query}" offers no synthetic group team`, texts.every((t) => !/tags|7\/8/i.test(t)), texts.join(", "))
 }
+// A WEEK WITH SOMETHING IN IT.
+//
+// Calendar renders its swimlanes only when the week has entries -- an empty
+// week is answered by the empty state, which is deliberate design and not
+// the subject of this assertion. The suite used to navigate to whatever week
+// the season happened to start in and hope something was already booked
+// there, so "the Club Admin can create on the U7/U8 Tags lane" failed
+// whenever nobody else's fixtures happened to be lying in that week. It seeds
+// one fixture of its own, on its own tag, and removes it with the rest.
+sql(`insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source, notes)
+     values ('${u7}', 'Home', 'Lane Rendering ${TAG}', date '${seasonWeek}' + 5, '10:30', 'Booked', 'club_created', '${TAG}')`)
+
 await admin.page.goto(`${APP}/calendar?week=${seasonWeek}&phase=season`, { waitUntil: "domcontentloaded" })
 await admin.page.waitForLoadState("networkidle").catch(() => {})
 record("§15 and the same Club Admin can create on the U7/U8 Tags lane in Calendar",
-  (await admin.page.locator('[aria-label^="Create fixture for U7/U8 Tags"]').count()) > 0)
+  (await admin.page.locator('[aria-label^="Create fixture for U7/U8 Tags"]').count()) > 0,
+  `${await admin.page.locator('[aria-label^="Create fixture for"]').count()} create affordances on the board`)
 await admin.ctx.close()
 
 // ---------------------------------------------------------------------
@@ -217,6 +241,7 @@ if (createdU7) sql(`delete from public.teams where id='${u7}'`)
 record("cleanup removed this run's seed and fixtures",
   sql(`select count(*) from public.scheduling_groups where id='${groupId}'`) === "0" && sql(`select count(*) from public.fixtures where notes='${TAG}'`) === "0")
 
+world.cleanup()
 await browser.close()
 const ok = summarise()
 process.exit(ok ? 0 : 1)

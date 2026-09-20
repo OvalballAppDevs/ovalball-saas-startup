@@ -118,11 +118,16 @@ measure() {
       || '|' || (select count(*) from public.club_pitches)
       || '|' || (select count(*) from public.teams)
       || '|' || (select count(*) from public.fixtures)
+      || '|' || (select count(*) from public.fixture_requests)
+      || '|' || (select count(*) from public.competitions)
+      || '|' || (select count(*) from public.competition_matches)
       || '|' || (select coalesce((select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='internal' and p.proname='is_site_admin'),0))"
 }
 
 BEFORE="$(measure)"
-echo "-- baseline measured: site_* fns|policies|capabilities|profiles|memberships|role_assignments|site_admins|clubs|venues|pitches|teams|fixtures|is_site_admin"
+# Convergence Step 7 added fixture_requests, competitions and competition_matches: this is the fixture
+# step, and §45 names them as the tables whose counts have to be seen not to move.
+echo "-- baseline measured: site_* fns|policies|capabilities|profiles|memberships|role_assignments|site_admins|clubs|venues|pitches|teams|fixtures|fixture_requests|competitions|competition_matches|is_site_admin"
 echo "   $BEFORE"
 
 STATUS=0
@@ -157,8 +162,12 @@ echo ""
 echo "-- delta"
 python3 - "$BEFORE" "$AFTER" <<'PY'
 import sys
+# Convergence Step 7 added the last three before internal.is_site_admin. The
+# length guard below caught this list being out of step with measure() the
+# moment they were added, which is exactly what it was written for.
 labels = ["site_* functions","policies","capabilities","profiles","club_memberships","role_assignments",
-          "site_admins","clubs","venues","club_pitches","teams","fixtures","internal.is_site_admin"]
+          "site_admins","clubs","venues","club_pitches","teams","fixtures",
+          "fixture_requests","competitions","competition_matches","internal.is_site_admin"]
 before = sys.argv[1].split("|"); after = sys.argv[2].split("|")
 if len(before) != len(labels) or len(after) != len(labels):
     print(f"   FAIL: the measure emits {len(before)} values and there are {len(labels)} labels -- "
@@ -173,7 +182,8 @@ for label, b, a in zip(labels, before, after):
     # People's access AND the canonical club/venue/pitch/team/fixture records. A schema migration that
     # creates or removes one of these is doing something it did not say it was doing.
     if label in ("profiles","club_memberships","role_assignments","site_admins",
-                 "clubs","venues","club_pitches","teams","fixtures") and b != a:
+                 "clubs","venues","club_pitches","teams","fixtures",
+                 "fixture_requests","competitions","competition_matches") and b != a:
         bad.append(label)
 if bad:
     print("   FAIL: these are people's access or canonical club data and must not move: " + ", ".join(bad))

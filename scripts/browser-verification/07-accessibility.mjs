@@ -5,12 +5,15 @@
 // operates a switch, and whether focus comes back out of a dialog.
 
 import fs from "node:fs"
+import path from "node:path"
+
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
 
-const AXE = fs.readFileSync(
-  "/Users/Devs/.claude/jobs/e976849c/tmp/node_modules/axe-core/axe.min.js",
-  "utf8",
-)
+// axe comes from THIS PROJECT's declared dependency. It used to be read from an
+// absolute path under a job directory that has since been deleted, so the suite
+// could not start at all -- a suite that cannot start proves nothing, and said
+// so only by crashing.
+const AXE = fs.readFileSync(path.resolve(import.meta.dirname, "../../node_modules/axe-core/axe.min.js"), "utf8")
 const CONV = process.env.CONV_ID
 
 const browser = await launch()

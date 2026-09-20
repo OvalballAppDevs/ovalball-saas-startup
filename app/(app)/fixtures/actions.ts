@@ -143,6 +143,12 @@ const UNFILTERED_CLUB_EXPORT_QUERY: AdminFixtureQuery = {
   seasonId: null,
   teamId: null,
   homeAway: "all",
+  // An export is deliberately not narrowed by match type or by the window
+  // the person happens to be looking at -- it is the club's fixture list,
+  // not their current screen.
+  gameType: "all" as const,
+  fromDate: null,
+  toDate: null,
   competitionEditionId: null,
   sort: "date-asc",
   page: 1,

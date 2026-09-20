@@ -63,21 +63,33 @@ export async function loadClubCatalogue(
 
   // An Ovalball club's primary ground is its own default venue record; the
   // Club Directory's recorded ground is the answer for everyone else.
+  //
+  // READ THROUGH THE PUBLIC PROJECTION, NOT THROUGH `venues`.
+  //
+  // This used to select from `public.venues` (joining `club_pitches`) with the
+  // caller's own client. `venues_select` answers `venue.venue.view` AT THAT
+  // CLUB, so a fixture secretary arranging a match at another club could not
+  // read that club's venue rows -- and RLS does not refuse, it returns nothing.
+  // The ground still appeared, because the code fell through to the Club
+  // Directory's free-text `home_ground`; the pitch silently never did, and the
+  // "their only pitch" branch of defaultVenue() was dead in practice.
+  //
+  // `public_venues` is the projection that exists for precisely this: what a
+  // visiting club is told about where to turn up. It carries the two facts the
+  // rule needs and no more.
   const defaultGround = new Map<string, string>()
   const onlyPitch = new Map<string, string>()
   const tenantIds = [...tenantByDirectory.values()]
   for (let i = 0; i < tenantIds.length; i += 200) {
     const { data: grounds } = await supabase
-      .from("venues")
-      .select("id, club_id, name, club_pitches(display_name, active)")
+      .from("public_venues")
+      .select("id, club_id, name, only_pitch_name")
       .in("club_id", tenantIds.slice(i, i + 200))
-      .eq("active", true)
       .eq("is_default_home", true)
     for (const g of grounds ?? []) {
-      if (!g.club_id) continue
+      if (!g.club_id || !g.name) continue
       defaultGround.set(g.club_id, g.name)
-      const pitches = (g.club_pitches ?? []).filter((p) => p.active)
-      if (pitches.length === 1) onlyPitch.set(g.club_id, pitches[0].display_name)
+      if (g.only_pitch_name) onlyPitch.set(g.club_id, g.only_pitch_name)
     }
   }
 

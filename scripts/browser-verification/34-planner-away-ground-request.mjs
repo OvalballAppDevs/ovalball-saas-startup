@@ -14,9 +14,20 @@
 
 import { execFileSync } from "node:child_process"
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { ensureFixtureWorld } from "./fixture-world.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
+
+// THIS SUITE STATES ITS OWN PRECONDITIONS.
+//
+// It reads canonical teams and pitches in the automated UAT club, and those
+// records had silently gone, so the suite reported a product failure when what
+// it had found was a missing row. It now creates whatever is absent and removes
+// exactly what it created -- see fixture-world.mjs for why that lives in one
+// place rather than in each suite.
+const world = ensureFixtureWorld(sql, { tag: "s34" })
+
 
 const TAG = `AWAYGROUND-${Date.now().toString(36).toUpperCase()}`
 const GROUND = `Preston Park ${TAG.slice(-4)}`
@@ -137,5 +148,6 @@ if (fixtureId) {
 sql(`delete from notifications where data->>'fixture_request_id'='${requestId}'`)
 sql(`delete from fixture_requests where id='${requestId}'`)
 if (group) sql(`delete from fixture_request_groups where id='${group}'`)
+world.cleanup()
 await browser.close()
 process.exit(summarise() ? 0 : 1)

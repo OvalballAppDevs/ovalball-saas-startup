@@ -79,3 +79,6 @@ data/clublogo/
 # copies of governing-body documents (see research-ingestion/README.md).
 research-ingestion/**
 !research-ingestion/README.md
+
+# Browser-verification screenshots. Evidence for a run, never source.
+.screenshots/

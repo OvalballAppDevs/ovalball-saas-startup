@@ -1,8 +1,13 @@
 import { PAGE_SIZES, DEFAULT_PAGE_SIZE, type PageSize } from "../pagination-constants"
+import { parseFixtureWindow as windowOf } from "@/lib/fixtures/date-window"
 import type { FixtureStatus } from "@/lib/fixtures/status"
 
 export { PAGE_SIZES, DEFAULT_PAGE_SIZE }
 export type { PageSize }
+
+/** The canonical match-type taxonomy. `fixtures.game_type` holds one of these; there is no second list anywhere in the product. */
+export const GAME_TYPE_OPTIONS = ["Friendly", "League Fixture", "Cup Fixture", "Scheduled Match"] as const
+export type GameType = (typeof GAME_TYPE_OPTIONS)[number]
 
 export type SortKey = "date-asc" | "date-desc" | "club" | "created-desc" | "updated-desc"
 export type DateFilter = "all" | "upcoming" | "past"
@@ -97,7 +102,19 @@ export interface AdminFixtureRow {
   /** Canonical fixture single-source-of-truth pass: raw Mini-Rugby Group ids for each side, when that side is a group rather than a plain team. Resolved to a display label (attachGroupLabels in query.ts) the same way Calendar and Pitch Allocation already do -- never a second, divergent resolution. */
   owningSchedulingGroupId: string | null
   opponentSchedulingGroupId: string | null
+  /**
+   * STEP 7 DISPLAY ONLY. Counts of the canonical availability responses for
+   * the squads whose attendance this viewer may read. **Null means "not
+   * authorised to know", never "nobody has answered"** -- the RPC returns null
+   * counts rather than zeroes precisely so the two stay distinguishable, and a
+   * surface must render nothing rather than a zero when it is null. The
+   * Parent/Player journey that PRODUCES these responses is Step 9's.
+   */
+  availability?: { squad: number; attending: number; unavailable: number; unsure: number; awaiting: number } | null
 }
+
+/** A match type, or every one. Values come from GAME_TYPE_OPTIONS -- the canonical taxonomy -- never a second list. */
+export type GameTypeFilter = "all" | GameType
 
 export interface AdminFixtureQuery {
   q: string
@@ -110,6 +127,15 @@ export interface AdminFixtureQuery {
   seasonId: string | null
   teamId: string | null
   homeAway: HomeAwayFilter
+  gameType: GameTypeFilter
+  /**
+   * An explicit inclusive date window, in force only when BOTH ends are real
+   * calendar dates. It overrides the `date` bucket rather than combining with
+   * it, because "upcoming, but only this week" and "this week" are the same
+   * request and answering it twice is how a count disagrees with its list.
+   */
+  fromDate: string | null
+  toDate: string | null
   sort: SortKey
   page: number
   size: PageSize
@@ -139,14 +165,21 @@ export function parseAdminFixtureQuery(searchParams: Record<string, string | str
     seasonId: get("season") || null,
     teamId: get("team") || null,
     homeAway: (get("ha") as HomeAwayFilter) ?? "all",
+    // Match type is canonical on the fixture (`game_type`) and was on no
+    // filter, column or chip on the desktop Control Centre, while the phone
+    // card had been showing it all along.
+    gameType: (GAME_TYPE_OPTIONS as readonly string[]).includes(get("gameType") ?? "") ? (get("gameType") as GameType) : "all",
+    // A window is only in force when both ends parse as real calendar dates
+    // and are the right way round -- parseFixtureWindow decides, so a
+    // hand-edited or truncated URL falls back to no window rather than to a
+    // half-applied one.
+    fromDate: windowOf(get("from_date"), get("to_date"))?.from ?? null,
+    toDate: windowOf(get("from_date"), get("to_date"))?.to ?? null,
     sort: (get("sort") as SortKey) ?? "date-asc",
     page: Math.max(1, Number(get("page")) || 1),
     size: PAGE_SIZES.includes(size as PageSize) ? (size as PageSize) : DEFAULT_PAGE_SIZE,
   }
 }
-
-export const GAME_TYPE_OPTIONS = ["Friendly", "League Fixture", "Cup Fixture", "Scheduled Match"] as const
-export type GameType = (typeof GAME_TYPE_OPTIONS)[number]
 
 /** The subset of ALL_FIXTURE_STATUSES (lib/fixtures/status.ts) settable directly through the simple status control -- the three legacy CSV-import-only statuses (Annual Holiday/Festival/Lancashire Cup) are display-only, never a new write target. Use ALL_FIXTURE_STATUSES for any filter/display surface instead of this narrower list. */
 export const STATUS_OPTIONS = ["Planned", "Booked", "To Be Determined", "Cancelled", "Completed"] as const

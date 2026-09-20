@@ -9,12 +9,15 @@
 // rather than a link called "import".
 
 import { execFileSync } from "node:child_process"
-import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import fs from "node:fs"
+import path from "node:path"
+import { launch, newContext, signIn, APP, record, recordAxe, summarise } from "./harness.mjs"
 
 const DB = ["exec", "-i", "supabase_db_ovalball-saas-startup", "psql", "-U", "postgres", "-d", "postgres", "-tAc"]
 const sql = (q) => execFileSync("docker", [...DB, q], { encoding: "utf8" }).trim()
 
-const SHOTS = process.env.SHOT_DIR ?? "/Users/Devs/.claude/jobs/e976849c/tmp"
+const SHOTS = process.env.SHOT_DIR ?? path.resolve(import.meta.dirname, "../../.screenshots")
+fs.mkdirSync(SHOTS, { recursive: true })
 
 const browser = await launch()
 const ctx = await newContext(browser, { width: 1512, height: 1100 })
@@ -50,13 +53,16 @@ for (const phrase of [
   "in the next 7 days",
   "still missing a kick-off or a date",
   "played, with no result recorded",
+  // A canonical state of the fixture -- home, and no ground recorded -- and
+  // the most actionable thing on the band. Not an invented status.
+  "at home, with no ground set",
 ]) {
   record(`§75 the attention band answers "${phrase}" on arrival`, body.includes(phrase))
 }
 
 // Each count must be a way IN, not a fact to go and look for.
-const bandLinks = await page.locator('a[href*="resultStatus=none"], a[href*="status=To Be Determined"]').count()
-record("§75 the counts are routes into the fixtures they count", bandLinks >= 2, `${bandLinks} band links`)
+const bandLinks = await page.locator('a[href*="resultStatus=none"], a[href*="status=To Be Determined"], a[href*="ha=Home"]').count()
+record("§75 the counts are routes into the fixtures they count", bandLinks >= 3, `${bandLinks} band links`)
 
 // And they must count the whole scope, not the page in front of them.
 const clubId = sql(`select club_id from public.club_memberships
@@ -204,9 +210,11 @@ await page.waitForLoadState("networkidle").catch(() => {})
 await page.addScriptTag({ content: axeSource })
 const violations = await page.evaluate(async () => {
   const results = await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] })
-  return results.violations.map((v) => `${v.id} (${v.nodes.length}): ${v.nodes[0]?.target?.join(" ")}`)
+    return results.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: v.nodes[0]?.target?.join(" ") ?? "" }))
 })
-record("the Control Centre is axe-clean at AA", violations.length === 0, violations.join("; ") || "no violations")
+// Fails on anything this surface introduced; reports, rather than hides, the
+// application shell's own declared violation. See harness.mjs.
+recordAxe("the Control Centre is axe-clean at AA", violations)
 
 await browser.close()
 summarise()

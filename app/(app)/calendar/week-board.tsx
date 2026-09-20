@@ -49,6 +49,14 @@ export interface Lane {
   ageGroup: string | null
   gender: string | null
   squadDesignation: string | null
+  /**
+   * Whether anything is scheduled for this lane at all -- a fixture or a
+   * training session, at any date. A FACT about the lane, not a decision about
+   * it: the filter uses it to decide what to show first, the swimlane board
+   * ignores it entirely, and a lane is never removed from the product for
+   * being quiet. See buildCalendarLanes.
+   */
+  hasActivity: boolean
 }
 
 export interface TournamentParticipantView {

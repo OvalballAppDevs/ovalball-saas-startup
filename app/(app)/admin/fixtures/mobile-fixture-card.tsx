@@ -3,6 +3,8 @@
 import { ChevronRight, Pencil, Trophy } from "lucide-react"
 
 import { useFixtureEditor } from "@/components/fixtures/fixture-editor-provider"
+import { AvailabilitySummary } from "@/components/fixtures/availability-summary"
+import { fixtureHrefWithReturn, fixtureRecordHref } from "@/lib/fixtures/return-context"
 import { FIXTURE_STATUS_BADGE_CLASS } from "@/lib/fixtures/status"
 
 import { RUGBY_CODE_LABEL, formatFixtureDate } from "./format"
@@ -14,7 +16,16 @@ import type { AdminFixtureRow } from "./types"
  * never the desktop table squeezed onto a small screen. Result correction and
  * history live on fixture detail.
  */
-export function MobileFixtureCard({ row, clubScoped = false }: { row: AdminFixtureRow; clubScoped?: boolean }) {
+export function MobileFixtureCard({
+  row,
+  clubScoped = false,
+  returnTo = null,
+}: {
+  row: AdminFixtureRow
+  clubScoped?: boolean
+  /** Where Match Centre should come back to. Same value the desktop rows carry, built once on the server. */
+  returnTo?: string | null
+}) {
   const { openEditor } = useFixtureEditor()
   const handleOpen = () => openEditor(row.id)
 
@@ -37,7 +48,7 @@ export function MobileFixtureCard({ row, clubScoped = false }: { row: AdminFixtu
             {!clubScoped && <> &middot; {RUGBY_CODE_LABEL[row.rugbyCode] ?? row.rugbyCode}</>}
           </p>
           <p className="mt-0.5 font-medium text-ink">
-            {homeSide} vs {awaySide}
+            {homeSide} v {awaySide}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${FIXTURE_STATUS_BADGE_CLASS[row.status as keyof typeof FIXTURE_STATUS_BADGE_CLASS] ?? "bg-ink/8 text-ink-muted"}`}>{row.status}</span>
@@ -49,12 +60,13 @@ export function MobileFixtureCard({ row, clubScoped = false }: { row: AdminFixtu
             )}
             {row.pitchAllocation && <span className="text-xs text-ink-muted">{row.pitchAllocation}</span>}
           </div>
+          <AvailabilitySummary counts={row.availability} className="mt-1.5" />
         </button>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <button
             type="button"
             onClick={handleOpen}
-            aria-label={`Edit ${homeSide} vs ${awaySide}`}
+            aria-label={`Edit ${homeSide} v ${awaySide}`}
             className="inline-flex size-9 items-center justify-center rounded-lg border border-ink/15 text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <Pencil className="size-4" />
@@ -62,14 +74,14 @@ export function MobileFixtureCard({ row, clubScoped = false }: { row: AdminFixtu
           {/* The SAME row.id on the one shared Match Centre -- 44px, because
               this is a phone and it sits beside two other icon targets. */}
           <a
-            href={`/fixtures/${row.id}`}
+            href={fixtureHrefWithReturn(row.id, returnTo)}
             aria-label={`Open Match Centre for ${homeSide} versus ${awaySide}`}
             className="inline-flex size-11 items-center justify-center rounded-lg border border-ink/15 text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400"
           >
             <Trophy className="size-4" />
           </a>
           <a
-            href={`/admin/fixtures/${row.id}`}
+            href={fixtureRecordHref(row.id, returnTo)}
             aria-label="Open full details"
             className="inline-flex size-11 items-center justify-center rounded-lg text-ink-muted outline-none hover:text-ink/60 focus-visible:ring-2 focus-visible:ring-pitch-400"
           >

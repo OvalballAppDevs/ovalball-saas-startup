@@ -30,6 +30,7 @@ import { FIXTURE_STATUS_BADGE_CLASS } from "@/lib/fixtures/status"
 
 import { PlayerMovementsLog } from "./player-movements-log"
 import { SiteAdminDashboard } from "./site-admin-dashboard"
+import { fixtureTitle } from "@/lib/fixtures/presentation"
 
 export const metadata = { title: "Dashboard" }
 
@@ -143,7 +144,7 @@ export default async function DashboardPage() {
   const nextMatch =
     next && nextParts
       ? {
-          label: `${next.teamDisplayName} v ${next.opposition}`,
+          label: fixtureTitle({ homeAway: next.homeAway, ownLabel: next.teamDisplayName, oppositionLabel: next.opposition }),
           when: `${nextParts.weekday} ${nextParts.day} ${nextParts.month}${next.kickoffTime ? `, ${next.kickoffTime.slice(0, 5)}` : ""}${next.homeAway ? `, ${next.homeAway}` : ""}`,
           href: `/fixtures/${next.id}`,
         }

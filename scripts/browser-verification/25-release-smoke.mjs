@@ -10,9 +10,13 @@
 // because the failures this catches are the ones that only appear when a real
 // person moves between surfaces carrying real context.
 
+import fs from "node:fs"
+import path from "node:path"
+
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
 
-const SHOTS = process.env.SHOT_DIR ?? "/Users/Devs/.claude/jobs/e976849c/tmp"
+const SHOTS = process.env.SHOT_DIR ?? path.resolve(import.meta.dirname, "../../.screenshots")
+fs.mkdirSync(SHOTS, { recursive: true })
 const browser = await launch()
 
 // ---------------------------------------------------------------------

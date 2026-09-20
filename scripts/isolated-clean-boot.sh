@@ -252,11 +252,58 @@ begin
 
   raise notice 'PASS clean boot: Step 6''s objects are correct from empty, including what they revoked';
 end $$;
+
+-- =====================================================================================================
+-- CONVERGENCE STEP 7. Two migrations. One adds a definer function whose whole value is WHICH authority
+-- it asks, and the other WIDENS a public projection -- both are the kind whose mistake is invisible on
+-- a database where nobody looks, so both are asserted here from empty.
+-- =====================================================================================================
+do $$
+declare v_cols text;
+begin
+  -- The availability summary must authorise on the capability that governs the
+  -- rows it counts, not on fixture-management authority. A definer function
+  -- that asks a different question from the data is how a caller ends up able
+  -- to count what they may not read.
+  if to_regprocedure('public.fixture_availability_summary(uuid[])') is null then
+    raise exception 'CLEAN BOOT: the availability summary does not exist';
+  end if;
+  if position('team.attendance.view' in pg_get_functiondef('internal.fixture_attendance_readable_team_ids'::regproc)) = 0 then
+    raise exception 'CLEAN BOOT: attendance readability is not answered by team.attendance.view';
+  end if;
+  if position('can_manage_fixture_side' in pg_get_functiondef('internal.fixture_attendance_readable_team_ids'::regproc)) > 0 then
+    raise exception 'CLEAN BOOT: attendance readability is answered by fixture-management authority';
+  end if;
+  -- And it must not be executable by the world.
+  if has_function_privilege('anon', 'public.fixture_availability_summary(uuid[])', 'EXECUTE') then
+    raise exception 'CLEAN BOOT: anon can execute the availability summary';
+  end if;
+
+  -- The public venue projection publishes exactly what it declares, and stays
+  -- owner-rights -- its column list IS its access boundary.
+  select string_agg(column_name, ',' order by column_name) into v_cols
+  from information_schema.columns where table_schema = 'public' and table_name = 'public_venues';
+  if v_cols is distinct from 'club_id,id,is_default_home,name,only_pitch_name' then
+    raise exception 'CLEAN BOOT: public_venues publishes %', v_cols;
+  end if;
+  if (select coalesce(array_to_string(reloptions, ','), '') from pg_class where oid = 'public.public_venues'::regclass) not like '%security_invoker=false%' then
+    raise exception 'CLEAN BOOT: public_venues is no longer an owner-rights projection';
+  end if;
+  -- It must never carry an address: a venue's address is the club's own
+  -- surface, not the anonymous one.
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'public_venues'
+               and column_name in ('address', 'postcode', 'address_line_1', 'latitude', 'longitude')) then
+    raise exception 'CLEAN BOOT: public_venues publishes a venue address';
+  end if;
+
+  raise notice 'PASS clean boot: Step 7''s objects are correct from empty, including what they publish';
+end $$;
 SQL
 STATUS=$?
 
 echo "-- running the estate's own assertions against the fresh database"
-for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy; do
+for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority; do
   out=$(boot_psql -q -f - < "$REPO/supabase/tests/$suite.sql" 2>&1)
   fails=$(printf '%s' "$out" | grep -c "FAIL" || true)
   passes=$(printf '%s' "$out" | grep -c "PASS" || true)

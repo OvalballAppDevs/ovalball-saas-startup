@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ChevronDown, Users } from "lucide-react"
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { groupAndSortLanes, type FilterableLane } from "@/lib/teams/filter-groups"
+import { groupAndSortLanes, partitionLanesByActivity, type FilterableLane } from "@/lib/teams/filter-groups"
 import { qs } from "@/lib/calendar/query-string"
 import { cn } from "@/lib/utils"
 
@@ -41,9 +41,17 @@ export function TeamFilterBar<T extends FilterableLane>({
   baseParams: Record<string, string | null | undefined>
 }) {
   const [open, setOpen] = useState(false)
+  const [showQuiet, setShowQuiet] = useState(false)
   if (lanes.length <= 1) return null
 
-  const groups = groupAndSortLanes(lanes)
+  // TEAMS WITH NOTHING SCHEDULED ARE FILED, NOT REMOVED.
+  //
+  // They keep their canonical group, their real name and a way in; they simply
+  // stop competing for attention with the sides that actually have a season on.
+  // The currently selected lane is never filed away, however quiet it is.
+  const { busy, quiet } = partitionLanesByActivity(lanes, activeTeam)
+  const groups = groupAndSortLanes(busy)
+  const quietGroups = groupAndSortLanes(quiet)
   const activeLane = activeTeam ? lanes.find((l) => l.id === activeTeam) : null
   const hrefFor = (teamId: string | null) => `/calendar${qs({ ...baseParams, team: teamId })}`
 
@@ -92,6 +100,40 @@ export function TeamFilterBar<T extends FilterableLane>({
                 </div>
               </div>
             ))}
+
+            {/* The quiet sides, named and counted, one press away. Stating the
+                number matters: "4 teams with nothing scheduled" is information
+                a fixture secretary can act on, and it is also the honest
+                answer to "where has the Under 15s gone". */}
+            {quiet.length > 0 && !showQuiet && (
+              <button
+                type="button"
+                onClick={() => setShowQuiet(true)}
+                className="inline-flex min-h-11 items-center justify-center self-start rounded-xl border border-dashed border-ink/20 px-3.5 text-sm font-medium text-ink-muted transition-colors hover:border-ink/35 hover:text-ink focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+              >
+                Show {quiet.length} {quiet.length === 1 ? "team" : "teams"} with nothing scheduled
+              </button>
+            )}
+
+            {showQuiet &&
+              quietGroups.map((g) => (
+                <div key={`quiet-${g.key}`}>
+                  <p className="text-[11px] font-semibold tracking-[0.08em] text-ink-subtle uppercase">
+                    {g.label} &middot; nothing scheduled
+                  </p>
+                  <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {g.lanes.map((l) => (
+                      <TeamOption
+                        key={l.id}
+                        label={l.fullLabel}
+                        active={activeTeam === l.id}
+                        href={hrefFor(l.id)}
+                        onNavigate={() => setOpen(false)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
           </div>
         </SheetContent>
       </Sheet>

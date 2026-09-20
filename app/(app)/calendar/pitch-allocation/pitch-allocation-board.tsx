@@ -16,6 +16,7 @@ import type { AllocationFixture, PitchOption } from "@/lib/pitch-allocation/type
 import { allocateFixture, createPitchAllocationProposal, discardPitchAllocationProposal, getProposal, type ProposalItemView } from "./actions"
 import type { PitchAllocationBoard as BoardData } from "./data"
 import { PitchAllocationDatePicker } from "./pitch-allocation-date-picker"
+import { assignBookingLanes, laneRowCount } from "@/lib/pitch-allocation/lanes"
 
 const START_MINUTES = 8 * 60 // 08:00
 const END_MINUTES = 23 * 60 // 23:00
@@ -42,33 +43,15 @@ function minutesToTime(m: number): string {
 }
 
 /**
- * Section 41-47: which visual LANE each fixture on a multi-capacity pitch
- * sits in -- computed at render time from kickoff/duration overlap
- * (classic greedy interval scheduling), never stored. There is no
- * canonical "lane" fact on a fixture; fixtures.pitch_id still names the
- * one real physical pitch either way, so this can never drift out of
- * sync with what's actually booked. A fixture landing beyond the pitch's
- * configured lane_count (already flagged as a hard conflict by
- * detectConflicts) is clamped into the last lane so it still renders
- * somewhere rather than being silently dropped.
+ * The fixture lane rule lives in lib/pitch-allocation/lanes.ts so it can be
+ * asserted directly -- it used to be private to this client component, which
+ * is precisely why the split-square defect it documents could not be stated in
+ * a test and survived to a live report.
  */
-function assignLanes(fixtures: AllocationFixture[], laneCount: number): Map<string, number> {
-  const sorted = [...fixtures].sort((a, b) => timeToMinutes(a.kickoffTime!) - timeToMinutes(b.kickoffTime!))
-  const laneEndTimes: number[] = []
-  const laneByFixtureId = new Map<string, number>()
-  for (const f of sorted) {
-    const start = timeToMinutes(f.kickoffTime!)
-    const end = start + (f.durationMinutes ?? 60)
-    let lane = laneEndTimes.findIndex((endTime) => endTime <= start)
-    if (lane === -1) {
-      lane = laneEndTimes.length
-      laneEndTimes.push(end)
-    } else {
-      laneEndTimes[lane] = end
-    }
-    laneByFixtureId.set(f.fixtureId, Math.min(lane, laneCount - 1))
-  }
-  return laneByFixtureId
+function assignLanes(fixtures: AllocationFixture[]): Map<string, number> {
+  return assignBookingLanes(
+    fixtures.map((f) => ({ id: f.fixtureId, startTime: f.kickoffTime!, durationMinutes: f.durationMinutes })),
+  )
 }
 
 /**
@@ -967,7 +950,20 @@ export function PitchAllocationBoard({
               // lane_count=1 pitch (every pitch in this app until this
               // pass) is completely unaffected -- same ROW_HEIGHT, same
               // full-height card, same everything.
-              const laneCount = Math.max(1, pitch.laneCount)
+              // THE ROW IS SIZED FOR WHAT IS ACTUALLY ON IT.
+              //
+              // `pitch.laneCount` is the pitch's DECLARED capacity and still
+              // decides what counts as a conflict. It no longer decides how
+              // many cards the board is willing to draw: a double-booked
+              // one-lane pitch used to render both fixtures at the same
+              // coordinates, one hidden under the other, which is the
+              // split-square report. Lanes are counted from the fixtures
+              // themselves, exactly as the training layer already does.
+              const fixtureLaneById = assignLanes(fixturesOnPitch)
+              const laneCount = laneRowCount(pitch.laneCount, fixtureLaneById)
+              // A single-lane pitch with a single booking keeps the full-height
+              // card it has always had; it only becomes a lane layout when
+              // there is genuinely more than one thing to show.
               const isMultiLane = laneCount > 1
               const baseRowHeight = isMultiLane ? LANE_HEIGHT * laneCount : ROW_HEIGHT
               // Training cards stack in their own compact strip along the
@@ -976,7 +972,7 @@ export function PitchAllocationBoard({
               // height for, the row grows to fit them rather than letting
               // cards spill outside it.
               const rowHeight = Math.max(baseRowHeight, trainingLaneCount * TRAINING_LANE_HEIGHT + 8)
-              const laneByFixtureId = isMultiLane ? assignLanes(fixturesOnPitch, laneCount) : null
+              const laneByFixtureId = isMultiLane ? fixtureLaneById : null
               return (
                 <div key={pitch.id} className="flex border-b border-ink/5 last:border-0" style={{ height: rowHeight }}>
                   <div
@@ -986,7 +982,12 @@ export function PitchAllocationBoard({
                     )}
                   >
                     <p className="line-clamp-2 text-sm leading-tight font-medium break-words text-ink">{pitch.displayName}</p>
-                    {isMultiLane && <p className="text-[10px] text-ink-muted">{laneCount} lanes</p>}
+                    {/* The pitch's DECLARED capacity, not however many rows
+                        the board happens to be drawing. A one-lane pitch that
+                        has been double-booked is still a one-lane pitch; saying
+                        "2 lanes" would turn a conflict into a claim that there
+                        was room for it. */}
+                    {pitch.laneCount > 1 && <p className="text-[10px] text-ink-muted">{pitch.laneCount} lanes</p>}
                     {/* CLUB EVENTS RESERVING THIS PITCH TODAY.
                         Read from the event's own club_event_pitches rows, so
                         this is the event's reservation itself rather than a

@@ -212,14 +212,31 @@ try {
 
   // A. the U closure: the Fixtures Secretary manages a venue through the RPC ------------------
   {
-    const r = await rpc(sessions.secretary.context, "update_venue", { p_id: ids.venue, p_name: `FS Renamed ${TAG}`, p_address: null, p_postcode: null, p_directions: null })
+    // THE SIGNATURE CHANGED IN STEP 6 AND THIS SUITE DID NOT.
+    //
+    // `update_venue(uuid, text, text, text, text)` took an address and a
+    // postcode; Convergence Step 6 made `set_venue_address` the ONE writer of
+    // a venue's address and reduced this function to what it is actually for
+    // -- the name and the directions. This suite went on calling the old form
+    // and got PGRST202 "no such function", which reads as an authority failure
+    // and is a stale call. It was invisible because suite 55 was not in the
+    // release runner; Step 7 put it there.
+    const r = await rpc(sessions.secretary.context, "update_venue", { p_id: ids.venue, p_name: `FS Renamed ${TAG}`, p_directions: null })
     record("A1 INTENDED CHANGE: the Fixtures Secretary renames a venue through the RPC", r.status < 400, `HTTP ${r.status} ${r.body.slice(0, 120)}`)
     record("A2 and the rename landed", one(`select name from public.venues where id = '${ids.venue}'`) === `FS Renamed ${TAG}`)
-    const r2 = await rpc(sessions.manager.context, "update_venue", { p_id: ids.venue, p_name: "TM Renamed", p_address: null, p_postcode: null, p_directions: null })
+    const r2 = await rpc(sessions.manager.context, "update_venue", { p_id: ids.venue, p_name: "TM Renamed", p_directions: null })
     record("A3 a Team Manager cannot", r2.status >= 400, `HTTP ${r2.status}`)
-    const r3 = await rpc(sessions.farAdmin.context, "update_venue", { p_id: ids.venue, p_name: "Far Renamed", p_address: null, p_postcode: null, p_directions: null })
+    const r3 = await rpc(sessions.farAdmin.context, "update_venue", { p_id: ids.venue, p_name: "Far Renamed", p_directions: null })
     record("A4 nor another club's Club Admin", r3.status >= 400, `HTTP ${r3.status}`)
     record("A5 and the name is unchanged by either", one(`select name from public.venues where id = '${ids.venue}'`) === `FS Renamed ${TAG}`)
+    // AND THE ADDRESS IS NOT THIS FUNCTION'S TO CHANGE. Step 6's whole point:
+    // one writer for a venue address. Asserting it here stops the old shape
+    // creeping back in through a "convenience" parameter.
+    record("A6 and update_venue has no address or postcode parameter -- set_venue_address is the one writer",
+      !/p_address|p_postcode/.test(
+        one(`select pg_get_function_identity_arguments(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='update_venue'`)
+      ),
+      one(`select pg_get_function_identity_arguments(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='update_venue'`))
   }
 
   // B. venue reads are club-scoped ------------------------------------------------------------

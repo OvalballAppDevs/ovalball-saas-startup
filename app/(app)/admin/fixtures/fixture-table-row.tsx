@@ -14,6 +14,9 @@ import {
   DropdownMenuLinkItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { AvailabilitySummary } from "@/components/fixtures/availability-summary"
+import { matchTypeLabel } from "@/lib/fixtures/presentation"
+import { fixtureHrefWithReturn, fixtureRecordHref } from "@/lib/fixtures/return-context"
 import { HomeAwayBadge } from "./home-away-badge"
 import { PlannerCell, PlannerRowSelect } from "./planner-cell"
 import { FIXTURE_STATUS_BADGE_CLASS } from "@/lib/fixtures/status"
@@ -33,6 +36,7 @@ export function FixtureTableRow({
   row,
   clubScoped = false,
   grouped = false,
+  returnTo = null,
 }: {
   row: AdminFixtureRow
   /**
@@ -44,12 +48,17 @@ export function FixtureTableRow({
   clubScoped?: boolean
   /** Inside a match-day group the year is already stated overhead. */
   grouped?: boolean
+  /**
+   * Where Match Centre should come back to, already narrowed to this surface's
+   * own parameters by the server. Null when there is nothing worth carrying.
+   */
+  returnTo?: string | null
 }) {
   const router = useRouter()
   // One fixture detail surface for both scopes: /admin/fixtures/[id] already
   // admits any club involved in the fixture, so a Fixture Secretary reaches
   // the same record a Site Admin does rather than a parallel club copy.
-  const detailHref = `/admin/fixtures/${row.id}`
+  const detailHref = fixtureRecordHref(row.id, returnTo)
   const { openEditor } = useFixtureEditor()
   const [duplicating, setDuplicating] = useState(false)
 
@@ -151,13 +160,24 @@ export function FixtureTableRow({
                   repeated down the screen. Site Admin genuinely spans clubs
                   and keeps it. */}
               {!clubScoped && <p className="truncate text-xs text-ink-muted">{row.owningClubName}</p>}
+              {/* Under our own side, because the squad being counted is ours.
+                  Absent entirely when this viewer holds no attendance
+                  authority -- see components/fixtures/availability-summary. */}
+              <AvailabilitySummary counts={row.availability} className="mt-0.5" />
             </div>
           </div>
         </td>
 
-        {/* HOME / AWAY -- always a word, never colour alone. */}
+        {/* HOME / AWAY -- always a word, never colour alone -- and, under it,
+            the MATCH TYPE. A league game and a friendly are managed
+            differently and `game_type` has always recorded which, but this
+            surface had nowhere to say so; the phone card beside it had been
+            showing it all along. Only rendered when one is recorded: a fixture
+            with no match type is not a Friendly, it is a fixture with no match
+            type, and printing a default here would invent a second taxonomy. */}
         <td className="px-3 py-1.5">
           <HomeAwayBadge value={row.homeAway} />
+          {matchTypeLabel(row.gameType) && <p className="mt-1 truncate text-xs text-ink-muted">{matchTypeLabel(row.gameType)}</p>}
         </td>
 
         {/* OPPOSITION -- one column whichever side they played on. An
@@ -204,14 +224,18 @@ export function FixtureTableRow({
             </div>
           )}
         </td>
+        {/* WHERE. The venue leads and the pitch sits under it -- this column
+            is headed Venue and led with the pitch, so a secretary scanning for
+            "which ground" read the square first. Both are canonical Step 6
+            records; neither is a display name typed into a fixture. */}
         <td className="px-3 py-1.5 text-ink/60">
-          {row.pitchName || row.pitchAllocation ? (
+          {row.venueName || row.pitchName || row.pitchAllocation ? (
             <>
-              <p className="text-ink">{row.pitchName ?? row.pitchAllocation}</p>
-              {row.venueName && <p className="text-xs text-ink-muted">{row.venueName}</p>}
+              {row.venueName && <p className="text-ink">{row.venueName}</p>}
+              {(row.pitchName || row.pitchAllocation) && (
+                <p className={row.venueName ? "text-xs text-ink-muted" : "text-ink"}>{row.pitchName ?? row.pitchAllocation}</p>
+              )}
             </>
-          ) : row.venueName ? (
-            <p className="text-ink">{row.venueName}</p>
           ) : (
             <span className="text-ink-muted">&mdash;</span>
           )}
@@ -260,7 +284,7 @@ export function FixtureTableRow({
                 }
               />
               <DropdownMenuContent align="end" className="min-w-52">
-                <DropdownMenuLinkItem href={`/fixtures/${row.id}`}>
+                <DropdownMenuLinkItem href={fixtureHrefWithReturn(row.id, returnTo)}>
                   <Trophy className="size-4" aria-hidden="true" />
                   Open Match Centre
                 </DropdownMenuLinkItem>

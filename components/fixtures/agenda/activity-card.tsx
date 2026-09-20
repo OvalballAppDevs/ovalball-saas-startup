@@ -4,6 +4,7 @@ import { ChevronRight, ClipboardCheck, Clock, Dumbbell, MapPin, Users } from "lu
 import { RugbyKit } from "@/components/club/rugby-kit"
 import type { AgendaItem, AgendaSide } from "@/lib/agenda/load"
 import { cn } from "@/lib/utils"
+import { fixtureSides } from "@/lib/fixtures/presentation"
 
 /**
  * ONE FIXTURE, AT AGENDA DENSITY.
@@ -96,6 +97,14 @@ export function FixtureCard({ item, showChild, attention = false }: { item: Agen
   const cancelled = item.status === "Cancelled"
   const tone = item.status ? STATUS_TONE[item.status] : null
   const opposition = item.them?.clubName ?? "Opposition to be confirmed"
+  // THE HOME SIDE LEADS -- crests, words and the spoken sentence alike. This
+  // card used to put our own side first however the fixture was played, so an
+  // away match read as a home one on the surface a parent uses to decide
+  // whether to travel. The rule is lib/fixtures/presentation.ts's, not this
+  // component's.
+  const sides = fixtureSides({ homeAway: item.homeAway, ownLabel: item.us.teamName ?? item.us.clubName, oppositionLabel: opposition })
+  const firstSide = sides.ownTeamIsAway ? item.them : item.us
+  const secondSide = sides.ownTeamIsAway ? item.us : item.them
 
   const body = (
     <div className={cn("flex items-start gap-3", cancelled && "opacity-70")}>
@@ -110,17 +119,17 @@ export function FixtureCard({ item, showChild, attention = false }: { item: Agen
         )}
 
         <div className="flex items-center gap-2.5">
-          <SideMark side={item.us} />
+          {firstSide && <SideMark side={firstSide} />}
           <span aria-hidden="true" className="font-display text-[11px] tracking-[0.12em] text-ink-subtle">
             V
           </span>
-          {item.them && <SideMark side={item.them} />}
+          {secondSide && <SideMark side={secondSide} />}
         </div>
 
         <p className="mt-2 font-display text-base leading-tight text-ink">
-          {item.us.teamName ?? item.us.clubName}
+          {sides.homeLabel}
           <span className="text-ink-subtle"> v </span>
-          {opposition}
+          {sides.awayLabel}
         </p>
 
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
@@ -203,7 +212,7 @@ export function FixtureCard({ item, showChild, attention = false }: { item: Agen
       {/* One accessible sentence for the whole card, so a screen reader hears
           the fixture rather than a pile of fragments. */}
       <span className="sr-only">
-        {item.us.teamName ?? item.us.clubName} versus {opposition}
+        {sides.homeLabel} versus {sides.awayLabel}
         {item.homeAway === "Home" || item.homeAway === "Away" ? `, ${item.homeAway.toLowerCase()}` : ""}
         {item.time ? `, kick-off ${item.time}` : ""}
         {item.venue ? `, at ${item.venue}` : ""}
