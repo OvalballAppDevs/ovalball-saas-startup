@@ -590,6 +590,8 @@ if [[ -n "$browser_blocked" ]]; then
   echo "        No browser evidence was produced by this run. Do not report it as if there were."
 else
   BV_DIR="$(dirname "${BASH_SOURCE[0]}")/browser-verification"
+  # shellcheck source=browser-verification/suite-exit-truth.sh
+  . "$BV_DIR/suite-exit-truth.sh"
 
   # RESOURCE PREFLIGHT.
   #
@@ -626,42 +628,54 @@ else
       sleep 1
     fi
 
-    # OOM KILL IS NOT A TEST RESULT.
-    #
-    # 137 through a shell, or 139/134 for a browser that died under memory
-    # pressure. Counting any of these as an assertion failure sends somebody
-    # looking for a defect that does not exist, so they are named and counted
-    # separately from FAIL.
-    if [[ "$b_status" -eq 137 ]]; then
-      failed_suites+=("$b (OOM KILL -- the kernel stopped it; not a test result)")
-      total_fail=$((total_fail + 1))
-      printf '  KILL  %-34s OOM KILL after %s assertions -- the machine, not the product\n' "$b" "$b_ok"
-      node -e '
-        import("./scripts/browser-verification/resource.mjs").then((r) => {
-          console.log("          " + r.formatResources(r.readResources()))
-        })
-      ' || true
-    elif [[ "$b_bad" -gt 0 ]]; then
-      failed_suites+=("$b")
-      printf '  FAIL  %-34s %s passed, %s failed\n' "$b" "$b_ok" "$b_bad"
-      grep '^FAIL' <<<"$b_output" | head -12 | sed 's/^/          /'
-    elif [[ "$b_status" -ne 0 && "$b_ok" -gt 0 ]]; then
-      # Exited non-zero having recorded only passes: the suite did not finish.
-      # That is a crash, not a clean run, and it must never print "ok".
-      failed_suites+=("$b (exited $b_status after $b_ok assertions without finishing)")
-      total_fail=$((total_fail + 1))
-      printf '  CRASH %-34s exited %s after %s assertions\n' "$b" "$b_status" "$b_ok"
-      tail -6 <<<"$b_output" | sed 's/^/          /'
-    else
-      printf '  ok    %-34s %s passed\n' "$b" "$b_ok"
-      # A suite that asserted nothing has not proved anything, and a silent
-      # zero here would read exactly like a clean run.
-      if [[ "$b_ok" -eq 0 ]]; then
+    # WHAT HAPPENED IS DECIDED IN ONE PLACE, AND THE EXIT STATUS IS ASKED
+    # FIRST. See scripts/browser-verification/suite-exit-truth.sh for why the
+    # order matters; the short version is that `ok` must mean the process
+    # exited zero, and it used not to.
+    b_class=$(classify_suite_outcome "$b_status" "$b_ok" "$b_bad")
+
+    case "$b_class" in
+      KILL)
+        # The kernel stopped it. Counting this as an assertion failure sends
+        # somebody looking for a defect that does not exist, so it is named
+        # and counted separately from FAIL -- but it still fails the gate.
+        failed_suites+=("$b (OOM KILL -- the kernel stopped it; not a test result)")
+        total_fail=$((total_fail + 1))
+        printf '  KILL  %-34s OOM KILL after %s assertions -- the machine, not the product\n' "$b" "$b_ok"
+        node -e '
+          import("./scripts/browser-verification/resource.mjs").then((r) => {
+            console.log("          " + r.formatResources(r.readResources()))
+          })
+        ' || true
+        ;;
+      FAIL)
+        # The suite finished and said which assertions about the product were
+        # false. Its own FAIL lines are already in total_fail.
+        failed_suites+=("$b")
+        printf '  FAIL  %-34s %s passed, %s failed\n' "$b" "$b_ok" "$b_bad"
+        grep '^FAIL' <<<"$b_output" | head -12 | sed 's/^/          /'
+        ;;
+      CRASH)
+        # Any other non-zero exit. The suite did not finish and did not say
+        # why in its own assertions, whatever its pass count happened to be.
+        failed_suites+=("$b (exited $b_status after $b_ok assertions without finishing)")
+        total_fail=$((total_fail + 1))
+        printf '  CRASH %-34s exited %s after %s assertions\n' "$b" "$b_status" "$b_ok"
+        tail -6 <<<"$b_output" | sed 's/^/          /'
+        ;;
+      EMPTY)
+        # Exited cleanly having proved nothing. Assertion accounting is an
+        # ADDITIONAL invariant to exit status, not a replacement for it, and
+        # this is the half exit status cannot see.
         failed_suites+=("$b (recorded no assertions)")
         total_fail=$((total_fail + 1))
-      fi
-      grep '^NOTE' <<<"$b_output" | sed 's/^/          /'
-    fi
+        printf '  EMPTY %-34s exited 0 having recorded no assertions\n' "$b"
+        ;;
+      *)
+        printf '  ok    %-34s %s passed\n' "$b" "$b_ok"
+        grep '^NOTE' <<<"$b_output" | sed 's/^/          /'
+        ;;
+    esac
 
     if [[ -n "${BROWSER_RESOURCE_TRACE:-}" ]]; then
       node -e '

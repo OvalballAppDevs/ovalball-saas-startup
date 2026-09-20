@@ -256,7 +256,7 @@ product owner rules that it is not a defect.
 | L25 | Thirty-one further numbered browser suites exist outside the release runner, inherited from the messaging, release-smoke and identity programmes | Step 7 closure §4 | **each owning programme, by domain** | **open** — all thirty-one are DECLARED `UNVERIFIED` in `scripts/browser-verification/suite-registry.json` and the gate fails if a thirty-second appears undeclared. They are **not** to be wired in wholesale: each needs archaeology and a deliberate disposition of VERIFIED + canonical gate / RETIRED / SUPERSEDED / SPECIAL-PURPOSE. Carried until every one of the thirty-one has an explicit durable disposition. **No suite may silently disappear.** |
 | L26 | `69-invitations-and-joining` revoked the team join code it issued but never deleted the row, because its sweep matched on an email address a `TEAM_JOIN_CODE` does not have; twenty-two revoked rows had accumulated | Step 7 closure §6 | Step 7 closure → **invitation / test-fixture hygiene** | **open** — accumulation is stopped and the twenty-two historical rows were swept by the corrected teardown during the accepted gate run (verified: zero `REVOKED` `TEAM_JOIN_CODE` rows remain; the one surviving `ISSUED` row is the review world's own, untouched). What stays open is **scope**: the sweep matches a marker the suite writes, not the disposable fixture that owns the row, and no regression proves it can never widen. The eventual fix must clean **only records owned by the disposable test fixture** — never a broad destructive cleanup. |
 | L27 | `03-u18-bypass` and `08-announcement-realtime` imported `@supabase/supabase-js` by absolute path into one developer machine's checkout, and eight suites resolved axe-core five different ways | Step 7 closure §5 | Step 7 closure | **closed** — both machine-specific imports removed in `488c0ea` (verified in the banked tree: each now imports the bare specifier), one `axeSource()` in the harness serves all eight call sites, and `scripts/verify-browser-suite-registry.mjs` **permanently** fails the gate on any absolute path or any per-suite axe resolution. The guard is the regression: it is what found these two. |
-| L28 | The runner printed `ok` for suites that exited non-zero, so an OOM kill and a crash both read as a clean run | Step 7 closure §3 | **Step 8 or the next harness pass** | **OPEN — not closed by the green run.** `488c0ea` names `KILL` (exit 137) and `CRASH` (non-zero exit after recorded passes), counted separately from `FAIL` and printed with the resource reading. But the invariant `ok == exit zero` is **not** enforced: a suite exiting non-zero having recorded **zero** `PASS` lines still falls through and prints `ok`. It is counted as a failure by the "recorded no assertions" branch, so the gate goes red — the printed word is wrong, not the verdict. Closing requires (a) the `CRASH` branch to drop its `b_ok > 0` condition so any non-zero exit is a suite failure, and (b) a permanent regression asserting the runner's classification against synthetic suites that exit 0 / 1 / 137 / crash silently. **Do not infer closure from a green gate.** |
+| L28 | The runner printed `ok` for suites that exited non-zero, so an OOM kill and a crash both read as a clean run | Step 7 closure §3 | Step 7 closure → pre-Step-8 harness closure | **CLOSED** — root cause: the classification asked the suite's OUTPUT before asking the operating system, and the crash branch carried `b_ok > 0`, so a non-zero exit with no recorded passes fell through and printed `ok`. The decision now lives in `scripts/browser-verification/suite-exit-truth.sh`, which the runner **sources** rather than restating, and exit status is asked first: `KILL` (137) · `FAIL` (the suite named its own false assertions) · `CRASH` (any other non-zero, with no pass-count condition) · `EMPTY` (exit 0 having proved nothing) · `ok`. Assertion accounting is kept as an additional invariant, not replaced. Regression: `supabase/tests/js/runner_exit_truth.test.mts`, 11 assertions driving real child processes at exit 0 / 1 / 137 / throw / silent-zero and sweeping 36 status×pass×fail combinations. |
 
 | L5 | `recipient_audience_engine.sql` picked its subject from whatever the database happened to contain, so an unrelated club appearing changed its verdict | Step 2 manual review preparation | test isolation | **closed** — the suite now names its subjects |
 
@@ -1315,7 +1315,6 @@ requirement unless the master programme assigns it there.**
 | **L23** | training recurrence has no "this and all future occurrences" | **Training Management** |
 | **L25** | thirty-one numbered suites outside the release runner, all declared `UNVERIFIED` | **each owning programme, by domain** |
 | **L26** | `TEAM_JOIN_CODE` cleanup is marker-scoped, not fixture-scoped, and unregressed | invitation / test-fixture hygiene |
-| **L28** | `ok == exit zero` is not enforced, and the runner's classification has no regression | Step 8 or the next harness pass |
 
 ### Owner actions
 
@@ -1336,6 +1335,11 @@ requirement unless the master programme assigns it there.**
 `L19` away-ground suggestion · `L20` pitch-allocation split square · `L21`
 twenty-seven unwired suites · `L24` persona context lifetime · `L27` absolute
 imports and axe resolution.
+
+### Closed in the pre-Step-8 harness closure
+
+`L28` runner exit truth — `ok` now means the process exited zero, and a
+permanent regression drives real child processes to prove it.
 
 ### Protected assets — the discrepancy was never real
 
