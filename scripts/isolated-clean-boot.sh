@@ -534,7 +534,7 @@ SQL
 STATUS=$?
 
 echo "-- running the estate's own assertions against the fresh database"
-for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access step9_family_and_availability step10_team_experience; do
+for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access step9_family_and_availability step10_team_experience step11_match_community step12_safeguarding_and_age_grade; do
   out=$(boot_psql -q -f - < "$REPO/supabase/tests/$suite.sql" 2>&1)
   fails=$(printf '%s' "$out" | grep -c "FAIL" || true)
   passes=$(printf '%s' "$out" | grep -c "PASS" || true)

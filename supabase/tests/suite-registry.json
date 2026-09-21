@@ -1,0 +1,1653 @@
+{
+  "$comment": [
+    "THE ONE CANONICAL DECLARATION OF EVERY SQL SUITE IN THIS REPOSITORY.",
+    "",
+    "scripts/run-platform-tests.sh derives its CANONICAL_GATE list from this file, and",
+    "scripts/verify-sql-suite-registry.mjs fails the gate when a suite file is undeclared, a declared",
+    "path has gone, a disposition is invalid, or a CANONICAL_GATE suite is not actually executed. There",
+    "is deliberately no second hand-maintained list: the duplicate entry Batch A found in the runner's",
+    "old array cannot exist here, because a JSON object cannot hold the same key twice.",
+    "",
+    "DISPOSITIONS",
+    "  CANONICAL_GATE   executed by the release gate on every run; its result is acceptance evidence",
+    "  SPECIAL_PURPOSE  deliberately not in the gate -- declared manual, or dependent on another suite's",
+    "                   seed. Never counted as gate coverage",
+    "  SUPERSEDED       another suite now guards the behaviour; the successor is named",
+    "  RETIRED          the behaviour it guarded no longer exists",
+    "  UNVERIFIED       not yet archaeologised. Declared so that it is not silent; NOT evidence of anything"
+  ],
+  "suites": {
+    "aal_enforcement": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "===================================================================================================== AAL ENFORCEMENT (Identity/Auth Slice 6, Phase 2 D, F, AG, AI 38/51/52/53) Dete"
+    },
+    "add_child_flow": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "Adding a child: the first one must behave like the second."
+    },
+    "admin_club_management": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for Site Admin Club Management (admin_club_overview view, club_directory/clubs edit RLS, club-logos storage RLS, audit logging).",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "admin_referral_administration": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "Dashboard R-5: Site Admin Referral Administration."
+    },
+    "admin_user_management": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for Site Admin User Management (admin_user_overview view, club_memberships/team_permissions/site_admins RLS as exercised through the new grant/revoke/change-access UI).",
+      "prerequisites": [
+        "admin_club_management",
+        "permission_matrix"
+      ]
+    },
+    "adult_messaging_age_fallback": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "The adult-messaging age predicate, and the account-model assumption inside it (20270256000000)."
+    },
+    "adult_player_self_registration": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "An adult registers themselves, asks a club to accept them, and one authorised person resolves it."
+    },
+    "age_eligibility_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Age-grade and eligibility",
+      "reason": "===================================================================================================== AGE ELIGIBILITY (D-S5-1) -- unknown age does not establish adulthood Determini"
+    },
+    "announcement_fanout": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Composing and sending an announcement (20270245000000)."
+    },
+    "announcement_privacy": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Announcement privacy and reply-mode bounds (20270242000000)."
+    },
+    "announcement_recipient_picker": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "The recipient picker for a selected announcement audience (20270251000000)."
+    },
+    "announcement_replies": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Replying to an announcement (20270246000000)."
+    },
+    "announcement_unread_surfaces": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Announcements reach the Messenger badge AND the Messenger list (20270245000000, 20270250000000)."
+    },
+    "audience_resolution": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "The audience resolution pipeline (20270244000000)."
+    },
+    "audit_immutability": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "AUDIT IMMUTABILITY (Identity/Auth Slice 1, Phase 2 Y.14/Y.15, AO B1 and B3)."
+    },
+    "auth_flow_state_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "===================================================================================================== SO-4 / H-7 -- THE ONBOARDING INTENT CARRIER (Slice 6b.2b) `public.auth_flow_st"
+    },
+    "auth_session_versioning": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "Manual verification for auth session compatibility versioning (20260901130000_auth_session_versioning.sql):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "authority_helper_retirement": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "LEGACY AUTHORITY HELPER RETIREMENT (Identity/Auth Slice 4; Phase 2 AJ.1 authority_helper_retirement, J.15, Z.4 PG-15/16).",
+      "measured": "Batch A ran it against both the persistent and the fresh clean-boot database: 76 passed, 1 failed on HR1 -- Step 11 had taken can_manage_fixture_side from 6 function-body references to 7. Fixed by 20270524000000, which moves community administration onto the canonical capability decision rather than raising a shrink-only ceiling."
+    },
+    "backfill_verification": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "CANONICAL MEMBERSHIP BACKFILL VERIFICATION (Identity/Auth Slice 2, Phase 2 AF)."
+    },
+    "bundle_legacy_parity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "BUNDLE / LEGACY PARITY (Identity/Auth Slice 3, Phase 2 AF)."
+    },
+    "calendar_component_filtering": {
+      "disposition": "UNVERIFIED",
+      "owner": "Fixture operations",
+      "reason": "CALENDAR COMPONENT-TEAM FILTERING + FIXTURE_ID DEDUP -- direct data test matrix (Section 22) and dedup-is-architectural proof (Section 23)."
+    },
+    "calendar_fixture_lifecycle_regression": {
+      "disposition": "UNVERIFIED",
+      "owner": "Fixture operations",
+      "reason": "CALENDAR FIXTURE LIFECYCLE + MESSAGE CLUB regression suite (Section U)."
+    },
+    "calendar_match_centre_link": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Phase 2A: Calendar -> Match Centre, on one canonical fixture id."
+    },
+    "call_up_and_dispensation_security": {
+      "disposition": "UNVERIFIED",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Dedicated security/tampering tests for fixture_player_call_up (20260924830000, fixed 20260924900000) and player_team_dispensation (20260924910000), beyond what their own functional"
+    },
+    "canonical_recipient_safeguarding": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Safeguarding",
+      "reason": "ONE ANSWER TO \"WHO MAY LEGITIMATELY BE CONTACTED FOR THIS PLAYER?\" THE RULE under 16 -> never the player, eligible guardian only 16-17, no consent -> eligible guardian only 16-17,"
+    },
+    "canonical_team_catalogue": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Team directory and roster",
+      "reason": "Manual verification for the closed canonical team catalogue built in 20260904200000_canonical_team_catalogue.sql.",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "canonical_team_directory_propagation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team directory and roster",
+      "reason": "One canonical Team Directory:"
+    },
+    "capability_adapters": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "CLUB HOME AND FIXTURE ADAPTERS OVER THE CANONICAL RESOLVER (Identity/Auth Slice 3, brief sections 29-30)."
+    },
+    "capability_attack_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "CAPABILITY ATTACK MATRIX (Identity/Auth Slice 3, brief section 38; Phase 2 attacks 36, 37, 43, 63)."
+    },
+    "capability_catalogue_integrity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "CAPABILITY CATALOGUE INTEGRITY (Identity/Auth Slice 3, Phase 2 J, Y.6, Y.8)."
+    },
+    "capability_defaults_architecture": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "Canonical capability architecture (Identity/Auth Slice 3)."
+    },
+    "capability_engine": {
+      "disposition": "UNVERIFIED",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "Canonical Scoped Capability Engine -- security regression + fixture setup (Master Architecture Pass, before Access & Teams). Batch A ran it and recorded the cause; the repair belongs to its owning domain.",
+      "measured": "Run standalone in Step 10: 10 passed, 4 failed. Inserts into public.team_permissions (now a compatibility VIEW), and three statements call definer RPCs with no session, refused by the canonical session gate added at 20270501000000."
+    },
+    "capability_override_ceilings": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "EXPLICIT ALLOWS AND WITHHOLDS:"
+    },
+    "capability_precedence_truth_table": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "CAPABILITY PRECEDENCE TRUTH TABLE (Identity/Auth Slice 3, Phase 2 K.4)."
+    },
+    "capability_scope_isolation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "CAPABILITY SCOPE ISOLATION AND MULTI-ROLE RESOLUTION (Identity/Auth Slice 3, brief sections 32-37)."
+    },
+    "chat_fixture_operations": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Messaging and notifications",
+      "reason": "Manual verification for chat-driven fixture operations (20260902100000 mirror sync, 20260902120000 kickoff):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "claim_eligibility_and_enumeration": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Invitations and joining",
+      "reason": "Manual verification for the Ovalball auth-hardening sprint:",
+      "prerequisites": [
+        "permission_matrix",
+        "club_people_teams",
+        "partner_clubs_and_messaging"
+      ]
+    },
+    "club_activation_setup": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "Club activation -- the first-run setup lifecycle, structured venue address, safe team removal and pitch->venue integrity."
+    },
+    "club_admin_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "===================================================================================================== CLUB ADMIN AUTHORITY MATRIX (Identity/Auth Slice 4H, Phase 2 AA.3 row 4h) The"
+    },
+    "club_claim_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Invitations and joining",
+      "reason": "===================================================================================================== CLUB CLAIM AUTHORITY (Identity/Auth Slice 5, Phase 2 P, Y.13) Deterministic and self-seeding."
+    },
+    "club_conversations": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Messaging and notifications",
+      "reason": "Manual verification for Phase D (message request half) -- club-to-club direct conversations (20260903600000).",
+      "prerequisites": [
+        "permission_matrix",
+        "partner_clubs_and_messaging"
+      ]
+    },
+    "club_digital_home": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "CLUB DIGITAL HOME (20270340000000)."
+    },
+    "club_directory_geocoding": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for the map's geocoding columns and trigger (20260901100000_club_directory_geocoding):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "club_directory_integrity": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Regression coverage for the local club_directory duplicate-seeding bug:"
+    },
+    "club_directory_privacy": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "===================================================================================================== A SESSION IS NOT AUTHORITY OVER EVERY CLUB'S PRIVATE COLUMNS (Convergence Step"
+    },
+    "club_directory_research_proposals": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for the Club Directory research staging layer (20260901170000_club_directory_research_proposals.sql):",
+      "prerequisites": [
+        "permission_matrix",
+        "rugby_code_immutability"
+      ]
+    },
+    "club_event_foundation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "A club event is its own thing, and it is not public."
+    },
+    "club_fixture_import": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for club-level fixture CSV import/export (20260905200000_club_fixture_import.sql) -- the Master Fixture Registry mega-spec's Section BE-BQ:",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "club_kits": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "Club Kit -- canonical playing-kit configuration."
+    },
+    "club_lifecycle": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for CORRECTED club lifecycle semantics (20260903200000):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "club_misc_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "===================================================================================================== CLUB DOCUMENTS, PARTNERS, REFERRALS AND HANDOVER MATRIX (Identity/Auth Slice 4"
+    },
+    "club_people_teams": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual RLS/permission verification for the Club Profile / People / Roles / Invitations / Team Management vertical slice.",
+      "prerequisites": [
+        "permission_matrix",
+        "partner_clubs_and_messaging"
+      ]
+    },
+    "club_pitches": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for club_pitches / create_club_pitch / rename_club_pitch / reorder_club_pitches / set_club_pitch_active / update_fixture_pitch (20260901180000, 20260901190000).",
+      "prerequisites": [
+        "permission_matrix",
+        "site_admin_management"
+      ]
+    },
+    "club_settings_capability_security": {
+      "disposition": "UNVERIFIED",
+      "owner": "Club and Site Admin",
+      "reason": "Club Settings Consolidation + Central Mutation Capabilities -- security regression (Master Architecture Pass tranche)."
+    },
+    "club_venue_pitch_integrity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "===================================================================================================== A PITCH IS AT A GROUND (Convergence Step 6; command §25, §45) Deterministic and self-seeding."
+    },
+    "communication_policy_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Who may change communication policy (20270243000000, 20270256000000)."
+    },
+    "competition_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "===================================================================================================== COMPETITION AND TOURNAMENT AUTHORITY MATRIX (Identity/Auth Slice 4D, Phase 2 A"
+    },
+    "competition_creator_conformance": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "COMPETITION CREATOR CONFORMANCE (20270311000000)."
+    },
+    "competition_management": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for the Competition Directory (20260904800000_competition_directory.sql):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "competition_matches": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "COMPETITION MATCHES (20270305000000 - 20270307000000)."
+    },
+    "constituent_bodies": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Canonical Constituent Body directory."
+    },
+    "contact_cards": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "Manual verification for fixture-conversation Contact Cards (20260901020000):",
+      "prerequisites": [
+        "permission_matrix",
+        "partner_clubs_and_messaging"
+      ]
+    },
+    "controlled_missing_team": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Team directory and roster",
+      "reason": "Manual verification for Phase C -- controlled automatic team creation from an incoming fixture request (20260903400000).",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "conversation_add_participant": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Messaging and notifications",
+      "reason": "Manual verification for explicit fixture-conversation participant grants (20260901040000):",
+      "prerequisites": [
+        "permission_matrix",
+        "partner_clubs_and_messaging"
+      ]
+    },
+    "conversation_channel_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Realtime topic authorisation and cross-container reporting (20270264000000, 20270266000000)."
+    },
+    "conversation_participation_management": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Messaging and notifications",
+      "reason": "Manual verification for chat participant management (20260901090000):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "core_seasons_bootstrap": {
+      "disposition": "UNVERIFIED",
+      "owner": "Season handover and register",
+      "reason": "Bootstrap: the canonical test Season records every other regression file implicitly depends on (fixture creation resolves season_id from kickoff_date via internal.resolve_season_fo"
+    },
+    "cross_club_isolation_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "CROSS-CLUB ISOLATION MATRIX (Identity/Auth Slice 4; Phase 2 AJ.1 cross_club_isolation_matrix, L, S, AP #1-3)."
+    },
+    "definer_rpc_session_contract": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "===================================================================================================== THE DEFINER-RPC SESSION CONTRACT (Slice 6b.2a; Phase 2 D.2 / S6-9) SECURITY DE"
+    },
+    "direct_messaging_security": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Direct messaging: who may talk to whom (20270254000000, 20270256000000)."
+    },
+    "directory_admin_verification_status": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "Site Admin Club Directory Verification Status."
+    },
+    "directory_public_profile": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "Site Admin club profile override."
+    },
+    "directory_verification_runs": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for Online Directory Verification (20260901240000):",
+      "prerequisites": [
+        "permission_matrix",
+        "admin_user_management"
+      ]
+    },
+    "document_library": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "Manual verification for the Club Document Library (20260831440000):",
+      "prerequisites": [
+        "permission_matrix",
+        "partner_clubs_and_messaging"
+      ]
+    },
+    "email_brand_assets": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Email and notifications",
+      "reason": "The image library behind every Ovalball email."
+    },
+    "email_delivery_foundation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Email and notifications",
+      "reason": "Email Communications Foundation:"
+    },
+    "email_delivery_policy": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Email and notifications",
+      "reason": "EMAIL DELIVERY POLICY -- permanent regression."
+    },
+    "email_delivery_result_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Email and notifications",
+      "reason": "===================================================================================================== WHO MAY SAY WHAT HAPPENED TO AN EMAIL (Slice 6b.2a, adjacent authorisation def"
+    },
+    "email_template_registry": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Email and notifications",
+      "reason": "The email template registry:"
+    },
+    "explain_access_matches_enforcement": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "EXPLANATION MATCHES ENFORCEMENT (Identity/Auth Slice 3, Phase 2 AC, attack 63)."
+    },
+    "family_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "FAMILY AND PLAYER AUTHORITY MATRIX (Identity/Auth Slice 4a; Phase 2 AA.3 row 4a, AJ.1, J.6, N, W, AI #70)."
+    },
+    "family_isolation_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "FAMILY ISOLATION MATRIX (Identity/Auth Slice 4; Phase 2 AJ.1 family_isolation_matrix, FR-1, FR-3, W, AP #35)."
+    },
+    "family_relationship_state_machine": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "FAMILY RELATIONSHIP AND TEAM PLACE STATE MACHINES (Identity/Auth Slice 2, Phase 2 N.1, M.3)."
+    },
+    "fixture_age_eligibility": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for age-grade fixture eligibility (20260831320000):",
+      "prerequisites": [
+        "permission_matrix"
+      ],
+      "measured": "Run standalone in Batch A: 11 passed, 12 failed, first error a null club_id in setup. Its header declares it manual and dependent on permission_matrix.sql, which ends with rollback -- so the documented procedure cannot work."
+    },
+    "fixture_attendance_invitations": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Two weeks out, Ovalball asks who is coming."
+    },
+    "fixture_availability_summary": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Fixture availability summary -- what an operational surface may count, and what it may not."
+    },
+    "fixture_bulk_planning_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Single-fixture team authority versus club/site bulk planning authority (20270303000000)."
+    },
+    "fixture_cohort_isolation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Historical and future fixture identity, and isolation between two cohorts that share an age label a season apart."
+    },
+    "fixture_communications": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Staff communications:"
+    },
+    "fixture_competition_edit": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for update_fixture_competition (20260901000000):",
+      "prerequisites": [
+        "permission_matrix",
+        "partner_clubs_and_messaging",
+        "site_admin_management"
+      ]
+    },
+    "fixture_editor_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "ONE FIXTURE EDITOR (20270308000000)."
+    },
+    "fixture_management": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for Site Admin Fixture Management (fixtures RLS as exercised through the admin actions, delete_fixture()/publish_import_row() dependency and conflict-resolution",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "fixture_management_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Fixture Management authority and the bounded competition-options view (20270271000000)."
+    },
+    "fixture_management_grid": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for the Site Admin Fixture Management redesign (20260905000000_site_admin_fixture_management.sql):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "fixture_meet_time": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Meet / arrival time is canonical fixture data, not a Match Centre label."
+    },
+    "fixture_message_attachments": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for fixture message attachments (20260831390000):",
+      "prerequisites": [
+        "permission_matrix",
+        "fixture_results"
+      ]
+    },
+    "fixture_message_moderation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "A club can moderate its own fixture conversation."
+    },
+    "fixture_opposition_contacts": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Fixture -> Message opposition (20270258000000)."
+    },
+    "fixture_player_call_up": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for 20260924830000_fixture_player_call_up.sql:",
+      "prerequisites": [
+        "season_transitions"
+      ]
+    },
+    "fixture_presence": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for presence (20260831400000):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "fixture_publish_asks_ovalball_clubs": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Publishing a staged fixture row (20270304000000)."
+    },
+    "fixture_results": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for the post-match results workflow (20260831340000/350000/360000):",
+      "prerequisites": [
+        "permission_matrix"
+      ],
+      "measured": "Run standalone in Step 11: 7 passed, 15 failed, setup fails on fixtures_owning_team_id_fkey. Depends on permission_matrix.sql, which rolls back."
+    },
+    "fixture_results_24h": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for the extended post-match results workflow (20260902110000):",
+      "prerequisites": [
+        "fixture_results",
+        "permission_matrix"
+      ]
+    },
+    "fixture_search_and_venue_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Fixture Search privacy, and the venue/pitch writers' refusals."
+    },
+    "fixture_season_identity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Fixtures keep the name the team had in the season they were played."
+    },
+    "fixture_staging_fidelity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "What a staged fixture row carries through to the fixture it becomes (20270277000000 home_away, 20270278000000 meet_time)."
+    },
+    "fixture_status_lifecycle": {
+      "disposition": "UNVERIFIED",
+      "owner": "Fixture operations",
+      "reason": "CANONICAL FIXTURE MANAGEMENT / PITCH SYNC pass -- permanent regression for the status lifecycle centralized in update_fixture_schedule (Booked/reverse transitions) and internal.com Batch A ran it and recorded the cause; the repair belongs to its owning domain.",
+      "measured": "Run standalone in Step 11: 0 assertions, setup fails on club_memberships_user_id_fkey."
+    },
+    "gender_age_grade_rules": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Age-grade and eligibility",
+      "reason": "Manual verification for age-grade terminology (Boys/Girls/Mixed for youth, Men's/Women's for senior) and the U11 Mixed -> U12 structural transition (20260903300000).",
+      "prerequisites": [
+        "permission_matrix",
+        "season_rollover"
+      ],
+      "measured": "Run standalone in Batch A: 8 passed, 11 failed, setup FK violations. Declared dependent on permission_matrix.sql and season_rollover.sql; the first ends with rollback."
+    },
+    "gocardless_activation_identity_regression": {
+      "disposition": "UNVERIFIED",
+      "owner": "Commercial platform",
+      "reason": "Test 4 closure Section 6, failure-path H:"
+    },
+    "gocardless_critical_vulnerability_regression": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Commercial platform",
+      "reason": "Test 4 CLOSURE Section 1:"
+    },
+    "gocardless_financial_instruction_regression": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Commercial platform",
+      "reason": "Permanent regression suite for Test 4 (real GoCardless financial instruction creation):"
+    },
+    "gocardless_function_grant_audit": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Commercial platform",
+      "reason": "Permanent regression test:"
+    },
+    "gocardless_membership_operations_regression": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Commercial platform",
+      "reason": "Test 6 permanent regression matrix:"
+    },
+    "gocardless_obligation_authorization": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Commercial platform",
+      "reason": "Permanent regression test for create_membership_obligations_for_period()'s authorization boundary -- written specifically because this function once contained a real, live-exploite"
+    },
+    "gocardless_policy_lock_regression": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Commercial platform",
+      "reason": "Policy-lock pass permanent regression suite:"
+    },
+    "gocardless_reconciliation_regression": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Commercial platform",
+      "reason": "Permanent regression suite for reconcile_gocardless_billing_request() (GoCardless Sandbox Test 3 reconciliation repair)."
+    },
+    "gocardless_sibling_discount_regression": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Commercial platform",
+      "reason": "Sibling/multi-child discount permanent regression suite (Section 25)."
+    },
+    "gocardless_subscription_webhook_regression": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Commercial platform",
+      "reason": "Test 4 closure Section 2/3/4:"
+    },
+    "gocardless_test7_tamper_and_orphan_audit": {
+      "disposition": "UNVERIFIED",
+      "owner": "Commercial platform",
+      "reason": "Direct object-ID tamper / provider-ID enumeration matrix against a fresh, real-shaped synthetic club's GoCardless objects (never a real club's data), using a brand-new synthetic un"
+    },
+    "graduation_placement_safety": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Age-grade and eligibility",
+      "reason": "Graduation placement:"
+    },
+    "group_vs_group_acceptance": {
+      "disposition": "UNVERIFIED",
+      "owner": "Fixture operations",
+      "reason": "GROUP-VS-GROUP: request/acceptance architecture (Section 12/69) -- proves accept_fixture_request preserves a target_scheduling_group_id as a genuine opponent_scheduling_group_id (r"
+    },
+    "group_vs_group_fixture_model": {
+      "disposition": "UNVERIFIED",
+      "owner": "Fixture operations",
+      "reason": "GROUP-VS-GROUP CANONICAL FIXTURE DATA MODEL -- live canonical test matrix (Section 17), direct tamper tests (Section 16), same-day conflict proof (Section 8), authorization proof ("
+    },
+    "guardian_additional_requires_acceptance": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "ADDITIONAL GUARDIAN REQUIRES ACCEPTANCE (Identity/Auth Slice 2, Phase 2 AH R11)."
+    },
+    "guardian_link_requests": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "Safeguarding: a request grants nothing until a human with real authority approves it."
+    },
+    "handover_apply_idempotency": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "Season handover APPLY:"
+    },
+    "handover_automation_and_privacy": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "The automatic season handover:"
+    },
+    "handover_player_placement": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "Season handover, end-to-end:"
+    },
+    "handover_prepare_idempotency": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "Season handover PREPARE:"
+    },
+    "handover_security_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "Who can run a season handover, and on whose club."
+    },
+    "handover_squads_and_aliases": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "Season handover for B/C squads, club aliases, and identity collisions."
+    },
+    "handover_staged_commit_model": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "The staged commit model, proven at the two places it was contradicted."
+    },
+    "handover_successor_teams": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "Creating a missing successor squad, carrying its staff, and keeping player proposals honest after a team decision."
+    },
+    "hub_coaching_knowledge": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub Coaching Knowledge -- permanent regression."
+    },
+    "hub_content_applicability": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub general-knowledge applicability -- permanent regression."
+    },
+    "hub_content_relationships": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub general-knowledge relationships -- permanent regression."
+    },
+    "hub_content_rls": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub general-knowledge RLS -- permanent regression."
+    },
+    "hub_content_schema": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub general-knowledge schema integrity -- permanent regression."
+    },
+    "hub_famous_clubs": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub Famous Clubs -- permanent regression."
+    },
+    "hub_game_knowledge": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub Game Knowledge (GAME_CONCEPT content) -- permanent regression."
+    },
+    "hub_glossary_explorer": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub Glossary Explorer -- permanent regression."
+    },
+    "hub_international_rugby": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub International Rugby + Teams + Honours -- permanent regression."
+    },
+    "hub_officiating": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub Officiating & Respect the Referee -- permanent regression."
+    },
+    "hub_parents_and_guardians": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub Parents & Guardians -- permanent regression."
+    },
+    "hub_people_and_legends": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub People & Rugby Legends -- permanent regression."
+    },
+    "hub_player_development": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub Player Development -- permanent regression."
+    },
+    "hub_rules_law_of_the_game": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub Rules & Laws Deepening -- permanent regression."
+    },
+    "hub_search_and_recommendations": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub general-knowledge search and recommendations -- permanent regression."
+    },
+    "hub_teams_competitions": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub Teams & Competitions -- permanent regression."
+    },
+    "identity_foundation_and_perimeter": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "IDENTITY FOUNDATION + DATABASE/API PERIMETER (Identity/Auth Slice 1)."
+    },
+    "identity_security_containment": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "IDENTITY & AUTHORIZATION SECURITY CONTAINMENT (Phase 0)."
+    },
+    "invitation_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Invitations and joining",
+      "reason": "===================================================================================================== CANONICAL INVITATION AUTHORITY (Identity/Auth Slice 5, Phase 2 O.1, O.2, Y.12)"
+    },
+    "invitation_joining_closure": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Invitations and joining",
+      "reason": "===================================================================================================== INVITATIONS & JOINING -- THE PRODUCT CLOSURE (Convergence Step 3) Slice 5 buil"
+    },
+    "invitation_team_list": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Invitations and joining",
+      "reason": "===================================================================================================== A STAFF INVITATION'S TEAM LIST (Identity/Auth Slice 5, D-S5-AUTO-8, Phase 2 O."
+    },
+    "invite_only_onboarding": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Invitations and joining",
+      "reason": "Phase B -- invite-only onboarding."
+    },
+    "league_age_grade_and_colts": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Age-grade and eligibility",
+      "reason": "Code-specific later-youth pathways, the exact signup catalogues, and the RFL's published sex variation."
+    },
+    "main_bugfix_preservation_regression": {
+      "disposition": "UNVERIFIED",
+      "owner": "Identity/Auth and platform security",
+      "reason": "MAIN BUG-FIX PRESERVATION regression (Pre-integration remediation, Section 6/7)."
+    },
+    "master_site_admin_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "Full Site Admin authority survives every ordinary product workflow."
+    },
+    "match_centre_capabilities": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Match Centre real-integration capability wrappers (Phase 1 of the Side Project 3 -> Main integration plan)."
+    },
+    "match_centre_core": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Match Centre Phase 3A:"
+    },
+    "membership_state_machine": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "CLUB MEMBERSHIP STATE MACHINE (Identity/Auth Slice 2, Phase 2 M.1)."
+    },
+    "message_communication_policy": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Communication feature policy:"
+    },
+    "message_management": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Messaging and notifications",
+      "reason": "Manual verification for Message Management (Phase 5):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "message_policies": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Messaging and notifications",
+      "reason": "Manual verification for Message Management capability policy (20260901200000):",
+      "prerequisites": [
+        "permission_matrix",
+        "message_management"
+      ]
+    },
+    "messaging_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "===================================================================================================== MESSAGING AUTHORITY MATRIX (Identity/Auth Slice 4F, Phase 2 AA.3 row 4f) The d"
+    },
+    "mini_rugby_handover": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team directory and roster",
+      "reason": "Mini-rugby through the season handover, under the U6 product rule."
+    },
+    "mini_rugby_next_season_group": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Team directory and roster",
+      "reason": "Manual verification for 20260925050000_mini_rugby_next_season_group.sql:"
+    },
+    "mini_rugby_training_reconciliation_check": {
+      "disposition": "UNVERIFIED",
+      "owner": "Team directory and roster",
+      "reason": "MINI-RUGBY TRAINING reconciliation check (Pre-integration remediation, Section 13)."
+    },
+    "minor_prohibitions": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Safeguarding",
+      "reason": "MINOR PROHIBITIONS (Identity/Auth Slice 2, Phase 2 M.2 / I)."
+    },
+    "notification_catalogue": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Email and notifications",
+      "reason": "THE NOTIFICATION CATALOGUE Three promises, and they were all broken at once."
+    },
+    "notification_mandatory_and_preferences": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Email and notifications",
+      "reason": "Mandatory notifications, and the preferences that may not silence them (20270259000000)."
+    },
+    "opponent_reconciliation": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for the opponent_directory_id reconciliation trigger (20260831310000):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "overlapping_scheduling_groups": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification: the shared-team-fixture-capacity trigger (internal.enforce_shared_team_fixture_capacity, most recently redeclared in 20260924800000) correctly detects a confli"
+    },
+    "ovie_security": {
+      "disposition": "UNVERIFIED",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Ovie Phase 1/2 security regression:"
+    },
+    "parent_add_child_regression": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Family, players and guardians",
+      "reason": "Parent/Player Foundation permanent regression suite:"
+    },
+    "parent_player_foundation_security": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "Parent/Guardian/Player Safeguarding + Attendance Foundation -- security regression suite."
+    },
+    "partner_club_invitations": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Invitations and joining",
+      "reason": "Manual verification for Partner Club \"Invite to Ovalball\" (20260917000000_partner_club_invitations).",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "partner_clubs_and_messaging": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Invitations and joining",
+      "reason": "Manual RLS/permission verification for the Partner Clubs / Calendar Sharing / Fixture Messaging vertical slice.",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "partnership_automation": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Invitations and joining",
+      "reason": "Manual verification for Phase D (partnership half) -- automatic Partnership Request creation on fixture-request acceptance (20260903500000).",
+      "prerequisites": [
+        "permission_matrix",
+        "scheduling_groups"
+      ]
+    },
+    "password_reset_journey": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "===================================================================================================== PASSWORD RESET AND ACCOUNT DESTINATIONS (Slice 6b.1; Phase 2 E, G, D.2) Determ"
+    },
+    "pathway_allocation_safety": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team directory and roster",
+      "reason": "No silent cross-pathway placement, anywhere."
+    },
+    "permission_management": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "Manual verification for Site Admin Permission Management (permission_groups/capabilities/permission_group_capabilities RLS, delete_permission_group() dependency checks, and the rea",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "permission_matrix": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "Manual RLS/permission verification script."
+    },
+    "person_name_normalisation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Person names are stored the way somebody would write them."
+    },
+    "personal_block_product": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Block User, as a product rather than a domain (20270241000000, 20270253000000)."
+    },
+    "pg_cron_portability": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "A scheduler that only exists in one database must not decide whether the other databases can be built."
+    },
+    "pitch_allocation_group_vs_group": {
+      "disposition": "UNVERIFIED",
+      "owner": "Fixture operations",
+      "reason": "Pitch Allocation Group-vs-Group permanent regression suite."
+    },
+    "pitch_venue_home_side_fix": {
+      "disposition": "UNVERIFIED",
+      "owner": "Fixture operations",
+      "reason": "Real, pre-existing bug found auditing Pitch Allocation for the group-vs-group pass (unrelated to Mini-Rugby groups -- reproduced with a plain ordinary fixture):"
+    },
+    "platform_activation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Commercial platform",
+      "reason": "Phase K -- the canonical activation point."
+    },
+    "platform_club_subscriptions": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Commercial platform",
+      "reason": "Phase F -- a club's subscription to Ovalball (Domain B)."
+    },
+    "platform_gocardless": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Commercial platform",
+      "reason": "Phase G -- the provider side of Ovalball's own billing."
+    },
+    "platform_plans_entitlements": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Commercial platform",
+      "reason": "Phase E -- plans and entitlements."
+    },
+    "platform_referrals": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Commercial platform",
+      "reason": "Phase H -- the referral engine."
+    },
+    "platform_release_and_mode": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Phase C -- release history and platform mode."
+    },
+    "platform_rls_sweep": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Phase M -- a role-switched sweep across every commercial table."
+    },
+    "platform_trials": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Commercial platform",
+      "reason": "Phase D -- the trial engine."
+    },
+    "player_age_resolver": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Age-grade and eligibility",
+      "reason": "ONE canonical Player regulatory-age resolver."
+    },
+    "player_avatars": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "A child's photograph is more sensitive than their name on a team sheet."
+    },
+    "player_guardian_security": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "Player / Guardian relationship foundation -- security regression (Master Architecture Pass). Batch A ran it and recorded the cause; the repair belongs to its owning domain.",
+      "measured": "Run standalone in Step 10: 6 passed, 6 failed. Seeds a team as category=colts with a null gender; teams_set_canonical_type derives a gender and teams_gender_category_check recognises one only for senior or youth, so the row is refused. Seed data older than the constraint."
+    },
+    "player_movement_authorization_matrix": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "FINAL VERIFICATION CLOSURE Section 3:"
+    },
+    "player_movement_eligibility_resolver": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Family, players and guardians",
+      "reason": "Manual verification for 20260925080000_player_movement_eligibility_resolver.sql:",
+      "measured": "Run standalone in Batch A: 0 assertions. Declared manual verification for the canonical movement eligibility resolver."
+    },
+    "player_movement_expire_lifecycle": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "FINAL VERIFICATION CLOSURE Section 5:"
+    },
+    "player_movement_linked_workflow": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Family, players and guardians",
+      "reason": "Manual verification for 20260925090000/20260925100000:"
+    },
+    "player_movement_notification_recipients": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "FINAL VERIFICATION CLOSURE Section 8:"
+    },
+    "player_movement_rugby_code_isolation": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "FINAL VERIFICATION CLOSURE Section 2:"
+    },
+    "player_movement_tamper_tests": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "PLAYER REQUESTS Section 15/18J:"
+    },
+    "player_playing_pathway": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "A player's regulatory playing pathway, and where it does and does not decide."
+    },
+    "player_team_dispensation": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Family, players and guardians",
+      "reason": "Manual verification for 20260924910000_player_team_dispensation.sql:",
+      "measured": "Run standalone in Batch A: 0 assertions, setup fails on club_memberships_user_id_fkey. Declared manual verification for the staged dispensation chain; needs users it does not create."
+    },
+    "playground_teams": {
+      "disposition": "UNVERIFIED",
+      "owner": "Team directory and roster",
+      "reason": "LOCAL PLAYGROUND ONLY -- deliberately NOT part of run_regression.sh's FILES array (adding these teams alongside the other 55 test files' own Burnley/Rossendale team fixtures is exa"
+    },
+    "production_hygiene_scaffold_and_finance": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "Two things a release put into production that should never have been there."
+    },
+    "public_support_tickets": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Manual verification for public/anonymous Support tickets (20260901140000_public_support_tickets.sql):",
+      "prerequisites": [
+        "permission_matrix",
+        "support_tickets"
+      ]
+    },
+    "public_team_season_identity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "PUBLIC SEASON TEAM NAMES (Identity/Auth Slice 1 forward-fix)."
+    },
+    "recipient_audience_engine": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "THE RECIPIENT + AUDIENCE RESOLUTION ENGINE -- permanent regression."
+    },
+    "recovery_codes": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "===================================================================================================== RECOVERY CODES (Identity/Auth Slice 6, Phase 2 Y.3, G, AI \"recovery replay\") D"
+    },
+    "referral_attribution_integrity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Phase F0 -- referral attribution and reconciliation integrity."
+    },
+    "referral_intelligence_accounting": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Commercial Cards + F1 Referral Intelligence:"
+    },
+    "referral_reward_semantics": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Referral reward semantics:"
+    },
+    "registration_allocation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team directory and roster",
+      "reason": "Registration reads the canonical allocation, and only that."
+    },
+    "regulatory_content_administration": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Regulatory content administration (Rugby Hub Phase 2 real integration)."
+    },
+    "regulatory_coverage": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub / regulatory content",
+      "reason": "Rugby Hub regulatory coverage:"
+    },
+    "role_assignment_ceilings": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "ROLE ASSIGNMENT CEILINGS (Identity/Auth Slice 2, Phase 2 M.2 / I)."
+    },
+    "role_assignment_state_machine": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "ROLE ASSIGNMENT STATE MACHINE (Identity/Auth Slice 2, Phase 2 M.2)."
+    },
+    "rollover_player_placement": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "Deciding a player's next-season placement on the Season Handover board."
+    },
+    "roster_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "TEAM AND ROSTER AUTHORITY MATRIX (Identity/Auth Slice 4B; Phase 2 AA.3 row 4b, AA.4, J.6 lines 418-429, AI #70, AJ.1)."
+    },
+    "rugby_code_girls_identities": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Rugby code x girls team identity:"
+    },
+    "rugby_code_immutability": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Manual verification for Rugby Code immutability (20260901160000_rugby_code_immutability.sql):",
+      "prerequisites": [
+        "permission_matrix",
+        "message_management"
+      ]
+    },
+    "rugby_code_isolation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "A club is only ever shown its own sport."
+    },
+    "safeguarding_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Safeguarding",
+      "reason": "===================================================================================================== SAFEGUARDING AUTHORITY MATRIX (Identity/Auth Slice 4G, Phase 2 AA.3 row 4g) Th"
+    },
+    "safeguarding_officer_dispensation_notifications": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Safeguarding",
+      "reason": "Safeguarding Officer dispensation notification wiring -- regression."
+    },
+    "safeguarding_officer_foundation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Safeguarding",
+      "reason": "Safeguarding Officer Foundation -- security regression."
+    },
+    "safeguarding_officer_security": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Safeguarding",
+      "reason": "Safeguarding Officer -- security and tamper matrix."
+    },
+    "scheduling_buffer_fallback": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "\"Not configured\" is not \"no warm-up required\"."
+    },
+    "scheduling_groups": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for Mini-Rugby Groups (20260901230000 + 20260924770000 season-binding):"
+    },
+    "season_handover_cross_club_security": {
+      "disposition": "UNVERIFIED",
+      "owner": "Season handover and register",
+      "reason": "Season Handover / Mini-Rugby:"
+    },
+    "season_handover_progression": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "Season handover: ONE canonical progression graph, code- and gender-specific."
+    },
+    "season_register_boot_invariants": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "A season comes from the register, or it does not come at all."
+    },
+    "season_rollover": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Season handover and register",
+      "reason": "Manual verification for season windows, age-grade rollover review, and training-as-calendar-event (20260902150000, 20260902160000).",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "season_source_of_truth": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Season handover and register",
+      "reason": "Season dates have one authoritative source:"
+    },
+    "season_transition_boundary": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Season handover and register",
+      "reason": "Manual verification for 20260924960000_season_transition_pre_season_boundary.sql:"
+    },
+    "season_transition_future_fixture": {
+      "disposition": "UNVERIFIED",
+      "owner": "Season handover and register",
+      "reason": "Section 5/32 live acceptance test:"
+    },
+    "season_transitions": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Season handover and register",
+      "reason": "Manual verification for 20260924850000_automatic_season_transition.sql + 20260924860000_confirm_rollover_proposal_core.sql:"
+    },
+    "security_events_no_secrets": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "SECURITY EVENTS (Identity/Auth Slice 1, Phase 2 Y.14, AE, AO B2 and B4)."
+    },
+    "security_perimeter_guard": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "SECURITY PERIMETER GUARD."
+    },
+    "senior_cohort_graduation": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Age-grade and eligibility",
+      "reason": "Manual verification for 20260924890000_senior_cohort_graduation.sql:",
+      "prerequisites": [
+        "season_transitions"
+      ],
+      "measured": "Run standalone in Batch A: 0 assertions, setup fails on club_memberships_user_id_fkey. Declared manual, transaction-scoped."
+    },
+    "session_boundary": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth and platform security",
+      "reason": "===================================================================================================== THE SERVER SESSION BOUNDARY (Slice 6b.2; Phase 2 D.2 enforcement layer 2) `lib"
+    },
+    "shared_team_capacity": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Team directory and roster",
+      "reason": "Manual verification for the shared mini-rugby OPERATIONAL team upgrade (20260902130000):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "side_project_1_membership_status_pending": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "Side Project 1 integration (SIDE_PROJECT_1_FINAL_INTEGRATION_2026_09_05), Phase 2 step 1 regression coverage:"
+    },
+    "side_project_1_player_guardian_foundation": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "Side Project 1 integration (SIDE_PROJECT_1_FINAL_INTEGRATION_2026_09_05), Phase 2 step 2 regression coverage:"
+    },
+    "side_project_1_subscription_sibling_pricing": {
+      "disposition": "UNVERIFIED",
+      "owner": "Family, players and guardians",
+      "reason": "Side Project 1 integration (SIDE_PROJECT_1_FINAL_INTEGRATION_2026_09_05), Phase 2 step 5/6 regression coverage:"
+    },
+    "site_admin_dashboard": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "Site Admin Dashboard, Phase A -- the read model's boundary and semantics."
+    },
+    "site_admin_dashboard_phase_b": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "Site Admin Dashboard, Phase B -- rugby activity, growth and adoption."
+    },
+    "site_admin_diagnostic_access": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for Site Admin diagnostic club access (20260903700000):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "site_admin_global_lookups": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for the Site Admin Lookup Administration parent view (20260919000000_site_admin_global_lookups.sql):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "site_admin_grant_and_lockout": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "===================================================================================================== THE TWO-PERSON SITE ADMIN GRANT, AND THE LOCKOUT GUARD (Identity/Auth Slice 7c"
+    },
+    "site_admin_management": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for Site Admin Management (Phase 2):",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "site_admin_profile_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "===================================================================================================== THE SITE ADMIN PROFILE MATRIX (Identity/Auth Slice 7; Phase 2 AI #36, #37, #41"
+    },
+    "site_admin_team_directory": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Club and Site Admin",
+      "reason": "Manual verification for the Site Admin Team Directory (Part 2 of the canonical-team-catalogue correction, 20260904500000_site_admin_team_ directory.sql):",
+      "prerequisites": [
+        "permission_matrix",
+        "canonical_team_catalogue"
+      ]
+    },
+    "site_admin_users_access_closure": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "===================================================================================================== SITE ADMIN USERS & ACCESS -- THE CLOSURE (Identity/Auth Slice 7e; Phase 2 AB.1"
+    },
+    "site_master_control": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "===================================================================================================== SITE ADMIN MASTER CONTROL (Identity/Auth Slice 7, Phase 2 Q.1, Q.3, R; AI 36-4"
+    },
+    "step10_team_experience": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Convergence programme",
+      "reason": "CONVERGENCE STEP 10 — TEAM EXPERIENCE."
+    },
+    "step11_match_community": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Convergence programme",
+      "reason": "CONVERGENCE STEP 11 — MATCH CENTRE COMMUNITY + REWARDS."
+    },
+    "step12_safeguarding_and_age_grade": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Safeguarding",
+      "reason": "CONVERGENCE STEP 12 — RUGBY SAFEGUARDING + AGE-GRADE."
+    },
+    "step8_operational_access": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Convergence programme",
+      "reason": "CONVERGENCE STEP 8 — OPERATIONAL ACCESS MANAGEMENT."
+    },
+    "step9_family_and_availability": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Convergence programme",
+      "reason": "CONVERGENCE STEP 9 — PARENT / PLAYER / FAMILY."
+    },
+    "structured_venue_address": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Structured venue address -- the canonical shape, and the legacy safety rules around it."
+    },
+    "support_messaging": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Support requests as a canonical conversation, and its boundary."
+    },
+    "support_tickets": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Messaging and notifications",
+      "reason": "Manual verification for the Support Ticketing System (20260901120000_support_tickets.sql):",
+      "prerequisites": [
+        "permission_matrix",
+        "site_admin_management",
+        "message_management"
+      ]
+    },
+    "team_conversation_activation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team directory and roster",
+      "reason": "Activating a team's standing conversation (20270247000000)."
+    },
+    "team_identity_season_projector": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Team directory and roster",
+      "reason": "Manual verification for 20260924820000_team_identity_season_projector.sql:"
+    },
+    "team_lifecycle": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Team directory and roster",
+      "reason": "Manual verification for team lifecycle (fold / reactivate / fixture restoration) built in 20260902140000_team_lifecycle.sql.",
+      "prerequisites": [
+        "permission_matrix"
+      ],
+      "measured": "Run standalone in Step 10 and Batch A: 6 passed, 10 failed. Setup is refused by the pathway trigger introduced at 20261231000000 (a U12+ team with no pathway) -- seed data older than the rule."
+    },
+    "team_people_roster": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team directory and roster",
+      "reason": "Team People: the roster, who may see it, and what archiving a player means."
+    },
+    "team_scoped_fixture_requests": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Team directory and roster",
+      "reason": "Manual verification for Team Manager / Coach permission parity, part 2 (20260903800000):",
+      "prerequisites": [
+        "permission_matrix"
+      ],
+      "measured": "Run standalone in Step 10: 2 passed, 3 failed. Inserts into public.team_permissions, which became a compatibility VIEW at 20270422000000 and has no unique constraint for ON CONFLICT."
+    },
+    "tournament_centre": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "One occasion, many of our teams, different opponents each."
+    },
+    "tournament_missing_team_resolution": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Regression coverage for the tournament missing-team resolution built in 20260912000000_tournament_missing_team_resolution.sql (Tournament instruction sections 9-11, 35).",
+      "prerequisites": [
+        "permission_matrix",
+        "tournaments"
+      ]
+    },
+    "tournaments": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Fixture operations",
+      "reason": "Manual verification for Tournament architecture (20260904900000_tournament_architecture.sql).",
+      "prerequisites": [
+        "permission_matrix",
+        "season_rollover"
+      ]
+    },
+    "training_centre_visibility": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "A training session is not public."
+    },
+    "training_communication": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "A coach can tell the squad about training -- and only the right people hear."
+    },
+    "training_management_extension_regression": {
+      "disposition": "UNVERIFIED",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "SIDE PROJECT 2 -- TRAINING MANAGEMENT EXTENSION regression suite:"
+    },
+    "training_management_regression": {
+      "disposition": "UNVERIFIED",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "SIDE PROJECT 2 -- TRAINING MANAGEMENT permanent regression suite."
+    },
+    "training_plan_regenerate_idempotency_regression": {
+      "disposition": "UNVERIFIED",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Regression for the past-occurrence duplication bug found and fixed in 20261011140000_training_plan_regenerate_past_occurrence_dedup_fix.sql (POST-SIDE2 INTEGRATION -- DUPLICATE TRA"
+    },
+    "unified_fixture_conversation": {
+      "disposition": "SPECIAL_PURPOSE",
+      "owner": "Unassigned — Batch A follow-up",
+      "reason": "Manual verification for the Master Fixture Registry's single-row identity (20260904600000_master_fixture_consolidation.sql), which supersedes the mirror-pair architecture this file",
+      "prerequisites": [
+        "permission_matrix"
+      ]
+    },
+    "union_girls_dual_age_bands": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Age-grade and eligibility",
+      "reason": "Union girls dual age bands, code-specific availability, and the season guard -- the three things Phase 4B.1 exists to make permanent."
+    },
+    "union_u18_free_agent": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Age-grade and eligibility",
+      "reason": "The end of the youth pathway:"
+    },
+    "unread_truth": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "ONE UNREAD TRUTH WHAT WAS WRONG Three badges sat in the same header and counted the same rows:"
+    },
+    "users_and_permissions_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — capability engine",
+      "reason": "===================================================================================================== USERS & PERMISSIONS -- THE AUTHORITIES THE CENTRE CONSUMES (Convergence Step 2"
+    },
+    "venue_pitch_team_integrity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Venue / pitch / team integrity across the first-run setup surface."
+    },
+    "venue_training_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "===================================================================================================== VENUE AND TRAINING AUTHORITY MATRIX (Identity/Auth Slice 4E, Phase 2 AA.3 row"
+    }
+  },
+  "prerequisite_defect": {
+    "suites": [
+      "permission_matrix",
+      "season_transitions"
+    ],
+    "finding": "These suites end with `rollback;`, so a suite declared to run AFTER one of them finds nothing left behind. Every SPECIAL_PURPOSE suite whose prerequisites name one of them therefore CANNOT be run by its own documented procedure.",
+    "consequence": "Such a suite is not gate coverage and is not currently runnable coverage either. It must never be described as passing.",
+    "owner": "Test-fixture harness (each suite’s owning domain, coordinated by test governance)"
+  }
+}

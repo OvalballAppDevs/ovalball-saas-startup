@@ -70,6 +70,23 @@ declare
   v_club uuid := (select id from public.clubs where slug = 'uat-slice4a-${tag}');
   v_people uuid[] := array(select id from auth.users where email like 'uat.slice4a.%.${tag}@ovalball.test');
   v_players uuid[] := array(select id from public.players where surname like '% ${tag}');
+  -- PLAYERS THIS RUN CAUSED TO EXIST INSIDE ITS OWN CLUB, even where the PRODUCT named them rather
+  -- than the fixture -- an approved join request creates a player whose surname carries no tag, and
+  -- the old cleanup, which owned players by tag alone, could not see it. A player is only taken if
+  -- EVERY team place it holds is inside this run's own club; one foot outside and it is somebody
+  -- else's player, left alone.
+  v_owned_players uuid[] := array(
+    select p.id from public.players p
+     where exists (select 1 from public.player_team_memberships m
+                    where m.player_id = p.id
+                      and m.team_id in (select id from public.teams where club_id = v_club))
+       and not exists (select 1 from public.player_team_memberships m2
+                        where m2.player_id = p.id
+                          and m2.team_id not in (select id from public.teams where club_id = v_club)))
+    -- AND ANY PLAYER ONE OF THIS RUN'S OWN THROWAWAY IDENTITIES CREATED. Those users exist only for
+    -- this run, so a player they created cannot be anybody else's -- including one created through
+    -- Add Child and never placed in a team, which the membership test above cannot see.
+    || array(select id from public.players where created_by = any(v_people));
   v_records uuid[];
 begin
   perform set_config('ovalball.maintenance', 'on', true);
@@ -84,11 +101,19 @@ begin
     || array(select id from public.club_directory where normalized_key = 'uat-slice4a-${tag}');
   delete from public.notifications where user_id = any(v_people);
   delete from public.fixtures where owning_team_id in (select id from public.teams where club_id = v_club);
-  delete from public.guardian_player_permissions where player_id = any(v_players);
+  delete from public.guardian_player_permissions where player_id = any(v_players) or player_id = any(v_owned_players)
+     or guardian_user_id = any(v_people);
   delete from public.guardian_link_requests where club_id = v_club or requested_by_user_id = any(v_people);
-  delete from public.guardians where player_id = any(v_players);
-  delete from public.player_team_memberships where player_id = any(v_players);
-  delete from public.players where id = any(v_players);
+  -- BOTH ENDS OF THE LINK. A guardian row whose guardian is one of this run's throwaway identities is
+  -- this run's row, whichever player it points at.
+  delete from public.guardians where player_id = any(v_players) or player_id = any(v_owned_players)
+     or guardian_user_id = any(v_people);
+  -- BY TEAM AS WELL AS BY PLAYER. The team is this run's own, so a place in it is this run's to
+  -- remove; owning only by player left a row that blocked the team delete on
+  -- player_team_memberships_team_id_fkey and stopped the suite running at all.
+  delete from public.player_team_memberships where team_id in (select id from public.teams where club_id = v_club);
+  delete from public.player_team_memberships where player_id = any(v_players) or player_id = any(v_owned_players);
+  delete from public.players where id = any(v_players) or id = any(v_owned_players);
   delete from public.role_assignments where club_id = v_club;
   delete from public.club_memberships where club_id = v_club;
   delete from public.club_setup_state where club_id = v_club;

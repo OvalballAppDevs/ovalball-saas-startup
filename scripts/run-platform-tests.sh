@@ -51,6 +51,15 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-training-centre-shared.mjs"; th
   exit 1
 fi
 
+# SQL SUITE GOVERNANCE. Every .sql suite in supabase/tests must be declared in
+# suite-registry.json with a disposition and an owner, this runner must derive its
+# gate list from that one source, and no suite may be registered twice. Batch A
+# found the old hand-maintained array listing one suite twice; this is what stops
+# the second one.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-sql-suite-registry.mjs"; then
+  exit 1
+fi
+
 # A permanent browser suite cannot exist outside this file's BROWSER_SUITES
 # without a written declaration, and no suite may resolve axe-core or any
 # absolute path for itself. Step 7 found twenty-seven suites nobody was
@@ -154,259 +163,38 @@ fi
 CONTAINER="${SUPABASE_DB_CONTAINER:-supabase_db_ovalball-saas-startup}"
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)"
 
-SUITES=(
-  capability_defaults_architecture
-  invite_only_onboarding
-  platform_release_and_mode
-  platform_trials
-  platform_plans_entitlements
-  platform_club_subscriptions
-  platform_gocardless
-  platform_referrals
-  platform_activation
-  platform_rls_sweep
-  referral_attribution_integrity
-  site_admin_dashboard
-  support_messaging
-  site_admin_dashboard_phase_b
-  club_kits
-  club_activation_setup
-  structured_venue_address
-  venue_pitch_team_integrity
-  safeguarding_officer_foundation
-  safeguarding_officer_dispensation_notifications
-  safeguarding_officer_security
-  directory_public_profile
-  constituent_bodies
-  directory_admin_verification_status
-  admin_referral_administration
-  referral_intelligence_accounting
-  match_centre_capabilities
-  regulatory_content_administration
-  referral_reward_semantics
-  email_delivery_foundation
-  email_template_registry
-  email_brand_assets
-  recipient_audience_engine
-  email_delivery_policy
-  calendar_match_centre_link
-  add_child_flow
-  guardian_link_requests
-  player_avatars
-  fixture_meet_time
-  match_centre_core
-  fixture_communications
-  fixture_attendance_invitations
-  fixture_message_moderation
-  regulatory_coverage
-  union_girls_dual_age_bands
-  rugby_code_girls_identities
-  league_age_grade_and_colts
-  season_handover_progression
-  player_age_resolver
-  handover_player_placement
-  handover_apply_idempotency
-  handover_staged_commit_model
-  person_name_normalisation
-  canonical_team_directory_propagation
-  rugby_code_isolation
-  training_centre_visibility
-  training_communication
-  club_event_foundation
-  tournament_centre
-  canonical_recipient_safeguarding
-  notification_catalogue
-  unread_truth
-  announcement_privacy
-  message_communication_policy
-  audience_resolution
-  announcement_fanout
-  announcement_replies
-  team_conversation_activation
-  announcement_unread_surfaces
-  announcement_recipient_picker
-  personal_block_product
-  direct_messaging_security
-  adult_messaging_age_fallback
-  fixture_opposition_contacts
-  communication_policy_authority
-  conversation_channel_authority
-  fixture_management_authority
-  fixture_bulk_planning_authority
-  fixture_publish_asks_ovalball_clubs
-  competition_matches
-  competition_creator_conformance
-  fixture_editor_authority
-  competition_authority_matrix
-  venue_training_authority_matrix
-  messaging_authority_matrix
-  safeguarding_authority_matrix
-  club_admin_authority_matrix
-  club_misc_authority_matrix
-  age_eligibility_matrix
-  invitation_authority_matrix
-  invitation_team_list
-  aal_enforcement
-  recovery_codes
-  # Slice 6b.1: both ends of the password reset journey leave a mark, and asking
-  # for one never reveals who has an account.
-  password_reset_journey
-  # Slice 6b.2: Phase 2 D.2 enforcement layer 2, driven through every state a real
-  # session can be in -- including the one that must NOT refuse, T0 with AAL1.
-  session_boundary
-  definer_rpc_session_contract
-  email_delivery_result_authority
-  users_and_permissions_authority
-  invitation_joining_closure
-  auth_flow_state_authority
-  club_claim_authority_matrix
-  fixture_staging_fidelity
-  notification_mandatory_and_preferences
-  hub_content_schema
-  hub_content_applicability
-  hub_content_relationships
-  hub_content_rls
-  hub_search_and_recommendations
-  hub_game_knowledge
-  hub_glossary_explorer
-  hub_officiating
-  hub_rules_law_of_the_game
-  hub_teams_competitions
-  hub_international_rugby
-  hub_people_and_legends
-  hub_famous_clubs
-  hub_player_development
-  hub_coaching_knowledge
-  hub_parents_and_guardians
-  scheduling_buffer_fallback
-  team_people_roster
-  registration_allocation
-  adult_player_self_registration
-  handover_prepare_idempotency
-  handover_squads_and_aliases
-  graduation_placement_safety
-  fixture_season_identity
-  mini_rugby_handover
-  handover_security_matrix
-  handover_automation_and_privacy
-  union_u18_free_agent
-  master_site_admin_authority
-  fixture_cohort_isolation
-  season_source_of_truth
-  rollover_player_placement
-  handover_successor_teams
-  player_playing_pathway
-  pathway_allocation_safety
+# ---------------------------------------------------------------------------
+# THE GATE LIST IS DERIVED, NEVER RETYPED.
+#
+# It used to be a hand-maintained array here, and Batch A found it listing
+# `site_admin_profile_matrix` TWICE -- running that suite twice and counting its
+# assertions twice, in the total acceptance rests on. The declaration now lives in
+# supabase/tests/suite-registry.json, where every SQL suite in the repository has a
+# disposition and an owner, and a JSON object cannot hold the same key twice.
+#
+# scripts/verify-sql-suite-registry.mjs fails this gate if a suite file is
+# undeclared, a declared path has gone, a disposition is invalid, or this runner
+# stops deriving its list from that one source.
+# ---------------------------------------------------------------------------
+SUITE_REGISTRY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../supabase/tests" && pwd)/suite-registry.json"
+# Read into the array with a portable loop: `mapfile` is bash 4+, and this repository is developed on
+# a machine whose /bin/bash is 3.2. A gate that cannot start is worse than a gate with a hand list.
+SUITES=()
+while IFS= read -r suite_name; do
+  [ -n "$suite_name" ] && SUITES+=("$suite_name")
+done < <(node -e '
+  const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  const names = Object.entries(r.suites)
+    .filter(([, e]) => e.disposition === "CANONICAL_GATE")
+    .map(([n]) => n)
+    .sort();
+  process.stdout.write(names.join("\n") + "\n");
+' "$SUITE_REGISTRY")
 
-  # Release portability. Three migrations used to assert against the season
-  # register and one group used to install pg_cron unconditionally, so neither
-  # could be installed into a database that had no seasons yet or was not the
-  # cluster's cron database. Those migrations now stand aside in exactly those
-  # two cases -- and these two suites are what stops "stands aside" quietly
-  # becoming "is never checked".
-  season_register_boot_invariants
-  pg_cron_portability
-
-  # Production hygiene. Two Hub migrations minted themselves an author on a
-  # test domain in every environment including production, and two finance
-  # functions carried PostgreSQL's default PUBLIC EXECUTE grant. The forward
-  # fixes are 20270301000000 and 20270302000000; this holds both, and in
-  # particular proves the auth.users cleanup guard stays narrow.
-  production_hygiene_scaffold_and_finance
-
-  # Identity and authorisation containment. Each check runs a direct attack as
-  # the real database role -- anonymous, a member, staff, a parent, the server
-  # -- and the perimeter guard stops a later migration quietly reopening a
-  # grant, an unconditional write policy or an anonymous definer function.
-  identity_security_containment
-  security_perimeter_guard
-
-  # Club Digital Home: club and team news, announcements, Welcome to Ovalball.
-  club_digital_home
-
-  # Identity/Auth Slice 1: every auth identity has exactly one profile, and the
-  # database/API perimeter is explicit. The matching drift guard is
-  # js/perimeter_manifest.test.mts, which compares the live grants with
-  # supabase/security/perimeter-manifest.json.
-  identity_foundation_and_perimeter
-  # audit_log and security_events are append-only, server-attributed and
-  # redacted; identity changes emit their security events.
-  audit_immutability
-  security_events_no_secrets
-  # The signed-out Club Digital Home names each fixture's team as it is in
-  # that fixture's season, through a public projection scoped to public
-  # fixtures, without widening teams.
-  public_team_season_identity
-  # Identity/Auth Slice 2: canonical memberships, roles, family relationships
-  # and team places are state machines with provenance; every transition is a
-  # checked function with its event, and nothing removed comes back. The race
-  # outcomes are js/membership_races.test.mts.
-  membership_state_machine
-  role_assignment_state_machine
-  role_assignment_ceilings
-  minor_prohibitions
-  family_relationship_state_machine
-  guardian_additional_requires_acceptance
-  backfill_verification
-  # Identity/Auth Slice 3: one capability catalogue, one resolver with the
-  # Phase 2 K precedence, explicit Site Admin profiles, levelled allows and
-  # withholds, and the adapters over them. The concurrent R19 outcome is
-  # js/capability_override_races.test.mts.
-  capability_catalogue_integrity
-  capability_precedence_truth_table
-  explain_access_matches_enforcement
-  bundle_legacy_parity
-  site_admin_profile_matrix
-  capability_scope_isolation
-  capability_override_ceilings
-  capability_adapters
-  capability_attack_matrix
-  family_authority_matrix
-  family_isolation_matrix
-  cross_club_isolation_matrix
-  roster_authority_matrix
-  authority_helper_retirement
-  site_master_control
-  # Slice 7c: a Site Admin grant takes two people by every route, and the last
-  # Full Site Admin cannot be revoked, deleted or quietly demoted.
-  site_admin_grant_and_lockout
-  # Slice 7e: the closure -- AB.3's search exists and authorises first, the roster
-  # a Site Admin can change is one it can read without widening the policy, and
-  # is_site_admin is retired including where the counting guards do not look.
-  site_admin_users_access_closure
-  # Convergence Step 6: a fixture's pitch must be at the fixture's ground (the rule
-  # training already had), a venue address has exactly one writer, and L17 -- a
-  # session is not authority over every club's private directory columns.
-  club_venue_pitch_integrity
-  club_directory_privacy
-  # Slice 7, AI #36/#37/#41: the master-control surface is discovered from the
-  # catalogue, so an RPC added later without the preamble fails this by default.
-  # Convergence Step 7: how many have answered, counted only over the squads the
-  # caller may actually read -- and ABSENT, never zero, where they may not; and
-  # Fixture Search privacy plus the venue/pitch writers' refusals, asked of the
-  # functions themselves rather than of the screen that usually calls them.
-  fixture_availability_summary
-  fixture_search_and_venue_authority
-  # Convergence Step 8: the server side of operational access management --
-  # one spelling for one role, presets as exact capability deltas, removing one
-  # role leaving the rest standing, suspension defeating a grant that still
-  # exists, the club timeline's scope, and a Site Admin who administers a club
-  # without becoming a member of it.
-  step8_operational_access
-  # Convergence Step 9: who may answer availability and who may not, one truth
-  # per player and fixture, the adult boundary proved AT the boundary with a
-  # supplied date, an adult ending a Guardian's access without anything else
-  # moving, family IDOR in both directions, and a family relationship conferring
-  # no club, team or fixture authority.
-  step9_family_and_availability
-  # Convergence Step 10: what a person is to a team, as a list rather than one
-  # invented primary role; a badge that cannot outlive a revoked role or a
-  # suspended membership; team IDOR in both directions; team staff who do not
-  # become club administrators; and a Site Admin who inspects without joining.
-  step10_team_experience
-  step11_match_community
-  step12_safeguarding_and_age_grade
-)
+if [ "${#SUITES[@]}" -eq 0 ]; then
+  echo "The suite registry yielded no CANONICAL_GATE suites -- refusing to report a green gate over nothing." >&2
+  exit 1
+fi
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
   echo "Local Supabase container '$CONTAINER' is not running. Start it with: npx supabase start" >&2
@@ -556,6 +344,7 @@ BROWSER_SUITES=(
   78-fixture-operations-journey
   79-match-community-journey
   80-safeguarding-age-grade-journey
+  81-batch-a-integration-journey
   # SLICE 7e wired this one. It is Slice 7's own browser evidence -- S7-07 is what
   # the reconciliation cites for AN-8, "the setup link is never shown" -- and it
   # had never been in the release runner, so that evidence rested on somebody's
