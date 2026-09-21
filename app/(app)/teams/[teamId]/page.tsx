@@ -16,8 +16,10 @@ import { formatGenderLabel } from "@/lib/teams/labels"
 import { teamJoinCodes } from "./join-code-actions"
 import { loadAgenda } from "@/lib/agenda/load"
 import { shiftDays } from "@/lib/agenda/window"
+import { loadMyPlayerAgeGradeStatus, loadTeamAgeGradeAttention } from "@/lib/teams/age-grade"
 import type { AgendaScope } from "@/lib/agenda/scope"
 import type { FamilyChild } from "@/lib/parent/family-agenda"
+import { MyChildAgeGradeNote, TeamAgeGradeAttentionPanel } from "@/components/teams/team-age-grade"
 import { TeamRelationshipBadges } from "@/components/teams/team-relationship-badges"
 import { TeamWhatsNext } from "@/components/teams/team-whats-next"
 import { answerablePlayerIds, type TeamRelationship } from "@/lib/teams/team-relationship"
@@ -172,6 +174,20 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   }))
   const answerable = answerablePlayerIds(relationships)
 
+  // CONVERGENCE STEP 12 -- the age-grade answer, asked for the first time.
+  //
+  // Staff get only the players who need attention, and only as a status. A family gets the same
+  // status for their own child. Both readers refuse an unauthorised viewer server-side, so an empty
+  // list here means "nothing to show you", never "hidden in the browser".
+  const ageGradeAttention = await loadTeamAgeGradeAttention(supabase, team.id)
+  const myChildAgeGrade = (
+    await Promise.all(
+      relationships
+        .filter((r) => r.subjectPlayerId)
+        .map((r) => loadMyPlayerAgeGradeStatus(supabase, r.subjectPlayerId as string))
+    )
+  ).flat()
+
   // WHAT'S NEXT, from the canonical agenda reader the Calendar and the family
   // agenda already use. A family scope is used where the viewer has one, because
   // that is what puts a player id on each row and makes Step 9's answer control
@@ -235,6 +251,10 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
 
       <TeamRelationshipBadges relationships={relationships} />
 
+      {/* A family's own position on this team, in the same words the club sees. Rendered next to who
+          they are to the team, because that is the question it answers. */}
+      <MyChildAgeGradeNote rows={myChildAgeGrade} teamId={team.id} />
+
       <TeamWhatsNext
         upcoming={upcoming}
         recent={recent}
@@ -271,6 +291,9 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           </div>
         )}
       </div>
+
+      {/* Age grade, before the roster it is about. Renders nothing when nothing needs attention. */}
+      <TeamAgeGradeAttentionPanel rows={ageGradeAttention} />
 
       <TeamPeople
         teamId={team.id}

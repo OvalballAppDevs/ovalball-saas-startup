@@ -180,6 +180,48 @@ suppressed, and the declared set may only get smaller.
 
 ---
 
+## Convergence Step 12 — Rugby Safeguarding + Age-Grade — IMPLEMENTATION COMPLETE — BATCH A UAT PENDING
+
+| | |
+|---|---|
+| status | **IMPLEMENTATION COMPLETE — BATCH A UAT PENDING** |
+| FUNCTIONS BEFORE | **52** |
+| FUNCTIONS AFTER | **58** |
+| FUNCTIONS LOST | **0** |
+| released · pushed · Step 13 | **no · no · not started, not authorised** |
+| report | `docs/product/CONVERGENCE_STEP_12_REPORT.md` |
+
+Nearly all of it existed and almost none of it was surfaced: **no file in `app/`,
+`components/` or `lib/` called `resolve_player_age_grade` or
+`resolve_player_regulatory_age`**. So Step 12 adds no rules — two readers that ask
+the canonical resolvers, and one canonical adult answer that Match Centre now
+shares instead of deciding for itself.
+
+A coach sees who needs attention and why, as a **status and a sentence**, with no
+date of birth, age, medical field or case note anywhere in the payload — asserted
+in the migration, the suite and the browser. A family sees their own child's
+position in the same words. Season comes from the canonical register; a date with
+no season is reported as not established rather than defaulted.
+
+Verified rather than assumed: **`PENDING_CONFIRMATION` confers zero safeguarding
+capability** in the capability engine as well as in `active_safeguarding_officer_ids`.
+**Priya Devlin's pending state was preserved** — it is legitimate, it sits before
+the AN-6 Ovalball confirmation, and resolving it is a real user action.
+
+Targeted acceptance: `step12_safeguarding_and_age_grade` **34**,
+`age_grade_status_races` **3**, `80-safeguarding-age-grade-journey` **22** at
+1440/390/320 with 0 introduced axe violations, **750 SQL assertions across the
+acceptance and regression set**, every TypeScript suite **775/775**, build clean,
+lint identical to the Step 11 baseline, 12 static guards green.
+
+L25 advanced on evidence: the five Step-12-adjacent un-gated suites are
+**SPECIAL_PURPOSE by their own declared headers**, and their documented
+prerequisite `permission_matrix.sql` **ends with `rollback;`**, so the procedure
+cannot work as written. Neither "wire them in" nor "retired" would have been
+honest.
+
+---
+
 ## Convergence Step 11 — Match Centre Community + Rewards — IMPLEMENTATION COMPLETE — BATCH A UAT PENDING
 
 | | |
@@ -1425,7 +1467,7 @@ requirement unless the master programme assigns it there.**
 | **L15** | fourteen perimeter-manifest consumer declarations belonging to other slices, in a shrink-only baseline | each owning slice |
 | **L22** | the application-shell unread badge is ~3.1:1 on every authenticated page | **Application Shell / UX owner** |
 | **L23** | training recurrence has no "this and all future occurrences" | **Training Management** |
-| **L25** | **SQL suite governance.** Measured at Step 11: **285** SQL suite files, **181** executed by the canonical gate, **104 not executed**, and **no declaration mechanism** for a SQL suite outside it — the browser side has had one since Step 7. Six of the 104 are known stale: `player_guardian_security`, `team_lifecycle`, `capability_engine`, `team_scoped_fixture_requests` (Step 10), `fixture_results`, `fixture_status_lifecycle` (Step 11). Each fails in its own SEED against later architecture, not in the product. None was wired in, deleted, declared obsolete by filename or repaired, and **the canonical gate is not claimed to execute every repository SQL suite.** Needed before Batch A's canonical-gate claim means what it says: a per-suite status (`CANONICAL-GATE` · `SUPERSEDED` · `RETIRED` · `SPECIAL-PURPOSE` · `UNVERIFIED`) with an owner, and a runner that detects an undeclared suite | **Batch A certification**, then each owning programme by domain |
+| **L25** | **SQL suite governance.** Remeasured at Step 12: **286** SQL suite files, **181** executed by the canonical gate, **105 not executed**, and the gate's own `SUITES` array was found to list `site_admin_profile_matrix` **twice** — running it and counting it twice, which is now fixed, and **no declaration mechanism** for a SQL suite outside it — the browser side has had one since Step 7. Six of the 104 are known stale: `player_guardian_security`, `team_lifecycle`, `capability_engine`, `team_scoped_fixture_requests` (Step 10), `fixture_results`, `fixture_status_lifecycle` (Step 11). Each fails in its own SEED against later architecture, not in the product. None was wired in, deleted, declared obsolete by filename or repaired, and **the canonical gate is not claimed to execute every repository SQL suite.** Needed before Batch A's canonical-gate claim means what it says: a per-suite status (`CANONICAL-GATE` · `SUPERSEDED` · `RETIRED` · `SPECIAL-PURPOSE` · `UNVERIFIED`) with an owner, and a runner that detects an undeclared suite | **Batch A certification**, then each owning programme by domain |
 | **L26** | `TEAM_JOIN_CODE` cleanup is marker-scoped, not fixture-scoped, and unregressed | invitation / test-fixture hygiene |
 | **L27** | **`team.community.manage` grants nothing and stays unactivated.** The key exists in `public.capabilities`, three migrations reference it, and **no `bundle_capabilities` row grants it and no `capability_key_map` entry mentions it**. Its only live caller is `internal.may_send_as` (`20270240000000`), where it sits in an `or` chain beside `can_address_team_audience` and `is_full_site_admin`, so it is always false and nothing is broken. Granting it would give `CA@club · CO@team · TM@team` (the `team.news.manage` shape) the ability to satisfy `may_send_as` for a **team identity**, enforced on insert by `internal.enforce_sender_identity` — **broadening who may speak as a team in Messenger**. Step 11 therefore gated community administration on authority that already resolves and did **not** grant it. Reconciliation needs (a) a decision from the messaging-authority owner on whether team staff may speak as the team, and (b) a catalogue decision on whether the key is granted, mapped onto `team.news.manage`, or retired. **Not to be granted merely to make Match Centre convenient** | **Messenger / communications authority owner** (owner of `internal.may_send_as` and `internal.enforce_sender_identity`), with the capability catalogue |
 

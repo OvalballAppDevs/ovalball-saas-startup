@@ -7733,6 +7733,20 @@
         "consumers": [
           "app/(app)/fixtures/[fixtureId]/community-actions.ts"
         ]
+      },
+      {
+        "signature": "my_player_age_grade_status(uuid, date)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/teams/age-grade.ts"
+        ]
+      },
+      {
+        "signature": "team_age_grade_attention(uuid, date)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/teams/age-grade.ts"
+        ]
       }
     ],
     "authenticated_revoked_public": [
@@ -8666,7 +8680,9 @@
       "remove_match_kudos(uuid, uuid, uuid, text)",
       "set_team_award_category(uuid, text, boolean, text)",
       "withdraw_match_award_vote(uuid)",
-      "withdraw_match_kudos(uuid, uuid)"
+      "withdraw_match_kudos(uuid, uuid)",
+      "my_player_age_grade_status(uuid, date)",
+      "team_age_grade_attention(uuid, date)"
     ],
     "service_role_internal": [
       "advance_competition_knockout(uuid)",

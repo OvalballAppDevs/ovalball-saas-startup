@@ -24918,6 +24918,15 @@ export type Database = {
           subject_response: string
         }[]
       }
+      my_player_age_grade_status: {
+        Args: { p_as_of?: string; p_player_id: string }
+        Returns: {
+          detail: string
+          status: string
+          team_id: string
+          team_name: string
+        }[]
+      }
       my_player_context: {
         Args: never
         Returns: {
@@ -26934,6 +26943,15 @@ export type Database = {
       swap_fixture_home_away: {
         Args: { p_fixture_id: string }
         Returns: undefined
+      }
+      team_age_grade_attention: {
+        Args: { p_as_of?: string; p_team_id: string }
+        Returns: {
+          detail: string
+          display_name: string
+          player_id: string
+          status: string
+        }[]
       }
       team_conversation_state: {
         Args: { p_team_id: string }

@@ -489,6 +489,47 @@ begin
   end if;
   raise notice 'PASS clean boot: Step 11''s recognition arrives seeded, positive, one-vote-per-person and without a currency';
 end $$;
+
+-- CONVERGENCE STEP 12 -- age grade, from empty.
+do $$
+begin
+  if to_regprocedure('public.team_age_grade_attention(uuid, date)') is null
+     or to_regprocedure('public.my_player_age_grade_status(uuid, date)') is null then
+    raise exception 'CLEAN BOOT: the age-grade readers do not exist';
+  end if;
+  if has_function_privilege('anon', 'public.team_age_grade_attention(uuid, date)', 'EXECUTE') then
+    raise exception 'CLEAN BOOT: anon can read age-grade status';
+  end if;
+  -- The readers must lean on the canonical resolvers, not on arithmetic of their own.
+  if (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'internal' and p.proname = 'team_age_grade_status') !~ 'resolve_season_for_date' then
+    raise exception 'CLEAN BOOT: age grade does not resolve its season from the canonical register';
+  end if;
+  if (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'internal' and p.proname = 'team_age_grade_status') !~ 'resolve_player_age_grade' then
+    raise exception 'CLEAN BOOT: age grade does not read the canonical age-grade resolver';
+  end if;
+  -- ONE ADULT ANSWER: Match Centre's electorate test must delegate, not decide again.
+  if (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'internal' and p.proname = 'match_side_is_adult') !~ 'team_is_adult_side' then
+    raise exception 'CLEAN BOOT: the electorate adult test decides adulthood for itself again';
+  end if;
+  -- Status, never evidence: no operational reader may return a date of birth or anything medical.
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      join unnest(p.proallargtypes, p.proargnames) as a(t, nm) on true
+     where n.nspname = 'public' and p.proname in ('team_age_grade_attention', 'my_player_age_grade_status')
+       and a.nm ~* 'dob|date_of_birth|birth|medical|emergency|note') then
+    raise exception 'CLEAN BOOT: an operational age-grade reader returns evidence';
+  end if;
+  -- The safeguarding confirmation seam exists from empty.
+  if not exists (select 1 from pg_constraint c where c.conrelid = 'public.role_assignments'::regclass
+                  and pg_get_constraintdef(c.oid) ~ 'SAFEGUARDING_OFFICER'
+                  and pg_get_constraintdef(c.oid) ~ 'confirmation_state') then
+    raise exception 'CLEAN BOOT: the safeguarding confirmation seam is missing';
+  end if;
+  raise notice 'PASS clean boot: Step 12 reports age grade from the canonical resolvers and the canonical season, without evidence, sharing one adult answer';
+end $$;
 SQL
 STATUS=$?
 

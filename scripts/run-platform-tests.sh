@@ -381,7 +381,6 @@ SUITES=(
   club_directory_privacy
   # Slice 7, AI #36/#37/#41: the master-control surface is discovered from the
   # catalogue, so an RPC added later without the preamble fails this by default.
-  site_admin_profile_matrix
   # Convergence Step 7: how many have answered, counted only over the squads the
   # caller may actually read -- and ABSENT, never zero, where they may not; and
   # Fixture Search privacy plus the venue/pitch writers' refusals, asked of the
@@ -406,6 +405,7 @@ SUITES=(
   # become club administrators; and a Site Admin who inspects without joining.
   step10_team_experience
   step11_match_community
+  step12_safeguarding_and_age_grade
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
@@ -555,6 +555,7 @@ BROWSER_SUITES=(
   # match type, the availability summary, and the three end-to-end journeys.
   78-fixture-operations-journey
   79-match-community-journey
+  80-safeguarding-age-grade-journey
   # SLICE 7e wired this one. It is Slice 7's own browser evidence -- S7-07 is what
   # the reconciliation cites for AN-8, "the setup link is never shown" -- and it
   # had never been in the release runner, so that evidence rested on somebody's
