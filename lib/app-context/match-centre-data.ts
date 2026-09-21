@@ -46,6 +46,13 @@ export type AttendanceStatus = "ATTENDING" | "CANNOT_ATTEND" | "UNSURE"
 export type AvatarState = "PHOTO_ALLOWED" | "INITIALS_ONLY"
 export type FixtureStatus = "PLANNED" | "AWAITING_OPPOSITION" | "ACCEPTED" | "AMENDMENT_PENDING" | "CANCELLED" | "COMPLETED"
 
+export interface MatchCentreResult {
+  homeScore: number
+  awayScore: number
+  /** The canonical result_status, carried verbatim so the page never re-decides what a result means. */
+  resultStatus: string
+}
+
 export interface MatchCentreFixture {
   fixtureId: string
   status: FixtureStatus
@@ -56,6 +63,13 @@ export interface MatchCentreFixture {
   homeAway: "Home" | "Away" | "TBD" | "Not Applicable"
   competitionIdentity: string | null
   cancellationReason: string | null
+  /**
+   * WHAT HAPPENED, READ-ONLY. Step 11 gave the canonical page for a played match the ability to
+   * say the score, which it could not before. Recording and amending a result stays with Fixture
+   * Management, which owns the form and the confirmation workflow; this is a display of the value
+   * that workflow produced, and null until there is one.
+   */
+  result: MatchCentreResult | null
 }
 
 export interface MatchCentreSide {
@@ -217,7 +231,7 @@ export async function getMatchCentreContext(
   const { data: f } = await supabase
     .from("fixtures")
     .select(
-      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, pitch_id, owning_scheduling_group_id, opponent_scheduling_group_id, competition_edition_id"
+      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, pitch_id, owning_scheduling_group_id, opponent_scheduling_group_id, competition_edition_id, home_score, away_score, result_status"
     )
     .eq("id", fixtureId)
     .maybeSingle()
@@ -420,6 +434,13 @@ export async function getMatchCentreContext(
         homeAway: f.home_away as MatchCentreFixture["homeAway"],
         competitionIdentity: (competition?.competitions as { name: string } | null)?.name ?? null,
         cancellationReason: f.cancellation_reason,
+        // A RESULT IS A RESULT ONLY WHEN THE WORKFLOW SAYS SO. `none` means nobody has recorded
+        // one, and two nulls are not a nil-nil draw -- so the page says nothing rather than
+        // inventing a scoreline out of absent data.
+        result:
+          f.result_status && f.result_status !== "none" && f.home_score !== null && f.away_score !== null
+            ? { homeScore: f.home_score, awayScore: f.away_score, resultStatus: f.result_status }
+            : null,
       },
       homeSide,
       awaySide,

@@ -209,6 +209,11 @@ insert into isolation_domain values
   -- 4c fixtures, requests, results, Planner, Import
   ('fixtures', '4c'), ('fixture_import_batches', '4c'), ('player_fixture_attendance', '4c'), ('fixture_player_call_up', '4c'),
   ('club_opponent_notes', '4c'),
+  -- Convergence Step 11 match community. Recognition is fixture-scoped, so its isolation is the
+  -- fixture's own: an award and a vote reach exactly the sides of one match. The per-team award
+  -- settings hang off the team instead, and are classified with the teams they belong to.
+  ('match_awards', '4c'), ('match_award_votes', '4c'), ('match_kudos', '4c'),
+  ('team_award_category_settings', '4b'),
   -- 4d competitions and tournaments
   ('competition_edition_teams', '4d'), ('competition_participants', '4d'), ('competition_match_verifications', '4d'),
   ('tournaments', '4d'), ('tournament_participants', '4d'), ('tournament_team_entries', '4d'),

@@ -446,6 +446,49 @@ begin
 
   raise notice 'PASS clean boot: Step 10''s team reader is correct from empty, and no badge outlives its relationship';
 end $$;
+
+-- CONVERGENCE STEP 11 -- the community layer, from empty.
+do $$
+begin
+  if to_regprocedure('public.get_match_community(uuid)') is null then
+    raise exception 'CLEAN BOOT: the match community reader does not exist';
+  end if;
+  if has_function_privilege('anon', 'public.cast_match_award_vote(uuid, uuid)', 'EXECUTE') then
+    raise exception 'CLEAN BOOT: anon can vote';
+  end if;
+  -- The canonical catalogue must arrive seeded, with the age-dependent category intact.
+  if not exists (select 1 from public.match_award_categories
+                  where category_key = 'FAMILY_OR_SELF_PLAYER'
+                    and electorate = 'FAMILY_OR_SELF'
+                    and name_youth = 'Parents'' Player' and name_adult = 'Players'' Player') then
+    raise exception 'CLEAN BOOT: the age-dependent award category is missing or has lost its two names';
+  end if;
+  if (select count(*) from public.match_kudos_kinds where active) < 3 then
+    raise exception 'CLEAN BOOT: the kudos vocabulary did not arrive';
+  end if;
+  -- One vote per person is a constraint from the first migration onward, not something added later.
+  if not exists (select 1 from pg_constraint c
+                  where c.conrelid = 'public.match_award_votes'::regclass and c.contype = 'u'
+                    and pg_get_constraintdef(c.oid) ~ 'voter_user_id') then
+    raise exception 'CLEAN BOOT: nothing stops one person voting twice';
+  end if;
+  -- No free text about children, and no currency.
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'match_kudos'
+                and column_name in ('note','message','body','comment')) then
+    raise exception 'CLEAN BOOT: match_kudos grew a free-text field';
+  end if;
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name in ('match_kudos','match_awards')
+                and column_name ~ 'points|amount|balance|credit|pence') then
+    raise exception 'CLEAN BOOT: a points or currency column appeared in recognition';
+  end if;
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'club_articles' and column_name = 'fixture_id') then
+    raise exception 'CLEAN BOOT: the match report has no match to belong to';
+  end if;
+  raise notice 'PASS clean boot: Step 11''s recognition arrives seeded, positive, one-vote-per-person and without a currency';
+end $$;
 SQL
 STATUS=$?
 

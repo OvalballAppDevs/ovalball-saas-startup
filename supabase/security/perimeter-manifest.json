@@ -3507,6 +3507,66 @@
         "select": "all",
         "select_reason": "Which canonical capability keys each preset carries. Reference data with no person in it, read-only to every browser role, and a migration-time guard refuses any key a club could not have granted by hand."
       }
+    },
+    "match_award_categories": {
+      "classification": "PUBLIC_REFERENCE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Convergence Step 11: the canonical match award catalogue and its electorates. Reference data; readable by any signed-in person, written only by migration."
+      }
+    },
+    "match_kudos_kinds": {
+      "classification": "PUBLIC_REFERENCE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Convergence Step 11: the fixed positive Kudos vocabulary. Reference data; readable by any signed-in person, written only by migration."
+      }
+    },
+    "team_award_category_settings": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Convergence Step 11: which awards a team runs and the display name it uses. RLS: readable where the viewer may see the team; written only through set_team_award_category."
+      }
+    },
+    "match_awards": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Convergence Step 11: one award per fixture, team and category. RLS: readable where the viewer may see the team; opened and closed only through RPCs that require fixture-side management."
+      }
+    },
+    "match_kudos": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Convergence Step 11: positive recognition from a fixed vocabulary. RLS: readable where the viewer may see the team and the row is not removed; written only through the RPCs."
+      }
+    },
+    "match_award_votes": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Convergence Step 11: the ballot. DELIBERATELY NO SELECT POLICY -- identity is known to the server for eligibility and one-vote-per-person, and is never read by a browser session, including the staff who see only totals."
+      }
     }
   },
   "views": {
@@ -7589,6 +7649,90 @@
         "consumers": [
           "app/(app)/teams/[teamId]/page.tsx"
         ]
+      },
+      {
+        "signature": "cast_match_award_vote(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
+        "signature": "close_match_award(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
+        "signature": "get_match_community(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/app-context/match-community.ts"
+        ]
+      },
+      {
+        "signature": "get_match_community_admin(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/app-context/match-community.ts"
+        ]
+      },
+      {
+        "signature": "get_match_kudos(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/app-context/match-community.ts"
+        ]
+      },
+      {
+        "signature": "get_match_recognition_squad(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/app-context/match-community.ts"
+        ]
+      },
+      {
+        "signature": "give_match_kudos(uuid, uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
+        "signature": "open_match_award(uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
+        "signature": "remove_match_kudos(uuid, uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
+        "signature": "set_team_award_category(uuid, text, boolean, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
+        "signature": "withdraw_match_award_vote(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
+        "signature": "withdraw_match_kudos(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
       }
     ],
     "authenticated_revoked_public": [
@@ -8510,7 +8654,19 @@
       "verify_regulatory_fact(uuid)",
       "verify_regulatory_reporting_route(uuid)",
       "withdraw_announcement(uuid)",
-      "withdraw_player_club_join_request(uuid)"
+      "withdraw_player_club_join_request(uuid)",
+      "cast_match_award_vote(uuid, uuid)",
+      "close_match_award(uuid)",
+      "get_match_community(uuid)",
+      "get_match_community_admin(uuid)",
+      "get_match_kudos(uuid)",
+      "get_match_recognition_squad(uuid, uuid)",
+      "give_match_kudos(uuid, uuid, uuid, text)",
+      "open_match_award(uuid, uuid, text)",
+      "remove_match_kudos(uuid, uuid, uuid, text)",
+      "set_team_award_category(uuid, text, boolean, text)",
+      "withdraw_match_award_vote(uuid)",
+      "withdraw_match_kudos(uuid, uuid)"
     ],
     "service_role_internal": [
       "advance_competition_knockout(uuid)",

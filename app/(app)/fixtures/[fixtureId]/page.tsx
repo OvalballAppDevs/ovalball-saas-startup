@@ -8,12 +8,14 @@ import { MatchConditions } from "@/components/fixtures/match-centre/match-condit
 import { MessageOpposition } from "@/components/fixtures/match-centre/message-opposition"
 import { MessagingPanel, type FixtureMessageRow } from "@/components/fixtures/match-centre/messaging-panel"
 import { listOppositionContacts } from "./opposition-contacts"
+import { CommunityPanel } from "@/components/fixtures/match-centre/community-panel"
 import { ParticipantList } from "@/components/fixtures/match-centre/participant-list"
 import { getFixtureForecast } from "@/lib/weather/fixture-forecast"
 
 import { CommunicationPanel } from "./communication-panel"
 import { FIXTURE_RETURN_PARAM, resolveFixtureReturn } from "@/lib/fixtures/return-context"
 import { getMatchCentreContext } from "@/lib/app-context/match-centre-data"
+import { getMatchCommunity } from "@/lib/app-context/match-community"
 import { resolvePersonalAvatarUrls } from "@/lib/app-context/personal-avatar"
 import { createClient } from "@/lib/supabase/server"
 
@@ -107,6 +109,16 @@ export default async function FixtureMatchCentrePage({
     latitude: context.venue.latitude,
     longitude: context.venue.longitude,
   })
+
+  // THE COMMUNITY LAYER IS LOADED ONLY FOR A PLAYED MATCH. Reading it for an upcoming fixture
+  // would be four RPC round-trips to render nothing.
+  const sideTeamIds = [context.homeSide.teamId, context.awaySide.teamId].filter((id): id is string => Boolean(id))
+  const teamNames: Record<string, string> = {}
+  for (const side of [context.homeSide, context.awaySide]) {
+    if (side.teamId) teamNames[side.teamId] = side.fixtureSeasonTeamIdentity
+  }
+  const community =
+    context.fixture.status === "COMPLETED" ? await getMatchCommunity(supabase, context.fixture.fixtureId, sideTeamIds) : null
 
   const oppositionContacts = await listOppositionContacts(fixtureId)
 
@@ -205,7 +217,15 @@ export default async function FixtureMatchCentrePage({
              not staff, and telling them so on every fixture is noise. */}
       <ParticipantList participants={context.participants} counts={context.attendance.counts} canView={context.actions.canViewParticipants} />
 
-      {/* 4. ONE messaging surface. The conversation is the thread everybody
+      {/* 4. WHAT THE TEAM DID TOGETHER.
+             Only for a match that has been played. An upcoming Match Centre must not look like a
+             post-match awards page, so on any other state this renders nothing -- and the server
+             refuses the writes on any other state too, so the two agree. */}
+      {context.fixture.status === "COMPLETED" && community && (
+        <CommunityPanel fixtureId={context.fixture.fixtureId} community={community} teamNames={teamNames} />
+      )}
+
+      {/* 5. ONE messaging surface. The conversation is the thread everybody
              reads and writes in; the staff announce composer is folded into
              the same section as an action rather than living as a second
              card with its own textarea.

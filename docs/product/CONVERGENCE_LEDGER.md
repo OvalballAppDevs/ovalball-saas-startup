@@ -180,6 +180,48 @@ suppressed, and the declared set may only get smaller.
 
 ---
 
+## Convergence Step 11 — Match Centre Community + Rewards — IMPLEMENTATION COMPLETE — BATCH A UAT PENDING
+
+| | |
+|---|---|
+| status | **IMPLEMENTATION COMPLETE — BATCH A UAT PENDING** |
+| FUNCTIONS BEFORE | **33** |
+| FUNCTIONS AFTER | **55** |
+| FUNCTIONS LOST | **0** |
+| released · pushed · Step 12 | **no · no · not started, not authorised** |
+| report | `docs/product/CONVERGENCE_STEP_11_REPORT.md` |
+
+The community backlog existed only as vocabulary: no poll, vote, Kudos, award or
+badge record anywhere, and `reward` already meant referral credit. Built as **one
+award engine, not five models** — the five award names are five electorates for
+one concept — with Kudos kept separate because it has no electorate, no opening
+and no winner. The electorate follows the side's age: Parents' Player on a youth
+side is Players' Player on an adult one, and **U17/U18 keep the parents'
+electorate by explicit decision**. Totals go to staff, the winner to the team, and
+`match_award_votes` has no select policy at all.
+
+The step's first act was not community at all: **Match Centre could not say what
+happened**, so a played match now shows its result, read-only, where the fixture
+said "VS".
+
+Targeted acceptance: `step11_match_community` **59**, `match_community_races`
+**5 races**, `79-match-community-journey` **24** at 1440/390/320 with 0 introduced
+axe violations, every TypeScript suite **772/772**, `tsc` clean, build compiles,
+12 static guards green, and the Step 7/8/9/10 regression set green. Both isolation
+matrices refused to pass until the four new tables were classified, which is what
+they are for.
+
+Deferred to Batch A: the unsplit canonical gate, the full-chain clean boot, the
+production-shaped rehearsal and cross-domain Steps 10–12 UAT. Step 11's
+fresh-database assertions are checked into `scripts/isolated-clean-boot.sh`.
+
+Findings recorded, not fixed: `team.community.manage` exists and **no bundle
+grants it** (wiring it would change who may speak as a team in Messenger, so it
+was left for that owner); two more stale suites for L25; and the local migration
+history drift stays OPEN and unrepaired.
+
+---
+
 ## Convergence Step 9 — READY FOR PRODUCT REVIEW
 
 **Parent / Player / Family.**
@@ -1382,7 +1424,7 @@ requirement unless the master programme assigns it there.**
 | **L15** | fourteen perimeter-manifest consumer declarations belonging to other slices, in a shrink-only baseline | each owning slice |
 | **L22** | the application-shell unread badge is ~3.1:1 on every authenticated page | **Application Shell / UX owner** |
 | **L23** | training recurrence has no "this and all future occurrences" | **Training Management** |
-| **L25** | thirty-one numbered suites outside the release runner, all declared `UNVERIFIED` | **each owning programme, by domain** |
+| **L25** | **SQL suite governance.** Measured at Step 11: **285** SQL suite files, **181** executed by the canonical gate, **104 not executed**, and **no declaration mechanism** for a SQL suite outside it — the browser side has had one since Step 7. Six of the 104 are known stale: `player_guardian_security`, `team_lifecycle`, `capability_engine`, `team_scoped_fixture_requests` (Step 10), `fixture_results`, `fixture_status_lifecycle` (Step 11). Each fails in its own SEED against later architecture, not in the product. None was wired in, deleted, declared obsolete by filename or repaired, and **the canonical gate is not claimed to execute every repository SQL suite.** Needed before Batch A's canonical-gate claim means what it says: a per-suite status (`CANONICAL-GATE` · `SUPERSEDED` · `RETIRED` · `SPECIAL-PURPOSE` · `UNVERIFIED`) with an owner, and a runner that detects an undeclared suite | **Batch A certification**, then each owning programme by domain |
 | **L26** | `TEAM_JOIN_CODE` cleanup is marker-scoped, not fixture-scoped, and unregressed | invitation / test-fixture hygiene |
 
 ### Owner actions

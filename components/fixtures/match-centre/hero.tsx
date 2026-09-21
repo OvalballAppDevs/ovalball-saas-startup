@@ -136,8 +136,28 @@ export function MatchCentreHero({
             two teams into a stack loses the one thing the hero exists to say. */}
         <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-1 px-3 pt-5 pb-1 sm:gap-4 sm:px-6">
           <SideColumn side={homeSide} />
+          {/*
+            WHAT HAPPENED, WHERE THE FIXTURE USED TO SAY "VS".
+            A played match's first answer is the score, and Match Centre could not give it at all
+            before Step 11 -- the number lived in Fixture Management, the Calendar and the result
+            confirmation flow, and the canonical page for the match stayed silent. This is a
+            display of the value that workflow produced: nothing here writes it, and with no
+            recorded result the hero says "VS" exactly as it always did.
+          */}
           <div className="flex flex-col items-center gap-1 pt-6 sm:pt-8">
-            <span className="font-display text-sm tracking-[0.14em] text-white/70 sm:text-base">VS</span>
+            {fixture.result ? (
+              <>
+                <span className="sr-only">
+                  Final score: {homeSide.clubDisplayName} {fixture.result.homeScore}, {awaySide.clubDisplayName}{" "}
+                  {fixture.result.awayScore}
+                </span>
+                <span aria-hidden="true" className="font-display text-xl leading-none tracking-tight text-chalk tabular-nums sm:text-2xl">
+                  {fixture.result.homeScore}–{fixture.result.awayScore}
+                </span>
+              </>
+            ) : (
+              <span className="font-display text-sm tracking-[0.14em] text-white/70 sm:text-base">VS</span>
+            )}
             <span className="h-8 w-px bg-white/10 sm:h-12" aria-hidden="true" />
           </div>
           <SideColumn side={awaySide} />

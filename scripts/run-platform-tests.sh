@@ -405,6 +405,7 @@ SUITES=(
   # suspended membership; team IDOR in both directions; team staff who do not
   # become club administrators; and a Site Admin who inspects without joining.
   step10_team_experience
+  step11_match_community
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
@@ -553,6 +554,7 @@ BROWSER_SUITES=(
   # Step 7's own: the return path out of Match Centre, the period stepper,
   # match type, the availability summary, and the three end-to-end journeys.
   78-fixture-operations-journey
+  79-match-community-journey
   # SLICE 7e wired this one. It is Slice 7's own browser evidence -- S7-07 is what
   # the reconciliation cites for AN-8, "the setup link is never shown" -- and it
   # had never been in the release runner, so that evidence rested on somebody's
