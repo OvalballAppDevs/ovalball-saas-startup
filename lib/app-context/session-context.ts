@@ -4,6 +4,8 @@ import type { SupabaseClient, User } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
 
+import type { GoverningBodySummary } from "@/lib/governing/body"
+
 import { resolveClubLogoUrl } from "./club-logo"
 import { resolvePlayerAgeState, type PlayerAgeState } from "@/lib/players/age-state"
 
@@ -112,6 +114,15 @@ export interface SessionContext {
    * "is this person a guardian at all".
    */
   hasGuardianRelationship: boolean
+  /**
+   * Every governing body this account holds an ACTIVE role at (Convergence Step 15).
+   *
+   * Here rather than fetched per page because it is a CONTEXT source: the switcher, the identity
+   * block and the navigation all have to know that this person is a county officer before any
+   * governing page renders. Like every other relationship on this object it is a read: the role it
+   * names was already proven by the database, and nothing on a governing page authorises off it.
+   */
+  governingBodies: GoverningBodySummary[]
 }
 
 /**
@@ -128,7 +139,7 @@ export async function getSessionContext(
   supabase: SupabaseClient<Database>,
   user: User
 ): Promise<SessionContext> {
-  const [{ data: profile }, { data: siteAdminRow }, { data: memberships }, { data: roleRows }, { data: guardianRows }, { data: ownPlayerRow }] =
+  const [{ data: profile }, { data: siteAdminRow }, { data: memberships }, { data: roleRows }, { data: guardianRows }, { data: ownPlayerRow }, { data: bodyRoleRows }] =
     await Promise.all([
       supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
       supabase.from("site_admins").select("id, admin_role").eq("user_id", user.id).eq("status", "active").maybeSingle(),
@@ -159,6 +170,9 @@ export async function getSessionContext(
       // of the guardian query above (Section 15: Parent and Player are
       // independent relationships on one account).
       supabase.from("players").select("id, date_of_birth, avatar_storage_path").eq("user_id", user.id).eq("active", true).maybeSingle(),
+      // Governing body roles (Convergence Step 15). Through the canonical RPC rather than a table
+      // read, so "which bodies am I an officer of" has exactly one answer in the platform.
+      supabase.rpc("my_governing_bodies"),
     ])
 
   const guardianPlayerIds = (guardianRows ?? []).map((g) => g.player_id)
@@ -277,6 +291,13 @@ export async function getSessionContext(
     guardianRelationships,
     linkedPlayerTeams,
     hasGuardianRelationship,
+    governingBodies: (bodyRoleRows ?? []).map((r) => ({
+      bodyId: r.body_id,
+      canonicalName: r.canonical_name,
+      shortName: r.short_name,
+      bodyType: r.body_type,
+      myRole: r.my_role as GoverningBodySummary["myRole"],
+    })),
   }
 }
 

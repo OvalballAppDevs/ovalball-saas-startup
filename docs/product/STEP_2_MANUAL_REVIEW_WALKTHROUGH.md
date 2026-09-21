@@ -551,6 +551,39 @@ told *why* somebody can or cannot do each thing.
 
 ---
 
+## The governing body in this world (Convergence Steps 14–15)
+
+The canonical review world also carries **one synthetic rugby organisation**, so the Governing Body
+workspace can be reviewed with the same people, in the same club, as everything else.
+
+It is rebuilt by:
+
+```
+node scripts/review-fixtures/step2-review-club.mjs enrich-governing
+```
+
+Idempotent, and it never touches the owner's own review material.
+
+| | |
+|---|---|
+| Organisation | **Ovalball Review County RFU** — `source = 'local_review'`, clearly synthetic |
+| Workspace | `/governing/7d01b631-86fb-4c44-9708-e22b83daf744` |
+| Administrator | `uat.preston.admin@ovalball.test` — **also a Club Admin**, which is the point |
+| Competitions Officer | `uat.coach@ovalball.test` — also a club coach |
+| Viewer | `uat.adult.player@ovalball.test` |
+| Affiliated clubs | 5, **all synthetic** (Step 2 Review RFC, Ovalball UAT RUFC, Step 6 A11y RFC, UX3 Busy RUFC, UX3 Other RUFC) |
+| Competition | **Review County Junior Cup**, created through the product, in the canonical current season |
+
+**Preston Grasshoppers RFC is deliberately not affiliated.** It names a real club, and recording a
+real club as belonging to an invented union — even locally — is the kind of plausible-but-wrong data
+that gets believed later.
+
+**The review to do here is the cross-context one.** Sign in as `uat.preston.admin`, note that the
+default context is still their **club**, then switch to *Ovalball Review County RFU* in the context
+switcher. The navigation should become Overview · Clubs · Competitions · People & Access, their
+club's Fixtures, Teams and People should be **gone**, and the sidebar should still say their own
+name with the organisation beside the role. Switching back should restore the club exactly.
+
 ## What is still open
 
 `docs/product/CONVERGENCE_LEDGER.md` holds the programme ledger.

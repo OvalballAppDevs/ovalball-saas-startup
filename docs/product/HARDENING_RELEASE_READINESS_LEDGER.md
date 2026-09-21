@@ -221,11 +221,79 @@ brand assets are never changed incidentally.
   `governing.competition.manage` in `public.capabilities` — is the right end
   state. *Owner: capability engine, with the Governing Body programme.*
 - **H13.2 — governing-body navigation is a dashboard entry, not a nav section.**
-  The nav catalogue is capability-filtered with its own architecture suite, and a
-  foundation step is the wrong place to add a section to it. *Owner: Step 15.*
+  **CLOSED by Step 15.** The workspace became a first-class active context
+  (`ActiveContextKind: "governing"`), so it is reached through the context
+  switcher and has its own navigation, and the dashboard entry survives as the
+  cross-context signpost for somebody currently acting as their club. Proven by
+  `84-governing-body-product-journey` A1–A5 and the four new cases in
+  `lib/app-context/active-context.verify.ts`.
 - **H13.3 — affiliation has no lifecycle.** `club_directory.constituent_body_id`
   is a single current value with no history and no workflow. Step 14 deliberately
-  did not invent one. *Owner: Governing Body programme, if the product needs it.*
+  did not invent one, and **Step 15 confirmed the decision after designing the
+  UX**: a control that changes which county a club belongs to would silently
+  rewrite what was true last season as well as this one. What it needs is a
+  record of events — request, approve, transfer, suspend, effective from, and who
+  decided — which is a table, not a button. The product surface states the gap in
+  its own words on `/governing/[bodyId]/clubs`.
+  *Owner: Step 16.*
+
+## H14 — Governing Body product (Step 15) debt
+
+- **H14.1 — a governing body cannot invite somebody who has no Ovalball
+  account.** `access_invitations.kind` is a closed check constraint with no body
+  shape and no body scope column, so representing one needs a new kind, a scope
+  column, an `intended_outcome` shape and changes to `issue_invitation`,
+  `accept_invitation` and `get_invitation_preview` — the protected contract
+  surfaces. Step 15 therefore grants a role only to an **existing** account,
+  resolved by exact email inside the RPC, and says so on the page. Extending the
+  one canonical invitation system is the right end state; a second invitation
+  path only this page understands is not. *Owner: Step 16.*
+- **H14.2 — grant-by-email is a small account-existence oracle.** Because the
+  address is resolved inside `grant_governing_body_role_by_email`, a BODY_ADMIN
+  can learn whether an address has an Ovalball account. The exposure is bounded
+  to authenticated administrators of a real organisation, and it is the direct
+  consequence of H14.1: the canonical invitation path does not need to answer the
+  question at all, because it invites the address either way. Closing H14.1
+  closes this. *Owner: Step 16, with H14.1.*
+- **H14.3 — a governing body has no way to reach its competitions' results as a
+  competition record.** `governing_body_competitions` counts matches and results;
+  it does not return a table, standings or a results list. Competition Match is
+  the canonical truth and the public competition page already renders it, so this
+  is a read model and a surface rather than new architecture.
+  *Owner: Step 16.*
+- **H14.4 — no organisation communications, and deliberately none.** There is no
+  organisation-level conversation and no sender identity for a body
+  (`club_conversations`, `team_conversations`, `direct_conversations`,
+  `fixture_messages` are the whole set). Step 15 built no messaging and gave no
+  "send as" anything, because a governing body sending as a club or a team is the
+  Step 11 authority-coupling mistake in a wider blast radius. A body sender
+  identity is a deliberate authority model, not a UI sprint decision.
+  *Owner: Governing Body programme, needs a product decision first.*
+- **H14.5 — no welfare or safeguarding oversight for a governing body.** Step 15
+  surfaced none: a body relationship reaches no date of birth, medical field,
+  guardian record or case note, and both the migration and the suite assert it.
+  Whether a county has a legitimate aggregated welfare view — and what it may
+  contain — is a safeguarding decision before it is an engineering one.
+  *Owner: safeguarding architecture.*
+- **H14.6 — the governing-body dispensation stage is an attestation, not a
+  queue.** `decide_player_dispensation`'s `governing_body` stage is authorised by
+  the SOURCE CLUB and requires a reference, because it records the certificate
+  the club holds off-platform — the UI says "Ovalball records the governing
+  body's approval; it does not grant it". Step 15 deliberately did not re-point
+  it: doing so would change what existing records mean, including historical
+  ones, and the data involved names a child and an age-grade exception. Whether a
+  body should decide the stage **natively, beside** the attestation is a real
+  product question with a migration behind it. *Owner: Step 16.*
+- **H14.7 — `.verify.ts` suites are permanent tests outside the canonical
+  gate.** `lib/app-context/active-context.verify.ts` (now 31 assertions,
+  including Step 15's governing-context coverage) and its siblings are run by
+  hand with `npx tsx` and appear in no runner, so a regression in them is
+  invisible to the gate. Step 15 also found a **pre-existing failure** in that
+  file, unrelated to this step: `switcherLabel` for two children on the same team
+  returns the child's name where the suite expects `"Alex — Under 9"`. Recorded,
+  not fixed — it is outside Step 15's scope and belongs to whoever owns the
+  context switcher. *Owner: test governance (with H2), and the shell programme
+  for the failure itself.*
 
 ## H11 — Owed at hardening, in one list
 

@@ -239,6 +239,7 @@ export function buildNavItems(
   const inParentContext = activeContext.kind === "parent"
   const inPlayerContext = activeContext.kind === "player"
   const inFamilyContext = activeContext.kind === "family"
+  const inGoverningContext = activeContext.kind === "governing"
   // Player View gets exactly the same restriction as Parent View below --
   // both are read-only-by-design contexts over one team (Relationship
   // Registry §20: "this distinguishes Player View from Parent View even
@@ -292,6 +293,35 @@ export function buildNavItems(
       { href: "/player/payments", label: "Payments & Subscriptions" },
     ]
     return { primary: parentItems, roleLabel: activeContext.roleLabel, clubName: activeContext.label, clubLogoUrl: activeContext.logoUrl }
+  }
+
+  // THE GOVERNING BODY WORKSPACE (Convergence Step 15).
+  //
+  // A fixed set, returned BEFORE every authority-gated section below, for the same reason Parent View
+  // is: a county fixtures secretary is very often also somebody's Club Admin, and
+  // canManageClubFixturesAnywhere() is session-wide by design. Falling through would offer this person
+  // their CLUB's Fixtures, Teams and People while they are acting for the county -- two jobs bleeding
+  // into one navigation, which is the precise failure the context system exists to prevent.
+  //
+  // FOUR DESTINATIONS, not six. Overview, Clubs, Competitions, People & Access are the jobs the
+  // product can actually do today. Regulation is reached as Rugby Hub, because it is knowledge rather
+  // than an operation this organisation performs, and there is no empty destination standing in for
+  // welfare oversight or organisation messaging -- neither has a backend, and a nav item promising one
+  // would be the dishonest version of the same gap.
+  if (inGoverningContext && activeContext.id) {
+    const bodyId = activeContext.id
+    // NO DASHBOARD ENTRY: /dashboard is built from a club's week, a family's children or the platform,
+    // and it sends a governing context straight here instead. A link that only bounces is worse than
+    // no link, and the Overview is this workspace's own home.
+    const governingItems: NavItem[] = [
+      { href: `/governing/${bodyId}`, label: "Overview" },
+      { href: `/governing/${bodyId}/clubs`, label: "Clubs" },
+      { href: `/governing/${bodyId}/competitions`, label: "Competitions" },
+      { href: `/governing/${bodyId}/people`, label: "People & Access" },
+      { href: "/rugby-hub", label: "Rugby Hub" },
+      { href: "/account", label: "Settings" },
+    ]
+    return { primary: governingItems, roleLabel: activeContext.roleLabel, clubName: activeContext.label, clubLogoUrl: null }
   }
 
   // THE TEAM ITSELF, FOR THE PEOPLE WHO RUN IT.

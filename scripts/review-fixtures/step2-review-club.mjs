@@ -405,6 +405,109 @@ function enrichFixtures() {
   console.log("Created through public.create_fixture as the review Club Admin.")
 }
 
+/**
+ * THE GOVERNING BODY THE OWNER REVIEWS (Convergence Steps 14–15).
+ *
+ * WHY IT IS HERE AND NOT AD HOC. Step 14 created "Ovalball Review County RFU" by hand, which meant the
+ * canonical review world could be rebuilt from this script and the governing body could not. Anything
+ * the product owner reviews has to be reproducible from one place, so it is now.
+ *
+ * WRITTEN THROUGH THE PRODUCT'S OWN WRITERS wherever a writer exists — the competition is created by
+ * `create_governing_body_competition` acting as the county's administrator, and the other officers by
+ * `grant_governing_body_role_by_email`. The two things with no product writer yet (the organisation
+ * record itself and club affiliation, both Ovalball-maintained reference data) are inserted directly and
+ * flagged `source = 'local_review'`, which is the honest representation of where they come from.
+ *
+ * REAL CLUBS ARE LEFT ALONE. Only the clearly synthetic review and dev clubs are affiliated to a
+ * synthetic county. Preston Grasshoppers RFC names a real club and is deliberately not touched, because
+ * recording a real club as belonging to an invented union — even locally — is exactly the kind of
+ * plausible-but-wrong data that gets believed later.
+ *
+ * IDEMPOTENT AND NON-DESTRUCTIVE. Everything is `on conflict do nothing` or guarded by a count; the
+ * owner's own review material is never tidied away.
+ */
+const REVIEW_BODY = "Ovalball Review County RFU"
+// Synthetic clubs only. Every one of these is review or dev scaffolding, not reference data.
+const REVIEW_BODY_CLUBS = [
+  "Step 2 Review RFC",
+  "Ovalball UAT RUFC",
+  "Step 6 A11y RFC f4yxn",
+  "UX3 Busy RUFC 21s5b2",
+  "UX3 Other RUFC 21s5b2",
+]
+const BODY_OFFICERS = [
+  // A county competitions officer who is also a club coach: the most ordinary multi-context person in
+  // grassroots rugby, and the one the Governing Body context has to keep separate from their club.
+  ["uat.coach@ovalball.test", "BODY_COMPETITIONS"],
+  ["uat.adult.player@ovalball.test", "BODY_VIEWER"],
+]
+
+function enrichGoverning() {
+  let bodyId = sql(`select id from public.constituent_bodies where canonical_name = ${q(REVIEW_BODY)}`)
+  if (!bodyId) {
+    bodyId = sql(`insert into public.constituent_bodies
+      (rugby_code, nation, canonical_name, short_name, body_type, active, source)
+      values ('union', 'England', ${q(REVIEW_BODY)}, 'Review County', 'GEOGRAPHIC', true, 'local_review')
+      returning id`)
+    console.log(`Created the review governing body: ${REVIEW_BODY}`)
+  }
+
+  // The county's administrator: the persistent review Club Admin, who is therefore also a county
+  // officer -- which is the whole point of the cross-context review.
+  const admin = sql(`select id from auth.users where email = 'uat.preston.admin@ovalball.test'`)
+  if (!admin) {
+    console.error("uat.preston.admin@ovalball.test is missing; the persistent UAT world is incomplete.")
+    process.exit(1)
+  }
+  sql(`insert into public.constituent_body_roles (constituent_body_id, user_id, role_key, reason)
+       values (${q(bodyId)}, ${q(admin)}, 'BODY_ADMIN', 'Persistent local review: county administrator')
+       on conflict (constituent_body_id, user_id) where state <> 'REVOKED' do nothing`)
+
+  // Affiliation, for the synthetic clubs only.
+  for (const name of REVIEW_BODY_CLUBS) {
+    sql(`update public.club_directory set constituent_body_id = ${q(bodyId)}
+          where name = ${q(name)} and constituent_body_id is null`)
+  }
+  const affiliated = sql(`select count(*) from public.club_directory where constituent_body_id = ${q(bodyId)}`)
+
+  // THE OTHER OFFICERS, through the product's own grant path.
+  for (const [email, role] of BODY_OFFICERS) {
+    const exists = sql(`select count(*) from public.constituent_body_roles r
+                        join auth.users u on u.id = r.user_id
+                        where r.constituent_body_id = ${q(bodyId)} and u.email = ${q(email)} and r.state <> 'REVOKED'`)
+    if (Number(exists) > 0) continue
+    asPerson(
+      admin,
+      `select * from public.grant_governing_body_role_by_email(${q(bodyId)}, ${q(email)}, ${q(role)}, 'Persistent local review');`
+    )
+  }
+
+  // A COMPETITION, so Competitions is a page about something. Created by the product, as the county's
+  // administrator -- never inserted, so its season comes from the canonical register like any other.
+  const comps = Number(sql(`select count(*) from public.competitions where organiser_constituent_body_id = ${q(bodyId)}`))
+  if (comps === 0) {
+    asPerson(admin, `select * from public.create_governing_body_competition('Review County Junior Cup', ${q(bodyId)});`)
+    console.log("Created the review county's competition through the product: Review County Junior Cup")
+  }
+
+  const officers = sql(`select count(*) from public.constituent_body_roles
+                        where constituent_body_id = ${q(bodyId)} and state = 'ACTIVE'`)
+  const season = sql(`select coalesce(s.name, 'no season registered') from public.competitions c
+                      left join public.competition_editions e on e.competition_id = c.id
+                      left join public.seasons s on s.id = e.season_id
+                      where c.organiser_constituent_body_id = ${q(bodyId)} limit 1`)
+  console.log(
+    [
+      "",
+      `${REVIEW_BODY} (${bodyId})`,
+      `  ${affiliated} affiliated club(s), all synthetic`,
+      `  ${officers} officer(s): uat.preston.admin (Administrator), uat.coach (Competitions), uat.adult.player (Viewer)`,
+      `  Review County Junior Cup, ${season}`,
+      `  /governing/${bodyId}`,
+    ].join("\n")
+  )
+}
+
 function down({ quiet = false } = {}) {
   // Ordered by dependency, and scoped to this review club and its identities only.
   sql(`
@@ -650,6 +753,7 @@ if (cmd === "up") {
   down()
 } else if (cmd === "enrich") enrich()
 else if (cmd === "enrich-fixtures") enrichFixtures()
+else if (cmd === "enrich-governing") enrichGoverning()
 else if (cmd === "report") report()
 else if (cmd === "verify") verify()
-else console.log("usage: step2-review-club.mjs up|enrich|enrich-fixtures|report|verify|down --destroy-the-canonical-review-world")
+else console.log("usage: step2-review-club.mjs up|enrich|enrich-fixtures|enrich-governing|report|verify|down --destroy-the-canonical-review-world")

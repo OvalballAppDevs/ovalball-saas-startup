@@ -7816,6 +7816,41 @@
         "consumers": [
           "supabase/tests/step14_governing_body.sql"
         ]
+      },
+      {
+        "signature": "governing_body_people(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/governing/body.ts"
+        ]
+      },
+      {
+        "signature": "governing_body_competitions(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/governing/body.ts"
+        ]
+      },
+      {
+        "signature": "grant_governing_body_role_by_email(uuid, text, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/governing/actions.ts"
+        ]
+      },
+      {
+        "signature": "revoke_governing_body_role(uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/governing/actions.ts"
+        ]
+      },
+      {
+        "signature": "create_governing_body_competition(text, uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/governing/actions.ts"
+        ]
       }
     ],
     "authenticated_revoked_public": [
@@ -8758,7 +8793,12 @@
       "get_governing_body(uuid)",
       "governing_body_clubs(uuid)",
       "my_governing_bodies()",
-      "set_governing_body_role(uuid, uuid, text, text)"
+      "set_governing_body_role(uuid, uuid, text, text)",
+      "governing_body_people(uuid)",
+      "governing_body_competitions(uuid)",
+      "grant_governing_body_role_by_email(uuid, text, text, text)",
+      "revoke_governing_body_role(uuid, uuid, text)",
+      "create_governing_body_competition(text, uuid, uuid)"
     ],
     "service_role_internal": [
       "advance_competition_knockout(uuid)",

@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react"
 import { StepBar, type StepBarStep } from "@/components/fixtures/step-bar"
 import { competitionConflicts } from "@/lib/competitions/competition-conflicts"
 import { loadCompetitionWorkspace } from "@/lib/competitions/load-workspace"
-import { requireEditionOrganiser } from "@/lib/competitions/organiser-scope"
+import { organiserCompetitionsHref, requireEditionOrganiser } from "@/lib/competitions/organiser-scope"
 import { CREATOR_STEPS, CREATOR_STEP_LABEL, type CreatorStep } from "@/lib/competitions/workspace-types"
 
 import { CompetitionDetailsForm } from "./step-details"
@@ -32,6 +32,8 @@ export default async function CompetitionCreatorPage({ params }: { params: Promi
 
   const auth = await requireEditionOrganiser(editionId)
   if (!auth.ok) redirect("/fixtures/competitions")
+  // Where this person came from. A governing officer did not come from club fixture administration.
+  const backHref = organiserCompetitionsHref(auth.scope)
   const ws = await loadCompetitionWorkspace(auth.scope.supabase, editionId)
   if (!ws) notFound()
 
@@ -76,7 +78,7 @@ export default async function CompetitionCreatorPage({ params }: { params: Promi
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
-      <Link href="/fixtures/competitions" className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink">
+      <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink">
         <ArrowLeft className="size-4" aria-hidden="true" />
         Competitions
       </Link>

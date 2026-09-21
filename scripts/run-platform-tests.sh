@@ -347,6 +347,7 @@ BROWSER_SUITES=(
   81-batch-a-integration-journey
   82-impersonation-journey
   83-governing-body-foundation
+  84-governing-body-product-journey
   # SLICE 7e wired this one. It is Slice 7's own browser evidence -- S7-07 is what
   # the reconciliation cites for AN-8, "the setup link is never shown" -- and it
   # had never been in the release runner, so that evidence rested on somebody's

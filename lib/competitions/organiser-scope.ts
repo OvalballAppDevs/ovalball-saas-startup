@@ -19,6 +19,14 @@ import type { Database } from "@/types/database.types"
  * Site Admin; a club organises its own competitions while active as that club's
  * Club Admin or Fixture Secretary. Team staff are never organisers, and
  * organising a competition grants nothing over anybody's other fixtures.
+ *
+ * CONVERGENCE STEP 15 adds the third organiser: a governing body, while active as that body. It is
+ * context-scoped for exactly the reason the club is -- a county fixtures secretary is usually also
+ * somebody's Club Admin, and neither authority may be exercised while acting as the other.
+ *
+ * The database half of this is one added disjunct in internal.can_organise_competition. This file is
+ * the context half, and it is not the boundary: the RPC below is still asked, and it refuses anybody
+ * the relationship does not cover regardless of what this returns.
  */
 
 type Supabase = SupabaseClient<Database>
@@ -31,6 +39,13 @@ export interface OrganiserScope {
   /** The club this person is active as, when they administer its fixtures. */
   clubId: string | null
   clubRugbyCode: string | null
+  /**
+   * The governing body this person is active as, when they may organise its competitions
+   * (BODY_ADMIN or BODY_COMPETITIONS). Null in every other context -- including for the same person
+   * while they are acting as their club.
+   */
+  bodyId: string | null
+  bodyName: string | null
 }
 
 export async function resolveOrganiserScope(): Promise<OrganiserScope | null> {
@@ -50,22 +65,61 @@ export async function resolveOrganiserScope(): Promise<OrganiserScope | null> {
     const { data } = await supabase.from("clubs").select("club_directory(rugby_code)").eq("id", clubId).maybeSingle()
     clubRugbyCode = data?.club_directory?.rugby_code ?? null
   }
-  if (!siteAdmin && !clubId) return null
-  return { supabase, user, siteAdmin, clubId, clubRugbyCode }
+
+  // THE GOVERNING BODY ORGANISER, only while actually acting as it, and only for the two roles that
+  // run competitions. A BODY_VIEWER reaches this and gets null, which is the truth.
+  let bodyId: string | null = null
+  let bodyName: string | null = null
+  if (activeContext.kind === "governing" && activeContext.id) {
+    const held = ctx.governingBodies.find((b) => b.bodyId === activeContext.id)
+    if (held && (held.myRole === "BODY_ADMIN" || held.myRole === "BODY_COMPETITIONS")) {
+      bodyId = held.bodyId
+      bodyName = held.canonicalName
+    }
+  }
+
+  if (!siteAdmin && !clubId && !bodyId) return null
+  return { supabase, user, siteAdmin, clubId, clubRugbyCode, bodyId, bodyName }
 }
 
 /** The organiser scope, only when it organises THIS edition's competition in the active context. */
 export async function requireEditionOrganiser(
   editionId: string,
-): Promise<{ ok: true; scope: OrganiserScope; competitionId: string; organiserClubId: string | null } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; scope: OrganiserScope; competitionId: string; organiserClubId: string | null; organiserBodyId: string | null }
+  | { ok: false; error: string }
+> {
   const scope = await resolveOrganiserScope()
-  if (!scope) return { ok: false, error: "Competitions are organised by Site Admin or a club's fixture administrators." }
-  const { data: edition } = await scope.supabase.from("competition_editions").select("competition_id, competitions(organiser_club_id)").eq("id", editionId).maybeSingle()
+  if (!scope) {
+    return { ok: false, error: "Competitions are organised by Site Admin, a club's fixture administrators, or the governing body that runs them." }
+  }
+  const { data: edition } = await scope.supabase
+    .from("competition_editions")
+    .select("competition_id, competitions(organiser_club_id, organiser_constituent_body_id)")
+    .eq("id", editionId)
+    .maybeSingle()
   if (!edition) return { ok: false, error: "Competition not found." }
   const organiserClubId = edition.competitions?.organiser_club_id ?? null
-  const acting = scope.siteAdmin || (organiserClubId !== null && organiserClubId === scope.clubId)
+  const organiserBodyId = edition.competitions?.organiser_constituent_body_id ?? null
+  const acting =
+    scope.siteAdmin ||
+    (organiserClubId !== null && organiserClubId === scope.clubId) ||
+    (organiserBodyId !== null && organiserBodyId === scope.bodyId)
   if (!acting) return { ok: false, error: "You organise this competition only while acting as its organiser." }
+  // The database is still asked, and it is still the answer. The context check above only decides
+  // which of this person's real authorities they are currently exercising.
   const { data: allowed } = await scope.supabase.rpc("can_organise_competition", { p_competition_id: edition.competition_id })
   if (!allowed) return { ok: false, error: "You do not organise this competition." }
-  return { ok: true, scope, competitionId: edition.competition_id, organiserClubId }
+  return { ok: true, scope, competitionId: edition.competition_id, organiserClubId, organiserBodyId }
+}
+
+/**
+ * Where "back" goes from the Competition Creator.
+ *
+ * A club organiser and a Site Admin came from /fixtures/competitions. A governing officer did not --
+ * that page is club fixture administration and would refuse them -- so they return to their own
+ * organisation's Competitions, which is their competitions list.
+ */
+export function organiserCompetitionsHref(scope: OrganiserScope): string {
+  return scope.bodyId && !scope.siteAdmin && !scope.clubId ? `/governing/${scope.bodyId}/competitions` : "/fixtures/competitions"
 }

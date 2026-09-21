@@ -1,151 +1,279 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Building2, CheckCircle2, ExternalLink, Trophy, Users } from "lucide-react"
+import { AlertTriangle, ArrowRight, BookOpen, Building2, CheckCircle2, ExternalLink, Trophy, Users } from "lucide-react"
 
-import { PageIdentity } from "@/components/shell/page-identity"
+import { GoverningEmpty, GoverningPageHeader, GoverningSection } from "@/components/governing/workspace"
 import {
-  BODY_ROLE_LABEL,
-  BODY_TYPE_LABEL,
+  competitionProgress,
   loadAffiliatedClubs,
+  loadBodyCompetitions,
+  loadBodyPeople,
   loadGoverningBody,
 } from "@/lib/governing/body"
 import { createClient } from "@/lib/supabase/server"
 
+export const metadata = { title: "Governing Body Overview" }
+
 /**
- * CONVERGENCE STEP 14 — what organisation am I looking at?
+ * CONVERGENCE STEP 15 — THE GOVERNING BODY OVERVIEW.
  *
- * The foundation surface, and deliberately not Step 15's workspace. It answers the four questions a
- * rugby administrator actually asks on arriving: who is this, what am I to it, which clubs belong to
- * it, and what does it run. Everything beyond that is named as coming next rather than mocked up,
- * because a button that does nothing is worse than an honest gap.
+ * Step 14's version answered "who is this organisation". This one has to answer the question a person
+ * actually opens a workspace home to ask: WHAT DO I NEED TO DO?
  *
- * There are no database diagnostics on this page. The provenance line is the exception, and it earns
- * its place: this is reference data about a real organisation, and where it came from is a fact a
- * person may need to check.
+ * WHY THERE ARE NO DASHBOARD METRICS. Every number on this page is one somebody can act on — teams not
+ * yet entered, matches drawn but not issued, a competition with no season. There is no chart, no
+ * percentage and no trend, because a county officer cannot do anything with any of those and inventing
+ * them would be the decorative version of a product.
+ *
+ * NEEDS ATTENTION IS DERIVED, NEVER STORED. It is computed from the same three reads the rest of the
+ * page uses, so it can never disagree with what is below it — the failure mode of a summary that is
+ * maintained separately from the thing it summarises.
  */
-export default async function GoverningBodyPage({ params }: { params: Promise<{ bodyId: string }> }) {
+export default async function GoverningBodyOverviewPage({ params }: { params: Promise<{ bodyId: string }> }) {
   const { bodyId } = await params
   const supabase = await createClient()
 
-  // The server refuses a viewer with no relationship, so "nothing" here means "not yours".
+  // The server refuses a viewer with no relationship, so "nothing" here means "not yours", never
+  // "hidden in the browser".
   const body = await loadGoverningBody(supabase, bodyId)
   if (!body) notFound()
-  const clubs = await loadAffiliatedClubs(supabase, bodyId)
+
+  const [clubs, competitions, people] = await Promise.all([
+    loadAffiliatedClubs(supabase, bodyId),
+    loadBodyCompetitions(supabase, bodyId),
+    loadBodyPeople(supabase, bodyId),
+  ])
+
+  /**
+   * WHAT ACTUALLY NEEDS ATTENTION. Each item names the thing, says why, and goes where it is fixed.
+   *
+   * A competition with no season is first because it is the one state the canonical season register
+   * produces rather than the organisation: Ovalball will not guess a season, so a competition created
+   * before the register has one waits here rather than being silently filed under a computed year.
+   */
+  const attention: { key: string; text: string; href: string; cta: string }[] = []
+  for (const c of competitions.filter((c) => c.active)) {
+    if (!c.editionId) {
+      attention.push({
+        key: `season-${c.competitionId}`,
+        text: `${c.name} has no season yet, because no current or upcoming season is registered for this rugby code.`,
+        href: `/governing/${bodyId}/competitions`,
+        cta: "Competitions",
+      })
+    } else if (c.enteredCount === 0) {
+      attention.push({
+        key: `entrants-${c.competitionId}`,
+        text: `${c.name} has no teams entered for ${c.seasonName}.`,
+        href: c.canOrganise ? `/fixtures/competitions/${c.editionId}/participants` : `/governing/${bodyId}/competitions`,
+        cta: c.canOrganise ? "Enter teams" : "Competitions",
+      })
+    } else if (c.matchCount === 0) {
+      attention.push({
+        key: `draw-${c.competitionId}`,
+        text: `${c.name} has ${c.enteredCount} teams entered and no matches drawn.`,
+        href: c.canOrganise ? `/fixtures/competitions/${c.editionId}/fixtures` : `/governing/${bodyId}/competitions`,
+        cta: c.canOrganise ? "Draw the matches" : "Competitions",
+      })
+    }
+  }
+  // ONE ADMINISTRATOR IS AN OPERATIONAL RISK, not a tidiness complaint: a volunteer organisation whose
+  // only administrator stands down has nobody who can restore access, and the way back is a Site Admin
+  // repair. Only said to the person who can do something about it.
+  const admins = people.filter((p) => p.roleKey === "BODY_ADMIN" && p.state === "ACTIVE")
+  if (body.canManage && admins.length === 1) {
+    attention.push({
+      key: "sole-admin",
+      text: "You are the only administrator here. If you stand down, nobody at this organisation can give access back.",
+      href: `/governing/${bodyId}/people`,
+      cta: "People & Access",
+    })
+  }
+  if (clubs.length === 0) {
+    attention.push({
+      key: "no-clubs",
+      text: "No clubs are recorded as affiliated to this organisation.",
+      href: `/governing/${bodyId}/clubs`,
+      cta: "Clubs",
+    })
+  }
+
+  const active = competitions.filter((c) => c.active)
+  // PLAIN /rugby-hub, and no ?code= parameter. Rugby Hub resolves the rugby code from the READER'S own
+  // identity and takes no such parameter -- passing one would have looked like filtering and done
+  // nothing. The sentence below therefore says what the link actually does.
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6">
-      <PageIdentity workspace="Governing Body" title={body.canonicalName} className="mt-0" />
+      <GoverningPageHeader body={body} title={body.canonicalName} />
 
-      {/* WHO IS THIS, AND WHAT AM I TO IT. */}
-      <section aria-labelledby="gb-identity" className="rounded-2xl border border-line bg-surface p-4 sm:p-6">
-        <h2 id="gb-identity" className="sr-only">
-          Organisation
-        </h2>
-        <div className="flex flex-wrap items-start gap-3">
-          <Building2 className="mt-0.5 size-5 shrink-0 text-forest-800" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-ink">
-              {BODY_TYPE_LABEL[body.bodyType] ?? body.bodyType} · {body.rugbyCode === "union" ? "Rugby Union" : "Rugby League"} ·{" "}
-              {body.nation}
-            </p>
-            {body.myRole && (
-              <p className="mt-1 text-sm text-ink-muted">
-                You are <span className="font-medium text-ink">{BODY_ROLE_LABEL[body.myRole]}</span> here.
-                {body.canManage
-                  ? " You can change this organisation's record and who holds a role in it."
-                  : body.canManageCompetitions
-                    ? " You can organise its competitions."
-                    : " You can see it, and not change it."}
-              </p>
-            )}
-            {!body.myRole && (
-              <p className="mt-1 text-sm text-ink-muted">
-                You are seeing this as a Site Admin. You hold no role in this organisation.
-              </p>
-            )}
-            {body.sourceUrl && (
-              <p className="mt-2 text-xs text-ink-muted">
-                Organisation record from{" "}
-                <a href={body.sourceUrl} className="underline hover:no-underline" rel="noreferrer noopener" target="_blank">
-                  its own listing <ExternalLink className="inline size-3" aria-hidden="true" />
-                </a>
-                {body.sourceCheckedOn ? `, checked ${body.sourceCheckedOn}` : ""}.
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* THE CLUBS. */}
-        <section aria-labelledby="gb-clubs" className="rounded-2xl border border-line bg-surface p-4 sm:p-6">
-          <h2 id="gb-clubs" className="flex items-center gap-2 font-display text-base text-ink">
-            <Users className="size-4 text-ink-muted" aria-hidden="true" />
-            Affiliated Clubs
-          </h2>
-          {clubs.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-muted">
-              No clubs are recorded as affiliated to this organisation yet. Affiliation is held on the club&apos;s
-              own Club Directory record.
-            </p>
-          ) : (
-            <>
-              <p className="mt-1 mb-3 text-sm text-ink-muted">
-                {clubs.length} {clubs.length === 1 ? "club is" : "clubs are"} affiliated.
-              </p>
-              <ul className="flex flex-col gap-1.5">
-                {clubs.slice(0, 12).map((c) => (
-                  <li key={c.directoryId} className="flex items-baseline gap-2 text-sm text-ink">
-                    <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                    {c.isOnOvalball && (
-                      <span className="inline-flex shrink-0 items-center gap-1 text-xs text-ink-muted">
-                        <CheckCircle2 className="size-3" aria-hidden="true" /> on Ovalball
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {clubs.length > 12 && (
-                <p className="mt-2 text-xs text-ink-muted">and {clubs.length - 12} more</p>
-              )}
-            </>
-          )}
-        </section>
-
-        {/* WHAT IT RUNS. */}
-        <section aria-labelledby="gb-competitions" className="rounded-2xl border border-line bg-surface p-4 sm:p-6">
-          <h2 id="gb-competitions" className="flex items-center gap-2 font-display text-base text-ink">
-            <Trophy className="size-4 text-ink-muted" aria-hidden="true" />
-            Competitions
-          </h2>
-          <p className="mt-2 text-sm text-ink-muted">
-            {body.competitionCount === 0
-              ? "This organisation does not yet organise any competitions on Ovalball."
-              : `${body.competitionCount} ${body.competitionCount === 1 ? "competition is" : "competitions are"} organised by this organisation.`}
+      {/* WHAT NEEDS DOING. First, because it is the reason to open the page. */}
+      {attention.length > 0 ? (
+        <GoverningSection
+          id="gb-attention"
+          title="Needs Attention"
+          icon={<AlertTriangle className="size-4 text-amber-700" aria-hidden="true" />}
+          count={`${attention.length} ${attention.length === 1 ? "item" : "items"}`}
+        >
+          <ul className="flex flex-col divide-y divide-line">
+            {attention.map((a) => (
+              <li key={a.key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0">
+                <p className="min-w-0 flex-1 text-sm text-ink">{a.text}</p>
+                <Link href={a.href} className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-forest-800 hover:underline">
+                  {a.cta}
+                  <ArrowRight className="size-3.5" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </GoverningSection>
+      ) : (
+        <GoverningSection
+          id="gb-attention"
+          title="Needs Attention"
+          icon={<CheckCircle2 className="size-4 text-forest-800" aria-hidden="true" />}
+        >
+          <p className="text-sm text-ink-muted">
+            Nothing needs your attention here. Competitions with teams to enter or matches to draw would appear in this
+            list.
           </p>
-          {body.canManageCompetitions && (
-            <p className="mt-2 text-sm text-ink-muted">
-              Competitions are created in{" "}
-              <Link href="/fixtures/competitions" className="underline hover:no-underline">
-                Competitions
-              </Link>
-              , using the same architecture a club organiser uses.
+        </GoverningSection>
+      )}
+
+      {/* THE THREE JOBS. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <GoverningSection
+          id="gb-competitions"
+          title="Competitions"
+          icon={<Trophy className="size-4 text-ink-muted" aria-hidden="true" />}
+          count={active.length > 0 ? `${active.length} running` : undefined}
+        >
+          {active.length === 0 ? (
+            <GoverningEmpty>
+              {body.canManageCompetitions
+                ? "This organisation runs no competitions on Ovalball yet. A county league or cup starts here."
+                : "This organisation runs no competitions on Ovalball yet."}
+            </GoverningEmpty>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {active.slice(0, 4).map((c) => (
+                <li key={c.competitionId} className="min-w-0">
+                  <Link href={`/governing/${bodyId}/competitions`} className="block truncate text-sm font-medium text-ink hover:underline">
+                    {c.name}
+                  </Link>
+                  <p className="text-xs text-ink-muted">{competitionProgress(c)}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link
+            href={`/governing/${bodyId}/competitions`}
+            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-forest-800 hover:underline"
+          >
+            {active.length === 0 && body.canManageCompetitions ? "Start a competition" : "All Competitions"}
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        </GoverningSection>
+
+        <GoverningSection
+          id="gb-clubs"
+          title="Clubs"
+          icon={<Building2 className="size-4 text-ink-muted" aria-hidden="true" />}
+          count={clubs.length > 0 ? `${clubs.length} affiliated` : undefined}
+        >
+          {clubs.length === 0 ? (
+            <GoverningEmpty>
+              No clubs are recorded as affiliated. Affiliation is held on each club&apos;s own Club Directory record and
+              is maintained by Ovalball.
+            </GoverningEmpty>
+          ) : (
+            <p className="text-sm text-ink-muted">
+              {clubs.filter((c) => c.isOnOvalball).length} of {clubs.length} are on Ovalball, so their fixtures, teams
+              and results are here too.
             </p>
           )}
-        </section>
+          <Link
+            href={`/governing/${bodyId}/clubs`}
+            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-forest-800 hover:underline"
+          >
+            All Clubs
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        </GoverningSection>
+
+        <GoverningSection
+          id="gb-people"
+          title="People & Access"
+          icon={<Users className="size-4 text-ink-muted" aria-hidden="true" />}
+          count={`${people.length} ${people.length === 1 ? "person" : "people"}`}
+        >
+          <p className="text-sm text-ink-muted">
+            {body.canManage
+              ? "Who can act for this organisation, and what each of them may do."
+              : "Who can act for this organisation. Only an administrator here can change it."}
+          </p>
+          <Link
+            href={`/governing/${bodyId}/people`}
+            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-forest-800 hover:underline"
+          >
+            {body.canManage ? "Manage Access" : "See Who Has Access"}
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        </GoverningSection>
+
+        {/* REGULATION IS KNOWLEDGE, NOT AN OPERATION THIS ORGANISATION PERFORMS.
+            It is a link rather than a destination of its own, and it is deliberately read-only. A
+            constituent body is not a regulatory authority: `regulatory_authorities` holds the RFU, the
+            RFL, World Rugby and International Rugby League, and a county union has no row in it. A
+            county operates under its union's regulations; it does not publish them. */}
+        <GoverningSection id="gb-rugby" title="Rugby & Regulation" icon={<BookOpen className="size-4 text-ink-muted" aria-hidden="true" />}>
+          <p className="text-sm text-ink-muted">
+            Age grades, laws and safeguarding guidance, from the published regulations of{" "}
+            {body.rugbyCode === "league" ? "the Rugby Football League" : "the Rugby Football Union"}. This organisation
+            reads them; it does not set them.
+          </p>
+          <Link href="/rugby-hub" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-forest-800 hover:underline">
+            Rugby Hub
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        </GoverningSection>
       </div>
 
-      {/* HONEST ABOUT WHAT IS NOT HERE YET. */}
-      <section aria-labelledby="gb-next" className="rounded-2xl border border-dashed border-line px-4 py-3">
-        <h2 id="gb-next" className="text-sm font-medium text-ink">
-          Coming next
+      {/* THE ORGANISATION RECORD. Last, because it is reference rather than work -- but it earns its
+          place: this is verified data about a real organisation and where it came from is checkable. */}
+      <section aria-labelledby="gb-record" className="rounded-2xl border border-dashed border-line px-4 py-3">
+        <h2 id="gb-record" className="text-sm font-medium text-ink">
+          This Organisation&apos;s Record
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
-          This is the foundation: the organisation, its clubs, its competitions and your access. People and
-          access management, results and regulation for the organisation are the next pieces, and are not
-          built yet.
+          {body.canonicalName}
+          {body.shortName && body.shortName !== body.canonicalName ? ` (${body.shortName})` : ""} is recorded as{" "}
+          {(BODY_TYPE_LABEL_LOWER[body.bodyType] ?? body.bodyType).toLowerCase()} in {body.nation}.
+          {body.sourceUrl ? (
+            <>
+              {" "}
+              Held from{" "}
+              <a href={body.sourceUrl} className="underline hover:no-underline" rel="noreferrer noopener" target="_blank">
+                its own listing <ExternalLink className="inline size-3" aria-hidden="true" />
+              </a>
+              {body.sourceCheckedOn ? `, checked ${body.sourceCheckedOn}` : ""}.
+            </>
+          ) : null}{" "}
+          Its name and affiliations are maintained by Ovalball, so they say the same thing everywhere.
+        </p>
+        <p className="mt-2 text-sm text-ink-muted">
+          Welfare oversight and messaging as an organisation are not built yet, and neither is changing which clubs are
+          affiliated from here.
         </p>
       </section>
     </div>
   )
+}
+
+/** The body type as it reads mid-sentence ("is recorded as a county union"), not as a card label. */
+const BODY_TYPE_LABEL_LOWER: Record<string, string> = {
+  GEOGRAPHIC: "a county union",
+  ARMED_FORCES: "an armed forces union",
+  UNIVERSITY: "a university union",
+  SCHOOLS: "a schools union",
+  REFEREES: "a referees' society",
 }

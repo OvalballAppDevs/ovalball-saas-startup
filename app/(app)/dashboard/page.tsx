@@ -21,7 +21,7 @@ import { distinctClubIds, splitDeskNotices } from "@/lib/club-public/desk"
 import { matchDateParts } from "@/lib/club-public/format"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { getBetaBadgeState } from "@/lib/platform/mode"
-import { BODY_ROLE_LABEL, BODY_TYPE_LABEL, loadMyGoverningBodies } from "@/lib/governing/body"
+import { BODY_ROLE_LABEL, BODY_TYPE_LABEL } from "@/lib/governing/body"
 import { createClient } from "@/lib/supabase/server"
 
 import { FamilyAvatar } from "@/components/profile/family-avatar"
@@ -46,11 +46,6 @@ function greeting(): string {
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  // CONVERGENCE STEP 14. Reachable only by somebody who actually holds a role in a rugby
-  // organisation -- the server returns an empty list to everybody else, so there is no dead
-  // navigation for an ordinary club user to find. Step 15 promotes this into the nav catalogue
-  // proper, where a section belongs.
-  const governingBodies = await loadMyGoverningBodies(supabase)
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -59,6 +54,23 @@ export default async function DashboardPage() {
   const ctx = await getSessionContext(supabase, user)
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
+
+  /**
+   * CONVERGENCE STEP 15. A governing body's own Overview IS its dashboard: this page is built from a
+   * club's week, a family's children and a Site Admin's platform, and a governing context has none of
+   * those. Sending them to the workspace they are acting in is a better answer than rendering a
+   * dashboard with nothing in it — and it is why the governing navigation has no Dashboard entry, which
+   * would only have bounced.
+   *
+   * Somebody who is ALSO a Club Admin still reaches their club dashboard, by switching context — which
+   * is what the switcher is for, and what keeps the two jobs separate.
+   */
+  if (activeContext.kind === "governing" && activeContext.id) redirect(`/governing/${activeContext.id}`)
+
+  // CONVERGENCE STEP 14, now read from the session context rather than queried again: one question,
+  // one answer. This block is what tells somebody active as their CLUB that they also hold a role in a
+  // rugby organisation, which the governing navigation cannot do from inside another context.
+  const governingBodies = ctx.governingBodies
 
   // One route, two dashboards, composed by context -- never a second route.
   //

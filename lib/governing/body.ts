@@ -2,6 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
 
+import { BODY_ROLE_ALLOWS, BODY_ROLE_LABEL, BODY_ROLES, type BodyRole } from "./roles"
+
+// One authority for what a role is CALLED and what it ALLOWS; re-exported so a page needs one import.
+export { BODY_ROLE_ALLOWS, BODY_ROLE_LABEL, BODY_ROLES }
+export type { BodyRole }
+
 /**
  * CONVERGENCE STEP 14 — the governing body read model.
  *
@@ -13,7 +19,6 @@ import type { Database } from "@/types/database.types"
  * need the same answers, and business decisions should not live in a React tree.
  */
 
-export type BodyRole = "BODY_ADMIN" | "BODY_COMPETITIONS" | "BODY_VIEWER"
 
 export interface GoverningBody {
   bodyId: string
@@ -46,6 +51,11 @@ export interface AffiliatedClub {
   town: string | null
   county: string | null
   isOnOvalball: boolean
+  /** Set where the club is on Ovalball — its own public home at /club/{slug}, which is where a county officer legitimately goes to look at a club. */
+  clubSlug: string | null
+  homeGround: string | null
+  website: string | null
+  rugbyCode: string
 }
 
 /** How a body type reads to a person, rather than as a database enum. */
@@ -57,11 +67,6 @@ export const BODY_TYPE_LABEL: Record<string, string> = {
   REFEREES: "Referees' society",
 }
 
-export const BODY_ROLE_LABEL: Record<BodyRole, string> = {
-  BODY_ADMIN: "Administrator",
-  BODY_COMPETITIONS: "Competitions",
-  BODY_VIEWER: "Viewer",
-}
 
 export async function loadMyGoverningBodies(supabase: SupabaseClient<Database>): Promise<GoverningBodySummary[]> {
   const { data, error } = await supabase.rpc("my_governing_bodies")
@@ -112,5 +117,94 @@ export async function loadAffiliatedClubs(
     town: r.town,
     county: r.county,
     isOnOvalball: r.is_on_ovalball,
+    clubSlug: r.club_slug,
+    homeGround: r.home_ground,
+    website: r.website,
+    rugbyCode: r.rugby_code,
   }))
+}
+
+/* ===================================================================================================
+ * CONVERGENCE STEP 15 — the rest of the read model.
+ *
+ * Still in lib/ and still server-shaped, for the reason above: a native client will need the same
+ * answers, and none of these decisions belongs in a React tree. Every `can*` flag here arrives from
+ * the database, per row, so a page never has to guess whether a control will be refused.
+ * =================================================================================================*/
+
+export interface BodyPerson {
+  userId: string
+  fullName: string | null
+  /** Only returned to somebody who can already manage access here — see governing_body_people. */
+  email: string | null
+  roleKey: BodyRole
+  state: "ACTIVE" | "SUSPENDED" | "REVOKED"
+  grantedAt: string
+  grantedByName: string | null
+  isMe: boolean
+}
+
+export interface BodyCompetition {
+  competitionId: string
+  name: string
+  slug: string
+  rugbyCode: string
+  format: string | null
+  active: boolean
+  /** The current edition, or null where no season is registered yet — a legible state, not an error. */
+  editionId: string | null
+  seasonName: string | null
+  enteredCount: number
+  matchCount: number
+  resultCount: number
+  /** From internal.can_organise_competition — the same predicate the mutations use. */
+  canOrganise: boolean
+}
+
+
+export async function loadBodyPeople(supabase: SupabaseClient<Database>, bodyId: string): Promise<BodyPerson[]> {
+  const { data, error } = await supabase.rpc("governing_body_people", { p_body_id: bodyId })
+  if (error || !data) return []
+  return data.map((r) => ({
+    userId: r.user_id,
+    fullName: r.full_name,
+    email: r.email,
+    roleKey: r.role_key as BodyRole,
+    state: r.state as BodyPerson["state"],
+    grantedAt: r.granted_at,
+    grantedByName: r.granted_by_name,
+    isMe: r.is_me,
+  }))
+}
+
+export async function loadBodyCompetitions(
+  supabase: SupabaseClient<Database>,
+  bodyId: string
+): Promise<BodyCompetition[]> {
+  const { data, error } = await supabase.rpc("governing_body_competitions", { p_body_id: bodyId })
+  if (error || !data) return []
+  return data.map((r) => ({
+    competitionId: r.competition_id,
+    name: r.name,
+    slug: r.slug,
+    rugbyCode: r.rugby_code,
+    format: r.format,
+    active: r.active,
+    editionId: r.edition_id,
+    seasonName: r.season_name,
+    enteredCount: r.entered_count,
+    matchCount: r.match_count,
+    resultCount: r.result_count,
+    canOrganise: r.can_organise,
+  }))
+}
+
+/** How a competition's real state reads to somebody running it, rather than as four raw counts. */
+export function competitionProgress(c: BodyCompetition): string {
+  if (!c.editionId) return "No season registered yet"
+  if (c.enteredCount === 0) return "No teams entered yet"
+  if (c.matchCount === 0) return `${c.enteredCount} teams entered · no matches drawn`
+  if (c.resultCount === 0) return `${c.enteredCount} teams · ${c.matchCount} matches · no results yet`
+  if (c.resultCount >= c.matchCount) return `${c.enteredCount} teams · all ${c.matchCount} matches played`
+  return `${c.enteredCount} teams · ${c.resultCount} of ${c.matchCount} matches played`
 }

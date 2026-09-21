@@ -8,11 +8,13 @@
  */
 export function isActiveFixtureAuthority(
   ctx: { isSiteAdmin: boolean },
-  // "family" (All Children) is listed for completeness only. Like "parent"
-  // and "player" it matches none of the three grants below, so a Guardian
-  // aggregating their children can never reach a fixture write -- the rule
-  // is allow-list shaped precisely so a new context kind defaults to denied.
-  activeContext: { kind: "club" | "team" | "parent" | "player" | "family" | "site_admin"; id: string | null },
+  // "family" (All Children) and "governing" are listed for completeness only. Like "parent" and
+  // "player" they match none of the three grants below, so a Guardian aggregating their children can
+  // never reach a fixture write -- and neither can a governing-body officer, who organises COMPETITION
+  // matches and has no authority over any club's own fixtures. The rule is allow-list shaped precisely
+  // so a new context kind defaults to denied, and Convergence Step 15 adding one is the proof: this
+  // line changed and the answer did not.
+  activeContext: { kind: "club" | "team" | "parent" | "player" | "family" | "site_admin" | "governing"; id: string | null },
   fixture: { involvedClubIds: string[]; involvedTeamIds: string[] }
 ): boolean {
   const activeIsSiteAdmin = ctx.isSiteAdmin && activeContext.kind === "site_admin"

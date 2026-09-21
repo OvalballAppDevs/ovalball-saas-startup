@@ -1649,6 +1649,11 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Governing Body programme (Steps 14-16)",
       "reason": "Convergence Step 14: governing-body authority comes from an ACTIVE constituent_body_roles row and nothing else -- not a club role, a Fixture Secretary, a Safeguarding Officer or a name -- with fail-closed predicates, wrong-body isolation, explicit Site Admin access, and suspension/revocation winning."
+    },
+    "step15_governing_product": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Governing Body programme (Steps 14-16)",
+      "reason": "Convergence Step 15: the one RED change is a single added disjunct in internal.can_organise_competition -- the chokepoint all ten competition mutations reach through internal.require_edition_organiser -- so this proves the whole organiser matrix (right body, wrong body, viewer, Club Admin, Fixture Secretary, Safeguarding Officer, ordinary member, stranger), that the existing club and Site Admin organisers survived, that a body officer gains no authority over a club's own fixtures, and the three new writes: competition creation in the body's own rugby code and the canonical season, grant-by-email with no people-search surface, and revocation as a state change that is never your own. It also asserts the boundaries Step 15 deliberately did not cross -- the dispensation chain, club affiliation, protected person data and the five-scope capability engine."
     }
   },
   "prerequisite_defect": {

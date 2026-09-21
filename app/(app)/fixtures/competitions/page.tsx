@@ -13,10 +13,15 @@ export const metadata = { title: "Competitions" }
  * Site Admin (active as Site Admin) sees every competition; a club's fixture
  * administrators see the competitions their club organises. Team staff never
  * reach this page -- organising a competition is club and platform work.
+ *
+ * A GOVERNING BODY ORGANISER IS SENT TO ITS OWN COMPETITIONS (Convergence Step 15). This page is club
+ * fixture administration and its query is club-shaped; a body's competitions list is the Competitions
+ * page inside its own workspace, which is a better answer than a page that happens to render.
  */
 export default async function CompetitionsListPage() {
   const scope = await resolveOrganiserScope()
   if (!scope) redirect("/fixtures")
+  if (!scope.siteAdmin && !scope.clubId && scope.bodyId) redirect(`/governing/${scope.bodyId}/competitions`)
   const { supabase } = scope
 
   let query = supabase

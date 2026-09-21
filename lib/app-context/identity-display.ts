@@ -117,6 +117,19 @@ export function resolveIdentityDisplay(
       // in its own heading ("Site Admin: Platform"). With the workspace stated where a page states
       // things, the identity block is free to do its one job.
       return { nameLabel: personLabel, subLabel: "Site Admin", avatarUsesPersonPhoto: true }
+    case "governing":
+      // A GOVERNING BODY IS NOT A PERSON, so it belongs on the second line -- exactly the shape "club"
+      // already uses and for the identical reason. The organisation's name being the answer to "who am
+      // I?" would be the same defect the club branch above was written to fix.
+      //
+      // Naming the organisation beside the role is also what makes the context obvious, which matters
+      // more here than anywhere else: the person reading it is frequently ALSO a Club Admin, and
+      // "Competitions Officer" on its own would not say for whom.
+      return {
+        nameLabel: personLabel,
+        subLabel: [input.contextLabel, input.roleLabel].filter(Boolean).join(" · "),
+        avatarUsesPersonPhoto: true,
+      }
   }
 }
 
@@ -167,6 +180,13 @@ export function resolveContextSettingsLink(kind: ActiveContextKind, activeId: st
     case "parent":
     case "player":
     case "family":
+    // "governing" joins these three for the same documented reason, not as an oversight: a governing
+    // body has no settings surface, and it deliberately has nothing to configure here. Its record is
+    // verified reference data with a source and a checked-on date, maintained in Site Admin -- a
+    // county union does not get to edit its own canonical name -- so there is no organisation
+    // configuration for a gear to open. Personal Settings is real, belongs to the signed-in human,
+    // and is not mislabelled as organisation configuration.
+    case "governing":
       return { href: "/account", ariaLabel: "Your personal account settings" }
     case "site_admin":
       return null

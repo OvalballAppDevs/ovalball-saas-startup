@@ -1,3 +1,4 @@
+import { BODY_ROLE_LABEL } from "@/lib/governing/roles"
 import { CLUB_ROLE_LABEL, teamPermissionLabel } from "@/lib/permissions/role-labels"
 
 import type { SessionContext } from "./session-context"
@@ -39,7 +40,22 @@ import type { SessionContext } from "./session-context"
  * nothing: the players it covers are exactly the session's own already-proven
  * guardian relationships, and every read is still RLS-scoped per player.
  */
-export type ActiveContextKind = "site_admin" | "club" | "team" | "parent" | "player" | "family"
+/**
+ * "governing" is the Governing Body workspace -- a county union, an armed-forces or schools union, a
+ * referees' society (Convergence Step 15).
+ *
+ * It is a real kind rather than a page somebody navigates to, for the reason every other kind here
+ * exists: navigation is built FROM the active context, so a person acting as a county officer is
+ * offered the organisation's destinations and NOT their club's or their team's. One person is very
+ * often both -- a county fixtures secretary is usually somebody's Club Admin too -- and the two jobs
+ * must not bleed into each other in either direction.
+ *
+ * Presentation and default scope only, exactly like the five kinds above it. Selecting it grants
+ * nothing: the bodies it can represent are the session's own already-proven ACTIVE roles from
+ * `constituent_body_roles`, and every governing read and write is still refused by the database for
+ * anybody without one.
+ */
+export type ActiveContextKind = "site_admin" | "club" | "team" | "parent" | "player" | "family" | "governing"
 
 export interface SwitchableContext {
   /**
@@ -267,11 +283,34 @@ export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[]
     })
   }
 
+  // GOVERNING BODIES. Deliberately AFTER club and team and BEFORE Site Admin: a person's club is
+  // almost always their main job, and the broader views stay an explicit choice (see
+  // resolveActiveContext's default order, which this ordering feeds).
+  //
+  // clubId is null, and that is the point: a governing body is NOT a club, so nothing that resolves
+  // "my club" from the active context can find one here. activeManageableClubId already refuses any
+  // kind other than "club", so switching in cannot carry club write authority across.
+  for (const b of ctx.governingBodies) {
+    out.push({
+      key: `governing:${b.bodyId}`,
+      kind: "governing",
+      id: b.bodyId,
+      playerId: null,
+      label: b.shortName ?? b.canonicalName,
+      switcherLabel: b.canonicalName,
+      roleLabel: BODY_ROLE_LABEL[b.myRole] ?? "Officer",
+      logoUrl: null,
+      clubId: null,
+    })
+  }
+
   if (ctx.isSiteAdmin) {
     out.push({ key: "site_admin", kind: "site_admin", id: null, playerId: null, label: "Ovalball", switcherLabel: "Ovalball", roleLabel: "Site Admin", logoUrl: null, clubId: null })
   }
   return out
 }
+
+
 
 const FALLBACK_CONTEXT: SwitchableContext = { key: "none", kind: "club", id: null, playerId: null, label: "Ovalball", switcherLabel: "Ovalball", roleLabel: "Member", logoUrl: null, clubId: null }
 

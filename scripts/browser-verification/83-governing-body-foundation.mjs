@@ -56,9 +56,15 @@ try {
   const main = await page.locator("main").innerText()
   record("B1 the page says what the organisation is", /county union/i.test(main) && /rugby union/i.test(main))
   record("B2 and what this person is to it", /you are/i.test(main) && /administrator/i.test(main))
-  record("B3 it names the clubs affiliated to it", /affiliated clubs/i.test(main) && /Step 2 Review RFC/i.test(main))
+  // CONVERGENCE STEP 15 MOVED THESE TWO, and they are asserted where they now live rather than
+  // reverted. Step 14's Overview LISTED club names and headed its gap "Coming next". Step 15's says how
+  // many clubs are affiliated and hands over to the Clubs page, which names them (suite 84 B-series),
+  // and states the remaining gaps in a sentence instead of a heading. The guarantee is unchanged --
+  // the organisation's clubs are reachable from its page, and the page is honest about what is missing.
+  record("B3 it says how many clubs are affiliated to it, and offers them",
+    /affiliated/i.test(main) && /All Clubs/i.test(main))
   record("B4 and says what it organises", /competitions/i.test(main))
-  record("B5 it is honest about what is not built yet", /coming next/i.test(main))
+  record("B5 it is honest about what is not built yet", /not built yet/i.test(main))
   record("B6 and shows no database diagnostics", !/uuid|constituent_body_id|null\b/i.test(main))
 
   // Basic accessibility of the changed surface: one h1 and real headings.

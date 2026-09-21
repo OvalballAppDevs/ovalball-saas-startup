@@ -1,5 +1,5 @@
 import type { GuardianTeamContext, PlayerTeamContext, SessionContext } from "./session-context"
-import { listSwitchableContexts, resolveActiveContext } from "./active-context-rules"
+import { activeManageableClubId, listSwitchableContexts, resolveActiveContext } from "./active-context-rules"
 
 /**
  * Run with `npx tsx lib/app-context/active-context.verify.ts`. Permanent
@@ -33,6 +33,17 @@ function guardianRel(overrides: Partial<GuardianTeamContext>): GuardianTeamConte
   }
 }
 
+/**
+ * A club-wide-authority membership, as one fixture.
+ *
+ * The role literal deliberately appears ONCE in this file: it is on the authority-role shrink list
+ * (supabase/security/role-literal-baseline.json), which a file may only lose entries from, and three
+ * hand-written copies of the same fixture is how such a list stops shrinking.
+ */
+function clubAdminAt(clubId: string, clubName = "Test Club", clubSlug = "test-club"): SessionContext["clubMemberships"][number] {
+  return { clubId, clubName, clubSlug, clubLogoUrl: null, role: "CLUB_ADMIN" }
+}
+
 function baseCtx(overrides: Partial<SessionContext>): SessionContext {
   return {
     user: { id: "user-1" } as SessionContext["user"],
@@ -52,6 +63,7 @@ function baseCtx(overrides: Partial<SessionContext>): SessionContext {
     guardianRelationships: [],
     linkedPlayerTeams: [],
     hasGuardianRelationship: false,
+    governingBodies: [],
     ...overrides,
   }
 }
@@ -129,7 +141,7 @@ function baseCtx(overrides: Partial<SessionContext>): SessionContext {
 
 // ===== Invalid / tampered / stale cookie value never grants a context the session doesn't actually have =====
 {
-  const ctx = baseCtx({ guardianRelationships: [guardianRel({})], clubMemberships: [{ clubId: "club-1", clubName: "Test Club", clubSlug: "test-club", clubLogoUrl: null, role: "CLUB_ADMIN" }] })
+  const ctx = baseCtx({ guardianRelationships: [guardianRel({})], clubMemberships: [clubAdminAt("club-1")] })
   const tampered = resolveActiveContext(ctx, "parent:some-other-players-id:some-other-team")
   check("a tampered/nonexistent cookie key never resolves to the tampered value -- falls back to a real context this session actually has", tampered.kind === "club" || tampered.kind === "parent", true)
   check("a tampered cookie's playerId never leaks through", tampered.playerId, tampered.kind === "parent" ? "player-a" : null)
@@ -141,6 +153,58 @@ function baseCtx(overrides: Partial<SessionContext>): SessionContext {
   const ctx = baseCtx({ linkedPlayerTeams: [playerCtx] })
   const contexts = listSwitchableContexts(ctx).filter((c) => c.kind === "player")
   check("player context carries its own playerId", contexts[0]?.playerId, "player-self")
+}
+
+
+// ===== Governing Body contexts (Convergence Step 15) =====
+//
+// The point of these four is that a governing body is NOT a club. A county fixtures secretary is very
+// often also somebody's Club Admin, and the two must not bleed into each other in either direction.
+{
+  const ctx = baseCtx({
+    governingBodies: [
+      { bodyId: "body-1", canonicalName: "Ovalball Review County RFU", shortName: "Review County", bodyType: "GEOGRAPHIC", myRole: "BODY_ADMIN" },
+    ],
+  })
+  const contexts = listSwitchableContexts(ctx)
+  const governing = contexts.filter((c) => c.kind === "governing")
+  check("one body role -> exactly one governing context", governing.length, 1)
+  check("governing context is keyed by the body", governing[0]?.key, "governing:body-1")
+  // The label is the SHORT name where there is one: a sidebar is narrow and "Review County" is what a
+  // person calls it; the switcher list keeps the full canonical name because that is what disambiguates.
+  check("governing context labels with the short name", governing[0]?.label, "Review County")
+  check("governing switcher keeps the canonical name", governing[0]?.switcherLabel, "Ovalball Review County RFU")
+  // NOT "Admin": Club Admin and Site Admin already mean specific authorities a county officer lacks.
+  check("governing role label does not borrow an existing admin word", governing[0]?.roleLabel, "Organisation Administrator")
+  // THE ONE THAT MATTERS: a governing context carries no club, so nothing resolving "my club" from the
+  // active context can find one, and activeManageableClubId refuses every kind except "club".
+  check("governing context carries no club", governing[0]?.clubId, null)
+  check("governing context grants no manageable club", activeManageableClubId(ctx, governing[0]!), null)
+}
+
+// A person who is BOTH a Club Admin and a county officer gets both contexts, and switching to the
+// county one must not carry the club's write authority across.
+{
+  const ctx = baseCtx({
+    clubMemberships: [clubAdminAt("club-1")],
+    governingBodies: [{ bodyId: "body-1", canonicalName: "Review County RFU", shortName: null, bodyType: "GEOGRAPHIC", myRole: "BODY_COMPETITIONS" }],
+  })
+  const contexts = listSwitchableContexts(ctx)
+  check("a club admin who is also an officer gets both contexts", contexts.length, 2)
+  // Club first: a person's club is almost always their main job, and the default must not jump to the
+  // county workspace just because they hold a role there.
+  check("the default context is still the club, not the body", resolveActiveContext(ctx, null).kind, "club")
+  const governing = contexts.find((c) => c.kind === "governing")!
+  check("switching to the body drops the club's write authority", activeManageableClubId(ctx, governing), null)
+  check("a body with no short name falls back to its canonical name", governing.label, "Review County RFU")
+}
+
+// Somebody with no body role has no governing context at all -- the workspace is not discoverable.
+{
+  const ctx = baseCtx({ clubMemberships: [clubAdminAt("club-1")] })
+  check("no body role -> no governing context", listSwitchableContexts(ctx).filter((c) => c.kind === "governing").length, 0)
+  // And a tampered cookie naming one cannot conjure it: the cookie only picks among real contexts.
+  check("a cookie naming a body nobody holds falls back", resolveActiveContext(ctx, "governing:body-1").kind, "club")
 }
 
 console.log(`\n${pass} PASS, ${fail} FAIL`)

@@ -29,6 +29,9 @@ const WORKSPACE: Record<ActiveContextKind, string> = {
   parent: "Family",
   player: "Player",
   family: "Family",
+  // A county union, an armed-forces or schools union, a referees' society. "Governing Body" is the
+  // product's own word for it -- `constituent_bodies` is the table's name and not a thing anybody says.
+  governing: "Governing Body",
 }
 
 export function workspaceLabel(kind: ActiveContextKind): string {

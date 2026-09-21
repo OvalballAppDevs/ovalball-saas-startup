@@ -23319,6 +23319,16 @@ export type Database = {
         }
         Returns: string
       }
+      create_governing_body_competition: {
+        Args: { p_body_id: string; p_name: string; p_season_id?: string }
+        Returns: {
+          competition_id: string
+          edition_id: string
+          needs_attention: string
+          season_id: string
+          season_name: string
+        }[]
+      }
       create_membership_obligations_for_period: {
         Args: { p_billing_period: string; p_club_id: string }
         Returns: number
@@ -24542,17 +24552,59 @@ export type Database = {
       governing_body_clubs: {
         Args: { p_body_id: string }
         Returns: {
+          club_slug: string
           county: string
           directory_id: string
+          home_ground: string
           is_on_ovalball: boolean
           name: string
+          rugby_code: string
           town: string
+          website: string
+        }[]
+      }
+      governing_body_competitions: {
+        Args: { p_body_id: string }
+        Returns: {
+          active: boolean
+          can_organise: boolean
+          competition_id: string
+          edition_id: string
+          entered_count: number
+          format: string
+          match_count: number
+          name: string
+          result_count: number
+          rugby_code: string
+          season_id: string
+          season_name: string
+          slug: string
+        }[]
+      }
+      governing_body_people: {
+        Args: { p_body_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          granted_at: string
+          granted_by_name: string
+          is_me: boolean
+          role_key: string
+          state: string
+          user_id: string
         }[]
       }
       graduate_team: { Args: { p_team_id: string }; Returns: number }
       grant_club_membership: {
         Args: { p_club_id: string; p_reason: string; p_user_id: string }
         Returns: string
+      }
+      grant_governing_body_role_by_email: {
+        Args: { p_body_id: string; p_email: string; p_reason?: string; p_role_key: string }
+        Returns: {
+          outcome: string
+          user_id: string
+        }[]
       }
       guardian_link_requests_for_approval: {
         Args: { p_club_id?: string }
@@ -26113,6 +26165,10 @@ export type Database = {
       }
       revoke_club_partnership: {
         Args: { p_partnership_id: string }
+        Returns: undefined
+      }
+      revoke_governing_body_role: {
+        Args: { p_body_id: string; p_reason?: string; p_user_id: string }
         Returns: undefined
       }
       revoke_invitation: {
