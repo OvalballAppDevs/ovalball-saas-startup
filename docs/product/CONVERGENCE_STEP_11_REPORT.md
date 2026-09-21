@@ -26,9 +26,26 @@ was run; §9 says what Batch A still owes.
 record, anywhere. The ledger had said so since Step 7 and the search confirmed
 it: `kudos` and `beast` appear nowhere, `vote` and `award` hit only Rugby Hub
 prose about 1895 and about penalties, `nomination` belongs to safeguarding
-appointments, and **`reward` belongs to referral credit, which is money**. The
+appointments, and **`reward` belongs to the commercial referral benefit**. The
 backlog survives as vocabulary with no specification — no prior decision about
 audience, anonymity, closure or youth safety to honour.
+
+**Existing reward terminology belongs to the commercial referral/subscription
+benefit (one month free), so it was deliberately not reused for rugby
+recognition.** Precisely, and corrected from this report's first draft, which
+called it money: a successful referral earns the referring club a month of its own
+subscription, stored as a **snapshotted pence amount** equal to that club's plan
+price at the moment of earning (`reward_plan_code`, `reward_price_version`, never
+recomputed). `reward_credit_id` points at `platform_credits`, where a credit can
+leave only by being **applied to a subscription payment** or reversed; there is no
+payout, withdrawal or cash-out path, and no foreign key joins the credit ledger to
+`gocardless_payouts`. So it is a **subscription credit, not cash** — Site Admin
+reports its *value* in money only because applied credit is not canonically
+convertible back into whole months. Full working in the archaeology, §1.1.
+
+**A commercial referral benefit is not rugby recognition.** Nothing in Step 11
+reuses those tables, that ledger or that word, and nothing it creates can reach
+`platform_credits`.
 
 Two things followed. First, the five award names are **five electorates for one
 concept**, so there is one award engine rather than five models. Second, and
@@ -49,6 +66,39 @@ read-only, from the value the existing workflow produced.
 
 Two concepts, kept apart because their lifecycles genuinely differ, and
 converged where they were the same thing wearing five names.
+
+### Who decided what
+
+Recorded so that no implementation judgement of mine reads as an instruction.
+
+**OWNER-LOCKED DECISIONS.** Each was answered directly by the product owner in
+the Step 11 handoff conversation, before the model was built, and is binding:
+
+1. **The electorate follows the side's age** — the recognition that is Parents'
+   Player on a youth side becomes Players' Player where the participants are
+   adults; **Parents' Player is not withdrawn at U17/U18**; and every category is
+   switched on by the club or team rather than being on by default.
+2. **Vote counts go to staff after close; the team is told only who won.**
+3. **Categories are canonical, with a per-team display-name override that is
+   presentation only** and never changes the canonical data.
+4. **Kudos uses a fixed positive vocabulary and no free text.**
+
+**STEP 11 PRODUCT DECISIONS, DERIVED.** Reached from the archaeology and the
+written requirements in the work order. They are mine and remain open to
+challenge:
+
+| decision | derived from |
+|---|---|
+| one award engine rather than five models | §6 — converge concepts that are semantically the same |
+| Kudos kept separate from awards | §6 — keep concepts apart where their lifecycle genuinely differs |
+| "an adult side" means `teams.category = 'senior'`, so colts and every youth grade keep the family electorate | the canonical team identity; it is the only open-age marker the schema has |
+| the work-ethic award displays as **Beast** for adults and **Work Rate** for children | §8 — some rugby-culture wording needs a safer, product-appropriate form for youth |
+| the six entries in the Kudos vocabulary | §7 — positive recognition of rugby contribution |
+| administration gated on `internal.can_manage_fixture_side`, team settings on `team.news.manage` | §§38–39, plus the refusal to activate a dangling capability (§11.1) |
+| the coaches' electorate is an **ACTIVE `COACH` assignment**, excluding Team Manager | §12 — a Team Manager is not automatically a Coach |
+| a tie is reported as a tie; no self-kudos; staff removal soft, a giver's own withdrawal hard | §§18–19, §34 |
+| giving Match Centre a read-only result at all | §28 — the match must not be less prominent than the voting |
+| deferring the player-profile recognition reader | §23 — do not redesign the Player product |
 
 **An award** is a decision with a lifecycle: one `match_awards` row per
 (fixture, team, category), opened by staff on a played match, voted in by a
@@ -307,7 +357,7 @@ Nothing disappears.
 | **Opposition Player** | **COMPLETE where an opposition actor exists**, and **DEFERRED — dependency named** where it does not. Against `raw_opposition_text` there is no authenticated opposition representative; the award cannot be opened and says why. The missing dependency is an authenticated identity for a club that is not on Ovalball. No public voting URL was invented. |
 | **Beast / work-ethic** | **COMPLETE, reworded by age** — `WORK_ETHIC` displays as Beast for adults and Work Rate for children, and a club may call it its own thing. |
 | **Badges** | **SUPERSEDED** — recognition history is derived from award and kudos rows, not granted. No badge table, no grant endpoint. |
-| **Rewards** | **NOT APPLICABLE as an economy** — no points, no currency, no financial liability; `reward` remains the referral credit domain and is untouched. |
+| **Rewards** | **NOT APPLICABLE as an economy** — no points, no currency, no financial liability. `reward` remains the **commercial referral benefit** (one month free, held as a subscription credit), untouched and not reused. |
 | **Attendance distinction** | **ALREADY COMPLETE — VERIFIED** — availability is operational truth, untouched and unmerged; Step 9's suite still passes 41. |
 | **Youth safety / privacy** | **COMPLETE for this step** — §4. Step 12 owns the wider standard. |
 | **Match Centre community** | **COMPLETE** — one shared role-aware surface, on the canonical fixture, below the rugby. |
@@ -317,13 +367,28 @@ Nothing disappears.
 
 ## 11. Findings recorded, not fixed
 
-### 11.1 `team.community.manage` grants nothing
+### 11.1 `team.community.manage` grants nothing, and stays unactivated
 
-The capability exists, three migrations reference it, and **no bundle or key map
-grants it**. Its one live caller is an `or` clause that is always false, so
-nothing is broken today. It is the natural home for community administration, and
-activating it would change Messenger's "who may speak as a team" as a side
-effect — so it is named for whoever owns that decision rather than wired here.
+The capability exists in `public.capabilities`, three migrations reference it, and
+**no row in `bundle_capabilities` grants it and no `capability_key_map` entry
+mentions it**. Its one live caller is `internal.may_send_as`
+(`20270240000000_who_is_speaking_is_not_who_pressed_send.sql`), where the two
+`team.community.manage` tests sit in an `or` chain beside
+`internal.can_address_team_audience` and `internal.is_full_site_admin` — so they
+are always false and nothing is broken today.
+
+It is the natural home for community administration. It was **not** granted,
+because granting it is not a Match Centre convenience:
+
+| | |
+|---|---|
+| **What granting it would do** | By analogy with `team.news.manage`, the bundles would be `CA@club`, `CO@team`, `TM@team`. Those holders would immediately satisfy `internal.may_send_as` for a **team identity**, which is enforced on message insert by `internal.enforce_sender_identity` |
+| **The side effect** | **Who may speak as a team in Messenger would broaden**, for people who do not necessarily satisfy `can_address_team_audience` today. That is a communications-authority change, not a recognition one |
+| **Owner** | the **Messenger / communications authority** owner — whoever owns `internal.may_send_as` and `internal.enforce_sender_identity`, i.e. the messaging-authority domain that `20270240000000` belongs to |
+| **Dependency for reconciliation** | a decision from that owner on whether team staff should be able to speak as the team, **and** a capability-catalogue decision on whether the key is granted, mapped to `team.news.manage`, or retired — the catalogue currently holds a key that grants nothing, which the Slice-4 closure pass treated as a hazard in its own right |
+| **Not blocking** | Step 11 uses authority that already resolves, so nothing waits on this |
+
+**It must not be granted merely to make Match Centre convenient.**
 
 ### 11.2 Two more stale SQL suites, outside the gate
 

@@ -192,7 +192,8 @@ suppressed, and the declared set may only get smaller.
 | report | `docs/product/CONVERGENCE_STEP_11_REPORT.md` |
 
 The community backlog existed only as vocabulary: no poll, vote, Kudos, award or
-badge record anywhere, and `reward` already meant referral credit. Built as **one
+badge record anywhere, and `reward` already meant the commercial referral benefit
+— one month free, held as a subscription credit, not cash. Built as **one
 award engine, not five models** — the five award names are five electorates for
 one concept — with Kudos kept separate because it has no electorate, no opening
 and no winner. The electorate follows the side's age: Parents' Player on a youth
@@ -1426,6 +1427,7 @@ requirement unless the master programme assigns it there.**
 | **L23** | training recurrence has no "this and all future occurrences" | **Training Management** |
 | **L25** | **SQL suite governance.** Measured at Step 11: **285** SQL suite files, **181** executed by the canonical gate, **104 not executed**, and **no declaration mechanism** for a SQL suite outside it — the browser side has had one since Step 7. Six of the 104 are known stale: `player_guardian_security`, `team_lifecycle`, `capability_engine`, `team_scoped_fixture_requests` (Step 10), `fixture_results`, `fixture_status_lifecycle` (Step 11). Each fails in its own SEED against later architecture, not in the product. None was wired in, deleted, declared obsolete by filename or repaired, and **the canonical gate is not claimed to execute every repository SQL suite.** Needed before Batch A's canonical-gate claim means what it says: a per-suite status (`CANONICAL-GATE` · `SUPERSEDED` · `RETIRED` · `SPECIAL-PURPOSE` · `UNVERIFIED`) with an owner, and a runner that detects an undeclared suite | **Batch A certification**, then each owning programme by domain |
 | **L26** | `TEAM_JOIN_CODE` cleanup is marker-scoped, not fixture-scoped, and unregressed | invitation / test-fixture hygiene |
+| **L27** | **`team.community.manage` grants nothing and stays unactivated.** The key exists in `public.capabilities`, three migrations reference it, and **no `bundle_capabilities` row grants it and no `capability_key_map` entry mentions it**. Its only live caller is `internal.may_send_as` (`20270240000000`), where it sits in an `or` chain beside `can_address_team_audience` and `is_full_site_admin`, so it is always false and nothing is broken. Granting it would give `CA@club · CO@team · TM@team` (the `team.news.manage` shape) the ability to satisfy `may_send_as` for a **team identity**, enforced on insert by `internal.enforce_sender_identity` — **broadening who may speak as a team in Messenger**. Step 11 therefore gated community administration on authority that already resolves and did **not** grant it. Reconciliation needs (a) a decision from the messaging-authority owner on whether team staff may speak as the team, and (b) a catalogue decision on whether the key is granted, mapped onto `team.news.manage`, or retired. **Not to be granted merely to make Match Centre convenient** | **Messenger / communications authority owner** (owner of `internal.may_send_as` and `internal.enforce_sender_identity`), with the capability catalogue |
 
 ### Owner actions
 

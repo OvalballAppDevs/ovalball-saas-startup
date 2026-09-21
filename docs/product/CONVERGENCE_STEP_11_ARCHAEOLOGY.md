@@ -30,14 +30,51 @@ write-ups" to **Step 11**, and `CONVERGENCE_STEP_9_ARCHAEOLOGY.md:196` routes
 | `award` | 8 | 0 | Rugby Hub law content — "a penalty is awarded", "a scrum is awarded" |
 | `recognition` | 1 | 0 | Rugby Hub concussion return-to-play prose |
 | `nomination` | 14 | 13 | **safeguarding appointment** nomination, invitation redemption, message reports |
-| `reward` | 16 | 20 | **platform referral rewards** — `reward_amount_pence`, `reward_credit_id`, `reward_plan_code`: money |
+| `reward` | 16 | 20 | **the commercial referral benefit** — `reward_amount_pence`, `reward_credit_id`, `reward_plan_code`: a subscription credit, not cash (see §1.1) |
 | `badge` | 10 | 98 | the shadcn `Badge` UI primitive, status pills, and Step 10's role badges |
 | `beast`, `write-up` | 0 | 0 | nothing |
 
-Two of those are traps. **Referral rewards are a currency** — real credit in
-pence against a subscription — and a match-recognition "reward" must not touch
-that model or reuse its vocabulary. **Nomination is already taken** by
-safeguarding appointments. Step 11 must not overload either word in the schema.
+Two of those are traps: the vocabulary is taken, and taken by something else.
+**Nomination** already means a safeguarding appointment. **Reward** already means
+the commercial referral benefit, which §1.1 sets out precisely. Step 11 must not
+overload either word in the schema, and must not reuse either model.
+
+## 1.1 What the existing `reward` actually is
+
+Measured, because the first draft of this document called it "money" and that is
+not accurate.
+
+**The product is "one month free": a successful referral earns the referring club
+a month of its own subscription.** `docs/COMMERCIAL_PLATFORM_BUILD_REPORT.md:1442`
+carries the offer copy — *"Refer Walcot RFC — get one month free"* — and
+`docs/SITE_ADMIN_DASHBOARD_ARCHITECTURE.md:1018` states what that is internally:
+**a pence amount, not a month**, being the referring club's own plan price at the
+moment of earning, snapshotted with `reward_plan_code` and `reward_price_version`
+and never recomputed.
+
+It is **a subscription credit and not cash**. `platform_referrals.reward_credit_id`
+points at `public.platform_credits`, whose `source` is constrained to
+`referral_reward · goodwill · beta_adjustment · application · reversal`. A credit
+is positive when earned; it may go negative only as an `application`, which the
+schema **requires** to carry an `applied_to_payment_id`, or as a `reversal`, which
+must name the credit it reverses. A `referral_reward` credit must satisfy
+`amount_pence = snapshot_price_pence` — one month at that club's own price,
+exactly. There is **no payout, withdrawal or cash-out path**: no foreign key of
+any kind joins `platform_credits` to `gocardless_payouts`, and a GoCardless payout
+is money arriving for Ovalball, not credit leaving for a club.
+
+Site Admin reports the benefit's **value** in money on purpose, and
+`SITE_ADMIN_DASHBOARD_ARCHITECTURE.md:1040` records why: free months *applied* are
+not canonically derivable back into whole months once credit has been applied to
+payments, so the analytics speak in value while the product copy keeps saying
+"one month free".
+
+**The architectural conclusion is unchanged, and is the reason any of this
+matters: a commercial referral benefit is not rugby recognition.** The referral
+tables, the credit ledger and the word `reward` are not reused for Parents'
+Player, Players' Player, coaches' recognition, Kudos, match awards or rugby
+badges. Step 11 introduces no credit, no points and no financial liability, and
+nothing it creates can reach `platform_credits`.
 
 ## 2. The original backlog, recovered
 
@@ -183,4 +220,6 @@ votes in the few cases where it worked.
    team** (`fixtures.opponent_team_id is not null`). Against
    `raw_opposition_text` there is no authenticated actor, and inventing one from
    knowledge of a fixture URL is exactly what §13 forbids.
-7. **No currency.** Referral rewards own that word and own real money.
+7. **No currency, and no borrowing of the commercial one.** `reward` belongs to
+   the referral subscription benefit (§1.1). Recognition creates no credit, no
+   points and no financial liability.
