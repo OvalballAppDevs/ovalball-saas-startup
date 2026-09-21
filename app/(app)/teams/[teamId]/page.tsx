@@ -14,6 +14,13 @@ import { compactTeamLabel, fullTeamLabel } from "@/lib/teams/compact-label"
 import { formatGenderLabel } from "@/lib/teams/labels"
 
 import { teamJoinCodes } from "./join-code-actions"
+import { loadAgenda } from "@/lib/agenda/load"
+import { shiftDays } from "@/lib/agenda/window"
+import type { AgendaScope } from "@/lib/agenda/scope"
+import type { FamilyChild } from "@/lib/parent/family-agenda"
+import { TeamRelationshipBadges } from "@/components/teams/team-relationship-badges"
+import { TeamWhatsNext } from "@/components/teams/team-whats-next"
+import { answerablePlayerIds, type TeamRelationship } from "@/lib/teams/team-relationship"
 import { JoinCodeSection } from "./join-code-section"
 import { TeamIdentitySection } from "./team-identity-section"
 import { TeamLifecycleSection, type RestorableFixtureRow } from "./team-lifecycle-section"
@@ -57,10 +64,27 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   // whole point of the roster. The active-context check stays, so a
   // multi-role account switched into an unrelated club still cannot browse
   // this team -- see app/(app)/people/page.tsx for that leak class.
+  // ENTRY IS A CAPABILITY AT THIS TEAM, AND NOTHING ELSE.
+  //
+  // It used to also require the ACTIVE context's club to be this team's club,
+  // which was the right instinct aimed at the wrong conjunct. The leak that
+  // rule was written against was a SESSION-WIDE one -- "does this account hold
+  // club authority anywhere" -- and `team.team.view` is not that: the engine
+  // resolves it at this team, inheriting from this team's club only, so a Club
+  // Admin of one club still cannot see another's team.
+  //
+  // What the extra conjunct did do was lock out the people the team is for. A
+  // guardian in All Children mode has NO active club by design -- a family view
+  // is deliberately not scoped to one -- so every parent was redirected away
+  // from their own child's team page, and so was any player whose active
+  // context was their own. Convergence Step 10's browser journey found it at
+  // B1: the guardian landed on /dashboard.
+  //
+  // The club scoping stays exactly where it belongs, on `canManage` below,
+  // which is the club-wide authority the original fix was about.
   const canView =
     ctx.siteCapabilities.includes("site.clubs.view") ||
-    (activeClub === team.club_id &&
-      (await hasCapability(supabase, "team.team.view", "team", { clubId: team.club_id, teamId: team.id })))
+    (await hasCapability(supabase, "team.team.view", "team", { clubId: team.club_id, teamId: team.id }))
   if (!canView) redirect("/teams")
 
   const canManage = ctx.isSiteAdmin || activeManageableClubId(ctx, activeContext) === team.club_id
@@ -135,6 +159,51 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
     .map((m) => ({ membershipId: m.id, name: nameByMembershipId.get(m.id) ?? "Unknown" }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
+  // WHAT THIS PERSON IS TO THIS TEAM, from the one canonical reader. Nothing
+  // authorises off it -- every control below still asks the capability engine --
+  // but a page that cannot say "you are this child's parent" is a page nobody
+  // can orient themselves on, which is what Step 0 recorded about this one.
+  const { data: relationshipRows } = await supabase.rpc("my_team_relationship", { p_team_id: teamId })
+  const relationships: TeamRelationship[] = (relationshipRows ?? []).map((r) => ({
+    relationship: r.relationship,
+    label: r.label,
+    subjectPlayerId: r.subject_player_id,
+    subjectName: r.subject_name,
+  }))
+  const answerable = answerablePlayerIds(relationships)
+
+  // WHAT'S NEXT, from the canonical agenda reader the Calendar and the family
+  // agenda already use. A family scope is used where the viewer has one, because
+  // that is what puts a player id on each row and makes Step 9's answer control
+  // work; otherwise the team's own scope, which carries none and asks nobody to
+  // answer anything.
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const familyChildren: FamilyChild[] = relationships
+    .filter((r) => r.subjectPlayerId)
+    .map((r) => ({
+      playerId: r.subjectPlayerId as string,
+      firstName: (r.subjectName ?? "").split(" ")[0] ?? "",
+      surname: (r.subjectName ?? "").split(" ").slice(1).join(" "),
+      fullName: r.subjectName ?? "",
+      teamId: team.id,
+      teamName: team.display_name,
+      clubId: team.club_id,
+      clubName: "",
+      avatarStoragePath: null,
+    }))
+
+  const agendaScope: AgendaScope =
+    familyChildren.length > 0
+      ? { kind: "family", children: familyChildren }
+      : { kind: "teams", teamIds: [team.id], clubId: team.club_id }
+
+  const [upcomingRead, recentRead] = await Promise.all([
+    loadAgenda(supabase, agendaScope, { startIso: todayIso, endIso: shiftDays(todayIso, 60), order: "asc", label: "the next 60 days" }, { includeTraining: true }),
+    loadAgenda(supabase, agendaScope, { startIso: shiftDays(todayIso, -60), endIso: todayIso, order: "desc", label: "the last 60 days" }, { includeTraining: false }),
+  ])
+  const upcoming = upcomingRead.items.slice(0, 5)
+  const recent = recentRead.items.filter((i) => i.result).slice(0, 3)
+
   let restorableFixtures: RestorableFixtureRow[] = []
   if (canManage && team.active) {
     const { data: restorable } = await supabase.rpc("list_restorable_fixtures", { p_team_id: teamId })
@@ -163,6 +232,16 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           <span className="mt-0.5 rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-medium text-ink-muted">Folded</span>
         )}
       </div>
+
+      <TeamRelationshipBadges relationships={relationships} />
+
+      <TeamWhatsNext
+        upcoming={upcoming}
+        recent={recent}
+        todayIso={todayIso}
+        answerable={answerable}
+        returnTo={`/teams/${team.id}`}
+      />
 
       <div className="mt-8">
         {canManage ? (

@@ -7582,6 +7582,13 @@
         "consumers": [
           "supabase/tests/step9_family_and_availability.sql"
         ]
+      },
+      {
+        "signature": "my_team_relationship(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/teams/[teamId]/page.tsx"
+        ]
       }
     ],
     "authenticated_revoked_public": [

@@ -56,6 +56,34 @@ export interface ReturnSurface {
   /** What the link says. A destination is named, never just "Back". */
   label: string
   params: readonly string[]
+  /**
+   * A surface whose path carries one canonical id, e.g. `/teams/<uuid>`.
+   *
+   * Still exact, not a prefix: the pathname must be the declared path plus
+   * exactly one more segment, and that segment must be a uuid. `/teams/x/y`,
+   * `/teams/../admin` and `/teams-evil/<uuid>` all fail, which is the whole
+   * reason this is a flag on a declared surface rather than a pattern anybody
+   * can add.
+   */
+  idSegment?: true
+}
+
+/** A canonical id, and nothing that merely looks like a path. */
+const UUID_SEGMENT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** The declared surface this pathname is, or null. Exact, including the id shape. */
+function surfaceFor(pathname: string): { surface: ReturnSurface; path: string } | null {
+  const exact = RETURN_SURFACES.find((s) => !s.idSegment && s.path === pathname)
+  if (exact) return { surface: exact, path: exact.path }
+
+  for (const surface of RETURN_SURFACES) {
+    if (!surface.idSegment) continue
+    if (!pathname.startsWith(`${surface.path}/`)) continue
+    const rest = pathname.slice(surface.path.length + 1)
+    if (!UUID_SEGMENT.test(rest)) continue
+    return { surface, path: `${surface.path}/${rest}` }
+  }
+  return null
 }
 
 /**
@@ -68,6 +96,11 @@ export const RETURN_SURFACES: readonly ReturnSurface[] = [
   { path: "/calendar", label: "Calendar", params: CALENDAR_PARAMS },
   { path: "/calendar/agenda", label: "Agenda", params: CALENDAR_PARAMS },
   { path: "/fixtures", label: "Fixtures", params: [] },
+  // Convergence Step 10. A team page is now a place a fixture is genuinely
+  // opened from, so returning to it is a real destination rather than a
+  // pattern: the id in the path must be a uuid and the pathname must be the
+  // team page itself, never anything beneath it.
+  { path: "/teams", label: "Team", params: [], idSegment: true },
 ]
 
 /** Where a fixture goes back to when nothing legitimate was carried. Reachable by every viewer. */
@@ -92,8 +125,9 @@ const SENTINEL_ORIGIN = "https://ovalball.invalid"
  * the URL longer without changing where Back goes.
  */
 export function buildFixtureReturn(pathname: string, search: URLSearchParams | string | null | undefined): string | null {
-  const surface = RETURN_SURFACES.find((s) => s.path === pathname)
-  if (!surface) return null
+  const match = surfaceFor(pathname)
+  if (!match) return null
+  const surface = match.surface
 
   const params = typeof search === "string" ? new URLSearchParams(search) : (search ?? new URLSearchParams())
   const kept = new URLSearchParams()
@@ -106,9 +140,9 @@ export function buildFixtureReturn(pathname: string, search: URLSearchParams | s
   }
 
   const query = kept.toString()
-  if (surface.path === DEFAULT_RETURN.href && !query) return null
-  const value = query ? `${surface.path}?${query}` : surface.path
-  return value.length > MAX_RETURN_LENGTH ? surface.path : value
+  if (match.path === DEFAULT_RETURN.href && !query) return null
+  const value = query ? `${match.path}?${query}` : match.path
+  return value.length > MAX_RETURN_LENGTH ? match.path : value
 }
 
 /**
@@ -141,8 +175,9 @@ export function resolveFixtureReturn(raw: string | string[] | null | undefined):
   // would be the only part of the value this module could not reason about.
   if (url.hash) return DEFAULT_RETURN
 
-  const surface = RETURN_SURFACES.find((s) => s.path === url.pathname)
-  if (!surface) return DEFAULT_RETURN
+  const match = surfaceFor(url.pathname)
+  if (!match) return DEFAULT_RETURN
+  const surface = match.surface
 
   // Rebuild rather than pass through: an unknown parameter is dropped, not
   // trusted, so the destination only ever receives parameters it already parses.
@@ -154,7 +189,7 @@ export function resolveFixtureReturn(raw: string | string[] | null | undefined):
     }
   }
   const query = kept.toString()
-  return { href: query ? `${surface.path}?${query}` : surface.path, label: surface.label }
+  return { href: query ? `${match.path}?${query}` : match.path, label: surface.label }
 }
 
 /** The query-parameter name. One constant so a producer and a consumer cannot disagree about it. */

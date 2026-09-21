@@ -400,6 +400,11 @@ SUITES=(
   # moving, family IDOR in both directions, and a family relationship conferring
   # no club, team or fixture authority.
   step9_family_and_availability
+  # Convergence Step 10: what a person is to a team, as a list rather than one
+  # invented primary role; a badge that cannot outlive a revoked role or a
+  # suspended membership; team IDOR in both directions; team staff who do not
+  # become club administrators; and a Site Admin who inspects without joining.
+  step10_team_experience
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
@@ -601,6 +606,13 @@ BROWSER_SUITES=(
   # operational availability summary a club reads moves because of it. That
   # last assertion is the Step 7 -> Step 9 integration proof.
   49-family-availability-journey
+  # CONVERGENCE STEP 10. The team home as a place rather than a settings form:
+  # a Team Manager sees what they are to the team and what is next, opens the
+  # canonical fixture and comes back to THE TEAM, and cannot reach a mass
+  # fixture tool from any of it; a guardian reaches the same team through their
+  # child, is shown as a parent rather than as the player, and answers on the
+  # team's own row into the same canonical record.
+  50-team-home-journey
   52-roster-authority
   58-club-admin-authority
   59-club-misc-authority

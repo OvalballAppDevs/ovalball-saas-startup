@@ -18503,6 +18503,7 @@ export type Database = {
           canonical_team_type_id: string | null
           category: string
           club_id: string
+          cover_image_path: string | null
           created_at: string
           created_by: string | null
           display_name: string
@@ -18528,6 +18529,7 @@ export type Database = {
           canonical_team_type_id?: string | null
           category: string
           club_id: string
+          cover_image_path?: string | null
           created_at?: string
           created_by?: string | null
           display_name: string
@@ -18553,6 +18555,7 @@ export type Database = {
           canonical_team_type_id?: string | null
           category?: string
           club_id?: string
+          cover_image_path?: string | null
           created_at?: string
           created_by?: string | null
           display_name?: string
@@ -24461,6 +24464,15 @@ export type Database = {
         }[]
       }
       my_site_capabilities: { Args: never; Returns: string[] }
+      my_team_relationship: {
+        Args: { p_team_id: string }
+        Returns: {
+          label: string
+          relationship: string
+          subject_name: string
+          subject_player_id: string
+        }[]
+      }
       my_unread_counts: {
         Args: never
         Returns: {

@@ -407,11 +407,50 @@ begin
 
   raise notice 'PASS clean boot: Step 9''s family rule is correct from empty, and reaches exactly one relationship';
 end $$;
+
+-- =====================================================================================================
+-- CONVERGENCE STEP 10. One reader and one column. The reader's mistake would be a badge that outlives
+-- the relationship it names, or a team another club can enumerate; the column's would be a second media
+-- architecture beside the one Club Home already has.
+-- =====================================================================================================
+do $$
+declare v_def text;
+begin
+  if to_regprocedure('public.my_team_relationship(uuid)') is null then
+    raise exception 'CLEAN BOOT: the team relationship reader does not exist';
+  end if;
+  if has_function_privilege('anon', 'public.my_team_relationship(uuid)', 'EXECUTE') then
+    raise exception 'CLEAN BOOT: anon can ask who they are to a team';
+  end if;
+
+  select pg_get_functiondef(p.oid) into v_def from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'my_team_relationship';
+  if v_def ~ '''TEAM_ADMIN''' then
+    raise exception 'CLEAN BOOT: the team relationship reader names the retired team_admin role';
+  end if;
+  if v_def !~ 'ra.state = ''ACTIVE''' or v_def !~ 'cm.state = ''ACTIVE''' then
+    raise exception 'CLEAN BOOT: a badge could outlive a revoked role or a suspended membership';
+  end if;
+  if v_def !~ 'team.team.view' then
+    raise exception 'CLEAN BOOT: the team relationship reader does not gate on seeing the team';
+  end if;
+
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'teams' and column_name = 'cover_image_path') then
+    raise exception 'CLEAN BOOT: the team cover column does not exist';
+  end if;
+  if exists (select 1 from information_schema.tables
+              where table_schema = 'public' and table_name like '%team_media%') then
+    raise exception 'CLEAN BOOT: a second media architecture appeared for team covers';
+  end if;
+
+  raise notice 'PASS clean boot: Step 10''s team reader is correct from empty, and no badge outlives its relationship';
+end $$;
 SQL
 STATUS=$?
 
 echo "-- running the estate's own assertions against the fresh database"
-for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access step9_family_and_availability; do
+for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access step9_family_and_availability step10_team_experience; do
   out=$(boot_psql -q -f - < "$REPO/supabase/tests/$suite.sql" 2>&1)
   fails=$(printf '%s' "$out" | grep -c "FAIL" || true)
   passes=$(printf '%s' "$out" | grep -c "PASS" || true)

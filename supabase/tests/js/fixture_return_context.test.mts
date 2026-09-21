@@ -120,10 +120,41 @@ test("a stale target that is still a known surface is honoured; the filters it n
   assert.equal(back.href, `${CONTROL_CENTRE}?team=00000000-0000-0000-0000-000000000000`)
 })
 
+const A_TEAM = "11111111-2222-4333-8444-555555555555"
+
 test("every surface on the allowlist resolves to itself", () => {
   for (const surface of RETURN_SURFACES) {
+    // Convergence Step 10 added a surface whose path carries one canonical id.
+    // Its bare path is not a destination -- `/teams` is a list, not the team a
+    // fixture was opened from -- so it is exercised with an id, and the bare
+    // form is asserted to fall back rather than resolve.
+    if (surface.idSegment) {
+      const withId = `${surface.path}/${A_TEAM}`
+      assert.equal(resolveFixtureReturn(withId).href, withId)
+      assert.equal(resolveFixtureReturn(surface.path).href, "/fixtures")
+      continue
+    }
     assert.equal(resolveFixtureReturn(surface.path).href, surface.path)
   }
+})
+
+test("an id-carrying surface is exact, not a prefix", () => {
+  // The lesson `/admin/fixtures` vs `/admin/fixtures-evil` taught, applied to
+  // the one surface whose path is not fully literal.
+  for (const hostile of [
+    "/teams-evil/11111111-2222-4333-8444-555555555555",
+    `/teams/${A_TEAM}/settings`,
+    `/teams/${A_TEAM}/../admin`,
+    "/teams/not-a-uuid",
+    "/teams/11111111-2222-4333-8444",
+    `/teams/${A_TEAM}%2Fadmin`,
+  ]) {
+    assert.equal(resolveFixtureReturn(hostile).href, "/fixtures", `${hostile} resolved somewhere it should not`)
+  }
+})
+
+test("a team return carries no query parameters, because a team page parses none", () => {
+  assert.equal(resolveFixtureReturn(`/teams/${A_TEAM}?tab=secrets&x=1`).href, `/teams/${A_TEAM}`)
 })
 
 test("the fixture link carries the value encoded, and omits it when there is none", () => {
