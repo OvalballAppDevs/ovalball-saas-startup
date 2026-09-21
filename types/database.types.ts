@@ -12204,6 +12204,45 @@ export type Database = {
           },
         ]
       }
+      impersonation_sessions: {
+        Row: {
+          actor_user_id: string
+          end_reason: string | null
+          ended_at: string | null
+          ended_by: string | null
+          expires_at: string
+          id: string
+          reason: string
+          started_at: string
+          target_user_id: string
+          view_only: boolean
+        }
+        Insert: {
+          actor_user_id: string
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          expires_at?: string
+          id?: string
+          reason: string
+          started_at?: string
+          target_user_id: string
+          view_only?: boolean
+        }
+        Update: {
+          actor_user_id?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          expires_at?: string
+          id?: string
+          reason?: string
+          started_at?: string
+          target_user_id?: string
+          view_only?: boolean
+        }
+        Relationships: []
+      }
       invitation_redemption_attempts: {
         Row: {
           id: number
@@ -23564,6 +23603,7 @@ export type Database = {
           test_sends: number
         }[]
       }
+      end_impersonation: { Args: { p_reason?: string }; Returns: undefined }
       end_membership_subscription: {
         Args: {
           p_actor_user_id?: string
@@ -24916,6 +24956,15 @@ export type Database = {
           requested_by_me: boolean
           status: string
           subject_response: string
+        }[]
+      }
+      my_impersonation: {
+        Args: never
+        Returns: {
+          expires_at: string
+          session_id: string
+          target_name: string
+          view_only: boolean
         }[]
       }
       my_player_age_grade_status: {
@@ -26862,6 +26911,10 @@ export type Database = {
       start_club_trial: { Args: { p_club_id: string }; Returns: string }
       start_directory_verification_run: {
         Args: { p_directory_id?: string; p_filters?: Json; p_scope: string }
+        Returns: string
+      }
+      start_impersonation: {
+        Args: { p_reason: string; p_target_user_id: string }
         Returns: string
       }
       start_or_get_club_conversation: {

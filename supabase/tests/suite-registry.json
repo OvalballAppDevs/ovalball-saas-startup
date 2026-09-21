@@ -1639,6 +1639,11 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",
       "reason": "===================================================================================================== VENUE AND TRAINING AUTHORITY MATRIX (Identity/Auth Slice 4E, Phase 2 AA.3 row"
+    },
+    "step13_impersonation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth — Slice 9 impersonation",
+      "reason": "Convergence Step 13 / Identity-Auth Slice 9: acting as somebody is capability-gated, reasoned, view-only by default, clamped at the capability engine, expiring at read time, attributed to both people, and notified afterwards (AN-9)."
     }
   },
   "prerequisite_defect": {

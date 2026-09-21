@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server"
 import { AuditLog } from "../../clubs/[directoryId]/audit-log"
 import { mapAdminUserRow } from "../query"
 import { AccountSecurityPanel } from "./panels/account-security"
+import { ActAsControl } from "./act-as-control"
 import { CapabilityOverridesPanel, type OverrideRow } from "./panels/capability-overrides"
 import { ClubMembershipsPanel } from "./panels/club-memberships"
 import { ClubRolesPanel, type RoleAssignmentRow } from "./panels/club-roles"
@@ -99,6 +100,11 @@ export default async function AdminUserDetailPage({
 
       <div className="mt-6" role="tabpanel" aria-label={tabs.find((t) => t.key === active)?.label}>
         {active === "overview" && <OverviewTab person={person} />}
+        {/* SLICE 9. Only where the capability is actually held, and never against yourself -- the
+            server refuses both anyway, so this is a courtesy rather than the boundary. */}
+        {active === "overview" && capabilities.has("site.users.impersonate") && !isSelf && (
+          <ActAsControl userId={person.userId} personName={person.name || "this person"} />
+        )}
         {active === "personal" && (
           <section>
             <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Personal Details</h2>

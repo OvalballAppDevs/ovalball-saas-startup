@@ -3567,6 +3567,16 @@
         "select": "none",
         "select_reason": "Convergence Step 11: the ballot. DELIBERATELY NO SELECT POLICY -- identity is known to the server for eligibility and one-vote-per-person, and is never read by a browser session, including the staff who see only totals."
       }
+    },
+    "impersonation_sessions": {
+      "classification": "SENSITIVE_ACCESS",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Convergence Step 13 / Identity-Auth Slice 9: a bounded act-as session. RLS restricts the read to the actor, the person being acted as -- who is entitled to know -- and holders of site.users.view. There is no browser write path: starting and ending go through start_impersonation and end_impersonation, which require the canonical session gate, recent AAL2, site.users.impersonate and an explicit reason. The row carries no credential."
+      }
     }
   },
   "views": {
@@ -7747,6 +7757,27 @@
         "consumers": [
           "lib/teams/age-grade.ts"
         ]
+      },
+      {
+        "signature": "end_impersonation(text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/impersonation-actions.ts"
+        ]
+      },
+      {
+        "signature": "my_impersonation()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/layout.tsx"
+        ]
+      },
+      {
+        "signature": "start_impersonation(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/impersonation-actions.ts"
+        ]
       }
     ],
     "authenticated_revoked_public": [
@@ -8682,7 +8713,10 @@
       "withdraw_match_award_vote(uuid)",
       "withdraw_match_kudos(uuid, uuid)",
       "my_player_age_grade_status(uuid, date)",
-      "team_age_grade_attention(uuid, date)"
+      "team_age_grade_attention(uuid, date)",
+      "end_impersonation(text)",
+      "my_impersonation()",
+      "start_impersonation(uuid, text)"
     ],
     "service_role_internal": [
       "advance_competition_knockout(uuid)",

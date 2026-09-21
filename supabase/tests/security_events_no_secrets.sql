@@ -443,7 +443,21 @@ begin
                                              -- 'guardian.unlinked' in the body, the actor comes from
                                              -- internal.actor(), and the function refuses anybody who is
                                              -- not the adult player the relationship is about.
-                                             'end_my_guardian_access'))
+                                             'end_my_guardian_access',
+                                             -- Slice 9 / Step 13: beginning and ending an act-as
+                                             -- session. The caller supplies a target and a reason and
+                                             -- controls neither the event nor the actor: the event
+                                             -- types are the literals 'impersonation.started' and
+                                             -- 'impersonation.ended' in the bodies, the actor comes
+                                             -- from internal.actor() -- deliberately NOT
+                                             -- effective_person(), so the real person is named -- and
+                                             -- the metadata carries the session id and whether the
+                                             -- session may act, never a credential. Both are
+                                             -- authenticated-only, behind the canonical session gate,
+                                             -- and starting additionally requires recent AAL2 and
+                                             -- site.users.impersonate.
+                                             'start_impersonation',
+                                             'end_impersonation'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

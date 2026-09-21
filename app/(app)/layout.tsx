@@ -26,6 +26,7 @@ import { AppNav } from "./app-nav"
 import { ContextSwitchOverlay } from "./context-switch-overlay"
 import { ClubSetupRequired } from "./club-setup-required"
 import { DiagnosticBanner } from "./diagnostic-banner"
+import { ImpersonationBanner } from "./impersonation-banner"
 import { SwitchContextProvider } from "./switch-context-provider"
 
 /**
@@ -154,6 +155,18 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   // a Fixture Secretary ever saw the explanation.
   const contextClubId = activeContext.clubId ?? (activeContext.kind === "club" ? activeContext.id : null)
 
+  // SLICE 9: whose authority is this request using? The server asks its OWN session table, keyed by
+  // the real signed-in person -- the browser is never consulted, so there is nothing to forge.
+  const { data: actingAsRows } = await supabase.rpc("my_impersonation")
+  const actingAs = actingAsRows?.[0]
+    ? {
+        sessionId: actingAsRows[0].session_id,
+        targetName: actingAsRows[0].target_name,
+        viewOnly: actingAsRows[0].view_only,
+        expiresAt: actingAsRows[0].expires_at,
+      }
+    : null
+
   if (contextClubId && !diagnosticClub) {
     const setup = await getClubSetupState(supabase, contextClubId)
     if (setup && setup.status !== "COMPLETED") {
@@ -238,7 +251,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
       */}
       <div
         className="flex min-h-screen flex-col bg-chalk"
-        style={{ "--app-banner-h": `${(betaState.mode === "beta" ? 36 : 0) + (diagnosticClub ? 44 : 0)}px` } as React.CSSProperties}
+        style={{ "--app-banner-h": `${(betaState.mode === "beta" ? 36 : 0) + (diagnosticClub ? 44 : 0) + (actingAs ? 44 : 0)}px` } as React.CSSProperties}
       >
         {/* ONE Beta indicator for every authenticated role -- Site Admin,
             Club Admin, Team Admin, Parent and Player all render through this
@@ -250,6 +263,9 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
           </div>
         )}
         {diagnosticClub && <DiagnosticBanner diagnosticClub={diagnosticClub} />}
+        {/* SLICE 9. Beside the diagnostic strip because it answers the same question -- am I seeing
+            this as myself? -- and above everything else, so it cannot be scrolled away from. */}
+        {actingAs && <ImpersonationBanner session={actingAs} />}
         <div className="flex flex-1 flex-col md:flex-row">
           <div className="hidden md:block">
             <AppNav
