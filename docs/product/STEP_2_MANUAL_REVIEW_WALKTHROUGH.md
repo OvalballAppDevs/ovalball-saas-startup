@@ -578,6 +578,27 @@ Idempotent, and it never touches the owner's own review material.
 real club as belonging to an invented union — even locally — is the kind of plausible-but-wrong data
 that gets believed later.
 
+### Its competition (Convergence Step 16)
+
+```
+node scripts/review-fixtures/step2-review-club.mjs enrich-governing-competition
+```
+
+**Review County Junior Cup** — four **Under 12 Boys** sides from four affiliated clubs (all four
+genuinely field one), six matches issued, three with results, and twelve club answers outstanding. Every
+record was written through the product's own competition RPCs, so the draw and the verification rows are
+exactly what the Competition Creator would have made.
+
+That makes both halves reviewable at once:
+
+| side | where |
+|---|---|
+| the organiser | `/governing/<body>/competitions` → **Results & Table** |
+| the club | sign in as a Club Admin of an entered club → **Fixtures & Calendar → Competitions** → *Competitions You're In* |
+
+`uat.coach@ovalball.test` is deliberately **both** — a Club Admin at Ovalball UAT RUFC and the county's
+Competitions Officer — so the two jobs can be compared on one account.
+
 **The review to do here is the cross-context one.** Sign in as `uat.preston.admin`, note that the
 default context is still their **club**, then switch to *Ovalball Review County RFU* in the context
 switcher. The navigation should become Overview · Clubs · Competitions · People & Access, their

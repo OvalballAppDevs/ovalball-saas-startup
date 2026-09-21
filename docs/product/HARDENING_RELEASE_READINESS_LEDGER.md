@@ -211,7 +211,8 @@ brand assets are never changed incidentally.
 
 ## H13 — Governing Body foundation (Step 14) debt
 
-- **H13.1 — no `body` scope in the capability engine.**
+- **H13.1 — no `organisation` scope in the capability engine.** *(Renamed by Step 16: the
+  platform's own word is `organisation`, not `body`.)*
   `internal.capability_decision` takes club, team and player only, and
   `bundle_capabilities.scope_type` is constrained to five values. Step 14
   resolves governing-body authority through dedicated functions over
@@ -294,6 +295,63 @@ brand assets are never changed incidentally.
   not fixed — it is outside Step 15's scope and belongs to whoever owns the
   context switcher. *Owner: test governance (with H2), and the shell programme
   for the failure itself.*
+
+## H15 — Competition / Governing closure (Step 16) outcome
+
+**Five items closed, three deferred with an owner decision, one renamed.**
+
+- **H14.1 governing-body invitations — CLOSED.** Through the canonical architecture: one kind
+  (`GOVERNING_BODY_OFFICER`), one nullable `access_invitations.constituent_body_id`, one spec row at
+  `scope_type = 'organisation'`, one disjunct in `issue_invitation`, one branch in `redeem_invitation`,
+  and the organisation in `preview_invitation`'s label. No second table, no second token, no second
+  redemption path.
+- **H14.2 account-existence oracle — CLOSED.** `grant_governing_body_role_by_email` is **dropped**, and
+  the one remaining path works whether or not the address has an account.
+- **H14.3 body competition results and standings — CLOSED.** `governing_body_competition_matches` plus
+  the existing `lib/competitions/standings.ts`. No second standings computation, and
+  external-versus-external matches are visible because the module never looks at a fixture.
+- **H13.3 affiliation lifecycle — CLOSED BY DECISION, not built.** `club_directory.constituent_body`
+  holds the county's **published name** beside the FK, sourced from the county unions' own club lists.
+  Which county a club belongs to is a published fact, not an agreement two Ovalball parties reach, and
+  the repository contains no requirement for a lifecycle. The Clubs page states where the list comes
+  from and offers no control that would overwrite it.
+- **H13.2** remains closed (Step 15).
+- **H13.1 organisation capability scope — DECIDED, NOT IMPLEMENTED, and renamed.** The engine already
+  names it: `internal.capability_decision` refuses `organisation` at rule 1 with
+  `SCOPE_NOT_IMPLEMENTED`, and `public.capabilities.valid_scopes` already permits the word. Step 16
+  registered **`governing.access.manage`** with `valid_scopes = {organisation}` — required, because
+  `access_invitations.issuer_capability` is a foreign key into that catalogue — so the vocabulary has one
+  home while the scope stays unimplemented. Implementing it means a new parameter on the platform's
+  most-called function, plus the override model and `bundle_source`; `step16_governing_closure` **A6**
+  and **J1–J2** hold the line, and **A6** specifically forbids asking the engine for the scope, which is
+  the actual trap. *Owner: capability engine.*
+
+### New Step 16 debt
+
+- **H15.1 — governing-body invitations are not emailed.** The invitation is fully canonical, but
+  Ovalball has no `governing_body_invitation` email event, so People & Access gives the administrator a
+  link to send and **says so** rather than claiming an email was sent. Adding the event touches five
+  files — `lib/email/catalogue.ts`, `wiring.ts`, `contracts.ts`, `templates.ts` (type, `copyFor` and a
+  renderer) and `preview-fixtures.ts` — plus the email guards. *Owner: email programme.*
+- **H15.2 — React's development performance instrumentation throws on interrupted transitions.**
+  `Failed to execute 'measure' on 'Performance': '<Component>' cannot have a negative time stamp`,
+  when a client-side transition is navigated out of. `85-competition-governing-closure` filters that
+  exact message and nothing else, and records the count. Not an application error, and not silently
+  dropped. *Owner: test harness, if it recurs elsewhere.*
+- **H15.3 — competition standings are computed in TypeScript only.** Correct today, and deliberate: the
+  module is the one source and the public page and the governing page both consume it. A native client
+  would need the same answer from the server. *Owner: whoever builds it.*
+
+### Deferred with an owner decision (see the Step 16 report's register)
+
+- **H14.4 messaging.** The *organiser↔club* channel existed as notifications and was **mis-routed**;
+  that is fixed. A governing body as a **sender identity** has no model and is not invented.
+- **H14.5 welfare.** Every safeguarding concept in the platform is club-scoped; nothing escalates to a
+  county and no table records a body's involvement in a case. There is no under-specified feature, there
+  is no feature.
+- **H14.6 native governing-body dispensation.** The stage is the club's attestation, there is no column
+  in which a native decision could be recorded, and existing rows' `governing_body_decided_by` points at
+  club administrators. Reinterpreting them would falsify them.
 
 ## H11 — Owed at hardening, in one list
 

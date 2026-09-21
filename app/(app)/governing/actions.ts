@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { invitationJoinUrl } from "@/lib/invitations/share"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -16,27 +17,59 @@ import { createClient } from "@/lib/supabase/server"
 export type GoverningActionResult = { ok: true } | { ok: false; error: string }
 
 /**
- * Giving somebody access, by the email address of the Ovalball account they already have.
+ * CONVERGENCE STEP 16 — INVITING SOMEBODY TO ACT FOR THE ORGANISATION.
  *
- * NO_ACCOUNT is an ordinary answer rather than a failure: inviting a person who is not on Ovalball yet
- * needs the canonical invitation system, whose kinds have no governing-body shape, and a private token
- * invented here instead would be the defect. The page says so plainly.
+ * THIS REPLACED A GRANT, AND THAT IS THE WHOLE POINT. Step 15 gave a role to an address that already
+ * had an Ovalball account and answered NO_ACCOUNT when it did not — which told a governing-body
+ * administrator whether any given address is registered on Ovalball. There is now ONE path that works
+ * either way, so the product never has to distinguish and there is nothing left to learn from the
+ * answer. `grant_governing_body_role_by_email` was dropped rather than left unused.
+ *
+ * The invitation is the canonical one: hashed token and code, a 7-day lifetime, single use, bound to
+ * the invited address and redeemable only by a session whose CONFIRMED email matches it. So the link
+ * this returns is not a bearer credential — forwarding it to somebody else does not give them access.
  */
-export async function grantBodyAccess(
+export async function inviteBodyOfficer(
   bodyId: string,
   email: string,
-  roleKey: string,
-  reason: string | null
-): Promise<GoverningActionResult | { ok: false; noAccount: true }> {
+  roleKey: string
+): Promise<{ ok: true; joinUrl: string | null; alreadyExisted: boolean } | { ok: false; error: string }> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc("grant_governing_body_role_by_email", {
-    p_body_id: bodyId,
-    p_email: email,
-    p_role_key: roleKey,
-    p_reason: reason ?? undefined,
-  })
+  const { data, error } = await supabase
+    .rpc("invite_governing_body_officer", { p_body_id: bodyId, p_email: email, p_role_key: roleKey })
+    .maybeSingle()
+  if (error || !data) return { ok: false, error: error?.message ?? "That invitation could not be created." }
+  revalidatePath(`/governing/${bodyId}/people`)
+  return {
+    ok: true,
+    // Null when an open invitation to that address already existed: the token is not re-issued, because
+    // the live one is still valid. "Send Again" rotates it deliberately.
+    joinUrl: data.token ? invitationJoinUrl(data.token) : null,
+    alreadyExisted: data.already_existed ?? false,
+  }
+}
+
+/** Rotates the secret and returns a fresh link — the canonical remedy for a link sent to the wrong place. */
+export async function resendBodyInvitation(
+  bodyId: string,
+  invitationId: string
+): Promise<{ ok: true; joinUrl: string } | { ok: false; error: string }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("resend_invitation", { p_invitation_id: invitationId }).maybeSingle()
+  if (error || !data?.token) return { ok: false, error: error?.message ?? "That invitation could not be sent again." }
+  revalidatePath(`/governing/${bodyId}/people`)
+  return { ok: true, joinUrl: invitationJoinUrl(data.token) }
+}
+
+/** Canonical revocation, reached through the same authority that revokes a club invitation. */
+export async function revokeBodyInvitation(
+  bodyId: string,
+  invitationId: string,
+  reason: string
+): Promise<GoverningActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("revoke_invitation", { p_invitation_id: invitationId, p_reason: reason })
   if (error) return { ok: false, error: error.message }
-  if (data?.[0]?.outcome === "NO_ACCOUNT") return { ok: false, noAccount: true }
   revalidatePath(`/governing/${bodyId}/people`)
   return { ok: true }
 }

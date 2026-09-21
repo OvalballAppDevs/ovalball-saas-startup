@@ -2,8 +2,11 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Plus } from "lucide-react"
 
+import { loadClubCompetitionEntries } from "@/lib/competitions/club-entries"
 import { resolveOrganiserScope } from "@/lib/competitions/organiser-scope"
 import { MATCH_STATUS_WORD } from "@/lib/competitions/workspace-types"
+
+import { EnteredCompetitions } from "./entered-competitions"
 
 export const metadata = { title: "Competitions" }
 
@@ -33,6 +36,10 @@ export default async function CompetitionsListPage() {
   if (!scope.siteAdmin) query = query.eq("competitions.organiser_club_id", scope.clubId!)
   const { data: editions } = await query
 
+  // CONVERGENCE STEP 16 -- THE OTHER HALF. The query above is what this club ORGANISES; this is what it
+  // takes part in, which until now had no home anywhere in the product.
+  const entered = scope.clubId ? await loadClubCompetitionEntries(supabase, scope.clubId) : []
+
   const editionIds = (editions ?? []).map((e) => e.id)
   const { data: matchRows } =
     editionIds.length > 0 ? await supabase.from("competition_matches").select("edition_id, status").in("edition_id", editionIds) : { data: [] }
@@ -50,6 +57,7 @@ export default async function CompetitionsListPage() {
           <h1 className="font-display text-3xl text-ink">Competitions</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-muted">
             {scope.siteAdmin ? "Every competition on Ovalball." : "Competitions your club organises."} Build the draw, check it for clashes, then issue it to the clubs taking part.
+            {!scope.siteAdmin && entered.length > 0 ? " The competitions you have been entered in are below." : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -120,6 +128,7 @@ export default async function CompetitionsListPage() {
           </table>
         </div>
       )}
+      <EnteredCompetitions entries={entered} />
     </div>
   )
 }

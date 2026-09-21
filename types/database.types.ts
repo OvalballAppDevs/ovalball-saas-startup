@@ -23015,6 +23015,28 @@ export type Database = {
           scope_type: string
         }[]
       }
+      club_competition_entries: {
+        Args: { p_club_id: string }
+        Returns: {
+          awaiting_response: number
+          competition_id: string
+          competition_name: string
+          competition_slug: string
+          confirmed: number
+          declined: number
+          edition_id: string
+          entered_count: number
+          entered_teams: string[]
+          format: string
+          organiser_body_id: string
+          organiser_kind: string
+          organiser_label: string
+          played: number
+          rugby_code: string
+          season_name: string
+          total_matches: number
+        }[]
+      }
       club_credit_balance_pence: {
         Args: { p_club_id: string }
         Returns: number
@@ -23318,6 +23340,13 @@ export type Database = {
           p_storage_path: string
         }
         Returns: string
+      }
+      current_competition_season: {
+        Args: { p_rugby_code: string }
+        Returns: {
+          season_id: string
+          season_name: string
+        }[]
       }
       create_governing_body_competition: {
         Args: { p_body_id: string; p_name: string; p_season_id?: string }
@@ -24549,6 +24578,28 @@ export type Database = {
         }
         Returns: undefined
       }
+      governing_body_competition_matches: {
+        Args: { p_competition_id: string }
+        Returns: {
+          away_label: string
+          away_participant_id: string
+          away_score: number
+          edition_id: string
+          home_label: string
+          home_participant_id: string
+          home_score: number
+          is_external_only: boolean
+          kickoff_time: string
+          match_date: string
+          match_id: string
+          round_number: number
+          season_name: string
+          stage_kind: string
+          status: string
+          venue_label: string
+          verification_state: string
+        }[]
+      }
       governing_body_clubs: {
         Args: { p_body_id: string }
         Returns: {
@@ -24581,6 +24632,20 @@ export type Database = {
           slug: string
         }[]
       }
+      governing_body_invitations: {
+        Args: { p_body_id: string }
+        Returns: {
+          can_administer: boolean
+          expires_at: string
+          expires_soon: boolean
+          invitation_id: string
+          invited_email: string
+          issued_at: string
+          issued_by_name: string
+          resend_count: number
+          role_key: string
+        }[]
+      }
       governing_body_people: {
         Args: { p_body_id: string }
         Returns: {
@@ -24598,13 +24663,6 @@ export type Database = {
       grant_club_membership: {
         Args: { p_club_id: string; p_reason: string; p_user_id: string }
         Returns: string
-      }
-      grant_governing_body_role_by_email: {
-        Args: { p_body_id: string; p_email: string; p_reason?: string; p_role_key: string }
-        Returns: {
-          outcome: string
-          user_id: string
-        }[]
       }
       guardian_link_requests_for_approval: {
         Args: { p_club_id?: string }
@@ -24693,6 +24751,15 @@ export type Database = {
           held_at_team: boolean
           label: string
           role_key: string
+        }[]
+      }
+      invite_governing_body_officer: {
+        Args: { p_body_id: string; p_email: string; p_role_key: string }
+        Returns: {
+          already_existed: boolean
+          expires_at: string
+          invitation_id: string
+          token: string
         }[]
       }
       invite_player_account: {

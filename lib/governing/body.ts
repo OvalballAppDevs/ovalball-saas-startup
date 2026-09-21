@@ -208,3 +208,110 @@ export function competitionProgress(c: BodyCompetition): string {
   if (c.resultCount >= c.matchCount) return `${c.enteredCount} teams · all ${c.matchCount} matches played`
   return `${c.enteredCount} teams · ${c.resultCount} of ${c.matchCount} matches played`
 }
+
+/* ===================================================================================================
+ * CONVERGENCE STEP 16 — invitations, and one competition's real outcome.
+ * =================================================================================================*/
+
+export interface BodyInvitation {
+  invitationId: string
+  invitedEmail: string
+  roleKey: BodyRole
+  expiresAt: string
+  issuedAt: string
+  issuedByName: string | null
+  resendCount: number
+  /** From internal.can_administer_invitation — the same predicate revoke and resend use. */
+  canAdminister: boolean
+  /**
+   * Answered by the database, not by the browser.
+   *
+   * Comparing `expiresAt` with `Date.now()` during a render is an impure call whose answer changes
+   * between renders — the same defect Step 10 removed from the team page, and the lint rule catches it.
+   */
+  expiresSoon: boolean
+}
+
+export async function loadBodyInvitations(
+  supabase: SupabaseClient<Database>,
+  bodyId: string
+): Promise<BodyInvitation[]> {
+  const { data, error } = await supabase.rpc("governing_body_invitations", { p_body_id: bodyId })
+  if (error || !data) return []
+  return data.map((r) => ({
+    invitationId: r.invitation_id,
+    invitedEmail: r.invited_email,
+    roleKey: r.role_key as BodyRole,
+    expiresAt: r.expires_at,
+    issuedAt: r.issued_at,
+    issuedByName: r.issued_by_name,
+    resendCount: r.resend_count,
+    canAdminister: r.can_administer,
+    expiresSoon: r.expires_soon,
+  }))
+}
+
+export interface BodyCompetitionMatch {
+  matchId: string
+  editionId: string
+  seasonName: string
+  roundNumber: number | null
+  stageKind: string | null
+  matchDate: string | null
+  kickoffTime: string | null
+  status: string
+  verificationState: string | null
+  homeParticipantId: string | null
+  awayParticipantId: string | null
+  homeLabel: string | null
+  awayLabel: string | null
+  homeScore: number | null
+  awayScore: number | null
+  venueLabel: string | null
+  /** Neither side is on Ovalball. The organiser still owns the match, and it still counts. */
+  isExternalOnly: boolean
+}
+
+export async function loadBodyCompetitionMatches(
+  supabase: SupabaseClient<Database>,
+  competitionId: string
+): Promise<BodyCompetitionMatch[]> {
+  const { data, error } = await supabase.rpc("governing_body_competition_matches", {
+    p_competition_id: competitionId,
+  })
+  if (error || !data) return []
+  return data.map((r) => ({
+    matchId: r.match_id,
+    editionId: r.edition_id,
+    seasonName: r.season_name,
+    roundNumber: r.round_number,
+    stageKind: r.stage_kind,
+    matchDate: r.match_date,
+    kickoffTime: r.kickoff_time,
+    status: r.status,
+    verificationState: r.verification_state,
+    homeParticipantId: r.home_participant_id,
+    awayParticipantId: r.away_participant_id,
+    homeLabel: r.home_label,
+    awayLabel: r.away_label,
+    homeScore: r.home_score,
+    awayScore: r.away_score,
+    venueLabel: r.venue_label,
+    isExternalOnly: r.is_external_only,
+  }))
+}
+
+/**
+ * Which season a new competition would be in, from the canonical register.
+ *
+ * Delegated to `public.current_competition_season`, which delegates to `internal.competition_season_for`
+ * — the same resolver that actually files the edition. Null means the register has no current or
+ * upcoming season for this code, which the product states rather than papering over.
+ */
+export async function loadCurrentCompetitionSeason(
+  supabase: SupabaseClient<Database>,
+  rugbyCode: string
+): Promise<string | null> {
+  const { data } = await supabase.rpc("current_competition_season", { p_rugby_code: rugbyCode }).maybeSingle()
+  return data?.season_name ?? null
+}

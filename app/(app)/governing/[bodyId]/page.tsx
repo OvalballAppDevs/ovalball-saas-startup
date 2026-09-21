@@ -7,6 +7,7 @@ import {
   competitionProgress,
   loadAffiliatedClubs,
   loadBodyCompetitions,
+  loadBodyInvitations,
   loadBodyPeople,
   loadGoverningBody,
 } from "@/lib/governing/body"
@@ -38,10 +39,11 @@ export default async function GoverningBodyOverviewPage({ params }: { params: Pr
   const body = await loadGoverningBody(supabase, bodyId)
   if (!body) notFound()
 
-  const [clubs, competitions, people] = await Promise.all([
+  const [clubs, competitions, people, invitations] = await Promise.all([
     loadAffiliatedClubs(supabase, bodyId),
     loadBodyCompetitions(supabase, bodyId),
     loadBodyPeople(supabase, bodyId),
+    loadBodyInvitations(supabase, bodyId),
   ])
 
   /**
@@ -76,6 +78,22 @@ export default async function GoverningBodyOverviewPage({ params }: { params: Pr
       })
     }
   }
+  // CONVERGENCE STEP 16 -- two states that now genuinely exist, and nothing else.
+  //
+  // §24: Needs Attention is derived from the same canonical reads the destination pages use, and it only
+  // grows when the underlying state grows. An invitation waiting to be accepted is a real
+  // access_invitations row; a match a club has not answered is a real competition_match_verifications
+  // row. Neither is an analytic.
+  const expiringSoon = invitations.filter((i) => i.expiresSoon)
+  if (body.canManage && expiringSoon.length > 0) {
+    attention.push({
+      key: "invites-expiring",
+      text: `${expiringSoon.length} ${expiringSoon.length === 1 ? "invitation expires" : "invitations expire"} within three days and ${expiringSoon.length === 1 ? "has" : "have"} not been accepted.`,
+      href: `/governing/${bodyId}/people`,
+      cta: "People & Access",
+    })
+  }
+
   // ONE ADMINISTRATOR IS AN OPERATIONAL RISK, not a tidiness complaint: a volunteer organisation whose
   // only administrator stands down has nobody who can restore access, and the way back is a Site Admin
   // repair. Only said to the person who can do something about it.
@@ -133,8 +151,8 @@ export default async function GoverningBodyOverviewPage({ params }: { params: Pr
           icon={<CheckCircle2 className="size-4 text-forest-800" aria-hidden="true" />}
         >
           <p className="text-sm text-ink-muted">
-            Nothing needs your attention here. Competitions with teams to enter or matches to draw would appear in this
-            list.
+            Nothing needs your attention here. Competitions with teams to enter or matches to draw, and invitations
+            about to expire unaccepted, would appear in this list.
           </p>
         </GoverningSection>
       )}
@@ -204,11 +222,15 @@ export default async function GoverningBodyOverviewPage({ params }: { params: Pr
           id="gb-people"
           title="People & Access"
           icon={<Users className="size-4 text-ink-muted" aria-hidden="true" />}
-          count={`${people.length} ${people.length === 1 ? "person" : "people"}`}
+          count={
+            invitations.length > 0
+              ? `${people.length} · ${invitations.length} invited`
+              : `${people.length} ${people.length === 1 ? "person" : "people"}`
+          }
         >
           <p className="text-sm text-ink-muted">
             {body.canManage
-              ? "Who can act for this organisation, and what each of them may do."
+              ? "Who can act for this organisation, and what each of them may do. Invite somebody with their email address — they do not need an Ovalball account yet."
               : "Who can act for this organisation. Only an administrator here can change it."}
           </p>
           <Link

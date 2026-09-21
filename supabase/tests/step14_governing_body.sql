@@ -209,10 +209,23 @@ begin
   perform pg_temp.check(v_n = 1, format('F3 and a body knows the competitions it organises (%s)', v_n));
 
   perform pg_temp.act_postgres();
+  -- CONVERGENCE STEP 16 narrowed the FROM, not the guarantee. public.redeem_invitation is the ONE
+  -- canonical redemption function for every invitation kind, so once it learned to redeem a governing
+  -- body invitation it necessarily contains both 'constituent_body_roles' and the words SAFEGUARDING
+  -- and GUARDIAN -- as the names of other kinds, in other branches. Excluding it wholesale would have
+  -- weakened the check, so its governing branch is asserted on its own below, which is stronger than
+  -- the original: it reads the branch rather than the file.
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('public','internal') and p.prosrc ~ 'constituent_body_roles'
+     and p.proname <> 'redeem_invitation'
      and p.prosrc ~* 'safeguard|date_of_birth|medical|guardian';
   perform pg_temp.check(v_n = 0, 'F4 no governing body path reaches safeguarding or family data');
+
+  select substring(p.prosrc from 'GOVERNING_BODY_OFFICER(.*?)elsif') into v_text
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'redeem_invitation';
+  perform pg_temp.check(v_text is not null and v_text !~* 'safeguard|date_of_birth|medical|guardian',
+    'F5 and redeeming a governing body invitation touches only the body relationship');
 
   perform pg_temp.check(
     (select pg_get_function_arguments(p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace

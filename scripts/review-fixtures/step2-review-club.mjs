@@ -508,6 +508,143 @@ function enrichGoverning() {
   )
 }
 
+/**
+ * THE REVIEW COUNTY'S COMPETITION, WITH TEAMS IN IT AND RESULTS ON THE BOARD (Convergence Step 16).
+ *
+ * Step 15 created "Review County Junior Cup" and left it empty, which made the half of the product that
+ * matters most unreviewable: a competition with no entrants has no table, no results, and nothing for a
+ * club to answer, so neither the organiser's view nor the club's view shows anything.
+ *
+ * WRITTEN ENTIRELY THROUGH THE PRODUCT'S OWN COMPETITION RPCs, acting as the county's administrator --
+ * save_competition_participants, save_competition_stage, replace_competition_draft_matches,
+ * issue_competition_matches, record_competition_match_result. Nothing is inserted directly, so every
+ * record is one the Competition Creator itself would have made, including the verification rows that
+ * give each club something to answer.
+ *
+ * FOUR UNDER 12 BOYS SIDES from four affiliated clubs, because all four genuinely field one -- a county
+ * junior cup rather than a shape invented to fill a page. A round robin is six matches; three are given
+ * results so the table has something in it and three stay unplayed so "waiting on the clubs" is real.
+ *
+ * IDEMPOTENT: if the cup already has entrants this adds nothing and says so.
+ */
+function enrichGoverningCompetition() {
+  const bodyId = sql(`select id from public.constituent_bodies where canonical_name = ${q(REVIEW_BODY)}`)
+  if (!bodyId) {
+    console.error("The review governing body is missing. Run `enrich-governing` first.")
+    process.exit(1)
+  }
+  const admin = sql(`select id from auth.users where email = 'uat.preston.admin@ovalball.test'`)
+  const edition = sql(`select e.id from public.competition_editions e
+                       join public.competitions c on c.id = e.competition_id
+                       where c.organiser_constituent_body_id = ${q(bodyId)} and e.active
+                       order by e.created_at limit 1`)
+  if (!edition) {
+    console.error("The review county's competition has no season edition yet -- check the Seasons register.")
+    process.exit(1)
+  }
+  // EACH STEP IS GUARDED ON ITS OWN, not on the first one. A part-built cup -- entrants saved, draw not
+  // made -- has to be completable, and gating the whole function on "are there entrants" left exactly
+  // that state unrecoverable the first time this ran.
+  const haveMatches = Number(sql(`select count(*) from public.competition_matches where edition_id = ${q(edition)}`))
+  const haveResults = Number(sql(`select count(*) from public.competition_matches
+                                  where edition_id = ${q(edition)} and home_score is not null`))
+
+  // Four clubs that each really field an Under 12 Boys side, taken from the body's own affiliated list.
+  const sides = sql(`select string_agg(x.row, ';') from (
+      select d.id::text || '|' || c.id::text || '|' || t.id::text || '|' || t.canonical_team_type_id::text as row
+        from public.club_directory d
+        join public.clubs c on c.directory_id = d.id
+        join public.teams t on t.club_id = c.id and t.active and t.display_name = 'Under 12 Boys'
+       where d.constituent_body_id = ${q(bodyId)}
+       order by d.name limit 4) x`)
+  const entries = (sides ?? "").split(";").filter(Boolean).map((row, i) => {
+    const [club_directory_id, club_id, team_id, canonical_team_type_id] = row.split("|")
+    return { slot: i + 1, club_directory_id, club_id, team_id, canonical_team_type_id, seed: i + 1 }
+  })
+  if (entries.length < 4) {
+    console.error(`Only ${entries.length} affiliated club(s) field an Under 12 Boys side; the cup needs four.`)
+    process.exit(1)
+  }
+
+  const asAdmin = (statement) =>
+    sql(`do $$
+         begin
+           perform set_config('request.jwt.claims',
+             jsonb_build_object('sub', ${q(admin)}, 'role', 'authenticated')::text, true);
+           set local role authenticated;
+           ${statement}
+           reset role;
+         end $$;`)
+
+  if (haveMatches === 0) {
+  const haveEntrants = Number(sql(`select count(*) from public.competition_participants where edition_id = ${q(edition)} and status = 'entered'`))
+  if (haveEntrants === 0) {
+    asAdmin(`perform public.save_competition_participants(${q(edition)}, ${q(JSON.stringify(entries))}::jsonb);`)
+  }
+  asAdmin(
+    `perform public.save_competition_stage(${q(edition)}, null, 'league', 'League', 1,
+       jsonb_build_object('points', jsonb_build_object('win', 4, 'draw', 2, 'loss', 0)), '[]'::jsonb);`
+  )
+  const stage = sql(`select id from public.competition_stages where edition_id = ${q(edition)} and kind = 'league' limit 1`)
+  if (!stage) {
+    console.error("The league stage was not created; nothing further was written.")
+    process.exit(1)
+  }
+  const ids = sql(`select string_agg(id::text, ',' order by slot) from public.competition_participants
+                   where edition_id = ${q(edition)} and status = 'entered'`).split(",")
+
+  // A round robin, on consecutive Sundays, written as drafts and then issued.
+  const pairs = []
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) pairs.push([ids[i], ids[j]])
+  const matches = pairs.map(([home, away], i) => ({
+    round_number: i + 1,
+    home_participant_id: home,
+    away_participant_id: away,
+    match_date: isoDaysFromToday(7 * (i + 1)),
+    kickoff_time: "10:30",
+    venue_text: "Home ground",
+  }))
+  asAdmin(`perform public.replace_competition_draft_matches(${q(stage)}, ${q(JSON.stringify(matches))}::jsonb);`)
+  asAdmin(`perform public.issue_competition_matches(${q(edition)});`)
+  }
+
+  // Three results, so there is a table. The other three stay unplayed, so "waiting on the clubs" is real.
+  if (haveResults === 0) {
+    const played = sql(`select string_agg(id::text, ',') from (
+        select id from public.competition_matches where edition_id = ${q(edition)}
+         order by round_number limit 3) x`).split(",").filter(Boolean)
+    const scores = [[24, 12], [10, 10], [7, 31]]
+    played.forEach((m, i) => {
+      asAdmin(`perform public.record_competition_match_result(${q(m)}, ${scores[i][0]}, ${scores[i][1]});`)
+    })
+  }
+
+  const n = sql(`select count(*) from public.competition_matches where edition_id = ${q(edition)}`)
+  const withResults = sql(`select count(*) from public.competition_matches
+                           where edition_id = ${q(edition)} and home_score is not null`)
+  const awaiting = sql(`select count(*) from public.competition_match_verifications v
+                        join public.competition_matches m on m.id = v.match_id
+                        where m.edition_id = ${q(edition)} and v.status = 'awaiting'`)
+  console.log(
+    [
+      "",
+      "Review County Junior Cup",
+      `  ${entries.length} Under 12 Boys sides entered, from affiliated clubs`,
+      `  ${n} matches issued, ${withResults} with results`,
+      `  ${awaiting} club answer(s) outstanding -- reviewable from BOTH sides`,
+      `  organiser view: /governing/${bodyId}/competitions`,
+      `  club view:      /fixtures/competitions  (as a Club Admin of an entered club)`,
+    ].join("\n")
+  )
+}
+
+/** A date this many days from today, as an ISO day. Kept local so nothing here computes a season. */
+function isoDaysFromToday(days) {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 function down({ quiet = false } = {}) {
   // Ordered by dependency, and scoped to this review club and its identities only.
   sql(`
@@ -754,6 +891,7 @@ if (cmd === "up") {
 } else if (cmd === "enrich") enrich()
 else if (cmd === "enrich-fixtures") enrichFixtures()
 else if (cmd === "enrich-governing") enrichGoverning()
+else if (cmd === "enrich-governing-competition") enrichGoverningCompetition()
 else if (cmd === "report") report()
 else if (cmd === "verify") verify()
-else console.log("usage: step2-review-club.mjs up|enrich|enrich-fixtures|enrich-governing|report|verify|down --destroy-the-canonical-review-world")
+else console.log("usage: step2-review-club.mjs up|enrich|enrich-fixtures|enrich-governing|enrich-governing-competition|report|verify|down --destroy-the-canonical-review-world")

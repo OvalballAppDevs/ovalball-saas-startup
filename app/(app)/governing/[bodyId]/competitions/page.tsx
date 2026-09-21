@@ -1,9 +1,14 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowRight, Eye, Trophy } from "lucide-react"
+import { ArrowRight, Eye, ListOrdered, Trophy } from "lucide-react"
 
 import { GoverningEmpty, GoverningPageHeader, GoverningSection } from "@/components/governing/workspace"
-import { competitionProgress, loadBodyCompetitions, loadGoverningBody } from "@/lib/governing/body"
+import {
+  competitionProgress,
+  loadBodyCompetitions,
+  loadCurrentCompetitionSeason,
+  loadGoverningBody,
+} from "@/lib/governing/body"
 import { createClient } from "@/lib/supabase/server"
 
 import { StartCompetition } from "./start-competition"
@@ -28,7 +33,10 @@ export default async function GoverningBodyCompetitionsPage({ params }: { params
   const supabase = await createClient()
   const body = await loadGoverningBody(supabase, bodyId)
   if (!body) notFound()
-  const competitions = await loadBodyCompetitions(supabase, bodyId)
+  const [competitions, currentSeason] = await Promise.all([
+    loadBodyCompetitions(supabase, bodyId),
+    loadCurrentCompetitionSeason(supabase, body.rugbyCode),
+  ])
 
   const active = competitions.filter((c) => c.active)
   const closed = competitions.filter((c) => !c.active)
@@ -39,7 +47,16 @@ export default async function GoverningBodyCompetitionsPage({ params }: { params
         body={body}
         title="Competitions"
         description="The leagues and cups this organisation runs, built with the same competition tools a club organiser uses."
-        action={body.canManageCompetitions ? <StartCompetition bodyId={bodyId} rugbyCode={body.rugbyCode} /> : undefined}
+        action={
+          body.canManageCompetitions ? (
+            <StartCompetition
+              bodyId={bodyId}
+              rugbyCode={body.rugbyCode}
+              bodyName={body.canonicalName}
+              seasonName={currentSeason}
+            />
+          ) : undefined
+        }
       />
 
       <GoverningSection
@@ -59,7 +76,12 @@ export default async function GoverningBodyCompetitionsPage({ params }: { params
             {active.map((c) => (
               <li key={c.competitionId} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-ink">{c.name}</p>
+                  <Link
+                    href={`/governing/${bodyId}/competitions/${c.competitionId}`}
+                    className="text-sm font-medium text-ink hover:underline"
+                  >
+                    {c.name}
+                  </Link>
                   <p className="mt-0.5 text-xs text-ink-muted">
                     {c.seasonName ?? "No season registered"}
                     {c.format ? ` · ${FORMAT_WORD[c.format] ?? c.format}` : " · Format not set"}
@@ -67,7 +89,15 @@ export default async function GoverningBodyCompetitionsPage({ params }: { params
                   <p className="mt-0.5 text-xs text-ink-muted">{competitionProgress(c)}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-3 text-sm">
-                  {/* THE PUBLIC PAGE, for checking what everybody else can see. */}
+                  {/* RESULTS AND THE TABLE, from Competition Match truth (Convergence Step 16). Offered to
+                      every viewer, because seeing what happened is not a mutation. */}
+                  <Link
+                    href={`/governing/${bodyId}/competitions/${c.competitionId}`}
+                    className="inline-flex items-center gap-1 text-ink-muted hover:text-ink hover:underline"
+                  >
+                    <ListOrdered className="size-3.5" aria-hidden="true" />
+                    Results &amp; Table
+                  </Link>
                   <Link
                     href={`/competitions/${c.slug}`}
                     className="inline-flex items-center gap-1 text-ink-muted hover:text-ink hover:underline"

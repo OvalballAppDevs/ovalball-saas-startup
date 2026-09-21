@@ -58,6 +58,13 @@ function teardown() {
     // created, so removing it is putting back what it changed rather than deleting somebody's record.
     sql(`delete from public.constituent_body_roles r using auth.users u
           where u.id = r.user_id and u.email = '${GRANTEE}' and r.constituent_body_id = '${bodyId}';`)
+    // CONVERGENCE STEP 16: and this run's invitation. Invitation history is not append-only history --
+    // this is a row this suite created, so removing it is putting back what it changed.
+    sql(`delete from public.invitation_redemption_attempts a using public.access_invitations i
+          where a.invitation_id = i.id and i.constituent_body_id = '${bodyId}'
+            and i.invited_email_normalised = '${GRANTEE}';
+         delete from public.access_invitations
+          where constituent_body_id = '${bodyId}' and invited_email_normalised = '${GRANTEE}';`)
   } catch {
     // Asserted at the end rather than assumed.
   }
@@ -163,8 +170,12 @@ try {
 
   await page.getByRole("button", { name: /Start a Competition/i }).click()
   await page.getByLabel(/Competition Name/i).fill(COMP_NAME)
-  record("C3 starting one asks for a name and nothing the canonical model already knows",
-    /Rugby Union competition organised by this organisation/i.test(await page.locator("main").innerText()))
+  // CONVERGENCE STEP 16 SHOWS the inherited facts instead of describing them in a sentence (§18): the
+  // name is the only decision, and season, code and organiser are printed as what they are.
+  record("C3 starting one asks for a name and SHOWS what it inherits rather than asking again",
+    /Season/i.test(await page.locator("main").innerText()) &&
+      /Rugby Union/i.test(await page.locator("main").innerText()) &&
+      /Organiser/i.test(await page.locator("main").innerText()))
   await page.getByRole("button", { name: /^Create Competition$/i }).click()
 
   // IT HANDS OVER TO THE CANONICAL CREATOR rather than growing a second one.
@@ -209,27 +220,29 @@ try {
     /What Each Role Allows/i.test(people) && /Cannot change who has access/i.test(people))
   record("D3 it states that none of it reaches a child's records",
     /does not give access to a club's members|dates of birth|safeguarding/i.test(people))
-  record("D4 and is honest that inviting somebody with no account is not built",
-    /Without an Ovalball Account/i.test(people))
+  // CONVERGENCE STEP 16 BUILT IT. Step 15 said inviting somebody without an account was not built;
+  // it now is, through the canonical invitation system, so the assertion follows the product: what the
+  // page must be honest about is how the invitation reaches them, since Ovalball does not email these yet.
+  record("D4 and is honest about how an invitation actually reaches somebody",
+    /How an Invitation Reaches Them/i.test(people) && /does not email governing-body invitations yet/i.test(people))
 
-  // A REAL GRANT, through the product.
-  await page.getByRole("button", { name: /^Give Access$/i }).click()
+  // A REAL INVITATION, through the product. The grant-by-email it replaced is proven gone by
+  // step16_governing_closure B3; this walks what a person now actually does.
+  await page.getByRole("button", { name: /^Invite Somebody$/i }).click()
   await page.getByLabel(/Email Address/i).fill(GRANTEE)
   await page.getByRole("radio", { name: /Organisation Viewer/i }).check()
-  await page.getByRole("button", { name: /^Give Access$/i }).click()
+  await page.getByRole("button", { name: /^Send Invitation$/i }).click()
   await page.waitForTimeout(2500)
-  const granted = sql(`select r.role_key from public.constituent_body_roles r join auth.users u on u.id = r.user_id
-                       where u.email = '${GRANTEE}' and r.constituent_body_id = '${bodyId}' and r.state = 'ACTIVE'`)
-  record("D5 giving access by email writes the canonical relationship", granted === "BODY_VIEWER", granted || "(nothing)")
-  record("D6 and the page then shows them", /Organisation Viewer/i.test(await page.locator("main").innerText()))
-
-  // An address with no account is an ordinary answer, not an error.
-  await page.getByRole("button", { name: /^Give Access$/i }).click()
-  await page.getByLabel(/Email Address/i).fill(`nobody.${TAG}@ovalball.test`)
-  await page.getByRole("button", { name: /^Give Access$/i }).click()
-  await page.waitForTimeout(2000)
-  record("D7 an address with no Ovalball account is answered plainly, not as a failure",
-    /No Ovalball account uses that address/i.test(await page.locator("main").innerText()))
+  const invited = sql(`select i.intended_outcome->>'role_key' from public.access_invitations i
+                       where i.invited_email_normalised = '${GRANTEE}' and i.constituent_body_id = '${bodyId}'
+                         and i.state = 'ISSUED'`)
+  record("D5 inviting writes one canonical invitation against the organisation", invited === "BODY_VIEWER", invited || "(nothing)")
+  const confirmation = await page.locator("main").innerText()
+  record("D6 and the confirmation says the same thing whether or not they have an account",
+    /Invitation created/i.test(confirmation) && !/no Ovalball account/i.test(confirmation),
+    confirmation.replace(/\s+/g, " ").slice(0, 120))
+  record("D7 with a link to send, because Ovalball does not email these yet and does not pretend to",
+    /\/join\?t=/.test(confirmation))
 
   // BACK TO THE OVERVIEW, closing the journey.
   await page.getByRole("link", { name: /^Overview$/i }).click()
@@ -264,7 +277,7 @@ try {
   // Keyboard: the primary action on each page is reachable and focusable.
   await go(`/governing/${bodyId}/people`)
   const focused = await page.evaluate(() => {
-    const btn = [...document.querySelectorAll("button")].find((b) => /Give Access/i.test(b.textContent ?? ""))
+    const btn = [...document.querySelectorAll("button")].find((b) => /Invite Somebody/i.test(b.textContent ?? ""))
     btn?.focus()
     return document.activeElement === btn
   })
@@ -348,6 +361,9 @@ try {
 // ====================================================================
 record("cleanup: this run's competition and its edition are gone",
   sql(`select count(*) from public.competitions where name like 'S15 Journey Cup %'`) === "0")
+record("cleanup: this run's invitation is gone",
+  sql(`select count(*) from public.access_invitations
+       where constituent_body_id = '${bodyId}' and invited_email_normalised = '${GRANTEE}'`) === "0")
 record("cleanup: this run's access grant is gone",
   sql(`select count(*) from public.constituent_body_roles r join auth.users u on u.id = r.user_id
        where u.email = '${GRANTEE}' and r.constituent_body_id = '${bodyId}'`) === "0")

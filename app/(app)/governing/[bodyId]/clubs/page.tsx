@@ -39,7 +39,7 @@ export default async function GoverningBodyClubsPage({ params }: { params: Promi
       <GoverningPageHeader
         body={body}
         title="Clubs"
-        description="The clubs affiliated to this organisation, as the Club Directory records them."
+        description="The clubs published as belonging to this organisation, as the Club Directory records them."
       />
 
       <GoverningSection
@@ -60,17 +60,23 @@ export default async function GoverningBodyClubsPage({ params }: { params: Promi
 
       <section aria-labelledby="gb-affiliation" className="rounded-2xl border border-dashed border-line px-4 py-3">
         <h2 id="gb-affiliation" className="text-sm font-medium text-ink">
-          Changing Who Is Affiliated
+          Where This List Comes From
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
-          Affiliation is maintained by Ovalball on the club&apos;s Club Directory record, so one club belongs to one
-          organisation and every surface agrees about which. Handling it here — a club asking to affiliate, a transfer
-          between counties, a suspension, and the dates each took effect — needs a record of those events that does not
-          exist yet. Until it does, a control here could rewrite what was true last season as well as this one.
+          Which clubs belong to a constituent body is <strong className="font-medium text-ink">published by the
+          governing body itself</strong>, and Ovalball records it: the Club Directory holds each club&apos;s county
+          beside the club, acquired from the county unions&apos; own club lists with the source and the date it was
+          checked. It is reference data, in the same way the organisation&apos;s own name and code are.
         </p>
         <p className="mt-2 text-sm text-ink-muted">
-          A club seeing this organisation in its own record does not give this organisation access to that club&apos;s
-          members, players, fixtures or settings.
+          So there is deliberately nothing here that affiliates or un-affiliates a club. A county does not invite a
+          club to belong to it — the published structure says which county a club is in, and a control that
+          overwrote that would also silently rewrite what was true last season. If this list is wrong, it is the
+          reference data that needs correcting, and Ovalball maintains it.
+        </p>
+        <p className="mt-2 text-sm text-ink-muted">
+          A club appearing here does not give this organisation access to that club&apos;s members, players, fixtures
+          or settings.
         </p>
       </section>
     </div>

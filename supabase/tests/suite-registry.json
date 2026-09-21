@@ -1650,6 +1650,11 @@
       "owner": "Governing Body programme (Steps 14-16)",
       "reason": "Convergence Step 14: governing-body authority comes from an ACTIVE constituent_body_roles row and nothing else -- not a club role, a Fixture Secretary, a Safeguarding Officer or a name -- with fail-closed predicates, wrong-body isolation, explicit Site Admin access, and suspension/revocation winning."
     },
+    "step16_governing_closure": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Governing Body programme (Steps 14-16)",
+      "reason": "Convergence Step 16: the closure of the governing/competition relationships. Proves that a governing-body invitation is the CANONICAL one (registered capability, hashed token, single use, the organisation as its scope) and that there is no second invitation system; that a registered and an unregistered address are invited indistinguishably, which is what removed the account-existence oracle; that redemption is server-authored, bound to the invited identity, single-use and re-checks the ISSUER's standing at the organisation; that revoke and resend come from the canonical authority; that a body organiser can now read its own competition through RLS -- including the match verifications, which have no public fallback and were previously invisible to it -- and is notified when its clubs answer, which it was not; that a club can read which competitions it is in and who runs them while entry stays the organiser's act with no consent vocabulary invented; that affiliation and organising confer no club authority in either direction; the races Step 16 creates (two admins inviting one address, redemption versus revocation); and the boundaries it did not cross -- the organisation capability scope, the dispensation chain, club affiliation and protected person data."
+    },
     "step15_governing_product": {
       "disposition": "CANONICAL_GATE",
       "owner": "Governing Body programme (Steps 14-16)",

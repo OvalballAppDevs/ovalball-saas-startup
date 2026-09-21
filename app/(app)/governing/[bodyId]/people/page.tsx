@@ -1,11 +1,19 @@
 import { notFound } from "next/navigation"
-import { Users } from "lucide-react"
+import { MailPlus, Users } from "lucide-react"
 
 import { GoverningEmpty, GoverningPageHeader, GoverningSection } from "@/components/governing/workspace"
-import { BODY_ROLE_ALLOWS, BODY_ROLE_LABEL, BODY_ROLES, loadBodyPeople, loadGoverningBody, type BodyRole } from "@/lib/governing/body"
+import {
+  BODY_ROLE_ALLOWS,
+  BODY_ROLE_LABEL,
+  BODY_ROLES,
+  loadBodyInvitations,
+  loadBodyPeople,
+  loadGoverningBody,
+  type BodyRole,
+} from "@/lib/governing/body"
 import { createClient } from "@/lib/supabase/server"
 
-import { GrantAccess, RevokeAccess } from "./access-controls"
+import { InviteOfficer, PendingInvitation, RevokeAccess } from "./access-controls"
 
 export const metadata = { title: "People & Access" }
 
@@ -30,7 +38,7 @@ export default async function GoverningBodyPeoplePage({ params }: { params: Prom
   const supabase = await createClient()
   const body = await loadGoverningBody(supabase, bodyId)
   if (!body) notFound()
-  const people = await loadBodyPeople(supabase, bodyId)
+  const [people, invitations] = await Promise.all([loadBodyPeople(supabase, bodyId), loadBodyInvitations(supabase, bodyId)])
 
   const heldRoles = Array.from(new Set(people.map((p) => p.roleKey))) as BodyRole[]
 
@@ -41,10 +49,10 @@ export default async function GoverningBodyPeoplePage({ params }: { params: Prom
         title="People & Access"
         description={
           body.canManage
-            ? "Who can act for this organisation, what each of them may do, and how to change it."
+            ? "Who can act for this organisation, what each of them may do, and who has been invited."
             : "Who can act for this organisation. Only an administrator here can change it."
         }
-        action={body.canManage ? <GrantAccess bodyId={bodyId} /> : undefined}
+        action={body.canManage ? <InviteOfficer bodyId={bodyId} /> : undefined}
       />
 
       <GoverningSection
@@ -56,7 +64,7 @@ export default async function GoverningBodyPeoplePage({ params }: { params: Prom
         {people.length === 0 ? (
           <GoverningEmpty>
             Nobody has access to this organisation yet.
-            {body.canManage ? " Give somebody access with the address on their Ovalball account." : ""}
+            {body.canManage ? " Invite somebody with their email address — they do not need an Ovalball account yet." : ""}
           </GoverningEmpty>
         ) : (
           <ul className="flex flex-col divide-y divide-line">
@@ -93,6 +101,37 @@ export default async function GoverningBodyPeoplePage({ params }: { params: Prom
         )}
       </GoverningSection>
 
+      {/* INVITATIONS STILL WAITING. Separate from the people list on purpose: somebody who has been
+          invited is NOT somebody who has access, and showing them together would read as though they
+          were. They appear here until they accept, and then they move to the list above. */}
+      {invitations.length > 0 && (
+        <GoverningSection
+          id="gb-invited"
+          title="Invited, Not Yet Accepted"
+          icon={<MailPlus className="size-4 text-ink-muted" aria-hidden="true" />}
+          count={`${invitations.length} waiting`}
+        >
+          <ul className="flex flex-col divide-y divide-line">
+            {invitations.map((i) => (
+              <li key={i.invitationId} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{i.invitedEmail}</p>
+                  <p className="mt-0.5 text-sm text-ink">{BODY_ROLE_LABEL[i.roleKey]}</p>
+                  <p className="text-xs text-ink-muted">
+                    Invited{" "}
+                    {new Date(i.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}
+                    {i.issuedByName ? ` by ${i.issuedByName}` : ""} · expires{" "}
+                    {new Date(i.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}
+                    {i.resendCount > 0 ? ` · sent again ${i.resendCount === 1 ? "once" : `${i.resendCount} times`}` : ""}
+                  </p>
+                </div>
+                {i.canAdminister && <PendingInvitation bodyId={bodyId} invitation={i} />}
+              </li>
+            ))}
+          </ul>
+        </GoverningSection>
+      )}
+
       {/* WHAT THE ROLES MEAN, whether or not anybody holds them yet. Somebody about to give access needs
           to be able to read this before they choose, not after. */}
       <GoverningSection id="gb-roles" title="What Each Role Allows">
@@ -114,15 +153,16 @@ export default async function GoverningBodyPeoplePage({ params }: { params: Prom
       </GoverningSection>
 
       {body.canManage && (
-        <section aria-labelledby="gb-invite" className="rounded-2xl border border-dashed border-line px-4 py-3">
-          <h2 id="gb-invite" className="text-sm font-medium text-ink">
-            Somebody Without an Ovalball Account
+        <section aria-labelledby="gb-invite-note" className="rounded-2xl border border-dashed border-line px-4 py-3">
+          <h2 id="gb-invite-note" className="text-sm font-medium text-ink">
+            How an Invitation Reaches Them
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Access is given by the address on an existing Ovalball account. Inviting a new person by email — the way a
-            club invites its staff — uses Ovalball&apos;s one invitation system, which does not yet know how to
-            represent an organisation. Extending it properly is better than a second invitation path that only this
-            page understands, so for now a new officer needs an account first.
+            An invitation gives you a link to send however this organisation normally talks to its volunteers.
+            Ovalball does not email governing-body invitations yet, so it does not claim to — but the invitation
+            itself is the real thing: it expires, it can be withdrawn or sent again, it can only be used once, and
+            it can only be accepted by the address it was made out to. Forwarding the link to somebody else does
+            not give them access.
           </p>
         </section>
       )}

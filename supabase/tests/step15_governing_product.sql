@@ -281,48 +281,68 @@ begin
   perform pg_temp.check(v_state = '42501', format('D7 nor a stranger (%s)', v_state));
 
   -- =====================================================================
-  -- E. GRANTING ACCESS BY EMAIL
+  -- E. GIVING SOMEBODY ACCESS
+  --
+  -- CONVERGENCE STEP 16 REPLACED THE MECHANISM AND KEPT THE MATRIX. Step 15 granted a role to an
+  -- address that already had an account and answered NO_ACCOUNT otherwise, which told an administrator
+  -- whether an address is registered on Ovalball. It is now one canonical invitation that works either
+  -- way, so these assertions test the same authority questions against the route that survived.
   -- =====================================================================
   perform pg_temp.act('authenticated', v_body_admin);
-  select outcome into v_txt from public.grant_governing_body_role_by_email(
-    v_body, 's15-' || v_outsider::text || '@ovalball.test', 'BODY_VIEWER', 'county handbook');
-  perform pg_temp.check(v_txt = 'GRANTED', format('E1 an admin gives access by the address on an existing account (%s)', v_txt));
-  perform pg_temp.act_postgres();
-  select count(*) into v_n from public.constituent_body_roles where constituent_body_id = v_body and user_id = v_outsider and state = 'ACTIVE';
-  perform pg_temp.check(v_n = 1, 'E2 and the canonical relationship is what records it');
+  select invitation_id into v_id from public.invite_governing_body_officer(
+    v_body, 's15-' || v_outsider::text || '@ovalball.test', 'BODY_VIEWER');
+  perform pg_temp.check(v_id is not null, 'E1 an admin invites somebody to act for the organisation');
 
-  -- THE ADDRESS IS RESOLVED INSIDE THE FUNCTION, so an unknown one is an ordinary answer and creates
-  -- nothing. This is also why there is no people-search surface to enumerate.
+  perform pg_temp.act_postgres();
+  select kind || '|' || constituent_body_id::text || '|' || (intended_outcome->>'role_key')
+    into v_txt from public.access_invitations where id = v_id;
+  perform pg_temp.check(v_txt = 'GOVERNING_BODY_OFFICER|' || v_body::text || '|BODY_VIEWER',
+    format('E2 recorded as ONE canonical invitation against the organisation (%s)', coalesce(v_txt,'null')));
+  select (token_sha256 is not null and code_hmac is not null and max_uses = 1 and state = 'ISSUED')
+    into v_bool from public.access_invitations where id = v_id;
+  perform pg_temp.check(v_bool,
+    'E3 with the canonical hashed token and code, single use -- no second invitation system');
+
+  -- THE ORACLE IS GONE. An address with no Ovalball account is invited in exactly the same way, so the
+  -- product no longer reveals which addresses are registered here.
   perform pg_temp.act('authenticated', v_body_admin);
-  select outcome into v_txt from public.grant_governing_body_role_by_email(
+  select invitation_id into v_id from public.invite_governing_body_officer(
     v_body, 'nobody-' || v_tag || '@ovalball.test', 'BODY_VIEWER');
-  perform pg_temp.check(v_txt = 'NO_ACCOUNT', format('E3 an address with no Ovalball account answers NO_ACCOUNT rather than failing (%s)', v_txt));
+  perform pg_temp.check(v_id is not null,
+    'E4 an address with NO Ovalball account is invited identically -- nothing distinguishes them');
   perform pg_temp.act_postgres();
   select count(*) into v_n from public.constituent_body_roles where constituent_body_id = v_body;
-  perform pg_temp.check(v_n = 4, format('E4 and nothing was created for it (%s)', v_n));
+  perform pg_temp.check(v_n = 3,
+    format('E5 and inviting creates no access -- a role appears only when it is accepted (%s)', v_n));
 
+  -- THE SAME AUTHORITY MATRIX, on the route that replaced it.
   perform pg_temp.act('authenticated', v_body_comps);
-  select pg_temp.try(format('select * from public.grant_governing_body_role_by_email(%L, %L, %L)',
+  select pg_temp.try(format('select * from public.invite_governing_body_officer(%L, %L, %L)',
     v_body, 's15-' || v_stranger::text || '@ovalball.test', 'BODY_ADMIN')) into v_state;
   perform pg_temp.check(v_state = '42501',
-    format('E5 a COMPETITIONS officer cannot grant -- running competitions is not managing access (%s)', v_state));
+    format('E6 a COMPETITIONS officer cannot invite -- running competitions is not managing access (%s)', v_state));
   perform pg_temp.act('authenticated', v_body_viewer);
-  select pg_temp.try(format('select * from public.grant_governing_body_role_by_email(%L, %L, %L)',
+  select pg_temp.try(format('select * from public.invite_governing_body_officer(%L, %L, %L)',
     v_body, 's15-' || v_stranger::text || '@ovalball.test', 'BODY_VIEWER')) into v_state;
-  perform pg_temp.check(v_state = '42501', format('E6 nor can a viewer (%s)', v_state));
+  perform pg_temp.check(v_state = '42501', format('E7 nor can a viewer (%s)', v_state));
   perform pg_temp.act('authenticated', v_other_admin);
-  select pg_temp.try(format('select * from public.grant_governing_body_role_by_email(%L, %L, %L)',
+  select pg_temp.try(format('select * from public.invite_governing_body_officer(%L, %L, %L)',
     v_body, 's15-' || v_stranger::text || '@ovalball.test', 'BODY_ADMIN')) into v_state;
-  perform pg_temp.check(v_state = '42501', format('E7 nor an admin of a DIFFERENT body (%s)', v_state));
+  perform pg_temp.check(v_state = '42501', format('E8 nor an admin of a DIFFERENT body (%s)', v_state));
   perform pg_temp.act('authenticated', v_club_admin);
-  select pg_temp.try(format('select * from public.grant_governing_body_role_by_email(%L, %L, %L)',
+  select pg_temp.try(format('select * from public.invite_governing_body_officer(%L, %L, %L)',
     v_body, 's15-' || v_stranger::text || '@ovalball.test', 'BODY_ADMIN')) into v_state;
-  perform pg_temp.check(v_state = '42501', format('E8 nor a Club Admin of an affiliated club (%s)', v_state));
+  perform pg_temp.check(v_state = '42501', format('E9 nor a Club Admin of an affiliated club (%s)', v_state));
 
   perform pg_temp.act('authenticated', v_body_admin);
-  select pg_temp.try(format('select * from public.grant_governing_body_role_by_email(%L, %L, %L)',
+  select pg_temp.try(format('select * from public.invite_governing_body_officer(%L, %L, %L)',
     v_body, 's15-' || v_stranger::text || '@ovalball.test', 'BODY_SUPREME')) into v_state;
-  perform pg_temp.check(v_state = 'P0002', format('E9 and a role that does not exist cannot be invented at the call site (%s)', v_state));
+  perform pg_temp.check(v_state = '22023',
+    format('E10 and a role that does not exist cannot be invented at the call site (%s)', v_state));
+
+  -- The F series needs somebody to remove, and Site Admin master control is the canonical direct grant.
+  perform pg_temp.act('authenticated', v_body_admin);
+  perform public.set_governing_body_role(v_body, v_outsider, 'BODY_VIEWER', 'for the removal test');
 
   -- =====================================================================
   -- F. REMOVING ACCESS
@@ -418,7 +438,9 @@ begin
     and not has_function_privilege('anon', 'public.governing_body_competitions(uuid)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.create_governing_body_competition(text, uuid, uuid)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.revoke_governing_body_role(uuid, uuid, text)', 'EXECUTE')
-    and not has_function_privilege('anon', 'public.grant_governing_body_role_by_email(uuid, text, text, text)', 'EXECUTE'),
+    -- CONVERGENCE STEP 16 removed grant_governing_body_role_by_email -- the account-existence oracle --
+    -- and replaced it with the canonical invitation, which is checked here in its place.
+    and not has_function_privilege('anon', 'public.invite_governing_body_officer(uuid, text, text)', 'EXECUTE'),
     'H5 anon can execute none of the Step 15 functions');
 
   -- AND THE CHOKEPOINT IS STILL THE CHOKEPOINT: every competition mutation arrives at the one predicate.
