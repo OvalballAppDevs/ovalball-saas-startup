@@ -189,6 +189,23 @@ export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[]
   }
 
   const guardianTeamIds = new Set(ctx.guardianRelationships.map((g) => g.teamId))
+  // A PLAYER IS NOT A PARENT OF THEMSELVES (Convergence Step 9).
+  //
+  // `team_permissions.view_only` is the Slice 2 compatibility path, and it was
+  // used for BOTH parents and players before the canonical `guardians` and
+  // `players.user_id` relationships existed. The loop below turns every
+  // surviving view_only row into a `kind: "parent"` context, which is right for
+  // a parent whose relationship has not been migrated and wrong for a player:
+  // a linked player with a legacy view_only row on their own team was offered a
+  // context captioned "Parent / Player (view only)" that framed their own rugby
+  // as somebody else's child. That is Step 0's recorded "player-shown-as-
+  // Parent/Guardian" defect, and this is where it comes from.
+  //
+  // The canonical player context for that same team is built further down from
+  // `linkedPlayerTeams`, so the legacy row has nothing left to add. Skipping it
+  // removes a duplicate, never a relationship -- exactly as the guardian dedupe
+  // immediately above already does for a migrated parent.
+  const ownPlayerTeamIds = new Set(ctx.linkedPlayerTeams.map((pt) => pt.teamId))
   for (const g of ctx.guardianRelationships) {
     out.push({
       // Side Project 1 integration: playerId included so two children on
@@ -218,6 +235,7 @@ export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[]
   for (const tp of ctx.teamPermissions) {
     if (tp.permission !== "view_only") continue
     if (guardianTeamIds.has(tp.teamId)) continue // superseded by the canonical Guardian relationship for the same team
+    if (ownPlayerTeamIds.has(tp.teamId)) continue // it is their OWN team: they are the player, not a parent of one
     out.push({
       key: `parent:${tp.teamId}`,
       kind: "parent",

@@ -292,7 +292,10 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           and a way to act on it. Two instructions about the same thing on one
           page is one too many. */}
       {personal && visible.length > 0 && state.direction === "upcoming" && owedCount === 0 && (
-        <p className="mt-8 text-center text-sm text-ink-muted">Open a fixture to change whether you can make it.</p>
+        // Convergence Step 9: this used to read "Open a fixture to change
+        // whether you can make it", because the answer was always one
+        // navigation away. It is now on the row itself.
+        <p className="mt-8 text-center text-sm text-ink-muted">Every answer can be changed here at any time.</p>
       )}
     </div>
   )

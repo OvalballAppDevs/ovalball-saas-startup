@@ -7568,6 +7568,20 @@
         "consumers": [
           "app/(app)/people/[membershipId]/page.tsx"
         ]
+      },
+      {
+        "signature": "player_adult_transition(uuid, date)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "supabase/tests/step9_family_and_availability.sql"
+        ]
+      },
+      {
+        "signature": "end_my_guardian_access(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "supabase/tests/step9_family_and_availability.sql"
+        ]
       }
     ],
     "authenticated_revoked_public": [

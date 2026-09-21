@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs"
 
 import { resolveIdentityDisplay } from "@/lib/app-context/identity-display"
 import { listSwitchableContexts, resolveActiveContext } from "@/lib/app-context/active-context-rules"
-import type { SessionContext } from "@/lib/app-context/session-context"
+import type { PlayerTeamContext, SessionContext } from "@/lib/app-context/session-context"
 
 /**
  * UX-2 IDENTITY AND CONTEXT.
@@ -199,6 +199,56 @@ test("4e. X-4: losing the LAST context leaves a stale cookie resolving to nothin
   const stale = resolveActiveContext(after, "club:c-1")
   assert.equal(stale.clubId, null)
   assert.equal(stale.playerId, null, "a session with nothing left still carried a subject through")
+})
+
+/**
+ * A PLAYER IS NOT A PARENT OF THEMSELVES.
+ *
+ * Step 0 recorded "player-shown-as-Parent/Guardian" as a family defect carried
+ * to Step 9. Its cause: `team_permissions.view_only` is the Slice 2
+ * compatibility path and was used for BOTH parents and players before the
+ * canonical relationships existed, so every surviving view_only row became a
+ * `kind: "parent"` context -- correct for an unmigrated parent, and wrong for a
+ * linked player, who was offered a context framing their own rugby as somebody
+ * else's child.
+ */
+test("4f. a linked player with a legacy view_only row on their OWN team is not offered a parent context", () => {
+  const own: PlayerTeamContext = {
+    playerId: "player-self",
+    teamId: "team-9",
+    teamDisplayName: "Under 16 Boys",
+    clubId: "club-1",
+    clubName: "UX2 Multi RUFC",
+    ageState: "minor",
+    avatarStoragePath: null,
+  }
+  const ctx = session({
+    linkedPlayerTeams: [own],
+    teamPermissions: [
+      { teamId: "team-9", teamDisplayName: "Under 16 Boys", clubId: "club-1", clubName: "UX2 Multi RUFC", permission: "view_only" },
+    ],
+  })
+  const contexts = listSwitchableContexts(ctx)
+  assert.equal(
+    contexts.filter((c) => c.kind === "parent").length,
+    0,
+    "the player was offered a Parent/Guardian context for their own team",
+  )
+  assert.equal(contexts.filter((c) => c.kind === "player").length, 1, "and their own player context must survive")
+})
+
+test("4g. but an unmigrated PARENT with only a view_only row still gets their context", () => {
+  const ctx = session({
+    teamPermissions: [
+      { teamId: "team-9", teamDisplayName: "Under 16 Boys", clubId: "club-1", clubName: "UX2 Multi RUFC", permission: "view_only" },
+    ],
+  })
+  const contexts = listSwitchableContexts(ctx)
+  assert.equal(
+    contexts.filter((c) => c.kind === "parent").length,
+    1,
+    "removing the duplicate must not remove the relationship it was standing in for",
+  )
 })
 
 test("4b. a forged Site Admin context does not make a session a Site Admin", () => {

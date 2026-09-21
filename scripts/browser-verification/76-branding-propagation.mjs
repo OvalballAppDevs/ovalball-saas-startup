@@ -71,8 +71,28 @@ function teardown() {
   tidy(`delete from public.club_directory where id = '${dirId}'`)
 }
 
-/** Every club-logo URL on the page, reduced to the storage path it came from. */
+/**
+ * Every club-logo URL on the page, reduced to the storage path it came from.
+ *
+ * IT WAITS FOR ONE FIRST, and that is the whole of this function's history.
+ * It used to sample `img` elements the instant `networkidle` resolved, and a
+ * Next image is not wired up at that moment -- `currentSrc` is empty until the
+ * image begins loading. Under a loaded gate the page won every time except
+ * once, and that once reported "(no club crest rendered)" about a page that
+ * renders the crest perfectly well: the suite passes 14/14 alone. Convergence
+ * Step 9's gate caught it; Step 7 learned the same lesson from suite 78
+ * reading a URL before the router had pushed it.
+ *
+ * The wait is bounded and its timeout is swallowed on purpose: a surface that
+ * genuinely shows no crest must still be able to say so, and it does -- by
+ * returning an empty list after the wait, not by hanging.
+ */
 async function crestPathsOn(page) {
+  await page
+    .locator('img[src*="club-logos"], img[srcset*="club-logos"]')
+    .first()
+    .waitFor({ state: "attached", timeout: 10000 })
+    .catch(() => {})
   const srcs = await page.evaluate(() =>
     Array.from(document.querySelectorAll("img"))
       .map((i) => i.currentSrc || i.getAttribute("src") || "")

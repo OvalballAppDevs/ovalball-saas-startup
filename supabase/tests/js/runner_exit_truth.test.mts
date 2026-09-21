@@ -253,6 +253,32 @@ test("a batch containing any non-ok suite exits non-zero", () => {
 })
 
 // ---------------------------------------------------------------------
+// A CACHED SESSION MAY NEVER DEFEAT THE RETRY THAT EXISTS TO SURVIVE A
+// FLAKY SIGN-IN.
+//
+// Convergence Step 9's gate crashed one suite at its second sign-in with a
+// navigation TimeoutError on /account, while memory was healthy and the suite
+// passed 12/12 alone. The cause was structural: `tryCachedSession` probes
+// /account BEFORE `signIn`'s retry loop, and that probe's navigation was
+// outside any try/catch, so a single slow route threw straight out of signIn
+// past all three attempts.
+//
+// Asserted structurally because the alternative is reproducing a load-induced
+// timeout on demand, which is exactly the kind of test that becomes flaky
+// itself.
+// ---------------------------------------------------------------------
+test("the harness's cached-session probe cannot throw past signIn's retry", () => {
+  const harness = fs.readFileSync(path.join(repoRoot, "scripts/browser-verification/harness.mjs"), "utf8")
+  const start = harness.indexOf("async function tryCachedSession")
+  assert.ok(start > 0, "tryCachedSession is gone -- this assertion needs rewriting, not deleting")
+  const body = harness.slice(start, harness.indexOf("\n}", start))
+  const probe = body.indexOf("identityOf(page)")
+  const guard = body.indexOf("try {")
+  assert.ok(probe > 0, "the probe no longer checks the cached identity")
+  assert.ok(guard > 0 && guard < probe, "the /account probe is outside the try that makes a cache miss harmless")
+})
+
+// ---------------------------------------------------------------------
 // The runner must USE this file rather than keep its own copy of the rule.
 // Two copies of one condition is how L28 happened.
 // ---------------------------------------------------------------------

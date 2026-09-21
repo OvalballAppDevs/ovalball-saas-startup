@@ -394,6 +394,12 @@ SUITES=(
   # exists, the club timeline's scope, and a Site Admin who administers a club
   # without becoming a member of it.
   step8_operational_access
+  # Convergence Step 9: who may answer availability and who may not, one truth
+  # per player and fixture, the adult boundary proved AT the boundary with a
+  # supplied date, an adult ending a Guardian's access without anything else
+  # moving, family IDOR in both directions, and a family relationship conferring
+  # no club, team or fixture authority.
+  step9_family_and_availability
 )
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
@@ -589,6 +595,12 @@ BROWSER_SUITES=(
   # domain are declared UNVERIFIED or SUPERSEDED with their measurements in
   # scripts/browser-verification/suite-registry.json; none was registered
   # without being run.
+  # CONVERGENCE STEP 9. The family journey end to end: a parent answers on the
+  # agenda row, the server's answer survives a reload, one child's answer is
+  # independent of the other's, Match Centre is the same record, and the
+  # operational availability summary a club reads moves because of it. That
+  # last assertion is the Step 7 -> Step 9 integration proof.
+  49-family-availability-journey
   52-roster-authority
   58-club-admin-authority
   59-club-misc-authority

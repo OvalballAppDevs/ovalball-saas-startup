@@ -435,7 +435,15 @@ begin
                                              -- are emitted by set_capability_override, which this function
                                              -- calls rather than reimplements. The metadata carries the
                                              -- preset key and label and nothing about the person.
-                                             'apply_capability_preset'))
+                                             'apply_capability_preset',
+                                             -- Slice 9 / Step 9: an adult player ending one Guardian's
+                                             -- access to their own record. The caller supplies a
+                                             -- relationship id and a reason and controls neither the
+                                             -- event nor the actor: the event type is the literal
+                                             -- 'guardian.unlinked' in the body, the actor comes from
+                                             -- internal.actor(), and the function refuses anybody who is
+                                             -- not the adult player the relationship is about.
+                                             'end_my_guardian_access'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

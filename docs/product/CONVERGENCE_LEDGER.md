@@ -180,6 +180,39 @@ suppressed, and the declared set may only get smaller.
 
 ---
 
+## Convergence Step 9 — READY FOR PRODUCT REVIEW
+
+**Parent / Player / Family.**
+
+| | |
+|---|---|
+| status | **READY FOR PRODUCT REVIEW** |
+| FUNCTIONS BEFORE | **66** |
+| FUNCTIONS AFTER | **70** |
+| FUNCTIONS LOST | **0** |
+| released · pushed · Step 10 | **no · no · not started** |
+
+```
+6572 passed, 0 failed across 257 suites.
+```
+
+**50 / 50 browser suites, 1,235 assertions, 0 FAIL · 0 KILL · 0 CRASH · 0 EMPTY.**
+Memory floor 2,379 MB; zero browsers surviving between suites at all 50
+checkpoints.
+
+Archaeology reshaped the step: **the whole availability model already existed** —
+one canonical record covering fixtures, training and club events, three writers
+with UI callers, and one resolver deciding who may answer for whom. What was
+missing was that the answer was always one navigation away. Step 9 put it on the
+row, fixed a player being shown as a parent of themselves, and gave the age-18
+transition a rule, a state and an adult's own decision.
+
+Full record: `docs/product/CONVERGENCE_STEP_9_REPORT.md`, with
+`CONVERGENCE_STEP_9_ARCHAEOLOGY.md` and
+`CONVERGENCE_STEP_9_FUNCTIONALITY_MATRIX.md`.
+
+---
+
 ## Convergence Step 8 — READY FOR PRODUCT REVIEW
 
 **Identity/Auth Slice 8 + operational role management.**
@@ -1371,6 +1404,28 @@ requirement unless the master programme assigns it there.**
 `L19` away-ground suggestion · `L20` pitch-allocation split square · `L21`
 twenty-seven unwired suites · `L24` persona context lifetime · `L27` absolute
 imports and axe resolution.
+
+### Closed, or newly recorded, in Step 9
+
+**Family defects from Step 0:** *player-shown-as-Parent/Guardian* **FIXED**;
+*child→adult handover* **RULE FIXED**, its scheduler deferred for want of a
+background-processing owner; *additional-parent workflow* and *child identity
+showing the wrong person* **ALREADY FIXED — VERIFIED**; *Add Child
+inconsistency* **DEFERRED** to family-domain reconciliation, because the suite
+that covers it is not independently repeatable.
+
+**Two harness races**, both found by the canonical gate and root-caused rather
+than accepted: a cached-session probe that could throw past the retry that
+exists to survive a flaky sign-in, and an image read before it was wired up.
+
+**L25: 26 before Step 9, 0 dispositioned, 26 remaining** — honestly. The one
+suite in Step 9's domain, `46-family-authority`, produced two different failure
+modes in two runs and its identities cannot be removed at all (they are
+referenced by the append-only `audit_log`). A suite that cannot be trusted twice
+cannot be wired into a gate.
+
+**L26 untouched and unwidened** — Step 9 exercised invitations heavily and did
+not change their test-fixture architecture.
 
 ### Closed in the pre-Step-8 harness closure
 

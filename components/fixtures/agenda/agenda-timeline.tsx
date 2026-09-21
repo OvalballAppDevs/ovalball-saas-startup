@@ -3,6 +3,8 @@ import type { AgendaMonthGroup } from "@/lib/agenda/filters"
 import { cn } from "@/lib/utils"
 
 import { ActivityCard } from "./activity-card"
+import { isAnswerable } from "./answerable"
+import { AttendanceAnswer } from "./attendance-answer"
 
 /**
  * THE RUGBY DIARY.
@@ -51,6 +53,19 @@ function byDay(items: AgendaItem[]): DayGroup[] {
     g.items.push(item)
   }
   return out
+}
+
+/**
+ * What a repeated answer control says it is about.
+ *
+ * Eight rows of "Can Attend" would announce the same three words eight times,
+ * so each control names the rugby it belongs to. Training has no opposition
+ * and must never be given a fake one.
+ */
+function answerSubject(item: AgendaItem): string {
+  if (item.kind === "training") return `training on ${item.date}`
+  const them = item.them?.clubName ?? "the opposition"
+  return `${them} on ${item.date}`
 }
 
 export function AgendaTimeline({
@@ -132,6 +147,18 @@ export function AgendaTimeline({
                     {day.items.map((item) => (
                       <li key={item.key}>
                         <ActivityCard item={item} showChild={showChild} attention={attentionKeys?.has(item.key) ?? false} />
+                        {/* Outside the card, never inside it: the card IS a
+                            link, and a button nested in a link is neither. */}
+                        {isAnswerable(item, todayIso) && item.playerId && (
+                          <AttendanceAnswer
+                            kind={item.kind}
+                            eventId={item.eventId}
+                            playerId={item.playerId}
+                            current={item.attendance}
+                            subject={item.childFirstName ?? "you"}
+                            what={answerSubject(item)}
+                          />
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -196,6 +223,18 @@ export function NextUp({
       </div>
       <div className="p-2 sm:p-3">
         <ActivityCard item={item} showChild={showChild} onDark attention={attention} />
+        {isAnswerable(item, todayIso) && item.playerId && (
+          <div className="px-2 pb-1 sm:px-3">
+            <AttendanceAnswer
+              kind={item.kind}
+              eventId={item.eventId}
+              playerId={item.playerId}
+              current={item.attendance}
+              subject={item.childFirstName ?? "you"}
+              what={answerSubject(item)}
+            />
+          </div>
+        )}
       </div>
     </section>
   )

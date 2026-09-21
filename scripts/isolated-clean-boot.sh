@@ -365,11 +365,53 @@ begin
 
   raise notice 'PASS clean boot: Step 8''s objects are correct from empty, and grant nothing a club could not grant by hand';
 end $$;
+
+-- =====================================================================================================
+-- CONVERGENCE STEP 9. One rule and one narrow write, and both are the kind whose mistake is a privacy
+-- failure: a transition resolver that answered for anybody who asked, or an adult's decision that
+-- reached further than the one relationship it was about.
+-- =====================================================================================================
+do $$
+declare v_def text;
+begin
+  if to_regprocedure('public.player_adult_transition(uuid,date)') is null then
+    raise exception 'CLEAN BOOT: the adult transition resolver does not exist';
+  end if;
+  if to_regprocedure('public.end_my_guardian_access(uuid,text)') is null then
+    raise exception 'CLEAN BOOT: the adult player''s own decision does not exist';
+  end if;
+  if has_function_privilege('anon', 'public.player_adult_transition(uuid,date)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.end_my_guardian_access(uuid,text)', 'EXECUTE') then
+    raise exception 'CLEAN BOOT: anon can reach a family function';
+  end if;
+
+  -- The authority check must not be able to fail open through three-valued
+  -- logic. A player with no linked account has user_id = null, and a bare
+  -- `user_id = actor()` makes the whole OR chain NULL rather than false, so
+  -- `if not (...)` never fires. Step 9's own suite found exactly that.
+  select pg_get_functiondef(p.oid) into v_def from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'player_adult_transition';
+  if position('v_user is not null and v_user = internal.actor()' in v_def) = 0 then
+    raise exception 'CLEAN BOOT: the transition resolver compares a nullable user id without guarding for null';
+  end if;
+
+  -- The adult's decision uses the canonical age predicate and touches one table.
+  select pg_get_functiondef(p.oid) into v_def from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'end_my_guardian_access';
+  if position('internal.player_effective_age' in v_def) = 0 then
+    raise exception 'CLEAN BOOT: the adult decision does not use the canonical age predicate';
+  end if;
+  if v_def ~ 'update public\.(players|club_memberships|player_team_memberships|role_assignments)' then
+    raise exception 'CLEAN BOOT: the adult decision writes to something other than the relationship';
+  end if;
+
+  raise notice 'PASS clean boot: Step 9''s family rule is correct from empty, and reaches exactly one relationship';
+end $$;
 SQL
 STATUS=$?
 
 echo "-- running the estate's own assertions against the fresh database"
-for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access; do
+for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access step9_family_and_availability; do
   out=$(boot_psql -q -f - < "$REPO/supabase/tests/$suite.sql" 2>&1)
   fails=$(printf '%s' "$out" | grep -c "FAIL" || true)
   passes=$(printf '%s' "$out" | grep -c "PASS" || true)

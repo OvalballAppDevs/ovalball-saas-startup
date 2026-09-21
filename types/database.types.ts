@@ -23133,6 +23133,10 @@ export type Database = {
         }
         Returns: string
       }
+      end_my_guardian_access: {
+        Args: { p_guardian_id: string; p_reason?: string }
+        Returns: undefined
+      }
       enter_diagnostic_club: { Args: { p_club_id: string }; Returns: string }
       exit_diagnostic_club: {
         Args: { p_session_id: string }
@@ -24586,6 +24590,17 @@ export type Database = {
         Returns: {
           mode: string
           release_version: string
+        }[]
+      }
+      player_adult_transition: {
+        Args: { p_as_of?: string; p_player_id: string }
+        Returns: {
+          active_guardians: number
+          age: number
+          days_until: number
+          has_own_account: boolean
+          state: string
+          turns_18_on: string
         }[]
       }
       player_team_allocation: {

@@ -159,19 +159,42 @@ async function identityOf(page) {
   return text.match(/[\w.+-]+@[\w.-]+/)?.[0] ?? null
 }
 
+/**
+ * A CACHE MAY NEVER BE THE THING THAT FAILS A RUN.
+ *
+ * This probe navigates to /account to check whether a cached cookie jar still
+ * belongs to the address we want. The navigation used to be unguarded, and it
+ * sits BEFORE signIn's retry loop -- so one slow /account under batch load
+ * threw a TimeoutError straight out of signIn, past the three attempts that
+ * exist precisely to survive a flaky sign-in.
+ *
+ * Convergence Step 9's gate caught it: 34-planner-away-ground-request crashed
+ * at its second sign-in with `TimeoutError: navigating to
+ * "http://localhost:3000/account"` and passed 12/12 alone. It was not a
+ * product failure -- the product was never asked anything -- and it was not
+ * memory, which was measured at 4.6GB free at that moment. It was the fast
+ * path defeating the slow path's own safety net.
+ *
+ * Every failure here now means one thing: "no usable cached session", which is
+ * the answer the caller already knows how to act on. Nothing is swallowed that
+ * a test depends on; the full sign-in that follows proves the identity for
+ * real, and `signIn` still refuses to continue if it ends up as the wrong
+ * person.
+ */
 async function tryCachedSession(page, email) {
   const file = cachePath(email)
   if (!fs.existsSync(file)) return false
   try {
     const cookies = JSON.parse(fs.readFileSync(file, "utf8"))
     await page.context().addCookies(cookies)
+    if ((await identityOf(page)) === email) return true
   } catch {
+    // A stale jar, an unreadable file or a slow route are all the same answer.
     return false
   }
-  if ((await identityOf(page)) === email) return true
   // Verified and wrong: drop it rather than leave a trap for the next run.
-  await page.context().clearCookies()
   try {
+    await page.context().clearCookies()
     fs.unlinkSync(file)
   } catch {}
   return false
