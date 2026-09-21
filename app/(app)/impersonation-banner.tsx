@@ -41,7 +41,7 @@ export function ImpersonationBanner({ session }: { session: ActiveImpersonation 
           type="submit"
           className="rounded-md border border-rose-950/25 bg-rose-950/10 px-3 py-1 text-sm font-medium text-rose-950 outline-none transition-colors hover:bg-rose-950/20 focus-visible:ring-2 focus-visible:ring-rose-950/50"
         >
-          Stop Acting As Them
+          Stop Acting as Them
         </button>
       </form>
     </div>

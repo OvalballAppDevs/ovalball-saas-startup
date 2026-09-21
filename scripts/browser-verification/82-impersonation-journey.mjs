@@ -143,7 +143,7 @@ try {
   record("C2 and the banner is still there", /you are acting as/i.test(await m.locator("body").innerText()))
   await small.close()
 
-  await page.getByRole("button", { name: "Stop Acting As Them" }).first().click()
+  await page.getByRole("button", { name: "Stop Acting as Them" }).first().click()
   const ended = await waitForSql(
     `select count(*) from public.impersonation_sessions where actor_user_id = '${adminId}' and ended_at is null`,
     "0"

@@ -21,6 +21,7 @@ import { distinctClubIds, splitDeskNotices } from "@/lib/club-public/desk"
 import { matchDateParts } from "@/lib/club-public/format"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { getBetaBadgeState } from "@/lib/platform/mode"
+import { BODY_ROLE_LABEL, BODY_TYPE_LABEL, loadMyGoverningBodies } from "@/lib/governing/body"
 import { createClient } from "@/lib/supabase/server"
 
 import { FamilyAvatar } from "@/components/profile/family-avatar"
@@ -44,6 +45,12 @@ function greeting(): string {
 
 export default async function DashboardPage() {
   const supabase = await createClient()
+
+  // CONVERGENCE STEP 14. Reachable only by somebody who actually holds a role in a rugby
+  // organisation -- the server returns an empty list to everybody else, so there is no dead
+  // navigation for an ordinary club user to find. Step 15 promotes this into the nav catalogue
+  // proper, where a section belongs.
+  const governingBodies = await loadMyGoverningBodies(supabase)
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -174,6 +181,29 @@ export default async function DashboardPage() {
 
       {/* Requests come before everything else that is not urgent: they are the part of this page that
           is waiting on this person rather than merely informing them. */}
+      {governingBodies.length > 0 && (
+        <section className="mt-6 first:mt-0">
+          <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Your Rugby Organisations</h2>
+          <ul className="mt-4 flex flex-col gap-2">
+            {governingBodies.map((b) => (
+              <li key={b.bodyId}>
+                <Link
+                  href={`/governing/${b.bodyId}`}
+                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 hover:bg-surface-muted"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-ink">{b.canonicalName}</span>
+                    <span className="block text-xs text-ink-muted">
+                      {BODY_TYPE_LABEL[b.bodyType] ?? b.bodyType} · you are {BODY_ROLE_LABEL[b.myRole]}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {data.outstandingRequests.length > 0 && (
         <section className="mt-6 first:mt-0">
           <h2 className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Requests</h2>

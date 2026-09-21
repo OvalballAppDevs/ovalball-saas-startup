@@ -1644,6 +1644,11 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Identity/Auth — Slice 9 impersonation",
       "reason": "Convergence Step 13 / Identity-Auth Slice 9: acting as somebody is capability-gated, reasoned, view-only by default, clamped at the capability engine, expiring at read time, attributed to both people, and notified afterwards (AN-9)."
+    },
+    "step14_governing_body": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Governing Body programme (Steps 14-16)",
+      "reason": "Convergence Step 14: governing-body authority comes from an ACTIVE constituent_body_roles row and nothing else -- not a club role, a Fixture Secretary, a Safeguarding Officer or a name -- with fail-closed predicates, wrong-body isolation, explicit Site Admin access, and suspension/revocation winning."
     }
   },
   "prerequisite_defect": {

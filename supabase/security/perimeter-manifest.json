@@ -3577,6 +3577,16 @@
         "select": "all",
         "select_reason": "Convergence Step 13 / Identity-Auth Slice 9: a bounded act-as session. RLS restricts the read to the actor, the person being acted as -- who is entitled to know -- and holders of site.users.view. There is no browser write path: starting and ending go through start_impersonation and end_impersonation, which require the canonical session gate, recent AAL2, site.users.impersonate and an explicit reason. The row carries no credential."
       }
+    },
+    "constituent_body_roles": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Convergence Step 14: what a person is to a governing body. RLS restricts the read to the person themselves and to anybody who may view that body. No browser write path -- roles are granted through set_governing_body_role, which requires the body's own administrator or the explicit site.memberships.manage capability. Deliberately not role_assignments, which is club-bound."
+      }
     }
   },
   "views": {
@@ -7778,6 +7788,34 @@
         "consumers": [
           "app/(app)/impersonation-actions.ts"
         ]
+      },
+      {
+        "signature": "get_governing_body(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/governing/body.ts"
+        ]
+      },
+      {
+        "signature": "governing_body_clubs(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/governing/body.ts"
+        ]
+      },
+      {
+        "signature": "my_governing_bodies()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/governing/body.ts"
+        ]
+      },
+      {
+        "signature": "set_governing_body_role(uuid, uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "supabase/tests/step14_governing_body.sql"
+        ]
       }
     ],
     "authenticated_revoked_public": [
@@ -8716,7 +8754,11 @@
       "team_age_grade_attention(uuid, date)",
       "end_impersonation(text)",
       "my_impersonation()",
-      "start_impersonation(uuid, text)"
+      "start_impersonation(uuid, text)",
+      "get_governing_body(uuid)",
+      "governing_body_clubs(uuid)",
+      "my_governing_bodies()",
+      "set_governing_body_role(uuid, uuid, text, text)"
     ],
     "service_role_internal": [
       "advance_competition_knockout(uuid)",

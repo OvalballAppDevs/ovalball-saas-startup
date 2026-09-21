@@ -196,6 +196,37 @@ brand assets are never changed incidentally.
 
 ---
 
+## H12 — Identity/Auth Slice 9 (Step 13) debt
+
+- **H12.1 — `impersonation.blocked_action` is registered but never emitted.** The
+  security event type exists in the catalogue. The view-only clamp lives in
+  `internal.impersonation_permits`, reached from `internal.can`, which is
+  `STABLE` and cannot write — so a refusal is currently silent. Emitting it needs
+  a write-side hook. *Owner: Identity/Auth.*
+- **H12.2 — the blocked list is a regex, and the catalogue has a column.**
+  `public.capabilities` carries **`impersonation_blocked`** per capability.
+  Slice 9's blocked areas are pattern-matched on the key instead, because the
+  clamp had to work before the catalogue could be audited row by row. Reading the
+  column is the right end state. *Owner: Identity/Auth + capability catalogue.*
+
+## H13 — Governing Body foundation (Step 14) debt
+
+- **H13.1 — no `body` scope in the capability engine.**
+  `internal.capability_decision` takes club, team and player only, and
+  `bundle_capabilities.scope_type` is constrained to five values. Step 14
+  resolves governing-body authority through dedicated functions over
+  `constituent_body_roles` rather than changing the signature of the function
+  every authority decision in the platform calls. Promoting a sixth scope — and
+  with it registering `governing.body.view` / `.manage` /
+  `governing.competition.manage` in `public.capabilities` — is the right end
+  state. *Owner: capability engine, with the Governing Body programme.*
+- **H13.2 — governing-body navigation is a dashboard entry, not a nav section.**
+  The nav catalogue is capability-filtered with its own architecture suite, and a
+  foundation step is the wrong place to add a section to it. *Owner: Step 15.*
+- **H13.3 — affiliation has no lifecycle.** `club_directory.constituent_body_id`
+  is a single current value with no history and no workflow. Step 14 deliberately
+  did not invent one. *Owner: Governing Body programme, if the product needs it.*
+
 ## H11 — Owed at hardening, in one list
 
 Complete canonical gate on a frozen tree · full-chain clean boot ·

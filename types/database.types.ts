@@ -6005,6 +6005,7 @@ export type Database = {
           name: string
           normalized_key: string
           organiser_club_id: string | null
+          organiser_constituent_body_id: string | null
           organiser_name: string | null
           rugby_code: string
           slug: string
@@ -6025,6 +6026,7 @@ export type Database = {
           name: string
           normalized_key: string
           organiser_club_id?: string | null
+          organiser_constituent_body_id?: string | null
           organiser_name?: string | null
           rugby_code: string
           slug: string
@@ -6045,6 +6047,7 @@ export type Database = {
           name?: string
           normalized_key?: string
           organiser_club_id?: string | null
+          organiser_constituent_body_id?: string | null
           organiser_name?: string | null
           rugby_code?: string
           slug?: string
@@ -6123,6 +6126,13 @@ export type Database = {
             referencedRelation: "clubs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "competitions_organiser_constituent_body_id_fkey"
+            columns: ["organiser_constituent_body_id"]
+            isOneToOne: false
+            referencedRelation: "constituent_bodies"
+            referencedColumns: ["id"]
+          },
         ]
       }
       constituent_bodies: {
@@ -6169,6 +6179,59 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      constituent_body_roles: {
+        Row: {
+          constituent_body_id: string
+          created_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          role_key: string
+          state: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          constituent_body_id: string
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          role_key: string
+          state?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          constituent_body_id?: string
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          role_key?: string
+          state?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "constituent_body_roles_constituent_body_id_fkey"
+            columns: ["constituent_body_id"]
+            isOneToOne: false
+            referencedRelation: "constituent_bodies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       direct_conversations: {
         Row: {
@@ -23911,6 +23974,25 @@ export type Database = {
           environment: string
         }[]
       }
+      get_governing_body: {
+        Args: { p_body_id: string }
+        Returns: {
+          active: boolean
+          affiliated_club_count: number
+          body_id: string
+          body_type: string
+          can_manage: boolean
+          can_manage_competitions: boolean
+          canonical_name: string
+          competition_count: number
+          my_role: string
+          nation: string
+          rugby_code: string
+          short_name: string
+          source_checked_on: string
+          source_url: string
+        }[]
+      }
       get_guardian_invitation_preview: {
         Args: { p_token: string }
         Returns: {
@@ -24457,6 +24539,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      governing_body_clubs: {
+        Args: { p_body_id: string }
+        Returns: {
+          county: string
+          directory_id: string
+          is_on_ovalball: boolean
+          name: string
+          town: string
+        }[]
+      }
       graduate_team: { Args: { p_team_id: string }; Returns: number }
       grant_club_membership: {
         Args: { p_club_id: string; p_reason: string; p_user_id: string }
@@ -24940,6 +25032,16 @@ export type Database = {
           context_label: string
           display_name: string
           user_id: string
+        }[]
+      }
+      my_governing_bodies: {
+        Args: never
+        Returns: {
+          body_id: string
+          body_type: string
+          canonical_name: string
+          my_role: string
+          short_name: string
         }[]
       }
       my_guardian_link_requests: {
@@ -26357,6 +26459,15 @@ export type Database = {
           p_muted: boolean
         }
         Returns: undefined
+      }
+      set_governing_body_role: {
+        Args: {
+          p_body_id: string
+          p_reason?: string
+          p_role_key: string
+          p_user_id: string
+        }
+        Returns: string
       }
       set_guardian_player_permission: {
         Args: {
