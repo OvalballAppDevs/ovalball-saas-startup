@@ -1,24 +1,30 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@ovalball/contracts"
 
+type MessageTarget = Database["public"]["Enums"]["message_target_type"]
+
 /**
- * ATTACHMENTS, AGAINST THE CANONICAL MODEL -- INCLUDING WHERE IT STOPS.
+ * ATTACHMENTS, AGAINST THE CANONICAL MODEL.
  *
- * ARCHAEOLOGY FIRST, AND IT CHANGED THE SCOPE. `create_fixture_message_with_attachment` takes
- * `p_fixture_id` and `p_fixture_request_id` and nothing else; `share_fixture_document` is the same
- * shape. There is no direct-conversation or club-conversation parameter on either, and the website
- * says so out loud -- `sendFixtureMessageWithAttachment` returns "Attachments aren't available in club
- * conversations yet" and never offers them on a direct thread at all.
+ * AN ATTACHMENT BELONGS TO A CONVERSATION, and the platform now says which one: `create_message_attachment`
+ * and `share_message_document` take a typed `message_target_type` -- fixture, fixture request or direct --
+ * instead of the pair of nullable fixture ids that could not name a direct conversation at all. Both
+ * clients call the same RPCs; there is no mobile insert path and no service role anywhere near this.
  *
- * So ATTACHMENTS ARE A FIXTURE-AND-REQUEST CAPABILITY on this platform, for both clients. Building
- * them for a direct conversation on mobile would mean either a mobile-only insert path around the
- * RPC -- which is exactly what must not be built -- or widening the canonical RPC, which is platform
- * work that has to serve the website too. `canAttach` names that boundary rather than hiding it, and
- * the interface explains it rather than showing a button that fails.
+ * A DIRECT CONVERSATION IS NOT SECOND-CLASS, and it is not a loosening either. Posting an attachment
+ * into one requires exactly what posting a SENTENCE into one requires -- `can_view_direct_conversation`
+ * and `may_direct_message` -- so every safeguarding rule (both parties adult, blocks in either
+ * direction, club and site messaging policy, discovery) governs a photo precisely as it governs a line
+ * of text. The app asserts none of it; the server does, and refuses.
  *
- * THE LIMITS ARE THE WEB'S, recovered rather than chosen: PDF, JPEG, PNG and WEBP; two megabytes;
- * the private `fixture-attachments` bucket; a random storage path that never contains the original
- * filename; upload first, then link, so a message never claims an attachment it does not have.
+ * THE LIMITS ARE THE PLATFORM'S, recovered rather than chosen: PDF, JPEG, PNG and WEBP; two megabytes;
+ * the private `fixture-attachments` bucket; a storage path whose first two segments name the
+ * conversation and whose last contains no part of the original filename; upload first, then link, so a
+ * message never claims an attachment it does not have.
+ *
+ * ONE CONVERSATION STILL HAS NO TARGET: a club-to-club thread. Its per-club message policy and document
+ * resolution are keyed off a fixture, so widening it is its own slice. Saying so is better than a
+ * button that fails.
  */
 
 /** Recovered from `app/(app)/messages/actions.ts`. A mobile-only extension here would be a weakening. */
@@ -30,7 +36,22 @@ export const ATTACHMENT_MIME_EXTENSIONS: Record<string, string> = {
 }
 export const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024
 
-export type AttachableKind = "fixture" | "request"
+export type AttachableKind = "fixture" | "request" | "direct"
+
+/** The route's own word for a conversation, mapped to the database's typed target. One mapping. */
+const TARGET: Record<AttachableKind, MessageTarget> = {
+  fixture: "fixture",
+  request: "fixture_request",
+  direct: "direct",
+}
+
+/** The typed target for a route kind, for the callers that need it without needing the whole module. */
+export function messageTarget(kind: AttachableKind): MessageTarget {
+  return TARGET[kind]
+}
+
+/** The first segment of a storage path, which is what the bucket policy reads as the container. */
+const PREFIX: Record<AttachableKind, "f" | "r" | "d"> = { fixture: "f", request: "r", direct: "d" }
 
 /**
  * Whether this conversation can carry an attachment at all.
@@ -39,13 +60,7 @@ export type AttachableKind = "fixture" | "request"
  * supports. A person is told which it is.
  */
 export function attachmentSupport(kind: string): { canAttach: boolean; reason: string | null } {
-  if (kind === "fixture" || kind === "request") return { canAttach: true, reason: null }
-  if (kind === "direct") {
-    return {
-      canAttach: false,
-      reason: "Attachments aren't available in direct messages yet — they work on fixture conversations.",
-    }
-  }
+  if (kind === "fixture" || kind === "request" || kind === "direct") return { canAttach: true, reason: null }
   return { canAttach: false, reason: "Attachments aren't available in club conversations yet." }
 }
 
@@ -96,16 +111,19 @@ export async function sendWithAttachment(
   if (refusal) return { ok: false, message: refusal }
 
   const extension = ATTACHMENT_MIME_EXTENSIONS[file.mimeType]
-  const storagePath = `${kind === "fixture" ? "f" : "r"}/${id}/${randomId()}.${extension}`
+  // THE PATH NAMES THE CONVERSATION, and the server now checks that it does: an attachment whose path
+  // points at a different conversation is refused rather than linked to a message that then cannot be
+  // opened.
+  const storagePath = `${PREFIX[kind]}/${id}/${randomId()}.${extension}`
 
   const { error: uploadError } = await supabase.storage
     .from("fixture-attachments")
     .upload(storagePath, file.bytes, { contentType: file.mimeType, upsert: false })
   if (uploadError) return { ok: false, message: "Couldn't upload that file. Try again." }
 
-  const { error } = await supabase.rpc("create_fixture_message_with_attachment", {
-    p_fixture_id: (kind === "fixture" ? id : null) as unknown as string,
-    p_fixture_request_id: (kind === "request" ? id : null) as unknown as string,
+  const { error } = await supabase.rpc("create_message_attachment", {
+    p_target_type: TARGET[kind],
+    p_target_id: id,
     // An attachment with no caption is an attachment with no caption -- the schema models that, and
     // inventing "Attached: IMG_4821" would put words in somebody's mouth.
     p_body: (body.trim() || null) as unknown as string,
@@ -137,9 +155,9 @@ export async function shareDocument(
   documentId: string,
   note: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  const { error } = await supabase.rpc("share_fixture_document", {
-    p_fixture_id: (kind === "fixture" ? id : null) as unknown as string,
-    p_fixture_request_id: (kind === "request" ? id : null) as unknown as string,
+  const { error } = await supabase.rpc("share_message_document", {
+    p_target_type: TARGET[kind],
+    p_target_id: id,
     p_document_id: documentId,
     p_note: (note.trim() || null) as unknown as string,
   })

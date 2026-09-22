@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { createSupportTicket } from "@/app/(app)/support/actions"
 import { createClient } from "@/lib/supabase/server"
+import { attachmentTarget } from "@/lib/messenger/target"
 
 export type MessageActionResult = { ok: true } | { ok: false; error: string }
 
@@ -39,14 +40,16 @@ export async function sendFixtureMessageWithAttachment(
   body: string,
   file: File
 ): Promise<SendAttachmentResult> {
-  // Deliberately deferred for this pass -- club conversations reuse the
-  // fixture_messages table and its RLS, but the attachment/document-
-  // library/contact-card RPCs are still coupled to
-  // internal.resolve_my_fixture_club_id(fixture_id, fixture_request_id)
-  // and per-club message-policy resolution keyed off a fixture. Widening
-  // that whole surface is a real follow-up, not a five-line change --
-  // reported as a known gap rather than silently pretending it works.
-  if (kind === "club") return { ok: false, error: "Attachments aren't available in club conversations yet." }
+  // WHICH CONVERSATION THIS IS GOING INTO, asked once and answered by the shared mapping.
+  //
+  // This used to read `if (kind === "club") return …` and then build the storage path from
+  // `kind === "fixture" ? "f" : "r"`, which quietly made every DIRECT message a "request" -- so a
+  // person attaching a photo to a direct message uploaded to `r/<direct-conversation-id>/…`, called
+  // the RPC with both fixture ids null, and got a raw database refusal back. The `+` menu was offered
+  // the whole time. The attachment model now names a direct conversation properly, so the only case
+  // left without a target is a club conversation, and that one says so.
+  const target = attachmentTarget(kind)
+  if (!target.supported) return { ok: false, error: target.reason }
 
   const extension = ATTACHMENT_MIME_EXTENSIONS[file.type]
   if (!extension) return { ok: false, error: "Unsupported file type. Attach a PDF, JPEG, PNG, or WEBP." }
@@ -59,7 +62,7 @@ export async function sendFixtureMessageWithAttachment(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not signed in." }
 
-  const storagePath = `${kind === "fixture" ? "f" : "r"}/${id}/${crypto.randomUUID()}.${extension}`
+  const storagePath = `${target.storagePrefix}/${id}/${crypto.randomUUID()}.${extension}`
 
   const bytes = await file.arrayBuffer()
   const { error: uploadError } = await supabase.storage
@@ -67,17 +70,14 @@ export async function sendFixtureMessageWithAttachment(
     .upload(storagePath, bytes, { contentType: file.type, upsert: false })
   if (uploadError) return { ok: false, error: "Couldn't upload that file -- please try again." }
 
-  const { error: rpcError } = await supabase.rpc("create_fixture_message_with_attachment", {
-    // Args are declared nullable uuid in SQL (exactly one of fixture_id/
-    // fixture_request_id is null, matching the messages table's own
-    // num_nonnulls(...) = 1 check) -- the generated type just doesn't
-    // capture that.
-    p_fixture_id: (kind === "fixture" ? id : null) as unknown as string,
-    p_fixture_request_id: (kind === "request" ? id : null) as unknown as string,
-    // The caption, or nothing. The schema now models an image with no words
-    // as an image with no words -- so an empty caption is stored as an empty
-    // caption rather than as the sentence "Attached: IMG_4821.HEIC", which is
-    // not something the sender ever said.
+  const { error: rpcError } = await supabase.rpc("create_message_attachment", {
+    // ONE TARGET, NAMED. The pair of nullable fixture ids is gone: the invariant that used to live in
+    // every caller is now the parameter itself, which is what makes a third container expressible.
+    p_target_type: target.target,
+    p_target_id: id,
+    // The caption, or nothing. The schema models an image with no words as an image with no words --
+    // so an empty caption is stored as an empty caption rather than as the sentence
+    // "Attached: IMG_4821.HEIC", which is not something the sender ever said.
     p_body: (body.trim() || null) as unknown as string,
     p_storage_path: storagePath,
     p_original_filename: file.name,

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { Database } from "@ovalball/contracts"
+import { DIRECT_SHAREABLE_DOCUMENT_CATEGORIES, type Database } from "@ovalball/contracts"
+
+import { messageTarget, type AttachableKind } from "./attachments"
 
 /**
  * OVALBALL'S OWN DOCUMENTS, SEARCHED WHERE THEY LIVE.
@@ -13,8 +15,9 @@ import type { Database } from "@ovalball/contracts"
  * documents this identity may see. There is no club id filter here on purpose: adding one would look
  * like the authority and would be a second, weaker opinion beside the real one.
  *
- * ARCHIVED DOCUMENTS ARE EXCLUDED because `share_fixture_document` refuses them; offering one would
- * be offering something that cannot be sent.
+ * ARCHIVED DOCUMENTS ARE EXCLUDED because `share_message_document` refuses them; offering one would
+ * be offering something that cannot be sent. So are documents whose category makes them unshareable
+ * into a DIRECT conversation -- `other` is the catch-all where an uncategorised committee paper sits.
  *
  * AND SHAREABILITY IS STILL THE SERVER'S. Being able to SEE a document is not being able to share it:
  * the share RPC additionally checks the club's `allow_document_library_sharing` policy. That refusal
@@ -35,7 +38,9 @@ const PAGE = 25
 
 export async function searchClubDocuments(
   supabase: SupabaseClient<Database>,
-  search: string
+  search: string,
+  /** The conversation these documents are being offered FOR, which narrows what may be offered. */
+  kind: AttachableKind
 ): Promise<ClubDocument[]> {
   let query = supabase
     .from("club_documents")
@@ -43,6 +48,13 @@ export async function searchClubDocuments(
     .is("archived_at", null)
     .order("updated_at", { ascending: false })
     .limit(PAGE)
+
+  // NOT OFFERED IS BETTER THAN OFFERED AND REFUSED. A direct conversation is a different audience from
+  // a fixture negotiation, so the server will refuse a document nobody categorised; filtering here in
+  // the SAME LIST the server uses means the picker never invites somebody to try.
+  if (messageTarget(kind) === "direct") {
+    query = query.in("category", [...DIRECT_SHAREABLE_DOCUMENT_CATEGORIES])
+  }
 
   const needle = search.trim()
   if (needle) {

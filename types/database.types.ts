@@ -23400,6 +23400,18 @@ export type Database = {
         Args: { p_billing_period: string; p_club_id: string }
         Returns: number
       }
+      create_message_attachment: {
+        Args: {
+          p_body: string
+          p_mime_type: string
+          p_original_filename: string
+          p_size_bytes: number
+          p_storage_path: string
+          p_target_id: string
+          p_target_type: Database["public"]["Enums"]["message_target_type"]
+        }
+        Returns: string
+      }
       create_missing_target_team: {
         Args: { p_request_id: string }
         Returns: string
@@ -25535,6 +25547,19 @@ export type Database = {
           telephone: string
         }[]
       }
+      preview_my_message_contact_card: {
+        Args: {
+          p_target_id: string
+          p_target_type: Database["public"]["Enums"]["message_target_type"]
+        }
+        Returns: {
+          club_name: string
+          display_name: string
+          role_label: string
+          team_name: string
+          telephone: string
+        }[]
+      }
       preview_player_allocation: {
         Args: {
           p_club_id: string
@@ -26836,6 +26861,22 @@ export type Database = {
         }
         Returns: string
       }
+      share_message_contact_card: {
+        Args: {
+          p_target_id: string
+          p_target_type: Database["public"]["Enums"]["message_target_type"]
+        }
+        Returns: string
+      }
+      share_message_document: {
+        Args: {
+          p_document_id: string
+          p_note?: string
+          p_target_id: string
+          p_target_type: Database["public"]["Enums"]["message_target_type"]
+        }
+        Returns: string
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_my_other_devices: { Args: never; Returns: number }
@@ -27595,7 +27636,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      message_target_type: "fixture" | "fixture_request" | "direct"
     }
     CompositeTypes: {
       directory_verification_proposal_input: {
@@ -27732,7 +27773,9 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      message_target_type: ["fixture", "fixture_request", "direct"],
+    },
   },
 } as const
 

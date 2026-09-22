@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { ThreadMessage } from "@ovalball/contracts"
 
@@ -120,6 +120,9 @@ export default function ConversationScreen() {
   const [actionProblem, setActionProblem] = useState<string | null>(null)
   const viewerId = session?.user.id ?? null
   const attachments = attachmentSupport(kind)
+  // Narrowed once, here, rather than cast at four call sites. `attachments.canAttach` and this are the
+  // same fact, and a club conversation is the only kind that has no attachment target.
+  const attachTo = attachments.canAttach ? (kind as AttachableKind) : null
   const draftKey = `${kind}:${id}`
 
   const load = useCallback(async () => {
@@ -144,6 +147,16 @@ export default function ConversationScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // A SHARE HAPPENS ON ANOTHER SCREEN. Club Documents pushes a picker, the share is written there, and
+  // `router.back()` returns here -- which does not remount this screen, so without this the document
+  // somebody just sent would not appear until they left and came back. The same focus rule the inbox
+  // needed, for the same reason.
+  useFocusEffect(
+    useCallback(() => {
+      void load()
+    }, [load])
+  )
 
   // THE DRAFT SURVIVES THE KEYBOARD, THE APP BACKGROUNDING AND A FAILED SEND. Read once per
   // conversation and per person, so one identity's unsent line is never offered to another.
@@ -207,6 +220,10 @@ export default function ConversationScreen() {
    * screen mounts again. Nothing extra is needed here, and that is the point of having put it there.
    */
   async function chose(action: AttachmentAction) {
+    if (!attachTo) {
+      setSendError(attachments.reason)
+      return
+    }
     if (action === "documents") {
       router.push({ pathname: "/messages/documents", params: { kind, id } })
       return
@@ -215,7 +232,7 @@ export default function ConversationScreen() {
       setCard(null)
       setCardProblem(null)
       setCardSheet(true)
-      const preview = await previewContactCard(supabase, kind as AttachableKind, id)
+      const preview = await previewContactCard(supabase, attachTo, id)
       if (preview.ok) setCard(preview.card)
       else setCardProblem(preview.message)
       return
@@ -288,9 +305,10 @@ export default function ConversationScreen() {
    */
   async function sendAttached(file: Picked, body: string): Promise<{ ok: true } | { ok: false; message: string }> {
     setPending({ ...file, state: "uploading" })
+    if (!attachTo) return { ok: false, message: attachments.reason ?? "Attachments aren't available here." }
     const bytes = await readFileBytes(file.uri)
     if (!bytes) return { ok: false, message: "Couldn't read that file. Choose it again." }
-    return sendWithAttachment(supabase, kind as AttachableKind, id, body, {
+    return sendWithAttachment(supabase, attachTo, id, body, {
       name: file.name,
       mimeType: file.mimeType,
       sizeBytes: file.sizeBytes,
@@ -299,10 +317,10 @@ export default function ConversationScreen() {
   }
 
   async function sendCard() {
-    if (cardSending) return
+    if (cardSending || !attachTo) return
     setCardSending(true)
     setCardProblem(null)
-    const result = await shareContactCard(supabase, kind as AttachableKind, id)
+    const result = await shareContactCard(supabase, attachTo, id)
     setCardSending(false)
     if (!result.ok) {
       setCardProblem(result.message)

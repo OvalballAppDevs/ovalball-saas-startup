@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 
 import type { ConversationKind } from "../../actions"
+import { attachmentTarget } from "@/lib/messenger/target"
 
 export interface ContactCardPreview {
   displayName: string
@@ -24,9 +25,11 @@ export interface ContactCardPreview {
  */
 export async function previewMyContactCard(kind: ConversationKind, id: string): Promise<ContactCardPreview | null> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc("preview_my_fixture_contact_card", {
-    p_fixture_id: (kind === "fixture" ? id : null) as unknown as string,
-    p_fixture_request_id: (kind === "request" ? id : null) as unknown as string,
+  const target = attachmentTarget(kind)
+  if (!target.supported) return null
+  const { data, error } = await supabase.rpc("preview_my_message_contact_card", {
+    p_target_type: target.target,
+    p_target_id: id,
   })
   if (error || !data || data.length === 0) return null
   const row = data[0]
@@ -43,9 +46,11 @@ export type ShareContactCardResult = { ok: true } | { ok: false; error: string }
 
 export async function shareContactCard(kind: ConversationKind, id: string): Promise<ShareContactCardResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("share_fixture_contact_card", {
-    p_fixture_id: (kind === "fixture" ? id : null) as unknown as string,
-    p_fixture_request_id: (kind === "request" ? id : null) as unknown as string,
+  const target = attachmentTarget(kind)
+  if (!target.supported) return { ok: false, error: target.reason }
+  const { error } = await supabase.rpc("share_message_contact_card", {
+    p_target_type: target.target,
+    p_target_id: id,
   })
   if (error) return { ok: false, error: error.message }
 

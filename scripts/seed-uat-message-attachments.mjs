@@ -417,7 +417,10 @@ async function seedVisitorGuide() {
     club_id: clubId,
     title: "Visitor Guide",
     description: "Directions, parking, changing rooms and clubhouse times for visiting teams.",
-    category: "other",
+    // CATEGORISED, not filed under "other". The category is what decides whether a document may leave
+    // the club into a direct conversation, so a visitor guide filed as the catch-all would be refused
+    // for exactly the journey it exists to serve.
+    category: "visitor_guide",
     original_filename: "ovalball-uat-visitor-guide.pdf",
     storage_path: path,
     mime_type: "application/pdf",
@@ -502,14 +505,94 @@ async function seedReceivedAttachments() {
   console.log("  Received document: Visitor Guide shared into the fixture conversation")
 }
 
+/**
+ * A TELEPHONE NUMBER, so a contact card has something to preview.
+ *
+ * `share_message_contact_card` refuses outright when the sender's profile has no number -- correctly,
+ * because there is nothing to share -- which makes the whole journey unreviewable on a seeded world
+ * where nobody has one. Written as the person, through their own profile.
+ */
+async function seedTelephone(email, telephone, label) {
+  const id = await userId(email)
+  const supabase = clientFor(id)
+  const { data: profile } = await supabase.from("profiles").select("phone_number").eq("id", id).maybeSingle()
+  if (profile?.phone_number) {
+    console.log(`  ${label}: already has a telephone number, left alone`)
+    return
+  }
+  const { data: updated, error } = await supabase
+    .from("profiles")
+    .update({ phone_number: telephone })
+    .eq("id", id)
+    .select("id")
+  if (error || !updated?.length) throw new Error(`${label} telephone refused: ${error?.message ?? "no row updated"}`)
+  console.log(`  ${label}: telephone number recorded`)
+}
+
+/**
+ * SOMETHING TO RECEIVE IN A DIRECT CONVERSATION.
+ *
+ * The owner reviews Messages on their own DMs, so a direct conversation with nothing but text in it
+ * cannot show whether attachment RENDERING works -- only whether sending does. Dana sends a photo into
+ * her own conversation with the coach, through the canonical RPC, as herself.
+ */
+async function seedDirectAttachment() {
+  const coach = await userId("uat.coach@ovalball.test")
+  const dana = await userId("uat.guardian.two@ovalball.test")
+  const supabase = clientFor(dana)
+
+  const { data: conversations } = await supabase.rpc("my_direct_conversations", { p_limit: 50 })
+  const conversation = (conversations ?? []).find((c) => c.other_user_id === coach) ?? (conversations ?? [])[0]
+  if (!conversation) {
+    console.log("  Direct attachment: no conversation between Dana and the coach, skipped")
+    return
+  }
+
+  const { count, error: countError } = await supabase
+    .from("fixture_message_attachments")
+    .select("id, fixture_messages!inner(direct_conversation_id)", { count: "exact", head: true })
+    .eq("fixture_messages.direct_conversation_id", conversation.conversation_id)
+  if (countError) throw new Error(`Could not count direct attachments: ${countError.message}`)
+  if ((count ?? 0) > 0) {
+    console.log("  Direct attachment: already in the conversation, left alone")
+    return
+  }
+
+  const bytes = teamSheetPng()
+  const path = `d/${conversation.conversation_id}/${crypto.randomUUID()}.png`
+  const { error: uploadError } = await supabase.storage
+    .from("fixture-attachments")
+    .upload(path, bytes, { contentType: "image/png", upsert: false })
+  if (uploadError) throw new Error(`Direct attachment upload refused: ${uploadError.message}`)
+
+  const { error } = await supabase.rpc("create_message_attachment", {
+    p_target_type: "direct",
+    p_target_id: conversation.conversation_id,
+    p_body: "Here's the team sheet you asked about.",
+    p_storage_path: path,
+    p_original_filename: "under-12-boys-team-sheet.png",
+    p_mime_type: "image/png",
+    p_size_bytes: bytes.length,
+  })
+  if (error) {
+    await supabase.storage.from("fixture-attachments").remove([path])
+    throw new Error(`Direct attachment message refused: ${error.message}`)
+  }
+  console.log("  Direct attachment: photo sent into Dana's conversation")
+}
+
 async function main() {
   console.log("Review world — message attachments")
   await seedName("uat.team.manager@ovalball.test", "Jordan", "Hale", "Jordan Hale")
   await seedAvatar("uat.guardian.two@ovalball.test", "DW", [32, 86, 120], "Dana Whitaker")
   await seedAvatar("uat.coach@ovalball.test", "PN", [18, 61, 44], "Priya Nair")
   await seedAvatar("uat.team.manager@ovalball.test", "JH", [96, 66, 32], "Jordan Hale")
+  await seedTelephone("uat.coach@ovalball.test", "07700 900123", "Priya Nair")
+  await seedTelephone("uat.guardian.two@ovalball.test", "07700 900456", "Dana Whitaker")
+  await seedTelephone("uat.team.manager@ovalball.test", "07700 900789", "Jordan Hale")
   await seedVisitorGuide()
   await seedReceivedAttachments()
+  await seedDirectAttachment()
   console.log("Done.")
 }
 

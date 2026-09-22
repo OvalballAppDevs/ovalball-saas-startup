@@ -235,7 +235,16 @@ function ContactCardPicker({
   )
 }
 
-function DocumentPicker({ onShare, onClose }: { onShare: (doc: ShareableDocument) => void; onClose: () => void }) {
+function DocumentPicker({
+  kind,
+  onShare,
+  onClose,
+}: {
+  /** The conversation decides which documents may be offered, not only which may be shared. */
+  kind: ConversationKind
+  onShare: (doc: ShareableDocument) => void
+  onClose: () => void
+}) {
   const [query, setQuery] = useState("")
   const [docs, setDocs] = useState<ShareableDocument[]>([])
   const [loading, setLoading] = useState(true)
@@ -246,7 +255,7 @@ function DocumentPicker({ onShare, onClose }: { onShare: (doc: ShareableDocument
     const timeout = setTimeout(async () => {
       if (!active) return
       setLoading(true)
-      const result = await listShareableDocuments(query)
+      const result = await listShareableDocuments(query, kind)
       if (active) {
         setDocs(result)
         setLoading(false)
@@ -256,7 +265,7 @@ function DocumentPicker({ onShare, onClose }: { onShare: (doc: ShareableDocument
       active = false
       clearTimeout(timeout)
     }
-  }, [query])
+  }, [query, kind])
 
   return (
     <div className="mt-2 rounded-lg border border-ink/15 bg-white p-3">
@@ -523,7 +532,7 @@ export function ConversationThread({
                   </button>
                 </div>
               )}
-              {pickerOpen && <DocumentPicker onShare={handleShareDocument} onClose={() => setPickerOpen(false)} />}
+              {pickerOpen && <DocumentPicker kind={kind} onShare={handleShareDocument} onClose={() => setPickerOpen(false)} />}
               {contactPickerOpen && (
                 <ContactCardPicker kind={kind} id={id} onShare={handleShareContactCard} onClose={() => setContactPickerOpen(false)} />
               )}

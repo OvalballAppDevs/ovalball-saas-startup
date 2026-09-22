@@ -2,8 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   getDirectThread,
   loadThreadMessages,
+  resolveConversationParties,
   THREAD_PAGE_SIZE,
+  type ConversationParties,
   type Database,
+  type GroupConversationKind,
   type ThreadMessage,
 } from "@ovalball/contracts"
 
@@ -83,16 +86,21 @@ export async function loadConversation(
   const header = await conversationHeader(supabase, kind, id)
   if (!header) return null
 
+  // WHO THE CONVERSATION IS BETWEEN, from the shared resolver rather than guessed here.
+  //
+  // This screen used to pass `clubIds: []` and `teams: []`, which is not an error anywhere -- it simply
+  // means the canonical identity resolver has nothing to scope a lookup to, never calls
+  // `get_conversation_participant_names`, and returns its fallback. Every message in a fixture thread
+  // then rendered as "Ovalball user · Member" with initials instead of the sender's face, on a screen
+  // whose entire job is telling you who said something. The names were never missing; nobody asked.
+  const parties = await resolveConversationParties(supabase, kind as GroupConversationKind, id)
+
   // THE NEWEST PAGE, not the whole history. A club's fixture thread can run for a season, and pulling
   // all of it onto a phone to show the last six messages is slow before it is anything else.
   const messages = await loadThreadMessages(
     supabase,
     viewerId,
-    {
-      key: kind === "request" ? { column: "fixture_request_id", value: id } : { column: "conversation_id", value: header.conversationId },
-      clubIds: header.clubIds,
-      teams: [],
-    },
+    threadScope(kind, id, header.conversationId, parties),
     { limit: THREAD_PAGE_SIZE }
   )
 
@@ -128,18 +136,40 @@ export async function loadOlderMessages(
   if (kind === "direct") return { messages: [], hasMore: false }
   const header = await conversationHeader(supabase, kind, id)
   if (!header) return { messages: [], hasMore: false }
+  const parties = await resolveConversationParties(supabase, kind as GroupConversationKind, id)
 
   const messages = await loadThreadMessages(
     supabase,
     viewerId,
-    {
-      key: kind === "request" ? { column: "fixture_request_id", value: id } : { column: "conversation_id", value: header.conversationId },
-      clubIds: header.clubIds,
-      teams: [],
-    },
+    threadScope(kind, id, header.conversationId, parties),
     { limit: THREAD_PAGE_SIZE, before: oldest.createdAt }
   )
   return { messages, hasMore: messages.length >= THREAD_PAGE_SIZE }
+}
+
+/**
+ * One scope, built once, for both the first page and every page after it.
+ *
+ * A paged read and a whole read must resolve identities identically or the same message renders one way
+ * on screen and another after "load older" -- which is the shape of bug nobody reports because it looks
+ * like a redraw.
+ */
+function threadScope(
+  kind: Exclude<ConversationKind, "direct">,
+  id: string,
+  conversationId: string,
+  parties: ConversationParties | null
+) {
+  return {
+    // A fixture or club thread is keyed by its SHARED conversation id -- both mirror rows of one real
+    // fixture resolve to it. A request has no mirror, so it is keyed by its own id.
+    key:
+      kind === "request"
+        ? ({ column: "fixture_request_id", value: id } as const)
+        : ({ column: "conversation_id", value: conversationId } as const),
+    clubIds: parties?.clubIds ?? [],
+    teams: parties?.teams ?? [],
+  }
 }
 
 /**

@@ -73,6 +73,16 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-training-centre-shared.mjs"; th
   exit 1
 fi
 
+# MOBILE MESSENGER SCOPE. The attach menu is Club Documents, Take Photo, Choose
+# Photo and Contact Card -- a standing product decision, not an unfinished list.
+# Guarded structurally because both excluded features are the kind a later session
+# would restore on reasonable-sounding grounds: "the platform accepts PDFs anyway",
+# or "an entry point that explains itself is friendlier than none". It checks the
+# shipped action union, the rendered labels, the dependency list and the routes.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-mobile-messenger-scope.mjs"; then
+  exit 1
+fi
+
 # SQL SUITE GOVERNANCE. Every .sql suite in supabase/tests must be declared in
 # suite-registry.json with a disposition and an owner, this runner must derive its
 # gate list from that one source, and no suite may be registered twice. Batch A

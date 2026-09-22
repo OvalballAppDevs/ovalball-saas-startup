@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { supabase } from "../../../src/auth/supabase"
 import { shareDocument, type AttachableKind } from "../../../src/messages/attachments"
 import { readableSize, searchClubDocuments, type ClubDocument } from "../../../src/messages/documents"
+import { DIRECT_SHARE_CATEGORY_HINT } from "@ovalball/contracts"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { BookOpen, ChevronRight, FileText } from "../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
@@ -32,7 +33,9 @@ export default function ClubDocuments() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams<{ kind?: string; id?: string }>()
-  const kind = (params.kind === "request" ? "request" : "fixture") as AttachableKind
+  // The conversation this picker was opened FROM. It decides two things: which RPC target the share
+  // uses, and which documents may be offered at all.
+  const kind = (["fixture", "request", "direct"].includes(String(params.kind)) ? params.kind : "fixture") as AttachableKind
   const id = String(params.id ?? "")
 
   const [search, setSearch] = useState("")
@@ -44,13 +47,13 @@ export default function ClubDocuments() {
   const load = useCallback(async (needle: string) => {
     setProblem(null)
     try {
-      setDocuments(await searchClubDocuments(supabase, needle))
+      setDocuments(await searchClubDocuments(supabase, needle, kind))
     } catch (caught) {
       const failure = friendly(caught, "your club's documents")
       logDetail("club documents", failure)
       setProblem(failure.message)
     }
-  }, [])
+  }, [kind])
 
   // DEBOUNCED, because every keystroke is a round trip otherwise -- and a library search that fires
   // six times while somebody types "visitor" is six queries to throw five of away.
@@ -132,6 +135,12 @@ export default function ClubDocuments() {
         />
       </View>
 
+      {kind === "direct" && (
+        <Text style={[type.caption, { color: colour.inkMuted, paddingHorizontal: space.lg, paddingBottom: space.sm }]}>
+          {DIRECT_SHARE_CATEGORY_HINT}
+        </Text>
+      )}
+
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.md }}
         keyboardShouldPersistTaps="handled"
@@ -152,8 +161,10 @@ export default function ClubDocuments() {
             title={search.trim() ? "No matches" : "No documents to share"}
             body={
               search.trim()
-                ? `No document you can see matches “${search.trim()}”.`
-                : "Documents your club has uploaded to Ovalball appear here."
+                ? `No document you can share here matches “${search.trim()}”.`
+                : kind === "direct"
+                  ? `Documents your club has uploaded to Ovalball appear here. ${DIRECT_SHARE_CATEGORY_HINT}`
+                  : "Documents your club has uploaded to Ovalball appear here."
             }
             icon={<BookOpen size={22} color={colour.inkSubtle} />}
           />

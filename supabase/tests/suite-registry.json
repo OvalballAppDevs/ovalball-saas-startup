@@ -427,6 +427,11 @@
       "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "===================================================================================================== THE DEFINER-RPC SESSION CONTRACT (Slice 6b.2a; Phase 2 D.2 / S6-9) SECURITY DE"
     },
+    "direct_conversation_attachments": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging attachments and safeguarding",
+      "reason": "The platform slice that stopped attachments being fixture-only. Proves the messaging target is a named type naming exactly three containers and that a row cannot belong to two; that posting an attachment into a direct conversation requires exactly what posting text requires (membership AND internal.may_direct_message), so every safeguarding rule governs an attachment unchanged; that d/<conversation>/ is authority rather than naming, with guessed, malformed, foreign-prefixed and cross-conversation paths all refused, including an attachment path belonging to another conversation which the fixture-only RPC never checked; that seeing a club document is not being allowed to share it -- a document categorised 'other' is refused into a direct conversation while still sharing into a fixture one; that a block stops sending without retracting history already received; the minor negatives in both directions and the deliberate unknown-age positive; that the original fixture RPCs still work as wrappers and refuse two containers; and that deleting a message takes its notification with it. Self-seeding and rolled back."
+    },
     "direct_messaging_security": {
       "disposition": "CANONICAL_GATE",
       "owner": "Messaging and notifications",

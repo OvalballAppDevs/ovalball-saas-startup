@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@ovalball/contracts"
 
-import type { AttachableKind } from "./attachments"
+import { messageTarget, type AttachableKind } from "./attachments"
 
 /**
  * YOUR OWN CONTACT DETAILS, SHARED DELIBERATELY.
@@ -16,9 +16,14 @@ import type { AttachableKind } from "./attachments"
  * here could add one.
  *
  * PREVIEW BEFORE SEND, because the number comes from the profile rather than from the composer, and
- * somebody is entitled to see exactly what is about to leave. `preview_my_fixture_contact_card` returns
+ * somebody is entitled to see exactly what is about to leave. `preview_my_message_contact_card` returns
  * the same snapshot the share would write; a profile with no telephone returns nothing to preview, which
  * is the honest answer to "share my number" when there is no number.
+ *
+ * FIVE FIELDS, AND ONLY FIVE. A conversation existing is not consent to inspect a profile: the snapshot
+ * is the canonical contact-card projection -- name, role, club, team, telephone -- and there is no shape
+ * of call from here that returns anything else. In a direct conversation the role comes from the club the
+ * two people share, which is the relationship the conversation rests on.
  */
 
 export interface ContactCardPreview {
@@ -34,9 +39,9 @@ export async function previewContactCard(
   kind: AttachableKind,
   id: string
 ): Promise<{ ok: true; card: ContactCardPreview } | { ok: false; message: string }> {
-  const { data, error } = await supabase.rpc("preview_my_fixture_contact_card", {
-    p_fixture_id: (kind === "fixture" ? id : null) as unknown as string,
-    p_fixture_request_id: (kind === "request" ? id : null) as unknown as string,
+  const { data, error } = await supabase.rpc("preview_my_message_contact_card", {
+    p_target_type: messageTarget(kind),
+    p_target_id: id,
   })
   if (error) return { ok: false, message: error.message || "Couldn't prepare your contact card." }
   const row = data?.[0]
@@ -64,9 +69,9 @@ export async function shareContactCard(
   kind: AttachableKind,
   id: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  const { error } = await supabase.rpc("share_fixture_contact_card", {
-    p_fixture_id: (kind === "fixture" ? id : null) as unknown as string,
-    p_fixture_request_id: (kind === "request" ? id : null) as unknown as string,
+  const { error } = await supabase.rpc("share_message_contact_card", {
+    p_target_type: messageTarget(kind),
+    p_target_id: id,
   })
   if (error) return { ok: false, message: error.message || "Couldn't share your contact card." }
   return { ok: true }

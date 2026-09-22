@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { resolvePersonalAvatarUrl } from "./personal-avatar"
 import type { ThreadMessage } from "./messenger-thread-types"
+import { loadThreadMessages } from "./messenger-thread"
 
 /**
  * READING A 1:1 CONVERSATION.
@@ -87,40 +88,37 @@ export async function getDirectThread(
   const header = (headerRows ?? [])[0]
   if (!header) return null
 
-  const { data: rows } = await supabase
-    .from("fixture_messages")
-    .select("id, body, sender_user_id, created_at, kind, deleted_at, deleted_by_role, content_type")
-    .eq("direct_conversation_id", conversationId)
-    .order("created_at", { ascending: false })
-    .limit(200)
-
-  const messages: ThreadMessage[] = (rows ?? []).map((m) => {
-    const isDeleted = Boolean(m.deleted_at)
-    const isOwn = m.sender_user_id === viewerId
-    return {
-      id: m.id,
-      // Tombstoned the same way as everywhere else — the original words stay
-      // in the row for moderation and never reach this payload.
-      body: isDeleted
-        ? m.deleted_by_role === "moderator"
-          ? "Message has been deleted by admin."
-          : "Message has been deleted by user."
-        : (m.body ?? ""),
-      createdAt: m.created_at,
-      isOwn,
-      isSystemEvent: m.kind === "system_event",
-      isDeleted,
-      canDelete: isOwn && !isDeleted,
-      canReport: !isOwn && !isDeleted,
-      senderName: isOwn ? "You" : (header.other_display_name ?? "Ovalball user"),
-      senderRoleLabel: "",
-      senderClubName: "",
-      senderAvatarUrl: null,
-      attachment: null,
-      documentShare: null,
-      contactCard: null,
-    }
+  // THE SAME READER THE REST OF MESSENGER USES, and it has to be.
+  //
+  // This block used to be its own small query that selected the message columns and nothing else, then
+  // set `attachment`, `documentShare` and `contactCard` to null -- which was CORRECT when a direct
+  // conversation was the one container that could not carry any of them. It stopped being correct the
+  // moment the platform grew a direct attachment target, and it would have failed silently: the RPC
+  // writes the row, the sender sees their own optimistic send, and the recipient opens the thread to a
+  // caption with nothing attached to it. A second reader is a second answer waiting to go stale.
+  //
+  // `loadThreadMessages` is keyed on `conversation_id`, which for a direct message IS the direct
+  // conversation's id (`internal.set_fixture_message_conversation_id`), so no new key is needed.
+  const built = await loadThreadMessages(supabase, viewerId, {
+    key: { column: "conversation_id", value: conversationId },
+    // EMPTY ON PURPOSE. Club and team role labels belong to organisational conversations; a private one
+    // has no side, and "Fixture Secretary, Burnley RUFC" under a personal message would attribute it to
+    // an organisation that is not party to it.
+    clubIds: [],
+    teams: [],
   })
+
+  // WHO SAID IT COMES FROM THE HEADER, not from a club lookup that deliberately was not done. Two
+  // people, one of them you: the canonical resolver's "Ovalball user" fallback is right in general and
+  // wrong here, where the other person's name is already known and authoritative.
+  const otherAvatarUrl = await resolveOtherAvatar(supabase, otherUserId)
+  const messages: ThreadMessage[] = built.map((m) => ({
+    ...m,
+    senderName: m.isOwn ? "You" : (header.other_display_name ?? "Ovalball user"),
+    senderRoleLabel: "",
+    senderClubName: "",
+    senderAvatarUrl: m.isOwn ? null : otherAvatarUrl,
+  }))
 
   const canSend = header.can_send === true
 
@@ -133,7 +131,7 @@ export async function getDirectThread(
     conversationId,
     otherUserId,
     otherName: header.other_display_name ?? "Ovalball user",
-    otherAvatarUrl: await resolveOtherAvatar(supabase, otherUserId),
+    otherAvatarUrl,
     contextLabel: match ? [match.context_label, match.context_detail].filter(Boolean).join(" · ") : null,
     messages,
     canSend,
