@@ -239,7 +239,9 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   // UX-4's bottom bar, chosen from the same already-capability-filtered list the sidebar renders. Empty
   // while a club is still being set up, for the same reason the sections are: four destinations and a
   // half-built club do not need a shortcut bar.
-  const navBottom = setupInProgress ? [] : buildBottomBarItems(navPrimary, activeContext.kind)
+  const navBottom = setupInProgress
+    ? []
+    : buildBottomBarItems(navPrimary, activeContext.kind, activeContext.kind === "team" ? activeContext.id : null)
 
   return (
     <SwitchContextProvider>

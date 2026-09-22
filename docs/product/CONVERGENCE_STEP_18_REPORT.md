@@ -131,5 +131,7 @@ four destinations in each context? The bar's choices are a curated list with a s
 
 Recorded as **H17** in `HARDENING_RELEASE_READINESS_LEDGER.md`: the bottom bar's curated map (H17.1), the
 four-entry bar-label override (H17.2), the `as unknown as SessionContext` fixture pattern (H17.3), and
-`navigation_architecture.test.mts` failing with `ERR_MODULE_NOT_FOUND` before any assertion — pre-existing
-and not chased (H17.4). The dev-only webfont difference and the identity-block ruling remain owner debt.
+and `navigation_architecture.test.mts`, which this report wrongly called broken — **H17.4 is withdrawn**:
+it needs the gate's own loader (`node --import ./scripts/email-test-loader.mjs --experimental-strip-types`)
+and passes **17/17** that way. The dev-only webfont difference and the identity-block ruling remain owner
+debt.

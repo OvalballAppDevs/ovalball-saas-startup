@@ -337,7 +337,12 @@ brand assets are never changed incidentally.
   `Failed to execute 'measure' on 'Performance': '<Component>' cannot have a negative time stamp`,
   when a client-side transition is navigated out of. `85-competition-governing-closure` filters that
   exact message and nothing else, and records the count. Not an application error, and not silently
-  dropped. *Owner: test harness, if it recurs elsewhere.*
+  dropped. **It has now recurred**, in `87-shell-coherence`, whose H6 probe walks twelve routes in
+  succession: the Step 18 hardening pass saw it once on `FixtureMatchCentrePage` and then not at all on
+  an otherwise identical re-run, which is what an instrumentation race looks like. Suite 87 filters it on
+  the same terms and reports the same count, so the filter is defensive rather than load-bearing — on the
+  final run it did not fire, because no such error occurred. *Owner: test harness; two suites now carry
+  the same filter, and a third would be the point to lift it into a shared helper.*
 - **H15.3 — competition standings are computed in TypeScript only.** Correct today, and deliberate: the
   module is the one source and the public page and the governing page both consume it. A native client
   would need the same answer from the server. *Owner: whoever builds it.*
@@ -438,6 +443,35 @@ hamburger IA and the 44px targets (UX-4), and the Rugby Hub return path (UX-6). 
 - **UX-7 — measured, not asserted.** axe at AA on four shell routes at desktop **and** 320px: **0
   violations**, not "0 introduced". Keyboard focus on the bar, one `h1` per shell route.
 
+### Step 18 hardening pass (from `1507ed3`) — what it found
+
+**The implementation pass shipped the shell working, and its verification was thinner than it read.** Six
+product defects and four verification defects, all measured rather than reasoned:
+
+| # | defect | fix |
+|---|---|---|
+| 1 | **A team context's bar carried no team.** `buildBottomBarItems` chose from a static href map, and a team's destinations are addressed by the team's id, so the one destination team staff came for could not be named | `activeTeamId` parameter, as `buildClubSections` already takes; the team sits second, after the page they land on, matching the desktop sidebar's order |
+| 2 | **The team cell was labelled with the team's display name.** "Under 12 Boys" clips in a five-cell bar, and a club may field a side with a longer name still, so no label list fixes it | `bottomBarLabel` gained a by-shape rule: a `/teams/<id>` href reads **Team**, the word the desktop sidebar already uses for that group |
+| 3 | **`/calendar` can also carry a team's name.** A view-only person with exactly one team gets their team's name as the calendar label — useful in a sidebar, unbounded data in a 60px cell | overridden to **Calendar** on the bar |
+| 4 | **"People & Access" (15 characters) clipped** on the governing bar | by-shape rule → **People** |
+| 5 | **The cell's own padding cost more than it was worth.** Measured at 320px: a 64px cell gave a 56px label box, clipping "Dashboard" (57px) and "Rugby Hub" (58px). At 360px the governing bar's "Competitions" (70px) missed a 68px box **by two pixels** | the cell's horizontal padding removed entirely — the label is centred and truncating, so it bought nothing and cost width, and the tap target is the whole cell regardless. The box becomes the cell: 64px at 320, 72px at 360, 78px at 390 |
+| 6 | **Two more pages still carried their own allowance for the floating widget** — `club/setup` (`pb-32`, guarding the Continue/Finish button) and `parent/players/[id]/subscription` (`mb-16`). The implementation pass found four and stopped | both removed; the shell reserves it once |
+
+| # | verification defect | correction |
+|---|---|---|
+| 7 | **H17.4 was wrong.** `navigation_architecture.test.mts` was reported broken with `ERR_MODULE_NOT_FOUND`; it had been run with `npx tsx` instead of the gate's loader. It passes **17/17** | claim withdrawn above; found by hitting the identical error on this pass's own new suite |
+| 8 | **The governing bar had never actually been measured.** The implementation pass navigated to a governing URL without switching context — context comes from the cookie, not the URL — so it measured the CLUB bar under a governing page | the suite now switches through the switcher and measures what renders |
+| 9 | **A safe-area assertion proved nothing.** `pb-[env(safe-area-inset-bottom)]` computes to `0px` in a headless browser with no home indicator, so asserting the computed value was vacuous | it now asserts the declaration, and reports the computed value beside it |
+| 10 | **A clipping assertion was blanket where the truth is per width** | reported per width: clean at 360px and 390px; at 320px, at most the one accepted label, and its full text asserted present for assistive technology |
+
+**The label budget is now measured rather than estimated.** The implementation pass guessed 16 characters,
+the first hardening attempt guessed 12; the measurement is **11** for a 320px cell (64px box at 11px).
+`bottom_bar_projection.test.mts` enforces it with exactly one documented exception — **"Competitions"**,
+12 characters needing exactly **70px**. Measured per width, it fits at **390px (78px)** and **360px
+(72px)** — the two widths most phones use — and truncates **visually at 320px (64px) alone**, where its
+full word stays in the DOM so the accessible name is complete. Abbreviating a governing body's own word
+for a first-class destination would have been worse than the truncation.
+
 ### New Step 18 debt
 
 - **H17.1 — the bottom bar's destinations are a curated map plus a fallback.** `buildBottomBarItems` names
@@ -451,8 +485,17 @@ hamburger IA and the 44px targets (UX-4), and the Rugby Hub return path (UX-6). 
 - **H17.3 — `SessionContext` test fixtures cast through `as unknown as`.** That is why Step 15's new
   `governingBodies` field passed the compiler and threw at runtime in two suites, found by this step. Two
   fixtures are fixed; five files use the pattern. *Owner: test governance, with H2.*
-- **H17.4 — `navigation_architecture.test.mts` does not run.** It fails with `ERR_MODULE_NOT_FOUND`
-  before any assertion. Pre-existing, unrelated to this step, not chased (§34). *Owner: test governance.*
+- **H17.4 — WITHDRAWN, and it was my error.** Step 18 reported `navigation_architecture.test.mts` as
+  failing with `ERR_MODULE_NOT_FOUND` before any assertion. It does not fail: it was run with
+  `npx tsx`, and these suites require the gate's own loader, which maps the `@/` alias and stubs the
+  `server-only` package that throws outside a React Server Component graph:
+
+  ```
+  node --import ./scripts/email-test-loader.mjs --experimental-strip-types --test <file>
+  ```
+
+  Run that way it passes **17/17**. The Step 18 hardening pass found this by hitting the identical error
+  on its own new suite. Nothing was wrong with the product or the test; the claim was wrong.
 
 ### Owner review, not defects
 

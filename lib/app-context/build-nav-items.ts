@@ -170,7 +170,16 @@ const CLUB_SECTIONS: { key: string; label: string; icon: string; hrefs: string[]
  * bar sees them, and a signature pinned to this module's own NavItem would have quietly stripped them.
  * This function filters and orders; it does not reshape.
  */
-export function buildBottomBarItems<T extends { href: string }>(primary: T[], kind: ActiveContextKind): T[] {
+export function buildBottomBarItems<T extends { href: string }>(
+  primary: T[],
+  kind: ActiveContextKind,
+  /**
+   * The team being operated as, for a team context. Its destinations are addressed by the team's id, so a
+   * static href map cannot name them -- which is exactly how the first version of this function shipped a
+   * team bar with no team on it. `buildClubSections` takes the same argument for the same reason.
+   */
+  activeTeamId?: string | null
+): T[] {
   // Destinations that earn a cell, in the order they should appear, per context. Anything named here
   // that this session does not hold is simply absent — the intersection is what renders.
   const PREFERRED: Partial<Record<ActiveContextKind, string[]>> = {
@@ -178,8 +187,11 @@ export function buildBottomBarItems<T extends { href: string }>(primary: T[], ki
     // club's fixtures destination -- `/fixtures` is not a nav destination, and naming it here is how the
     // first version of this map silently produced a three-cell bar.
     club: ["/dashboard", "/fixtures/management", "/teams", "/calendar"],
-    // Team staff arrive for what is happening next and the people in it.
-    team: ["/dashboard", "/fixtures/management", "/calendar", "/messages"],
+    // THE TEAM ITSELF IS SECOND, right after the page they land on -- the same order the desktop sidebar
+    // uses, where /dashboard is top-level and the Team section follows it. Messages is the item this
+    // displaces, and it keeps its place in the drawer: four cells cannot carry five jobs, and a team bar
+    // without the team on it was the defect.
+    team: ["/dashboard", activeTeamId ? `/teams/${activeTeamId}` : "", "/fixtures/management", "/calendar"],
     // A guardian's fixed set, minus Settings, which is a rare visit.
     parent: ["/dashboard", "/agenda", "/calendar", "/rugby-hub"],
     player: ["/dashboard", "/agenda", "/calendar", "/rugby-hub"],
@@ -191,7 +203,9 @@ export function buildBottomBarItems<T extends { href: string }>(primary: T[], ki
   const preferred = PREFERRED[kind]
 
   if (preferred) {
-    const picked = preferred.map((href) => byHref.get(href)).filter((i): i is T => Boolean(i))
+    // An empty string is how a context without the id it needs declines a slot, so it is filtered out
+    // rather than looked up and silently missed.
+    const picked = preferred.filter(Boolean).map((href) => byHref.get(href)).filter((i): i is T => Boolean(i))
     if (picked.length > 0) return picked.slice(0, 4)
   }
 

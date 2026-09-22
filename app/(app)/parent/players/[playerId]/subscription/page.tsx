@@ -261,12 +261,11 @@ export async function SubscriptionView({ playerId, isSelf = false }: { playerId:
         )}
       </div>
 
-      {/* mb-16: whichever branch below renders last on the page, without
-          extra clearance the fixed-position "Ask Ovie" chat widget
-          overlaps it at the bottom of a short page on mobile (found live
-          in the mobile responsive check) -- same fix already applied to
-          CancelOwnMembershipButton for the branch that renders it. */}
-      <div className="mt-6 mb-16">
+      {/* CONVERGENCE STEP 18 (UX-4): the mb-16 that used to clear the fixed "Ask Ovie" widget is gone.
+          Whichever branch below renders last used to be overlapped at the bottom of a short page on
+          mobile (found live in the mobile responsive check); the shell now reserves that space once, for
+          the widget and for the bottom bar. */}
+      <div className="mt-6">
         {!payerRow ? (
           canSetUp ? (
             <>

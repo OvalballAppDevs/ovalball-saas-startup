@@ -175,10 +175,12 @@ export function MatchConditions({
                   href={directionsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  // Self-sized and left-aligned rather than full width: the
-                  // global "Ask Ovie" widget is fixed bottom-right, and a
-                  // full-width primary action here sits underneath it at
-                  // 390px -- confirmed by measurement, not assumed.
+                  // Self-sized and left-aligned rather than full width. The original reason was that the
+                  // global "Ask Ovie" widget is fixed bottom-right and a full-width action here sat
+                  // underneath it at 390px; Convergence Step 18 made the shell reserve that space, so the
+                  // clearance is no longer REQUIRED. The width is left as it is deliberately: it reads
+                  // well and widening it would be a presentation change this hardening pass has no
+                  // evidence for. Flagged for UAT rather than altered.
                   className="mt-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-forest-800/20 bg-forest-800/5 px-4 text-sm font-medium text-forest-900 transition-colors hover:bg-forest-800/10 focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
                 >
                   <Navigation className="size-4 shrink-0" aria-hidden="true" />

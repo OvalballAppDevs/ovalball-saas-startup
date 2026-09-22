@@ -23,10 +23,34 @@ const BAR_LABEL: Record<string, string> = {
   "/admin/clubs": "Clubs",
   "/admin/users": "Users",
   "/admin/fixtures": "Fixtures",
+  // The sidebar's calendar label is sometimes a TEAM'S DISPLAY NAME: a view-only person with exactly one
+  // team gets their team's name there, because in a sidebar that is more use than the word "Calendar".
+  // A cell cannot carry club-entered data of any length, and the shell already says which context you are
+  // in, so on the bar it is always the plain word.
+  "/calendar": "Calendar",
 }
+
+/**
+ * Destinations whose label is DATA rather than a catalogue string, matched by shape.
+ *
+ * A team's nav label is the team's own display name -- "Under 12 Boys", "Under 14 Girls B", "Men's 1st
+ * Team". Measured in the Step 18 hardening pass, "Under 12 Boys" clips in a five-cell bar at 390px, and a
+ * club may legitimately field a side with a longer name still, so no length of override list fixes this.
+ *
+ * "Team" is what the desktop sidebar already calls that group (`buildClubSections`), and in a team context
+ * it is unambiguous -- there is one team being operated as, and the page it opens is headed with its name.
+ */
+const BAR_LABEL_BY_SHAPE: { pattern: RegExp; label: string }[] = [
+  { pattern: /^\/teams\/[^/]+$/, label: "Team" },
+  // "People & Access" is 15 characters and clips; the governing workspace's own heading keeps the full
+  // phrase, and the shell already says which organisation you are in.
+  { pattern: /^\/governing\/[^/]+\/people$/, label: "People" },
+]
 
 /** The bar's label for a destination: its own where that stands alone, a shorter one where it does not. */
 export function bottomBarLabel(item: { href: string; label: string }): string {
+  const byShape = BAR_LABEL_BY_SHAPE.find((r) => r.pattern.test(item.href))
+  if (byShape) return byShape.label
   return BAR_LABEL[item.href] ?? item.label
 }
 

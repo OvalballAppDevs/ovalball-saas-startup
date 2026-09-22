@@ -82,12 +82,12 @@ export default async function ClubSetupPage({
   ]
 
   return (
-    // Deep bottom padding on purpose: the Ask Ovie launcher floats over the
-    // bottom-right of every page, and this is the one page whose primary
-    // action -- Continue, then Finish setup -- sits at the very end of the
-    // content. Without the clearance the launcher covers it at narrow
-    // widths and the button cannot be pressed at all.
-    <div className="mx-auto max-w-2xl px-4 pt-8 pb-32 md:px-8 md:pt-12 md:pb-20">
+    // CONVERGENCE STEP 18 (UX-4): this page no longer carries its own clearance for the floating Ask Ovie
+    // launcher. Its primary action -- Continue, then Finish setup -- sits at the very end of the content,
+    // and the launcher used to cover it at narrow widths so the button could not be pressed at all. The
+    // shell reserves that space once now (app/(app)/layout.tsx), for the launcher and for the mobile
+    // bottom bar, so no page has to know what is floating over it.
+    <div className="mx-auto max-w-2xl px-4 pt-8 md:px-8 md:pt-12">
       <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Set up your club</p>
       <h1 className="mt-2 font-display text-display-l text-ink">{clubName}</h1>
       <p className="mt-2 max-w-lg text-sm text-ink-muted">

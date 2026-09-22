@@ -29,6 +29,8 @@ const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saa
 const CLUB_ADMIN = "uat.preston.admin@ovalball.test"   // Club Admin AND county officer
 const GUARDIAN = "uat.guardian.two@ovalball.test"
 const SITE_ADMIN = "uat.fullsiteadmin@ovalball.test"
+const TEAM_MANAGER = "uat.team.manager@ovalball.test"   // a team context
+const GUARDIAN_OF_THREE = "uat.guardian.one@ovalball.test" // a family ("All Children") context
 
 const sql = (q) =>
   execFileSync("docker", ["exec", "-i", CONTAINER, "psql", "-U", "postgres", "-d", "postgres", "-Atq", "-c", q], {
@@ -301,7 +303,309 @@ try {
     await ctx.close()
   }
 
-  record("no uncaught page errors", pageErrors.length === 0, pageErrors.slice(0, 2).join(" | "))
+  // ==================================================================
+  // H. HARDENING (added after the Step 18 implementation checkpoint 1507ed3)
+  //
+  // The implementation pass measured the club, family, Site Admin and governing
+  // contexts at 320px and 390px. These are the gaps that left: the contexts it
+  // did not reach, a narrower-still width, and the invariant that matters most
+  // -- that the bar is a PROJECTION of the drawer and never a second source of
+  // navigation. Read from the rendered DOM in both places and compared.
+  // ==================================================================
+
+  // H1. THE PROJECTION INVARIANT, IN THE BROWSER.
+  //
+  // Every href on the bar must also be in the drawer. If a literal were ever typed into
+  // buildBottomBarItems it would appear on a phone whether or not buildNavItems granted it, and no
+  // assertion about an authorised persona's bar alone would notice.
+  for (const [who, email] of [
+    ["a Club Admin", CLUB_ADMIN],
+    ["a team manager", TEAM_MANAGER],
+    ["a guardian of three", GUARDIAN_OF_THREE],
+    ["a Site Admin", SITE_ADMIN],
+  ]) {
+    for (const width of [320, 360, 390]) {
+      const ctx = await newContext(browser, { width, height: 780 })
+      const page = await ctx.newPage()
+      page.on("pageerror", (e) => pageErrors.push(e.message))
+      await signIn(page, email)
+      await go(page, "/dashboard")
+
+      const shape = await page.evaluate(() => {
+        const bar = document.querySelector('nav[aria-label="Primary"]')
+        if (!bar) return null
+        const cells = [...bar.querySelectorAll("li")].map((li) => {
+          const a = li.querySelector("a, button")
+          const r = a?.getBoundingClientRect()
+          const label = li.querySelector("span.truncate")
+          return {
+            text: (li.textContent ?? "").trim(),
+            href: a?.getAttribute("href") ?? null,
+            h: r ? Math.round(r.height) : 0,
+            clipped: label instanceof HTMLElement ? label.scrollWidth > label.clientWidth + 1 : false,
+          }
+        })
+        return {
+          cells,
+          overflow: document.documentElement.scrollWidth - window.innerWidth,
+          barBottom: Math.round(bar.getBoundingClientRect().bottom),
+          viewportH: window.innerHeight,
+          // THE DECLARATION, not the computed value. `pb-[env(safe-area-inset-bottom)]` computes to 0px in
+          // a headless browser because there is no home indicator to inset for, so asserting the computed
+          // value would prove nothing. What is verifiable here is that the bar asks for the inset at all.
+          safeAreaDeclared: (bar.getAttribute("class") ?? "").includes("env(safe-area-inset-bottom)"),
+          safeAreaComputed: getComputedStyle(bar).paddingBottom,
+        }
+      })
+      record(`H1 @${width} ${who} gets a bar`, shape !== null && shape.cells.length >= 2,
+        shape ? shape.cells.map((c) => c.text).join(" · ") : "(no bar)")
+      if (!shape) {
+        await ctx.close()
+        continue
+      }
+      record(`H2 @${width} ${who}: no overflow and 44px cells`,
+        shape.overflow <= 0 && shape.cells.every((c) => c.h >= 44),
+        `overflow ${shape.overflow}, heights ${shape.cells.map((c) => c.h).join("/")}`)
+      // CLIPPING IS REPORTED PER WIDTH, because the honest answer differs by width and the earlier
+      // blanket assertion hid that. 360px and 390px must be clean. At 320px a cell's label box is 60px,
+      // and one canonical label -- "Competitions" -- needs about 74px; it may truncate VISUALLY there, and
+      // what is asserted instead is that its full text is still in the DOM, so the link's accessible name
+      // is complete whatever the pixels do.
+      const clipped = shape.cells.filter((c) => c.clipped).map((c) => c.text)
+      if (width >= 360) {
+        record(`H2b @${width} ${who}: nothing clipped`, clipped.length === 0, clipped.join(", ") || "none clipped")
+      } else {
+        record(`H2b @${width} ${who}: at most the one accepted label truncates`,
+          clipped.every((t) => t === "Competitions"), clipped.join(", ") || "none clipped")
+        record(`H2c @${width} ${who}: and any truncated label keeps its full text for assistive tech`,
+          shape.cells.every((c) => c.text.length > 0 && !c.text.includes("\u2026")),
+          clipped.length ? `${clipped.join(", ")} truncated visually, full text present` : "nothing truncated")
+      }
+      record(`H3 @${width} ${who}: the bar is flush to the bottom and asks for the safe-area inset`,
+        Math.abs(shape.barBottom - shape.viewportH) <= 1 && shape.safeAreaDeclared,
+        `bottom ${shape.barBottom}/${shape.viewportH}; inset declared=${shape.safeAreaDeclared}, computes to ${shape.safeAreaComputed} with no home indicator`)
+
+      // Open the drawer and compare the two catalogues.
+      await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "More" }).click()
+      await page.waitForTimeout(700)
+      const drawerHrefs = await page.evaluate(() =>
+        [...document.querySelectorAll('nav[aria-label="Main"] a[href]')].map((a) => a.getAttribute("href"))
+      )
+      const barHrefs = shape.cells.map((c) => c.href).filter((h) => h)
+      const orphans = barHrefs.filter((h) => !drawerHrefs.includes(h))
+      record(`H4 @${width} ${who}: every bar destination is also in the drawer -- a projection, not a source`,
+        orphans.length === 0 && drawerHrefs.length >= barHrefs.length,
+        orphans.length ? `not in the drawer: ${orphans.join(", ")}` : `${barHrefs.length} of ${drawerHrefs.length}`)
+      await ctx.close()
+    }
+  }
+
+  // H4b. THE GOVERNING BAR, MEASURED AFTER A REAL CONTEXT SWITCH.
+  //
+  // The implementation pass believed it had measured this and had not: it navigated to a governing URL
+  // without switching context, so the CLUB bar was measured under a governing page. The context comes from
+  // the cookie, not the URL, so the switch has to happen through the switcher.
+  for (const width of [320, 360, 390]) {
+    const ctx = await newContext(browser, { width, height: 780 })
+    const page = await ctx.newPage()
+    page.on("pageerror", (e) => pageErrors.push(e.message))
+    await signIn(page, CLUB_ADMIN)
+    await go(page, "/dashboard")
+    await page.getByRole("button", { name: /Switch context/i }).click()
+    await page.getByRole("menuitem", { name: /Ovalball Review County RFU/i }).click()
+    await page.waitForURL(new RegExp(`/governing/${bodyId}`), { timeout: 30000 }).catch(() => {})
+    await page.waitForLoadState("networkidle").catch(() => {})
+    const gov = await page.evaluate(() => {
+      const bar = document.querySelector('nav[aria-label="Primary"]')
+      if (!bar) return null
+      return [...bar.querySelectorAll("li")].map((li) => {
+        const label = li.querySelector("span.truncate")
+        return {
+          text: (li.textContent ?? "").trim(),
+          href: li.querySelector("a")?.getAttribute("href") ?? null,
+          clipped: label instanceof HTMLElement ? label.scrollWidth > label.clientWidth + 1 : false,
+        }
+      })
+    })
+    record(`H4b @${width} the governing bar is the ORGANISATION's, measured after a real switch`,
+      gov !== null && gov.some((c) => (c.href ?? "").startsWith("/governing/")),
+      gov ? gov.map((c) => c.text).join(" · ") : "(no bar)")
+    const govClipped = gov ? gov.filter((c) => c.clipped).map((c) => c.text) : []
+    if (width >= 360) {
+      record(`H4c @${width} and none of the governing labels clips`,
+        gov !== null && govClipped.length === 0, govClipped.join(", ") || "none clipped")
+    } else {
+      record(`H4c @${width} and only the one accepted governing label truncates`,
+        gov !== null && govClipped.every((t) => t === "Competitions"), govClipped.join(", ") || "none clipped")
+      record(`H4d @${width} whose full word is still in the DOM for assistive tech`,
+        gov !== null && gov.some((c) => c.text === "Competitions"),
+        gov ? gov.map((c) => c.text).join(" · ") : "(no bar)")
+    }
+    await ctx.close()
+  }
+
+  // H5. A TEAM'S OWN PAGE IS ON A TEAM'S BAR.
+  //
+  // The destination team staff actually came for. It is addressed by the team's id, so the first version
+  // of the chooser -- a static href map -- could not name it and shipped a team bar with no team on it.
+  {
+    const ctx = await newContext(browser, { width: 390, height: 780 })
+    const page = await ctx.newPage()
+    page.on("pageerror", (e) => pageErrors.push(e.message))
+    await signIn(page, TEAM_MANAGER)
+    // Into the team context through the product's own switcher, not by typing a URL.
+    await go(page, "/dashboard")
+    const switcher = page.getByRole("button", { name: /Switch context/i })
+    if ((await switcher.count()) > 0) {
+      await switcher.click()
+      const teamItem = page.getByRole("menuitem").filter({ hasText: /U\d|Under|Men|Women|Colts/i }).first()
+      if ((await teamItem.count()) > 0) {
+        await teamItem.click()
+        await page.waitForTimeout(2500)
+      }
+    }
+    const teamBar = await page.evaluate(() =>
+      [...(document.querySelector('nav[aria-label="Primary"]')?.querySelectorAll("li a[href]") ?? [])].map((a) =>
+        a.getAttribute("href")
+      )
+    )
+    record("H5 a team context's bar carries the team's own page",
+      teamBar.some((h) => /^\/teams\/[0-9a-f-]{36}$/.test(h ?? "")), teamBar.join(" · ") || "(no bar)")
+    const teamCell = await page.evaluate(() => {
+      const bar = document.querySelector('nav[aria-label="Primary"]')
+      const li = [...(bar?.querySelectorAll("li") ?? [])].find((l) =>
+        /^\/teams\/[0-9a-f-]{36}$/.test(l.querySelector("a")?.getAttribute("href") ?? "")
+      )
+      const label = li?.querySelector("span.truncate")
+      return li
+        ? { text: (li.textContent ?? "").trim(), clipped: label instanceof HTMLElement ? label.scrollWidth > label.clientWidth + 1 : false }
+        : null
+    })
+    record("H5b and labels it with a word that fits, not with the team's own name",
+      teamCell !== null && !teamCell.clipped && teamCell.text === "Team",
+      teamCell ? `"${teamCell.text}" clipped=${teamCell.clipped}` : "(no team cell)")
+    await ctx.close()
+  }
+
+  // H5c. THE EXACT UX-6 CHAIN: governing Clubs -> a club's public home -> back into Ovalball.
+  //
+  // The implementation pass asserted the public club home's return link, and separately that the county
+  // lists its clubs. It never walked the join between them -- which is the journey that made this dead end
+  // matter, because a county officer following their own affiliated-club list is put outside the app.
+  {
+    const ctx = await newContext(browser, { width: 390, height: 780 })
+    const page = await ctx.newPage()
+    page.on("pageerror", (e) => pageErrors.push(e.message))
+    await signIn(page, CLUB_ADMIN)
+    await go(page, "/dashboard")
+    await page.getByRole("button", { name: /Switch context/i }).click()
+    await page.getByRole("menuitem", { name: /Ovalball Review County RFU/i }).click()
+    await page.waitForURL(new RegExp(`/governing/${bodyId}`), { timeout: 30000 }).catch(() => {})
+    await go(page, `/governing/${bodyId}/clubs`)
+
+    const clubLink = page.locator("main a").filter({ hasText: /On Ovalball/i }).first()
+    const href = (await clubLink.count()) > 0 ? await clubLink.getAttribute("href") : null
+    record("H5c the county's Clubs page links a club to its own public home",
+      (href ?? "").startsWith("/club/"), href ?? "(no club link)")
+    if (href) {
+      await clubLink.click()
+      await page.waitForURL((u) => new URL(u).pathname.startsWith("/club/"), { timeout: 30000 }).catch(() => {})
+      await page.waitForLoadState("networkidle").catch(() => {})
+      record("H5d following it leaves the application, as it should -- this is the club's public page",
+        new URL(page.url()).pathname.startsWith("/club/"), new URL(page.url()).pathname)
+      record("H5e and the way back is there, at a phone width",
+        (await page.getByRole("link", { name: /Back to Ovalball/i }).count()) === 1)
+      record("H5f with no horizontal overflow on the way",
+        (await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 0)
+      await page.getByRole("link", { name: /Back to Ovalball/i }).click()
+      await page.waitForURL((u) => new URL(u).pathname === "/dashboard", { timeout: 30000 }).catch(() => {})
+      // AND IT IS BACK INSIDE THE APPLICATION. Asserted as "not still on the public page" rather than as a
+      // specific landing route: a governing context's /dashboard redirects to its own Overview (Step 15),
+      // so which of the two you observe depends on whether the server redirect has landed, and claiming a
+      // particular one would be asserting the race rather than the product.
+      await page.waitForLoadState("networkidle").catch(() => {})
+      const landed = new URL(page.url()).pathname
+      record("H5g and it lands back inside the application, not on the public page",
+        !landed.startsWith("/club/") && landed !== "/login", landed)
+    }
+    await ctx.close()
+  }
+
+  // H6. NOTHING BOTTOM-FIXED COLLIDES WITH THE BAR, across representative pages.
+  //
+  // A general scan rather than three hand-checks: it catches the controls that exist now and the ones
+  // added later. Modal layers are z-50 and are SUPPOSED to cover the bar, so an element that contains it
+  // or sits above it in the stack is not a collision.
+  {
+    const ctx = await newContext(browser, { width: 390, height: 780 })
+    const page = await ctx.newPage()
+    page.on("pageerror", (e) => pageErrors.push(e.message))
+    await signIn(page, CLUB_ADMIN)
+    const teamId = sql(`select t.id from public.teams t
+                        join public.clubs c on c.id = t.club_id
+                        join public.club_directory d on d.id = c.directory_id
+                        where d.name = 'Step 2 Review RFC' and t.active limit 1`)
+    const fixtureId = sql(`select f.id from public.fixtures f
+                           join public.teams t on t.id = f.owning_team_id
+                           join public.clubs c on c.id = t.club_id
+                           join public.club_directory d on d.id = c.directory_id
+                           where d.name = 'Step 2 Review RFC' limit 1`)
+    const routes = [
+      "/dashboard", "/calendar", "/agenda", "/people", "/teams", "/fixtures/management",
+      "/fixtures/planner", "/messages", "/rugby-hub", "/account",
+      ...(teamId ? [`/teams/${teamId}`] : []),
+      ...(fixtureId ? [`/fixtures/${fixtureId}`] : []),
+    ]
+    const bad = []
+    for (const route of routes) {
+      await go(page, route)
+      const r = await page.evaluate(() => {
+        const bar = document.querySelector('nav[aria-label="Primary"]')
+        if (!bar) return { noBar: true, path: location.pathname }
+        const barR = bar.getBoundingClientRect()
+        const barZ = Number(getComputedStyle(bar).zIndex) || 0
+        const hits = [...document.querySelectorAll("*")]
+          .filter((e) => {
+            const st = getComputedStyle(e)
+            if (st.position !== "fixed" || st.display === "none" || st.visibility === "hidden") return false
+            if (e === bar || e.contains(bar)) return false
+            if ((Number(st.zIndex) || 0) > barZ) return false // a modal is meant to cover it
+            const rr = e.getBoundingClientRect()
+            if (rr.width === 0 || rr.height === 0) return false
+            return rr.bottom > barR.top + 1 && rr.top < barR.bottom - 1
+          })
+          .map((e) => `${e.tagName}.${(e.className || "").toString().slice(0, 40)}`)
+        return {
+          path: location.pathname,
+          hits,
+          overflow: document.documentElement.scrollWidth - window.innerWidth,
+          pad: Math.round(parseFloat(getComputedStyle(document.querySelector("main")).paddingBottom)),
+        }
+      })
+      if (r.noBar) bad.push(`${route}: no bar`)
+      else {
+        if (r.hits.length) bad.push(`${route}: ${r.hits.join(", ")}`)
+        if (r.overflow > 0) bad.push(`${route}: ${r.overflow}px overflow`)
+        if (r.pad < 88) bad.push(`${route}: only ${r.pad}px reserved`)
+      }
+    }
+    record(`H6 across ${routes.length} representative pages at 390px: a bar, room reserved, nothing bottom-fixed under it, no overflow`,
+      bad.length === 0, bad.slice(0, 4).join(" | ") || "clean")
+    await ctx.close()
+  }
+
+  // REACT'S OWN DEVELOPMENT INSTRUMENTATION IS NOT AN APPLICATION ERROR, and it is filtered here on the
+  // same terms as in 85-competition-governing-closure and for the same reason (ledger H15.2): React 19
+  // marks component renders on the performance timeline in development, and navigating out of a
+  // client-side transition -- which the H6 scan does twelve times in a row -- can leave it measuring a
+  // render it never finished. Filtered BY ITS EXACT TEXT and nothing else, and the filtered count is
+  // reported rather than dropped, so any real page error still fails this suite.
+  const DEV_INSTRUMENTATION = /Failed to execute 'measure' on 'Performance'/
+  const realErrors = pageErrors.filter((e) => !DEV_INSTRUMENTATION.test(e))
+  record("no uncaught page errors", realErrors.length === 0, realErrors.slice(0, 2).join(" | "))
+  if (pageErrors.length > realErrors.length) {
+    record(`(React dev instrumentation noise filtered: ${pageErrors.length - realErrors.length})`, true)
+  }
 } finally {
   await browser.close()
 }

@@ -360,7 +360,14 @@ export function AppMobileNav({
                   // guarded against `absolute top-*` by scripts/verify-admin-nav.mjs, because that is the
                   // shape of the gear/close collision UX-2 fixed -- and a border is simpler anyway.
                   className={cn(
-                    "relative flex min-h-14 flex-col items-center justify-center gap-0.5 border-t-2 px-1 py-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset",
+                    // NO HORIZONTAL PADDING ON THE CELL, and it was measured rather than chosen.
+                    // The label is centred and truncating, so padding buys nothing visually and costs
+                    // width: at px-1 a 64px cell gave a 56px label box and clipped "Dashboard" (57px) and
+                    // "Rugby Hub" (58px); at px-0 the box is the cell. The longest label in the product,
+                    // "Competitions", needs 70px -- it now fits at 390px (74px) and at 360px (72px), the
+                    // two widths most phones use, and truncates only at 320px (64px). The tap target is
+                    // the whole cell either way, so nothing was traded for it.
+                    "relative flex min-h-14 flex-col items-center justify-center gap-0.5 border-t-2 py-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset",
                     active ? "border-pitch-400 text-pitch-400" : "border-transparent text-white/70 hover:text-white"
                   )}
                 >
@@ -381,7 +388,7 @@ export function AppMobileNav({
               type="button"
               onClick={() => setOpen(true)}
               aria-expanded={open}
-              className="flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-1 py-2 text-white/70 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
+              className="flex min-h-14 w-full flex-col items-center justify-center gap-0.5 py-2 text-white/70 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
             >
               <Menu aria-hidden="true" className="size-4" />
               <span className="text-[11px] leading-tight font-medium">More</span>

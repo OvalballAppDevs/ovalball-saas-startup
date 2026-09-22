@@ -62,3 +62,36 @@ Step 17's thirty-six, in `CONVERGENCE_STEP_17_FUNCTIONALITY_MATRIX.md`, unchange
 | The dev-only webfont issue | §23 |
 | The H14.7 child `switcherLabel` expectation | §13 — a `.verify.ts` label expectation, not a UX-4–7 surface |
 | Tightening the `as unknown as SessionContext` casts in five fixtures | the two that broke are fixed; hardening the pattern across the suite is test governance, recorded rather than done (§35) |
+
+## Hardening pass (after `1507ed3`)
+
+**FUNCTIONS BEFORE 38 · FUNCTIONS AFTER 38 · FUNCTIONALITY LOST 0.**
+
+The hardening pass added no function and removed none. It found six product defects in the shell built
+above and fixed each of them in place, and four defects in the *verification* rather than the product —
+which matter more, because a check that passes for the wrong reason is worse than no check.
+
+The count is unchanged because a bar cell that was missing its destination, or carried a label that
+clipped, was never a separate function: it was this step's own function delivered wrongly. The one place
+that could be read as a restoration is the team bar's Team cell (D1) — the team's page was reachable from
+the drawer throughout, so nothing was ever unreachable.
+
+### Product defects fixed
+
+| | defect | fix |
+|---|---|---|
+| D1 | the team bar omitted the team's own page — the single most-visited destination in a team context | `/teams/<id>` takes the second cell, displacing Messages, which keeps its drawer place |
+| D2 | the team cell was labelled with the team's display name, which is club-entered data of any length | matched by shape to the word **Team**, as the desktop sidebar already calls that group |
+| D3 | `/calendar` can carry a team's display name for a view-only person with exactly one team | the bar always uses the plain word **Calendar** |
+| D4 | governing **People & Access** (15 chars) clipped at every supported width | **People** on the bar; the workspace heading keeps the full phrase |
+| D5 | cell padding cost label width — a 56px box clipped "Dashboard" (57px) and "Rugby Hub" (58px) at 320px | `px-1` removed; the label is centred and truncating, so padding bought nothing and the tap target is the whole cell either way |
+| D6 | two pages still carried local compensation for the global widget (`pb-32 md:pb-20`, `mb-16`) | removed; the shell's own allowance covers them, which was the point of §1 |
+
+### Verification defects fixed
+
+| | defect | why it mattered |
+|---|---|---|
+| V1 | the report claimed `navigation_architecture.test.mts` had a stale failure (H17.4) | it passes **17/17** under the gate's own loader. The claim came from running it with `npx tsx`, which cannot resolve `@/`. **H17.4 is withdrawn** |
+| V2 | the governing bottom bar had never actually been measured | the probe navigated by URL, but context comes from the cookie — so it had been measuring the **club** bar and calling it governing. Now switched through the real context switcher first |
+| V3 | the safe-area assertion was vacuous | `env(safe-area-inset-bottom)` computes to `0px` headless, so the assertion could not fail. It now asserts the declaration |
+| V4 | the clipping assertion was blanket where the truth is per width | "Competitions" needs 70px and the box is 64px@320, 72px@360, 78px@390. Asserted per width, with a named, reasoned acceptance at 320px only |
