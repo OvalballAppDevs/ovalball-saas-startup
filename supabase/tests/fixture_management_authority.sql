@@ -818,13 +818,19 @@ end $$;
 -- =====================================================================================================
 do $$
 declare
-  v_club uuid; v_team uuid; v_other uuid; v_far_club uuid; v_far_team uuid;
+  v_club uuid; v_team uuid; v_other uuid; v_far_club uuid; v_far_team uuid; v_far_other uuid;
   v_adult date := (current_date - interval '40 years')::date;
   v_ca uuid; v_co uuid; v_tm uuid; v_mb uuid; v_sa uuid; v_m_tm uuid; v_m_co uuid;
   v_dir uuid; v_group uuid; v_fixture uuid;
 begin
   v_club := pg_temp.club('Del4C'); v_team := pg_temp.team(v_club, 'U12'); v_other := pg_temp.team(v_club, 'U14');
   v_far_club := pg_temp.club('DelFar'); v_far_team := pg_temp.team(v_far_club, 'U12');
+  -- AN AGE-MATCHED OPPONENT FOR THE OTHER TEAM. These assertions are about AUTHORITY -- who may
+  -- raise a request for which team -- and the club's second side is a U14. Aiming it at the far
+  -- club's U12 made the write ineligible as well as unauthorised, so FA-L2 could pass for the wrong
+  -- reason and FA-L3 could not pass at all once fixture_requests began refusing a pairing that could
+  -- never be accepted (20270532000000). One variable at a time: same age grade, different authority.
+  v_far_other := pg_temp.team(v_far_club, 'U14');
   v_ca := pg_temp.person('dCA', v_adult); perform pg_temp.member(v_club, v_ca, 'CLUB_ADMIN');
   v_mb := pg_temp.person('dMB', v_adult); perform pg_temp.member(v_club, v_mb, 'BASIC_USER');
   v_tm := pg_temp.person('dTM', v_adult); v_m_tm := pg_temp.member(v_club, v_tm, 'BASIC_USER');
@@ -845,12 +851,18 @@ begin
     'FA-L1 a Coach may RAISE a fixture request for their own team (J.6 line 466)');
   perform pg_temp.check(
     pg_temp.try_as(v_co, format($q$insert into public.fixture_requests (group_id, requesting_team_id, target_team_id, venue_preference, created_by)
-      values (%L, %L, %L, 'home', auth.uid())$q$, v_group, v_other, v_far_team)) <> 'OK',
-    'FA-L2 but NOT for another team of the same club -- the write binds to the team, as the old can_manage_team did not');
+      values (%L, %L, %L, 'home', auth.uid())$q$, v_group, v_other, v_far_other)) = '42501',
+    'FA-L2 but NOT for another team of the same club -- refused for AUTHORITY (42501), against an eligible opponent');
   perform pg_temp.check(
     pg_temp.try_as(v_ca, format($q$insert into public.fixture_requests (group_id, requesting_team_id, target_team_id, venue_preference, created_by)
-      values (%L, %L, %L, 'home', auth.uid())$q$, v_group, v_other, v_far_team)) = 'OK',
+      values (%L, %L, %L, 'home', auth.uid())$q$, v_group, v_other, v_far_other)) = 'OK',
     'FA-L3 while a Club Admin, holding it club-wide, may raise for any of their teams');
+  -- AND ELIGIBILITY IS A SEPARATE REFUSAL, not a second way of saying "not authorised". The Club Admin
+  -- who just succeeded for their U14 side cannot aim it at a U12 opponent.
+  perform pg_temp.check(
+    pg_temp.try_as(v_ca, format($q$insert into public.fixture_requests (group_id, requesting_team_id, target_team_id, venue_preference, created_by)
+      values (%L, %L, %L, 'home', auth.uid())$q$, v_group, v_other, v_far_team)) = '23514',
+    'FA-L3b and an age-ineligible opponent is refused on eligibility (23514), even with full club authority');
   perform pg_temp.check(
     pg_temp.try_as(v_mb, format($q$insert into public.fixture_requests (group_id, requesting_team_id, target_team_id, venue_preference, created_by)
       values (%L, %L, %L, 'home', auth.uid())$q$, v_group, v_team, v_far_team)) <> 'OK',

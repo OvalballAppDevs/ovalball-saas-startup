@@ -37,6 +37,36 @@ export async function setClubCapability(
   return { ok: true }
 }
 
+/**
+ * The same decision, for ONE TEAM.
+ *
+ * Not a second permission system: the same canonical RPC, which has always accepted a team scope and
+ * has always decided the authority itself -- a club administrator may only reach a team at their own
+ * club, only capabilities the catalogue allows at team scope, and never one they do not hold. What was
+ * missing was a screen that asked for it, so a club could only ever decide club-wide.
+ */
+export async function setTeamCapability(
+  userId: string,
+  capabilityKey: string,
+  clubId: string,
+  teamId: string,
+  effect: "grant" | "deny",
+): Promise<DelegationResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("set_capability_override", {
+    p_user_id: userId,
+    p_capability_key: capabilityKey,
+    p_scope_type: "team",
+    p_club_id: clubId,
+    p_team_id: teamId,
+    p_effect: effect,
+    p_reason: "Set from the club's permissions screen, for this team",
+  })
+  if (error) return { ok: false, error: error.message || "That permission could not be saved." }
+  revalidatePath("/club/permissions")
+  return { ok: true }
+}
+
 /** Removes an explicit decision, returning the person to whatever their role gives them. */
 export async function clearClubCapability(overrideId: string): Promise<DelegationResult> {
   const supabase = await createClient()

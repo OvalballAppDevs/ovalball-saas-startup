@@ -56,7 +56,8 @@ do $$
 declare
   v_tag text := substr(gen_random_uuid()::text, 1, 8);
   v_person uuid;
-  v_none uuid := gen_random_uuid();      -- team staff with NO fixture capability
+  v_none uuid := gen_random_uuid();      -- team staff with NO granted fixture capability
+  v_outsider uuid := gen_random_uuid();  -- an ordinary club member with no team role at all
   v_staff uuid := gen_random_uuid();     -- granted fixture authority for team A only
   v_clubadmin uuid := gen_random_uuid();
   v_club uuid; v_dir uuid;
@@ -64,10 +65,11 @@ declare
   v_type_u12 uuid; v_type_u14 uuid; v_type_senior uuid;
   v_mem_none uuid; v_mem_staff uuid; v_mem_admin uuid;
   v_fixture_a uuid; v_fixture_b uuid;
-  v_group uuid; v_opp_u12 uuid;
+  v_group uuid; v_opp_u12 uuid; v_opp_club uuid; v_opp_u14 uuid; v_opp_girls uuid;
+  v_girls uuid; v_type_girls uuid;
   v_txt text; v_n int;
 begin
-  foreach v_person in array array[v_none, v_staff, v_clubadmin] loop
+  foreach v_person in array array[v_none, v_staff, v_clubadmin, v_outsider] loop
     insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
       raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change,
       email_change_token_current, phone_change, phone_change_token, reauthentication_token)
@@ -97,6 +99,7 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_none, 'BASIC_USER', 'active') returning id into v_mem_none;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_staff, 'BASIC_USER', 'active') returning id into v_mem_staff;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_clubadmin, 'CLUB_ADMIN', 'active') returning id into v_mem_admin;
+  insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_outsider, 'BASIC_USER', 'active');
 
   -- Both team people are attached to TEAM A. The difference between them is capability, never title.
   insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_none, v_a, 'coach');
@@ -209,9 +212,16 @@ begin
   insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
   values ('TFA Opponent RUFC ' || v_tag, 'T', 'T', 'union', 'United Kingdom', 'England', true, 'unverified', 'site_admin_manual', 'tfa-opp-' || v_tag)
   returning id into v_dir;
-  insert into public.clubs (directory_id, slug, status) values (v_dir, 'tfa-opp-' || v_tag, 'active') returning id into v_opp_u12;
+  insert into public.clubs (directory_id, slug, status) values (v_dir, 'tfa-opp-' || v_tag, 'active') returning id into v_opp_club;
   insert into public.teams (club_id, display_name, category, age_group, rugby_code, gender, canonical_team_type_id, active)
-  values (v_opp_u12, 'Under 12 Boys', 'youth', 'U12', 'union', 'boys', v_type_u12, true) returning id into v_opp_u12;
+  values (v_opp_club, 'Under 12 Boys', 'youth', 'U12', 'union', 'boys', v_type_u12, true) returning id into v_opp_u12;
+  -- The opponent club also runs sides this team may NOT play, which is the case a reader that returns
+  -- "every team at that club" would get wrong while still looking like it worked.
+  insert into public.teams (club_id, display_name, category, age_group, rugby_code, gender, canonical_team_type_id, active)
+  values (v_opp_club, 'Under 14 Boys', 'youth', 'U14', 'union', 'boys', v_type_u14, true) returning id into v_opp_u14;
+  select id into v_type_girls from public.canonical_team_types_by_code where rugby_code='union' and key='girls_u14' and is_offered limit 1;
+  insert into public.teams (club_id, display_name, category, age_group, rugby_code, gender, canonical_team_type_id, active)
+  values (v_opp_club, 'Under 14 Girls', 'youth', 'U14', 'union', 'girls', v_type_girls, true) returning id into v_opp_girls;
 
   insert into public.fixture_request_groups (requesting_club_id, created_by, raw_opponent_text, proposed_date)
   values (v_club, v_staff, 'TFA probe', (current_date + 30)) returning id into v_group;
@@ -238,6 +248,124 @@ begin
     'insert into public.fixture_requests (group_id, requesting_team_id, target_team_id, status, venue_preference, created_by)
      values (%L,%L,null,''sent'',''home'',%L)', v_group, v_a, v_staff));
   perform pg_temp.check(v_txt = 'OK', format('E6 a request with no target team yet is still allowed (%s)', v_txt));
+
+  -- =====================================================================
+  -- H. THE OFFER AND THE ENFORCEMENT AGREE.
+  -- =====================================================================
+  -- A request against an ineligible side is refused (E4/E5), which is correct and is also a bad
+  -- experience: the person had to choose it before anything told them it was illegal. These assert the
+  -- readers the request flow now asks, and the property that matters is not "the list is short" but
+  -- that the list is EXACTLY the set the trigger would accept.
+  perform pg_temp.act('authenticated', v_staff);
+
+  select count(*) into v_n from public.compatible_opponent_teams(v_a, v_opp_club);
+  perform pg_temp.check(v_n = 1, format('H1 one of the opponent club''s three sides is offered to Under 12 Boys (%s)', v_n));
+  perform pg_temp.check(
+    exists (select 1 from public.compatible_opponent_teams(v_a, v_opp_club) where team_id = v_opp_u12),
+    'H2 and it is their under-12 side');
+  perform pg_temp.check(
+    not exists (select 1 from public.compatible_opponent_teams(v_a, v_opp_club) where team_id in (v_opp_u14, v_opp_girls)),
+    'H3 their under-14 sides are not offered');
+
+  -- THE LIST AND THE TRIGGER ARE THE SAME ANSWER. Every team at the opponent club is checked both
+  -- ways: offered if and only if a request naming it would be accepted.
+  select count(*) into v_n from public.teams o
+   where o.club_id = v_opp_club
+     and (exists (select 1 from public.compatible_opponent_teams(v_a, v_opp_club) c where c.team_id = o.id))
+         is distinct from internal.teams_can_play_fixture(v_a, o.id);
+  perform pg_temp.check(v_n = 0, format('H4 the offer and the rule never disagree (%s disagreements)', v_n));
+
+  -- The identities path, for a club that does not run the team yet. This used to offer the whole youth
+  -- catalogue, so an under-12 side could address a request to an under-16 identity.
+  perform pg_temp.check(
+    exists (select 1 from public.compatible_opponent_identities(v_a) where age_group = 'U12'),
+    'H5 an under-12 identity may be named');
+  perform pg_temp.check(
+    not exists (select 1 from public.compatible_opponent_identities(v_a) where age_group in ('U14', 'U16')),
+    'H6 and an older one may not');
+
+  -- AND IT REPORTS THE REGULATION, NOT A TIDIER VERSION OF IT. Ovalball's canonical rule matches youth
+  -- girls sides to youth girls sides ACROSS age grades, which a reader that naively compared age
+  -- groups would get wrong -- it would look stricter and more sensible, and it would be a second rule.
+  -- This is existing regulation, recovered rather than written: see internal.identities_can_play_fixture.
+  perform pg_temp.act_postgres();
+  insert into public.teams (club_id, display_name, category, age_group, rugby_code, gender, canonical_team_type_id, active)
+  values (v_club, 'Under 14 Girls', 'youth', 'U14', 'union', 'girls', v_type_girls, true) returning id into v_girls;
+  insert into public.capability_overrides (user_id, capability_key, scope_type, team_id, club_id, effect, reason, granted_by, granted_level)
+  values (v_staff, 'fixture.request.create', 'team', v_girls, v_club, 'grant', 'girls side probe', v_clubadmin, 'CLUB');
+  perform pg_temp.act('authenticated', v_staff);
+  perform pg_temp.check(
+    exists (select 1 from public.compatible_opponent_identities(v_girls) where age_group = 'U12' and gender = 'girls'),
+    'H7 a girls side is offered girls identities at other age grades, as the rule says');
+  perform pg_temp.check(
+    exists (select 1 from public.compatible_opponent_teams(v_girls, v_opp_club) where team_id = v_opp_girls),
+    'H7b and the opponent club''s girls side is offered to it');
+
+  -- UNION AND LEAGUE ARE NOT MIXED. Scoped in the query by the asking team's own code, per the
+  -- Team Directory rule -- never loaded and filtered afterwards.
+  select count(*) into v_n from public.compatible_opponent_identities(v_a)
+   where (age_group, gender) not in (select age_group, gender from public.canonical_team_types_by_code where rugby_code = 'union');
+  perform pg_temp.check(v_n = 0, format('H8 no identity from another rugby code is offered (%s)', v_n));
+
+  -- AND THE READER IS NOT AN ORACLE. Somebody with no authority for this team cannot use it to
+  -- enumerate another club's teams.
+  perform pg_temp.act('authenticated', v_outsider);
+  perform pg_temp.check(
+    pg_temp.try(format('select * from public.compatible_opponent_teams(%L,%L)', v_a, v_opp_club)) = '42501',
+    'H9 an ordinary club member cannot use it to enumerate another club''s teams');
+  perform pg_temp.act('authenticated', v_staff);
+  perform pg_temp.check(
+    pg_temp.try(format('select * from public.compatible_opponent_teams(%L,%L)', v_b, v_opp_club)) = '42501',
+    'H10 nor can an authorised person read it on behalf of a team they do not hold');
+
+  -- =====================================================================
+  -- I. THE CLUB ADMIN CAN ASK THE TEAM-SCOPE QUESTION.
+  -- =====================================================================
+  -- set_capability_override has always accepted a team decision; the screen could not ask for one.
+  perform pg_temp.act('authenticated', v_clubadmin);
+
+  select count(*) into v_n from public.club_team_capabilities(v_club, v_a) where user_id = v_none;
+  perform pg_temp.check(v_n > 0, format('I1 the team''s staff are answerable at team scope (%s rows)', v_n));
+  select count(*) into v_n from public.club_team_capabilities(v_club, v_a)
+   where capability_key in ('fixture.planner.use', 'fixture.import.run', 'fixture.fixture.bulk_edit', 'fixture.fixture.delete');
+  perform pg_temp.check(v_n = 0,
+    format('I2 and the club-wide fixture powers cannot be handed out on a team (%s)', v_n));
+  perform pg_temp.check(
+    exists (select 1 from public.club_team_capabilities(v_club, v_a)
+             where user_id = v_none and capability_key = 'fixture.fixture.create' and editable),
+    'I3 fixture creation for this team is a decision the Club Admin may take');
+
+  -- The answer is the TEAM's, not the club's: the granted person shows as allowed on team A.
+  perform pg_temp.check(
+    exists (select 1 from public.club_team_capabilities(v_club, v_a)
+             where user_id = v_staff and capability_key = 'fixture.fixture.create' and effective),
+    'I4 and it reports the team-scope decision, not the club one');
+  perform pg_temp.check(
+    not exists (select 1 from public.club_team_capabilities(v_club, v_b)
+                 where user_id = v_staff and capability_key = 'fixture.fixture.create' and effective),
+    'I5 which is why the same person reads as not allowed on the other team');
+
+  -- A team the club does not own is refused outright, so the screen cannot be pointed at one.
+  perform pg_temp.check(
+    pg_temp.try(format('select * from public.club_team_capabilities(%L,%L)', v_club, v_opp_u12)) = '22023',
+    'I6 a team belonging to another club is refused');
+  perform pg_temp.act('authenticated', v_staff);
+  perform pg_temp.check(
+    pg_temp.try(format('select * from public.club_team_capabilities(%L,%L)', v_club, v_a)) = '42501',
+    'I7 and a team manager cannot read the club''s permission decisions');
+
+  -- THE WRITE PATH THE SCREEN USES. One team, through the canonical RPC, by the Club Admin.
+  perform pg_temp.act('authenticated', v_clubadmin);
+  perform pg_temp.check(
+    pg_temp.try(format(
+      'select public.set_capability_override(%L,''fixture.fixture.create'',''team'',%L,%L,''grant'',''granted for this team'')',
+      v_none, v_club, v_a)) = 'OK',
+    'I8 a Club Admin may grant fixture creation for ONE team');
+  perform pg_temp.act('authenticated', v_none);
+  perform pg_temp.check(internal.can('fixture.fixture.create', 'team', v_club, v_a, null),
+    'I9 and the person may now create for that team');
+  perform pg_temp.check(not internal.can('fixture.fixture.create', 'club', v_club, null, null),
+    'I10 without becoming club fixture staff');
 
   -- =====================================================================
   -- F. CLUB-WIDE AUTHORITY IS UNCHANGED.

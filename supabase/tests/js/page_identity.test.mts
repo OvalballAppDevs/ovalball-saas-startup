@@ -122,7 +122,10 @@ test("UX-1: the workspace word comes from the resolved context, not from a liter
   // reintroduce exactly the "every persona sees the same thing" defect in a new place.
   const dash = read("app/(app)/dashboard/page.tsx")
   assert.match(dash, /workspaceLabel\(dashboardContext\.kind\)/)
-  const deskCalls = dash.match(/<ClubDeskHeader[^/]*\/>/)
+  // Matched across the whole element rather than with [^/]*: a comment explaining one of the props
+  // contains "//", which stopped the old matcher and made this read as a missing header when the call
+  // was in fact right there. A test that fails because somebody documented a prop is a bad test.
+  const deskCalls = dash.match(/<ClubDeskHeader[\s\S]*?\/>/)
   assert.ok(deskCalls, "the club desk header call was not found")
   assert.match(deskCalls[0], /workspace=\{workspaceLabel\(dashboardContext\.kind\)\}/)
 })

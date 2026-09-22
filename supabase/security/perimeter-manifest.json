@@ -5070,6 +5070,27 @@
         ]
       },
       {
+        "signature": "club_team_capabilities(uuid, uuid, text[])",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/permissions/page.tsx"
+        ]
+      },
+      {
+        "signature": "compatible_opponent_identities(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/new/search-opponents.ts"
+        ]
+      },
+      {
+        "signature": "compatible_opponent_teams(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/new/search-opponents.ts"
+        ]
+      },
+      {
         "signature": "get_club_event_card(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5088,7 +5109,8 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/people/page.tsx",
-          "app/(app)/teams/[teamId]/page.tsx"
+          "app/(app)/teams/[teamId]/people/page.tsx",
+          "app/(app)/club/permissions/page.tsx"
         ]
       },
       {
@@ -8491,6 +8513,9 @@
       "generate_rollover_player_proposals(uuid)",
       "generate_rollover_proposal(uuid, text, uuid)",
       "generate_training_plan_sessions(uuid)",
+      "club_team_capabilities(uuid, uuid, text[])",
+      "compatible_opponent_identities(uuid)",
+      "compatible_opponent_teams(uuid, uuid)",
       "get_active_subscription_impact(uuid)",
       "get_canonical_team_type_impact(uuid)",
       "get_club_event_card(uuid)",

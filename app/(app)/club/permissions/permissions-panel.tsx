@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 
-import { applyClubPreset, clearClubCapability, setClubCapability } from "./actions"
+import { applyClubPreset, clearClubCapability, setClubCapability, setTeamCapability } from "./actions"
 import { GROUPS } from "./groups"
 
 export interface MemberCapability {
@@ -81,10 +81,21 @@ export function ClubPermissionsPanel({
   clubId,
   members,
   presets,
+  teamId,
+  groups = GROUPS,
+  emptyMessage = "This club has no active members to give permissions to yet.",
 }: {
   clubId: string
   members: ClubMember[]
   presets: CapabilityPreset[]
+  /**
+   * Present when the club is deciding for ONE TEAM. The rows, the sources and the Reset are identical
+   * -- a team decision is the same decision at a different scope, so it gets the same screen rather
+   * than a parallel one. Only where the write goes changes.
+   */
+  teamId?: string
+  groups?: typeof GROUPS
+  emptyMessage?: string
 }) {
   const [openMember, setOpenMember] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -101,7 +112,9 @@ export function ClubPermissionsPanel({
   function apply(userId: string, key: string, effect: "grant" | "deny") {
     setError(null)
     startTransition(async () => {
-      const result = await setClubCapability(userId, key, clubId, effect)
+      const result = teamId
+        ? await setTeamCapability(userId, key, clubId, teamId, effect)
+        : await setClubCapability(userId, key, clubId, effect)
       if (!result.ok) setError(result.error)
     })
   }
@@ -117,7 +130,7 @@ export function ClubPermissionsPanel({
   if (members.length === 0) {
     return (
       <p className="mt-4 rounded-lg border border-dashed border-ink/15 px-4 py-8 text-center text-sm text-ink-muted">
-        This club has no active members to give permissions to yet.
+        {emptyMessage}
       </p>
     )
   }
@@ -183,7 +196,7 @@ export function ClubPermissionsPanel({
                   </section>
                 )}
 
-                {GROUPS.map((group) => {
+                {groups.map((group) => {
                   const rows = group.items
                     .map((item) => ({ item, state: member.capabilities.find((c) => c.capabilityKey === item.key) }))
                     .filter((r) => r.state)

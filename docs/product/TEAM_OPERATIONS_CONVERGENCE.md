@@ -463,10 +463,119 @@ the old predicate over-matches is computed from the real club navigation rather 
 Proved in a browser in `89-team-operations` (G series), because a highlight is what a person sees.
 
 
+## D7 — A Club Admin could not actually grant fixture authority for one team
+
+§2 of the correction requires that a Club Admin can let a team staff member run **their** team's
+fixtures without making them Club Admin, Fixture Secretary, or club-wide fixture staff. The capability
+engine has always been able to record that: `set_capability_override` accepts `p_scope_type = 'team'`,
+and `internal.capability_decision` resolves a team-scoped decision. **No screen could ask for one.**
+`app/(app)/club/permissions/actions.ts` sent `scope_type: 'club'` with no team, and
+`club_member_capabilities` answers only at club scope — so the only decision a club could take was
+club-wide, and withholding fixture creation from one coach on one team was not reachable through the
+product at all.
+
+**`public.club_team_capabilities(club, team, keys)`** is the team-scope twin of
+`club_member_capabilities`: same authority check, same resolver, same editability rule. It differs
+deliberately in two ways. It answers for the people who hold a role **on that team**, because a team
+decision about somebody with no relationship to the team adjusts nothing. And it offers only
+capabilities valid at team scope — which is what keeps `fixture.planner.use`, `fixture.import.run`,
+`fixture.fixture.bulk_edit` and `fixture.fixture.delete` out of a team grant. They are club-scope
+capabilities and **cannot be named on a team at all**, so §2's list of things a team grant must not
+confer is enforced by the catalogue rather than by a screen remembering to hide them.
+
+The screen itself was extended, not replaced (§21). `/club/permissions?team=<id>` renders the same
+panel, the same rows, the same "where this answer came from" and the same Reset, and writes through the
+same canonical RPC. **Scope lives in the URL**, so what the page shows and what the write targets are
+one value rather than two that agree most of the time. One panel serves both scopes: two would drift,
+and the parts people rely on to understand what they are changing are exactly the parts a copy loses
+quietly.
+
+## D8 — The opponent list did not exist, so the age rule could only ever refuse
+
+D4 refused an ineligible request at source, which is correct and is also a poor experience: somebody
+had to choose an opponent before anything told them it was illegal. §14 asks for the opposite — offer
+only what is legal.
+
+**There was no opponent-team step.** The flow asked which opposing **club**, and the only way a request
+ever named a target team was arriving from a partner club's availability view with it in the URL.
+Where the requester knew the other club had no such team, they could *name* an identity — from
+`YOUTH_AGE_GROUPS`, the whole youth list, defaulting to a hardcoded `U12`. So an under-14 side opened
+that picker already showing an age grade it could not play.
+
+**One rule now answers both questions.** `internal.teams_can_play_fixture` could only ever answer "is
+this pairing legal", because it takes two team IDs. It has always been a judgement about two
+*identities* — code, category, age grade, gender — that happened to be read from two rows, so the rule
+was lifted one level to `internal.identities_can_play_fixture`, and `teams_can_play_fixture` became the
+lookup in front of it. Same answer, same regulation, one implementation; the migration's guard fails if
+it ever stops delegating.
+
+On that sit two readers: `compatible_opponent_teams(team, opponent_club)` and
+`compatible_opponent_identities(team)`. Both refuse unless the caller holds fixture request or create
+authority at TEAM scope for the asking team, so neither is a way to enumerate another club's teams.
+Neither is a filter over a full list — the incompatible teams are never sent — and
+`compatible_opponent_identities` is scoped in the query by the asking team's own `rugby_code`, so union
+and league catalogues are never mixed.
+
+**No new regulation was written** (§13). The canonical rule matches youth girls sides to youth girls
+sides *across* age grades, and youth sides of the same `age_fixture_band` to each other regardless of
+classification. A reader that compared age grades naively would look stricter and more sensible and
+would be a second rule; `team_fixture_authority` H7 asserts the rule as it is, and H4 asserts the offer
+and the trigger never disagree for any team at the opponent club. The narrower *named identity* path
+keeps its own existing constraint — Boys or Girls only, never Mixed, Men's or Women's — which is the
+request flow's rule about what a recipient may be asked to create, not a compatibility rule.
+
+## D9 — Needs Attention never told a team a request had arrived
+
+§17 puts exceptional work in Needs Attention rather than in navigation. That only holds if the panel
+shows the work, and this item did not: the incoming-request count asked for `status = 'pending'`, which
+is not a value `fixture_requests.status` can hold — the domain is
+draft/sent/accepted/declined/counter_proposed/cancelled/expired. Nothing errored. The filter matched
+nothing, the count was structurally always zero, and a team was **never** told a request was waiting.
+
+It now reads `sent`, which is what `getIncomingFixtureRequestsSummary` uses for the club's own incoming
+section, so there is one definition of "waiting for your answer". `counter_proposed` is deliberately
+excluded: it says a counter-proposal exists, not whose it is, and guessing would put items in Needs
+Attention that need none.
+
+A single incoming request now links to **that request** (`/messages/request/<id>`) — the same precise
+destination the notification for the same event already resolves to, where accepting and declining
+happen (§18). Several is a list, and the register is the honest answer to a list.
+
+The lesson is the shape, not the typo: a string literal compared against a checked column is a claim
+about that column's domain, and neither TypeScript nor PostgREST checks it.
+`supabase/tests/js/team_needs_attention.test.mts` reads the CHECK constraint out of the migration that
+owns it and asserts every status literal the reader uses is in it.
+
+
 ## Functions
 
-**FUNCTIONS BEFORE 13 · FUNCTIONS AFTER 13 · FUNCTIONALITY LOST 0.**
+**FUNCTIONS BEFORE 13 · FUNCTIONS AFTER 17 · FUNCTIONALITY LOST 0.**
 
-Nothing added, nothing removed. Fixture Control Centre and Fixture Requests are unchanged and still
-reachable from Club context; what changed is which context offers them. The team's Add and Request are
-the canonical surfaces reached from a better place.
+Nothing removed. Fixture Control Centre, Fixture Requests, the Planner, import and bulk edit are
+unchanged and still reachable from Club context; what changed is which context offers them. The team's
+Add and Request are the canonical surfaces reached from a better place.
+
+Four gained: a Club Admin can decide fixture authority **for one team**; a team's request flow offers
+the opponent club's compatible **teams**; the named-identity path offers only compatible identities; and
+a team is told when a request is waiting for its answer — which it never was.
+
+## Verification, and the one gap in it
+
+tsc clean · production build exit 0 · lint 181 (5 errors, 176 warnings), the unchanged baseline ·
+9 static guards ok · **827/827** JS tests across every suite in `supabase/tests/js` ·
+`team_fixture_authority` **51/51** · `fixture_management_authority` **100/100** ·
+`age_eligibility_matrix` 44/44 · `capability_precedence_truth_table` 50/50 ·
+`capability_scope_isolation` 22/22 · `capability_override_ceilings` 37/37 ·
+`step16_governing_closure` 91/91 · browser `89-team-operations` **39/39** and
+`90-team-fixture-authority` **24/24**, run twice with zero residue.
+
+**FROM-EMPTY INSTALLATION IS NOT PROVEN, and the blocker is not this step's.**
+`scripts/isolated-clean-boot.sh` aborts while applying
+`20270529000000_the_legacy_estate_stops_being_reachable.sql`, on its guard
+`Step 17: a live pending legacy guardian invitation lost its token`. That guard requires a live pending
+`guardian_invitations` row carrying a token. Nothing in the migration chain inserts one — the only
+inserts are inside RPC bodies — and `supabase/seeds/*` are applied *after* migrations, so the guard
+cannot be satisfied by an empty database. It passes locally only because this database holds such a row
+(expiring 2026-10-02). This step's migrations sort after it and were therefore never reached, so no
+from-empty claim is made for them. Left unfixed deliberately: the legacy-estate retirement slice owns
+that migration, and rewriting another slice's guard is the owner's call.

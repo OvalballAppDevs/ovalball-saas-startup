@@ -530,11 +530,61 @@ begin
   end if;
   raise notice 'PASS clean boot: Step 12 reports age grade from the canonical resolvers and the canonical season, without evidence, sharing one adult answer';
 end $$;
+
+-- TEAM FIXTURE OPERATIONS: one compatibility rule, and a team-scope permissions question.
+do $$
+declare v_name text;
+begin
+  -- ONE RULE, not two. teams_can_play_fixture answers "is this pairing legal" and the opponent readers
+  -- answer "which pairings are legal"; if they ever hold separate implementations the list a person
+  -- chooses from stops being the list the trigger accepts.
+  if (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'internal' and p.proname = 'teams_can_play_fixture') !~ 'identities_can_play_fixture' then
+    raise exception 'CLEAN BOOT: the fixture compatibility rule has been copied rather than shared';
+  end if;
+  for v_name in select unnest(array['compatible_opponent_teams', 'compatible_opponent_identities']) loop
+    if (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public' and p.proname = v_name) !~ 'identities_can_play_fixture' then
+      raise exception 'CLEAN BOOT: %% does not use the canonical compatibility rule', v_name;
+    end if;
+  end loop;
+
+  -- An ineligible request is refused when it is MADE, not when somebody tries to accept it.
+  if not exists (select 1 from pg_trigger where tgrelid = 'public.fixture_requests'::regclass
+                  and tgname = 'fixture_requests_age_eligibility' and not tgisinternal) then
+    raise exception 'CLEAN BOOT: an ineligible fixture request is not refused at source';
+  end if;
+
+  -- A TEAM GRANT STAYS SMALL, from empty. The club-wide fixture powers are club-scope capabilities, so
+  -- a team decision cannot name one -- which is what keeps Planner, import, bulk edit and delete out of
+  -- what a Club Admin hands to a coach.
+  if exists (select 1 from public.capabilities
+              where key in ('fixture.planner.use', 'fixture.import.run', 'fixture.fixture.bulk_edit', 'fixture.fixture.delete')
+                and 'team' = any (valid_scopes)) then
+    raise exception 'CLEAN BOOT: a club-wide fixture power is grantable at team scope';
+  end if;
+  if (select count(*) from public.capabilities
+       where key in ('fixture.fixture.create', 'fixture.fixture.edit', 'fixture.fixture.cancel', 'fixture.request.create')
+         and 'team' = any (valid_scopes) and delegable and grant_level in ('C', 'T')) <> 4 then
+    raise exception 'CLEAN BOOT: the team fixture capabilities are not delegable at team scope';
+  end if;
+
+  -- And the club can ask the team-scope question at all.
+  if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'public' and p.proname = 'club_team_capabilities') then
+    raise exception 'CLEAN BOOT: the team-scope permissions reader is missing';
+  end if;
+  if has_function_privilege('anon', 'public.club_team_capabilities(uuid, uuid, text[])', 'EXECUTE') then
+    raise exception 'CLEAN BOOT: anon can read a club''s team permission decisions';
+  end if;
+
+  raise notice 'PASS clean boot: team fixture operations share one compatibility rule, and a team grant cannot reach a club-wide fixture power';
+end $$;
 SQL
 STATUS=$?
 
 echo "-- running the estate's own assertions against the fresh database"
-for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access step9_family_and_availability step10_team_experience step11_match_community step12_safeguarding_and_age_grade; do
+for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access step9_family_and_availability step10_team_experience step11_match_community step12_safeguarding_and_age_grade team_fixture_authority fixture_management_authority age_eligibility_matrix; do
   out=$(boot_psql -q -f - < "$REPO/supabase/tests/$suite.sql" 2>&1)
   fails=$(printf '%s' "$out" | grep -c "FAIL" || true)
   passes=$(printf '%s' "$out" | grep -c "PASS" || true)

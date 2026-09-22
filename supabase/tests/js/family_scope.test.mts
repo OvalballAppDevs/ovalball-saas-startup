@@ -50,6 +50,11 @@ function guardianOfTwo(): SessionContext {
       },
     ],
     linkedPlayerTeams: [],
+    // A governing-body membership list, because listSwitchableContexts iterates it. Omitting it made
+    // every test in this file die on a TypeError before reaching its assertion -- a suite that throws
+    // is not coverage, and this one guards the safeguarding question of whether a cookie can widen
+    // All Children. A guardian belongs to no governing body, so empty is the honest fixture.
+    governingBodies: [],
   } as unknown as SessionContext
 }
 

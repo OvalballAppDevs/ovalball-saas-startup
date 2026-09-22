@@ -40,6 +40,7 @@ export type Database = {
           club_id: string | null
           code_hint: string | null
           code_hmac: string
+          constituent_body_id: string | null
           created_at: string
           delivery_id: string | null
           expires_at: string
@@ -72,6 +73,7 @@ export type Database = {
           club_id?: string | null
           code_hint?: string | null
           code_hmac: string
+          constituent_body_id?: string | null
           created_at?: string
           delivery_id?: string | null
           expires_at: string
@@ -104,6 +106,7 @@ export type Database = {
           club_id?: string | null
           code_hint?: string | null
           code_hmac?: string
+          constituent_body_id?: string | null
           created_at?: string
           delivery_id?: string | null
           expires_at?: string
@@ -207,6 +210,13 @@ export type Database = {
             columns: ["club_id"]
             isOneToOne: false
             referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_invitations_constituent_body_id_fkey"
+            columns: ["constituent_body_id"]
+            isOneToOne: false
+            referencedRelation: "constituent_bodies"
             referencedColumns: ["id"]
           },
           {
@@ -23156,6 +23166,24 @@ export type Database = {
           teams_confirmed: boolean
         }[]
       }
+      club_team_capabilities: {
+        Args: {
+          p_capability_keys?: string[]
+          p_club_id: string
+          p_team_id: string
+        }
+        Returns: {
+          capability_key: string
+          decisive_rule: string
+          editable: boolean
+          effective: boolean
+          override_id: string
+          override_level: string
+          reason_code: string
+          source: string
+          user_id: string
+        }[]
+      }
       club_trial_state: {
         Args: { p_club_id: string }
         Returns: {
@@ -23166,6 +23194,23 @@ export type Database = {
           remaining_seconds: number
           started_at: string
           status: string
+        }[]
+      }
+      compatible_opponent_identities: {
+        Args: { p_team_id: string }
+        Returns: {
+          age_group: string
+          gender: string
+          label: string
+        }[]
+      }
+      compatible_opponent_teams: {
+        Args: { p_opponent_club_id: string; p_team_id: string }
+        Returns: {
+          age_group: string
+          display_name: string
+          gender: string
+          team_id: string
         }[]
       }
       complete_club_setup: { Args: { p_club_id: string }; Returns: string }
@@ -23340,13 +23385,6 @@ export type Database = {
           p_storage_path: string
         }
         Returns: string
-      }
-      current_competition_season: {
-        Args: { p_rugby_code: string }
-        Returns: {
-          season_id: string
-          season_name: string
-        }[]
       }
       create_governing_body_competition: {
         Args: { p_body_id: string; p_name: string; p_season_id?: string }
@@ -23556,6 +23594,13 @@ export type Database = {
           p_set_default: boolean
         }
         Returns: string
+      }
+      current_competition_season: {
+        Args: { p_rugby_code: string }
+        Returns: {
+          season_id: string
+          season_name: string
+        }[]
       }
       current_platform_mode: {
         Args: never
@@ -24578,6 +24623,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      governing_body_clubs: {
+        Args: { p_body_id: string }
+        Returns: {
+          club_slug: string
+          county: string
+          directory_id: string
+          home_ground: string
+          is_on_ovalball: boolean
+          name: string
+          rugby_code: string
+          town: string
+          website: string
+        }[]
+      }
       governing_body_competition_matches: {
         Args: { p_competition_id: string }
         Returns: {
@@ -24598,20 +24657,6 @@ export type Database = {
           status: string
           venue_label: string
           verification_state: string
-        }[]
-      }
-      governing_body_clubs: {
-        Args: { p_body_id: string }
-        Returns: {
-          club_slug: string
-          county: string
-          directory_id: string
-          home_ground: string
-          is_on_ovalball: boolean
-          name: string
-          rugby_code: string
-          town: string
-          website: string
         }[]
       }
       governing_body_competitions: {

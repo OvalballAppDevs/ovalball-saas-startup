@@ -41,3 +41,32 @@ export const GROUPS: { title: string; blurb: string; items: { key: string; label
     ],
   },
 ]
+
+/**
+ * THE SAME DECISIONS, FOR ONE TEAM.
+ *
+ * A Club Admin who wants a coach to run Under 12 Boys' fixtures should not have to make them fixture
+ * staff for every side at the club. These are the capabilities the catalogue holds at TEAM scope, which
+ * is why the club-wide powers are absent rather than hidden: `fixture.fixture.delete`,
+ * `fixture.fixture.bulk_edit`, `fixture.import.run` and `fixture.planner.use` are club-scope
+ * capabilities and cannot be granted on a team at all. The list is short because the architecture is,
+ * not because this file decided so.
+ *
+ * The wording is the team's. "Arrange a match for this team" is the decision being taken; the
+ * capability key is how the database writes it down.
+ */
+export const TEAM_GROUPS: typeof GROUPS = [
+  {
+    title: "Team Fixtures",
+    blurb: "What this person may do with this team's matches.",
+    items: [
+      { key: "fixture.fixture.view", label: "View Fixtures", description: "See this team's fixture list." },
+      { key: "fixture.fixture.create", label: "Add Fixtures", description: "Arrange a new match for this team." },
+      { key: "fixture.fixture.edit", label: "Edit Fixtures", description: "Change the date, kick-off, venue or opposition of one of this team's matches." },
+      { key: "fixture.fixture.cancel", label: "Cancel Fixtures", description: "Call one of this team's matches off, with a reason." },
+      { key: "fixture.request.create", label: "Request Fixtures", description: "Ask another club for a match against this team." },
+      { key: "fixture.request.respond", label: "Answer Fixture Requests", description: "Accept or decline requests aimed at this team." },
+      { key: "fixture.result.record", label: "Record Results", description: "Enter the score after one of this team's matches." },
+    ],
+  },
+]

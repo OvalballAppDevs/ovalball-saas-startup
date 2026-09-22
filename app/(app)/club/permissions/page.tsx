@@ -8,7 +8,8 @@ import { hasCapability } from "@/lib/permissions/has-capability"
 import { roleAssignmentLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
 
-import { GROUPS } from "./groups"
+import { ScopeSwitcher } from "./scope-switcher"
+import { GROUPS, TEAM_GROUPS } from "./groups"
 import { ClubPermissionsPanel, type CapabilityPreset, type ClubMember } from "./permissions-panel"
 
 export const metadata = { title: "Club Permissions" }
@@ -26,7 +27,12 @@ export const metadata = { title: "Club Permissions" }
  * club.capabilities.manage for the club they are asked about -- so reaching
  * this URL without the authority shows nothing and changes nothing.
  */
-export default async function ClubPermissionsPage() {
+export default async function ClubPermissionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ team?: string }>
+}) {
+  const { team: teamParam } = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
@@ -41,6 +47,102 @@ export default async function ClubPermissionsPage() {
 
   if (!(await hasCapability(supabase, "people.capability.manage", "club", { clubId }))) {
     redirect("/club")
+  }
+
+  // THE CLUB'S OWN TEAMS, so the club can decide for one of them. Read before the branch because the
+  // switcher is on the page either way -- a Club Admin should be able to see that per-team decisions
+  // exist without first knowing to ask for one.
+  const { data: teamRows } = await supabase
+    .from("teams")
+    .select("id, display_name")
+    .eq("club_id", clubId)
+    .eq("active", true)
+    .is("folded_at", null)
+    .is("archived_at", null)
+    .order("display_name")
+  const teams = (teamRows ?? []).map((t) => ({ id: t.id, name: t.display_name }))
+  const activeTeam = teamParam ? teams.find((t) => t.id === teamParam) : undefined
+
+  const { data: clubRow } = await supabase.from("clubs").select("club_directory(name)").eq("id", clubId).maybeSingle()
+  const clubName = clubRow?.club_directory?.name ?? "your club"
+
+  if (activeTeam) {
+    // ONE TEAM. The same screen, the same rows, the same resolver -- club_team_capabilities is
+    // club_member_capabilities asked at team scope, and the panel writes through the team action.
+    // A club-wide job preset is deliberately not offered here: a preset is a club job.
+    const { data: teamCapRows } = await supabase.rpc("club_team_capabilities", {
+      p_club_id: clubId,
+      p_team_id: activeTeam.id,
+      p_capability_keys: TEAM_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
+    })
+    const teamStaffIds = [...new Set(((teamCapRows ?? []) as { user_id: string }[]).map((r) => r.user_id))]
+    const { data: teamDirectory } = teamStaffIds.length
+      ? await supabase.rpc("get_club_member_directory", { p_club_id: clubId })
+      : { data: [] as { user_id: string; first_name: string | null; surname: string | null; email: string | null }[] }
+    const teamProfile = new Map((teamDirectory ?? []).map((p) => [p.user_id, p]))
+
+    const { data: teamRoleRows } = await supabase
+      .from("role_assignments")
+      .select("user_id, role_key, confirmation_state, role_definitions(label)")
+      .eq("team_id", activeTeam.id)
+      .eq("state", "ACTIVE")
+    const teamRoleByUser = new Map<string, string>()
+    for (const r of teamRoleRows ?? []) {
+      teamRoleByUser.set(r.user_id, roleAssignmentLabel(r.role_key, r.role_definitions?.label, r.confirmation_state))
+    }
+
+    const byTeamUser = new Map<string, ClubMember["capabilities"]>()
+    for (const r of teamCapRows ?? []) {
+      const list = byTeamUser.get(r.user_id) ?? []
+      list.push({
+        capabilityKey: r.capability_key,
+        effective: r.effective,
+        source: r.source,
+        overrideId: r.override_id,
+        overrideLevel: r.override_level,
+        editable: r.editable === true,
+      })
+      byTeamUser.set(r.user_id, list)
+    }
+
+    const teamStaff: ClubMember[] = teamStaffIds
+      .map((userId) => {
+        const profile = teamProfile.get(userId)
+        return {
+          userId,
+          name: [profile?.first_name, profile?.surname].filter(Boolean).join(" ") || "Club member",
+          email: profile?.email ?? "",
+          roleLabel: teamRoleByUser.get(userId) ?? "Team staff",
+          capabilities: byTeamUser.get(userId) ?? [],
+        }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck className="size-5 text-forest-800" />
+          <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Club Admin</p>
+        </div>
+
+        <h1 className="mt-2 font-display text-display-l text-ink">Permissions</h1>
+        <p className="mt-2 max-w-xl text-sm text-ink-muted">
+          What this team&rsquo;s coaches and managers may do for {activeTeam.name}. A decision here applies to
+          this team only — it does not make anybody fixture staff for the rest of {clubName}.
+        </p>
+
+        <ScopeSwitcher teams={teams} activeTeamId={activeTeam.id} clubName={clubName} />
+
+        <ClubPermissionsPanel
+          clubId={clubId}
+          teamId={activeTeam.id}
+          members={teamStaff}
+          presets={[]}
+          groups={TEAM_GROUPS}
+          emptyMessage={`Nobody holds a coaching or managing role on ${activeTeam.name} yet, so there is nobody to give a team permission to.`}
+        />
+      </div>
+    )
   }
 
   // Deliberately three separate awaits rather than one Promise.all: the
@@ -89,7 +191,6 @@ export default async function ClubPermissionsPage() {
   // with is carried through as the secondary line. It comes from the same
   // authorised directory call as the name, never from a second lookup.
   const emailById = new Map((directoryRows ?? []).map((p) => [p.user_id, p.email ?? ""]))
-  const { data: club } = await supabase.from("clubs").select("club_directory(name)").eq("id", clubId).maybeSingle()
 
   // The named jobs this club can hand out, and whether THIS person may hand
   // each one out. The database answers both, asking the same question the
@@ -137,13 +238,15 @@ export default async function ClubPermissionsPage() {
 
       <h1 className="mt-2 font-display text-display-l text-ink">Permissions</h1>
       <p className="mt-2 max-w-xl text-sm text-ink-muted">
-        Decide who at {club?.club_directory?.name ?? "your club"} may run fixtures, training and the calendar. A
+        Decide who at {clubName} may run fixtures, training and the calendar. A
         person&rsquo;s role already gives them a starting position — use this to allow something extra, or to
         withhold something their role would otherwise include.
       </p>
       <p className="mt-2 max-w-xl text-xs text-ink-subtle">
         Ovalball sets the ceiling. Where Ovalball has switched something off, allowing it here has no effect.
       </p>
+
+      <ScopeSwitcher teams={teams} activeTeamId={null} clubName={clubName} />
 
       <ClubPermissionsPanel clubId={clubId} members={members} presets={presets} />
     </div>

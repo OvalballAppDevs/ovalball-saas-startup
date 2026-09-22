@@ -1,15 +1,20 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { YOUTH_AGE_GROUPS as AGE_GROUPS } from "@/lib/teams/age-groups"
-
 import { createFixtureRequest } from "./actions"
-import { searchOpponentClubs, type OpponentSearchResult } from "./search-opponents"
+import {
+  loadCompatibleOpponentIdentities,
+  loadCompatibleOpponentTeams,
+  searchOpponentClubs,
+  type CompatibleIdentity,
+  type CompatibleTeam,
+  type OpponentSearchResult,
+} from "./search-opponents"
 
 interface Team {
   id: string
@@ -37,6 +42,12 @@ interface SuggestedTargetTeam {
 
 interface TargetIdentity {
   ageGroup: string
+  /**
+   * Boys or Girls only, which is the request flow's own existing constraint rather than a compatibility
+   * one: `TeamRequestInput.targetTeamGender` has always been "never Mixed/Men's/Women's", because the
+   * recipient may turn this identity into a real team and Ovalball will not name a mixed or senior side
+   * on their behalf. The compatibility reader answers the wider question honestly; this narrows it.
+   */
   gender: "boys" | "girls"
   squad: string
 }
@@ -73,6 +84,11 @@ export function RequestFixtureForm({
   )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // WHAT THIS TEAM COULD LEGALLY PLAY, answered by the database for the one team that has been chosen.
+  // Held as null until asked so that "we have not looked yet" is distinguishable from "there is nothing
+  // compatible" -- the second is a real and useful answer and must not be shown as the first.
+  const [compatibleTeams, setCompatibleTeams] = useState<CompatibleTeam[] | null>(null)
+  const [compatibleIdentities, setCompatibleIdentities] = useState<CompatibleIdentity[] | null>(null)
 
   function updateSelection(teamId: string, patch: Partial<TeamSelection>) {
     setSelections((prev) => ({ ...prev, [teamId]: { ...prev[teamId], ...patch } }))
@@ -90,10 +106,55 @@ export function RequestFixtureForm({
   const selectedTeams = teams.filter((t) => selections[t.id]?.selected)
   const canReview = Boolean(opponent) && Boolean(date) && selectedTeams.length > 0
 
+  // A compatibility question needs ONE asking team, and the batch flow allows several. With more than
+  // one selected the request carries no target team at all (see targetTeamId below), so there is
+  // nothing to be compatible with and nothing to ask.
+  const soleTeamId = selectedTeams.length === 1 ? selectedTeams[0].id : null
+  const opponentClubId = opponent?.clubId ?? null
+  /** What has been loaded, but only while there is still one team and one opponent club it was loaded for. */
+  const opponentTeams = soleTeamId && opponentClubId ? compatibleTeams : null
+  const nameableIdentities = soleTeamId ? compatibleIdentities : null
+
+  useEffect(() => {
+    // No synchronous setState here, in either branch. With no single team there is nothing to be
+    // compatible with, and that is DERIVED below rather than stored -- writing "null" back into state on
+    // the way through would be a second render for a fact the render already knows.
+    if (!soleTeamId) return
+    let live = true
+    void (async () => {
+      const [teamsForOpponent, identities] = await Promise.all([
+        opponentClubId ? loadCompatibleOpponentTeams(soleTeamId, opponentClubId) : Promise.resolve([]),
+        loadCompatibleOpponentIdentities(soleTeamId),
+      ])
+      if (!live) return
+      setCompatibleTeams(teamsForOpponent)
+      const nameable = identities.filter((i) => i.gender === "boys" || i.gender === "girls")
+      setCompatibleIdentities(nameable)
+      // The default must be a legal one. "U12" was hardcoded, so a U14 side opened the identity picker
+      // already showing an age grade it could not play.
+      setTargetIdentity((prev) =>
+        nameable.some((i) => i.ageGroup === prev.ageGroup && i.gender === prev.gender)
+          ? prev
+          : {
+              ...prev,
+              ageGroup: nameable[0]?.ageGroup ?? "",
+              gender: (nameable[0]?.gender as "boys" | "girls") ?? "boys",
+            }
+      )
+    })()
+    return () => {
+      live = false
+    }
+  }, [soleTeamId, opponentClubId])
+
   // A named identity only ever applies when there's a single unambiguous
   // requesting team AND no real opposing team was found to pick instead --
   // same reasoning as targetTeamId below.
-  const canNameIdentity = !targetTeam && selectedTeams.length === 1 && Boolean(opponent?.clubId)
+  const canNameIdentity =
+    !targetTeam &&
+    selectedTeams.length === 1 &&
+    Boolean(opponent?.clubId) &&
+    (nameableIdentities === null || nameableIdentities.length > 0)
   const namedIdentity = canNameIdentity && namingIdentity ? targetIdentity : null
 
   async function handleSubmit() {
@@ -306,6 +367,54 @@ export function RequestFixtureForm({
         </div>
       </div>
 
+      {/*
+        WHICH OF THEIR TEAMS. This step did not exist: the flow asked which CLUB, and the opposing team
+        was left for somebody at the other club to work out from the age grade of the side requesting.
+        A request now names the actual team it is for whenever that team exists -- and the list is the
+        set of their teams this side may legally play, resolved on the server by the same rule that
+        would refuse the request.
+      */}
+      {soleTeamId && opponent?.clubId && !suggestedTargetTeam && (
+        <div className="mt-5">
+          <p className="text-sm font-medium text-ink">Which of their teams?</p>
+          {opponentTeams === null ? (
+            <p className="mt-1 text-xs text-ink-muted">Checking which of their teams {selectedTeams[0].displayName} can play…</p>
+          ) : opponentTeams.length === 0 ? (
+            <p className="mt-1 text-xs text-ink-muted">
+              {opponent.name} does not run a team {selectedTeams[0].displayName} can play. You can still name the
+              team you are asking for below, and they can create it when they answer.
+            </p>
+          ) : (
+            <>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                Only teams {selectedTeams[0].displayName} may be matched against are shown.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {opponentTeams.map((t) => (
+                  <button
+                    key={t.teamId}
+                    type="button"
+                    onClick={() =>
+                      setTargetTeam((prev) =>
+                        prev?.id === t.teamId ? null : { id: t.teamId, displayName: t.displayName }
+                      )
+                    }
+                    aria-pressed={targetTeam?.id === t.teamId}
+                    className={`min-h-11 rounded-lg px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400 ${
+                      targetTeam?.id === t.teamId
+                        ? "bg-forest-800 text-white"
+                        : "border border-ink/15 bg-white text-ink hover:bg-ink/[0.04]"
+                    }`}
+                  >
+                    {t.displayName}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {canNameIdentity && (
         <div className="mt-5">
           {!namingIdentity ? (
@@ -330,7 +439,7 @@ export function RequestFixtureForm({
                   aria-label="Their team's age group"
                   className="h-9 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
                 >
-                  {AGE_GROUPS.map((g) => (
+                  {[...new Set((nameableIdentities ?? []).map((i) => i.ageGroup))].map((g) => (
                     <option key={g} value={g}>
                       {g}
                     </option>
@@ -342,8 +451,13 @@ export function RequestFixtureForm({
                   aria-label="Their team's classification"
                   className="h-9 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
                 >
-                  <option value="boys">Boys</option>
-                  <option value="girls">Girls</option>
+                  {(nameableIdentities ?? [])
+                    .filter((i) => i.ageGroup === targetIdentity.ageGroup)
+                    .map((i) => (
+                      <option key={i.gender} value={i.gender}>
+                        {i.gender === "girls" ? "Girls" : "Boys"}
+                      </option>
+                    ))}
                 </select>
                 <input
                   value={targetIdentity.squad}

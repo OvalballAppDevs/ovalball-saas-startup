@@ -120,16 +120,35 @@ export async function loadTeamOverview(supabase: Client, teamId: string): Promis
   // ---- Fixtures somebody has asked this team to play ------------------------
   // Pending in both directions is not the same job: a request SENT is waiting on somebody else, and a
   // request RECEIVED is waiting on us. Only the second belongs in Needs Attention.
-  const { count: incomingRequests } = await supabase
+  //
+  // `sent` IS THE STATE THAT WAITS ON US, and it is the one word that means it. This asked for
+  // `status = 'pending'`, which is not in fixture_requests' check constraint at all -- the domain is
+  // draft/sent/accepted/declined/counter_proposed/cancelled/expired -- so the count was structurally
+  // always zero and a team was never told a request had arrived. Nothing errored; the query simply
+  // matched nothing. `sent` is what getIncomingFixtureRequestsSummary uses for the club's own incoming
+  // section, so there is one definition of "waiting for your answer" rather than two.
+  //
+  // `counter_proposed` is deliberately NOT here. It says a counter-proposal exists, not whose it is: if
+  // we made it, the request is waiting on them. The status alone cannot tell, which is why the club
+  // reader leaves it out too, and guessing would put items in Needs Attention that need no attention.
+  const { data: incoming } = await supabase
     .from("fixture_requests")
-    .select("id", { count: "exact", head: true })
+    .select("id")
     .eq("target_team_id", teamId)
-    .eq("status", "pending")
-  if (incomingRequests && incomingRequests > 0) {
+    .eq("status", "sent")
+  const incomingRequests = incoming?.length ?? 0
+  if (incomingRequests > 0) {
     attention.push({
       key: "fixture-requests",
-      label: incomingRequests === 1 ? "A fixture request is waiting for your answer" : `${incomingRequests} fixture requests are waiting for your answer`,
-      href: "/fixtures",
+      label:
+        incomingRequests === 1
+          ? "A fixture request is waiting for your answer"
+          : `${incomingRequests} fixture requests are waiting for your answer`,
+      // ONE REQUEST GOES TO THAT REQUEST. The precise destination the notification for this event
+      // already resolves to (lib/notifications/destinations.ts), so both routes into the same job land
+      // in the same place -- where accepting and declining actually happen. Several is a list, and the
+      // register is the honest answer to a list.
+      href: incomingRequests === 1 ? `/messages/request/${incoming![0].id}` : "/fixtures",
       count: incomingRequests,
     })
   }
