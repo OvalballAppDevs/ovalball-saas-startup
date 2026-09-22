@@ -9,6 +9,7 @@ import type { NotificationItem } from "@/lib/app-context/notifications"
 import type { ActiveContextKind, SwitchableContext } from "@/lib/app-context/active-context"
 import { cn } from "@/lib/utils"
 
+import { navActiveMatcher } from "@/lib/app-context/active-nav"
 import type { NavSection } from "@/lib/app-context/build-nav-items"
 
 import { ContextSwitcher } from "./context-switcher"
@@ -69,6 +70,9 @@ export function AppNav({
   supportUnreadCount,
 }: AppNavProps) {
   const pathname = usePathname()
+  // The ungrouped fallback draws primaryItems and nothing else, so those are the candidates. Grouped
+  // navigation resolves inside NavSections, over the rows it draws.
+  const isActive = navActiveMatcher(pathname, primaryItems.map((i) => i.href))
 
   return (
     // h-screen MINUS whatever chrome sits above the application shell. The
@@ -107,7 +111,7 @@ export function AppNav({
         ) : (
           <div className="flex flex-col gap-1">
             {primaryItems.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+              const active = isActive(item.href)
               return (
                 <Link
                   key={item.href}

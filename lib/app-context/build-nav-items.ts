@@ -256,7 +256,8 @@ export function buildClubSections(items: NavItem[], activeTeamId?: string | null
           key: "rugby",
           label: "Fixtures & Calendar",
           icon: "CalendarDays",
-          hrefs: ["/agenda", "/calendar", "/fixtures/management", "/fixtures"],
+          // No club-wide administration here: a team context never pushes those items now.
+          hrefs: ["/agenda", "/calendar"],
         },
         { key: "people", label: "People", icon: "Users", hrefs: [`/teams/${activeTeamId}/people`] },
         { key: "money", label: "Subscriptions", icon: "Receipt", hrefs: [`/teams/${activeTeamId}/subscriptions`] },
@@ -532,9 +533,19 @@ export function buildNavItems(
     // honest names below rather than impersonating it.
     items.push({ href: "/agenda", label: "Fixtures" })
 
-    if (hasClubFixtureAuthority) {
+    // CLUB-WIDE FIXTURE ADMINISTRATION IS A CLUB-CONTEXT PRODUCT.
+    //
+    // `!inTeamContext` is the whole correction. A Club Admin who deliberately steps into Under 12 Boys
+    // was still shown the club's Fixture Control Centre and the inter-club negotiation register,
+    // because they happen to hold club fixture authority -- so standing in one team offered a console
+    // for every team at the club. That is the context leakage this programme keeps removing: CONTEXT
+    // decides the product, CAPABILITY decides the actions within it.
+    //
+    // Nothing is lost. Both surfaces are unchanged and still reachable from Club context, and the
+    // team's own fixture actions -- add, edit, cancel, request -- now live in the team's fixture
+    // product where somebody running that team can actually use them.
+    if (hasClubFixtureAuthority && !inTeamContext) {
       // Its own metadata title, used as its nav label: this is the CRUD surface, not the overview.
-      // Club fixture authority only -- a team coach has nothing to do here and never did.
       items.push({ href: "/fixtures/management", label: "Fixture Control Centre" })
       // NAMED FOR WHAT IT IS. Requesting, accepting and rejecting fixtures between clubs is real work
       // and a real page; it is not what somebody means when they tap Fixtures.

@@ -269,6 +269,43 @@ try {
   }
 
   // =====================================================================
+  // G. THE SIDEBAR SAYS WHERE YOU ARE -- exactly one row, and the right one
+  // =====================================================================
+  // Every renderer decided active state with a prefix test, so on a destination that nests inside
+  // another destination TWO rows lit at once and neither of them meant anything. Proved in the
+  // browser because the defect is what a person sees, not what a function returns.
+  {
+    const navCtx = await newContext(browser, { width: 1400, height: 1000 })
+    const navPage = await navCtx.newPage()
+    navPage.on("pageerror", (e) => pageErrors.push(String(e?.message ?? e)))
+    await signIn(navPage, CLUB_ADMIN)
+
+    const current = async (path) => {
+      await navPage.goto(`${APP}${path}`, { waitUntil: "domcontentloaded", timeout: 75000 })
+      return await navPage
+        .locator('nav[aria-label="Main"] a[aria-current="page"]')
+        .evaluateAll((els) => els.map((e) => e.getAttribute("href")))
+    }
+
+    for (const [path, expected] of [
+      ["/fixtures/management", "/fixtures/management"],
+      ["/fixtures", "/fixtures"],
+      ["/club/settings/guardians", "/club/settings/guardians"],
+      ["/club/settings", "/club/settings"],
+    ]) {
+      const lit = await current(path)
+      record(`G ${path} highlights exactly one destination`, lit.length === 1, lit.join(" + ") || "none")
+      record(`G ${path} highlights the page you are on`, lit[0] === expected, lit[0] ?? "none")
+    }
+
+    // The behaviour the prefix test got right, kept: a route no row names lights its nearest ancestor.
+    const deep = await current("/club/settings/news")
+    record("G a route nobody names lights its nearest ancestor", deep.length === 1 && deep[0] === "/club/settings", deep.join(" + ") || "none")
+
+    await navCtx.close()
+  }
+
+  // =====================================================================
   // MOBILE -- a team is run pitch-side
   // =====================================================================
   const phone = await newContext(browser, { width: 390, height: 844 })

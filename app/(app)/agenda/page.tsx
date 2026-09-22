@@ -22,6 +22,7 @@ import { filterAffordances, isPersonalScope, resolveAgendaScope } from "@/lib/ag
 import { parseAnchor, resolveWindow } from "@/lib/agenda/window"
 import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
+import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -143,6 +144,27 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           ? "All Children"
           : (activeContext.subjectName ?? activeContext.label)
 
+  /**
+   * WHAT THIS PERSON MAY DO FOR THE TEAM THEY ARE OPERATING AS.
+   *
+   * Asked of the capability engine at TEAM scope and only in a team context: a club-wide holder gets
+   * their actions in the club's own surfaces, and a person operating as one team gets that team's.
+   * Presentation only -- every surface behind these links, and every write beneath them, re-checks.
+   */
+  const teamActions =
+    activeContext.kind === "team" && activeContext.id
+      ? {
+          canCreate: await hasCapability(supabase, "fixture.fixture.create", "team", {
+            clubId: activeContext.clubId,
+            teamId: activeContext.id,
+          }),
+          canRequest: await hasCapability(supabase, "fixture.request.create", "team", {
+            clubId: activeContext.clubId,
+            teamId: activeContext.id,
+          }),
+        }
+      : null
+
   return (
     // CONVERGENCE STEP 18 (UX-4): the final card used to sit under the floating widget at 390px.
     // Now the shell reserves the space the floating widget and the mobile bottom bar occupy (app/(app)/layout.tsx), so this page no longer carries its own allowance. UX-4: a page should not have to know what the shell is floating over it.
@@ -163,6 +185,35 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                 // "coming up" -- which was shown while looking at November.
                 `${window.label}, in order.`}
       </p>
+
+      {/*
+        THE TEAM'S OWN FIXTURE ACTIONS, WHERE THE TEAM'S FIXTURES ARE.
+        A person running a team used to reach these by being sent into the club's Fixture Control
+        Centre -- a console for every team at the club, shown to them because they happened to hold
+        club authority. Context decides the product and capability decides the actions, so the actions
+        live here, scoped to the team being operated as, and appear only for somebody who holds them.
+        Both buttons open the canonical surfaces; neither is a second creator.
+      */}
+      {teamActions && (teamActions.canCreate || teamActions.canRequest) && (
+        <div className="mt-5 flex flex-wrap gap-2">
+          {teamActions.canCreate && (
+            <Link
+              href="/calendar"
+              className="inline-flex h-11 items-center rounded-lg bg-pitch-600 px-4 text-sm font-medium text-white transition-colors hover:bg-pitch-700"
+            >
+              Add Fixture
+            </Link>
+          )}
+          {teamActions.canRequest && (
+            <Link
+              href="/fixtures/new"
+              className="inline-flex h-11 items-center rounded-lg border border-line px-4 text-sm font-medium text-ink transition-colors hover:bg-surface-muted"
+            >
+              Request Fixture
+            </Link>
+          )}
+        </div>
+      )}
 
       {scope.kind === "none" ? (
         <EmptyState

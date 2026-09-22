@@ -366,3 +366,107 @@ team scope.
 Added: the **People** destination and the **Subscriptions** destination. Nothing removed — Player
 Requests, the roster and team administration all still exist and are all still reachable; two of them
 moved to homes that match how often they are used.
+
+
+---
+
+# Part 4 — fixture authority, and keeping Team context team-scoped
+
+From `4f54a92`.
+
+## What already existed, and was not rebuilt
+
+**The capabilities were already right.** `fixture.fixture.create`, `.edit`, `.cancel` and
+`fixture.request.create` / `.respond` are all `club,team` scoped, delegable, with a team grant level.
+Nothing needed adding. And the invariant §3 asks to preserve already holds by construction:
+`fixture.planner.use`, `fixture.import.run`, `fixture.fixture.bulk_edit` and `fixture.fixture.delete`
+are **club-only and not grantable at team scope at all**.
+
+**The age rule already existed too.** `internal.teams_can_play_fixture` is the canonical predicate —
+same rugby code, same category, senior sides matched on gender, youth girls matched to girls, and
+otherwise an **exact `internal.age_fixture_band` match**. It reads the canonical team record; there is
+no string matching anywhere near it. Measured: U12 v U12 true; U12 v U16, U12 v Men's, U12 v U13 all
+false. And `suggestOppositionTeam` already **filters** the opponent picker to eligible teams before
+ranking them, so §14's "only compatible candidates" was already true in the UI.
+
+## What was wrong
+
+**Club-wide fixture administration leaked into Team context.** A Club Admin who deliberately stepped
+into Under 12 Boys was still shown the club's **Fixture Control Centre** and the inter-club
+**Fixture Requests** register — because they happen to hold club fixture authority. Standing in one
+team offered a console for every team at the club. Both are now `!inTeamContext`: unchanged, still
+reachable from Club context, and no longer following somebody into a team.
+
+**An ineligible fixture request could be sent.** The age rule was enforced by a trigger on `fixtures`
+and inside `accept_fixture_request`, so an under-12 side could never end up with a fixture against a
+senior XV. But nothing stopped the **request** being made — it simply could never be accepted, after
+somebody had read it and worked out why. `20270532000000` refuses it at source, and does so by calling
+`internal.teams_can_play_fixture` rather than restating the regulation. The migration's own guard fails
+if that function is ever inlined or replaced by a second rule.
+
+It deliberately only judges what it can see: a request may legitimately name no target team yet (a
+scheduling group, or a directory identity for a club not on Ovalball). Those resolve later, where
+`accept_fixture_request` applies the same rule.
+
+**The team's fixture actions were in the wrong place.** Add and Request now sit on the team's own
+fixtures page, gated on the capability at TEAM scope, opening the canonical surfaces. No second creator.
+
+## D5 — OWNER DECISION REQUIRED: fixture authority by title
+
+The handoff's §1 says a Coach or Team Manager receives no fixture mutation authority from their title.
+**The shipped product does not work that way**, and this pass did not change it:
+
+| bundle | already grants, at team scope |
+|---|---|
+| **CO** (Coach) | `fixture.fixture.create`, `.edit`, `.cancel`, `.view`, `fixture.request.create` |
+| **TM** (Team Manager) | all of the above plus `.archive` and `fixture.request.respond` |
+
+§22 says to preserve an existing bundle and let the Club Admin override it, which is what has been
+done — and the override works: a scoped **deny** for one person on one team beats the bundle and takes
+nothing else with it (`team_fixture_authority` A6/A7).
+
+But §1 and the bundles genuinely disagree, and reconciling them means **removing** authority from every
+coach in the product, which is not a tidy-up. Options:
+
+- **(a)** leave it — a coach can manage their own team's fixtures by default, and a Club Admin denies
+  where they want it withheld. Ships today.
+- **(b)** strip create/edit/cancel from the **CO** bundle so a coach starts with view only and a Club
+  Admin grants deliberately. Matches §1 exactly; changes what existing coaches can do.
+- **(c)** strip from **CO** but leave **TM**, on the view that managing fixtures is a manager's job.
+
+**What the Club Admin can actually reach today**, which narrows option (a). The permissions screen
+(`app/(app)/club/permissions`) writes one shape only: `set_capability_override` at `scope_type = 'club'`
+with no team. These fixture capabilities all carry `inherits_to_team`, so that deny **does** reach a
+team-scope question — verified, `team_fixture_authority` A8 — but it reaches **every** team the person
+coaches (A9). Withholding fixture creation from one coach on one team is a per-team override, which
+the engine supports (A6/A7) and **no screen writes**. So option (a) is "deny across the club", not
+"deny on this team", until a per-team control exists. That control is a UI of its own and was not
+built here.
+
+## D6 — The sidebar said where you were, twice
+
+Every navigation renderer — the desktop sidebar, its grouped sections, the mobile drawer and the
+bottom bar — decided active state per row with `pathname === href || pathname.startsWith(href + "/")`.
+That is a prefix test rather than a matcher, and where destinations nest it answers true for the
+ancestor as well as the page. On `/fixtures/management` both **Fixture Control Centre** and **Fixture
+Requests** were highlighted; on `/club/settings/guardians` both **Guardians & Players** and **Club
+Settings** were. Two active rows do not tell a person where they are, which is the only thing the
+state exists to say.
+
+`lib/app-context/active-nav.ts` is now the one resolver: the **longest** href that matches wins, so
+exactly one row can be active. The behaviour the prefix test got right is kept — a deeper route that
+no row names still lights its nearest ancestor, so reading one message is being in Messages.
+
+Four copies of the predicate is why the defect was in four places, so the copies are what is banned:
+`navigation_architecture` fails if any renderer carries its own prefix test, and the assertion that
+the old predicate over-matches is computed from the real club navigation rather than an invented list.
+Proved in a browser in `89-team-operations` (G series), because a highlight is what a person sees.
+
+
+## Functions
+
+**FUNCTIONS BEFORE 13 · FUNCTIONS AFTER 13 · FUNCTIONALITY LOST 0.**
+
+Nothing added, nothing removed. Fixture Control Centre and Fixture Requests are unchanged and still
+reachable from Club context; what changed is which context offers them. The team's Add and Request are
+the canonical surfaces reached from a better place.

@@ -36,6 +36,8 @@ import type { NavItem } from "./app-nav"
 import { MessagesPopover } from "./messages-popover"
 import { bottomBarLabel } from "@/lib/app-context/bottom-bar-label"
 
+import { navActiveMatcher } from "@/lib/app-context/active-nav"
+
 import { NavSections } from "./nav-sections"
 import { NotificationBell } from "./notification-bell"
 import { SupportButton } from "./support-button"
@@ -94,6 +96,17 @@ export function AppMobileNav({
   supportUnreadCount,
 }: AppMobileNavProps) {
   const pathname = usePathname()
+  // ONE CANDIDATE SET FOR BOTH SURFACES THIS FILE OWNS -- the drawer's list and the bottom bar.
+  // The bar is a shortcut to four destinations the drawer also holds, so resolving it against its own
+  // five cells alone would let a cell claim a page it is not: on a deeper named destination the bar
+  // would light its nearest bar-cell ancestor while the drawer correctly lit the page. Against the
+  // union, the winner is the page, and the bar simply has no active cell when the page is not in it.
+  const isActive = navActiveMatcher(pathname, [
+    ...primaryItems.map((i) => i.href),
+    ...top.map((i) => i.href),
+    ...sections.flatMap((s) => s.items.map((i) => i.href)),
+    ...bottomItems.map((i) => i.href),
+  ])
   const [open, setOpen] = useState(false)
   // Controlled, so a link inside the scroll region can dismiss the drawer.
   // The links are no longer wrapped in SheetClose: nesting a Link inside
@@ -257,7 +270,7 @@ export function AppMobileNav({
             ) : (
               <div className="flex flex-col gap-1">
                 {primaryItems.map((item) => {
-                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+                  const active = isActive(item.href)
                   return (
                     <Link
                       key={item.href}
@@ -347,7 +360,7 @@ export function AppMobileNav({
       >
         <ul className="flex items-stretch">
           {bottomItems.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+            const active = isActive(item.href)
             return (
               <li key={item.href} className="min-w-0 flex-1">
                 <Link

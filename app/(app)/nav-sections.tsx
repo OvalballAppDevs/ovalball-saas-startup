@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
+import { navActiveMatcher } from "@/lib/app-context/active-nav"
 import type { NavSection } from "@/lib/app-context/build-nav-items"
 import { cn } from "@/lib/utils"
 
@@ -64,7 +65,12 @@ export function NavSections({
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
+  // Every row this renderer will draw, collapsed sections included: a candidate left out of the set
+  // cannot win, and the deep one being missing is exactly how a shorter ancestor wrongly lights up.
+  const isActive = navActiveMatcher(pathname, [
+    ...top.map((i) => i.href),
+    ...sections.flatMap((s) => s.items.map((i) => i.href)),
+  ])
 
   const rowPad = size === "mobile" ? "px-3 py-3" : "px-3 py-2.5"
   const textSize = size === "mobile" ? "text-base" : "text-sm"

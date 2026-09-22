@@ -1664,6 +1664,11 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Governing Body programme (Steps 14-16)",
       "reason": "Convergence Step 15: the one RED change is a single added disjunct in internal.can_organise_competition -- the chokepoint all ten competition mutations reach through internal.require_edition_organiser -- so this proves the whole organiser matrix (right body, wrong body, viewer, Club Admin, Fixture Secretary, Safeguarding Officer, ordinary member, stranger), that the existing club and Site Admin organisers survived, that a body officer gains no authority over a club's own fixtures, and the three new writes: competition creation in the body's own rugby code and the canonical season, grant-by-email with no people-search surface, and revocation as a state change that is never your own. It also asserts the boundaries Step 15 deliberately did not cross -- the dispensation chain, club affiliation, protected person data and the five-scope capability engine."
+    },
+    "team_fixture_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team Operations / Fixture Operations",
+      "reason": "Team fixture operations: who may administer a team's fixtures, and how far that reaches. Proves that the shipped Coach bundle DOES grant team-scoped create/edit/cancel and request.create -- recorded as the product's actual behaviour rather than assumed away -- while never reaching a team the person is not attached to and never becoming club-wide authority; that a Club Admin's scoped DENY overrides the role bundle for one person on one team and takes nothing else with it; that a capability granted for one team is not authority over another for create, edit, cancel or request; that a fixture request is refused at source against a different age band or a senior side, BY THE CANONICAL RULE (internal.teams_can_play_fixture, asserted on the message so an unrelated check constraint cannot pass for it) while a request whose opponent is not yet known is still allowed; that club-wide authority is unchanged in a club context; and that the Planner, bulk import and bulk edit remain separate and are not even grantable at team scope."
     }
   },
   "prerequisite_defect": {

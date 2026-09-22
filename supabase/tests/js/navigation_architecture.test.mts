@@ -6,6 +6,7 @@ import { buildNavItems, buildClubSections, buildSiteAdminSections } from "@/lib/
 import type { SessionContext } from "@/lib/app-context/session-context"
 import type { SwitchableContext } from "@/lib/app-context/active-context-rules"
 import type { ClubSettingsNavCapabilities } from "@/app/(app)/club/settings/resolve-nav-capabilities"
+import { navActiveMatcher, resolveActiveHref } from "@/lib/app-context/active-nav"
 
 /**
  * STEP 1 — CANONICAL NAVIGATION.
@@ -181,6 +182,26 @@ test("no group label or destination appears twice in a team sidebar", () => {
   )
 })
 
+test("club-wide fixture administration does not follow a Club Admin into a team", () => {
+  // A Club Admin holds club fixture authority everywhere, so standing in Under 12 Boys used to offer
+  // the club's Fixture Control Centre and the inter-club Fixture Requests register -- a console for
+  // every team at the club, shown because of who they are rather than where they are standing.
+  // Context decides the product; capability decides the actions within it.
+  const ctx = session({
+    clubMemberships: [{ clubId: "c-1", clubName: "Burnley RUFC", role: "CLUB_ADMIN", clubLogoUrl: null, clubSlug: "b" } as never],
+    teamPermissions: [{ teamId: "t-1", teamDisplayName: "Under 12 Boys", permission: "coach", clubId: "c-1", clubName: "Burnley RUFC" } as never],
+  })
+  const inTeam = hrefs(buildNavItems(ctx, teamCtx("t-1"), caps(), true))
+  assert.ok(!inTeam.includes("/fixtures/management"), "the club's Fixture Control Centre followed them into a team")
+  assert.ok(!inTeam.includes("/fixtures"), "the inter-club request register followed them into a team")
+  assert.ok(inTeam.includes("/agenda"), "Fixtures must still be the team's fixture overview")
+
+  // And it is still there where it belongs.
+  const inClub = hrefs(buildNavItems(ctx, clubCtx(), caps(), false))
+  assert.ok(inClub.includes("/fixtures/management"), "club context lost the Fixture Control Centre")
+  assert.ok(inClub.includes("/fixtures"), "club context lost the Fixture Requests register")
+})
+
 test("subscriptions appear only where the bounded team capability is held", () => {
   const ctx = session({ teamPermissions: [{ teamId: "t-1", teamDisplayName: "Under 12 Boys", permission: "manager", clubId: "c-1", clubName: "B" } as never] })
   const without = hrefs(buildNavItems(ctx, teamCtx("t-1"), null, false))
@@ -257,5 +278,67 @@ test("navigation is presentation: it reads no authority of its own", () => {
   const src = code("lib/app-context/build-nav-items.ts")
   for (const forbidden of ["supabase", "createClient", "rpc(", "hasCapability("]) {
     assert.ok(!src.includes(forbidden), `build-nav-items reaches for ${forbidden} -- it must be handed decisions, never make them`)
+  }
+})
+
+// ---------------------------------------------------------------- active state
+
+test("the page you are on is the row that lights up, and it is the only one", () => {
+  // THE DEFECT, DEMONSTRATED ON THE REAL CLUB NAVIGATION rather than an invented list. Every renderer
+  // decided per row with `pathname === href || pathname.startsWith(href + "/")`, which is a prefix
+  // test, not a matcher: where destinations nest it answers true for the ancestor as well as the page.
+  const ctx = clubAdminSession()
+  const { primary } = buildNavItems(ctx, clubCtx(), caps(), false)
+  const { top, sections } = buildClubSections(primary, null)
+  const all = [...top.map((i) => i.href), ...sections.flatMap((s) => s.items.map((i) => i.href))]
+
+  const oldPredicate = (pathname: string, href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`)
+
+  // These are shipped club destinations that nest inside another shipped club destination, so the
+  // pairs exist in the product and not only in this test.
+  for (const pathname of ["/fixtures/management", "/club/settings/guardians", "/club/settings/safeguarding"]) {
+    assert.ok(all.includes(pathname), `${pathname} is not a club destination any more -- retire this case`)
+    const lit = all.filter((h) => oldPredicate(pathname, h))
+    assert.ok(lit.length > 1, `the old predicate no longer over-matches on ${pathname}, so it lit [${lit.join(", ")}]`)
+    assert.deepEqual(
+      all.filter((h) => navActiveMatcher(pathname, all)(h)),
+      [pathname],
+      `more or fewer than one row is active on ${pathname}`
+    )
+  }
+})
+
+test("a deeper route nobody names still lights its nearest ancestor", () => {
+  // The one thing the prefix test got right, kept: reading one message is being in Messages, and a
+  // fixture's Match Centre is being in Fixtures. Losing this would leave the sidebar blank on the
+  // pages people spend the most time on.
+  const all = ["/dashboard", "/agenda", "/messages", "/club/settings", "/club/settings/guardians"]
+  assert.equal(resolveActiveHref("/messages/abc-123", all), "/messages")
+  assert.equal(resolveActiveHref("/club/settings/guardians/xyz", all), "/club/settings/guardians")
+  assert.equal(resolveActiveHref("/club/settings/branding", all), "/club/settings")
+  assert.equal(resolveActiveHref("/rugby-hub", all), null, "an unnamed top-level route lit something")
+  // A prefix that is not a path segment is not a match.
+  assert.equal(resolveActiveHref("/agenda-archive", all), null)
+})
+
+test("every navigation renderer resolves active state through the one resolver", () => {
+  // Four renderers -- desktop sidebar, its grouped sections, the mobile drawer, the bottom bar -- and
+  // the defect was in all four because each carried its own copy of the predicate. A fifth copy would
+  // reintroduce it silently, so the copies are what is banned, not just their behaviour.
+  for (const path of [
+    "app/(app)/app-nav.tsx",
+    "app/(app)/nav-sections.tsx",
+    "app/(app)/app-mobile-nav.tsx",
+  ]) {
+    const src = code(path)
+    assert.ok(
+      /navActiveMatcher|resolveActiveHref/.test(src),
+      `${path} does not use the canonical active-state resolver`
+    )
+    assert.ok(
+      !/pathname\.startsWith\(`\$\{[^}]*href\}\/`\)/.test(src),
+      `${path} still decides active state with its own prefix test`
+    )
   }
 })
