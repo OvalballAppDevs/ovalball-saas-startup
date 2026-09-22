@@ -91,6 +91,10 @@ function useIncomingLinks() {
         router.push({ pathname: "/fixtures/[fixtureId]/match-centre", params: { fixtureId: intent.fixtureId } })
         return
       }
+      if (intent.kind === "TRAINING") {
+        router.push({ pathname: "/calendar/training/[sessionId]", params: { sessionId: intent.sessionId } })
+        return
+      }
       if (intent.kind === "CALENDAR") {
         // The anchor is carried so a notification about a particular day opens on it. The Calendar
         // ignores an absent one and opens on today, which is the right default for a tap with no date.
@@ -121,6 +125,7 @@ function useIncomingLinks() {
         intent.kind === "FIXTURES" ||
         intent.kind === "FIXTURE" ||
         intent.kind === "MATCH_CENTRE" ||
+        intent.kind === "TRAINING" ||
         intent.kind === "CALENDAR"
       ) {
         if (status === "signed-in") deliver(intent)

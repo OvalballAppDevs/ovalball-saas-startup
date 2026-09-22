@@ -5,24 +5,25 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { AgendaItem, RangeMode } from "@ovalball/contracts"
 import { nextAnchor, previousAnchor, windowContainsToday } from "@ovalball/contracts"
 
-import { supabase } from "../../src/auth/supabase"
-import { useAppContexts } from "../../src/context/contexts"
-import { readAgenda, todayIso } from "../../src/agenda/load"
-import { daysBetween, exactDate, groupByDay, relativeDate, restOfDate } from "../../src/agenda/presentation"
-import { friendly, logDetail } from "../../src/errors/translate"
-import { AppHeader } from "../../src/components/app-header"
-import { ContextSheet } from "../../src/components/context-sheet"
-import { AgendaRow } from "../../src/components/agenda-row"
+import { supabase } from "../../../src/auth/supabase"
+import { useAppContexts } from "../../../src/context/contexts"
+import { readAgenda, todayIso } from "../../../src/agenda/load"
+import { clubRugbyCode, loadSeasons, resolveSeason, seasonLabel, type SeasonPhase, type SeasonRow } from "../../../src/agenda/seasons"
+import { daysBetween, exactDate, groupByDay, relativeDate, restOfDate } from "../../../src/agenda/presentation"
+import { friendly, logDetail } from "../../../src/errors/translate"
+import { AppHeader } from "../../../src/components/app-header"
+import { ContextSheet } from "../../../src/components/context-sheet"
+import { AgendaRow } from "../../../src/components/agenda-row"
 import {
   AgendaFilterSheet,
   NO_FILTER,
   applyFilter,
   countActive,
   type AgendaFilter,
-} from "../../src/components/agenda-filter"
-import { CalendarDays, ChevronRight, SlidersHorizontal } from "../../src/components/icons"
-import { CardSkeleton, EmptyState, ErrorState } from "../../src/components/ui"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
+} from "../../../src/components/agenda-filter"
+import { CalendarDays, Check, ChevronDown, ChevronRight, SlidersHorizontal } from "../../../src/components/icons"
+import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
+import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
 
 /**
  * CALENDAR — when is my rugby happening.
@@ -63,6 +64,32 @@ export default function Calendar() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [filter, setFilter] = useState<AgendaFilter>(NO_FILTER)
   const [filterOpen, setFilterOpen] = useState(false)
+  // THE SEASON COMES FROM THE CANONICAL REGISTER, never from a date. A club's season is whatever Site
+  // Admin recorded, and a calendar that computed one from a month boundary would be a second answer.
+  const [seasons, setSeasons] = useState<SeasonRow[]>([])
+  const [seasonId, setSeasonId] = useState<string | null>(null)
+  const [phase, setPhase] = useState<SeasonPhase | null>(null)
+
+  // The register, scoped to our own rugby code -- a Union club is never shown a League season.
+  useEffect(() => {
+    let live = true
+    setSeasons([])
+    setSeasonId(null)
+    setPhase(null)
+    void (async () => {
+      const code = await clubRugbyCode(supabase, active?.clubId ?? null)
+      const rows = await loadSeasons(supabase, code)
+      if (live) setSeasons(rows)
+    })()
+    return () => {
+      live = false
+    }
+  }, [active])
+
+  const season = useMemo(
+    () => resolveSeason(seasons, null, today, seasonId, phase),
+    [seasons, today, seasonId, phase]
+  )
 
   const load = useCallback(async () => {
     if (!sessionContext || !active) return
@@ -114,11 +141,41 @@ export default function Calendar() {
       <AppHeader onOpenContexts={() => setSheetOpen(true)} />
 
       <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, gap: space.sm }}>
+        {/* THE SEASON, WHERE THERE IS MORE THAN ONE TO CHOOSE FROM. A club in its first season has one
+            and needs no selector; a club with a history gets to look back at last year's rugby without
+            paging through the months between. */}
+        {seasons.length > 1 && (
+          <SeasonBar
+            seasons={seasons}
+            selectedId={season.selected?.id ?? null}
+            phase={season.phase}
+            hasPreSeason={Boolean(season.selected?.preSeasonStartsOn)}
+            onSeason={(id: string) => {
+              setSeasonId(id)
+              // MOVING SEASON MOVES THE VIEW INTO IT. Staying on this week while looking at last season
+              // would show an empty week and no reason why.
+              const picked = seasons.find((option) => option.id === id)
+              if (picked) setAnchor(picked.startsOn > today || picked.endsOn < today ? picked.startsOn : today)
+            }}
+            onPhase={setPhase}
+          />
+        )}
+
+        {season.configBroken && (
+          <Text accessibilityRole="alert" style={[type.caption, { color: colour.warning }]}>
+            This season&apos;s dates are incomplete in Site Admin, so the period cannot be shown.
+          </Text>
+        )}
+
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          {/* THE SEASON IS A BOUND, not just a starting point. Paging out of the selected season would
+              show empty weeks belonging to a season nobody asked for; the anchor is clamped to the
+              register's own dates, so Previous stops at the first week of the season. */}
           <Step
             label={mode === "week" ? "Previous week" : "Previous month"}
             direction="back"
-            onPress={() => setAnchor(previousAnchor(mode, anchor))}
+            disabled={season.range ? anchor <= season.range.start : false}
+            onPress={() => setAnchor(clamp(previousAnchor(mode, anchor), season.range))}
           />
           <View style={{ flex: 1, alignItems: "center" }}>
             <Text accessibilityRole="header" numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
@@ -128,7 +185,8 @@ export default function Calendar() {
           <Step
             label={mode === "week" ? "Next week" : "Next month"}
             direction="forward"
-            onPress={() => setAnchor(nextAnchor(mode, anchor))}
+            disabled={season.range ? anchor >= season.range.end : false}
+            onPress={() => setAnchor(clamp(nextAnchor(mode, anchor), season.range))}
           />
         </View>
 
@@ -240,11 +298,14 @@ export default function Calendar() {
                     item={item}
                     today={today}
                     showOwner={showOwner}
-                    // EVERY EVENT ROUTES TO ITS OWN DOMAIN OBJECT. A fixture opens Fixture Detail --
-                    // the same screen the Fixtures tab opens, not a calendar-flavoured copy of it.
-                    // Training has no native destination yet and is honestly not tappable rather than
-                    // opening something that would have to apologise.
-                    onPress={item.kind === "fixture" ? () => router.push(`/fixtures/${item.eventId}` as never) : undefined}
+                    // EVERY EVENT ROUTES TO ITS OWN DOMAIN OBJECT. A fixture opens the Fixture Console
+                    // -- the same screen the Fixtures tab opens, not a calendar-flavoured copy -- and a
+                    // training session opens the Training Centre. Neither is a "calendar event detail".
+                    onPress={() =>
+                      item.kind === "fixture"
+                        ? router.push(`/fixtures/${item.eventId}` as never)
+                        : router.push(`/calendar/training/${item.eventId}` as never)
+                    }
                   />
                 </View>
               ))}
@@ -334,6 +395,130 @@ function WeekStrip({
   )
 }
 
+/**
+ * THE SEASON, AND WHICH PART OF IT.
+ *
+ * A DROPDOWN RATHER THAN ARROWS. A club with five seasons behind it should reach 2023/24 in one tap,
+ * not four; and the register's own names -- "2026/27" -- are what a person recognises, never a label
+ * assembled from dates.
+ *
+ * PRE-SEASON APPEARS ONLY WHERE THE REGISTER RECORDS ONE. It is a real phase with real dates for clubs
+ * that run it and no phase at all for clubs that do not, so offering it everywhere would be inventing a
+ * window. The canonical resolver draws that line; this only renders it.
+ */
+function SeasonBar({
+  seasons,
+  selectedId,
+  phase,
+  hasPreSeason,
+  onSeason,
+  onPhase,
+}: {
+  seasons: SeasonRow[]
+  selectedId: string | null
+  phase: SeasonPhase
+  hasPreSeason: boolean
+  onSeason: (id: string) => void
+  onPhase: (phase: SeasonPhase) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = seasons.find((season) => season.id === selectedId) ?? null
+
+  return (
+    <View style={{ gap: space.sm }}>
+      <View style={{ flexDirection: "row", gap: space.sm }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={`Season: ${seasonLabel(selected)}. Choose`}
+          onPress={() => setOpen((value) => !value)}
+          style={({ pressed }) => ({
+            flex: 1,
+            minHeight: TOUCH_TARGET - 8,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: space.xs,
+            paddingHorizontal: space.md,
+            borderRadius: radius.md,
+            borderWidth: 1,
+            borderColor: colour.lineStrong,
+            backgroundColor: colour.surface,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink, flex: 1, fontSize: 13 }]}>
+            {seasonLabel(selected)}
+          </Text>
+          <View style={open ? { transform: [{ rotate: "180deg" }] } : undefined}>
+            <ChevronDown size={16} color={colour.inkSubtle} strokeWidth={2.2} />
+          </View>
+        </Pressable>
+
+        {hasPreSeason && (
+          <View style={{ flexDirection: "row", backgroundColor: "rgba(16,21,18,0.05)", borderRadius: radius.md, padding: 3 }}>
+            {(["pre", "main"] as const).map((option) => {
+              const selectedPhase = option === phase
+              return (
+                <Pressable
+                  key={option}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: selectedPhase }}
+                  accessibilityLabel={option === "pre" ? "Pre-season" : "Main season"}
+                  onPress={() => onPhase(option)}
+                  style={{
+                    minHeight: TOUCH_TARGET - 14,
+                    paddingHorizontal: space.md,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: radius.sm,
+                    backgroundColor: selectedPhase ? colour.surface : "transparent",
+                  }}
+                >
+                  <Text style={[type.smallMedium, { color: selectedPhase ? colour.ink : colour.inkMuted, fontSize: 12 }]}>
+                    {option === "pre" ? "Pre" : "Main"}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        )}
+      </View>
+
+      {open && (
+        <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+          {seasons.map((option, index) => {
+            const isSelected = option.id === selectedId
+            return (
+              <Pressable
+                key={option.id}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={option.name}
+                onPress={() => {
+                  onSeason(option.id)
+                  setOpen(false)
+                }}
+                style={({ pressed }) => ({
+                  minHeight: TOUCH_TARGET,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: space.md,
+                  borderTopWidth: index === 0 ? 0 : 1,
+                  borderTopColor: colour.line,
+                  backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent",
+                })}
+              >
+                <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>{option.name}</Text>
+                {isSelected && <Check size={18} color={colour.forest800} strokeWidth={2.6} />}
+              </Pressable>
+            )
+          })}
+        </View>
+      )}
+    </View>
+  )
+}
+
 function Toggle({
   value,
   onChange,
@@ -374,11 +559,23 @@ function Toggle({
   )
 }
 
-function Step({ label, direction, onPress }: { label: string; direction: "back" | "forward"; onPress: () => void }) {
+function Step({
+  label,
+  direction,
+  onPress,
+  disabled,
+}: {
+  label: string
+  direction: "back" | "forward"
+  onPress: () => void
+  disabled?: boolean
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       hitSlop={6}
       style={({ pressed }) => ({
@@ -386,7 +583,7 @@ function Step({ label, direction, onPress }: { label: string; direction: "back" 
         height: TOUCH_TARGET,
         alignItems: "center",
         justifyContent: "center",
-        opacity: pressed ? 0.6 : 1,
+        opacity: disabled ? 0.28 : pressed ? 0.6 : 1,
       })}
     >
       <View style={direction === "back" ? { transform: [{ rotate: "180deg" }] } : undefined}>
@@ -394,6 +591,14 @@ function Step({ label, direction, onPress }: { label: string; direction: "back" 
       </View>
     </Pressable>
   )
+}
+
+/** Keep an anchor inside the season the register describes. No range means no bound, not an open one. */
+function clamp(iso: string, range: { start: string; end: string } | null): string {
+  if (!range) return iso
+  if (iso < range.start) return range.start
+  if (iso > range.end) return range.end
+  return iso
 }
 
 function emptyTitle(mode: "week" | "month", anchor: string, today: string): string {

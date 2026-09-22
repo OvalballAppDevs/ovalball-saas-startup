@@ -51,6 +51,15 @@ export type LinkIntent =
   | { kind: "MATCH_CENTRE"; fixtureId: string }
   /** Open the calendar, optionally anchored on a day a notification was about. */
   | { kind: "CALENDAR"; date: string | null }
+  /**
+   * One training session's own destination.
+   *
+   * The web addresses it at /training/<id> and so does this, so a link shared from a browser -- or a
+   * notification about a session being moved -- resolves to the same place. The id says WHERE to go;
+   * the Training Centre reads it through the canonical card RPC and says the session is unavailable if
+   * it is not this person's.
+   */
+  | { kind: "TRAINING"; sessionId: string }
   /** A link Ovalball issued but this build does not handle yet -- named so it can be reported honestly. */
   | { kind: "NOT_YET_SUPPORTED"; path: string }
   | { kind: "UNKNOWN" }
@@ -154,6 +163,12 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
     // A section of a fixture this build does not have a screen for -- the result, the team sheet --
     // opens the fixture itself, which is where all of them live.
     return { kind: "FIXTURE", fixtureId }
+  }
+
+  // TRAINING: /training/<id>, the same address the website uses.
+  if (path.startsWith("/training/")) {
+    const sessionId = path.slice("/training/".length).split("/").filter(Boolean)[0]
+    if (sessionId) return { kind: "TRAINING", sessionId }
   }
 
   // CALENDAR: /calendar, optionally ?date=YYYY-MM-DD so a notification can open the day it was about.
