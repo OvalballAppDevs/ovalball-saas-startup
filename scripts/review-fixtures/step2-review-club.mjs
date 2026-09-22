@@ -639,6 +639,34 @@ function enrichGoverningCompetition() {
 }
 
 /** A date this many days from today, as an ISO day. Kept local so nothing here computes a season. */
+/**
+ * THE TEAM OPERATIONS REVIEW WORLD.
+ *
+ * Every Team surface names people, so a persona with no name makes the whole product look broken in a
+ * way the product is not: the sidebar read "Ovalball User", the identity tile fell back to "?", and the
+ * team's only coach was listed as "Unknown". `uat.team.manager` is created by an older suite that never
+ * set a name, and a nameless reviewer cannot judge a screen whose job is to tell you who somebody is.
+ *
+ * Written through `public.profiles` like every other name here, so `internal.normalise_person_name`
+ * runs on it as a trigger -- the database is the one normaliser, and a review fixture does not get its
+ * own spelling rules.
+ */
+function enrichTeamOps() {
+  const named = sql(`
+    update public.profiles set first_name = 'Hannah', surname = 'Whitmore'
+     where email = 'uat.team.manager@ovalball.test'
+       and (coalesce(nullif(btrim(first_name), ''), '') = '' or coalesce(nullif(btrim(surname), ''), '') = '')
+    returning first_name || ' ' || surname`)
+  console.log(named ? `  named the team manager: ${named}` : "  team manager already has a name -- left alone")
+
+  // Reported, never repaired: an avatar is a file in storage and inventing one would be fabricating
+  // review data rather than enriching it. The owner uploads their own through Account settings.
+  const noPhoto = sql(`
+    select count(*)::text from public.profiles p join auth.users u on u.id = p.id
+     where u.email like 'uat.%@ovalball.test' and coalesce(p.avatar_storage_path, '') = ''`)
+  console.log(`  review personas with no profile photo: ${noPhoto} (upload one at /account to judge the identity block)`)
+}
+
 function isoDaysFromToday(days) {
   const d = new Date()
   d.setDate(d.getDate() + days)
@@ -892,6 +920,7 @@ if (cmd === "up") {
 else if (cmd === "enrich-fixtures") enrichFixtures()
 else if (cmd === "enrich-governing") enrichGoverning()
 else if (cmd === "enrich-governing-competition") enrichGoverningCompetition()
+else if (cmd === "enrich-team-ops") enrichTeamOps()
 else if (cmd === "report") report()
 else if (cmd === "verify") verify()
-else console.log("usage: step2-review-club.mjs up|enrich|enrich-fixtures|enrich-governing|enrich-governing-competition|report|verify|down --destroy-the-canonical-review-world")
+else console.log("usage: step2-review-club.mjs up|enrich|enrich-fixtures|enrich-governing|enrich-governing-competition|enrich-team-ops|report|verify|down --destroy-the-canonical-review-world")

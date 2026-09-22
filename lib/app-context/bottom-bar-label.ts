@@ -28,6 +28,14 @@ const BAR_LABEL: Record<string, string> = {
   // A cell cannot carry club-entered data of any length, and the shell already says which context you are
   // in, so on the bar it is always the plain word.
   "/calendar": "Calendar",
+  // The agenda's sidebar label is already "Fixtures" and already fits; naming it here is belt and
+  // braces for the day somebody lengthens it, and it documents that the bar's Fixtures cell is the
+  // shared overview rather than either of the two administrative surfaces beside it.
+  "/agenda": "Fixtures",
+  // "Fixture Control Centre" is a good sidebar name and 22 characters. In a cell it becomes
+  // "Fixture Co…", which is worse than a short honest word.
+  "/fixtures/management": "Fixture Admin",
+  "/fixtures": "Requests",
 }
 
 /**

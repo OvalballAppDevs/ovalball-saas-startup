@@ -15,13 +15,15 @@ import { formatGenderLabel } from "@/lib/teams/labels"
 
 import { teamJoinCodes } from "./join-code-actions"
 import { loadAgenda } from "@/lib/agenda/load"
-import { shiftDays } from "@/lib/agenda/window"
+import { teamAgendaWindows } from "@/lib/teams/team-overview"
 import { loadMyPlayerAgeGradeStatus, loadTeamAgeGradeAttention } from "@/lib/teams/age-grade"
 import type { AgendaScope } from "@/lib/agenda/scope"
 import type { FamilyChild } from "@/lib/parent/family-agenda"
 import { MyChildAgeGradeNote, TeamAgeGradeAttentionPanel } from "@/components/teams/team-age-grade"
 import { TeamRelationshipBadges } from "@/components/teams/team-relationship-badges"
 import { TeamWhatsNext } from "@/components/teams/team-whats-next"
+import { TeamSubscriptionsSection } from "@/components/teams/team-subscriptions-section"
+import { loadTeamSubscriptions } from "@/lib/teams/team-subscriptions"
 import { answerablePlayerIds, type TeamRelationship } from "@/lib/teams/team-relationship"
 import { JoinCodeSection } from "./join-code-section"
 import { TeamIdentitySection } from "./team-identity-section"
@@ -213,9 +215,20 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       ? { kind: "family", children: familyChildren }
       : { kind: "teams", teamIds: [team.id], clubId: team.club_id }
 
+  // SUBSCRIPTIONS, ONLY FOR SOMEBODY WHO MAY SEE THEM.
+  //
+  // finance.subscription.view is CLUB-scoped -- every finance capability in this product is -- so a
+  // team manager who is not also club finance staff gets nothing here and the section does not render.
+  // That is the existing authority model, preserved rather than widened: giving team staff a
+  // team-level finance capability would be new authority, and new authority is an owner decision.
+  const canSeeFinance = await hasCapability(supabase, "finance.subscription.view", "club", { clubId: team.club_id })
+  const teamSubscriptions = canSeeFinance ? await loadTeamSubscriptions(supabase, team.id) : null
+
   const [upcomingRead, recentRead] = await Promise.all([
-    loadAgenda(supabase, agendaScope, { startIso: todayIso, endIso: shiftDays(todayIso, 60), order: "asc", label: "the next 60 days" }, { includeTraining: true }),
-    loadAgenda(supabase, agendaScope, { startIso: shiftDays(todayIso, -60), endIso: todayIso, order: "desc", label: "the last 60 days" }, { includeTraining: false }),
+    // THE SAME WINDOW THE TEAM'S DASHBOARD USES. Sixty days hid a January fixture from a team in
+    // September, so this page said "Nothing scheduled yet" about a season that was in fact arranged.
+    loadAgenda(supabase, agendaScope, teamAgendaWindows(todayIso).upcoming, { includeTraining: true }),
+    loadAgenda(supabase, agendaScope, teamAgendaWindows(todayIso).past, { includeTraining: false }),
   ])
   const upcoming = upcomingRead.items.slice(0, 5)
   const recent = recentRead.items.filter((i) => i.result).slice(0, 3)
@@ -302,6 +315,9 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         canManage={canManagePeople}
         canAssignTeamAdmin={canAssignTeamAdmin}
       />
+
+      {/* Money sits after the people it is about, and before the configuration nobody opens daily. */}
+      {teamSubscriptions && <TeamSubscriptionsSection summary={teamSubscriptions} />}
 
       {canManageJoinCodes && team.active && (
         <JoinCodeSection teamId={team.id} codes={await teamJoinCodes(team.id)} />

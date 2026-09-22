@@ -5,6 +5,8 @@ import { CalendarDays, Inbox } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
 import { PageIdentity } from "@/components/shell/page-identity"
+import { TeamOperationsPanel } from "@/components/teams/team-operations-panel"
+import { loadTeamOverview } from "@/lib/teams/team-overview"
 import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import { ClubDeskHeader, ClubRail, NextMatchCard, PinnedNotices, YourClubs } from "@/components/club-home/club-desk"
 import { ClubThemeScope } from "@/components/club-home/primitives"
@@ -142,6 +144,10 @@ export default async function DashboardPage() {
   // is deliberately not scoped to one (see active-context-rules), so it lists
   // its clubs rather than wearing one club's colours.
   const deskTeamId = dashboardContext.kind === "team" ? dashboardContext.id : null
+  // THE TEAM'S OWN OPERATIONAL READ, for a context whose whole job is one team. Loaded here rather
+  // than inside the panel so the page keeps its single round of server work, and only for a team
+  // context -- a club admin's dashboard is a different question and already has its own answer.
+  const teamOverview = deskTeamId ? await loadTeamOverview(supabase, deskTeamId) : null
   // A plain club membership has no "operate as" context (active-context-rules),
   // so such a member lands on the context-less fallback. The club home is
   // ambient -- reading, not operating -- so a member of exactly one club still
@@ -190,6 +196,14 @@ export default async function DashboardPage() {
   const work = (
     <>
       <PinnedNotices notices={notices.pinned} />
+
+      {/* A TEAM CONTEXT IS NOT A CLUB DASHBOARD WITH PARTS REMOVED.
+          Its own panel comes first and answers the team's questions; the club-shaped sections below
+          are still rendered where they are genuinely about this person, but they are no longer what
+          the page opens with. */}
+      {teamOverview && deskTeamId && (
+        <TeamOperationsPanel overview={teamOverview} teamHref={`/teams/${deskTeamId}`} />
+      )}
 
       {/* Requests come before everything else that is not urgent: they are the part of this page that
           is waiting on this person rather than merely informing them. */}
@@ -274,6 +288,11 @@ export default async function DashboardPage() {
       {(() => {
         const rest = desk && nextMatch ? data.thisWeekFixtures.filter((f) => f.id !== next?.id) : data.thisWeekFixtures
         if (desk && nextMatch && rest.length === 0) return null
+        // THE SAME REASONING, FOR A TEAM CONTEXT. The Team panel above has already answered "what is
+        // next" from a year-wide window, so an empty seven-day section underneath it reads as a
+        // contradiction -- "Training, Friday" followed immediately by "Nothing scheduled this week".
+        // A team whose week genuinely has fixtures still gets the list.
+        if (teamOverview && rest.length === 0) return null
         return (
           <section className="mt-10">
             <div className="flex items-center justify-between">
@@ -320,7 +339,16 @@ export default async function DashboardPage() {
     return (
       <ClubThemeScope theme={desk.club.theme} className="min-h-0 bg-transparent">
         <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
-          <ClubDeskHeader club={desk.club} greeting={`${greeting()}, ${ctx.firstName ?? "there"}`} contextLine={contextLine} workspace={workspaceLabel(dashboardContext.kind)} />
+          <ClubDeskHeader
+            club={desk.club}
+            greeting={`${greeting()}, ${ctx.firstName ?? "there"}`}
+            // In a team context the heading is the team and the club joins the line below, so the role
+            // alone belongs here -- contextLine would repeat the team's name the heading just said.
+            // Every other context keeps the line it always had.
+            contextLine={dashboardContext.kind === "team" ? displayRoleLabel : contextLine}
+            workspace={workspaceLabel(dashboardContext.kind)}
+            teamName={dashboardContext.kind === "team" ? dashboardContext.label : null}
+          />
           <div className="mt-8 grid gap-12 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
             <div className="min-w-0 [&>section:first-child]:mt-0">{work}</div>
             <aside aria-label="Club news and notices" className="min-w-0">

@@ -37,6 +37,7 @@ export function ClubDeskHeader({
   greeting,
   contextLine,
   workspace,
+  teamName = null,
 }: {
   club: ClubDesk["club"]
   greeting: string
@@ -44,6 +45,18 @@ export function ClubDeskHeader({
   workspace: string
   /** e.g. "Under 12 Boys, Coach" or "Club Admin". */
   contextLine: string
+  /**
+   * THE TEAM LEADS WHEN THE CONTEXT IS A TEAM.
+   *
+   * In a club context the club's name IS the page, and it stays the heading. In a TEAM context it is
+   * not: the person opened this to run Under 12 Boys, and the club is which club's Under 12 Boys.
+   * Rendering it the other way round -- an enormous OVALBALL UAT RUFC with "Under 12 Boys, Manager"
+   * beneath it in small grey type -- made every team of every club look like the same page.
+   *
+   * The crest stays, because the club is still who this team belongs to, and the club's name stays
+   * on the line below. Three facts, three weights: team, club, what you are here.
+   */
+  teamName?: string | null
 }) {
   return (
     <header className="relative isolate overflow-hidden rounded-3xl bg-(--club-hero) text-(--club-hero-fg) ring-1 ring-black/10">
@@ -68,13 +81,17 @@ export function ClubDeskHeader({
               ClubThemeScope, and a component that reached for its own would be a second answer. */}
           <PageIdentity
             workspace={workspace}
-            title={club.name}
+            title={teamName ?? club.name}
             showWorkspace={false}
             className="mt-0.5"
             titleClassName="mt-0 font-display text-[clamp(2.25rem,1.8rem+2vw,3.5rem)] leading-[0.95] tracking-wide text-balance text-inherit"
           />
-          {/* The role/context detail. It is what this person is AT this club, and it stays. */}
-          <p className="mt-1 text-sm text-(--club-hero-muted)">{contextLine}</p>
+          {/* What this person is here. In a team context the club's own name joins it, because the
+              heading above is now the team and "which club's Under 12 Boys" is the fact that line
+              has to carry. */}
+          <p className="mt-1 text-sm text-(--club-hero-muted)">
+            {teamName ? [club.name, contextLine].filter(Boolean).join(" · ") : contextLine}
+          </p>
         </div>
       </div>
     </header>

@@ -112,7 +112,7 @@ const CLUB_SECTIONS: { key: string; label: string; icon: string; hrefs: string[]
     key: "rugby",
     label: "Fixtures & Calendar",
     icon: "CalendarDays",
-    hrefs: ["/fixtures/management", "/calendar", "/partner-clubs", "/club/player-moves"],
+    hrefs: ["/agenda", "/calendar", "/fixtures/management", "/fixtures", "/partner-clubs", "/club/player-moves"],
   },
   {
     key: "comms",
@@ -186,12 +186,12 @@ export function buildBottomBarItems<T extends { href: string }>(
     // A club administrator's four jobs, ahead of settings and content. `/fixtures/management` is the
     // club's fixtures destination -- `/fixtures` is not a nav destination, and naming it here is how the
     // first version of this map silently produced a three-cell bar.
-    club: ["/dashboard", "/fixtures/management", "/teams", "/calendar"],
+    club: ["/dashboard", "/agenda", "/teams", "/calendar"],
     // THE TEAM ITSELF IS SECOND, right after the page they land on -- the same order the desktop sidebar
     // uses, where /dashboard is top-level and the Team section follows it. Messages is the item this
     // displaces, and it keeps its place in the drawer: four cells cannot carry five jobs, and a team bar
     // without the team on it was the defect.
-    team: ["/dashboard", activeTeamId ? `/teams/${activeTeamId}` : "", "/fixtures/management", "/calendar"],
+    team: ["/dashboard", activeTeamId ? `/teams/${activeTeamId}` : "", "/agenda", "/calendar"],
     // A guardian's fixed set, minus Settings, which is a rare visit.
     parent: ["/dashboard", "/agenda", "/calendar", "/rugby-hub"],
     player: ["/dashboard", "/agenda", "/calendar", "/rugby-hub"],
@@ -239,6 +239,12 @@ export function buildClubSections(items: NavItem[], activeTeamId?: string | null
           hrefs: [`/teams/${activeTeamId}`, `/teams/${activeTeamId}/player-requests`],
         },
         ...CLUB_SECTIONS,
+        // RUGBY HUB IS ITS OWN DESTINATION, not a leftover.
+        //
+        // Ungrouped items fall into "More", which is where it was ending up -- a coach looking for
+        // the laws had to open a drawer labelled with an ellipsis. It is knowledge rather than a
+        // daily job, so it sits last, but it is named and it is visible.
+        { key: "hub", label: "Rugby Hub", icon: "BookOpen", hrefs: ["/rugby-hub"] },
       ]
     : CLUB_SECTIONS
   return groupNavItems(items, spec)
@@ -408,6 +414,16 @@ export function buildNavItems(
     items.push({ href: `/teams/${activeContext.id}`, label: activeContext.label })
   }
 
+  // RUGBY HUB, FROM THE TEAM.
+  //
+  // A guardian, a player and a governing officer all had it; the people who actually coach did not,
+  // and reached it only through a promotional card on the dashboard. Somebody planning a session on a
+  // Tuesday evening is exactly who the laws, positions and skills are for, and moving between running
+  // rugby and reading about it should not require going back to a dashboard to find the door.
+  if (inTeamContext) {
+    items.push({ href: "/rugby-hub", label: "Rugby Hub" })
+  }
+
   // Calendar keeps the team's name ONLY where the team page is not already carrying it; two adjacent
   // links reading "Under 12 Boys" would say nothing about which is which.
   const calendarLabel = inTeamContext
@@ -422,16 +438,32 @@ export function buildNavItems(
   // holds real club/team authority elsewhere. Switching context is how
   // they move between those worlds; nav never shows both superimposed.
   if (!inSiteAdminContext) {
-    if (hasClubFixtureAuthority || manageable.length > 0) {
-      // /fixtures/management is the master fixture register (same
-      // component family as Site Admin's, per the reconciliation-pass
-      // requirement that this be one product, scoped by authority, not a
-      // separate implementation) -- it carries its own quick "View Fixture
-      // Requests" Sheet plus a link through to /fixtures for full
-      // sent/rejected/non-Ovalball request history. /fixtures itself
-      // remains a real, separately-useful page, just no longer the
-      // primary nav destination.
-      items.push({ href: "/fixtures/management", label: "Fixtures" })
+    // FIXTURES MEANS THE TEAM'S FIXTURES.
+    //
+    // Three pages answered to some form of the word, and "Fixtures" in staff navigation pointed at the
+    // one that is least like an overview:
+    //
+    //   /agenda              "Fixtures"                the canonical shared agenda -- opponent, date,
+    //                                                  venue, status, result, training, attendance
+    //   /fixtures/management "Fixture Control Centre"  club-authority CRUD: edit, delete, results
+    //   /fixtures            "Fixtures"                the inter-club negotiation register
+    //
+    // /agenda already says of itself that it is ONE SHARED ROLE-AWARE SURFACE and that it exists
+    // because "a coach, a club admin and a site admin had no agenda at all" -- resolveAgendaScope has
+    // had a `teams` branch for team staff the whole time. The product was built; the navigation simply
+    // never pointed at it, so staff got the negotiation register and guardians got the overview.
+    //
+    // So Fixtures is the agenda for everybody, and the two administrative surfaces keep their own
+    // honest names below rather than impersonating it.
+    items.push({ href: "/agenda", label: "Fixtures" })
+
+    if (hasClubFixtureAuthority) {
+      // Its own metadata title, used as its nav label: this is the CRUD surface, not the overview.
+      // Club fixture authority only -- a team coach has nothing to do here and never did.
+      items.push({ href: "/fixtures/management", label: "Fixture Control Centre" })
+      // NAMED FOR WHAT IT IS. Requesting, accepting and rejecting fixtures between clubs is real work
+      // and a real page; it is not what somebody means when they tap Fixtures.
+      items.push({ href: "/fixtures", label: "Fixture Requests" })
     }
     // Player Requests: a team-scoped context's own entry point into the
     // call-up domain (PLAYER REQUESTS Section 12) -- reachable by a plain

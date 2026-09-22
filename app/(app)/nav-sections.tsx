@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarDays,
   ChevronDown,
+  BookOpen,
   Ellipsis,
   LifeBuoy,
   MessageSquare,
@@ -37,6 +38,7 @@ import type { NavItem } from "./app-nav"
  * the session already had, and every route re-checks authorization itself.
  */
 const ICONS: Record<string, LucideIcon> = {
+  BookOpen,
   Building2,
   CalendarDays,
   Ellipsis,
