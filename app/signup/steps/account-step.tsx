@@ -128,9 +128,18 @@ export function AccountStep({
         )}
         <p className="mt-2 flex items-start gap-1.5 text-sm text-ink-muted">
           <Mail className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          {/*
+            IT USED TO SAY "OVALBALL HAS NO PASSWORDS", AND THAT STOPPED BEING TRUE.
+            The identity programme's Slice 6 gave Ovalball passwords and an authenticator, and
+            /account/setup asks a new account for both -- at least twelve characters, then a six-digit
+            code. So the first screen of signup promised there was no password and the flow then asked
+            for one. app/(app)/account/security-section.tsx records the same correction being made
+            there; this line was simply missed. Setting the expectation correctly here is worth more
+            than the reassurance the old sentence was reaching for.
+          */}
           <span>
-            Ovalball has no passwords. We&apos;ll email you a one-time link to confirm your account
-            at the end.
+            We&apos;ll email you a link to confirm your account. You&apos;ll choose a password and set
+            up an authenticator app at the end.
           </span>
         </p>
       </div>

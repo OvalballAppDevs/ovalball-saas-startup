@@ -9,16 +9,34 @@ import { JoinPanel } from "./join-panel"
 export const metadata: Metadata = { title: "Accept an Invitation" }
 
 /** What each kind of invitation is, said to the person holding it rather than to the database. */
-const KIND_LABEL: Record<string, string> = {
-  CLUB_STAFF: "a club role",
-  GUARDIAN: "a parent or guardian account",
-  PLAYER_ACCOUNT: "a player account",
-  TEAM_JOIN_CODE: "a team",
-  SAFEGUARDING_OFFICER: "the Safeguarding Officer role",
-  SITE_ADMIN: "Ovalball Site Admin",
-  ACCOUNT_SETUP: "your Ovalball account",
-  CLUB_REFERRAL: "bringing your club onto Ovalball",
+/**
+ * What this invitation is FOR, as a phrase that completes "…has invited you to ___".
+ *
+ * It used to be a noun list read as "You have been invited to {noun} on Ovalball by {name}", which was
+ * never quite English -- "invited to a team on Ovalball" -- and broke outright for a kind that was
+ * missing from the map. `GOVERNING_BODY_OFFICER` was missing, because Step 16 added the kind and nobody
+ * added the label, so a county officer opening their invitation read
+ *
+ *   "You have been invited to join on Ovalball by Peter Popper."
+ *
+ * which is the same defect as the redemption outcome map and was sitting on the first screen anybody
+ * meets. Verbs, and the organisation stays in the heading where it is already the biggest thing on the
+ * page rather than being repeated in the sentence underneath it.
+ */
+const KIND_PURPOSE: Record<string, string> = {
+  CLUB_STAFF: "take on a role at this club",
+  GOVERNING_BODY_OFFICER: "help run this organisation",
+  GUARDIAN: "set up a parent or guardian account",
+  PLAYER_ACCOUNT: "set up a player account",
+  TEAM_JOIN_CODE: "join this team",
+  SAFEGUARDING_OFFICER: "take on the Safeguarding Officer role",
+  SITE_ADMIN: "help administer Ovalball",
+  ACCOUNT_SETUP: "set up your Ovalball account",
+  CLUB_REFERRAL: "bring your club onto Ovalball",
 }
+
+/** The fallback says less rather than something wrong: an unknown kind is still a real invitation. */
+const FALLBACK_PURPOSE = "join them on Ovalball"
 
 /**
  * THE ONE PLACE AN INVITATION IS ACCEPTED.
@@ -80,7 +98,16 @@ export default async function JoinPage({
         </Link>
       </div>
 
-      <div className="mx-auto max-w-lg px-4 py-16 md:py-24">
+      {/*
+        AN ENTRANCE IS ONE QUESTION AND ONE ANSWER, so it sits in the middle of the viewport rather than
+        at the top of an empty page. Measured before this: the column ended around a third of the way
+        down and left roughly 430px of nothing beneath it at 1280x900, which made a screen with a single
+        action read like the top of a document that had failed to load the rest of itself.
+
+        min-h-[calc(100vh-…)] rather than a flex-1 on the parent, because the header above is a fixed
+        measured height and this keeps the centring honest without restructuring the page.
+      */}
+      <div className="mx-auto flex min-h-[calc(100vh-5.5rem)] max-w-lg flex-col justify-center px-4 py-12">
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Invitation</p>
 
         {(token || code) && !preview ? (
@@ -103,9 +130,11 @@ export default async function JoinPage({
         ) : preview ? (
           <>
             <h1 className="mt-2 font-display text-display-l text-ink">{preview.scope_label}</h1>
+            {/* THE PERSON LEADS, because an invitation is from somebody. */}
             <p className="mt-3 text-base text-ink/60">
-              You have been invited to {KIND_LABEL[preview.kind] ?? "join"} on Ovalball
-              {preview.inviter_label ? ` by ${preview.inviter_label}` : ""}.
+              {preview.inviter_label
+                ? `${preview.inviter_label} has invited you to ${KIND_PURPOSE[preview.kind] ?? FALLBACK_PURPOSE}.`
+                : `You have been invited to ${KIND_PURPOSE[preview.kind] ?? FALLBACK_PURPOSE}.`}
             </p>
           </>
         ) : (

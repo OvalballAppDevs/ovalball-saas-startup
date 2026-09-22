@@ -114,7 +114,7 @@ export function JoinPanel({
     return (
       <div className="mt-8 rounded-lg border border-ink/10 bg-white p-5">
         <p className="text-base text-ink">{arrived.note}</p>
-        <Button type="button" className="mt-4 h-11 px-6" disabled={pending} onClick={() => go(arrived)}>
+        <Button type="button" className="mt-4 h-12 w-full px-6 sm:w-auto" disabled={pending} onClick={() => go(arrived)}>
           {pending ? "Taking you there…" : "Continue"}
         </Button>
       </div>
@@ -130,14 +130,24 @@ export function JoinPanel({
         ? `/join?c=${encodeURIComponent(previewedCode)}`
         : "/join"
     return (
+      // THE ACTION LEADS AND THE REASSURANCE FOLLOWS IT.
+      //
+      // This was three lines of security prose with a small button underneath, so the one thing the page
+      // exists for sat below an explanation of a rule the person has not broken yet. On a phone that put
+      // the button a screen-third down. The order is now action, then the sentence that earns trust --
+      // which is also the order somebody reads in when they already know what they came to do.
       <div className="mt-8 rounded-lg border border-ink/10 bg-white p-5">
-        <p className="text-sm text-ink/70">
-          Sign in to accept this invitation. Ovalball checks that the invitation was sent to the address you
-          sign in with, so an invitation cannot be accepted by anyone else.
-        </p>
-        <Button type="button" className="mt-4 h-11 px-6" onClick={() => router.push(`/login?next=${encodeURIComponent(next)}`)}>
-          Sign In
+        <Button
+          type="button"
+          className="h-12 w-full px-6 sm:w-auto"
+          onClick={() => router.push(`/login?next=${encodeURIComponent(next)}`)}
+        >
+          Sign In to Accept
         </Button>
+        <p className="mt-3 text-sm text-ink-muted">
+          Ovalball checks that the invitation was sent to the address you sign in with, so nobody else
+          can accept it.
+        </p>
       </div>
     )
   }
@@ -168,7 +178,11 @@ export function JoinPanel({
         <Button type="submit" className="mt-4 h-11 px-6" disabled={pending || dob.length === 0}>
           {pending ? "Saving…" : "Save & Accept"}
         </Button>
-        {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
+        {error && (
+          <p className="mt-3 text-sm text-destructive-text" role="alert">
+            {error}
+          </p>
+        )}
       </form>
     )
   }
@@ -183,14 +197,21 @@ export function JoinPanel({
       <div className="mt-8">
         <Button
           type="button"
-          className="h-11 px-6"
+          className="h-12 w-full px-6 sm:w-auto"
           disabled={pending}
           onClick={() => submit(token ? { token } : { code: previewedCode })}
         >
           {pending ? "Accepting…" : "Accept Invitation"}
         </Button>
+        {/*
+          ANNOUNCED, NOT JUST SHOWN. A refusal that appears silently is a refusal a screen-reader user
+          does not know happened -- they pressed Accept and nothing said otherwise. role="alert" is
+          already the house pattern next door in app/security/verify/verify-flow.tsx; the invitation
+          page simply never adopted it. The whole block is the live region rather than only the
+          sentence, so the way out of the wrong account is announced with the problem it solves.
+        */}
         {error && (
-          <div className="mt-3">
+          <div className="mt-3" role="alert">
             <p className="text-sm text-destructive-text">{error}</p>
             {/*
               THE WAY OUT OF THE WRONG ACCOUNT -- §26.
@@ -249,7 +270,11 @@ export function JoinPanel({
       <Button type="submit" className="mt-4 h-11 px-6" disabled={pending || code.trim().length === 0}>
         {pending ? "Checking…" : "Continue"}
       </Button>
-      {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
+      {error && (
+        <p className="mt-3 text-sm text-destructive-text" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   )
 }
