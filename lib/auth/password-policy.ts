@@ -8,7 +8,11 @@ import { createHash } from "node:crypto"
  * Phase 2 L1 and E: at least 12 characters, at least one uppercase letter, at least one special
  * character, not a known-breached password. GoTrue enforces the LENGTH natively, and nothing else --
  * its nearest composition option (`lower_upper_letters_digits_symbols`) is a superset that also demands
- * a lowercase letter and a digit, which is a different rule. So the composition rule lives here.
+ * a lowercase letter and a digit, which is a different rule.
+ *
+ * The composition half now lives in `packages/contracts` so the mobile app applies the same rules with
+ * the same wording; this module is still THE WHOLE RULE, because it adds the breach check that the
+ * shared package deliberately does not carry.
  *
  * THE BROWSER IS NOT THE AUTHORITY. This module is `server-only` on purpose: a validator that can be
  * imported into a client bundle is a validator somebody will eventually rely on there, and a rule that
@@ -21,35 +25,11 @@ import { createHash } from "node:crypto"
 
 /** Phase 2 E. 72 bytes is bcrypt's limit; a longer password is REFUSED, never silently truncated. */
 export { PASSWORD_MIN_LENGTH, PASSWORD_MAX_BYTES } from "./password-policy-shared"
-import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_BYTES } from "./password-policy-shared"
 
-export type PasswordCheck = { ok: true } | { ok: false; message: string }
+import { checkPasswordComposition, type PasswordCheck } from "@ovalball/contracts/password-policy"
 
-/** The rules, in the order a person would hit them, so the first message is the most useful one. */
-export function checkPasswordComposition(password: string): PasswordCheck {
-  if (typeof password !== "string" || password.length === 0) {
-    return { ok: false, message: "Enter a password." }
-  }
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    return { ok: false, message: `Use at least ${PASSWORD_MIN_LENGTH} characters.` }
-  }
-  // Byte length, not character length: an emoji or an accented letter costs more than one byte, and
-  // bcrypt's limit is in bytes. Measuring characters here would let a password through that the
-  // credential store would then quietly cut short.
-  if (Buffer.byteLength(password, "utf8") > PASSWORD_MAX_BYTES) {
-    return { ok: false, message: "That password is too long. Use 72 bytes or fewer." }
-  }
-  if (!/\p{Lu}/u.test(password)) {
-    return { ok: false, message: "Include at least one capital letter." }
-  }
-  // A special character is anything printable that is not a letter and not a digit. Defined by what it
-  // is NOT, so that a person using a character Ovalball's authors did not think of is not told it does
-  // not count.
-  if (!/[^\p{L}\p{N}\s]/u.test(password)) {
-    return { ok: false, message: "Include at least one special character, such as ! ? # or -." }
-  }
-  return { ok: true }
-}
+export { checkPasswordComposition }
+export type { PasswordCheck }
 
 /**
  * Have I Been Pwned, by k-anonymity: only the first five characters of the SHA-1 are ever sent, and the

@@ -1,10 +1,9 @@
 /**
- * The two numbers from Phase 2 E that a browser is allowed to know.
+ * Moved to `packages/contracts` so the mobile app applies the SAME composition rules with the SAME
+ * wording, and re-exported here so every existing web import still resolves.
  *
- * `lib/auth/password-policy.ts` is `server-only` -- it holds the validator and the HaveIBeenPwned
- * check -- so a client component cannot import the constants from it without dragging the server
- * module into the client bundle. These live here so the rule can be SHOWN to somebody before they
- * type, while remaining enforced only on the server.
+ * `lib/auth/password-policy.ts` remains the whole rule -- it adds the Have I Been Pwned check and
+ * stays `server-only` for it.
  */
-export const PASSWORD_MIN_LENGTH = 12
-export const PASSWORD_MAX_BYTES = 72
+
+export * from "@ovalball/contracts/password-policy"

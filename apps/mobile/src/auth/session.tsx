@@ -23,7 +23,15 @@ import { friendly, logDetail, type FriendlyError } from "../errors/translate"
  * having been logged out.
  */
 
-export type SessionStatus = "restoring" | "signed-out" | "needs-mfa" | "signed-in"
+/**
+ * `recovering` IS ITS OWN STATE, and that is the whole reason this is not a boolean.
+ *
+ * Completing a recovery link produces a REAL session at AAL1. Without a distinct state the gate would
+ * read that as "signed in" and drop the person into the product with a password they do not know, or
+ * -- for an account holding a factor -- as "needs-mfa" and send them to a TOTP challenge before they
+ * have set the password they came to set. Neither is what a recovery means, so it is named.
+ */
+export type SessionStatus = "restoring" | "signed-out" | "needs-mfa" | "signed-in" | "recovering"
 
 interface SessionState {
   status: SessionStatus
@@ -33,6 +41,13 @@ interface SessionState {
   refreshAssurance: () => Promise<void>
   signIn: (email: string, password: string) => Promise<FriendlyError | null>
   signOut: () => Promise<void>
+  /**
+   * Exchange a recovery code for a session and hold the app in `recovering` until a password is set.
+   * Returns a friendly failure for a link that is expired, already used, or not this device's.
+   */
+  beginRecovery: (code: string) => Promise<FriendlyError | null>
+  /** The password has been set; return to whatever the session's real status is. */
+  endRecovery: () => Promise<void>
 }
 
 const SessionContext = createContext<SessionState | null>(null)
@@ -41,6 +56,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [status, setStatus] = useState<SessionStatus>("restoring")
   const mounted = useRef(true)
+  // A ref, not state: `apply` runs from the auth listener and must see the current value rather than
+  // the one captured when the listener was registered, or the first token refresh during a recovery
+  // would silently drop the app back into the product.
+  const recovering = useRef(false)
 
   /** Ask the auth server where this session stands, and derive the status from that alone. */
   const classify = useCallback(async (next: Session | null): Promise<SessionStatus> => {
@@ -61,7 +80,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const nextStatus = await classify(next)
       if (!mounted.current) return
       setSession(next)
-      setStatus(nextStatus)
+      // A recovery in progress outranks everything except losing the session altogether -- which is
+      // what signing out during a recovery does, and must still work.
+      setStatus(recovering.current && next ? "recovering" : nextStatus)
     },
     [classify]
   )
@@ -105,6 +126,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [apply])
 
   const signOut = useCallback(async () => {
+    recovering.current = false
     // Local scope first: the point of signing out on a shared handset is that THIS device forgets,
     // and that must happen even with no signal. The library clears the stored session either way.
     await supabase.auth.signOut({ scope: "local" })
@@ -112,6 +134,37 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSession(null)
     setStatus("signed-out")
   }, [])
+
+  /**
+   * THE RECOVERY LINK IS EXCHANGED WITH THE AUTH SERVER, which is the only thing that can say whether
+   * it is valid. Expired, already used, malformed, replayed, or issued for a verifier this device does
+   * not hold all come back as an error here -- this app does not judge any of them itself, and could
+   * not, because the authority is GoTrue's.
+   */
+  const beginRecovery = useCallback(async (code: string): Promise<FriendlyError | null> => {
+    recovering.current = true
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error || !data.session) {
+      recovering.current = false
+      const problem = friendly(error ?? new Error("recovery link"), "that link")
+      logDetail("recovery exchange", problem)
+      return {
+        // Deliberately one message for every reason a link can fail. Telling somebody a link was
+        // "already used" rather than "expired" tells whoever is holding a stolen link the same thing.
+        message: "That reset link is no longer valid. Ask for a new one and use the most recent email.",
+        detail: problem.detail,
+        retryable: false,
+      }
+    }
+    await apply(data.session)
+    return null
+  }, [apply])
+
+  const endRecovery = useCallback(async () => {
+    recovering.current = false
+    const { data } = await supabase.auth.getSession()
+    await apply(data.session)
+  }, [apply])
 
   const refreshAssurance = useCallback(async () => {
     const { data } = await supabase.auth.getSession()
@@ -127,8 +180,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       refreshAssurance,
       signIn,
       signOut,
+      beginRecovery,
+      endRecovery,
     }),
-    [status, session, refreshAssurance, signIn, signOut]
+    [status, session, refreshAssurance, signIn, signOut, beginRecovery, endRecovery]
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

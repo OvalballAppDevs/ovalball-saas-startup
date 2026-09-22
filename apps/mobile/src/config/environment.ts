@@ -33,6 +33,24 @@ export const supabasePublishableKey = extra.supabasePublishableKey ?? ""
 export const webUrl = extra.webUrl ?? ""
 
 /**
+ * WHERE A RECOVERY EMAIL SHOULD POINT.
+ *
+ * MEASURED: Supabase honours a custom-scheme redirect (`ovalball://`, `ovalball-dev://`) but refuses
+ * an `exp://` one addressed to a LAN host -- tried as four different allow-list patterns including the
+ * exact URL, and every one fell back to `site_url`. Only a loopback `exp://127.0.0.1` is accepted, and
+ * a phone cannot reach the developer's loopback.
+ *
+ * So Expo Go, and only Expo Go, goes through the website's `/auth/mobile-recovery` page, which hands
+ * the code straight back to the app. A development build and a production build use their own scheme
+ * and need no hop at all. The difference is detected rather than configured: `Linking.createURL`
+ * returns an `exp://` URL exactly when the app is running inside Expo Go.
+ */
+export function recoveryRedirectFor(appUrl: string): string {
+  if (!appUrl.startsWith("exp://")) return appUrl
+  return `${webUrl}/auth/mobile-recovery`
+}
+
+/**
  * A PHONE CANNOT RESOLVE THE DEVELOPER'S `localhost`.
  *
  * The simulator can, which is what makes this a late discovery: everything works until the first time

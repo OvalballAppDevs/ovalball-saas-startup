@@ -26,5 +26,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabasePublishableK
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    /**
+     * PKCE, EXPLICITLY, BECAUSE THIS IS A NATIVE APP.
+     *
+     * The implicit flow returns the session in a URL fragment -- a live credential sitting in a link
+     * that Mail, Safari and anything holding the URL can see. PKCE returns a single-use code instead
+     * and requires a verifier this app generated and kept; the verifier lives in the same secure
+     * store as the session, so the code is worthless to anything that intercepts the link.
+     *
+     * It is what makes password recovery safe to complete on a phone, and it is set here rather than
+     * per call so that every future flow -- invitations, OAuth -- inherits it rather than choosing.
+     */
+    flowType: "pkce",
   },
 })

@@ -12,9 +12,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 
+import { useRouter } from "expo-router"
+
 import { useSession } from "../src/auth/session"
 import { configurationProblem } from "../src/config/environment"
 import { Button } from "../src/components/ui"
+import { EntranceLink } from "../src/components/entrance"
 import { OvalballMark, OvalballWordmark } from "../src/components/brand"
 import { CircleAlert, Eye, EyeOff, Lock, Mail } from "../src/components/icons"
 import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../src/design/tokens"
@@ -37,6 +40,7 @@ import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../src/des
  */
 export default function SignIn() {
   const { signIn } = useSession()
+  const router = useRouter()
   const insets = useSafeAreaInsets()
   const passwordRef = useRef<TextInput>(null)
   const [email, setEmail] = useState("")
@@ -157,6 +161,12 @@ export default function SignIn() {
                   </Pressable>
                 }
               />
+            </View>
+
+            {/* Placed under the password field, where somebody looks the moment they cannot remember
+                it -- and a full-height target rather than a web-sized text link. */}
+            <View style={{ alignItems: "flex-end", marginTop: space.xs, marginBottom: -space.sm }}>
+              <EntranceLink label="Forgot your password?" onPress={() => router.push("/forgot-password")} align="right" />
             </View>
 
             {/* Reserved height, so the button does not jump down the screen the instant a sign-in fails. */}

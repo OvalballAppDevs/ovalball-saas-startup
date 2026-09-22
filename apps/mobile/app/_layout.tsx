@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Slot, useRouter, useSegments } from "expo-router"
+import * as Linking from "expo-linking"
 import { StatusBar } from "expo-status-bar"
 import * as SplashScreen from "expo-splash-screen"
 import { useFonts } from "expo-font"
@@ -9,6 +10,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 import { View } from "react-native"
 
 import { SessionProvider, useSession } from "../src/auth/session"
+import { resolveIntent } from "../src/links/intents"
 import { ContextProvider } from "../src/context/contexts"
 import { colour } from "../src/design/tokens"
 import { LaunchCanvas } from "../src/components/launch"
@@ -35,10 +37,56 @@ void SplashScreen.preventAutoHideAsync()
  * not ready on the first frame, and navigating during render is what produces the "attempted to
  * navigate before mounting" crash on a cold start.
  */
+/**
+ * LINKS INTO OVALBALL, FROM BOTH DIRECTIONS.
+ *
+ * A link arrives one of two ways and they are genuinely different events. If the app was not running,
+ * the URL is waiting in `getInitialURL()` at startup -- there was no listener to hear it. If the app
+ * WAS running, which is the normal case for password recovery (you request it in Ovalball, switch to
+ * Mail, tap, come back), it arrives on the `url` event and `getInitialURL` never mentions it. Handling
+ * only the first is the classic version of this bug: it works from a cold start and silently does
+ * nothing for the person who has the app open in front of them.
+ *
+ * Each URL is handled ONCE. `handled` is a ref rather than state so a re-render cannot replay a code,
+ * and a replayed PKCE code would fail at the auth server anyway -- this just stops the app asking.
+ */
+function useIncomingLinks() {
+  const { beginRecovery } = useSession()
+  const router = useRouter()
+  const handled = useRef(new Set<string>())
+  const [linkProblem, setLinkProblem] = useState<string | null>(null)
+
+  const handle = useCallback(
+    async (url: string | null) => {
+      if (!url || handled.current.has(url)) return
+      handled.current.add(url)
+      const intent = resolveIntent(url)
+      if (intent.kind !== "AUTH_RECOVERY") return
+      const failure = await beginRecovery(intent.code)
+      if (failure) {
+        setLinkProblem(failure.message)
+        router.replace("/sign-in")
+      }
+    },
+    [beginRecovery, router]
+  )
+
+  useEffect(() => {
+    // Cold start: the URL that launched the app.
+    void Linking.getInitialURL().then(handle)
+    // Warm: the app was already running, which is what actually happens with a recovery email.
+    const subscription = Linking.addEventListener("url", (event) => void handle(event.url))
+    return () => subscription.remove()
+  }, [handle])
+
+  return linkProblem
+}
+
 function Gate() {
   const { status } = useSession()
   const segments = useSegments()
   const router = useRouter()
+  useIncomingLinks()
   // `settled` trails `status` by the length of the fade, so the canvas is unmounted only after it has
   // finished fading -- not the moment the status changes, which would snap.
   const [settled, setSettled] = useState(false)
@@ -57,11 +105,18 @@ function Gate() {
     const group = segments[0]
     const inApp = group === "(tabs)"
     const onVerify = group === "verify"
-    const onSignIn = group === "sign-in"
+    const onRecovery = group === "auth"
+    // Forgot Password is part of being signed out, not a place to be moved away from.
+    const onEntrance = group === "sign-in" || group === "forgot-password"
 
-    if (status === "signed-in" && !inApp) router.replace("/(tabs)")
+    // RECOVERY OUTRANKS EVERYTHING. A validated recovery link produces a real session at AAL1, and
+    // without this rule the next two branches would read that as "signed in" and drop somebody into
+    // the product with a password they do not know -- or, for an account holding a factor, send them
+    // to a TOTP challenge before they have set the password they came to set.
+    if (status === "recovering" && !onRecovery) router.replace("/auth/recovery")
+    else if (status === "signed-in" && !inApp) router.replace("/(tabs)")
     else if (status === "needs-mfa" && !onVerify) router.replace("/verify")
-    else if (status === "signed-out" && !onSignIn) router.replace("/sign-in")
+    else if (status === "signed-out" && !onEntrance) router.replace("/sign-in")
   }, [status, segments, router])
 
   // THE CANVAS STAYS UNTIL THE DESTINATION IS DECIDED AND PAINTED. Rendering the Slot underneath it

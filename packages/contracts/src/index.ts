@@ -30,6 +30,7 @@ export * from "./age-state"
 export * from "./club-logo"
 export * from "./governing-body"
 export * from "./governing-roles"
+export * from "./password-policy"
 export * from "./personal-avatar"
 /**
  * `role-labels` names two types that `session-context` also names -- ClubRole and

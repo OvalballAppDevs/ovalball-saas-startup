@@ -199,10 +199,22 @@ begin
 
   -- THE ONE LIVE LEGACY ROW IS UNTOUCHED, INCLUDING ITS TOKEN. Phase 2 O.5 honours it until it expires,
   -- and it belongs to a real person who is holding the link.
-  select count(*) into v_n from public.guardian_invitations
-   where status = 'pending' and expires_at > now() and token is not null;
-  if v_n < 1 then
-    raise exception 'Step 17: a live pending legacy guardian invitation lost its token';
+  --
+  -- CONDITIONAL, because a guard about data must not assert that the data EXISTS. As first written
+  -- this demanded at least one live pending invitation unconditionally, which no empty database can
+  -- satisfy -- so the whole migration chain could not install from nothing, and this migration was the
+  -- point where a clean boot stopped. It was reported as a clean-boot blocker twice before it took the
+  -- local development database down with it.
+  --
+  -- The protection is unchanged where it applies: if this table holds live pending invitations at all,
+  -- none of them may have lost its token. Where the table is empty there is nothing to protect and
+  -- nothing to assert, which is a different statement from "everything is fine".
+  if exists (select 1 from public.guardian_invitations where status = 'pending' and expires_at > now()) then
+    select count(*) into v_n from public.guardian_invitations
+     where status = 'pending' and expires_at > now() and token is null;
+    if v_n > 0 then
+      raise exception 'Step 17: % live pending legacy guardian invitation(s) lost a token', v_n;
+    end if;
   end if;
 
   -- AND NO SECOND ANYTHING WAS CREATED. This is a retirement slice, so the invitation estate may only

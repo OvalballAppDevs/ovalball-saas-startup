@@ -126,6 +126,52 @@ node --import ./scripts/email-test-loader.mjs --experimental-strip-types --test 
   supabase/tests/js/shared_contracts.test.mts
 ```
 
+## Testing password recovery on your iPhone
+
+**One-time setup.** Two values, both in gitignored files, both needing your Mac's current LAN address
+(`ipconfig getifaddr en0`):
+
+```bash
+# repository root, in .env  -- read by the Supabase stack
+EXPO_RECOVERY_REDIRECT=exp://<that-address>:8081/--/auth/recovery
+MOBILE_RECOVERY_APP_URL=exp://<that-address>:8081/--/auth/recovery
+```
+
+```bash
+# apps/mobile/.env.local  -- read by the app
+EXPO_PUBLIC_SUPABASE_URL=http://<that-address>:54321
+EXPO_PUBLIC_OVALBALL_WEB_URL=http://<that-address>:3000
+```
+
+Then `npx supabase stop && npx supabase start` so the auth server picks up the allow-list, and
+`npm run dev` at the root so the handoff page is served.
+
+**Then, on the phone:**
+
+1. Open Ovalball. On **Sign in**, tap **Forgot your password?**
+2. Type the email of a local account and tap **Send Reset Link**. You will see *"If an Ovalball
+   account exists for that email, we've sent password reset instructions"* — that wording is the same
+   whether or not the account exists, on purpose.
+3. **The email does not go to a real inbox.** Local mail is caught by Mailpit. On your Mac open
+   **http://127.0.0.1:54324** — every local email lands there. Open the newest *Reset Password*
+   message.
+4. **Get the link onto the phone.** Mailpit is on the Mac, so either open
+   `http://<that-address>:54324` in the phone's browser and tap the link there, or copy the link out
+   of Mailpit and send it to yourself.
+5. Tapping it opens a short Ovalball page that says **Opening Ovalball** and hands straight back to
+   the app. (That hop exists only in Expo Go — see below.)
+6. Ovalball opens on **Set a new password**, with the requirements listed as you type.
+7. Enter the new password twice and tap **Save New Password**. You should see **Password updated**.
+8. Tap **Continue to Sign In** and sign in with the new password. If the account has an authenticator,
+   you will be asked for a code — a reset never changes that.
+
+**Why the extra hop, and when it goes away.** Supabase refuses to send a recovery link back to an
+`exp://` address on a LAN host. Measured, not assumed: `exp://**`, `exp://**/**`, `exp://*/--/**` and
+the exact URL were all tried and every one fell back to the website. Only a loopback `exp://127.0.0.1`
+is accepted, which a phone cannot use. A custom scheme IS honoured — `ovalball-dev://auth/recovery`
+works today — and Expo Go has no custom scheme. **So the hop disappears the moment you move to a
+development build**, which is also when push notifications become possible (M7).
+
 ## Reviewing on the phone
 
 What to actually look at, in order, when the app is in your hand:

@@ -159,7 +159,40 @@ site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["http://localhost:3000", "http://localhost:3000/**", "http://127.0.0.1:3000"]
+# The website, plus the MOBILE APP's own schemes. GoTrue refuses to redirect anywhere not listed here,
+# which is the control that stops a recovery link being aimed at somebody else's site -- so the app's
+# schemes have to be named rather than wildcarded loosely.
+#
+#   ovalball / ovalball-dev / ovalball-staging  the installed app, one scheme per environment
+#   exp://...                                   Expo Go, which addresses the app through the dev server
+#
+# Expo Go's host is the developer's own machine and changes with the network, so it is matched by
+# wildcard. That is acceptable for a LOCAL development stack and is exactly why it is here and not in
+# the production project: `exp://**` in production would let any Expo client receive a recovery
+# redirect. The production allow-list is the app's own schemes and the eventual universal link only.
+additional_redirect_urls = [
+  "http://localhost:3000",
+  "http://localhost:3000/**",
+  "http://127.0.0.1:3000",
+  "ovalball://**",
+  "ovalball-dev://**",
+  "ovalball-staging://**",
+  # EXPO GO NEEDS AN EXACT URL, AND IT IS NOT COMMITTED.
+  #
+  # Measured rather than assumed: `exp://**`, `exp://**/**` and `exp://*/--/**` were all tried against
+  # a real recovery request and NONE of them matched -- GoTrue silently fell back to `site_url`, which
+  # is how a recovery link ends up opening the website instead of the app. Only `exp://127.0.0.1:8081`
+  # worked, and that is GoTrue's built-in loopback allowance rather than any of these patterns.
+  #
+  # A phone cannot use the loopback, so Expo Go needs the developer's own LAN URL listed exactly. That
+  # address belongs to one machine on one network, so it comes from the environment: set
+  # EXPO_RECOVERY_REDIRECT in .env (see docs/mobile/DEVELOPMENT.md) and restart the stack. Committing
+  # an IP would break the app for everybody else the moment they pulled.
+  #
+  # A development build does not need any of this -- `ovalball-dev://` above is honoured -- which is
+  # part of why the dev build is the eventual answer.
+  "env(EXPO_RECOVERY_REDIRECT)",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
