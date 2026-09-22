@@ -233,37 +233,36 @@ export function buildClubSections(items: NavItem[], activeTeamId?: string | null
   // the team actually being operated as rather than declared as a constant. Everything else -- the
   // fixtures, the calendar, the messages a team manager also holds -- falls into the club groups
   // below, because they are the same jobs at a narrower scope.
+  /**
+   * A TEAM CONTEXT HAS ITS OWN GROUPS, rather than the club's with pieces bolted on.
+   *
+   * This used to be `[a team group, ...CLUB_SECTIONS]`, and the team group was another
+   * "Fixtures & Calendar" beside the one CLUB_SECTIONS already had. `groupNavItems` adds an item to
+   * EVERY group whose spec names its href -- the claimed set only decides what is left over -- so
+   * /agenda and /calendar landed in both and the sidebar rendered "Fixtures & Calendar" twice, with
+   * Fixtures and Calendar under each. Giving the second group a unique key stopped React complaining
+   * about duplicate keys and left the duplication on screen, which is the more visible half.
+   *
+   * A team's groups are genuinely different from a club's -- no Users & Permissions, no Teams list, no
+   * Club Management -- so they are written out rather than inherited. Order is frequency: fixtures and
+   * the calendar most weeks, then who is in the squad, then money, then talking to people, then the
+   * laws. The administrative fixture surfaces sit inside the fixtures group and appear only with club
+   * fixture authority, which is what puts them there for a Club Admin operating as a team and hides
+   * them from everybody else.
+   */
   const spec = activeTeamId
     ? [
         {
-          // The team's recurring people job, as a plain destination. There is no "Team" group any more:
-          // the workspace IS the team, and a group named after the context you are already in is a
-          // layer that only ever costs a click.
-          // Order is frequency. A manager checks fixtures and the calendar most often, then who is in
-          // the squad, then -- monthly at most -- whether anybody still needs to set a subscription up.
           key: "rugby",
           label: "Fixtures & Calendar",
           icon: "CalendarDays",
-          hrefs: ["/agenda", "/calendar"],
+          hrefs: ["/agenda", "/calendar", "/fixtures/management", "/fixtures"],
         },
-        {
-          key: "people",
-          label: "People",
-          icon: "Users",
-          hrefs: [`/teams/${activeTeamId}/people`],
-        },
-        {
-          key: "money",
-          label: "Subscriptions",
-          icon: "Receipt",
-          hrefs: [`/teams/${activeTeamId}/subscriptions`],
-        },
-        ...CLUB_SECTIONS,
-        // RUGBY HUB IS ITS OWN DESTINATION, not a leftover.
-        //
-        // Ungrouped items fall into "More", which is where it was ending up -- a coach looking for
-        // the laws had to open a drawer labelled with an ellipsis. It is knowledge rather than a
-        // daily job, so it sits last, but it is named and it is visible.
+        { key: "people", label: "People", icon: "Users", hrefs: [`/teams/${activeTeamId}/people`] },
+        { key: "money", label: "Subscriptions", icon: "Receipt", hrefs: [`/teams/${activeTeamId}/subscriptions`] },
+        { key: "comms", label: "Communications", icon: "MessageSquare", hrefs: ["/messages", "/documents"] },
+        // Knowledge rather than a daily job, so it sits last -- but named and visible, not swept into
+        // the "More" drawer that ungrouped items fall into.
         { key: "hub", label: "Rugby Hub", icon: "BookOpen", hrefs: ["/rugby-hub"] },
       ]
     : CLUB_SECTIONS
@@ -288,6 +287,13 @@ function groupNavItems(
   for (const group of spec) {
     const sectionItems: NavItem[] = []
     for (const href of group.hrefs) {
+      // FIRST GROUP TO NAME AN HREF OWNS IT.
+      //
+      // Without this, a destination listed in two group specs was pushed into both and rendered twice
+      // -- the sidebar showed "Fixtures & Calendar" twice, each with Fixtures and Calendar under it.
+      // The claimed set existed only to decide leftovers; it now also decides ownership, which is what
+      // its name always implied.
+      if (claimed.has(href)) continue
       const item = byHref.get(href)
       if (item) {
         sectionItems.push(item)
@@ -297,6 +303,23 @@ function groupNavItems(
     if (sectionItems.length > 0) {
       sections.push({ key: group.key, label: group.label, icon: group.icon, items: sectionItems })
     }
+  }
+
+  // TWO SECTIONS MAY NEVER SHARE A KEY.
+  //
+  // The section key is React's list key and the id of its disclosure panel, so a duplicate is both a
+  // rendering hazard and two elements claiming one aria-controls target. It happened: a team group was
+  // given the key "rugby" while CLUB_SECTIONS already had one, and the only signal was a console error
+  // on one persona in one context. A spec is authored by hand and this is cheap.
+  const seen = new Set<string>()
+  for (const section of sections) {
+    if (seen.has(section.key)) {
+      throw new Error(
+        `Two navigation sections share the key "${section.key}". Section keys are React list keys and ` +
+          `aria-controls ids, so they have to be unique across the whole spec.`
+      )
+    }
+    seen.add(section.key)
   }
 
   const leftovers = items.filter((i) => !claimed.has(i.href))

@@ -140,6 +140,47 @@ test("and the generic Team group is gone -- the workspace is the team", () => {
   assert.ok(!list.includes("/teams/t-1/player-requests"), "Player Requests is back in ordinary navigation")
 })
 
+test("no two navigation sections share a key -- a Club Admin operating in a team context", () => {
+  // THE EXACT CASE THAT BROKE. A Club Admin holds club fixture authority, so in a TEAM context both
+  // the team's own Fixtures group and CLUB_SECTIONS' "rugby" group found items. Two sections came back
+  // with the same key, which React reports as unsupported -- a section can be duplicated or dropped --
+  // and which also gives two disclosure buttons one aria-controls target.
+  //
+  // Only this combination reproduces it: a team manager has no club fixture authority and so never saw
+  // it, which is why it survived a suite, a build and a browser pass and surfaced in the owner's console.
+  const ctx = session({
+    clubMemberships: [{ clubId: "c-1", clubName: "Burnley RUFC", role: "CLUB_ADMIN", clubLogoUrl: null, clubSlug: "b" } as never],
+    teamPermissions: [{ teamId: "t-1", teamDisplayName: "Under 12 Boys", permission: "coach", clubId: "c-1", clubName: "Burnley RUFC" } as never],
+  })
+  const { primary } = buildNavItems(ctx, teamCtx("t-1"), caps(), true)
+  const { sections } = buildClubSections(primary, "t-1")
+  const keys = sections.map((s) => s.key)
+  assert.equal(new Set(keys).size, keys.length, `duplicate section key in [${keys.join(", ")}]`)
+})
+
+test("no group label or destination appears twice in a team sidebar", () => {
+  // THE VISIBLE HALF of the duplicate-key defect, and the half an owner actually sees: the sidebar
+  // rendered "Fixtures & Calendar" twice, each carrying Fixtures and Calendar, because groupNavItems
+  // added an item to every group whose spec named its href. Keys being unique would not have fixed
+  // this -- a label check is what catches it.
+  const ctx = session({
+    clubMemberships: [{ clubId: "c-1", clubName: "Burnley RUFC", role: "CLUB_ADMIN", clubLogoUrl: null, clubSlug: "b" } as never],
+    teamPermissions: [{ teamId: "t-1", teamDisplayName: "Under 12 Boys", permission: "coach", clubId: "c-1", clubName: "Burnley RUFC" } as never],
+  })
+  const { primary } = buildNavItems(ctx, teamCtx("t-1"), caps(), true)
+  const { sections } = buildClubSections(primary, "t-1")
+
+  const labels = sections.map((s) => s.label)
+  assert.equal(new Set(labels).size, labels.length, `a group label appears twice: [${labels.join(", ")}]`)
+
+  const destinations = sections.flatMap((s) => s.items.map((i) => i.href))
+  assert.equal(
+    new Set(destinations).size,
+    destinations.length,
+    `a destination appears in more than one group: [${destinations.join(", ")}]`
+  )
+})
+
 test("subscriptions appear only where the bounded team capability is held", () => {
   const ctx = session({ teamPermissions: [{ teamId: "t-1", teamDisplayName: "Under 12 Boys", permission: "manager", clubId: "c-1", clubName: "B" } as never] })
   const without = hrefs(buildNavItems(ctx, teamCtx("t-1"), null, false))
