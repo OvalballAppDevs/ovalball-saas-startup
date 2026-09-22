@@ -32,11 +32,14 @@ const CATALOGUE: Record<ActiveContextKind, Item[]> = {
     { href: "/club/settings", label: "Club Settings" },
   ],
   team: [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/teams/team-1", label: "Under 12 Boys" },
+    // The IA a team context actually produces since the owner's correction: the team is the workspace,
+    // so nothing links into it from inside it, and People is a destination of its own.
+    { href: "/dashboard", label: "Overview" },
+    { href: "/agenda", label: "Fixtures" },
     { href: "/calendar", label: "Calendar" },
-    { href: "/fixtures/management", label: "Fixtures" },
+    { href: "/teams/team-1/people", label: "People" },
     { href: "/messages", label: "Messages" },
+    { href: "/rugby-hub", label: "Rugby Hub" },
   ],
   parent: [
     { href: "/dashboard", label: "Dashboard" },
@@ -124,12 +127,22 @@ test("5. no duplicate cells", () => {
   }
 })
 
-test("6. a team's own page is on a team's bar -- the destination team staff actually came for", () => {
+test("6. a team's bar carries the team's jobs, not a link into the team it is already in", () => {
+  // THIS ASSERTION REVERSED, AND THE REASON IS ON THE RECORD.
+  //
+  // The Step 18 hardening pass found a team bar with no team on it and put /teams/<id> in the second
+  // cell -- correct then, because the team's own page was the destination staff came for and nothing
+  // else reached it. The owner has since removed the generic "Team" layer entirely: the workspace IS
+  // the team, its operational home is Overview, and its people are their own destination. A cell
+  // linking into the team from inside the team is the same meta layer the sidebar lost.
+  //
+  // What the original assertion was really protecting -- that a team's bar is about THAT team rather
+  // than a generic set -- still holds, and is what is asserted now.
   const bar = buildBottomBarItems(CATALOGUE.team, "team", "team-1")
-  assert.ok(
-    bar.some((i) => i.href === "/teams/team-1"),
-    `a team context's bar was ${bar.map((i) => i.href).join(", ")} and did not include the team itself`
-  )
+  const hrefs = bar.map((i) => i.href)
+  assert.ok(!hrefs.includes("/teams/team-1"), `the bar linked into the team it is already in: ${hrefs.join(", ")}`)
+  assert.ok(hrefs.includes("/teams/team-1/people"), `the bar carries no team-specific destination: ${hrefs.join(", ")}`)
+  assert.ok(hrefs.includes("/agenda"), "a team's bar without its fixtures is not a team's bar")
 })
 
 test("7. and a team context with no team id still produces a usable bar", () => {

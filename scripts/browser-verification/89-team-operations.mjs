@@ -26,6 +26,10 @@ import { execFileSync } from "node:child_process"
 
 import { launch, newContext, signIn, APP, axeSource, record, recordAxe, summarise } from "./harness.mjs"
 
+// 75s, not 30s. Against a dev server the FIRST request to a route compiles it: /teams/[teamId] took
+// 23.6s cold and 0.1s warm, measured. A suite that fails on compilation time reports a product defect
+// that is not there, which is worse than a slow suite.
+
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
 
 /** Team Manager at the review club's Under 12 Boys. Team authority, no club finance authority. */
@@ -68,7 +72,7 @@ try {
   // =====================================================================
   // A. THE TEAM'S OWN HOME
   // =====================================================================
-  await page.goto(`${APP}/dashboard`, { waitUntil: "domcontentloaded", timeout: 30000 })
+  await page.goto(`${APP}/dashboard`, { waitUntil: "domcontentloaded", timeout: 75000 })
   await page.waitForTimeout(600)
 
   const heading = (await page.locator("h1").first().textContent())?.trim() ?? ""
@@ -132,6 +136,25 @@ try {
     !navLinks.some((l) => l === "/fixtures|Fixtures"),
   )
 
+  // THE OWNER'S IA DECISIONS, held shut.
+  record(
+    "B4 there is no generic Team group linking into the team you are already in",
+    !navLinks.some((l) => l === `/teams/${teamId}|${teamName}`),
+  )
+  record(
+    "B5 People is a destination of its own",
+    navLinks.some((l) => l === `/teams/${teamId}/people|People`),
+    navLinks.find((l) => l.includes("/people")) ?? "(absent)",
+  )
+  record(
+    "B6 and Player Requests no longer holds a permanent slot",
+    !navLinks.some((l) => l.endsWith("|Player Requests")),
+  )
+  record(
+    "B7 Overview names the team's home rather than a generic dashboard",
+    navLinks.some((l) => l === "/dashboard|Overview"),
+  )
+
   // D. RUGBY HUB, from a team.
   record(
     "D1 Rugby Hub is reachable from Team context",
@@ -139,14 +162,14 @@ try {
     navLinks.filter((l) => l.startsWith("/rugby-hub")).join(" ") || "(absent)",
   )
 
-  await page.goto(`${APP}/agenda`, { waitUntil: "domcontentloaded", timeout: 30000 })
+  await page.goto(`${APP}/agenda`, { waitUntil: "domcontentloaded", timeout: 75000 })
   const agendaHeading = (await page.locator("h1").first().textContent())?.trim() ?? ""
   record("B3 and it opens a fixture overview", /fixture/i.test(agendaHeading), agendaHeading)
 
   // =====================================================================
   // C. ONE TRUTH -- the team page and the dashboard agree about what is next
   // =====================================================================
-  await page.goto(`${APP}/teams/${teamId}`, { waitUntil: "domcontentloaded", timeout: 30000 })
+  await page.goto(`${APP}/teams/${teamId}`, { waitUntil: "domcontentloaded", timeout: 75000 })
   await page.waitForTimeout(500)
   const teamPage = await page.locator("body").innerText()
   if (nextFixtureId) {
@@ -174,21 +197,54 @@ try {
     record("C2 and does not claim nothing is scheduled", !/Nothing scheduled yet/i.test(teamPage))
   }
 
-  record("C3 the Team page is the full team -- its people, not a settings stub", /Team People/i.test(teamPage))
+  // The roster MOVED, deliberately: /teams/<id> is the team's infrequent administration (what the
+  // context gear opens) and People is its own destination. So this asserts the two halves of that
+  // decision rather than the page that used to hold both.
+  record(
+    "C3 the team's administration page offers People and Player Requests",
+    /People/i.test(teamPage) && /Player Requests/i.test(teamPage),
+  )
+
+  await page.goto(`${APP}/teams/${teamId}/people`, { waitUntil: "domcontentloaded", timeout: 75000 })
+  await page.waitForTimeout(700)
+  const peoplePage = await page.locator("body").innerText()
+  record(
+    "C4 and People is the full roster -- players, guardians and staff",
+    /Players/i.test(peoplePage) && /Parents/i.test(peoplePage) && /Coaches/i.test(peoplePage),
+  )
 
   // =====================================================================
   // E. FINANCE IS CLUB-SCOPED
   // =====================================================================
-  const managerSeesFinance = /Subscriptions/i.test(teamPage)
+  // The bounded team capability: their OWN squad's operational state, and nothing wider.
+  await page.goto(`${APP}/teams/${teamId}/subscriptions`, { waitUntil: "domcontentloaded", timeout: 75000 })
+  await page.waitForTimeout(900)
+  const subsUrl = new URL(page.url()).pathname
+  record("E1 a team manager sees their own squad's subscription state", subsUrl.endsWith("/subscriptions"), subsUrl)
+  const subsBody = await page.locator("body").innerText()
   record(
-    "E1 a team manager with no club finance capability is shown no subscription data",
-    !managerSeesFinance,
+    "E2 with no bank, mandate or provider detail anywhere in it",
+    !/sort code|account number|mandate|MD[0-9A-Z]{6,}|CU[0-9A-Z]{6,}|gocardless/i.test(subsBody),
   )
-  // And not merely hidden: the club finance surface itself refuses them.
-  await page.goto(`${APP}/club/finance`, { waitUntil: "domcontentloaded", timeout: 30000 })
+
+  // CROSS-TEAM: the boundary is the team, not the word "manager".
+  const otherTeamId = sql(`
+    select id from public.teams where club_id <> '${sql(`select club_id from public.teams where id='${teamId}'`)}'
+      and active limit 1`)
+  if (otherTeamId) {
+    await page.goto(`${APP}/teams/${otherTeamId}/subscriptions`, { waitUntil: "domcontentloaded", timeout: 75000 })
+    record(
+      "E3 and cannot open another team's",
+      !new URL(page.url()).pathname.includes(otherTeamId),
+      new URL(page.url()).pathname,
+    )
+  }
+
+  // And the bounded view is NOT club finance.
+  await page.goto(`${APP}/club/finance`, { waitUntil: "domcontentloaded", timeout: 75000 })
   const financeUrl = new URL(page.url()).pathname
   record(
-    "E2 and the club finance page does not simply open for them either",
+    "E4 team-scoped finance does not open the club's finance surface",
     financeUrl !== "/club/finance" || !/Expected revenue/i.test(await page.locator("body").innerText()),
     financeUrl,
   )
@@ -203,7 +259,7 @@ try {
     const staffPage = await staffCtx.newPage()
     staffPage.on("pageerror", (e) => pageErrors.push(String(e?.message ?? e)))
     await signIn(staffPage, CLUB_ADMIN)
-    await staffPage.goto(`${APP}/agenda`, { waitUntil: "domcontentloaded", timeout: 30000 })
+    await staffPage.goto(`${APP}/agenda`, { waitUntil: "domcontentloaded", timeout: 75000 })
     const staffAgenda = await staffPage.locator("body").innerText()
     record(
       "F1 club staff reach the same shared agenda surface guardians use",
@@ -221,7 +277,7 @@ try {
   await signIn(phonePage, MANAGER)
   for (const width of [390, 360]) {
     await phonePage.setViewportSize({ width, height: 844 })
-    await phonePage.goto(`${APP}/dashboard`, { waitUntil: "domcontentloaded", timeout: 30000 })
+    await phonePage.goto(`${APP}/dashboard`, { waitUntil: "domcontentloaded", timeout: 75000 })
     await phonePage.waitForTimeout(500)
     const overflow = await phonePage.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

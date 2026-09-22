@@ -60,7 +60,7 @@ test("the Club Settings hub consumes the canonical resolver and derives nothing 
 test("navigation and the hub read the same resolution", () => {
   const layout = code("app/(app)/layout.tsx")
   assert.match(layout, /resolveClubSettingsNavCapabilities\(supabase, navClubId\)/)
-  assert.match(layout, /buildNavItems\(ctx, activeContext, clubNavCapabilities\)/)
+  assert.match(layout, /buildNavItems\(ctx, activeContext, clubNavCapabilities(?:, teamFinance)?\)/)
 })
 
 // ---------------------------------------------------------------- capability-driven destinations
@@ -102,9 +102,19 @@ test("the orphaned Site Admin safeguarding page is reachable from navigation", (
 
 // ---------------------------------------------------------------- team
 
-test("a team manager reaches their own team without typing a URL", () => {
+test("a team manager reaches their own team's product without typing a URL", () => {
+  // THE INVARIANT, NOT THE MECHANISM. Step 0 found a Team Manager could reach their own team only by
+  // typing its URL, and that must stay fixed. What changed is HOW: the team is no longer an item in a
+  // navigation group called "Team" inside a workspace that already IS that team. It is the workspace's
+  // identity, its operational home is Overview, its people and subscriptions are their own
+  // destinations, and its infrequent administration is behind the context gear
+  // (resolveContextSettingsLink -> /teams/<id>).
+  //
+  // So this asserts that the team's own product is reachable, which is what the finding was about.
   const ctx = session({ teamPermissions: [{ teamId: "t-1", teamDisplayName: "Under 12 Boys", permission: "manager", clubId: "c-1", clubName: "Burnley RUFC" } as never] })
-  assert.ok(hrefs(buildNavItems(ctx, teamCtx("t-1"), null)).includes("/teams/t-1"))
+  const list = hrefs(buildNavItems(ctx, teamCtx("t-1"), null))
+  assert.ok(list.includes("/dashboard"), "the team's own overview is not reachable")
+  assert.ok(list.includes("/teams/t-1/people"), "the team's people are not reachable")
 })
 
 test("and only ever the team they are operating as", () => {
@@ -115,9 +125,27 @@ test("and only ever the team they are operating as", () => {
     ],
   })
   const list = hrefs(buildNavItems(ctx, teamCtx("t-1"), null))
-  assert.ok(list.includes("/teams/t-1"))
-  assert.ok(!list.includes("/teams/t-2"), "a team the person is not operating as appeared in navigation")
-  assert.ok(!list.includes("/teams/t-9"), "an unauthorised team appeared in navigation")
+  assert.ok(list.some((h) => h.startsWith("/teams/t-1")))
+  assert.ok(!list.some((h) => h.startsWith("/teams/t-2")), "a team the person is not operating as appeared in navigation")
+  assert.ok(!list.some((h) => h.startsWith("/teams/t-9")), "an unauthorised team appeared in navigation")
+})
+
+test("and the generic Team group is gone -- the workspace is the team", () => {
+  // Owner decision: a navigation category called "Team" inside a team context is a layer that only
+  // costs a click. Nothing may name the team as a destination to click into from within itself.
+  const ctx = session({ teamPermissions: [{ teamId: "t-1", teamDisplayName: "Under 12 Boys", permission: "manager", clubId: "c-1", clubName: "B" } as never] })
+  const list = hrefs(buildNavItems(ctx, teamCtx("t-1"), null))
+  assert.ok(!list.includes("/teams/t-1"), "navigation still links into the team you are already in")
+  // And occasional administration does not hold a permanent slot.
+  assert.ok(!list.includes("/teams/t-1/player-requests"), "Player Requests is back in ordinary navigation")
+})
+
+test("subscriptions appear only where the bounded team capability is held", () => {
+  const ctx = session({ teamPermissions: [{ teamId: "t-1", teamDisplayName: "Under 12 Boys", permission: "manager", clubId: "c-1", clubName: "B" } as never] })
+  const without = hrefs(buildNavItems(ctx, teamCtx("t-1"), null, false))
+  const withIt = hrefs(buildNavItems(ctx, teamCtx("t-1"), null, true))
+  assert.ok(!without.includes("/teams/t-1/subscriptions"), "team finance appeared without the capability")
+  assert.ok(withIt.includes("/teams/t-1/subscriptions"), "team finance did not appear with the capability")
 })
 
 test("a club member with no team relationship is offered no team destination", () => {

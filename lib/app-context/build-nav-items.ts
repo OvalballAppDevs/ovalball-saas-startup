@@ -191,7 +191,10 @@ export function buildBottomBarItems<T extends { href: string }>(
     // uses, where /dashboard is top-level and the Team section follows it. Messages is the item this
     // displaces, and it keeps its place in the drawer: four cells cannot carry five jobs, and a team bar
     // without the team on it was the defect.
-    team: ["/dashboard", activeTeamId ? `/teams/${activeTeamId}` : "", "/agenda", "/calendar"],
+    // The team's four most frequent jobs. `/teams/<id>` is deliberately NOT here any more: the team is
+    // the workspace, so a cell linking into it from inside it is the same meta layer the sidebar just
+    // lost. People takes the slot, which is what somebody actually opens pitch-side.
+    team: ["/dashboard", "/agenda", "/calendar", activeTeamId ? `/teams/${activeTeamId}/people` : ""],
     // A guardian's fixed set, minus Settings, which is a rare visit.
     parent: ["/dashboard", "/agenda", "/calendar", "/rugby-hub"],
     player: ["/dashboard", "/agenda", "/calendar", "/rugby-hub"],
@@ -233,10 +236,27 @@ export function buildClubSections(items: NavItem[], activeTeamId?: string | null
   const spec = activeTeamId
     ? [
         {
-          key: "team",
-          label: "Team",
-          icon: "Shirt",
-          hrefs: [`/teams/${activeTeamId}`, `/teams/${activeTeamId}/player-requests`],
+          // The team's recurring people job, as a plain destination. There is no "Team" group any more:
+          // the workspace IS the team, and a group named after the context you are already in is a
+          // layer that only ever costs a click.
+          // Order is frequency. A manager checks fixtures and the calendar most often, then who is in
+          // the squad, then -- monthly at most -- whether anybody still needs to set a subscription up.
+          key: "rugby",
+          label: "Fixtures & Calendar",
+          icon: "CalendarDays",
+          hrefs: ["/agenda", "/calendar"],
+        },
+        {
+          key: "people",
+          label: "People",
+          icon: "Users",
+          hrefs: [`/teams/${activeTeamId}/people`],
+        },
+        {
+          key: "money",
+          label: "Subscriptions",
+          icon: "Receipt",
+          hrefs: [`/teams/${activeTeamId}/subscriptions`],
         },
         ...CLUB_SECTIONS,
         // RUGBY HUB IS ITS OWN DESTINATION, not a leftover.
@@ -308,9 +328,23 @@ export function buildNavItems(
    *
    * Null where a context has no club (Site Admin, a family view spanning clubs).
    */
-  clubNav: ClubSettingsNavCapabilities | null = null
+  clubNav: ClubSettingsNavCapabilities | null = null,
+  /**
+   * Whether this session may see the ACTIVE TEAM's subscription state.
+   *
+   * Resolved by the caller from `internal.can('finance.subscription.view', 'team', …)`, because this
+   * module is presentation and must not become a second place authority is decided. A role name is
+   * never the answer: a Team Manager holds it through their bundle, a Club Admin holds the club-scoped
+   * version, and anybody else holds it because somebody granted it -- all three arrive here as the
+   * same boolean.
+   */
+  teamFinance: boolean = false
 ): { primary: NavItem[]; roleLabel: string; clubName: string; clubLogoUrl: string | null } {
-  const items: NavItem[] = [{ href: "/dashboard", label: "Dashboard" }]
+  // "Overview" in a team context: the page is that team's operational home, and "Dashboard" names the
+  // furniture rather than the content. Everywhere else it stays Dashboard.
+  const items: NavItem[] = [
+    { href: "/dashboard", label: activeContext.kind === "team" ? "Overview" : "Dashboard" },
+  ]
   const viewOnly = isViewOnlyEverywhere(ctx)
 
   const inTeamContext = activeContext.kind === "team"
@@ -410,8 +444,26 @@ export function buildNavItems(
   // destination comes from the ACTIVE context -- the team this session has already been resolved
   // into -- so it can never name a team the person does not hold, and a multi-team identity sees the
   // one they are operating as rather than a list of all of them.
+  // NO GENERIC "TEAM" LAYER, AND NO LINK BACK INTO THE TEAM YOU ARE ALREADY IN.
+  //
+  // Navigation used to carry a group called "Team" containing the team's own name and Player Requests,
+  // inside a context that WAS that team -- so opening Under 12 Boys took Team -> Under 12 Boys from a
+  // workspace already called Under 12 Boys. The team is the workspace's identity now, not an item in
+  // its own menu, and Overview is where the team's operational home lives.
+  //
+  // Navigation is RECURRING JOBS. People is one; a team's players, parents and coaches are looked at
+  // most weeks. Player Requests is not -- it is occasional administration, and it moved to the team's
+  // administration page behind the gear, where infrequent configuration already lives. It stays
+  // discoverable through Needs Attention and its notification, which is where exceptional work belongs.
   if (inTeamContext && activeContext.id) {
-    items.push({ href: `/teams/${activeContext.id}`, label: activeContext.label })
+    items.push({ href: `/teams/${activeContext.id}/people`, label: "People" })
+  }
+
+  // SUBSCRIPTIONS, where the bounded team-scoped finance capability is held. `teamFinance` is resolved
+  // by the caller from the capability engine at TEAM scope -- never from a role name, and never from
+  // the fact that somebody happens to be a manager.
+  if (inTeamContext && activeContext.id && teamFinance) {
+    items.push({ href: `/teams/${activeContext.id}/subscriptions`, label: "Subscriptions" })
   }
 
   // RUGBY HUB, FROM THE TEAM.
@@ -465,16 +517,13 @@ export function buildNavItems(
       // and a real page; it is not what somebody means when they tap Fixtures.
       items.push({ href: "/fixtures", label: "Fixture Requests" })
     }
-    // Player Requests: a team-scoped context's own entry point into the
-    // call-up domain (PLAYER REQUESTS Section 12) -- reachable by a plain
-    // team_admin/coach/manager with no club-wide role at all, since
-    // /teams/[teamId] itself (club-authority-gated) never was. Only shown
-    // when the ACTIVE team is one this session holds real (non-view-only)
-    // authority over -- never for a club-wide context, which already
-    // reaches every team's requests via /club/player-moves.
-    if (inTeamContext && activeContext.id && manageable.some((t) => t.teamId === activeContext.id)) {
-      items.push({ href: `/teams/${activeContext.id}/player-requests`, label: "Player Requests" })
-    }
+    // PLAYER REQUESTS NO LONGER HOLDS A PLACE IN NAVIGATION.
+    //
+    // Owner decision: it is occasional work, and navigation is for recurring jobs. It kept a permanent
+    // slot beside Fixtures for something a team does a handful of times a season. It has NOT gone --
+    // it lives on the team's administration page behind the gear, and a pending one still reaches the
+    // person through Needs Attention and through its notification, both of which link to the decision
+    // itself. Exceptional work belongs in those two places, not in the furniture.
     // Messages is team-scoped, not club-scoped -- a Team Admin/Coach needs
     // it for their own team's fixture conversations even with no club-wide
     // role, unlike Partner Clubs (club_partnerships RLS has no team-level

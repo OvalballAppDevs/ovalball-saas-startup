@@ -50,6 +50,8 @@ const BAR_LABEL: Record<string, string> = {
  */
 const BAR_LABEL_BY_SHAPE: { pattern: RegExp; label: string }[] = [
   { pattern: /^\/teams\/[^/]+$/, label: "Team" },
+  { pattern: /^\/teams\/[^/]+\/people$/, label: "People" },
+  { pattern: /^\/teams\/[^/]+\/subscriptions$/, label: "Subs" },
   // "People & Access" is 15 characters and clips; the governing workspace's own heading keeps the full
   // phrase, and the shell already says which organisation you are in.
   { pattern: /^\/governing\/[^/]+\/people$/, label: "People" },

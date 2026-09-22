@@ -119,6 +119,26 @@ function Section({
   const panelId = `nav-section-${section.key}`
   const Icon = ICONS[section.icon] ?? Ellipsis
 
+  // A GROUP OF ONE IS NOT A GROUP.
+  //
+  // The team IA has destinations that are single jobs -- People, Subscriptions, Rugby Hub -- and a
+  // collapsible section wrapped around one identically-named child renders as "People › People":
+  // a disclosure triangle whose entire content is the thing you already read. It also costs a click
+  // for nothing. Where the section is one item and that item says what the section says, the section
+  // IS the link.
+  const only = section.items.length === 1 ? section.items[0] : null
+  if (only && only.label === section.label) {
+    return (
+      <NavLink
+        item={only}
+        active={isActive(only.href)}
+        className={cn(rowPad, textSize, "font-medium")}
+        icon={<Icon aria-hidden="true" className="size-4 shrink-0" />}
+        onNavigate={onNavigate}
+      />
+    )
+  }
+
   return (
     <div>
       <button
@@ -163,11 +183,14 @@ function NavLink({
   active,
   className,
   onNavigate,
+  icon,
 }: {
   item: NavItem
   active: boolean
   className?: string
   onNavigate?: () => void
+  /** Present when this link stands in for a whole section, so it keeps a section row's weight. */
+  icon?: React.ReactNode
 }) {
   return (
     <Link
@@ -180,7 +203,8 @@ function NavLink({
         active ? "bg-pitch-600/15 font-medium text-pitch-400" : "text-white/70 hover:bg-white/5 hover:text-white"
       )}
     >
-      <span className="min-w-0 truncate">{item.label}</span>
+      {icon}
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
       {!!item.badge && (
         <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-pitch-600 text-[11px] font-semibold text-white">
           {item.badge > 9 ? "9+" : item.badge}

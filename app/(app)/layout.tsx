@@ -108,7 +108,17 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   // finished features from somebody who held their capabilities.
   const navClubId = activeClubId(ctx, activeContext)
   const clubNavCapabilities = navClubId ? await resolveClubSettingsNavCapabilities(supabase, navClubId) : null
-  const { primary, roleLabel, clubName } = buildNavItems(ctx, activeContext, clubNavCapabilities)
+  // Whether the active team's subscription state is visible to this session, asked of the capability
+  // engine at TEAM scope. Navigation is presentation, so it is told the answer rather than working it
+  // out -- and the page behind the link re-checks it regardless.
+  const teamFinance =
+    activeContext.kind === "team" && activeContext.id
+      ? await hasCapability(supabase, "finance.subscription.view", "team", {
+          clubId: activeContext.clubId,
+          teamId: activeContext.id,
+        })
+      : false
+  const { primary, roleLabel, clubName } = buildNavItems(ctx, activeContext, clubNavCapabilities, teamFinance)
   // ONE UNREAD READ FOR THREE BADGES. getUnreadCounts is the single source:
   // the bell, Messenger and Support each take their own slice of it, so no
   // notification is counted in two places and clearing one badge moves the

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { PageIdentity } from "@/components/shell/page-identity"
 import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import { cookies } from "next/headers"
-import { ChevronLeft, ChevronRight, Newspaper } from "lucide-react"
+import { ChevronLeft, ChevronRight, Newspaper, UserPlus, Users } from "lucide-react"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
@@ -28,7 +28,6 @@ import { answerablePlayerIds, type TeamRelationship } from "@/lib/teams/team-rel
 import { JoinCodeSection } from "./join-code-section"
 import { TeamIdentitySection } from "./team-identity-section"
 import { TeamLifecycleSection, type RestorableFixtureRow } from "./team-lifecycle-section"
-import { TeamPeople, type ClubMemberOption, type TeamPersonRow } from "./team-people"
 
 export default async function TeamDetailPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params
@@ -99,10 +98,6 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   // the buttons on screen and the writes behind them can never disagree.
   // Team Admin itself is club authority (a Club Admin, or Ovalball's site.team_roles.manage); Team
   // Administration holders assign Coach and Team Manager only. The database refuses the rest regardless.
-  const canAssignTeamAdmin =
-    ctx.siteCapabilities.includes("site.team_roles.manage") ||
-    (await hasCapability(supabase, "people.role.assign_club", "club", { clubId: team.club_id }))
-
   // The controls behind this flag are ROSTER controls (Archive, Restore, Approve, Decline), and the writes
   // behind them are refused by internal.team_people_authority, which asks team.roster.manage at the team's
   // scope or inherited from the club. So this asks exactly that, at both scopes, and the buttons on screen
@@ -128,40 +123,9 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
     (await hasCapability(supabase, "club.news.manage", "club", { clubId: team.club_id })) ||
     (await hasCapability(supabase, "team.news.manage", "team", { clubId: team.club_id, teamId: team.id }))
 
-  // The roster comes from public.team_people, which resolves coaches,
-  // parents/guardians and players in one place with one definition of what
-  // "active" means for each. Assembling it here would make this page a second
-  // answer to a question a coach's own view has to answer identically.
-  const [{ data: peopleRows }, { data: memberships }] = await Promise.all([
-    supabase.rpc("team_people", { p_team_id: teamId }),
-    supabase.from("club_memberships").select("id, user_id").eq("club_id", team.club_id).eq("status", "active"),
-  ])
-
-  const { data: profiles } = await supabase.rpc("get_club_member_directory", { p_club_id: team.club_id })
-  const profileById = new Map((profiles ?? []).map((p) => [p.user_id, p]))
-  const nameByMembershipId = new Map(
-    (memberships ?? []).map((m) => {
-      const p = profileById.get(m.user_id)
-      return [m.id, [p?.first_name, p?.surname].filter(Boolean).join(" ") || "Unknown"]
-    })
-  )
-  const membershipIdByUserId = new Map((memberships ?? []).map((m) => [m.user_id, m.id]))
-
-  const people: TeamPersonRow[] = (peopleRows ?? []).map((r) => ({
-    kind: r.kind as TeamPersonRow["kind"],
-    rowId: r.row_id!,
-    // A coach row is addressed by their club membership when assigning, which
-    // is what the picker below deals in.
-    personId: r.kind === "coach" ? (membershipIdByUserId.get(r.person_id!) ?? null) : r.person_id,
-    name: r.name ?? "Unknown",
-    detail: r.detail,
-    status: r.status as TeamPersonRow["status"],
-    requestedAt: r.requested_at,
-  }))
-
-  const clubMembers: ClubMemberOption[] = (memberships ?? [])
-    .map((m) => ({ membershipId: m.id, name: nameByMembershipId.get(m.id) ?? "Unknown" }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+  // THE ROSTER IS NOT READ HERE ANY MORE. It moved, whole, to /teams/[teamId]/people -- one page, one
+  // read. Leaving the query behind would have meant this page fetching a roster it no longer renders
+  // on every visit, which is the sort of thing that survives for years because nothing fails.
 
   // WHAT THIS PERSON IS TO THIS TEAM, from the one canonical reader. Nothing
   // authorises off it -- every control below still asks the capability engine --
@@ -308,13 +272,42 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       {/* Age grade, before the roster it is about. Renders nothing when nothing needs attention. */}
       <TeamAgeGradeAttentionPanel rows={ageGradeAttention} />
 
-      <TeamPeople
-        teamId={team.id}
-        people={people}
-        clubMembers={clubMembers}
-        canManage={canManagePeople}
-        canAssignTeamAdmin={canAssignTeamAdmin}
-      />
+      {/* PEOPLE MOVED OUT, because it is recurring work and this page is not.
+          A manager looks at the roster most weeks; they set a join code up once. Everyday jobs belong
+          in navigation, and this page is what the gear opens -- infrequent team administration. The
+          link stays so anybody who knew where it was still finds it. */}
+      <Link
+        href={`/teams/${team.id}/people`}
+        className="mt-8 flex items-center gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5 outline-none transition-colors hover:border-ink/20 focus-visible:ring-2 focus-visible:ring-pitch-400"
+      >
+        <Users aria-hidden="true" className="size-5 shrink-0 text-forest-800" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-ink">People</span>
+          <span className="block text-sm text-ink-muted">
+            Players, parents and guardians, coaches and managers.
+          </span>
+        </span>
+        <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
+      </Link>
+
+      {/* PLAYER REQUESTS, in their durable administrative home.
+          They left primary navigation because they are occasional -- too small a job to hold a
+          permanent place beside Fixtures. They are not hidden: a pending request appears in the team's
+          Needs Attention and in its notification, both of which link straight to the decision. This is
+          where somebody goes looking for one deliberately. */}
+      {canManagePeople && (
+        <Link
+          href={`/teams/${team.id}/player-requests`}
+          className="mt-3 flex items-center gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5 outline-none transition-colors hover:border-ink/20 focus-visible:ring-2 focus-visible:ring-pitch-400"
+        >
+          <UserPlus aria-hidden="true" className="size-5 shrink-0 text-forest-800" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-ink">Player Requests</span>
+            <span className="block text-sm text-ink-muted">Call-ups and requests for this team.</span>
+          </span>
+          <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
+        </Link>
+      )}
 
       {/* Money sits after the people it is about, and before the configuration nobody opens daily. */}
       {teamSubscriptions && <TeamSubscriptionsSection summary={teamSubscriptions} />}

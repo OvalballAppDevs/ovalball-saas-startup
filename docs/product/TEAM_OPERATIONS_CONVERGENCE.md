@@ -275,3 +275,94 @@ the notification panel visual pass (§27).
 unless they also hold club finance authority. Options: (a) leave it — finance stays a club job;
 (b) add a team-scoped `finance.subscription.view` so a manager sees **their own squad only**;
 (c) let Club Admins grant it per person. This was not assumed either way: (a) ships today.
+
+
+---
+
+# Part 3 — the owner's IA correction
+
+From `4729663`. Three owner decisions, implemented.
+
+## 1. The generic "Team" group is gone
+
+Navigation carried a group called **Team** containing the team's own name and Player Requests — inside
+a context that already *was* that team. Opening Under 12 Boys took **Team → Under 12 Boys** from a
+workspace called Under 12 Boys.
+
+The team is the workspace's identity now, not an item in its own menu.
+
+| before | after |
+|---|---|
+| Dashboard | **Overview** — the team's operational home |
+| **Team** → Under 12 Boys, Player Requests | *(gone)* |
+| Fixtures & Calendar | Fixtures & Calendar |
+| Communications | **People** |
+| Rugby Hub | **Subscriptions** *(only where the capability is held)* |
+| | Communications · Rugby Hub |
+
+Ordered by frequency: fixtures and the calendar most weeks, then who is in the squad, then — monthly
+at most — whether anybody still needs to set a subscription up.
+
+**A group of one is not a group.** People, Subscriptions and Rugby Hub are single destinations, and a
+collapsible section wrapped around one identically-named child renders as "People › People" — a
+disclosure triangle whose whole content is the thing you already read. A section whose single item says
+what the section says now *is* the link.
+
+## 2. Player Requests left primary navigation
+
+Owner decision: occasional work does not hold a permanent slot beside Fixtures.
+
+It has **not** gone. It lives on the team's administration page — what the context gear opens (§20) —
+and a pending one still reaches the person through **Needs Attention** and through **its
+notification**, both of which link to the decision itself. That is the READ / RESOLVED distinction
+doing its job: exceptional work surfaces through attention and notification, recurring work through
+navigation.
+
+`People` also moved off that page into its own destination, and the roster read moved with it. Leaving
+the query behind would have meant the administration page fetching a roster it no longer renders, on
+every visit, which is the sort of thing that survives for years because nothing fails.
+
+## 3. Bounded team-scoped subscription visibility
+
+The previous pass established that every finance capability is club-scoped — which made the team
+subscription surface real, correct and **invisible to the person it was for**.
+
+`20270531000000` extends `finance.subscription.view` to `team` scope. **One capability, two scopes, not
+a second key** — which is how this engine already expresses "the same question, a smaller boundary"
+(`calendar.view`, `club.view`, `competition.match.respond` and others are `club,team`). The scope is
+the boundary and `internal.capability_decision` enforces it:
+
+| held at | means |
+|---|---|
+| **club** | `/club/finance` — the ledger, exports, payment actions |
+| **team** | operational subscription state for players of that one team |
+
+`/club/finance` asks at club scope and therefore still refuses a team holder, **without that page
+changing at all**. A second key would have needed every consumer to remember which to ask for, and the
+first to forget would have been the bug.
+
+It is granted through the **TEAM_MANAGER bundle** (`bundle_capabilities`, bundle `TM`), so it is
+reproducible from the migration rather than from a patched review database. A Club Admin can grant it
+to anybody else through ordinary delegation — the capability is already `delegable` with a club grant
+level. Not every coach: coaching is not chasing subscriptions.
+
+**Measured against the engine:**
+
+| question | answer |
+|---|---|
+| own team, team scope | **true** |
+| another team, team scope | **false** |
+| their club, club scope | **false** |
+| `finance.payment.act` at team | **false** |
+| `finance.subscription.export` at team | **false** |
+
+The other finance capabilities are untouched and the migration's own guard fails if any of them gains
+team scope.
+
+## Functions
+
+**FUNCTIONS BEFORE 11 · FUNCTIONS AFTER 13 · FUNCTIONALITY LOST 0.**
+
+Added: the **People** destination and the **Subscriptions** destination. Nothing removed — Player
+Requests, the roster and team administration all still exist and are all still reachable; two of them
+moved to homes that match how often they are used.
