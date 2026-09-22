@@ -16,6 +16,7 @@ import { AppHeader } from "../../../src/components/app-header"
 import { ContextSheet } from "../../../src/components/context-sheet"
 import { AgendaRow } from "../../../src/components/agenda-row"
 import { SeasonGrid } from "../../../src/components/season-grid"
+import { WeekSheet } from "../../../src/components/week-sheet"
 import {
   AgendaFilterSheet,
   NO_FILTER,
@@ -77,6 +78,10 @@ export default function Calendar() {
   // WHICH SQUARE IS OPEN. Null means the grid alone -- the season's shape, which is what somebody came
   // to Season view to see. Tapping a week expands it underneath rather than navigating away.
   const [openWeek, setOpenWeek] = useState<string | null>(null)
+  // WHICH DAY, IN WEEK VIEW. Tapping a day in the strip used to move the anchor and leave the whole
+  // week on screen, which made the tap pointless -- you were already looking at that week. Choosing a
+  // day now narrows to it; choosing it again goes back to the week.
+  const [openDay, setOpenDay] = useState<string | null>(null)
 
   // The register, scoped to our own rugby code -- a Union club is never shown a League season.
   useEffect(() => {
@@ -137,6 +142,10 @@ export default function Calendar() {
   }, [active])
 
   useEffect(() => {
+    setOpenDay(null)
+  }, [anchor, mode])
+
+  useEffect(() => {
     void load()
   }, [load])
 
@@ -155,12 +164,16 @@ export default function Calendar() {
   // NARROWED, NEVER WIDENED -- and the strip's dots follow the same narrowing, so a day that has been
   // filtered out does not still advertise itself as having rugby in it.
   const shown = useMemo(() => (items ? applyFilter(items, filter) : null), [items, filter])
-  const days = useMemo(() => groupByDay(shown ?? []), [shown])
-  // The chosen square's own week, Monday to Sunday, out of the rows already on screen.
-  const weekDays = useMemo(() => {
+  const days = useMemo(() => {
+    const rows = shown ?? []
+    // A day the strip selected narrows the list; nothing selected shows the whole week or month.
+    return groupByDay(mode === "week" && openDay ? rows.filter((item) => item.date === openDay) : rows)
+  }, [shown, mode, openDay])
+  // The chosen square's own week, Monday to Sunday, cut out of the rows already on screen.
+  const weekItems = useMemo(() => {
     if (!openWeek || !shown) return []
     const end = addDays(openWeek, 6)
-    return groupByDay(shown.filter((item) => item.date >= openWeek && item.date <= end))
+    return shown.filter((item) => item.date >= openWeek && item.date <= end)
   }, [openWeek, shown])
   const busyDates = useMemo(() => new Set((shown ?? []).map((item) => item.date)), [shown])
   const showOwner = active?.kind !== "team"
@@ -278,12 +291,43 @@ export default function Calendar() {
           )}
         </View>
 
+        {/* THE DATES THE PHASE ACTUALLY COVERS, said out loud.
+            Switching to Pre-Season looked like it did nothing, and the reason was not the resolver --
+            it returns the register's 1 August to 31 August correctly -- but that the screen never said
+            so. A pre-season with no rugby in it is thirty empty squares under a heading that had not
+            visibly changed. Naming the window makes the switch unmistakable whether or not there is
+            anything in it. */}
         {mode === "season" && (
-          <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.ink, textAlign: "center" }]}>
-            {label}
+          <View style={{ alignItems: "center", gap: 1 }}>
+            <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.ink }]}>
+              {label}
+            </Text>
+            {!!season.range && (
+              <Text style={[type.caption, { color: colour.inkMuted }]}>
+                {rangeLabel(season.range.start, season.range.end)}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* A PHASE THAT IS GENUINELY EMPTY SAYS SO, rather than leaving a grid of blank squares to be
+            read as a failure. */}
+        {mode === "season" && shown?.length === 0 && (
+          <Text style={[type.caption, { color: colour.inkMuted, textAlign: "center" }]}>
+            {season.phase === "pre"
+              ? "Nothing is scheduled in pre-season yet."
+              : "Nothing is scheduled this season yet."}
           </Text>
         )}
-        {mode === "week" && <WeekStrip anchor={anchor} today={today} busy={busyDates} onPick={setAnchor} />}
+        {mode === "week" && (
+          <WeekStrip
+            anchor={anchor}
+            today={today}
+            busy={busyDates}
+            selectedDay={openDay}
+            onPick={(iso) => setOpenDay((current) => (current === iso ? null : iso))}
+          />
+        )}
       </View>
 
       <ScrollView
@@ -329,46 +373,17 @@ export default function Calendar() {
         )}
 
         {mode === "season" && !!season.range && !!shown && (
-          <>
-            <SeasonGrid
-              rangeStart={season.range.start}
-              rangeEnd={season.range.end}
-              items={shown}
-              today={today}
-              selectedWeek={openWeek}
-              onSelectWeek={(monday) => setOpenWeek((current) => (current === monday ? null : monday))}
-            />
-
-            {!!openWeek && (
-              <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, flexDirection: "row", alignItems: "center", gap: space.sm }}>
-                <Text accessibilityRole="header" style={[type.overline, { color: colour.forest800, flex: 1 }]}>
-                  WEEK OF {restOfDate(openWeek, today) || exactDate(openWeek)}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close this week"
-                  onPress={() => setOpenWeek(null)}
-                  hitSlop={8}
-                  style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "flex-end", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
-                >
-                  <X size={18} color={colour.inkMuted} strokeWidth={2.2} />
-                </Pressable>
-              </View>
-            )}
-
-            {!!openWeek && weekDays.length === 0 && (
-              <View style={{ paddingHorizontal: space.lg }}>
-                <EmptyState
-                  title="A rest week"
-                  body="Nothing is scheduled in this week — which is a real answer, not a gap in the data."
-                  icon={<CalendarDays size={22} color={colour.inkSubtle} />}
-                />
-              </View>
-            )}
-          </>
+          <SeasonGrid
+            rangeStart={season.range.start}
+            rangeEnd={season.range.end}
+            items={shown}
+            today={today}
+            selectedWeek={openWeek}
+            onSelectWeek={setOpenWeek}
+          />
         )}
 
-        {(mode === "season" ? weekDays : days).map((day) => (
+        {mode !== "season" && days.map((day) => (
           <View key={day.date}>
             <View style={{ paddingHorizontal: space.lg, paddingBottom: space.xs, flexDirection: "row", alignItems: "baseline", gap: space.sm }}>
               <Text style={[type.overline, { color: day.date === today ? colour.pitch600 : colour.forest800 }]}>
@@ -409,6 +424,21 @@ export default function Calendar() {
         onClose={() => setFilterOpen(false)}
       />
 
+      {/* THE WEEK ARRIVES OVER THE GRID, not underneath it. Expanding in place put February's rugby
+          below thirty squares, so reading it meant scrolling past the whole season and back. */}
+      <WeekSheet
+        visible={openWeek !== null}
+        mondayIso={openWeek}
+        items={weekItems}
+        today={today}
+        onClose={() => setOpenWeek(null)}
+        onOpenItem={(item) => {
+          setOpenWeek(null)
+          if (item.kind === "fixture") router.push(`/fixtures/${item.eventId}` as never)
+          else router.push(`/calendar/training/${item.eventId}` as never)
+        }}
+      />
+
       <ContextSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
     </View>
   )
@@ -424,11 +454,14 @@ function WeekStrip({
   anchor,
   today,
   busy,
+  selectedDay,
   onPick,
 }: {
   anchor: string
   today: string
   busy: Set<string>
+  /** The day the list is narrowed to, or null for the whole week. */
+  selectedDay: string | null
   onPick: (iso: string) => void
 }) {
   const start = startOfWeek(anchor)
@@ -440,12 +473,15 @@ function WeekStrip({
         const date = new Date(`${iso}T12:00:00`)
         const isToday = iso === today
         const hasRugby = busy.has(iso)
+        // SELECTED IS NOT THE SAME AS TODAY. Today is where you are; selected is what you asked to see,
+        // and on a Tuesday somebody looking at Saturday needs both marked.
+        const isSelected = iso === selectedDay
         return (
           <Pressable
             key={iso}
             accessibilityRole="button"
-            accessibilityLabel={`${exactDate(iso)}${hasRugby ? ". Has rugby" : ". Nothing scheduled"}`}
-            accessibilityState={{ selected: isToday }}
+            accessibilityLabel={`${exactDate(iso)}${hasRugby ? ". Has rugby" : ". Nothing scheduled"}${isSelected ? ". Showing this day. Choose again for the whole week" : ""}`}
+            accessibilityState={{ selected: isSelected }}
             onPress={() => onPick(iso)}
             style={({ pressed }) => ({
               flex: 1,
@@ -454,7 +490,9 @@ function WeekStrip({
               justifyContent: "center",
               gap: 3,
               borderRadius: radius.md,
-              backgroundColor: isToday ? colour.forest800 : pressed ? colour.mint100 : "transparent",
+              borderWidth: isSelected ? 2 : 0,
+              borderColor: colour.forest800,
+              backgroundColor: isToday ? colour.forest800 : isSelected ? colour.mint100 : pressed ? colour.mint100 : "transparent",
             })}
           >
             <Text style={[type.caption, { color: isToday ? colour.onForestMuted : colour.inkMuted, fontSize: 10 }]}>
@@ -678,6 +716,15 @@ function Step({
       </View>
     </Pressable>
   )
+}
+
+/** "1 Aug – 31 Aug 2026" — the window a phase covers, in the form somebody reads rather than two ISO values. */
+function rangeLabel(startIso: string, endIso: string): string {
+  const start = new Date(`${startIso}T12:00:00`)
+  const end = new Date(`${endIso}T12:00:00`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return `${startIso} – ${endIso}`
+  const sameYear = start.getFullYear() === end.getFullYear()
+  return `${start.toLocaleDateString("en-GB", sameYear ? { day: "numeric", month: "short" } : { day: "numeric", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
 }
 
 /** Six days on from a Monday, so a week's own rows can be cut out of the season's. */
