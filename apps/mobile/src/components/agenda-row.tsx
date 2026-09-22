@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from "react-native"
 import type { AgendaItem } from "@ovalball/contracts"
+import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
 
 import {
   homeAwayLabel,
@@ -249,9 +250,18 @@ function Pill({ status }: { status: StatusTone }) {
   )
 }
 
-/** One child's own answer, in words rather than a coloured dot. */
+/**
+ * One child's own answer, in words rather than a coloured dot.
+ *
+ * THE WORD IS THE PLATFORM'S. This row said "Going / Can't go / Unsure" -- a
+ * FOURTH first-person-ish vocabulary for the three database states, beside the
+ * register's "Attending / Can't attend / Unsure", the shared control's "I'm
+ * Available / Not Available / Unsure" and the Agenda's own former "Can Attend /
+ * Can't Attend / Maybe". This is a row DESCRIBING somebody's answer, so it takes
+ * the third-person register words, which is what the web's equivalent shows.
+ */
 function Attendance({ value }: { value: NonNullable<AgendaItem["attendance"]> }) {
-  const label = value === "ATTENDING" ? "Going" : value === "CANNOT_ATTEND" ? "Can't go" : "Unsure"
+  const label = ATTENDANCE_STATE_WORDS[value]
   const colours = value === "ATTENDING" ? colour.forest800 : value === "CANNOT_ATTEND" ? colour.danger : colour.warning
   return <Text style={[type.caption, { color: colours, fontSize: 10 }]}>{label}</Text>
 }

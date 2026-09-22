@@ -2,9 +2,15 @@
 
 import { useState, useTransition } from "react"
 
+import {
+  ATTENDANCE_ANSWER_WORDS,
+  AVAILABILITY_ANSWER_ORDER,
+  answerControlLabel,
+  type AvailabilityStatus,
+} from "@ovalball/contracts/availability"
 import { respondFromAgenda } from "@/app/(app)/agenda/respond-actions"
 
-export type AnswerStatus = "ATTENDING" | "CANNOT_ATTEND" | "UNSURE"
+export type AnswerStatus = AvailabilityStatus
 
 /**
  * THE ONE WAY A FAMILY ANSWERS, WHEREVER THEY ARE ASKED.
@@ -69,11 +75,25 @@ export function AttendanceAnswer({
   // ink on the same green clears 6:1 and keeps the accent as the fill. Writing
   // `text-white` here would have reintroduced L22's exact defect on a control a
   // parent taps every week -- which is what suite 49's axe run caught.
-  const options: { status: AnswerStatus; label: string; chosen: string }[] = [
-    { status: "ATTENDING", label: "Can Attend", chosen: "bg-pitch-600 text-ink" },
-    { status: "CANNOT_ATTEND", label: "Can't Attend", chosen: "bg-ink text-white" },
-    { status: "UNSURE", label: "Maybe", chosen: "bg-amber-100 text-amber-950" },
-  ]
+  //
+  // THE WORDS AND THE ORDER ARE NO LONGER THIS FILE'S. They were "Can Attend /
+  // Can't Attend / Maybe" -- a SECOND first-person vocabulary for the three
+  // database states the shared Match Centre and Training Centre control already
+  // labelled "I'm Available / Not Available / Unsure". Same product, same
+  // question, two sets of buttons: a parent answering here and then opening
+  // Match Centre saw their answer described in words they had not been offered.
+  // Only the paint below is local, because this control sits on a light card
+  // rather than the dark matchday ground and genuinely needs different fills.
+  const CHOSEN: Record<AnswerStatus, string> = {
+    ATTENDING: "bg-pitch-600 text-ink",
+    CANNOT_ATTEND: "bg-ink text-white",
+    UNSURE: "bg-amber-100 text-amber-950",
+  }
+  const options = AVAILABILITY_ANSWER_ORDER.map((status) => ({
+    status,
+    label: ATTENDANCE_ANSWER_WORDS[status],
+    chosen: CHOSEN[status],
+  }))
 
   return (
     <div className="mt-2">
@@ -87,8 +107,10 @@ export function AttendanceAnswer({
               disabled={pending}
               aria-pressed={isChosen}
               // The accessible name carries WHO and WHAT, because a page full
-              // of these would otherwise announce "Can Attend" eight times.
-              aria-label={`${option.label} — ${subject}, ${what}`}
+              // of these would otherwise announce the same three labels eight
+              // times. Built by the shared contract so both clients phrase it
+              // identically.
+              aria-label={answerControlLabel(option.status, subject, what)}
               onClick={() => choose(option.status)}
               className={`min-h-11 rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:opacity-60 ${
                 isChosen ? `${option.chosen} border-transparent` : "border-ink/15 bg-white text-ink hover:border-ink/35"

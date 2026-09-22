@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
 import { Check, HelpCircle, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -118,9 +119,12 @@ export function AvailabilityDemo() {
         <p className="mt-1 text-sm text-white/60">{DEMO_FIXTURE.squadSize} players in the squad</p>
 
         <dl className="mt-6 grid grid-cols-2 gap-3">
-          <CountTile label="Attending" value={counts.ATTENDING} tone="good" />
-          <CountTile label="Can't attend" value={counts.CANNOT_ATTEND} tone="muted" />
-          <CountTile label="Unsure" value={counts.UNSURE} tone="warn" />
+          {/* The product's own words, not a marketing transcription. A public
+              page showing a state the product no longer calls that is a page
+              lying about what somebody is buying. */}
+          <CountTile label={ATTENDANCE_STATE_WORDS.ATTENDING} value={counts.ATTENDING} tone="good" />
+          <CountTile label={ATTENDANCE_STATE_WORDS.CANNOT_ATTEND} value={counts.CANNOT_ATTEND} tone="muted" />
+          <CountTile label={ATTENDANCE_STATE_WORDS.UNSURE} value={counts.UNSURE} tone="warn" />
           <CountTile label="No response" value={counts.NO_RESPONSE} tone="muted" />
         </dl>
 

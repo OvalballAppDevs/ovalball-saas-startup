@@ -17,6 +17,8 @@
  * marketing vocabulary invented for these pages.
  */
 
+import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
+
 export const DEMO_CLUB = "Ovalball North RFC"
 export const DEMO_OPPONENT = "Ovalball West RFC"
 
@@ -38,13 +40,21 @@ export const DEMO_FIXTURE = {
 
 /**
  * The three responses a guardian, an eligible player, or team staff can
- * record. `id` matches the database value exactly; `label` is the wording
- * the product uses in front of a person.
+ * record. `id` matches the database value exactly; `label` is the wording the
+ * product uses in front of a person.
+ *
+ * BOTH NOW COME FROM THE CANONICAL SOURCE rather than being transcribed. The
+ * words were correct when they were written and would have stayed correct only
+ * for as long as nobody changed the product's -- and a marketing page showing a
+ * word the product no longer uses is a page that lies about what somebody is
+ * buying. The order is the register's, from ATTENDANCE_GROUP_ORDER, minus
+ * AWAITING: a demo shows the three answers a person can GIVE, and "awaiting" is
+ * the absence of one.
  */
 export const ATTENDANCE_OPTIONS = [
-  { id: "ATTENDING", label: "Attending" },
-  { id: "CANNOT_ATTEND", label: "Can't attend" },
-  { id: "UNSURE", label: "Unsure" },
+  { id: "ATTENDING", label: ATTENDANCE_STATE_WORDS.ATTENDING },
+  { id: "CANNOT_ATTEND", label: ATTENDANCE_STATE_WORDS.CANNOT_ATTEND },
+  { id: "UNSURE", label: ATTENDANCE_STATE_WORDS.UNSURE },
 ] as const
 
 export type AttendanceStatus = (typeof ATTENDANCE_OPTIONS)[number]["id"]

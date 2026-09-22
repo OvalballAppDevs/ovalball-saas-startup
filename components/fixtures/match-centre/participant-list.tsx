@@ -1,5 +1,6 @@
 import { Check, CircleDashed, HelpCircle, X } from "lucide-react"
 
+import { groupKeyForStatus, type AttendanceGroupKey } from "@ovalball/contracts/availability"
 import { ATTENDANCE_GROUPS } from "@/components/shared/attendance-groups"
 import type { MatchCentreAttendance, MatchCentreParticipant } from "@/lib/app-context/match-centre-data"
 
@@ -55,18 +56,25 @@ export function ParticipantList({
 }) {
   if (!canView) return null
 
-  const byGroup = {
-    ATTENDING: participants.filter((p) => p.response === "ATTENDING"),
-    UNSURE: participants.filter((p) => p.response === "UNSURE"),
-    CANNOT_ATTEND: participants.filter((p) => p.response === "CANNOT_ATTEND"),
-    AWAITING: participants.filter((p) => p.response === null),
+  /* Grouped through the shared `groupKeyForStatus`, so "no answer" becomes
+     AWAITING in exactly one place rather than being re-derived as `=== null` on
+     every register. Both maps are keyed by the canonical group key, so adding a
+     state to the contract makes this fail to compile rather than silently
+     dropping people into no group at all. */
+  const byGroup: Record<AttendanceGroupKey, MatchCentreParticipant[]> = {
+    ATTENDING: [],
+    UNSURE: [],
+    CANNOT_ATTEND: [],
+    AWAITING: [],
   }
-  const countFor = {
+  for (const p of participants) byGroup[groupKeyForStatus(p.response)].push(p)
+
+  const countFor: Record<AttendanceGroupKey, number> = {
     ATTENDING: counts.attending,
     CANNOT_ATTEND: counts.cannotAttend,
     UNSURE: counts.unsure,
     AWAITING: counts.awaitingResponse,
-  } as const
+  }
   const total = participants.length
 
   return (

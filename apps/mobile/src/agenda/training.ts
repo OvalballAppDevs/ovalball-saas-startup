@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@ovalball/contracts"
+import type { AvailabilityStatus } from "@ovalball/contracts/availability"
+
+import type { RegisterEntry } from "../components/availability-register"
 
 /**
  * ONE TRAINING SESSION.
@@ -45,6 +48,71 @@ export interface TrainingSession {
   myAttendance: string | null
   canManage: boolean
   canViewRegister: boolean
+}
+
+/**
+ * ONE PERSON THIS VIEWER MAY ANSWER FOR, AND WHETHER THEY MAY ACTUALLY ANSWER.
+ *
+ * The identical shape the fixture half uses (`MyAvailability` in
+ * `src/match-centre/load.ts`), because the two RPCs behind them now return the
+ * identical column set -- which is the point of having asked the same question in
+ * the same way on both halves of a rugby week.
+ */
+export interface TrainingAvailability {
+  playerId: string
+  firstName: string
+  displayName: string
+  isSelf: boolean
+  response: AvailabilityStatus | null
+  canRespond: boolean
+  cannotRespondReason: string | null
+}
+
+/**
+ * WHOM THIS VIEWER MAY ANSWER FOR ON THIS SESSION.
+ *
+ * `public.get_my_players_for_training_session` is the canonical reader the
+ * website's Training Centre resolver also calls, and since M6 it carries the
+ * authority inline -- so the control is never drawn where
+ * `respond_to_training_attendance` would refuse, and neither client has to call
+ * `get_my_attendance_authority` once per child to find out.
+ *
+ * A CANCELLED SESSION STILL LISTS THE CHILD, with can_respond false and the
+ * reason. A parent should be able to see what they had said before the session
+ * was called off rather than find the whole section gone.
+ */
+export async function loadMyTrainingAvailability(supabase: Client, sessionId: string): Promise<TrainingAvailability[]> {
+  const { data } = await supabase.rpc("get_my_players_for_training_session", { p_training_session_id: sessionId })
+  return (data ?? []).map((r) => ({
+    playerId: r.player_id,
+    firstName: r.first_name ?? "",
+    displayName: `${r.first_name ?? ""} ${r.surname ?? ""}`.trim() || "Player",
+    // From players.user_id, resolved by the RPC -- never inferred here.
+    isSelf: r.relationship === "self",
+    response: (r.current_status as AvailabilityStatus | null) ?? null,
+    canRespond: r.can_respond,
+    cannotRespondReason: r.denial_reason,
+  }))
+}
+
+/**
+ * THE REGISTER -- who is expected, and what each of them said.
+ *
+ * `public.get_training_register` is the same RPC the website's register renders,
+ * and it REFUSES outright without `team.attendance.view` or training-management
+ * authority rather than returning a filtered list. So this is not "fetch then
+ * hide": a viewer who may not see the register gets an error from the database
+ * and an empty array from here, and the section is not rendered.
+ */
+export async function loadTrainingRegister(supabase: Client, sessionId: string): Promise<RegisterEntry[]> {
+  const { data, error } = await supabase.rpc("get_training_register", { p_training_session_id: sessionId })
+  if (error) return []
+  return (data ?? []).map((r) => ({
+    playerId: r.player_id,
+    firstName: r.first_name ?? "",
+    surname: r.surname ?? "",
+    status: (r.status as AvailabilityStatus | null) ?? null,
+  }))
 }
 
 export async function loadTrainingSession(supabase: Client, sessionId: string): Promise<TrainingSession | null> {

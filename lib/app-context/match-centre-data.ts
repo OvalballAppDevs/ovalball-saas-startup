@@ -8,6 +8,8 @@ import { loadTeamIdentitiesForSeason, teamIdentityKey } from "@/lib/mini-rugby/t
 import { loadStaffPlayers } from "@/lib/players/staff-players"
 import type { Database } from "@/types/database.types"
 
+import { matchCentreStatus } from "@ovalball/contracts/agenda/fixture-status"
+
 import { resolveClubLogoUrl } from "./club-logo"
 import { resolvePersonalAvatarUrls } from "./personal-avatar"
 
@@ -189,20 +191,15 @@ export interface MatchCentreContext {
 
 export type MatchCentreResolution = { status: "available"; context: MatchCentreContext } | { status: "not_found" }
 
-function mapFixtureStatus(f: {
-  status: string
-  cancelled_at: string | null
-  kickoff_amendment_proposed_at: string | null
-  opponent_team_id: string | null
-  opponent_directory_id: string | null
-}): FixtureStatus {
-  if (f.cancelled_at) return "CANCELLED"
-  if (f.kickoff_amendment_proposed_at) return "AMENDMENT_PENDING"
-  if (f.status === "Completed") return "COMPLETED"
-  if (f.status === "To Be Determined" || (!f.opponent_team_id && !f.opponent_directory_id)) return "AWAITING_OPPOSITION"
-  if (f.status === "Booked") return "ACCEPTED"
-  return "PLANNED"
-}
+/**
+ * Moved to `@ovalball/contracts/agenda/fixture-status` in M6 so the native Match
+ * Centre derives the same six states from the same three columns. It is a
+ * DERIVATION rather than a column read -- a fixture whose kick-off change is
+ * waiting on the other club is in a state `fixtures.status` alone cannot express
+ * -- which is exactly the sort of rule a second client re-implements slightly
+ * differently. The web's behaviour is unchanged.
+ */
+const mapFixtureStatus = matchCentreStatus
 
 function initialsFromName(first: string, surname: string): string {
   return `${first[0] ?? ""}${surname[0] ?? ""}`.toUpperCase() || "?"
@@ -306,43 +303,42 @@ export async function getMatchCentreContext(
   const counts = { attending: 0, cannotAttend: 0, unsure: 0, awaitingResponse: 0 }
   const mine: MyAttendanceEntry[] = []
 
-  // "Mine" is resolved independently of canViewParticipants and ALWAYS
-  // attempted -- a guardian or self-player must see and respond to their
-  // own linked player's attendance regardless of whether they can see the
-  // rest of the roster. Scoped narrowly (only this viewer's own candidate
-  // player ids), so it stays correct under player_team_memberships' /
-  // player_fixture_attendance's own row-level RLS rather than assuming the
-  // caller can read the full roster.
-  const [{ data: myGuardianRows }, { data: myOwnPlayer }] = await Promise.all([
-    supabase.from("guardians").select("player_id, players(id, first_name, surname)").eq("guardian_user_id", userId).eq("status", "active"),
-    supabase.from("players").select("id, first_name, surname").eq("user_id", userId).maybeSingle(),
-  ])
-  const myCandidates = new Map<string, { id: string; first_name: string; surname: string }>()
-  for (const g of myGuardianRows ?? []) if (g.players) myCandidates.set(g.player_id, g.players)
-  if (myOwnPlayer) myCandidates.set(myOwnPlayer.id, myOwnPlayer)
+  /*
+    "MINE" IS ONE CANONICAL QUESTION, ASKED ONCE.
 
-  if (myCandidates.size > 0 && allTeamIds.length > 0) {
-    const candidateIds = Array.from(myCandidates.keys())
-    const [{ data: myMemberships }, { data: myAttendance }] = await Promise.all([
-      supabase.from("player_team_memberships").select("player_id, team_id").in("player_id", candidateIds).eq("status", "active"),
-      supabase.from("player_fixture_attendance").select("player_id, status").eq("fixture_id", fixtureId).in("player_id", candidateIds),
-    ])
-    const myAttendanceByPlayer = new Map((myAttendance ?? []).map((a) => [a.player_id, a.status as AttendanceStatus]))
-    const myRelevantPlayerIds = new Set((myMemberships ?? []).filter((m) => allTeamIds.includes(m.team_id)).map((m) => m.player_id))
+    It is resolved independently of canViewParticipants and ALWAYS attempted -- a
+    guardian or self-player must see and respond to their own linked player's
+    attendance regardless of whether they can see the rest of the roster.
 
-    for (const playerId of myRelevantPlayerIds) {
-      const player = myCandidates.get(playerId)
-      if (!player) continue
-      const { data: authority } = await supabase.rpc("get_my_attendance_authority", { p_player_id: playerId }).maybeSingle()
-      mine.push({
-        playerId,
-        displayName: `${player.first_name} ${player.surname}`,
-        response: myAttendanceByPlayer.get(playerId) ?? null,
-        canRespond: (authority?.can_respond ?? false) && !f.cancelled_at,
-        cannotRespondReason: f.cancelled_at ? "This fixture has been cancelled." : (authority?.denial_reason ?? null),
-        isSelf: myOwnPlayer?.id === playerId,
-      })
-    }
+    THIS USED TO BE ASSEMBLED HERE. Read `guardians`, read `players`, read
+    `player_team_memberships`, read `player_fixture_attendance`, intersect them
+    by hand against the fixture's effective team ids, then call
+    `get_my_attendance_authority` once per surviving child. It was correct, and
+    it was the safeguarding-adjacent shape of "which children am I answering
+    for" written out in a client -- so a second client would have had to write
+    it again, by hand, from the same four tables, and the two would have agreed
+    only for as long as nobody touched either.
+
+    `public.get_my_players_for_fixture` (M6) is the fixture twin of the training
+    function that already existed, and both now carry the authority inline. The
+    authority is unchanged: the RPC calls the same `get_my_attendance_authority`
+    wrapper over the same `internal.resolve_attendance_response_source`. What has
+    changed is that the CANCELLED rule is now the server's too -- it used to live
+    only in the `!f.cancelled_at` below, which meant this page enforced it and
+    the database did not.
+  */
+  const { data: myRows } = await supabase.rpc("get_my_players_for_fixture", { p_fixture_id: fixtureId })
+  for (const r of myRows ?? []) {
+    mine.push({
+      playerId: r.player_id,
+      displayName: `${r.first_name ?? ""} ${r.surname ?? ""}`.trim() || "Player",
+      response: (r.current_status as AttendanceStatus | null) ?? null,
+      canRespond: r.can_respond,
+      cannotRespondReason: r.denial_reason,
+      // From players.user_id, resolved by the RPC -- never inferred here from a
+      // name or a role label.
+      isSelf: r.relationship === "self",
+    })
   }
 
   if (canViewParticipants && allTeamIds.length > 0) {
@@ -504,7 +500,22 @@ async function resolveSide(supabase: SupabaseClient<Database>, teamId: string, g
     clubDirectoryId: club?.directory_id ?? directory?.id ?? null,
     clubDisplayName: directory?.name ?? team?.display_name ?? "Club",
     clubLogoUrl: club ? resolveClubLogoUrl(supabase, { logo_storage_path: club.logo_storage_path, club_directory: directory ? { logo_storage_path: directory.logo_storage_path } : null }) : null,
-    fixtureSeasonTeamIdentity: seasonIdentity?.displayName ?? (team?.age_group ? `Under ${team.age_group.replace(/^U/i, "")}` : (team?.display_name ?? "Team")),
+    /*
+      THE HISTORICAL IDENTITY FIRST, THEN THE CANONICAL DISPLAY NAME.
+
+      `team_season_identity` records what a side was CALLED in a season that has
+      happened, and is not re-spelled because presentation improved -- so it wins
+      where it exists. What it falls back to had been a string built here from
+      the team's age group: "Under 12", for a team the canonical directory calls
+      "Under 12 Boys". That is the exact failure the canonical naming rule exists
+      to prevent -- "Under 12" alone says nothing about whether a side is boys,
+      girls or mixed, so a club running both saw one described by what it is and
+      the other by what it is not -- and it was visible in this slice's own
+      parity capture, where the Match Centre hero read "Under 12" under both
+      crests. `teams.display_name` IS the site-wide display form, so it is what a
+      missing season identity falls back to.
+    */
+    fixtureSeasonTeamIdentity: seasonIdentity?.displayName ?? team?.display_name ?? "Team",
     teamId,
     schedulingGroupId: groupId,
     effectiveTeamIds: effectiveIds,

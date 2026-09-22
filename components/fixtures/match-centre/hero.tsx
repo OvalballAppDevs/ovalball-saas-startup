@@ -1,5 +1,6 @@
 import { CalendarDays, CircleAlert, CircleCheck, CircleDashed, Clock, MapPin, Users } from "lucide-react"
 
+import { matchStatusPresentation, type MatchStatusIcon } from "@ovalball/contracts/agenda/fixture-status"
 import { KitPlaceholder, RugbyKit } from "@/components/club/rugby-kit"
 import type { MatchCentreFixture, MatchCentreSide } from "@/lib/app-context/match-centre-data"
 import { cn } from "@/lib/utils"
@@ -29,16 +30,25 @@ import { cn } from "@/lib/utils"
  * in a WhatsApp group, which is where these pages actually get shared.
  */
 
-const STATUS_STYLE: Record<
-  MatchCentreFixture["status"],
-  { label: string; className: string; Icon: typeof CircleCheck }
-> = {
-  PLANNED: { label: "Planned", className: "bg-white/10 text-white/80 ring-white/15", Icon: CircleDashed },
-  AWAITING_OPPOSITION: { label: "Awaiting opposition", className: "bg-amber-400/15 text-amber-100 ring-amber-300/30", Icon: CircleDashed },
-  ACCEPTED: { label: "Confirmed", className: "bg-pitch-400/15 text-pitch-200 ring-pitch-300/30", Icon: CircleCheck },
-  AMENDMENT_PENDING: { label: "Amendment pending", className: "bg-amber-400/15 text-amber-100 ring-amber-300/30", Icon: CircleAlert },
-  CANCELLED: { label: "Cancelled", className: "bg-red-500/20 text-red-100 ring-red-300/40", Icon: CircleAlert },
-  COMPLETED: { label: "Completed", className: "bg-white/10 text-white/70 ring-white/15", Icon: CircleCheck },
+/**
+ * The pill's PAINT. The WORD and the ICON are the shared contract's -- see
+ * `@ovalball/contracts/agenda/fixture-status`, which also owns the derivation --
+ * so the app's Match Centre says "Confirmed" where this one does rather than
+ * falling back to the database's operational "Booked".
+ */
+const STATUS_ICON: Record<MatchStatusIcon, typeof CircleCheck> = {
+  "circle-check": CircleCheck,
+  "circle-dashed": CircleDashed,
+  "circle-alert": CircleAlert,
+}
+
+const STATUS_PAINT: Record<MatchCentreFixture["status"], string> = {
+  PLANNED: "bg-white/10 text-white/80 ring-white/15",
+  AWAITING_OPPOSITION: "bg-amber-400/15 text-amber-100 ring-amber-300/30",
+  ACCEPTED: "bg-pitch-400/15 text-pitch-200 ring-pitch-300/30",
+  AMENDMENT_PENDING: "bg-amber-400/15 text-amber-100 ring-amber-300/30",
+  CANCELLED: "bg-red-500/20 text-red-100 ring-red-300/40",
+  COMPLETED: "bg-white/10 text-white/70 ring-white/15",
 }
 
 /** 12-hour clock, the way a fixture list reads it: "10:30am", "2pm". */
@@ -90,7 +100,8 @@ export function MatchCentreHero({
    */
   children?: React.ReactNode
 }) {
-  const status = STATUS_STYLE[fixture.status]
+  const status = matchStatusPresentation(fixture.status)
+  const StatusIcon = STATUS_ICON[status.icon]
   const kickoff = formatClock(fixture.kickoffTime)
   const meet = formatClock(fixture.meetTime)
 
@@ -125,8 +136,8 @@ export function MatchCentreHero({
         </h1>
 
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4 sm:px-6">
-          <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset", status.className)}>
-            <status.Icon className="size-3.5" aria-hidden="true" />
+          <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset", STATUS_PAINT[fixture.status])}>
+            <StatusIcon className="size-3.5" aria-hidden="true" />
             {status.label}
           </span>
           {fixture.competitionIdentity && <span className="text-xs text-white/70">{fixture.competitionIdentity}</span>}

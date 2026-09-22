@@ -73,6 +73,22 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-training-centre-shared.mjs"; th
   exit 1
 fi
 
+# AVAILABILITY IS ONE PRODUCT. The two guards above keep Match Centre and
+# Training Centre each to one implementation; this one keeps the QUESTION they
+# both ask to one vocabulary, across both clients. Availability is described on
+# at least six surfaces twice over -- once per client -- and every one of them is
+# a place somebody can write "Can't make it" while the others say "Can't attend".
+# It has happened repeatedly: the register words drifted three ways before
+# lib/attendance/vocabulary.ts existed, the Agenda's own control then grew a
+# second set of ANSWER words ("Can Attend / Can't Attend / Maybe") beside the
+# shared control's, and the mobile agenda row a third ("Going / Can't go"). Each
+# file was internally consistent, which is why none of it was noticed. This also
+# asserts that both clients write through the canonical mutations and that the
+# shared contract imports no renderer.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-availability-one-product.mjs"; then
+  exit 1
+fi
+
 # MOBILE MESSENGER SCOPE. The attach menu is Club Documents, Take Photo, Choose
 # Photo and Contact Card -- a standing product decision, not an unfinished list.
 # Guarded structurally because both excluded features are the kind a later session

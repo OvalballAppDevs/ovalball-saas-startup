@@ -3,14 +3,28 @@ import { Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, 
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import {
+  NO_ANSWER_YET,
+  availabilityEventLabel,
+  availabilityQuestion,
+  availabilitySubject,
+  type AvailabilityStatus,
+} from "@ovalball/contracts/availability"
+
 import { supabase } from "../../../../src/auth/supabase"
 import {
   cancelTrainingSession,
+  loadMyTrainingAvailability,
+  loadTrainingRegister,
   loadTrainingSession,
   overrideTrainingSession,
+  type TrainingAvailability,
   type TrainingResult,
   type TrainingSession,
 } from "../../../../src/agenda/training"
+import { respondToTraining } from "../../../../src/match-centre/respond"
+import { AvailabilityChoice } from "../../../../src/components/availability-choice"
+import { AvailabilityRegister, type RegisterEntry } from "../../../../src/components/availability-register"
 import { loadPitchOptions, loadVenueOptions, type PitchOption, type VenueOption } from "../../../../src/agenda/fixture-detail"
 import { exactDate, relativeDate, restOfDate } from "../../../../src/agenda/presentation"
 import { todayIso } from "../../../../src/agenda/load"
@@ -52,6 +66,8 @@ export default function TrainingCentre() {
   const [refreshing, setRefreshing] = useState(false)
   const [venues, setVenues] = useState<VenueOption[]>([])
   const [pitches, setPitches] = useState<PitchOption[]>([])
+  const [mine, setMine] = useState<TrainingAvailability[]>([])
+  const [register, setRegister] = useState<RegisterEntry[]>([])
   const [editing, setEditing] = useState<null | "date" | "start" | "venue" | "pitch" | "agenda" | "notes" | "cancel">(null)
   const [saving, setSaving] = useState(false)
   const [sheetProblem, setSheetProblem] = useState<string | null>(null)
@@ -66,12 +82,22 @@ export default function TrainingCentre() {
         return
       }
       setSession(loaded)
-      const [venueOptions, pitchOptions] = await Promise.all([
+      /*
+        THE SAME FOUR QUESTIONS THE WEBSITE'S TRAINING CENTRE ASKS, asked
+        together. `loadMyTrainingAvailability` and `loadTrainingRegister` are the
+        canonical RPCs -- the register one REFUSES rather than filtering, so an
+        empty array here means "not staff" and the section simply is not drawn.
+      */
+      const [venueOptions, pitchOptions, myAvailability, sessionRegister] = await Promise.all([
         loadVenueOptions(supabase, loaded.clubId),
         loadPitchOptions(supabase, loaded.clubId, loaded.venueId),
+        loadMyTrainingAvailability(supabase, id),
+        loaded.canViewRegister ? loadTrainingRegister(supabase, id) : Promise.resolve([] as RegisterEntry[]),
       ])
       setVenues(venueOptions)
       setPitches(pitchOptions)
+      setMine(myAvailability)
+      setRegister(sessionRegister)
     } catch (caught) {
       const failure = friendly(caught, "this training session")
       logDetail("training centre", failure)
@@ -102,6 +128,24 @@ export default function TrainingCentre() {
     await load()
     setSaving(false)
     setEditing(null)
+  }
+
+  /**
+   * THE SERVER'S ANSWER IS WHAT MOVES THE CONTROL. `respondToTraining` calls the
+   * canonical `respond_to_training_attendance`, which refuses a cancelled session
+   * and resolves the safeguarding rule itself. On success the whole session is
+   * re-read rather than the local answer being adjusted, so the register and the
+   * counts can never drift from what the database holds.
+   */
+  async function answerTraining(entry: TrainingAvailability, status: AvailabilityStatus): Promise<boolean> {
+    const result = await respondToTraining(supabase, id, entry.playerId, status)
+    if (!result.ok) {
+      setProblem(result.message)
+      return false
+    }
+    setProblem(null)
+    await load()
+    return true
   }
 
   if (missing) {
@@ -142,16 +186,65 @@ export default function TrainingCentre() {
 
       {!!session && (
         <>
-          <View style={{ backgroundColor: colour.forest800, borderRadius: radius.lg, padding: space.lg, gap: space.xs }}>
-            <Text style={[type.overline, { color: colour.onForestMuted }]}>TRAINING</Text>
-            <Text accessibilityRole="header" style={[type.title, { color: colour.onForest }]}>
-              {session.teamLabel ?? "Session"}
-            </Text>
-            <Text style={[type.small, { color: colour.onForestMuted }]}>
-              {relativeDate(session.date, today)}
-              {restOfDate(session.date, today) ? ` · ${restOfDate(session.date, today)}` : ""}
-              {session.startTime ? ` · ${session.startTime}` : ""}
-            </Text>
+          {/* THE SESSION CARD, WITH THE VIEWER'S OWN ANSWER INSIDE IT.
+              The invitation and the reply to it are one object -- the website's
+              Training Centre puts the same control in the same place, inside the
+              same hero, for the same reason. Detached below it reads as an
+              administrative form about the session rather than the answer to it. */}
+          <View style={{ backgroundColor: colour.forest800, borderRadius: radius.lg, overflow: "hidden" }}>
+            <View style={{ padding: space.lg, gap: space.xs }}>
+              <Text style={[type.overline, { color: colour.onForestMuted }]}>TRAINING</Text>
+              <Text accessibilityRole="header" style={[type.title, { color: colour.onForest }]}>
+                {session.teamLabel ?? "Session"}
+              </Text>
+              <Text style={[type.small, { color: colour.onForestMuted }]}>
+                {relativeDate(session.date, today)}
+                {restOfDate(session.date, today) ? ` · ${restOfDate(session.date, today)}` : ""}
+                {session.startTime ? ` · ${session.startTime}` : ""}
+                {session.venueName ? ` · ${session.venueName}` : ""}
+              </Text>
+            </View>
+
+            {mine.length > 0 && (
+              <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.10)", backgroundColor: "rgba(0,0,0,0.15)" }}>
+                {mine.map((entry, index) => (
+                  <View
+                    key={entry.playerId}
+                    style={{ padding: space.lg, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: "rgba(255,255,255,0.10)" }}
+                  >
+                    {entry.canRespond ? (
+                      <>
+                        <AvailabilityChoice
+                          question={availabilityQuestion("training", entry.isSelf, entry.firstName)}
+                          subject={availabilitySubject(entry.isSelf, entry.firstName)}
+                          what={availabilityEventLabel("training", relativeDate(session.date, today))}
+                          committed={entry.response}
+                          disabled={false}
+                          onChoose={(status) => answerTraining(entry, status)}
+                        />
+                        {entry.response === null && (
+                          <Text style={[type.small, { color: colour.onForestMuted, marginTop: space.sm }]}>{NO_ANSWER_YET}</Text>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Text style={[type.smallMedium, { color: colour.onForest }]}>
+                          {availabilityQuestion("training", entry.isSelf, entry.firstName)}
+                        </Text>
+                        {/* THE DATABASE'S OWN SENTENCE. A 16-year-old without
+                            recorded guardian consent reads the rule rather than
+                            learning it from a red error after tapping -- which is
+                            exactly what Match Centre does for the same person
+                            under the same policy. */}
+                        <Text style={[type.small, { color: colour.onForestMuted, marginTop: space.xs }]}>
+                          {entry.cannotRespondReason ?? "You cannot respond for this player."}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
           {cancelled && (
@@ -248,12 +341,24 @@ export default function TrainingCentre() {
             />
           </Group>
 
-          {/* THE VIEWER'S OWN ANSWER, where they are somebody who answers. Reported, not managed --
-              responding belongs with the rest of availability in M6. */}
-          {!!session.myAttendance && (
-            <Text style={[type.caption, { color: colour.inkMuted }]}>
-              Your response: {session.myAttendance === "ATTENDING" ? "Going" : session.myAttendance === "CANNOT_ATTEND" ? "Can't go" : "Unsure"}
-            </Text>
+          {/* WHO'S TRAINING. The same section Match Centre draws, with the one
+              word that differs, from the same component -- so a coach reading a
+              matchday register and a training register is reading one design.
+              Nothing at all without the capability: a parent is not shown a
+              locked panel, because they are not missing a feature.
+
+              WHAT THIS REPLACED. A line reading "Your response: Going / Can't go
+              / Unsure" -- a THIRD first-person vocabulary for the three states
+              the shared control calls "I'm Available / Not Available / Unsure"
+              and the register calls "Attending / Can't attend / Unsure". It was a
+              placeholder, and a placeholder that invents wording is how a product
+              ends up with four names for one answer. */}
+          {session.canViewRegister && (
+            <AvailabilityRegister
+              title="Who's Training"
+              entries={register}
+              emptyBody="No players are on this team yet, so there is nobody to expect at training."
+            />
           )}
 
           {session.canManage && !cancelled && (

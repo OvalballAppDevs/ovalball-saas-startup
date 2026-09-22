@@ -5,7 +5,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@ovalball/contracts": ["../../packages/contracts/src/index.ts"],
-      "@ovalball/contracts/*": ["../../packages/contracts/src/*.ts"],
+      "@ovalball/contracts/*": ["../../packages/contracts/src/*.ts", "../../packages/contracts/src/*/index.ts"],
       "@supabase/supabase-js": ["./node_modules/@supabase/supabase-js"]
     }
   },

@@ -141,16 +141,32 @@ if (canonical) {
 // The Agenda must link to Training Centre by the session's own id -- never by
 // team, date, venue or the recurrence that generated the occurrence.
 
-const agendaLoad = join(ROOT, "lib/agenda/load.ts")
-if (existsSync(agendaLoad)) {
+// WHERE THE LOADER ACTUALLY LIVES. It was `lib/agenda/load.ts` until M5 moved
+// the canonical agenda into `packages/contracts` so React Native could read it;
+// `lib/agenda/load.ts` is now a one-line re-export, and a guard that kept
+// reading the shim was inspecting a file with nothing in it to inspect. It went
+// on passing for exactly as long as the shim still existed, which is the worst
+// shape a structural guard can take -- so BOTH are tried and the first one that
+// actually contains the loader is the one checked.
+const agendaLoadCandidates = [
+  join(ROOT, "packages/contracts/src/agenda/load.ts"),
+  join(ROOT, "lib/agenda/load.ts"),
+]
+const agendaLoad = agendaLoadCandidates.find((f) => existsSync(f) && /loadAgenda/.test(readFileSync(f, "utf8")))
+if (!agendaLoad) {
+  failures.push(
+    "The canonical agenda loader could not be found in packages/contracts/src/agenda/load.ts or lib/agenda/load.ts, so the one-id rule could not be checked at all."
+  )
+} else {
+  const where = relative(ROOT, agendaLoad).replace(/\\/g, "/")
   const src = readFileSync(agendaLoad, "utf8")
   if (!/href:\s*`\/training\/\$\{t\.id\}`/.test(src)) {
     failures.push(
-      "lib/agenda/load.ts no longer links training to /training/${t.id}. Agenda, Scheduler and Training Centre must address one session by one id."
+      `${where} no longer links training to /training/\${t.id}. Agenda, Scheduler and Training Centre must address one session by one id.`
     )
   }
   if (/\/training\/\$\{[^}]*(team|plan|schedule|date|venue)/i.test(src)) {
-    failures.push("lib/agenda/load.ts appears to address Training Centre by something other than the session id.")
+    failures.push(`${where} appears to address Training Centre by something other than the session id.`)
   }
 }
 

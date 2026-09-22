@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 
+import { NO_ANSWER_YET, availabilityQuestion } from "@ovalball/contracts/availability"
 import { AvailabilityChoice, type AvailabilityStatus } from "@/components/shared/availability-choice"
 import { setTrainingAttendanceResponse } from "@/app/(app)/training/[sessionId]/actions"
 import type { TrainingAttendanceEntry } from "@/lib/app-context/training-centre-data"
@@ -48,13 +49,18 @@ function TrainingAttendanceCard({ sessionId, entry }: { sessionId: string; entry
   const [isPending, startTransition] = useTransition()
 
   const questionId = `training-availability-${entry.playerId}`
+  /* The shared sentence builder, for the same reason Match Centre uses it: one
+     question, phrased once, so the two surfaces and the two clients cannot word
+     it four ways. The only thing that differs is the verb, and the builder owns
+     that difference. */
+  const question = availabilityQuestion("training", entry.isSelf, entry.firstName)
 
   return (
     <div className="px-4 py-4 sm:px-6">
       {/* Contextual wording, shared design. A guardian is asked about their
           child by name; an adult player is asked about themselves. */}
       <p id={questionId} className="text-sm font-medium text-chalk">
-        {entry.isSelf ? "Can you make training?" : `Can ${entry.firstName} make training?`}
+        {question}
       </p>
 
       {/* THE CONTROL IS OFFERED ONLY TO SOMEBODY WHO MAY USE IT.
@@ -71,7 +77,7 @@ function TrainingAttendanceCard({ sessionId, entry }: { sessionId: string; entry
         <>
           <div className="mt-3">
             <AvailabilityChoice
-              question={entry.isSelf ? "Can you make training?" : `Can ${entry.firstName} make training?`}
+              question={question}
               questionId={questionId}
               committed={committed}
               pending={isPending ? pending : null}
@@ -88,7 +94,7 @@ function TrainingAttendanceCard({ sessionId, entry }: { sessionId: string; entry
               }}
             />
           </div>
-          {committed === null && !error && <p className="mt-2.5 text-sm text-white/70">You haven&rsquo;t responded yet.</p>}
+          {committed === null && !error && <p className="mt-2.5 text-sm text-white/70">{NO_ANSWER_YET}</p>}
           {error && (
             <p role="alert" className="mt-2.5 text-sm text-red-200">
               {error}

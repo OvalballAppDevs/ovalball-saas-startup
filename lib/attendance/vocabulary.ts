@@ -1,36 +1,22 @@
 /**
- * ONE SET OF WORDS FOR ONE SET OF STATES.
+ * Moved to `packages/contracts/src/availability/vocabulary` so React Native can
+ * reach it, and re-exported here so nothing on the web had to change. The
+ * implementation is unchanged and lives in exactly one place; this file exists
+ * only so the existing `@/lib/attendance/vocabulary` imports keep resolving to
+ * it.
  *
- * A register, a filter and a summary all describe a person in the third person
- * -- "Harry can't attend" -- and must use the SAME word for it. They did not:
- * CANNOT_ATTEND rendered as "Can't make it" in the training register, "Can't
- * attend" in the Match Centre register and the Calendar filter, and "Cannot
- * attend" in the Calendar's quick look. One domain state, three names, four
- * surfaces.
+ * NO `server-only` HERE, deliberately and for the original reason this module
+ * exists at all: it is imported by a `"use client"` control AND by
+ * server-rendered registers. A server component importing a plain value from a
+ * client module gets a client-reference proxy rather than the value, which is how
+ * every register label once rendered as an empty string; a bundling directive
+ * here would break the mirror image of that. The module holds no secret and
+ * talks to nothing.
  *
- * WHY THIS IS ITS OWN MODULE AND NOT PART OF THE CONTROL.
- *
- * It lived in components/shared/availability-choice.tsx, which carries
- * "use client". A SERVER component importing a plain value from a client
- * module gets a client-reference proxy rather than the value, so every label
- * rendered as an EMPTY STRING -- the register's group headings and count tiles
- * came out as a bare icon and a number. Caught in the browser, because nothing
- * in a type-check or a test suite renders a page.
- *
- * So the vocabulary sits here, in a module with no directive at all, and both
- * the client control and the server-rendered registers import the real value.
- *
- * DELIBERATELY NOT THE BUTTON LABELS. AVAILABILITY_OPTIONS says "I'm
- * available" / "Not available" because there the person is answering ABOUT
- * THEMSELVES, in the first person. That is a different job from a register
- * describing them, and keeping the two apart is a distinction, not drift.
+ * The package now also holds the FIRST-PERSON answer words, the canonical group
+ * order, the semantic tone of each state and the summary model -- see that
+ * directory's own commentary for why the answer words had drifted into two sets.
  */
 
-export type AttendanceStateKey = "ATTENDING" | "UNSURE" | "CANNOT_ATTEND" | "AWAITING"
-
-export const ATTENDANCE_STATE_WORDS: Record<AttendanceStateKey, string> = {
-  ATTENDING: "Attending",
-  UNSURE: "Unsure",
-  CANNOT_ATTEND: "Can't attend",
-  AWAITING: "Awaiting",
-}
+export { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability/vocabulary"
+export type { AttendanceGroupKey as AttendanceStateKey } from "@ovalball/contracts/availability/states"

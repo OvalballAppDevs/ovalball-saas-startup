@@ -1,24 +1,39 @@
+import { summariseAvailability } from "@ovalball/contracts/availability"
+
 import { cn } from "@/lib/utils"
 
 /**
  * HOW MANY HAVE ANSWERED, AS ONE LINE.
  *
- * STEP 7 DISPLAY, NOT THE STEP 9 RESPONSE EXPERIENCE. This reads the canonical
- * `player_fixture_attendance` counts an operational surface is entitled to see.
- * It offers no way to answer, no per-player names, and no route into
- * responding: the parent and player journey that produces these numbers is a
- * later step's, and this component exists so that Fixture Operations can be
- * useful in the meantime without pulling that journey forward.
+ * WHAT THIS READS. The canonical `player_fixture_attendance` counts an
+ * operational surface is entitled to see. It offers no way to answer and no
+ * per-player names: responding belongs to Match Centre and Training Centre,
+ * which own the control and the safeguarding rule behind it.
  *
- * NULL IS NOT ZERO. The caller renders nothing when the summary is null --
- * which means "you are not authorised to know", not "nobody has replied". The
- * RPC goes to some trouble to keep those two apart (see the migration); a
- * component that printed "0 of 0" would throw that away at the last step.
+ * NULL IS NOT ZERO. Rendering nothing when the summary is null means "you are
+ * not authorised to know", not "nobody has replied". The RPC goes to some
+ * trouble to keep those apart -- a caller without attendance authority gets no
+ * row at all, so the function cannot even be used to learn that a fixture id
+ * exists -- and a component printing "0 of 0" would throw that away at the last
+ * step. The decision now lives in `summariseAvailability`, which returns null for
+ * both cases, so every surface refuses in the same way.
  *
- * WHY THE NUMBER THAT LEADS IS "AWAITING". A fixture secretary is not
- * checking whether people are coming; they are checking whether they know yet.
- * "Six still to reply" is the actionable fact, and the breakdown follows it.
- * Numbers are never carried by colour alone.
+ * WHY THE NUMBER THAT LEADS IS "AWAITING". A fixture secretary is not checking
+ * whether people are coming; they are checking whether they know yet. That is a
+ * product decision rather than a layout one, so it is made once in the shared
+ * contract and both clients inherit it -- the app's own summary cannot decide to
+ * lead with "18 attending".
+ *
+ * Numbers are never carried by colour alone: the visible line states the figure
+ * and the word, and the full sentence is available to a screen reader.
+ */
+
+/**
+ * The shape this component's existing callers already hold -- Fixture Operations'
+ * row query names the column `unavailable_count` and its type follows. Adapted
+ * into the shared contract's names here rather than renamed across Fixture
+ * Operations, so one component translates once instead of every surface learning
+ * a second vocabulary for the same four figures.
  */
 export interface AvailabilityCounts {
   squad: number
@@ -29,26 +44,20 @@ export interface AvailabilityCounts {
 }
 
 export function AvailabilitySummary({ counts, className }: { counts: AvailabilityCounts | null | undefined; className?: string }) {
-  // Not authorised, or a fixture with no squad recorded against it yet: in
-  // both cases a count would be an assertion nobody can stand behind.
-  if (!counts || counts.squad === 0) return null
-
-  const replied = counts.squad - counts.awaiting
-  const label =
-    counts.awaiting === 0
-      ? `Everyone has replied: ${counts.attending} available, ${counts.unavailable} not, ${counts.unsure} unsure`
-      : `${counts.awaiting} of ${counts.squad} still to reply. ${counts.attending} available, ${counts.unavailable} not, ${counts.unsure} unsure`
+  const summary = summariseAvailability(
+    counts ? { squad: counts.squad, attending: counts.attending, cannotAttend: counts.unavailable, unsure: counts.unsure, awaiting: counts.awaiting } : null
+  )
+  if (!summary) return null
 
   return (
-    <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs", className)} title={label}>
-      <span className="sr-only">{label}</span>
-      <span aria-hidden="true" className={cn("font-medium tabular-nums", counts.awaiting > 0 ? "text-amber-900" : "text-forest-800")}>
-        {counts.awaiting > 0 ? `${counts.awaiting} to reply` : "All replied"}
+    <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs", className)} title={summary.spoken}>
+      <span className="sr-only">{summary.spoken}</span>
+      <span aria-hidden="true" className={cn("font-medium tabular-nums", summary.outstanding ? "text-amber-900" : "text-forest-800")}>
+        {summary.lead}
       </span>
       <span aria-hidden="true" className="text-ink-muted tabular-nums">
-        {counts.attending} in &middot; {counts.unavailable} out
-        {counts.unsure > 0 && <> &middot; {counts.unsure} unsure</>}
-        {counts.awaiting > 0 && <> &middot; {replied}/{counts.squad}</>}
+        {summary.breakdown}
+        {summary.outstanding && <> &middot; {summary.progress}</>}
       </span>
     </p>
   )

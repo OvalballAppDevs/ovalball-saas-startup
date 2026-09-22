@@ -16,6 +16,7 @@ import { AppState } from "react-native"
 import { supabase } from "../auth/supabase"
 import { useSession } from "../auth/session"
 import { loadInbox, unreadTotal } from "../messages/inbox"
+import { canManageClubCrest } from "../identity/images"
 import { friendly, logDetail, type FriendlyError } from "../errors/translate"
 
 /**
@@ -76,7 +77,7 @@ interface ContextState {
    * The URL comes from `clubLogoUrlFromPath`, the canonical rule: the club's own upload, else the Club
    * Directory's branding logo, else nothing -- and nothing means initials, never a substitute image.
    */
-  club: { name: string | null; crestUrl: string | null }
+  club: { name: string | null; crestUrl: string | null; clubId: string | null; hasOwnCrest: boolean; canManageCrest: boolean }
   /**
    * UNREAD MESSAGES, counted from the same rows the inbox lists.
    *
@@ -91,6 +92,21 @@ interface ContextState {
   unreadMessages: number
   /** Recount after reading, so the badge clears without waiting for a focus event. */
   refreshUnread: () => Promise<void>
+  /**
+   * RE-READ THE TWO IDENTITY PICTURES, after one of them has been changed.
+   *
+   * The owner asked for the picture in the header to BE the control for changing
+   * it, and "changes canonically" is the part that matters: the write goes to
+   * `profiles.avatar_storage_path` or `clubs.logo_storage_path`, which every
+   * surface already reads, and this re-reads them so the header shows the new one
+   * without the person having to leave the screen.
+   *
+   * Narrower than `reload` on purpose. A full reload re-resolves the session
+   * context, the switchable contexts and the capability probe, which is a lot of
+   * work to do because somebody chose a new photograph -- and it would reset the
+   * selected context along the way.
+   */
+  refreshIdentityImages: () => Promise<void>
   select: (key: string) => Promise<void>
   reload: () => Promise<void>
 }
@@ -146,29 +162,57 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
     [ctx, selectedKey]
   )
 
-  const [club, setClub] = useState<{ name: string | null; crestUrl: string | null }>({ name: null, crestUrl: null })
+  const EMPTY_CLUB = { name: null, crestUrl: null, clubId: null, hasOwnCrest: false, canManageCrest: false }
+  const [club, setClub] = useState<ContextState["club"]>(EMPTY_CLUB)
+
+  /**
+   * The club identity, plus whether this person may CHANGE its crest.
+   *
+   * The capability is asked of `my_capabilities`, which is the same engine
+   * `club_logos_insert_club_admin` evaluates when the upload happens -- so the
+   * crest becomes a control only for somebody the write would admit, and stays a
+   * plain picture for everybody else. A control that is offered and then refused
+   * is worse than no control.
+   *
+   * `hasOwnCrest` is deliberately separate from `crestUrl`: a club with no upload
+   * of its own still shows the Club Directory's branding logo, so a non-null URL
+   * does not mean there is anything to remove.
+   */
+  const loadClub = useCallback(async (clubId: string | null) => {
+    if (!clubId) {
+      setClub(EMPTY_CLUB)
+      return
+    }
+    const [{ data }, canManageCrest] = await Promise.all([
+      supabase.from("clubs").select("logo_storage_path, club_directory(name, logo_storage_path)").eq("id", clubId).maybeSingle(),
+      canManageClubCrest(supabase, clubId),
+    ])
+    if (!data) {
+      setClub({ ...EMPTY_CLUB, clubId })
+      return
+    }
+    setClub({
+      name: data.club_directory?.name ?? null,
+      crestUrl: clubLogoUrlFromPath(supabase, data.logo_storage_path ?? data.club_directory?.logo_storage_path ?? null),
+      clubId,
+      hasOwnCrest: Boolean(data.logo_storage_path),
+      canManageCrest,
+    })
+  }, [])
+
   useEffect(() => {
     let live = true
     // Cleared first: the previous club's crest must never sit beside the new context's name.
-    setClub({ name: null, crestUrl: null })
-    const clubId = active?.clubId
-    if (!clubId) return
+    setClub(EMPTY_CLUB)
+    const clubId = active?.clubId ?? null
     void (async () => {
-      const { data } = await supabase
-        .from("clubs")
-        .select("logo_storage_path, club_directory(name, logo_storage_path)")
-        .eq("id", clubId)
-        .maybeSingle()
-      if (!live || !data) return
-      setClub({
-        name: data.club_directory?.name ?? null,
-        crestUrl: clubLogoUrlFromPath(supabase, data.logo_storage_path ?? data.club_directory?.logo_storage_path ?? null),
-      })
+      if (!live) return
+      await loadClub(clubId)
     })()
     return () => {
       live = false
     }
-  }, [active])
+  }, [active, loadClub])
 
   const [canSeeTeamSubscriptions, setCanSeeTeamSubscriptions] = useState(false)
   useEffect(() => {
@@ -225,6 +269,14 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.remove()
   }, [refreshUnread])
 
+  /** Both pictures, re-read from their canonical columns. See the field's own commentary. */
+  const refreshIdentityImages = useCallback(async () => {
+    if (status !== "signed-in" || !session?.user) return
+    const { data: profile } = await supabase.from("profiles").select("avatar_storage_path").eq("id", session.user.id).maybeSingle()
+    setAvatarUrl(await resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path ?? null))
+    await loadClub(active?.clubId ?? null)
+  }, [status, session, active, loadClub])
+
   const value = useMemo<ContextState>(
     () => ({
       loading,
@@ -236,11 +288,12 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
       canSeeTeamSubscriptions,
       unreadMessages,
       refreshUnread,
+      refreshIdentityImages,
       club,
       select,
       reload: load,
     }),
-    [loading, error, ctx, avatarUrl, email, contexts, active, canSeeTeamSubscriptions, unreadMessages, refreshUnread, club, select, load]
+    [loading, error, ctx, avatarUrl, email, contexts, active, canSeeTeamSubscriptions, unreadMessages, refreshUnread, refreshIdentityImages, club, select, load]
   )
 
   return <AppContexts.Provider value={value}>{children}</AppContexts.Provider>

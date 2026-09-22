@@ -1,3 +1,4 @@
+import { countsFromResponses, summariseAvailability } from "@ovalball/contracts/availability"
 import { ATTENDANCE_GROUPS, initialsFor, type AttendanceGroupKey } from "@/components/shared/attendance-groups"
 import type { TrainingAttendanceStatus } from "@/lib/app-context/training-centre-data"
 import { cn } from "@/lib/utils"
@@ -50,7 +51,11 @@ export function WhosTraining({ entries, canView }: { entries: TrainingRegisterEn
     CANNOT_ATTEND: entries.filter((e) => e.status === "CANNOT_ATTEND"),
     AWAITING: entries.filter((e) => e.status === null),
   }
-  const answered = entries.length - byGroup.AWAITING.length
+  /* The heading's progress line comes from the shared summary model, built from
+     the SAME rows the groups below are built from -- so "14 of 20 responded"
+     can never disagree with the four numbers underneath it, and the app says it
+     in the same words. */
+  const summary = summariseAvailability(countsFromResponses(entries.map((e) => e.status)))
 
   return (
     <section aria-labelledby="tc-register-heading" className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
@@ -58,11 +63,7 @@ export function WhosTraining({ entries, canView }: { entries: TrainingRegisterEn
         <h2 id="tc-register-heading" className="text-xs font-medium tracking-[0.08em] text-ink-muted uppercase">
           Who&rsquo;s Training
         </h2>
-        {entries.length > 0 && (
-          <p className="text-xs text-ink-muted">
-            {answered} of {entries.length} responded
-          </p>
-        )}
+        {summary && <p className="text-xs text-ink-muted">{summary.progress}</p>}
       </div>
 
       {entries.length === 0 ? (

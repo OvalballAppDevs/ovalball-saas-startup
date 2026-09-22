@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
 import { SlidersHorizontal } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -131,9 +132,14 @@ export function FilterSheet({
                 {[
                   ["", "Any response"],
                   ["needs_response", "Needs response"],
-                  ["ATTENDING", "Attending"],
-                  ["CANNOT_ATTEND", "Can't attend"],
-                  ["UNSURE", "Unsure"],
+                  // The filter DESCRIBES people, so it takes the register's
+                  // third-person words from the shared vocabulary rather than
+                  // transcribing them -- this list agreed with the register only
+                  // by coincidence, and it is exactly the sort of list that is
+                  // missed when the product rewords a state.
+                  ["ATTENDING", ATTENDANCE_STATE_WORDS.ATTENDING],
+                  ["CANNOT_ATTEND", ATTENDANCE_STATE_WORDS.CANNOT_ATTEND],
+                  ["UNSURE", ATTENDANCE_STATE_WORDS.UNSURE],
                 ].map(([value, label]) => (
                   <label key={value} className="flex items-center gap-2 text-sm text-ink/80">
                     <input type="radio" name="attendance" value={value} defaultChecked={(activeAttendance ?? "") === value} className="size-4 accent-pitch-600" />

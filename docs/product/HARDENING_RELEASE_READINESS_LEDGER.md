@@ -655,3 +655,44 @@ ordinary unfinished UX — those are finished or say plainly that they are not b
 - **Store and signing**: Apple Developer membership, Play Console, `eas.json`, distribution
   certificates, push credentials, app icons at store sizes, and privacy manifests for both stores.
   None obtained; none needed before a development build.
+
+---
+
+## M6 — Match Centre, Training Centre and Availability
+
+**Carried forward from the slice, not blocking the product**
+
+- **The match community layer** (awards, recognition on a played match) is on the web's Match Centre
+  and is not on the phone. It is its own product with its own locked decisions rather than a section
+  to port, and an upcoming Match Centre must not look like a post-match awards page — so the native
+  surface renders nothing for it, as the web does for an upcoming fixture.
+- **Tell The Squad** on the Training Centre. The fixture equivalent (Announce to the Squad) is native;
+  the training composer, which uses `training_communication.send` and its own audience counts, is not.
+- **Message moderation on a fixture thread.** `can_moderate` comes back from the canonical
+  capabilities and the native Match Centre does not act on it — the thread screen is M4's.
+- **Realtime availability.** Neither client subscribes: the web's Match Centre is `force-dynamic` and
+  re-reads on navigation, and the app refreshes on focus, after a mutation and on pull. A manager
+  watching a screen while answers arrive will not see them move without one of those. Building a
+  mobile-only subscription was rejected deliberately — it would be a channel the two clients then
+  disagree through.
+- **Offline availability.** Previously loaded data stays on screen; an answer that did not reach the
+  server is reported as not recorded and nothing is queued. Draft reasons are not preserved because
+  there are no reasons to preserve (see below).
+- **An unavailability REASON or note.** The canonical model has no such column. The brief asked for
+  parity if the web supported it; it does not, so nothing was invented. If it is wanted it is a
+  platform change first.
+- **Dynamic Type.** The native type scale is fixed. It clears the 44pt target and the contrast floor,
+  but does not yet respond to the system text-size setting.
+- **`internal.may_complete_player_profile`** still exists with no callers and retires with the Slice 7
+  site-admin pass. Untouched here.
+
+**Found outside this slice's scope, documented rather than fixed**
+
+- `supabase/tests/training_management_regression.sql` assertion **9b** fails. It asserts that
+  `training_plans` remains readable to somebody with no club membership — "the read posture is
+  intentionally open". Migration `20270366000000` (calendar/venue/training policies canonical)
+  deliberately closed that posture. The assertion is stale with respect to a security improvement made
+  in a previous slice; the product behaviour is correct. 34 of 35 pass.
+- The Supabase **migration history table** stops at `20270533000000` while `20270534000000` (M4) and
+  `20270535000000` (M6) are applied to the live local database. Left unrepaired per standing
+  instruction. Clean-boot proof of the chain from empty is therefore still outstanding for both.

@@ -106,8 +106,24 @@ export function FixtureCard({ item, showChild, attention = false }: { item: Agen
   const firstSide = sides.ownTeamIsAway ? item.them : item.us
   const secondSide = sides.ownTeamIsAway ? item.us : item.them
 
+  /*
+    A CANCELLED ROW IS DE-EMPHASISED WITHOUT `opacity`.
+
+    `opacity-70` washed the whole subtree, including the club initials mark --
+    ink-muted on bg-ink/5 inside a 70% layer measures under 4.5:1, and axe caught
+    it on the family agenda. It is the SAME defect this codebase already recorded
+    against the Match Centre participant list, where `opacity-60` took the
+    initials chip from forest-800 down to #6e897d: fading a whole subtree is the
+    easy way to say "less important" and the reliable way to make it unreadable.
+    Somebody checking whether a match is off is exactly the person who must be
+    able to read the row.
+
+    So the de-emphasis is a strike-through on the fixture's own words plus the
+    status badge the row already carries -- both of which survive greyscale, a
+    colour-blind reader and a screen reader, which an opacity never did.
+  */
   const body = (
-    <div className={cn("flex items-start gap-3", cancelled && "opacity-70")}>
+    <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">
         {showChild && item.childFirstName && (
           <p className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-forest-800/8 py-0.5 pr-2.5 pl-0.5 text-xs font-semibold text-forest-900">
@@ -126,7 +142,7 @@ export function FixtureCard({ item, showChild, attention = false }: { item: Agen
           {secondSide && <SideMark side={secondSide} />}
         </div>
 
-        <p className="mt-2 font-display text-base leading-tight text-ink">
+        <p className={cn("mt-2 font-display text-base leading-tight text-ink", cancelled && "line-through decoration-destructive/60 decoration-2")}>
           {sides.homeLabel}
           <span className="text-ink-subtle"> v </span>
           {sides.awayLabel}

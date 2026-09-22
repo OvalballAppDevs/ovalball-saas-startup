@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 
+import { NO_ANSWER_YET, availabilityQuestion } from "@ovalball/contracts/availability"
 import { AvailabilityChoice } from "@/components/shared/availability-choice"
 import { setAttendanceResponse } from "@/app/(app)/fixtures/[fixtureId]/actions"
 import type { AttendanceStatus, MyAttendanceEntry } from "@/lib/app-context/match-centre-data"
@@ -76,11 +77,16 @@ function AttendanceCard({
 
   const canRespond = entry.canRespond && !fixtureCancelled
   const groupLabelId = `availability-${entry.playerId}`
+  /* THE SENTENCE IS THE PLATFORM'S, NOT THIS FILE'S. Match Centre, Training
+     Centre and both clients' agenda rows ask a person the same thing, and each
+     used to build the sentence itself -- which is how "make it" and "make
+     training" would have drifted the moment one of them was reworded. */
+  const question = availabilityQuestion("fixture", entry.isSelf, entry.displayName.split(" ")[0] ?? "")
 
   return (
     <div className="px-4 py-4 sm:px-6">
       <p id={groupLabelId} className="text-sm font-medium text-chalk">
-        {entry.isSelf ? "Can you make it?" : `Can ${entry.displayName.split(" ")[0]} make it?`}
+        {question}
       </p>
 
       {!canRespond ? (
@@ -91,7 +97,7 @@ function AttendanceCard({
         <>
           <div className="mt-3">
             <AvailabilityChoice
-              question={entry.isSelf ? "Can you make it?" : `Can ${entry.displayName.split(" ")[0]} make it?`}
+              question={question}
               questionId={groupLabelId}
               committed={committed}
               pending={isPending ? pending : null}
@@ -108,6 +114,12 @@ function AttendanceCard({
               }}
             />
           </div>
+          {/* THE SAME LINE TRAINING CENTRE SHOWS. Match Centre said nothing at
+              all until an answer existed, so a parent looking at three unfilled
+              buttons had to infer that no answer had been recorded -- the one
+              surface where that inference matters most. Same sentence, same
+              place, from the shared contract. */}
+          {committed === null && !error && <p className="mt-2.5 text-sm text-white/70">{NO_ANSWER_YET}</p>}
           {error && (
             <p role="alert" className="mt-2.5 text-sm text-red-200">
               {error}

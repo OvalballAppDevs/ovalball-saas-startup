@@ -90,15 +90,44 @@ function teardown() {
 
 teardown()
 
-// One fixture for each child's team, a fortnight out, so the agenda asks about
-// both and the two answers can be proved independent.
+// One fixture for each child's team, inside the two-week response horizon, so
+// the agenda asks about both and the two answers can be proved independent.
+//
+// THE DATE IS CHOSEN, NOT ASSUMED. It used to be a flat `current_date + 14`,
+// which worked only for as long as the persistent review world happened to leave
+// that Tuesday free -- `internal.enforce_shared_team_fixture_capacity` allows a
+// team one match a day, so the suite refused to start the moment a real seeded
+// fixture landed on the same date. A permanent suite may not depend on what the
+// owner's review database happens to contain, so each team's first free day
+// inside the horizon is found instead. Still self-cleaning, still repeatable, and
+// it no longer reaches into anybody else's fixtures to make room.
+const freeDay = (teamId, from) =>
+  sql(`
+    select d::date
+    from generate_series(current_date + ${from}, current_date + 13, interval '1 day') d
+    where not exists (
+      select 1 from public.fixtures f
+      where f.kickoff_date = d::date
+        and f.status not in ('Cancelled')
+        and (f.owning_team_id = '${teamId}' or f.opponent_team_id = '${teamId}')
+    )
+    order by d
+    limit 1`)
+
+const dayA = freeDay(childA.teamId, 3)
+const dayB = freeDay(childB.teamId, 3)
+if (!dayA || !dayB) {
+  console.error("No free day inside the 14-day response horizon for one of the two teams -- this suite needs one each.")
+  process.exit(1)
+}
+
 const fixtureA = sql(`insert into public.fixtures
   (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, game_type, status, source, notes)
-  values ('${childA.teamId}', 'Home', 'S9 Visitors ${TAG}', (current_date + 14)::date, '11:00', 'Friendly', 'Booked', 'club_created', '${NOTE}')
+  values ('${childA.teamId}', 'Home', 'S9 Visitors ${TAG}', '${dayA}'::date, '11:00', 'Friendly', 'Booked', 'club_created', '${NOTE}')
   returning id`)
 const fixtureB = sql(`insert into public.fixtures
   (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, game_type, status, source, notes)
-  values ('${childB.teamId}', 'Home', 'S9 Visitors ${TAG}', (current_date + 15)::date, '11:00', 'Friendly', 'Booked', 'club_created', '${NOTE}')
+  values ('${childB.teamId}', 'Home', 'S9 Visitors ${TAG}', '${dayB}'::date, '11:00', 'Friendly', 'Booked', 'club_created', '${NOTE}')
   returning id`)
 
 const browser = await launch()
@@ -144,7 +173,7 @@ try {
   record("B2 and the answer is offered ON the row, not behind a navigation", hasInlineAnswer)
 
   if (hasInlineAnswer) {
-    await answerGroup.getByRole("button", { name: /^Can Attend/ }).click()
+    await answerGroup.getByRole("button", { name: /^I'm Available/ }).click()
     await page.waitForTimeout(2000)
   }
 
@@ -163,7 +192,7 @@ try {
   // ------------------------------------------------------------------
   await go("/agenda")
   const afterReload = await page.getByRole("group", { name: new RegExp(`${childA.firstName}.*${TAG}`, "i") }).first()
-  const pressed = await afterReload.getByRole("button", { name: /^Can Attend/ }).getAttribute("aria-pressed").catch(() => null)
+  const pressed = await afterReload.getByRole("button", { name: /^I'm Available/ }).getAttribute("aria-pressed").catch(() => null)
   record("C1 after a reload the chosen answer is still shown as chosen", pressed === "true", String(pressed))
 
   // ------------------------------------------------------------------
@@ -175,7 +204,7 @@ try {
 
   const answerB = page.getByRole("group", { name: new RegExp(`${childB.firstName}.*${TAG}`, "i") }).first()
   if ((await answerB.count()) > 0) {
-    await answerB.getByRole("button", { name: /^Can't Attend/ }).click()
+    await answerB.getByRole("button", { name: /^Not Available/ }).click()
     await page.waitForTimeout(2000)
   }
   const storedB2 = sql(`select status from public.player_fixture_attendance
@@ -247,7 +276,7 @@ try {
     await m.waitForLoadState("networkidle").catch(() => {})
     const overflow = await m.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     record(`G3 no horizontal overflow on the family agenda at ${width}px`, overflow <= 0, `${overflow}px over`)
-    const target = await m.getByRole("button", { name: /^Can Attend/ }).first().boundingBox().catch(() => null)
+    const target = await m.getByRole("button", { name: /^I'm Available/ }).first().boundingBox().catch(() => null)
     record(`G4 and an answer stays a real target at ${width}px`,
       target === null || target.height >= 44, target ? `${Math.round(target.height)}px` : "(not offered)")
     await small.close()

@@ -47,7 +47,26 @@ export type PickResult =
   | { ok: false; message: string }
   | { cancelled: true }
 
-export async function takePhoto(): Promise<PickResult> {
+/**
+ * How the picked image should be framed.
+ *
+ * `square` exists for the two IDENTITY pictures -- a person's avatar and a
+ * club's crest -- which are drawn in a circle and a square tile respectively. An
+ * uncropped landscape photo dropped into either is centre-cropped by the
+ * renderer, so somebody choosing a picture of their face gets an arbitrary slice
+ * of it and no say in which. A message attachment is the opposite case and stays
+ * uncropped: a photo of a team sheet must not be trimmed on its way into a
+ * conversation.
+ */
+export interface PickOptions {
+  square?: boolean
+}
+
+function framing(options?: PickOptions) {
+  return options?.square ? ({ allowsEditing: true, aspect: [1, 1] as [number, number] }) : ({ allowsEditing: false })
+}
+
+export async function takePhoto(options?: PickOptions): Promise<PickResult> {
   const permission = await ImagePicker.requestCameraPermissionsAsync()
   if (!permission.granted) {
     return {
@@ -58,11 +77,11 @@ export async function takePhoto(): Promise<PickResult> {
     }
   }
   return fromImagePicker(
-    await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], allowsEditing: false, exif: false })
+    await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], exif: false, ...framing(options) })
   )
 }
 
-export async function choosePhoto(): Promise<PickResult> {
+export async function choosePhoto(options?: PickOptions): Promise<PickResult> {
   // THE NARROWER PERMISSION ON PURPOSE. iOS lets somebody grant access to selected photos only, and
   // an app that demands the whole library to attach one picture is asking for more than it needs.
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
@@ -75,7 +94,7 @@ export async function choosePhoto(): Promise<PickResult> {
     }
   }
   return fromImagePicker(
-    await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: false, exif: false })
+    await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], exif: false, ...framing(options) })
   )
 }
 

@@ -1,8 +1,12 @@
+import { useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { supabase } from "../auth/supabase"
 import { useAppContexts } from "../context/contexts"
+import { removeClubCrest, removeMyAvatar, replaceClubCrest, replaceMyAvatar } from "../identity/images"
 import { ClubCrest, PersonAvatar } from "./identity"
+import { PictureSheet, type PictureAction } from "./picture-sheet"
 import { Bell, ChevronDown } from "./icons"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
 
@@ -21,6 +25,23 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
  * THE AVATAR IS THE PERSON. It stays the signed-in adult even when the selected context is a child --
  * the header says who you ARE, and the context row beside it says what you are looking at. This is the
  * platform-wide invariant, and the components it uses have nowhere to pass a club crest.
+ *
+ * AND THE PICTURE IS THE CONTROL. Tapping the avatar changes the avatar; tapping the club crest changes
+ * the crest, for somebody who may. That is the owner's instruction -- "I should be able to click the
+ * profile picture in the top left and change the profile picture there and then, on club admin I should
+ * be able to click the club logo at the top and change that too and it changes in canonically" -- and
+ * the last word is the one that matters: each write goes to the ONE canonical column the whole platform
+ * reads, so the new picture appears in the sidebar, in a conversation, on a fixture card, in the Club
+ * Directory and in an email, because all of those already read it.
+ *
+ * TWO PICTURES, TWO CONTROLS, NO SUBSTITUTION. A person is not a club. The avatar control offers only a
+ * person's picture and the crest control only a club's -- there is no shared "upload an image" path
+ * either could reach through, which is the same discipline that removed the `fallback` prop the website
+ * once had after a team's playing shirt ended up where a club's crest belonged.
+ *
+ * THE CREST IS A CONTROL ONLY FOR SOMEBODY THE WRITE WOULD ADMIT. `club.logo.manage` is asked of
+ * `my_capabilities`, which is the same engine the storage policy evaluates, so for everybody else the
+ * crest stays a plain picture. A control that is offered and then refused is worse than no control.
  */
 export function AppHeader({
   onOpenContexts,
@@ -32,8 +53,52 @@ export function AppHeader({
   unreadCount?: number
 }) {
   const insets = useSafeAreaInsets()
-  const { person, active, contexts, club } = useAppContexts()
+  const { person, active, contexts, club, refreshIdentityImages } = useAppContexts()
   const switchable = contexts.length > 1
+  const [picture, setPicture] = useState<PictureAction | null>(null)
+
+  /** Resolves to an error sentence, or null when the canonical write succeeded. */
+  const avatarAction: PictureAction = {
+    subject: "your picture",
+    onReplace: async (file) => {
+      const result = await replaceMyAvatar(supabase, file)
+      if (!result.ok) return result.message
+      await refreshIdentityImages()
+      return null
+    },
+    onRemove: person.avatarUrl
+      ? async () => {
+          const result = await removeMyAvatar(supabase)
+          if (!result.ok) return result.message
+          await refreshIdentityImages()
+          return null
+        }
+      : null,
+  }
+
+  const crestAction: PictureAction | null = club.clubId
+    ? {
+        subject: "the club crest",
+        onReplace: async (file) => {
+          const result = await replaceClubCrest(supabase, club.clubId!, file)
+          if (!result.ok) return result.message
+          await refreshIdentityImages()
+          return null
+        },
+        // Removing the club's OWN upload does not blank the crest: the canonical
+        // resolver falls back to the Club Directory's branding logo, which is a
+        // real identity rather than a gap. So it is offered only where there is
+        // an upload to remove.
+        onRemove: club.hasOwnCrest
+          ? async () => {
+              const result = await removeClubCrest(supabase, club.clubId!)
+              if (!result.ok) return result.message
+              await refreshIdentityImages()
+              return null
+            }
+          : null,
+      }
+    : null
   // The OWNING CLUB's identity, from the provider -- so every screen shows the same crest and the same
   // initials. Taking it as a prop is how the team's own initials ended up where the club's belong on
   // the screens that did not pass it.
@@ -60,7 +125,16 @@ export function AppHeader({
         gap: space.sm,
       }}
     >
-      <PersonAvatar name={person.firstName} url={person.avatarUrl} size={36} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={person.avatarUrl ? "Your picture. Change it" : "You have no picture. Add one"}
+        accessibilityHint="Opens Take Photo and Choose Photo"
+        onPress={() => setPicture(avatarAction)}
+        hitSlop={6}
+        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      >
+        <PersonAvatar name={person.firstName} url={person.avatarUrl} size={36} />
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"
@@ -82,7 +156,24 @@ export function AppHeader({
           backgroundColor: pressed ? "rgba(16,21,18,0.05)" : "transparent",
         })}
       >
-        {active && !active.subjectName && <ClubCrest clubName={clubName ?? active.label} url={crestUrl ?? active.logoUrl} size={30} />}
+        {active &&
+          !active.subjectName &&
+          (club.canManageCrest && crestAction ? (
+            /* The crest is its own control, so tapping it changes the crest
+               rather than opening the context switcher it sits inside. */
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${clubName ?? active.label} crest. Change it`}
+              accessibilityHint="Opens Take Photo and Choose Photo"
+              onPress={() => setPicture(crestAction)}
+              hitSlop={6}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              <ClubCrest clubName={clubName ?? active.label} url={crestUrl ?? active.logoUrl} size={30} />
+            </Pressable>
+          ) : (
+            <ClubCrest clubName={clubName ?? active.label} url={crestUrl ?? active.logoUrl} size={30} />
+          ))}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[type.smallMedium, { color: colour.ink }]} numberOfLines={1}>
             {active?.label ?? "Ovalball"}
@@ -125,6 +216,11 @@ export function AppHeader({
           />
         )}
       </Pressable>
+
+      {/* One sheet for either picture. It stays open while the write is in
+          flight and closes on the server's success, so nobody is left looking
+          at the old picture wondering whether anything happened. */}
+      <PictureSheet action={picture} onClose={() => setPicture(null)} />
     </View>
   )
 }

@@ -24255,10 +24255,24 @@ export type Database = {
           team_display_name: string
         }[]
       }
+      get_my_players_for_fixture: {
+        Args: { p_fixture_id: string }
+        Returns: {
+          can_respond: boolean
+          current_status: string
+          denial_reason: string
+          first_name: string
+          player_id: string
+          relationship: string
+          surname: string
+        }[]
+      }
       get_my_players_for_training_session: {
         Args: { p_training_session_id: string }
         Returns: {
+          can_respond: boolean
           current_status: string
+          denial_reason: string
           first_name: string
           player_id: string
           relationship: string

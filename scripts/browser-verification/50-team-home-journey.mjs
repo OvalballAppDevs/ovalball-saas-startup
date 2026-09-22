@@ -146,7 +146,7 @@ try {
     const hasAnswer = (await answer.count()) > 0
     record("B4 and the answer is offered on the team's own row", hasAnswer)
     if (hasAnswer) {
-      await answer.getByRole("button", { name: /^Can Attend/ }).click()
+      await answer.getByRole("button", { name: /^I'm Available/ }).click()
       await guardian.waitForTimeout(2000)
     }
     const stored = sql(`select status from public.player_fixture_attendance
@@ -158,7 +158,7 @@ try {
     const pressed = await guardian
       .getByRole("group", { name: new RegExp(`${childName}.*${TAG}`, "i") })
       .first()
-      .getByRole("button", { name: /^Can Attend/ })
+      .getByRole("button", { name: /^I'm Available/ })
       .getAttribute("aria-pressed")
       .catch(() => null)
     record("B6 and after a reload the server's answer is what the team page shows", pressed === "true", String(pressed))
