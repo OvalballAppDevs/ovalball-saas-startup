@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
-import { useRouter } from "expo-router"
+import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { listTime, unreadLabel, type MessengerRow } from "@ovalball/contracts"
 
@@ -59,6 +59,32 @@ export default function Inbox() {
     setRows(null)
     void load()
   }, [load])
+
+  /**
+   * RE-READ EVERY TIME THIS SCREEN IS LOOKED AT AGAIN.
+   *
+   * The inbox used to load once, when it mounted, and never again -- so sending a message, coming back,
+   * and finding the row still showing the PREVIOUS message was not a caching subtlety, it was the list
+   * simply never being asked a second time. Worse, the badge in the tab bar DOES refresh (it recounts
+   * when the app comes to the front), so the two drifted apart and the badge said four unread over a
+   * list that did not contain the conversation they were in.
+   *
+   * `useFocusEffect` is the right hook rather than a mount effect: returning from a conversation does
+   * not remount this screen, it refocuses it. The rows are NOT cleared first here -- that would flash
+   * skeletons over a list somebody is already looking at -- so the refresh is silent and the list
+   * updates in place.
+   *
+   * The unread total is recounted in the same pass, from the same rows, so the badge and the list are
+   * answering one question with one answer.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      void (async () => {
+        await load()
+        await refreshUnread()
+      })()
+    }, [load, refreshUnread])
+  )
 
   const refresh = useCallback(async () => {
     setRefreshing(true)

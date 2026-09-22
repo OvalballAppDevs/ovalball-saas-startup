@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { resolvePersonalAvatarUrl } from "./personal-avatar"
 import type { ThreadMessage } from "./messenger-thread-types"
 
 /**
@@ -22,6 +23,16 @@ export interface DirectThreadView {
   conversationId: string
   otherUserId: string
   otherName: string
+  /**
+   * THE OTHER PERSON'S OWN PICTURE, from the canonical resolver -- `profiles.avatar_storage_path`
+   * through a short-lived signed URL on the private `avatars` bucket. Null where they have none, or
+   * where the viewer may not see it, which both mean "show initials" and never "show something else".
+   *
+   * Added because a conversation header that names somebody and shows nothing is a header that
+   * invites a club crest to be dropped in beside the name -- and a club is not a person. Carried on
+   * the thread so every surface gets it from one place rather than resolving identity separately.
+   */
+  otherAvatarUrl: string | null
   /** A light line under the name where there is something true to say. */
   contextLabel: string | null
   messages: ThreadMessage[]
@@ -35,6 +46,21 @@ export interface DirectThreadView {
 }
 
 const UNAVAILABLE = "This conversation isn't available."
+
+/**
+ * The other party's picture, through the ONE canonical personal-avatar resolver.
+ *
+ * A failure resolves to null, which the interface already renders as initials -- a missing picture is
+ * never a reason to show a different image, and never a reason to fail the whole thread.
+ */
+async function resolveOtherAvatar(supabase: SupabaseClient, otherUserId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("avatar_storage_path")
+    .eq("id", otherUserId)
+    .maybeSingle()
+  return resolvePersonalAvatarUrl(supabase, data?.avatar_storage_path ?? null)
+}
 
 export async function getDirectThread(
   supabase: SupabaseClient,
@@ -107,6 +133,7 @@ export async function getDirectThread(
     conversationId,
     otherUserId,
     otherName: header.other_display_name ?? "Ovalball user",
+    otherAvatarUrl: await resolveOtherAvatar(supabase, otherUserId),
     contextLabel: match ? [match.context_label, match.context_detail].filter(Boolean).join(" · ") : null,
     messages,
     canSend,

@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ActivityIndicator as Spinner,
   Text,
   TextInput,
   View,
@@ -25,11 +26,25 @@ import {
   type ConversationKind,
 } from "../../../../src/messages/conversation"
 import { conversationTopic, useConversationRealtime } from "../../../../src/messages/realtime"
+import { attachmentSupport, sendWithAttachment, type AttachableKind } from "../../../../src/messages/attachments"
+import { choosePhoto, readFileBytes, takePhoto, type PickResult } from "../../../../src/messages/pickers"
+import { readableSize } from "../../../../src/messages/documents"
+import { previewContactCard, shareContactCard, type ContactCardPreview } from "../../../../src/messages/contact-card"
+import { deleteOwnMessage, reportMessage } from "../../../../src/messages/moderation"
 import { clearDraft, readDraft, writeDraft } from "../../../../src/messages/drafts"
 import { friendly, logDetail } from "../../../../src/errors/translate"
 import { PersonAvatar } from "../../../../src/components/identity"
-import { ChevronRight } from "../../../../src/components/icons"
+import { AttachmentSheet, type AttachmentAction } from "../../../../src/components/attachment-sheet"
+import { MessageAttachment, MessageDocumentShare } from "../../../../src/components/message-attachment"
+import {
+  ContactCardBubble,
+  ContactCardSheet,
+  MessageActionsSheet,
+  ReportSheet,
+} from "../../../../src/components/message-actions"
+import { ChevronRight, Plus, X } from "../../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
+import { Image } from "expo-image"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
 
 /**
@@ -51,6 +66,21 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/desig
  * what the platform means by read. It does not touch any notification's resolved state, and nothing
  * here treats having seen a message as having dealt with it.
  */
+/**
+ * A CHOSEN FILE, ON ITS WAY.
+ *
+ * `state` is what the tray draws, and the three values are the three things that can actually be true:
+ * chosen and validated, uploading, or refused. There is no "sent" state because a sent attachment is
+ * not in the tray -- it is in the conversation.
+ */
+interface Picked {
+  name: string
+  mimeType: string
+  sizeBytes: number
+  uri: string
+  state: "ready" | "uploading" | "failed"
+}
+
 export default function ConversationScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -72,7 +102,24 @@ export default function ConversationScreen() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [loadingOlder, setLoadingOlder] = useState(false)
+  // ONE ATTACHMENT, because the canonical RPC carries one. A tray that accepted three and then sent
+  // one would be the interface lying about the platform.
+  const [pending, setPending] = useState<Picked | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [picking, setPicking] = useState(false)
+  // Contact card: previewed from the server before it is shared, because the telephone number comes from
+  // the account rather than from the composer.
+  const [cardSheet, setCardSheet] = useState(false)
+  const [card, setCard] = useState<ContactCardPreview | null>(null)
+  const [cardProblem, setCardProblem] = useState<string | null>(null)
+  const [cardSending, setCardSending] = useState(false)
+  // One message's own actions, opened by pressing and holding it.
+  const [acting, setActing] = useState<ThreadMessage | null>(null)
+  const [reporting, setReporting] = useState<ThreadMessage | null>(null)
+  const [actionBusy, setActionBusy] = useState(false)
+  const [actionProblem, setActionProblem] = useState<string | null>(null)
   const viewerId = session?.user.id ?? null
+  const attachments = attachmentSupport(kind)
   const draftKey = `${kind}:${id}`
 
   const load = useCallback(async () => {
@@ -148,10 +195,62 @@ export default function ConversationScreen() {
     }
   }, [loadingOlder, conversation, viewerId, kind, id])
 
+  /**
+   * WHERE THE SHEET'S CHOICES GO.
+   *
+   * CLUB DOCUMENTS AND CREATE IMAGE ARE SCREENS, not pickers -- one needs a search and a note, the
+   * other needs to explain itself. The three device pickers all end in the same place: a validated
+   * file in the tray, or a sentence saying why not.
+   *
+   * THE DRAFT SURVIVES ALL OF IT. Opening the camera backgrounds the app, and iOS may reclaim it; the
+   * draft has already been written to storage on every keystroke, so the text is read back when the
+   * screen mounts again. Nothing extra is needed here, and that is the point of having put it there.
+   */
+  async function chose(action: AttachmentAction) {
+    if (action === "documents") {
+      router.push({ pathname: "/messages/documents", params: { kind, id } })
+      return
+    }
+    if (action === "contact") {
+      setCard(null)
+      setCardProblem(null)
+      setCardSheet(true)
+      const preview = await previewContactCard(supabase, kind as AttachableKind, id)
+      if (preview.ok) setCard(preview.card)
+      else setCardProblem(preview.message)
+      return
+    }
+    setSendError(null)
+    setPicking(true)
+    let result: PickResult
+    try {
+      result = action === "camera" ? await takePhoto() : await choosePhoto()
+    } catch (caught) {
+      logDetail("attachment picker", friendly(caught, "that file"))
+      result = { ok: false, message: "Couldn't open that. Try again." }
+    }
+    setPicking(false)
+    if ("cancelled" in result) return
+    if (!result.ok) {
+      setSendError(result.message)
+      return
+    }
+    setPending({ ...result.file, state: "ready" })
+  }
+
   async function send() {
-    // Guarded against a double tap as well as disabled: a slow network is exactly when somebody presses
-    // twice, and two identical messages is the result nobody wants.
-    if (sending || !draft.trim() || !session?.user) return
+    // Guarded against a double tap: a slow network is exactly when somebody presses twice, and two
+    // identical messages is the result nobody wants.
+    // An attachment on its own is a message. A caption is optional, which is what the RPC models.
+    if (sending || (!draft.trim() && !pending)) return
+    // A SEND THAT CANNOT RUN MUST SAY SO. This used to return silently when the session had not
+    // finished restoring -- the button simply did nothing, which is indistinguishable from a broken
+    // app and leaves nothing to report. Restoring is slower on a device than in a browser, so the
+    // window is real.
+    if (!session?.user) {
+      setSendError("Still signing you in. Try again in a moment.")
+      return
+    }
     setSending(true)
     setSendError(null)
     const body = draft
@@ -159,19 +258,88 @@ export default function ConversationScreen() {
     // it. A bubble that appears sent and later turns out not to be is the one outcome worth avoiding
     // in a product where somebody may act on having told a parent something.
     setDraft("")
-    const result = await sendMessage(supabase, kind, id, session.user.id, body)
+    const result = pending
+      ? await sendAttached(pending, body)
+      : await sendMessage(supabase, kind, id, session.user.id, body)
     setSending(false)
     if (!result.ok) {
       // The draft comes back, so a failed send never loses what somebody wrote, and the composer is
-      // ready to try again.
+      // ready to try again. THE ATTACHMENT STAYS TOO, marked failed rather than discarded: making
+      // somebody find the same photo again because the network dropped is the wrong half to throw away.
       setDraft(body)
       setSendError(result.message)
+      setPending((current) => (current ? { ...current, state: "failed" } : current))
       return
     }
+    setPending(null)
     if (viewerId) await clearDraft(viewerId, draftKey)
     await load()
-    // The newest message is at the TOP of the list, so that is where to be.
+    // Offset 0 in an inverted list is the BOTTOM of the screen, which is where the message just sent
+    // has landed.
     requestAnimationFrame(() => list.current?.scrollToOffset({ offset: 0, animated: true }))
+  }
+
+  /**
+   * The bytes are read HERE, at send time, not when the file was chosen.
+   *
+   * Holding two megabytes in component state from the moment of picking means an app that is carrying
+   * it through every re-render and through backgrounding. Reading at send also means a file the system
+   * has since reclaimed from the cache fails with a sentence rather than uploading something stale.
+   */
+  async function sendAttached(file: Picked, body: string): Promise<{ ok: true } | { ok: false; message: string }> {
+    setPending({ ...file, state: "uploading" })
+    const bytes = await readFileBytes(file.uri)
+    if (!bytes) return { ok: false, message: "Couldn't read that file. Choose it again." }
+    return sendWithAttachment(supabase, kind as AttachableKind, id, body, {
+      name: file.name,
+      mimeType: file.mimeType,
+      sizeBytes: file.sizeBytes,
+      bytes,
+    })
+  }
+
+  async function sendCard() {
+    if (cardSending) return
+    setCardSending(true)
+    setCardProblem(null)
+    const result = await shareContactCard(supabase, kind as AttachableKind, id)
+    setCardSending(false)
+    if (!result.ok) {
+      setCardProblem(result.message)
+      return
+    }
+    setCardSheet(false)
+    await load()
+  }
+
+  async function removeMessage() {
+    if (!acting || actionBusy) return
+    setActionBusy(true)
+    setActionProblem(null)
+    const result = await deleteOwnMessage(supabase, acting.id)
+    setActionBusy(false)
+    if (!result.ok) {
+      setActionProblem(result.message)
+      return
+    }
+    setActing(null)
+    await load()
+  }
+
+  async function sendReport(reason: string) {
+    if (!reporting || actionBusy) return
+    setActionBusy(true)
+    setActionProblem(null)
+    const result = await reportMessage(supabase, reporting.id, reason)
+    setActionBusy(false)
+    if (!result.ok) {
+      setActionProblem(result.message)
+      return
+    }
+    setReporting(null)
+    // Reload, so a report that the server has recorded is reflected by the row rather than by this
+    // screen remembering it locally.
+    await load()
   }
 
   if (missing) {
@@ -181,6 +349,8 @@ export default function ConversationScreen() {
         onBack={() => router.back()}
         insets={insets}
         messages={[]}
+        avatarUrl={null}
+        isPerson={false}
         header={
           <EmptyState
             title="This conversation isn't available"
@@ -200,17 +370,24 @@ export default function ConversationScreen() {
       <Shell
         title={conversation?.title ?? "Conversation"}
         subtitle={conversation?.subtitle ?? undefined}
+        avatarUrl={conversation?.avatarUrl ?? null}
+        isPerson={conversation?.isPerson ?? false}
         onBack={() => router.back()}
         insets={insets}
         listRef={list}
-        // NEWEST FIRST, which is the website's order. Sorted once, here, because the canonical reader
-        // returns ascending and no screen should assume which way it came.
+        // NEWEST FIRST IN THE DATA, which an inverted list draws bottom-up -- so the newest message
+        // sits nearest the composer and the oldest is furthest up. Sorted once, here, because the
+        // canonical reader returns ascending and no screen should assume which way it came.
         messages={[...(conversation?.messages ?? [])].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         )}
         onEndReached={older}
         loadingOlder={loadingOlder}
         hasMore={conversation?.hasMore ?? false}
+        onHold={(message) => {
+          setActionProblem(null)
+          setActing(message)
+        }}
         header={
           <>
             {problem && <ErrorState message={problem} onRetry={load} />}
@@ -237,8 +414,56 @@ export default function ConversationScreen() {
           sending={sending}
           error={sendError}
           bottomInset={insets.bottom}
+          onAttach={() => setSheetOpen(true)}
+          picking={picking}
+          pending={pending}
+          onRemovePending={() => {
+            setPending(null)
+            setSendError(null)
+          }}
         />
       )}
+
+      <AttachmentSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onChoose={(action) => void chose(action)}
+        canAttach={attachments.canAttach}
+        reason={attachments.reason}
+      />
+
+      <ContactCardSheet
+        visible={cardSheet}
+        card={card}
+        problem={cardProblem}
+        sending={cardSending}
+        onSend={() => void sendCard()}
+        onClose={() => setCardSheet(false)}
+      />
+
+      <MessageActionsSheet
+        visible={acting !== null}
+        canDelete={acting?.canDelete ?? false}
+        canReport={acting?.canReport ?? false}
+        busy={actionBusy}
+        problem={actionProblem}
+        onDelete={() => void removeMessage()}
+        onReport={() => {
+          const message = acting
+          setActing(null)
+          setActionProblem(null)
+          setReporting(message)
+        }}
+        onClose={() => setActing(null)}
+      />
+
+      <ReportSheet
+        visible={reporting !== null}
+        busy={actionBusy}
+        problem={actionProblem}
+        onSubmit={(reason) => void sendReport(reason)}
+        onClose={() => setReporting(null)}
+      />
     </KeyboardAvoidingView>
   )
 }
@@ -250,12 +475,20 @@ export default function ConversationScreen() {
  * views before the first frame. FlatList renders a window, which is what keeps a long conversation
  * smooth -- and is why `messages` is passed as data rather than mapped into children.
  *
- * NEWEST AT THE TOP, which is the website's order. So "load older" belongs at the END of the list,
- * and reaching the end is what asks for it.
+ * NEWEST AT THE BOTTOM, BESIDE THE COMPOSER -- the owner's direction, and the convention every phone
+ * messaging app follows: you read down to the newest thing and reply underneath it. The WEBSITE sorts
+ * newest-first, which suits a mouse and a tall column; a thumb does not. The divergence is
+ * deliberate, and the only one between the two clients.
+ *
+ * `inverted` gives that for free and keeps virtualisation honest: the list renders from the bottom,
+ * so "load older" is reaching the END of the data, which is the TOP of the screen. Reaching it is
+ * what asks for the previous page.
  */
 function Shell({
   title,
   subtitle,
+  avatarUrl,
+  isPerson,
   onBack,
   insets,
   listRef,
@@ -264,9 +497,13 @@ function Shell({
   onEndReached,
   loadingOlder,
   hasMore,
+  onHold,
 }: {
   title: string
   subtitle?: string
+  /** The PERSON's own picture. Null means initials -- never a substitute image. */
+  avatarUrl?: string | null
+  isPerson?: boolean
   onBack: () => void
   insets: { top: number; bottom: number }
   listRef?: React.RefObject<FlatList<ThreadMessage> | null>
@@ -276,6 +513,8 @@ function Shell({
   onEndReached?: () => void
   loadingOlder?: boolean
   hasMore?: boolean
+  /** Press and hold a message to reach what can be done with it. */
+  onHold?: (message: ThreadMessage) => void
 }) {
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
@@ -309,6 +548,9 @@ function Shell({
             <ChevronRight size={22} color={colour.ink} />
           </View>
         </Pressable>
+        {/* A PERSON gets their own picture beside their name. A fixture or club thread gets none --
+            rather than borrowing a crest, which would attribute a conversation to an organisation. */}
+        {isPerson && <PersonAvatar name={title} url={avatarUrl ?? null} size={36} />}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text accessibilityRole="header" numberOfLines={1} style={[type.heading, { color: colour.ink }]}>
             {title}
@@ -323,16 +565,21 @@ function Shell({
 
       <FlatList
         ref={listRef}
+        inverted
         data={messages}
         keyExtractor={(message) => message.id}
-        renderItem={({ item }) => <Bubble message={item} />}
-        ListHeaderComponent={header ? <View style={{ gap: space.md }}>{header}</View> : null}
+        renderItem={({ item }) => <Bubble message={item} onHold={onHold} />}
+        // In an inverted list the HEADER renders at the bottom and the FOOTER at the top, so the
+        // loading, error and empty states go in the footer to stay visually above the conversation.
         ListFooterComponent={
-          loadingOlder ? (
-            <View accessible accessibilityLabel="Loading older messages" style={{ paddingVertical: space.lg, alignItems: "center" }}>
-              <ActivityIndicator color={colour.forest800} />
-            </View>
-          ) : null
+          <View style={{ gap: space.md }}>
+            {loadingOlder ? (
+              <View accessible accessibilityLabel="Loading older messages" style={{ paddingVertical: space.lg, alignItems: "center" }}>
+                <ActivityIndicator color={colour.forest800} />
+              </View>
+            ) : null}
+            {header}
+          </View>
         }
         contentContainerStyle={{ padding: space.lg, gap: space.md }}
         onEndReached={hasMore ? onEndReached : undefined}
@@ -361,7 +608,7 @@ function Shell({
  * club-scoped flag once coloured a colleague's messages as the reader's own, and "who said this" has
  * to survive switching context.
  */
-function Bubble({ message }: { message: ThreadMessage }) {
+function Bubble({ message, onHold }: { message: ThreadMessage; onHold?: (message: ThreadMessage) => void }) {
   // `isOwn` IS THE ANSWER, and it is the server reader's. Recomputing it here from a sender id would
   // be a second opinion about attribution -- and the canonical type carries a note about exactly that:
   // a club-scoped flag once coloured a colleague's messages as the reader's own.
@@ -379,10 +626,30 @@ function Bubble({ message }: { message: ThreadMessage }) {
     )
   }
 
+  // OFFERED ONLY WHERE THE SERVER SAYS SO. `canDelete` and `canReport` are the canonical reader's
+  // answers, carried on the row -- never recomputed here from a sender id.
+  const actionable = Boolean(onHold) && (message.canDelete || message.canReport)
+
   return (
-    <View
+    <Pressable
       accessible
-      accessibilityLabel={`${mine ? "You" : message.senderName} at ${time}. ${message.body}`}
+      // A LONG PRESS IS THE GESTURE A PHONE ALREADY HAS FOR THIS, and it is announced rather than left
+      // to be discovered: a screen reader user is told the action exists.
+      accessibilityActions={actionable ? [{ name: "longpress", label: "Message options" }] : undefined}
+      onAccessibilityAction={actionable ? () => onHold?.(message) : undefined}
+      onLongPress={actionable ? () => onHold?.(message) : undefined}
+      delayLongPress={350}
+      // THE ATTACHMENT IS PART OF WHAT WAS SAID. A label that reads only the caption tells a screen
+      // reader user there is a message and not that there is a file in it.
+      accessibilityLabel={[
+        `${mine ? "You" : message.senderName} at ${time}.`,
+        message.body,
+        message.attachment && `Attached: ${message.attachment.filename}.`,
+        message.documentShare && `Club document: ${message.documentShare.title}.`,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      accessibilityHint={actionable ? "Press and hold for options" : undefined}
       style={{ flexDirection: "row", gap: space.sm, alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "86%" }}
     >
       {/* The sender's OWN picture, already resolved by the canonical reader from the private
@@ -406,26 +673,54 @@ function Bubble({ message }: { message: ThreadMessage }) {
             )}
           </Text>
         )}
-        <Text
-          style={[
-            type.body,
-            {
-              color: message.isDeleted ? (mine ? "rgba(255,255,255,0.7)" : colour.inkSubtle) : mine ? colour.onForest : colour.forest950,
-              fontSize: 15,
-              fontStyle: message.isDeleted ? "italic" : "normal",
-            },
-          ]}
-        >
-          {message.body}
-        </Text>
+        {/* A CAPTION IS OPTIONAL, so an attachment with no words renders no empty line. The canonical
+            reader returns an empty body for exactly that case. */}
+        {!!message.body && (
+          <Text
+            style={[
+              type.body,
+              {
+                color: message.isDeleted ? (mine ? "rgba(255,255,255,0.7)" : colour.inkSubtle) : mine ? colour.onForest : colour.forest950,
+                fontSize: 15,
+                fontStyle: message.isDeleted ? "italic" : "normal",
+              },
+            ]}
+          >
+            {message.body}
+          </Text>
+        )}
+        {/* A TOMBSTONED MESSAGE SHOWS NEITHER. Once soft-deleted the body is already the tombstone
+            text, and rendering the attachment beside it would leave the file reachable after the
+            message carrying it was withdrawn. */}
+        {!message.isDeleted && !!message.attachment && (
+          <MessageAttachment attachment={message.attachment} mine={mine} />
+        )}
+        {!message.isDeleted && !!message.documentShare && (
+          <MessageDocumentShare share={message.documentShare} mine={mine} />
+        )}
+        {!message.isDeleted && !!message.contactCard && (
+          <ContactCardBubble card={message.contactCard} mine={mine} />
+        )}
         <Text style={[type.caption, { color: mine ? "rgba(255,255,255,0.75)" : colour.inkMuted, fontSize: 10, marginTop: 2, textAlign: "right" }]}>
           {time}
         </Text>
       </View>
-    </View>
+    </Pressable>
   )
 }
 
+/**
+ * `[ + ] [ Message....................... ] [ send ]`
+ *
+ * THE ATTACH CONTROL IS A FULL TOUCH TARGET, not a glyph tucked inside the text field. A 24pt paperclip
+ * inside the input is the commonest version of this control and it is the one people miss and mis-tap,
+ * because it competes with placing the cursor.
+ *
+ * IT IS ALWAYS THERE, EVEN WHERE ATTACHMENTS ARE NOT SUPPORTED, and the sheet explains why rather than
+ * the button disappearing. A control that exists on a fixture thread and vanishes on a direct one reads
+ * as a bug in the app; a sheet that says attachments work on fixture conversations reads as the product
+ * telling you where to do the thing.
+ */
 function Composer({
   canSend,
   unavailableReason,
@@ -435,6 +730,10 @@ function Composer({
   sending,
   error,
   bottomInset,
+  onAttach,
+  picking,
+  pending,
+  onRemovePending,
 }: {
   canSend: boolean
   unavailableReason: string | null
@@ -444,6 +743,10 @@ function Composer({
   sending: boolean
   error: string | null
   bottomInset: number
+  onAttach: () => void
+  picking: boolean
+  pending: Picked | null
+  onRemovePending: () => void
 }) {
   if (!canSend) {
     return (
@@ -455,7 +758,30 @@ function Composer({
     )
   }
 
-  const ready = draft.trim().length > 0 && !sending
+  /**
+   * AN IMAGE ALONE IS SENDABLE. A DOCUMENT NEEDS WORDS -- and that is the DATABASE's rule, not a
+   * preference: `fixture_messages_content_present` is
+   *
+   *     CHECK (content_type = 'image' OR (body IS NOT NULL AND btrim(body) <> ''))
+   *
+   * and a non-image attachment is stored as `content_type = 'text'`. So sending a PDF with an empty
+   * caption is refused by the constraint, arriving back as a generic "couldn't attach that file" with
+   * nothing a person can act on. The composer therefore asks for the sentence BEFORE the upload rather
+   * than discovering the rule afterwards, and the tray says why.
+   *
+   * IT CURRENTLY NEVER FIRES, and it stays anyway. The only things this app can attach are a camera
+   * photo and a library image, both JPEG -- so `needsCaption` is false in practice today. It is kept
+   * because the rule belongs to the DATABASE rather than to the picker: the moment anything non-image
+   * can reach this composer, the constraint is waiting, and a guard that was deleted for being
+   * currently unreachable is how that returns as "couldn't attach that file".
+   *
+   * (The website's composer gates on `draft || attachmentReady` without this distinction, and its menu
+   * does offer a one-off PDF, so it has the dead end. Recorded as a web defect rather than changed here.)
+   */
+  const needsCaption = pending !== null && !pending.mimeType.startsWith("image/")
+  const hasText = draft.trim().length > 0
+  const ready =
+    (hasText || (pending !== null && !needsCaption)) && !sending && pending?.state !== "uploading"
 
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: colour.line, backgroundColor: colour.surface, paddingHorizontal: space.md, paddingTop: space.sm, paddingBottom: bottomInset + space.sm }}>
@@ -464,7 +790,42 @@ function Composer({
           {error}
         </Text>
       )}
+
+      {picking && (
+        <View
+          accessible
+          accessibilityLabel="Preparing the file"
+          accessibilityLiveRegion="polite"
+          style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingBottom: space.sm }}
+        >
+          <Spinner size="small" color={colour.forest800} />
+          <Text style={[type.caption, { color: colour.inkMuted }]}>Preparing…</Text>
+        </View>
+      )}
+
+      {pending && <Tray pending={pending} onRemove={onRemovePending} needsCaption={needsCaption && !hasText} />}
+
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Attach"
+          accessibilityState={{ busy: picking }}
+          disabled={picking || sending}
+          onPress={onAttach}
+          style={({ pressed }) => ({
+            width: TOUCH_TARGET,
+            height: TOUCH_TARGET,
+            borderRadius: TOUCH_TARGET / 2,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colour.chalk,
+            borderWidth: 1,
+            borderColor: colour.lineStrong,
+            opacity: picking || sending ? 0.5 : pressed ? 0.8 : 1,
+          })}
+        >
+          <Plus size={22} color={colour.forest800} strokeWidth={2.2} />
+        </Pressable>
         <TextInput
           accessibilityLabel="Message"
           value={draft}
@@ -510,6 +871,104 @@ function Composer({
           <ChevronRight size={20} color={colour.onForest} strokeWidth={2.6} />
         </Pressable>
       </View>
+    </View>
+  )
+}
+
+/**
+ * THE CHOSEN FILE, BEFORE IT IS SENT.
+ *
+ * An image gets its own thumbnail, because "IMG_4821.jpg" does not tell somebody whether they picked the
+ * right photo and this is the last moment to notice. A document gets its name and size.
+ *
+ * REMOVING IT IS A REAL BUTTON AT A REAL SIZE. The ✕ is a full 44pt target, not a 16pt glyph on the
+ * corner of a thumbnail, because getting it wrong means sending a photo somebody had decided against.
+ */
+function Tray({
+  pending,
+  onRemove,
+  needsCaption,
+}: {
+  pending: Picked
+  onRemove: () => void
+  /** True while a document is waiting for the sentence the database requires alongside it. */
+  needsCaption: boolean
+}) {
+  const uploading = pending.state === "uploading"
+  const failed = pending.state === "failed"
+  const size = readableSize(pending.sizeBytes)
+  const isImage = pending.mimeType.startsWith("image/")
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={`Attached: ${pending.name}${size ? `, ${size}` : ""}${
+        uploading ? ". Uploading" : failed ? ". Not sent" : needsCaption ? ". Add a message to send this file" : ""
+      }`}
+      accessibilityLiveRegion="polite"
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.sm,
+        padding: space.sm,
+        marginBottom: space.sm,
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: failed ? colour.danger : colour.line,
+        backgroundColor: colour.chalk,
+      }}
+    >
+      {isImage ? (
+        <Image
+          source={{ uri: pending.uri }}
+          style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colour.mint100 }}
+          contentFit="cover"
+          accessible={false}
+        />
+      ) : (
+        <View style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colour.mint100, alignItems: "center", justifyContent: "center" }}>
+          <Text style={[type.caption, { color: colour.forest800, fontSize: 10 }]}>
+            {pending.mimeType === "application/pdf" ? "PDF" : "FILE"}
+          </Text>
+        </View>
+      )}
+
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={[type.caption, { color: colour.ink, fontSize: 12 }]}>
+          {pending.name}
+        </Text>
+        <Text style={[type.caption, { color: failed ? colour.danger : colour.inkMuted, fontSize: 10 }]}>
+          {uploading
+            ? "Uploading…"
+            : failed
+              ? "Not sent — press send to try again"
+              : needsCaption
+                ? "Add a message to send this file"
+                : (size ?? "Ready")}
+        </Text>
+      </View>
+
+      {uploading ? (
+        <View style={{ width: TOUCH_TARGET, alignItems: "center" }}>
+          <Spinner size="small" color={colour.forest800} />
+        </View>
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${pending.name}`}
+          onPress={onRemove}
+          hitSlop={6}
+          style={({ pressed }) => ({
+            width: TOUCH_TARGET,
+            height: TOUCH_TARGET,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <X size={20} color={colour.inkMuted} strokeWidth={2.2} />
+        </Pressable>
+      )}
     </View>
   )
 }

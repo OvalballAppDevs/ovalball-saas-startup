@@ -30,6 +30,16 @@ export type ConversationKind = "direct" | "fixture" | "request" | "club"
 export interface Conversation {
   title: string
   subtitle: string | null
+  /**
+   * THE PERSON this conversation is with, for the header.
+   *
+   * A PERSON's own picture, or null meaning initials. Never a club crest and never a kit -- the
+   * platform-wide identity rule, and the reason this is a separate field from the club identity on
+   * the subtitle line rather than one ambiguous "image".
+   */
+  avatarUrl: string | null
+  /** True where the header is about a person; false for a fixture, request or club thread. */
+  isPerson: boolean
   messages: ThreadMessage[]
   canSend: boolean
   /** Present when sending is not possible. One sentence for every cause, on purpose. */
@@ -54,6 +64,8 @@ export async function loadConversation(
     return {
       title: thread.otherName,
       subtitle: thread.contextLabel,
+      avatarUrl: thread.otherAvatarUrl,
+      isPerson: true,
       messages: thread.messages,
       canSend: thread.canSend,
       unavailableReason: thread.unavailableReason,
@@ -87,6 +99,10 @@ export async function loadConversation(
   return {
     title: header.title,
     subtitle: header.subtitle,
+    // A fixture, request or club thread is not a person, so it gets no personal avatar -- and
+    // deliberately no crest in its place either.
+    avatarUrl: null,
+    isPerson: false,
     messages,
     canSend: header.canSend,
     unavailableReason: header.canSend ? null : "You can read this conversation but not reply to it.",
@@ -217,14 +233,69 @@ export async function sendMessage(
     content_type: "text",
   })
 
-  // ONE SENTENCE, whatever RLS refused for. The reasons a send can fail are the same reasons a
-  // conversation can be unavailable, and they must not be distinguishable.
-  if (error) return { ok: false, message: "This conversation isn't available." }
+  if (error) {
+    // A FAILED SEND MUST BE DIAGNOSABLE ON A DEVICE. A send that failed on a phone previously produced
+    // one sentence and no log at all, which left nothing to investigate -- the one situation where a
+    // developer most needs detail is the one where the screen must not show any. The code, the
+    // PostgREST hint and the conversation's shape go to the development console; none of it reaches a
+    // person, and no token, body or identifier beyond the conversation's own id is recorded.
+    logSendFailure(kind, id, error)
+    // "Couldn't be sent" is a different fact from "this conversation isn't available", and conflating
+    // them tells somebody their conversation has gone when their network hiccuped. RLS refusals keep
+    // the undifferentiated wording, because THOSE reasons must not be distinguishable.
+    const refused = error.code === "42501" || /row-level security|permission denied/i.test(error.message ?? "")
+    return {
+      ok: false,
+      message: refused ? "This conversation isn't available." : "Message couldn't be sent. Try again.",
+    }
+  }
   return { ok: true }
 }
 
+/** Development only, and deliberately narrow: enough to find the cause, nothing that identifies a person. */
+function logSendFailure(kind: string, conversationId: string, error: { code?: string; message?: string; details?: string; hint?: string }): void {
+  if (typeof __DEV__ === "undefined" || !__DEV__) return
+  // eslint-disable-next-line no-console
+  console.warn("[ovalball] send failed", {
+    kind,
+    conversationId,
+    code: error.code ?? null,
+    message: error.message ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+  })
+}
+
+declare const __DEV__: boolean | undefined
+
 /** Opening a thread is reading it. Failure is silent: a lingering badge is a nuisance; an interruption is worse. */
 export async function markRead(supabase: Client, kind: ConversationKind, id: string): Promise<void> {
-  if (kind !== "direct") return
-  await supabase.rpc("mark_direct_conversation_read", { p_conversation_id: id })
+  if (kind === "direct") {
+    await supabase.rpc("mark_direct_conversation_read", { p_conversation_id: id })
+    return
+  }
+
+  // EVERY OTHER KIND IS READ THE WAY THE WEBSITE READS IT. This used to return early for anything that
+  // was not a direct conversation, which meant opening a fixture thread on a phone, reading it and
+  // going back left the badge saying four unread messages over a conversation that had just been read.
+  // The count is not wrong there -- the reading simply was never recorded.
+  //
+  // `notifications_update_self` allows a person to change `read_at` on their own notifications and
+  // nothing else (`enforce_notification_read_only_update`), so this cannot alter what a notification
+  // says -- only that it has been seen.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+    .eq("type", "new_fixture_message")
+    .is("read_at", null)
+    .contains(
+      "data",
+      kind === "request" ? { fixture_request_id: id } : kind === "fixture" ? { fixture_id: id } : { club_conversation_id: id }
+    )
 }

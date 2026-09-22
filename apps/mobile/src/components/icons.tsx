@@ -1,6 +1,12 @@
 import {
   Bell,
   BookOpen,
+  Camera,
+  Download,
+  FileText,
+  Image,
+  Paperclip,
+  Sparkles,
   CalendarDays,
   Check,
   ChevronDown,
@@ -12,15 +18,18 @@ import {
   Eye,
   EyeOff,
   House,
+  IdCard,
   Lock,
   LogOut,
   Mail,
   MapPin,
   MessageSquare,
+  Phone,
   Plus,
   Receipt,
   Users,
   WifiOff,
+  X,
 } from "lucide-react-native"
 import Svg, { Ellipse } from "react-native-svg"
 
@@ -40,6 +49,12 @@ import Svg, { Ellipse } from "react-native-svg"
 export {
   Bell,
   BookOpen,
+  Camera,
+  Download,
+  FileText,
+  Image,
+  Paperclip,
+  Sparkles,
   CalendarDays,
   Check,
   ChevronDown,
@@ -51,15 +66,18 @@ export {
   Eye,
   EyeOff,
   House,
+  IdCard,
   Lock,
   LogOut,
   Mail,
   MapPin,
   MessageSquare,
+  Phone,
   Plus,
   Receipt,
   Users,
   WifiOff,
+  X,
 }
 
 /** The rugby ball, as an icon, in the brand's own geometry. Matches Lucide's 24-unit grid and weight. */
