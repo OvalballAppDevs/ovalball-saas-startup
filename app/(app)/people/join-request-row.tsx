@@ -15,7 +15,18 @@ export interface JoinRequestData {
   createdAt: string
 }
 
-export function JoinRequestRow({ request }: { request: JoinRequestData }) {
+/**
+ * `highlighted` is how a notification says WHICH request it was about.
+ *
+ * Landing on People & Access with a list and no indication of which row the notification meant leaves
+ * the person to find it, which on a club with a dozen pending requests is the notification failing at
+ * the last step. The row is marked, named to assistive technology, and scrolled to.
+ *
+ * It is presentation only. The row is rendered because RLS returned it and the decision is refused or
+ * allowed by the capability engine inside decideJoinRequest -- a query parameter cannot add a row, and
+ * pointing at one proves nothing about being allowed to act on it.
+ */
+export function JoinRequestRow({ request, highlighted = false }: { request: JoinRequestData; highlighted?: boolean }) {
   const [decided, setDecided] = useState<"approved" | "declined" | null>(null)
   const [declining, setDeclining] = useState(false)
   const [reason, setReason] = useState("")
@@ -42,7 +53,17 @@ export function JoinRequestRow({ request }: { request: JoinRequestData }) {
   const reasonId = `join-request-reason-${request.id}`
 
   return (
-    <li className="rounded-lg border border-ink/10 bg-white px-4 py-3.5">
+    <li
+      ref={(el) => {
+        if (el && highlighted) el.scrollIntoView({ block: "center", behavior: "smooth" })
+      }}
+      aria-current={highlighted ? "true" : undefined}
+      className={
+        highlighted
+          ? "rounded-lg border-2 border-pitch-600 bg-white px-4 py-3.5 shadow-sm"
+          : "rounded-lg border border-ink/10 bg-white px-4 py-3.5"
+      }
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">{request.name}</p>

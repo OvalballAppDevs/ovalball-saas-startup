@@ -35,7 +35,17 @@ const INVITATION_STATE_LABEL: Record<string, string> = {
  * team-scoped roles are the two independent axes this page models; two
  * *club-wide* roles at once was never a real distinction the schema drops.
  */
-export default async function PeoplePage() {
+export default async function PeoplePage({
+  searchParams,
+}: {
+  /**
+   * `?request=<id>` is how a club-join-request notification says which request it was about. It marks
+   * a row and nothing more: the rows themselves come from RLS and the decision is authorised inside
+   * decideJoinRequest, so an id that names somebody else's request simply matches nothing here.
+   */
+  searchParams?: Promise<{ request?: string }>
+}) {
+  const highlightRequestId = (await searchParams)?.request ?? null
   const supabase = await createClient()
   const {
     data: { user },
@@ -227,6 +237,7 @@ export default async function PeoplePage() {
                 {joinRequests.map((r) => (
                   <JoinRequestRow
                     key={r.request_id}
+                    highlighted={r.request_id === highlightRequestId}
                     request={{
                       id: r.request_id,
                       name: [r.first_name, r.surname].filter(Boolean).join(" ") || "Unknown",

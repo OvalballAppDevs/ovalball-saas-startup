@@ -144,12 +144,26 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
       return "/partner-clubs"
 
     // ---- Getting in, and being told about it ----------------------------
+    // A CLAIM, and a DIRECTORY REQUEST, are both somebody asking Ovalball itself for something, and
+    // Site Admin is who reviews them.
     case "club_claim_submitted":
     case "directory_request_submitted":
-    case "club_join_request_submitted":
       return "/admin/claims"
+    case "club_join_request_submitted": {
+      // A JOIN REQUEST IS NOT A CLAIM. It is somebody asking an EXISTING club to let them in, and the
+      // club reviews it on People & Access through list_pending_club_join_requests. Sharing the claim's
+      // destination sent a Club Admin who had been told "somebody wants to join your club" to the Site
+      // Admin claims queue -- a surface about a different concept, which most of them cannot open at
+      // all. The notification had been carrying the request id the whole time; it is now used, so the
+      // page can say which request this was about rather than making them find it.
+      const joinRequestId = str(data.join_request_id)
+      return joinRequestId ? `/people?request=${encodeURIComponent(joinRequestId)}` : "/people"
+    }
     case "club_claim_approved":
     case "club_claim_rejected":
+      // Deliberately the dashboard: the outcome of a claim IS what the dashboard now shows them -- a
+      // club they run, or the same account without one. There is no separate claim-outcome page, and
+      // inventing one to satisfy a coverage count would be the wrong way round.
       return "/dashboard"
     case "club_invitation_accepted":
     case "safeguarding_officer_invitation_accepted":
@@ -161,6 +175,12 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     // the notification lands where you can stop it.
     case "account_recovery_requested":
     case "account_recovery_completed":
+      return "/account/security"
+    // Slice 9 registered this and no destination was added, so it fell to /dashboard -- the same
+    // drift this map exists to prevent, caught by its own guard once the gate was run again. Somebody
+    // told an administrator had finished acting as them wants their own security page: it is where
+    // the session and its audit live.
+    case "impersonation_session_ended":
       return "/account/security"
 
     // ---- Safeguarding appointments and threads (Slice 4G) ----------------

@@ -47,6 +47,13 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-content-standard.mjs"; then
   exit 1
 fi
 
+# A club is never represented by its kit, and a person is never represented by a
+# club's mark. Added by the owner-directed Team Operations correction, which
+# found the Club Desk hero showing a shirt illustration for a club with no crest.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-identity-presentation.mjs"; then
+  exit 1
+fi
+
 # Every post-authentication redirect target goes through one validator. Added at
 # Convergence Step 19, which found a third consumer reading `next` straight off
 # the query string into window.location.assign on the MFA continuation -- the

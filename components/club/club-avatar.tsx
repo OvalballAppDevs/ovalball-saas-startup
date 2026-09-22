@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type CSSProperties, type ReactNode } from "react"
+import { useState, type CSSProperties } from "react"
 
 const SIZE_CLASS = {
   xs: "size-6 text-[8px]",
@@ -35,6 +35,20 @@ const PLACEHOLDER_VARIANT = {
  * effectively invisible there (near-black on near-black), so this swaps
  * only the empty-state tile's own colors, never the loaded-image tile
  * (a real crest's own white/transparent background reads fine either way).
+ *
+ * A CLUB IS NEVER REPRESENTED BY ITS KIT.
+ *
+ * This component used to take a `fallback` node, and `CrestPlate` passed the
+ * club's home shirt into it on the reasoning that a shirt is "the next most
+ * recognisable thing a club owns". The owner has ruled otherwise: a crest, a
+ * kit and a person's face are three different concepts and none of them is a
+ * fallback for another. Preston Grasshoppers has no crest, so every surface
+ * that showed its identity -- the Club Desk hero, the public club home, the
+ * chrome bars -- showed a shirt illustration where the badge belongs.
+ *
+ * The prop is GONE rather than merely unused, because the guarantee has to be
+ * structural: with no way to pass kit artwork in, club presentation cannot
+ * return it. `scripts/verify-identity-presentation.mjs` holds the rest.
  */
 export function ClubAvatar({
   logoUrl,
@@ -43,7 +57,6 @@ export function ClubAvatar({
   variant = "light",
   className = "",
   plain = false,
-  fallback,
 }: {
   logoUrl: string | null
   name: string
@@ -52,8 +65,6 @@ export function ClubAvatar({
   className?: string
   /** No tile border or background -- for a host that already frames the crest (the club homepage's crest plate). */
   plain?: boolean
-  /** Shown instead of initials when there is no crest, e.g. the club's shirt. */
-  fallback?: ReactNode
 }) {
   const [broken, setBroken] = useState(false)
   // A crest is never scaled up past 1.5x its real size. A 60px upload shown
@@ -61,22 +72,13 @@ export function ClubAvatar({
   const [natural, setNatural] = useState<CSSProperties | undefined>(undefined)
   const sizeClass = SIZE_CLASS[size]
 
-  // Capped at 1.5x, a crest smaller than half its box would be a speck on a
-  // blank tile. Where the host offers something better to show (the club's
-  // shirt), that crest gives way to it rather than being the page's identity.
+  // Capped at 1.5x so a small upload stays sharp rather than being blown up
+  // into a blur. A REAL CREST IS ALWAYS SHOWN: this used to discard one that
+  // rendered smaller than half its box in favour of the kit, so a club with a
+  // perfectly good low-resolution badge was represented by a shirt it never
+  // chose.
   function settle(img: HTMLImageElement) {
-    const capped = capAt(img)
-    const box = img.getBoundingClientRect().width
-    if (fallback && box > 0 && Math.max(Number(capped.maxWidth), Number(capped.maxHeight)) < box * 0.5) setBroken(true)
-    else setNatural(capped)
-  }
-
-  if ((!logoUrl || broken) && fallback) {
-    return (
-      <div className={`flex shrink-0 items-center justify-center ${sizeClass} ${className}`} aria-hidden="true">
-        {fallback}
-      </div>
-    )
+    setNatural(capAt(img))
   }
 
   if (!logoUrl || broken) {

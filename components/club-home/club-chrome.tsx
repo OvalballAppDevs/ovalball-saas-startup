@@ -3,7 +3,6 @@ import Link from "next/link"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
-import { RugbyKit } from "@/components/club/rugby-kit"
 import type { PublicClub } from "@/lib/club-public/club"
 import { cn } from "@/lib/utils"
 
@@ -16,13 +15,18 @@ import { FOCUS_HERO, FOCUS_LIGHT } from "./primitives"
  * a dark badge, a wide wordmark, a tall shield, a tiny low-resolution file.
  * Placing it on a white plate means it is legible on every home kit without
  * ever altering the file, and object-contain inside a fixed box means it is
- * never stretched. No crest at all shows the club's home shirt, which is the
- * next most recognisable thing a club owns.
+ * never stretched.
+ *
+ * NO CREST SHOWS THE CLUB'S INITIALS, NOT ITS SHIRT.
+ *
+ * This used to fall back to the home kit, on the reasoning that a shirt is the
+ * next most recognisable thing a club owns. It reads as the club's badge, and
+ * for a club with no crest -- Preston Grasshoppers among them -- the product
+ * showed an illustration of a shirt everywhere its identity appeared, which is
+ * not the club's mark and was never chosen by anybody there. Kit artwork now
+ * appears only where the product is deliberately showing kit.
  */
-export function CrestPlate({ club, size }: { club: Pick<PublicClub, "name" | "crestUrl" | "homeKit">; size: "sm" | "md" | "xl" }) {
-  const fallback = club.homeKit ? (
-    <RugbyKit kit={club.homeKit} clubName={club.name} className="size-full" />
-  ) : undefined
+export function CrestPlate({ club, size }: { club: Pick<PublicClub, "name" | "crestUrl">; size: "sm" | "md" | "xl" }) {
   return (
     <span
       className={cn(
@@ -31,7 +35,7 @@ export function CrestPlate({ club, size }: { club: Pick<PublicClub, "name" | "cr
       )}
       style={{ boxShadow: `0 0 0 1px var(--club-plate-border)` }}
     >
-      <ClubAvatar logoUrl={club.crestUrl} name={club.name} size={size === "xl" ? "xl" : size === "md" ? "md" : "sm"} plain fallback={fallback} className={size === "sm" ? "size-7" : size === "md" ? "md:size-16" : ""} />
+      <ClubAvatar logoUrl={club.crestUrl} name={club.name} size={size === "xl" ? "xl" : size === "md" ? "md" : "sm"} plain className={size === "sm" ? "size-7" : size === "md" ? "md:size-16" : ""} />
     </span>
   )
 }

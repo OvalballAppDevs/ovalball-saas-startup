@@ -103,7 +103,12 @@ const matrix: Row[] = [
   // ---- Getting in, and being told about it -----------------------------
   ["club_claim_submitted", {}, "/admin/claims"],
   ["directory_request_submitted", {}, "/admin/claims"],
-  ["club_join_request_submitted", {}, "/admin/claims"],
+  // NOT the claims queue. A join request is reviewed by the CLUB on People & Access, and the request
+  // id it carries is used so the page can say which one this was about.
+  ["club_join_request_submitted", { join_request_id: "2098d2ad-60d7-4b02-a769-112ad1b70eca" },
+    "/people?request=2098d2ad-60d7-4b02-a769-112ad1b70eca"],
+  // An older notification issued before the id was carried still lands somewhere it can be acted on.
+  ["club_join_request_submitted", {}, "/people"],
   ["club_claim_approved", {}, "/dashboard"],
   ["club_claim_rejected", {}, "/dashboard"],
   ["club_invitation_accepted", {}, "/people"],
@@ -114,6 +119,8 @@ const matrix: Row[] = [
   // where the person can cancel it -- not on a dashboard that leaves them hunting for the control.
   ["account_recovery_requested", { request_id: "11111111-1111-1111-1111-111111111111" }, "/account/security"],
   ["account_recovery_completed", { request_id: "11111111-1111-1111-1111-111111111111" }, "/account/security"],
+  // Slice 9's type, which had no destination at all until the catalogue guard was run again.
+  ["impersonation_session_ended", {}, "/account/security"],
 
   // ---- Safeguarding appointments and threads (Slice 4G) ----------------
   ["safeguarding_officer_confirmed", {}, "/club/settings/safeguarding"],
