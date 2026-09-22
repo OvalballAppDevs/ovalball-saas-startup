@@ -42,7 +42,7 @@ import {
   MessageActionsSheet,
   ReportSheet,
 } from "../../../../src/components/message-actions"
-import { ChevronRight, Plus, X } from "../../../../src/components/icons"
+import { ChevronRight, Plus, Users, X } from "../../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
 import { Image } from "expo-image"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
@@ -406,6 +406,11 @@ export default function ConversationScreen() {
           setActionProblem(null)
           setActing(message)
         }}
+        onPeople={
+          kind === "direct"
+            ? undefined
+            : () => router.push({ pathname: "/messages/participants", params: { kind, id } })
+        }
         header={
           <>
             {problem && <ErrorState message={problem} onRetry={load} />}
@@ -508,6 +513,7 @@ function Shell({
   avatarUrl,
   isPerson,
   onBack,
+  onPeople,
   insets,
   listRef,
   messages,
@@ -523,6 +529,8 @@ function Shell({
   avatarUrl?: string | null
   isPerson?: boolean
   onBack: () => void
+  /** Present only for a group conversation: a direct thread's participants are its two people. */
+  onPeople?: () => void
   insets: { top: number; bottom: number }
   listRef?: React.RefObject<FlatList<ThreadMessage> | null>
   messages: ThreadMessage[]
@@ -579,6 +587,26 @@ function Shell({
             </Text>
           )}
         </View>
+        {/* WHO ELSE IS READING THIS. A group thread is not "you and the opposition" -- it is both clubs'
+            administrators and both teams' staff -- and writing to an audience you are guessing at is the
+            wrong thing to be doing in a product where a message might name a child. */}
+        {!!onPeople && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="People in this conversation"
+            onPress={onPeople}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              width: TOUCH_TARGET,
+              height: TOUCH_TARGET,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Users size={21} color={colour.forest800} strokeWidth={1.9} />
+          </Pressable>
+        )}
       </View>
 
       <FlatList
