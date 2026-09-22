@@ -23,6 +23,16 @@ export const SUCCESSFUL_REDEMPTION_OUTCOMES = [
   "MEMBERSHIP_ACTIVE",
   "PENDING_CONFIRMATION",
   "JOIN_REQUEST_PENDING",
+  // CONVERGENCE STEP 19: the outcome Step 16 started returning and this list never learned about.
+  //
+  // `redeem_invitation` grants a governing-body role and answers BODY_ROLE_ACTIVE. Because the name was
+  // missing here, the allowlist below treated a COMPLETED redemption as an unrecognised outcome and
+  // failed closed -- so the database granted the role and the page told the person their invitation
+  // could not be used. Failing closed is right for an outcome this build genuinely does not know; it is
+  // the wrong answer for one it simply forgot, and the two are indistinguishable from here. That is why
+  // `entranceLanding` is keyed by this union: a future outcome cannot be added without a landing, and a
+  // landing cannot be added without appearing here.
+  "BODY_ROLE_ACTIVE",
   "SITE_ADMIN_ACTIVE",
   "ACCOUNT_SETUP_CONFIRMED",
   "ACCEPTED",

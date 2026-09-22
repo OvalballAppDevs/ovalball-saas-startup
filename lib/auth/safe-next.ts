@@ -80,3 +80,32 @@ export function safeNextPath(next: string | null | undefined): string {
     return DEFAULT_NEXT_PATH
   }
 }
+
+/** The second-factor challenge, which is itself a destination and so belongs in this file. */
+export const MFA_CHALLENGE_PATH = "/security/verify"
+
+/**
+ * WHERE TO SEND SOMEBODY WHO STILL OWES A SECOND FACTOR, WITHOUT LOSING WHY THEY CAME.
+ *
+ * The challenge used to be reached as a bare path, so anybody whose account requires AAL2 was ejected
+ * from whatever entrance they were completing: they opened an invitation, were asked for a code, and
+ * landed on the dashboard with the invitation still unaccepted and nothing to explain it. The
+ * destination therefore travels with them.
+ *
+ * It must not travel twice. `/security/verify` bounces an unauthenticated visitor to
+ * `/login?next=/security/verify?next=<somewhere>`, so the value arriving here can ALREADY be the
+ * challenge carrying its own onward target; wrapping that again produced
+ * `/security/verify?next=/security/verify?next=…` and, after a correct code, returned the person to the
+ * challenge they had just passed. That is not an error state, which is what made it a dead end: they do
+ * hold a factor, so the form simply renders again.
+ *
+ * `next` is validated BEFORE it is put into the query string, so nothing unsafe is ever written into a
+ * URL and the reader on the other side is validating a value that was already safe.
+ */
+export function mfaChallengePath(next: string | null | undefined): string {
+  const destination = safeNextPath(next)
+  if (destination === MFA_CHALLENGE_PATH || destination.startsWith(`${MFA_CHALLENGE_PATH}?`)) {
+    return destination
+  }
+  return `${MFA_CHALLENGE_PATH}?next=${encodeURIComponent(destination)}`
+}

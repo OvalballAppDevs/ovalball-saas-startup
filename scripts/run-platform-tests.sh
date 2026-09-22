@@ -47,6 +47,14 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-content-standard.mjs"; then
   exit 1
 fi
 
+# Every post-authentication redirect target goes through one validator. Added at
+# Convergence Step 19, which found a third consumer reading `next` straight off
+# the query string into window.location.assign on the MFA continuation -- the
+# same open redirect Slice 5 had already fixed on the password path.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-redirect-targets.mjs"; then
+  exit 1
+fi
+
 # Match Centre is one shared role-aware surface. See the script's own header
 # for why this is structural rather than a visual snapshot.
 if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-match-centre-shared.mjs"; then
@@ -358,6 +366,7 @@ BROWSER_SUITES=(
   85-competition-governing-closure
   86-legacy-estate-unreachable
   87-shell-coherence
+  88-entrance-journeys
   # SLICE 7e wired this one. It is Slice 7's own browser evidence -- S7-07 is what
   # the reconciliation cites for AN-8, "the setup link is never shown" -- and it
   # had never been in the release runner, so that evidence rested on somebody's

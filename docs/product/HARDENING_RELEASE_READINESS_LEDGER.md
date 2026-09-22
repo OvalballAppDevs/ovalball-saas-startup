@@ -539,6 +539,54 @@ for a first-class destination would have been worse than the truncation.
   with the reasoning recorded. It is directional, so it is the owner's call rather than a defect.
 - **The dev-only wordmark/webfont rendering difference** remains untouched UX owner debt (§23).
 
+## H18 — UX-8 entrance journeys (Step 19) outcome
+
+**One security defect, one cross-step integration defect, six product defects. FUNCTIONS LOST 0.**
+
+- **H18.0 — CLOSED, and it was a live open redirect.** `app/security/verify/verify-flow.tsx` read `next`
+  straight off the query string into `window.location.assign`, so
+  `/security/verify?next=https://evil.example` sent a person who had just passed their second factor to
+  another origin. `lib/auth/safe-next.ts` had fixed the identical hole on the password path in Slice 5,
+  and its own header predicted this one: *"two copies of an open-redirect guard is exactly how one of
+  them drifts."* There were three consumers, not two. Fixed, and
+  `scripts/verify-redirect-targets.mjs` now fails the gate if a fourth appears — the comment could not
+  prevent this, and a guard can.
+- **H18.1 — CLOSED. A granted governing-body role reported itself as a failed invitation.** Step 16
+  taught `redeem_invitation` to answer `BODY_ROLE_ACTIVE`; `SUCCESSFUL_REDEMPTION_OUTCOMES` never
+  learned the name, and the chokepoint fails closed on an unrecognised outcome — correctly, for one it
+  does not know, and wrongly for one it merely forgot. So the database granted the role and the page
+  said *"That invitation or code can't be used."* **The Step 16 SQL suite passed because it called the
+  RPC; the Step 16 browser suite passed because it never accepted an invitation as the invitee.** This
+  was the seam between them, and `88-entrance-journeys` is now the suite that sits in it.
+  `lib/invitations/entrance-landing.ts` is keyed by the outcome union, so an outcome can no longer be
+  added without a landing.
+
+### New Step 19 debt
+
+- **H18.2 — the invitation preview does not say what relationship you would gain.** UX-8 §7 illustrates
+  *"Role: Fixture Secretary"*. Deferred deliberately: it needs a new column on `preview_invitation` (a
+  drop-and-recreate of a public RPC) and a label authority for club-staff invitation roles, which are
+  stored as `COACH` / `TEAM_MANAGER` and have none. Governing roles do (`lib/governing/roles.ts`).
+  Creating a second naming authority to fill a preview line is the wrong trade. *Owner: whoever owns
+  club-role presentation.*
+- **H18.3 — there is still no player or guardian self-service entrance.** §15.4 rows D and E, §15.6
+  proposal 6. Its blocking dependency is now **gone** — the approval surface exists
+  (`app/(app)/club/join-requests`, `list_pending_club_join_requests`, `approve_club_join_request`) — so
+  this is buildable, and it is a product journey rather than an entrance-coherence repair. An uninvited
+  player whose club is unclaimed is now told the truth instead of being walked into a claim, which is
+  the honest interim state, not the finished product. *Owner: a product slice of its own.*
+- **H18.4 — `ovalballSignupPayload` still exists** in `lib/signup/complete-signup.ts`, the legacy
+  pre-SO-4 metadata path kept for one release. Step 19 built the intent fork on the canonical
+  `auth_flow_states` carrier and did not extend the legacy payload. *Owner: 6b.2c retirement.*
+
+### Measured, not asserted
+
+axe WCAG 2 A/AA on the changed entrance surfaces: `/join` unauthenticated at 1280 — **0 violations**;
+`/join` at 390px — **0**; `/signup` at 390px — **0**; the governing workspace landed in — **1 total, 1
+pre-existing and declared, 0 introduced** (the shell's unread-badge contrast, `SHELL_PRE_EXISTING_VIOLATIONS`).
+No sideways scroll at 390px or 320px on either entrance, and the single primary action measured 44px at
+both widths.
+
 ## H11 — Owed at hardening, in one list
 
 Complete canonical gate on a frozen tree · full-chain clean boot ·

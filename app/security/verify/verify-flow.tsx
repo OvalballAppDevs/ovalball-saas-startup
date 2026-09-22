@@ -3,6 +3,8 @@
 import { useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 
+import { safeNextPath } from "@/lib/auth/safe-next"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,7 +29,13 @@ export function VerifyFlow({ factorId }: { factorId: string }) {
       }
       // A full page load, so the new assurance is on the very next server render rather than a
       // cached one that still thinks this session is AAL1.
-      window.location.assign(searchParams.get("next") ?? "/dashboard")
+      //
+      // THROUGH safeNextPath, WHICH THIS LINE USED TO SKIP. It read `next` straight off the query
+      // string, so /security/verify?next=https://evil.example sent a person who had just passed their
+      // second factor to another origin. Slice 5 fixed precisely this on the password path, and
+      // safe-next.ts's own header predicted the rest: "two copies of an open-redirect guard is exactly
+      // how one of them drifts." This was a third consumer that never called it.
+      window.location.assign(safeNextPath(searchParams.get("next")))
     })
   }
 

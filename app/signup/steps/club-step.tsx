@@ -57,7 +57,15 @@ interface ClubStepProps {
   ref?: Ref<ClubStepHandle>
 }
 
-type Mode = "search" | "claim" | "join" | "not-found"
+/**
+ * "unclaimed" is the fork §15.6 proposal 2 asks for.
+ *
+ * Selecting a directory club with no activated `clubs` row used to set mode straight to "claim", so a
+ * database fact about the club decided which journey a person was in and intent was never asked. A
+ * player whose club is not yet on Ovalball was walked into "Claim Wigan Rugby Union Football Club",
+ * complete with a club team-structure question. Claiming is now something somebody chooses.
+ */
+type Mode = "search" | "unclaimed" | "claim" | "join" | "not-found"
 
 export function ClubStep({
   rugbyCode,
@@ -166,12 +174,22 @@ export function ClubStep({
     )
   }
 
+  if (mode === "unclaimed" && selected) {
+    return (
+      <UnclaimedClubFork
+        directory={selected}
+        onBack={() => setMode("search")}
+        onClaim={() => setMode("claim")}
+      />
+    )
+  }
+
   if (mode === "claim" && selected) {
     return (
       <ClaimForm
         directory={selected}
         groups={offeredGroups}
-        onBack={() => setMode("search")}
+        onBack={() => setMode("unclaimed")}
         onSubmit={(role, authorityConfirmed, teams) => {
           onClubChange({
             kind: "existing-unclaimed",
@@ -280,7 +298,7 @@ export function ClubStep({
                     type="button"
                     onClick={() => {
                       setSelected(result)
-                      setMode(result.claimed ? "join" : "claim")
+                      setMode(result.claimed ? "join" : "unclaimed")
                     }}
                     className="group flex w-full items-start justify-between gap-3 rounded-lg border border-ink/12 bg-white px-4 py-3.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-pitch-600 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
                   >
@@ -375,6 +393,68 @@ function CodeCard({ label, onClick }: { label: string; onClick: () => void }) {
   )
 }
 
+/**
+ * WHAT HAPPENS WHEN NOBODY RUNS THIS CLUB ON OVALBALL YET.
+ *
+ * The screen the §15 audit found missing. Two people select the same unactivated club for opposite
+ * reasons -- one is the club secretary bringing it onto Ovalball, one is a parent whose child plays
+ * there -- and the product used to give them both the founder's journey, because the only thing it
+ * consulted was whether a `clubs` row existed.
+ *
+ * So it asks. The claim is one of two answers rather than the destination, and the other answer is the
+ * truth rather than a dead end: somebody at the club has to set it up, and until they do there is
+ * nothing here to join. Saying so is more use than a form that cannot succeed.
+ */
+function UnclaimedClubFork({
+  directory,
+  onBack,
+  onClaim,
+}: {
+  directory: ClubDirectoryResult
+  onBack: () => void
+  onClaim: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-5">
+      <StepHeader step="Your club" title={`${directory.name} is not on Ovalball yet.`}>
+        Nobody manages this club on Ovalball, so there is nothing to join yet. Somebody at the club
+        needs to set it up first.
+      </StepHeader>
+
+      <SelectedClubSummary directory={directory} />
+
+      <div className="flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={onClaim}
+          className="group rounded-lg border border-ink/12 bg-white px-4 py-3.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-pitch-600 hover:shadow-md focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:outline-none"
+        >
+          <span className="block text-base font-medium text-ink">
+            I am setting this club up on Ovalball
+          </span>
+          <span className="mt-0.5 block text-sm text-ink-muted">
+            You will be asked what you are at the club, and a person reads every request.
+          </span>
+        </button>
+
+        <div className="rounded-lg border border-ink/12 bg-surface-muted px-4 py-3.5">
+          <p className="text-base font-medium text-ink">I play here, or my child does</p>
+          <p className="mt-0.5 text-sm text-ink-muted">
+            Ask somebody who runs {directory.name} to set the club up on Ovalball, or to send you an
+            invitation. You can still create your account now and use it once they have.
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <Button type="button" variant="outline" className="h-11 rounded-lg" onClick={onBack}>
+          Back to Search
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function SelectedClubSummary({ directory }: { directory: ClubDirectoryResult }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-white px-4 py-3.5">
@@ -386,22 +466,41 @@ function SelectedClubSummary({ directory }: { directory: ClubDirectoryResult }) 
   )
 }
 
+/**
+ * THE LIST IS A PARAMETER, BECAUSE THE TWO JOURNEYS ASK DIFFERENT QUESTIONS.
+ *
+ * Joining an already-activated club may legitimately name any of the fifteen club roles -- its Club
+ * Admin decides who is what. CLAIMING one may not: `club_claims_claimed_role_eligible` accepts seven,
+ * and the shared picker offered all fifteen on a step titled CLAIM, so eight of the answers led to a
+ * dead-end notice instead of a claim. The audit's §15.6 proposal 3 is exactly this, and it narrows the
+ * UI to what the database has enforced since Slice 5 rather than changing any authority.
+ *
+ * `allowOther` follows the same rule: a free-text role is too ambiguous to be claim evidence, which is
+ * why `CLAIM_ELIGIBLE_ROLES` excludes "Other" in the first place. Offering the box and then refusing
+ * what is typed into it is the defect, not the validation.
+ */
 function RolePicker({
   value,
   onChange,
+  label = "What is your role at the club?",
+  roles = CLUB_ROLES,
+  allowOther = true,
 }: {
   value: string
   onChange: (role: string) => void
+  label?: string
+  roles?: readonly string[]
+  allowOther?: boolean
 }) {
-  const isKnownRole = CLUB_ROLES.includes(value as (typeof CLUB_ROLES)[number])
+  const isKnownRole = roles.includes(value)
   const [customRole, setCustomRole] = useState(isKnownRole ? "" : value)
-  const selectValue = isKnownRole ? value : value === "" ? "" : "Other"
+  const selectValue = isKnownRole ? value : value === "" || !allowOther ? "" : "Other"
 
   return (
     <div className="flex flex-col gap-2.5">
       <FormSelect
         id="role"
-        label="What is your role at the club?"
+        label={label}
         value={selectValue}
         onChange={(event) => {
           const next = event.target.value
@@ -414,13 +513,13 @@ function RolePicker({
         }}
       >
         <option value="">Select a role&hellip;</option>
-        {CLUB_ROLES.map((role) => (
+        {roles.map((role) => (
           <option key={role} value={role}>
             {role}
           </option>
         ))}
       </FormSelect>
-      {selectValue === "Other" && (
+      {allowOther && selectValue === "Other" && (
         <FormField
           id="role-other"
           label="Your role"
@@ -581,13 +680,30 @@ function ClaimForm({
 
   return (
     <div className="flex flex-col gap-6">
-      <StepHeader step="Step 3 · Claim" title={`Claim ${directory.name}`}>
-        No one manages this club on Ovalball yet.
+      <StepHeader step="Step 3 · Setting up a club" title={`Set up ${directory.name}`}>
+        You have said you are the person bringing this club onto Ovalball.
       </StepHeader>
 
       <SelectedClubSummary directory={directory} />
 
-      <RolePicker value={role} onChange={setRole} />
+      <RolePicker
+        value={role}
+        onChange={setRole}
+        label="Which of these are you at the club?"
+        roles={CLAIM_ELIGIBLE_ROLES}
+        allowOther={false}
+      />
+
+      {/*
+        THE SENTENCE THAT CORRECTS THE SCREEN NOW SITS BESIDE THE QUESTION IT IS ABOUT.
+        It used to come after the role picker, the teams checklist and the declaration -- last on the
+        page, and below the fold on a phone (§15.8) -- which is the worst possible place for the one
+        line that stops a job title reading like a grant of control. §15.6 proposal 4.
+      */}
+      <p className="-mt-1.5 text-sm text-ink-muted">
+        Choosing a title here does not give you that role. It tells Ovalball why you are the right
+        person to set this club up, and a person reads every request.
+      </p>
 
       {isKnownIneligibleRole ? (
         <ClaimAuthorityNotice role={role} onChangeRole={() => setRole("")} onBack={onBack} />
@@ -605,8 +721,7 @@ function ClaimForm({
             <span className="text-sm text-ink/75">{AUTHORITY_DECLARATION_TEXT}</span>
           </label>
           <p className="-mt-3 text-sm text-ink-muted">
-            Submitting this request does not automatically grant control of the
-            club. Ovalball may verify your authority before approving access.
+            Ovalball may verify your authority before approving access.
           </p>
 
           <div className="flex gap-3">

@@ -19,7 +19,7 @@ import {
   tokenForSubmission,
 } from "@/lib/auth/challenge-state"
 import { AuthDivider, SocialAuthButtons } from "@/components/auth/social-auth-buttons"
-import { safeNextPath } from "@/lib/auth/safe-next"
+import { mfaChallengePath, safeNextPath } from "@/lib/auth/safe-next"
 import { hasAnyOAuthProvider } from "@/lib/auth/oauth-providers"
 import { REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember-constants"
 
@@ -140,7 +140,17 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
     // path -- while the callback beside it had validated the same value since
     // Slice 5. `safe-next.ts` warned in its own header that two copies of an
     // open-redirect guard is how one of them drifts; this was the drift.
-    window.location.assign(result.needsMfa ? "/security/verify" : safeNextPath(searchParams.get("next")))
+    //
+    // AND THE MFA BRANCH CARRIES THE DESTINATION WITH IT. It used to send a bare "/security/verify",
+    // so anybody whose account requires a second factor was ejected from whatever they had come to do:
+    // they opened an invitation, were asked for a code, and arrived at the dashboard with the
+    // invitation still unaccepted and no sign of it. The destination is validated here rather than
+    // trusted later, so what travels in the query string is already known-safe.
+    // AND THE MFA BRANCH CARRIES THE DESTINATION WITH IT -- see mfaChallengePath, which owns the rule and
+    // the double-wrap it has to avoid. Both branches resolve through lib/auth/safe-next.ts, so there is
+    // still exactly one place a post-authentication destination is decided.
+    const next = searchParams.get("next")
+    window.location.assign(result.needsMfa ? mfaChallengePath(next) : safeNextPath(next))
   }
 
   async function sendLink() {

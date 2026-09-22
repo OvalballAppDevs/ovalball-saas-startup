@@ -3,6 +3,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
+import { safeNextPath } from "@/lib/auth/safe-next"
 import { createClient } from "@/lib/supabase/server"
 
 import { VerifyFlow } from "./verify-flow"
@@ -10,12 +11,26 @@ import { VerifyFlow } from "./verify-flow"
 export const metadata: Metadata = { title: "Enter Your Code" }
 
 /** Outside the (app) group for the same reason as enrolment: an AAL1 session has to be able to reach it. */
-export default async function VerifyPage() {
+export default async function VerifyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>
+}) {
+  const { next } = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect("/login?next=/security/verify")
+  // THE BOUNCE TO LOGIN KEEPS THE DESTINATION. It used to send a bare "/login?next=/security/verify",
+  // which came back here with nothing to continue to -- so a person who followed an invitation, was
+  // asked for a second factor and had to sign in first lost the invitation somewhere in the middle of
+  // proving who they were. Validated on the way out, so nothing unsafe is put into a query string.
+  if (!user) {
+    const onward = safeNextPath(next)
+    redirect(
+      `/login?next=${encodeURIComponent(`/security/verify?next=${encodeURIComponent(onward)}`)}`,
+    )
+  }
 
   const { data: factors } = await supabase.auth.mfa.listFactors()
   const totp = (factors?.totp ?? []).filter((f) => f.status === "verified")

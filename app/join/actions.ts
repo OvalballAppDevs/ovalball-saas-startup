@@ -2,8 +2,51 @@
 
 import { revalidatePath } from "next/cache"
 
+import { redirect } from "next/navigation"
+
+import { setActiveContext } from "@/app/(app)/set-context"
+import { safeNextPath } from "@/lib/auth/safe-next"
 import { GENERIC_REFUSAL, redeemInvitation, type RedemptionResult } from "@/lib/invitations/redeem"
 import { createClient } from "@/lib/supabase/server"
+
+/**
+ * Makes a newly granted context the active one, on the way out of an entrance.
+ *
+ * A thin pass-through to the shell's own setter, which UX-8 §27 requires: the shell owns context
+ * switching and an entrance does not get its own parallel mechanism. Nothing is validated here because
+ * nothing can be gained by setting it -- `resolveActiveContext` re-checks the key against the session's
+ * real contexts on every server read and silently falls back when it does not name one.
+ */
+export async function adoptEntranceContext(key: string): Promise<void> {
+  await setActiveContext(key)
+}
+
+/**
+ * Signs out and comes straight back to the same invitation.
+ *
+ * UX-8 §26: somebody following a link intended for one address while signed in as another must not be
+ * stranded. Redemption is bound to the session's CONFIRMED email and refuses -- correctly -- with the
+ * generic message, which by design does not say who the invitation was for. So this offers the only
+ * legitimate next action without revealing anything: end this session and return here, where the
+ * invitation is still waiting and can be accepted by whoever it was actually sent to.
+ *
+ * The destination is rebuilt from the token or code the caller already holds, and goes through
+ * `safeNextPath` like every other post-authentication target, so nothing arbitrary can be smuggled into
+ * the redirect.
+ */
+export async function signOutAndReturnToInvitation(input: {
+  token?: string | null
+  code?: string | null
+}): Promise<void> {
+  const target = input.token
+    ? `/join?t=${encodeURIComponent(input.token)}`
+    : input.code
+      ? `/join?c=${encodeURIComponent(input.code)}`
+      : "/join"
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  redirect(safeNextPath(target))
+}
 
 /**
  * Accepting an invitation, from the one public entry point.

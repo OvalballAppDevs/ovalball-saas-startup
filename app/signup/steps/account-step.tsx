@@ -78,10 +78,17 @@ export function AccountStep({
     <div className="flex flex-col gap-6">
       <div>
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">Step 1</p>
-        <h1 className="mt-2 font-display text-display-l text-ink">Bring your club to Ovalball</h1>
+        {/*
+          IT USED TO SAY "BRING YOUR CLUB TO OVALBALL", TO EVERYONE.
+          One account creation screen, announcing itself as club onboarding -- so a player, a parent
+          and a club secretary were all told they were in the founder's journey before being asked a
+          single question. §15.6 proposal 1. What this screen does is create an Ovalball account; the
+          club question comes later, and what happens there now depends on the answer.
+        */}
+        <h1 className="mt-2 font-display text-display-l text-ink">Create your Ovalball account</h1>
         <p className="mt-3 max-w-sm text-base text-ink/60">
-          This is the route for whoever runs a rugby club. You&apos;ll tell us which club, and what
-          your role there is, and a person reviews it before anything is set up.
+          One account for everything you do in rugby &mdash; the club you help run, the team you
+          coach, the children you watch play. You&apos;ll tell us about your club in a moment.
         </p>
       </div>
 
