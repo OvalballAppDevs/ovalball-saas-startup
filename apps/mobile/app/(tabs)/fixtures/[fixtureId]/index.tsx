@@ -120,7 +120,9 @@ export default function FixtureConsole() {
       // The grounds and playing areas come from the OWNING club and the fixture's own venue, which is
       // what the canonical pitch mutation will insist on.
       const [venueOptions, pitchOptions, oppositionContacts] = await Promise.all([
-        loadVenueOptions(supabase, loaded.clubId),
+        // THE HOME CLUB'S GROUNDS, which on an away fixture are the opposition's. Reading our own would
+        // offer a list the server is about to refuse every item of.
+        loadVenueOptions(supabase, loaded.homeClubId ?? loaded.clubId),
         loadPitchOptions(supabase, loaded.clubId, loaded.venueId),
         loadOppositionContacts(supabase, id),
       ])
@@ -507,14 +509,31 @@ export default function FixtureConsole() {
           <ChoiceSheet
             visible={editing === "venue"}
             title="Venue"
-            hint="Your club's grounds."
+            hint={
+              fixture.homeAway === "Away"
+                ? "The home club's grounds."
+                : "Your club's grounds."
+            }
             options={venues.map((venue) => ({ id: venue.id, name: venue.name, detail: venue.town }))}
             value={fixture.venueId}
-            emptyMessage="Your club has no grounds recorded in Ovalball yet. They are added in Club Admin on the web."
+            emptyMessage={
+              fixture.homeAway === "Away"
+                ? "The other club has no grounds on Ovalball, so this fixture's ground is written down as an address instead."
+                : "Your club has no grounds recorded in Ovalball yet. They are added in Club Admin on the web."
+            }
             onClose={() => setEditing(null)}
             saving={saving}
             problem={sheetProblem}
-            onSave={(venueId) => void save(() => updateVenue(supabase, id, venueId))}
+            onSave={(venueId) =>
+              void save(() =>
+                updateVenue(supabase, id, venueId, {
+                  kickoffDate: fixture.date,
+                  kickoffTime: fixture.kickoff,
+                  pitchId: fixture.pitchId,
+                  pitchText: fixture.pitchId ? null : fixture.pitch,
+                })
+              )
+            }
           />
           <ChoiceSheet
             visible={editing === "pitch"}

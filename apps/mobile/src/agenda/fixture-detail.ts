@@ -42,6 +42,7 @@ interface FixtureRow {
   kickoff_time: string | null
   meet_time: string | null
   home_away: string | null
+  home_team_id: string | null
   status: string | null
   game_type: string | null
   raw_opposition_text: string | null
@@ -142,11 +143,21 @@ export interface FixtureDetail {
   editable: EditableFields
   teamId: string
   clubId: string | null
+  /**
+   * WHICH CLUB'S GROUND THIS IS PLAYED AT.
+   *
+   * The ground belongs to whoever is at home, which is not always us. On an AWAY fixture against a team
+   * on Ovalball the home side is the opposition, and their grounds are the legitimate choices -- the
+   * canonical `update_fixture_schedule` resolves the venue against `home_team_id` for exactly that
+   * reason. Null where the home side is not on Ovalball, which is the case where a ground has no record
+   * and is written down as an address instead.
+   */
+  homeClubId: string | null
 }
 
 const SELECT = `
   id, owning_team_id, opponent_team_id, opponent_directory_id, kickoff_date, kickoff_time, meet_time,
-  home_away, status, game_type, raw_opposition_text, venue_address, venue_id, pitch_id, pitch_allocation,
+  home_away, home_team_id, status, game_type, raw_opposition_text, venue_address, venue_id, pitch_id, pitch_allocation,
   notes, home_score, away_score, conversation_id, cancellation_reason, season_id,
   kickoff_amendment_proposed_date, kickoff_amendment_proposed_time, kickoff_amendment_proposed_by_club_id,
   owning:teams!fixtures_owning_team_id_fkey(id, display_name, club_id, clubs(logo_storage_path, club_directory(name, logo_storage_path))),
@@ -263,6 +274,12 @@ export async function loadFixtureDetail(
     editable,
     teamId: ourRow?.id ?? data.owning?.id ?? "",
     clubId: ourRow?.club_id ?? data.owning?.club_id ?? null,
+    homeClubId:
+      data.home_team_id === data.owning?.id
+        ? (data.owning?.club_id ?? null)
+        : data.home_team_id === data.opponent?.id
+          ? (data.opponent?.club_id ?? null)
+          : null,
   }
 }
 

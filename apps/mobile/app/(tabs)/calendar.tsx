@@ -8,12 +8,19 @@ import { nextAnchor, previousAnchor, windowContainsToday } from "@ovalball/contr
 import { supabase } from "../../src/auth/supabase"
 import { useAppContexts } from "../../src/context/contexts"
 import { readAgenda, todayIso } from "../../src/agenda/load"
-import { daysBetween, exactDate, groupByDay, relativeDate } from "../../src/agenda/presentation"
+import { daysBetween, exactDate, groupByDay, relativeDate, restOfDate } from "../../src/agenda/presentation"
 import { friendly, logDetail } from "../../src/errors/translate"
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { AgendaRow } from "../../src/components/agenda-row"
-import { CalendarDays, ChevronRight } from "../../src/components/icons"
+import {
+  AgendaFilterSheet,
+  NO_FILTER,
+  applyFilter,
+  countActive,
+  type AgendaFilter,
+} from "../../src/components/agenda-filter"
+import { CalendarDays, ChevronRight, SlidersHorizontal } from "../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
 
@@ -54,6 +61,8 @@ export default function Calendar() {
   const [problem, setProblem] = useState<{ message: string; offline: boolean } | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [filter, setFilter] = useState<AgendaFilter>(NO_FILTER)
+  const [filterOpen, setFilterOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!sessionContext || !active) return
@@ -93,8 +102,11 @@ export default function Calendar() {
     setRefreshing(false)
   }, [load])
 
-  const days = useMemo(() => groupByDay(items ?? []), [items])
-  const busyDates = useMemo(() => new Set((items ?? []).map((item) => item.date)), [items])
+  // NARROWED, NEVER WIDENED -- and the strip's dots follow the same narrowing, so a day that has been
+  // filtered out does not still advertise itself as having rugby in it.
+  const shown = useMemo(() => (items ? applyFilter(items, filter) : null), [items, filter])
+  const days = useMemo(() => groupByDay(shown ?? []), [shown])
+  const busyDates = useMemo(() => new Set((shown ?? []).map((item) => item.date)), [shown])
   const showOwner = active?.kind !== "team"
 
   return (
@@ -122,6 +134,28 @@ export default function Calendar() {
 
         <View style={{ flexDirection: "row", gap: space.sm }}>
           <Toggle value={mode} onChange={setMode} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={countActive(filter) > 0 ? `Filter, ${countActive(filter)} applied` : "Filter"}
+            onPress={() => setFilterOpen(true)}
+            style={({ pressed }) => ({
+              minHeight: TOUCH_TARGET - 8,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.xs,
+              paddingHorizontal: space.md,
+              borderRadius: radius.md,
+              borderWidth: 1,
+              borderColor: countActive(filter) > 0 ? colour.forest800 : colour.lineStrong,
+              backgroundColor: countActive(filter) > 0 ? colour.mint100 : colour.surface,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <SlidersHorizontal size={15} color={colour.forest800} strokeWidth={2} />
+            <Text style={[type.smallMedium, { color: colour.forest800, fontSize: 13 }]}>
+              {countActive(filter) > 0 ? `Filter · ${countActive(filter)}` : "Filter"}
+            </Text>
+          </Pressable>
           {/* TODAY IS ALWAYS ONE TAP AWAY, and it disappears when you are already there rather than
               sitting inert. Somebody three months into the future should never have to count back. */}
           {anchor !== today && (
@@ -154,13 +188,13 @@ export default function Calendar() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.forest800} />}
         showsVerticalScrollIndicator={false}
       >
-        {problem && !items && (
+        {problem && !shown && (
           <View style={{ paddingHorizontal: space.lg }}>
             <ErrorState message={problem.message} offline={problem.offline} onRetry={load} />
           </View>
         )}
 
-        {problem && items && (
+        {problem && shown && (
           <View style={{ marginHorizontal: space.lg, padding: space.md, borderRadius: radius.md, backgroundColor: colour.warningSurface }}>
             <Text accessibilityRole="alert" style={[type.caption, { color: colour.warning }]}>
               {problem.offline ? "Offline — showing the calendar as it was." : problem.message}
@@ -168,19 +202,21 @@ export default function Calendar() {
           </View>
         )}
 
-        {!problem && items === null && (
+        {!problem && shown === null && (
           <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
             <CardSkeleton lines={1} />
             <CardSkeleton lines={1} />
           </View>
         )}
 
-        {items?.length === 0 && (
+        {shown?.length === 0 && (
           <View style={{ paddingHorizontal: space.lg }}>
             <EmptyState
-              title={emptyTitle(mode, anchor, today)}
+              title={countActive(filter) > 0 ? "Nothing matches that filter" : emptyTitle(mode, anchor, today)}
               body={
-                active?.kind === "family"
+                countActive(filter) > 0
+                  ? "Clear the filter to see the rest of this period."
+                  : active?.kind === "family"
                   ? "No fixtures or training for your children in this period. Try the next one."
                   : "No fixtures or training in this period. Try the next one."
               }
@@ -195,7 +231,7 @@ export default function Calendar() {
               <Text style={[type.overline, { color: day.date === today ? colour.pitch600 : colour.forest800 }]}>
                 {relativeDate(day.date, today).toUpperCase()}
               </Text>
-              <Text style={[type.caption, { color: colour.inkSubtle }]}>{exactDate(day.date)}</Text>
+              <Text style={[type.caption, { color: colour.inkSubtle }]}>{restOfDate(day.date, today)}</Text>
             </View>
             <View style={{ backgroundColor: colour.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colour.line }}>
               {day.items.map((item, index) => (
@@ -216,6 +252,16 @@ export default function Calendar() {
           </View>
         ))}
       </ScrollView>
+
+      <AgendaFilterSheet
+        visible={filterOpen}
+        items={items ?? []}
+        filter={filter}
+        // The Calendar genuinely mixes matches and training, so the toggle has something to do here.
+        showTraining
+        onChange={setFilter}
+        onClose={() => setFilterOpen(false)}
+      />
 
       <ContextSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
     </View>

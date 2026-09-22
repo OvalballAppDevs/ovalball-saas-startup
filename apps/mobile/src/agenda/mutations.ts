@@ -131,17 +131,33 @@ export async function updateDetails(
 }
 
 /**
- * THE GROUND, CHANGED ON ITS OWN.
+ * THE GROUND, WHICH BELONGS TO WHICHEVER CLUB IS AT HOME.
  *
- * Separate from the schedule because it is a separate decision: a fixture often moves ground without
- * moving day, and `update_fixture_venue` is the canonical mutation for exactly that. It re-checks who
- * owns the ground -- an away side does not choose the home club's venue -- and mirrors to the opposing
- * club's row.
+ * THROUGH `update_fixture_schedule`, NOT `update_fixture_venue`, and the difference matters. The older
+ * function resolves the home club from `owning_team_id` and refuses outright on an away fixture -- "a
+ * venue can only be set on a home fixture" -- which is wrong for the case that actually needs it: an
+ * away fixture against a team on Ovalball, where the home side is the opposition and THEIR grounds are
+ * the legitimate choices. The newer one resolves against `home_team_id` and allows it, which is what
+ * `fixture_editable_fields` already reports.
+ *
+ * THE OTHER FIELDS ARE PASSED THROUGH UNCHANGED, because this RPC treats an omitted value as a
+ * clearance. Sending the current kick-off and pitch back is not a redundant write: it is the difference
+ * between moving the ground and quietly wiping the pitch allocation somebody planned.
  */
-export async function updateVenue(supabase: Client, fixtureId: string, venueId: string | null): Promise<MutationResult> {
-  const { error } = await supabase.rpc("update_fixture_venue", {
+export async function updateVenue(
+  supabase: Client,
+  fixtureId: string,
+  venueId: string | null,
+  current: { kickoffDate: string; kickoffTime: string | null; pitchId: string | null; pitchText: string | null }
+): Promise<MutationResult> {
+  const { error } = await supabase.rpc("update_fixture_schedule", {
     p_fixture_id: fixtureId,
+    p_kickoff_date: current.kickoffDate,
+    p_kickoff_time: (current.kickoffTime ?? null) as unknown as string,
     p_venue_id: (venueId ?? null) as unknown as string,
+    p_pitch_id: (current.pitchId ?? null) as unknown as string,
+    p_pitch_text: (current.pitchText ?? null) as unknown as string,
+    p_source: "mobile",
   })
   return error ? failed(error, "You can't change this fixture's ground.") : { ok: true }
 }

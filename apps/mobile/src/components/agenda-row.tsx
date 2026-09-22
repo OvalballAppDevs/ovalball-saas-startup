@@ -4,6 +4,7 @@ import type { AgendaItem } from "@ovalball/contracts"
 import {
   homeAwayLabel,
   kickoffLabel,
+  opponentFullName,
   opponentLine,
   relativeDate,
   shortVenue,
@@ -126,11 +127,10 @@ export function AgendaRow({
         </Text>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
-          {showOwner && !!ownerLabel(item) && (
+          {!!ownerLabel(item) && (
             <Meta icon={<OvalIcon size={12} color={colour.inkMuted} />} text={ownerLabel(item)!} />
           )}
           {!!shortVenue(item.venue) && <Meta icon={<MapPin size={12} color={colour.inkMuted} />} text={shortVenue(item.venue)!} />}
-          {training && !!item.us.teamName && <Meta text={item.us.teamName} />}
         </View>
       </View>
 
@@ -152,7 +152,14 @@ export function AgendaRow({
   )
 }
 
-/** "Ava" or "Under 12 Boys" — whose rugby this row is, in a view that mixes several. */
+/**
+ * WHOSE RUGBY THIS ROW IS.
+ *
+ * A child's name in a family view, our own side elsewhere. It is always shown for a fixture rather than
+ * only in mixed views, because once the title is the opponent's CLUB the row would otherwise never say
+ * which of our sides is playing -- and a club running seven teams needs that more than it needs the
+ * word "v".
+ */
 function ownerLabel(item: AgendaItem): string | null {
   return item.childFirstName ?? item.us.teamName ?? null
 }
@@ -161,14 +168,24 @@ export function HomeAwayBadge({
   home,
   size = 26,
   ringColour,
+  onDark,
 }: {
   home: NonNullable<ReturnType<typeof homeAwayLabel>>
   size?: number
   /** A ring, where the badge sits on a background close to its own colour. */
   ringColour?: string
+  /** True on the forest card, where the home badge would otherwise vanish into the background. */
+  onDark?: boolean
 }) {
   const known = home.short === "H" || home.short === "A"
-  const background = home.short === "H" ? colour.forest800 : home.short === "A" ? colour.messengerBlue : colour.lineStrong
+  // FOREST ON FOREST IS INVISIBLE. On the dark card the home badge was the same colour as the card
+  // behind it, so only its ring showed and "H" read as an outline somebody had forgotten to fill.
+  // The pitch green is the brand's own light green and reads on both grounds.
+  const background = home.short === "H"
+    ? (onDark ? colour.pitch600 : colour.forest800)
+    : home.short === "A"
+      ? colour.messengerBlue
+      : colour.lineStrong
   return (
     <View
       // The row already says "Home" in its own sentence; repeating it here would have VoiceOver read
@@ -189,7 +206,11 @@ export function HomeAwayBadge({
       <Text
         style={[
           type.smallMedium,
-          { color: known ? colour.onForest : colour.inkMuted, fontSize: size * 0.48, lineHeight: size * 0.6 },
+          {
+            color: known ? (onDark && home.short === "H" ? colour.forest950 : colour.onForest) : colour.inkMuted,
+            fontSize: size * 0.48,
+            lineHeight: size * 0.6,
+          },
         ]}
       >
         {home.short}
@@ -287,6 +308,9 @@ export function NextFixtureCard({
           >
             {item.kind === "training" ? "Training" : opponentLine(item)}
           </Text>
+          {/* OUR SIDE, ONCE. The title is the opponent's CLUB, so this is the only place the age grade
+              appears -- "Preston Grasshoppers RFC Under 13 Boys" above "Under 13 Boys" said it twice
+              and told nobody which of our teams was playing. */}
           <Text style={[type.small, { color: colour.onForestMuted, marginTop: 2 }]}>
             {item.us.teamName ?? item.us.clubName}
             {item.childFirstName ? ` · ${item.childFirstName}` : ""}
@@ -328,7 +352,7 @@ export function NextFixtureCard({
           pointerEvents="none"
           style={{ position: "absolute", right: space.lg, bottom: space.lg }}
         >
-          <HomeAwayBadge home={home} size={34} ringColour="rgba(255,255,255,0.28)" />
+          <HomeAwayBadge home={home} size={34} ringColour="rgba(255,255,255,0.28)" onDark />
         </View>
       )}
     </Pressable>

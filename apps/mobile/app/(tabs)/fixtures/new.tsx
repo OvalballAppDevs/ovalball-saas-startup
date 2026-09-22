@@ -5,83 +5,165 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
-import { createFixture } from "../../../src/agenda/mutations"
+import {
+  compatibleOpponents,
+  createFixture,
+  createFixtureRequest,
+  type CompatibleOpponent,
+} from "../../../src/agenda/mutations"
+import { searchDirectoryClubs, teamRugbyCode, type DirectoryClub } from "../../../src/agenda/opponent-search"
 import { todayIso } from "../../../src/agenda/load"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { ChoiceField, DateField, Field, SubmitButton, TextField, TimeField } from "../../../src/components/form"
-import { ChevronRight } from "../../../src/components/icons"
-import { ErrorState } from "../../../src/components/ui"
+import { ClubCrest } from "../../../src/components/identity"
+import { Check, ChevronRight, OvalIcon, Users } from "../../../src/components/icons"
+import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
 
 /**
- * ADDING ONE FIXTURE.
+ * ADDING A FIXTURE -- ONE JOURNEY, TWO ENDINGS.
  *
- * ONE. Not a season, not a block, not an import. Those are club-scoped jobs with their own screens on
- * the web, and a phone reproducing them badly would be worse than a phone that does the thing a phone
- * is actually good at: somebody standing on a touchline agreeing a date with another coach.
+ * There used to be two buttons, Add Fixture and Request Fixture, and they asked almost identical
+ * questions. The owner was right that this is one job: you are arranging a match. What differs is not
+ * what you are DOING, it is who you are doing it with -- and the platform already knows which, so the
+ * person should not have to.
  *
- * THE FIELDS ARE THE ONES `create_fixture` NEEDS, and the ones a person can answer from the touchline.
- * Competition, pitch allocation and the rest are edits made later at a desk, and the fixture is
- * perfectly valid without them.
+ * SO THE OPPONENT IS CHOSEN FIRST, FROM THE CLUB DIRECTORY. Every rugby club in the country is in
+ * there, whether or not it has ever opened Ovalball, and picking from it rather than typing a name is
+ * what makes the next question answerable at all: a club with an identity can be asked, a string cannot.
  *
- * THE OPPOSITION IS FREE TEXT HERE, DELIBERATELY. Naming a team on Ovalball creates a two-sided fixture
- * that the other club has to agree to -- which is Request Fixture, a different journey with a different
- * answer. This screen records a match this club is arranging for itself; the canonical inter-club path
- * is one tap away and is what the empty state points at.
+ *   ON OVALBALL   -> a REQUEST. They confirm, and both clubs end up with the same match. Nothing is in
+ *                    either calendar until they do, and the screen says so before the date is picked.
+ *   NOT ON OVALBALL -> a fixture, recorded. There is nobody to ask, and pretending to ask would be a
+ *                    request into a void.
  *
- * AUTHORITY IS NOT ASKED HERE. `create_fixture` re-checks it, and the screen is only reachable when
- * `my_capabilities` said so. Nothing in this file decides anything.
+ * The person sees which they are doing from the moment they choose the club, and the button says it
+ * too -- "Send Request" or "Add Fixture" -- so the ending is never a surprise.
+ *
+ * NOTHING HERE DECIDES ANYTHING. `create_fixture` and the fixture-request inserts re-check authority,
+ * `compatible_opponent_teams` decides which of their sides may be played, and the request trigger
+ * refuses an incompatible pair whatever this screen offered.
  */
-export default function NewFixture() {
+export default function AddFixture() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { active } = useAppContexts()
   const params = useLocalSearchParams<{ teamId?: string }>()
   const today = todayIso()
 
-  // THE TEAM COMES FROM THE CONTEXT SOMEBODY IS STANDING IN. A picker here would be a second way to
-  // choose a team, and a way to choose one they are not acting for.
   const teamId = String(params.teamId ?? (active?.kind === "team" ? active.id : "") ?? "")
   const teamName = active?.kind === "team" ? active.label : null
+  const clubId = active?.clubId ?? null
+
+  const [rugbyCode, setRugbyCode] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
+  const [clubs, setClubs] = useState<DirectoryClub[] | null>(null)
+  const [club, setClub] = useState<DirectoryClub | null>(null)
+  const [opponents, setOpponents] = useState<CompatibleOpponent[] | null>(null)
+  const [opponent, setOpponent] = useState<CompatibleOpponent | null>(null)
 
   const [date, setDate] = useState(today)
   const [time, setTime] = useState<string | null>("10:30")
   const [homeAway, setHomeAway] = useState<"Home" | "Away" | "TBD">("Home")
-  const [opposition, setOpposition] = useState("")
-  const [status, setStatus] = useState<"Planned" | "Booked">("Booked")
   const [gameType, setGameType] = useState<"Friendly" | "League Fixture" | "Cup Fixture">("Friendly")
-  const [notes, setNotes] = useState("")
+  const [note, setNote] = useState("")
   const [problem, setProblem] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const ready = teamId.length > 0 && opposition.trim().length > 0 && !saving
+  useEffect(() => {
+    void teamRugbyCode(supabase, teamId).then(setRugbyCode)
+  }, [teamId])
+
+  const find = useCallback(
+    async (needle: string) => {
+      setProblem(null)
+      try {
+        setClubs(await searchDirectoryClubs(supabase, needle, { rugbyCode, excludeClubId: clubId }))
+      } catch (caught) {
+        const failure = friendly(caught, "clubs")
+        logDetail("directory search", failure)
+        setProblem(failure.message)
+      }
+    },
+    [rugbyCode, clubId]
+  )
+
+  useEffect(() => {
+    const timer = setTimeout(() => void find(search), clubs === null ? 0 : 250)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, find])
+
+  // WHICH OF THEIR SIDES WE MAY PLAY -- only askable of a club that is on Ovalball, because only it has
+  // sides the platform knows about.
+  useEffect(() => {
+    let live = true
+    setOpponents(null)
+    setOpponent(null)
+    if (!club?.onOvalball || !club.clubId || !teamId) return
+    void (async () => {
+      try {
+        const result = await compatibleOpponents(supabase, teamId, club.clubId!)
+        if (live) setOpponents(result)
+      } catch (caught) {
+        if (!live) return
+        const failure = friendly(caught, "compatible teams")
+        logDetail("compatible opponents", failure)
+        setOpponents([])
+        setProblem(failure.message)
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [club, teamId])
+
+  const asking = Boolean(club?.onOvalball)
 
   async function submit() {
-    if (!ready) return
+    if (!club || saving || !teamId) return
     setSaving(true)
     setProblem(null)
-    const result = await createFixture(supabase, {
-      owningTeamId: teamId,
-      homeAway,
-      kickoffDate: date,
-      kickoffTime: time,
-      opponentTeamId: null,
-      opponentDirectoryId: null,
-      rawOppositionText: opposition.trim(),
-      status,
-      gameType,
-      venueId: null,
-      notes: notes.trim() || null,
-    })
+
+    const result = asking
+      ? await createFixtureRequest(supabase, {
+          requestingClubId: clubId ?? "",
+          requestingTeamId: teamId,
+          targetTeamId: opponent?.teamId ?? null,
+          opponentClubId: club.clubId,
+          opponentDirectoryId: club.directoryId,
+          rawOpponentText: club.name,
+          proposedDate: date,
+          preferredKickoffTime: time,
+          venuePreference: homeAway === "Home" ? "home" : homeAway === "Away" ? "away" : "either",
+          note: note.trim() || null,
+        })
+      : await createFixture(supabase, {
+          owningTeamId: teamId,
+          homeAway,
+          kickoffDate: date,
+          kickoffTime: time,
+          opponentTeamId: null,
+          // A DIRECTORY IDENTITY, not free text -- so the fixture names a real club and the crest and
+          // the address come with it.
+          opponentDirectoryId: club.directoryId,
+          rawOppositionText: club.name,
+          status: "Booked",
+          gameType,
+          venueId: null,
+          notes: note.trim() || null,
+        })
+
     setSaving(false)
     if (!result.ok) {
       setProblem(result.message)
       return
     }
-    // Straight to the fixture that now exists, rather than back to a list where somebody has to find it.
-    if (result.id) router.replace(`/fixtures/${result.id}` as never)
+    if (!asking && result.id) router.replace(`/fixtures/${result.id}` as never)
     else router.back()
   }
+
+  const ready = Boolean(club && teamId) && (!asking || opponents === null || opponents.length === 0 || Boolean(opponent)) && !saving
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
@@ -94,78 +176,226 @@ export default function NewFixture() {
         showsVerticalScrollIndicator={false}
       >
         {problem && <ErrorState message={problem} />}
+        {!teamId && <ErrorState message="Switch into the team you are arranging a fixture for, then try again." />}
 
-        {!teamId && (
-          <ErrorState message="Switch into the team you are adding a fixture for, then try again." />
+        {!club ? (
+          <>
+            <Field label="Who Are You Playing?" hint="Every club in the rugby directory. Search by name.">
+              <TextField label="Search clubs" value={search} onChange={setSearch} placeholder="Search" autoCapitalize="words" />
+            </Field>
+
+            {clubs === null && <CardSkeleton lines={1} />}
+            {clubs?.length === 0 && (
+              <EmptyState
+                title="No clubs found"
+                body={search.trim() ? `No club matches “${search.trim()}”.` : "Search for the club you are playing."}
+                icon={<OvalIcon size={22} color={colour.inkSubtle} />}
+              />
+            )}
+            {!!clubs?.length && (
+              <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+                {clubs.map((option, index) => (
+                  <Pressable
+                    key={option.directoryId}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${option.name}${option.town ? `, ${option.town}` : ""}. ${option.onOvalball ? "On Ovalball" : "Not on Ovalball"}`}
+                    onPress={() => setClub(option)}
+                    style={({ pressed }) => ({
+                      minHeight: TOUCH_TARGET + 12,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: space.md,
+                      paddingVertical: space.sm + 2,
+                      paddingHorizontal: space.md,
+                      borderTopWidth: index === 0 ? 0 : 1,
+                      borderTopColor: colour.line,
+                      backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent",
+                    })}
+                  >
+                    <ClubCrest clubName={option.name} url={option.crestUrl} size={36} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
+                        {option.name}
+                      </Text>
+                      <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>
+                        {[option.town, option.county].filter(Boolean).join(", ")}
+                      </Text>
+                    </View>
+                    {/* WHETHER THEY ARE ON OVALBALL, SAID IN THE LIST -- because it decides whether the
+                        next step is a request or a record, and somebody should know that before they
+                        choose rather than after. */}
+                    <Presence on={option.onOvalball} />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${club.name}. Choose a different club`}
+              onPress={() => setClub(null)}
+              style={{ flexDirection: "row", alignItems: "center", gap: space.md, minHeight: TOUCH_TARGET }}
+            >
+              <ClubCrest clubName={club.name} url={club.crestUrl} size={40} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
+                  {club.name}
+                </Text>
+                <Presence on={club.onOvalball} inline />
+              </View>
+              <Text style={[type.caption, { color: colour.forest800 }]}>Change</Text>
+            </Pressable>
+
+            {/* WHAT IS ABOUT TO HAPPEN, BEFORE IT HAPPENS. The two endings are genuinely different and
+                the difference is not this app's choice -- a club on Ovalball has somebody who has to
+                agree, and a club that is not has nobody to ask. */}
+            <View
+              style={{
+                padding: space.md,
+                borderRadius: radius.md,
+                backgroundColor: asking ? colour.mint100 : "rgba(16,21,18,0.04)",
+                gap: 2,
+              }}
+            >
+              <Text style={[type.smallMedium, { color: asking ? colour.forest800 : colour.ink }]}>
+                {asking ? "This will be sent as a request" : "This will be added to your fixtures"}
+              </Text>
+              <Text style={[type.caption, { color: asking ? colour.forest800 : colour.inkMuted }]}>
+                {asking
+                  ? `${club.name} confirm, decline or propose a change. Nothing is in either club's calendar until they accept.`
+                  : `${club.name} is not on Ovalball, so there is nobody to confirm it. You can change it any time.`}
+              </Text>
+            </View>
+
+            {asking && (
+              <Field
+                label="Which Of Their Sides?"
+                hint="Only the sides yours may legally play — the age grade, the code and the category all have to match."
+              >
+                {opponents === null ? (
+                  <CardSkeleton lines={1} />
+                ) : opponents.length === 0 ? (
+                  <Text style={[type.small, { color: colour.inkMuted }]}>
+                    {club.name} has no side {teamName ?? "this team"} can be matched against yet. You can still send the
+                    request and they will decide which side plays.
+                  </Text>
+                ) : (
+                  <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+                    {opponents.map((option, index) => {
+                      const selected = opponent?.teamId === option.teamId
+                      return (
+                        <Pressable
+                          key={option.teamId}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected }}
+                          accessibilityLabel={option.displayName}
+                          onPress={() => setOpponent(option)}
+                          style={({ pressed }) => ({
+                            minHeight: TOUCH_TARGET + 6,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: space.md,
+                            paddingHorizontal: space.md,
+                            borderTopWidth: index === 0 ? 0 : 1,
+                            borderTopColor: colour.line,
+                            backgroundColor: pressed ? "rgba(16,21,18,0.03)" : selected ? colour.mint100 : "transparent",
+                          })}
+                        >
+                          <Users size={18} color={colour.forest800} strokeWidth={1.9} />
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
+                              {option.displayName}
+                            </Text>
+                            <Text style={[type.caption, { color: colour.inkMuted }]}>
+                              {[option.ageGroup, option.gender].filter(Boolean).join(" · ")}
+                            </Text>
+                          </View>
+                          {selected && <Check size={18} color={colour.forest800} strokeWidth={2.6} />}
+                        </Pressable>
+                      )
+                    })}
+                  </View>
+                )}
+              </Field>
+            )}
+
+            <Field label={asking ? "Proposed Date" : "Date"}>
+              <DateField label="Fixture date" value={date} onChange={setDate} />
+            </Field>
+
+            <Field label={asking ? "Preferred Kick-Off" : "Kick-Off"} hint="Leave it clear if the time is not agreed yet.">
+              <TimeField label="Kick-off time" value={time} onChange={setTime} />
+            </Field>
+
+            <Field label={asking ? "Where Would You Prefer?" : "Home or Away"}>
+              <ChoiceField
+                label="Home or away"
+                value={homeAway}
+                onChange={setHomeAway}
+                options={[
+                  { value: "Home", label: asking ? "Our ground" : "Home" },
+                  { value: "Away", label: asking ? "Theirs" : "Away" },
+                  { value: "TBD", label: asking ? "Either" : "Not agreed" },
+                ]}
+              />
+            </Field>
+
+            {!asking && (
+              <Field label="Type">
+                <ChoiceField
+                  label="Fixture type"
+                  value={gameType}
+                  onChange={setGameType}
+                  options={[
+                    { value: "Friendly", label: "Friendly" },
+                    { value: "League Fixture", label: "League" },
+                    { value: "Cup Fixture", label: "Cup" },
+                  ]}
+                />
+              </Field>
+            )}
+
+            <Field label={asking ? "Note" : "Notes"} hint={asking ? "Anything they should know. Optional." : "Anything the team needs to know. Optional."}>
+              <TextField
+                label="Note"
+                value={note}
+                onChange={setNote}
+                multiline
+                placeholder={asking ? "Happy to move the time" : "Meet at the clubhouse"}
+              />
+            </Field>
+
+            <SubmitButton
+              label={asking ? "Send Request" : "Add Fixture"}
+              onPress={() => void submit()}
+              busy={saving}
+              disabled={!ready}
+            />
+          </>
         )}
-
-        <Field label="Who Are You Playing?" hint="The name the fixture will be listed under.">
-          <TextField
-            label="Opposition"
-            value={opposition}
-            onChange={setOpposition}
-            placeholder="Rossendale RUFC"
-            autoCapitalize="words"
-          />
-        </Field>
-
-        <Field label="Date">
-          <DateField label="Fixture date" value={date} onChange={setDate} />
-        </Field>
-
-        <Field label="Kick-Off" hint="Leave it clear if the time is not agreed yet.">
-          <TimeField label="Kick-off time" value={time} onChange={setTime} />
-        </Field>
-
-        <Field label="Home or Away">
-          <ChoiceField
-            label="Home or away"
-            value={homeAway}
-            onChange={setHomeAway}
-            options={[
-              { value: "Home", label: "Home" },
-              { value: "Away", label: "Away" },
-              { value: "TBD", label: "Not agreed" },
-            ]}
-          />
-        </Field>
-
-        <Field label="Status" hint="Booked means it is agreed. Planned means it is still being arranged.">
-          <ChoiceField
-            label="Status"
-            value={status}
-            onChange={setStatus}
-            options={[
-              { value: "Booked", label: "Booked" },
-              { value: "Planned", label: "Planned" },
-            ]}
-          />
-        </Field>
-
-        <Field label="Type">
-          <ChoiceField
-            label="Fixture type"
-            value={gameType}
-            onChange={setGameType}
-            options={[
-              { value: "Friendly", label: "Friendly" },
-              { value: "League Fixture", label: "League" },
-              { value: "Cup Fixture", label: "Cup" },
-            ]}
-          />
-        </Field>
-
-        <Field label="Notes" hint="Anything the team needs to know. Optional.">
-          <TextField label="Notes" value={notes} onChange={setNotes} multiline placeholder="Meet at the clubhouse" />
-        </Field>
-
-        <SubmitButton label="Add Fixture" onPress={() => void submit()} busy={saving} disabled={!ready} />
-
-        <Text style={[type.caption, { color: colour.inkMuted }]}>
-          Playing another club on Ovalball? Use Request Fixture instead — they confirm it, and both sides
-          get the same match.
-        </Text>
       </ScrollView>
+    </View>
+  )
+}
+
+/** On Ovalball, or not. Restrained: it is a fact about reachability, not a verification badge. */
+function Presence({ on, inline }: { on: boolean; inline?: boolean }) {
+  return (
+    <View
+      style={{
+        alignSelf: inline ? "flex-start" : "auto",
+        marginTop: inline ? 2 : 0,
+        backgroundColor: on ? colour.mint100 : "rgba(16,21,18,0.05)",
+        borderRadius: radius.sm,
+        paddingHorizontal: space.sm,
+        paddingVertical: 2,
+      }}
+    >
+      <Text style={[type.caption, { color: on ? colour.forest800 : colour.inkMuted, fontSize: 10 }]}>
+        {on ? "On Ovalball" : "Not on Ovalball"}
+      </Text>
     </View>
   )
 }

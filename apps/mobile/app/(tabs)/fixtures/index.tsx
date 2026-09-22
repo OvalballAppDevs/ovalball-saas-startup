@@ -8,12 +8,19 @@ import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import { readAgenda, todayIso } from "../../../src/agenda/load"
 import { anyManagement, loadFixtureAuthority, type FixtureAuthority } from "../../../src/agenda/authority"
-import { groupByDay, relativeDate, exactDate } from "../../../src/agenda/presentation"
+import { groupByDay, relativeDate, restOfDate } from "../../../src/agenda/presentation"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { AppHeader } from "../../../src/components/app-header"
 import { ContextSheet } from "../../../src/components/context-sheet"
 import { AgendaRow, NextFixtureCard } from "../../../src/components/agenda-row"
-import { CalendarDays, OvalIcon, Plus } from "../../../src/components/icons"
+import {
+  AgendaFilterSheet,
+  NO_FILTER,
+  applyFilter,
+  countActive,
+  type AgendaFilter,
+} from "../../../src/components/agenda-filter"
+import { OvalIcon, Plus, SlidersHorizontal } from "../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
 
@@ -48,6 +55,8 @@ export default function Fixtures() {
   const [refreshing, setRefreshing] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [authority, setAuthority] = useState<FixtureAuthority | null>(null)
+  const [filter, setFilter] = useState<AgendaFilter>(NO_FILTER)
+  const [filterOpen, setFilterOpen] = useState(false)
   const today = todayIso()
 
   const load = useCallback(async () => {
@@ -104,14 +113,19 @@ export default function Fixtures() {
     setRefreshing(false)
   }, [load])
 
+  // NARROWED, NEVER WIDENED. `items` is what the server authorised; this only removes from it, and the
+  // filter's own options are drawn from the same array.
+  const shown = useMemo(() => (items ? applyFilter(items, filter) : null), [items, filter])
+
   const [next, rest] = useMemo(() => {
+    const items = shown
     if (!items || items.length === 0 || direction === "past") return [null, items ?? []]
     // THE NEXT ONE THAT IS ACTUALLY ON. A cancelled match is not what somebody is preparing for, so it
     // stays in the list and does not take the headline.
     const index = items.findIndex((item) => item.status !== "Cancelled")
     if (index === -1) return [null, items]
     return [items[index], items.filter((_, i) => i !== index)]
-  }, [items, direction])
+  }, [shown, direction])
 
   const days = useMemo(() => groupByDay(rest), [rest])
   const canAdd = authority?.create ?? false
@@ -124,28 +138,28 @@ export default function Fixtures() {
       <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, gap: space.md }}>
         <Segments value={direction} onChange={setDirection} />
 
-        {/* MANAGEMENT IS OFFERED ONLY WHERE THE SERVER SAYS SO, and never in a club context as a
-            Planner: mass planning, import and bulk editing are club-scoped web jobs, and a phone that
-            reproduced them badly would be worse than one that says where they live. */}
-        {authority && anyManagement(authority) && direction === "upcoming" && (
-          <View style={{ flexDirection: "row", gap: space.sm }}>
-            {canAdd && (
-              <Action
-                label="Add Fixture"
-                icon={<Plus size={17} color={colour.onForest} strokeWidth={2.2} />}
-                primary
-                onPress={() => router.push({ pathname: "/fixtures/new", params: { teamId: active?.id ?? "" } })}
-              />
-            )}
-            {canRequest && (
-              <Action
-                label="Request Fixture"
-                icon={<OvalIcon size={16} color={colour.forest800} />}
-                onPress={() => router.push({ pathname: "/fixtures/request", params: { teamId: active?.id ?? "" } })}
-              />
-            )}
-          </View>
-        )}
+        {/* ONE BUTTON, BECAUSE IT IS ONE JOB. Add Fixture and Request Fixture asked almost identical
+            questions; what differs is who the opponent is, which the platform already knows. The
+            journey chooses the club first and then says which of the two endings applies.
+
+            MANAGEMENT IS OFFERED ONLY WHERE THE SERVER SAYS SO, and never as a Planner: mass planning,
+            import and bulk editing are club-scoped web jobs, and a phone reproducing them badly would
+            be worse than one that says where they live. */}
+        <View style={{ flexDirection: "row", gap: space.sm }}>
+          {(canAdd || canRequest) && direction === "upcoming" && (
+            <Action
+              label="Add Fixture"
+              icon={<Plus size={17} color={colour.onForest} strokeWidth={2.2} />}
+              primary
+              onPress={() => router.push({ pathname: "/fixtures/new", params: { teamId: active?.id ?? "" } })}
+            />
+          )}
+          <Action
+            label={countActive(filter) > 0 ? `Filter · ${countActive(filter)}` : "Filter"}
+            icon={<SlidersHorizontal size={16} color={colour.forest800} strokeWidth={2} />}
+            onPress={() => setFilterOpen(true)}
+          />
+        </View>
       </View>
 
       <ScrollView
@@ -153,7 +167,7 @@ export default function Fixtures() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.forest800} />}
         showsVerticalScrollIndicator={false}
       >
-        {problem && !items && (
+        {problem && !shown && (
           <View style={{ paddingHorizontal: space.lg }}>
             <ErrorState message={problem.message} offline={problem.offline} onRetry={load} />
           </View>
@@ -161,7 +175,7 @@ export default function Fixtures() {
 
         {/* STALE RATHER THAN BLANK. What is on screen is what was true when it loaded, and the banner
             says so instead of the list pretending to be current. */}
-        {problem && items && (
+        {problem && shown && (
           <View style={{ marginHorizontal: space.lg, padding: space.md, borderRadius: radius.md, backgroundColor: colour.warningSurface }}>
             <Text accessibilityRole="alert" style={[type.caption, { color: colour.warning }]}>
               {problem.offline ? "Offline — showing the schedule as it was." : problem.message}
@@ -169,7 +183,7 @@ export default function Fixtures() {
           </View>
         )}
 
-        {!problem && items === null && (
+        {!problem && shown === null && (
           <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
             <CardSkeleton lines={2} />
             <CardSkeleton lines={1} />
@@ -183,12 +197,20 @@ export default function Fixtures() {
           </View>
         )}
 
-        {items?.length === 0 && (
+        {shown?.length === 0 && (
           <View style={{ paddingHorizontal: space.lg }}>
             <EmptyState
-              title={direction === "upcoming" ? "No fixtures coming up" : "No past fixtures"}
+              title={
+                countActive(filter) > 0
+                  ? "Nothing matches that filter"
+                  : direction === "upcoming"
+                    ? "No fixtures coming up"
+                    : "No past fixtures"
+              }
               body={
-                direction === "upcoming"
+                countActive(filter) > 0
+                  ? "Clear the filter to see the rest."
+                  : direction === "upcoming"
                   ? canAdd || canRequest
                     ? "Nothing is scheduled for this side yet. Add one, or ask another club for a match."
                     : "Nothing is scheduled for this side yet. Fixtures appear here as soon as they are arranged."
@@ -202,8 +224,10 @@ export default function Fixtures() {
         {days.map((day) => (
           <View key={day.date}>
             <View style={{ paddingHorizontal: space.lg, paddingBottom: space.xs, flexDirection: "row", alignItems: "baseline", gap: space.sm }}>
+              {/* ONE DATE. "FRI 2 OCT  Friday, 2 October 2026" said Friday twice and the date twice;
+                  the relative word is the useful part and the rest of the date follows it once. */}
               <Text style={[type.overline, { color: colour.forest800 }]}>{relativeDate(day.date, today).toUpperCase()}</Text>
-              <Text style={[type.caption, { color: colour.inkSubtle }]}>{exactDate(day.date)}</Text>
+              <Text style={[type.caption, { color: colour.inkSubtle }]}>{restOfDate(day.date, today)}</Text>
             </View>
             <View style={{ backgroundColor: colour.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colour.line }}>
               {day.items.map((item, index) => (
@@ -226,6 +250,16 @@ export default function Fixtures() {
           </Text>
         )}
       </ScrollView>
+
+      <AgendaFilterSheet
+        visible={filterOpen}
+        // THE UNFILTERED ROWS, so the options do not shrink to whatever the last choice left behind.
+        items={items ?? []}
+        filter={filter}
+        showTraining={false}
+        onChange={setFilter}
+        onClose={() => setFilterOpen(false)}
+      />
 
       <ContextSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
     </View>
