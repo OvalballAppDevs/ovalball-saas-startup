@@ -126,9 +126,17 @@ test("a recovery session cannot walk into the product", () => {
   // A validated recovery produces a REAL session at AAL1. Without this rule the gate reads it as
   // signed in and drops somebody into the app with a password they do not know.
   assert.match(layout, /status === "recovering" && !onRecovery/, "the gate does not hold a recovery")
-  const index = layout.indexOf('status === "recovering"')
-  const signedIn = layout.indexOf('status === "signed-in"')
-  assert.ok(index > -1 && index < signedIn, "recovery is not checked before signed-in")
+
+  // THE ORDER INSIDE THE GATE'S OWN CHAIN, not the order of those words in the file. The deep-link
+  // handler also mentions "signed-in" and sits above the gate, so a file-wide indexOf found that one
+  // and reported a correct gate as broken -- a test that fails on unrelated code teaches people to
+  // ignore it. The chain is isolated first, then its branches are ordered.
+  const chain = /if \(status === "recovering"[\s\S]*?signed-out[^\n]*\n/.exec(layout)?.[0] ?? ""
+  assert.ok(chain.length > 0, "the gate's routing chain could not be found")
+  assert.ok(
+    chain.indexOf('status === "recovering"') < chain.indexOf('status === "signed-in"'),
+    "recovery is not checked before signed-in"
+  )
 })
 
 test("every reason a link can fail is told the same way", () => {

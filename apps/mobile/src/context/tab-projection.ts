@@ -21,35 +21,42 @@ import type { ActiveContextKind } from "@ovalball/contracts"
  * website's navigation does. Showing a cell grants nothing and hiding one protects nothing.
  */
 
-export type TabKey = "index" | "fixtures" | "calendar" | "hub" | "subscriptions" | "more"
+export type TabKey = "index" | "fixtures" | "calendar" | "messages" | "hub" | "subscriptions" | "more"
 
 export interface TabSpec {
   key: TabKey
   label: string
 }
 
-/** The four everyday destinations, in the same place for every context. */
+/**
+ * The five destinations, in the same place for every context.
+ *
+ * MESSAGES EARNED THE FOURTH CELL at M3, and Rugby Hub moved to More. Both are owner decisions and
+ * they are the same decision: messaging is a DAILY operational job -- a coach answering a parent on a
+ * Friday night -- while Rugby Hub is something you go and read. A bar holds five before the labels
+ * stop being readable, so the fifth is the one a person opens most.
+ *
+ * Rugby Hub's ROUTE is untouched; only its shortcut moved.
+ */
 const EVERYDAY: TabSpec[] = [
   { key: "index", label: "Home" },
   { key: "fixtures", label: "Fixtures" },
   { key: "calendar", label: "Calendar" },
-  { key: "hub", label: "Rugby Hub" },
+  { key: "messages", label: "Messages" },
 ]
 
-export function projectTabs({
-  kind,
-  canSeeTeamSubscriptions,
-}: {
+export function projectTabs(_options?: {
   kind: ActiveContextKind | null
-  /** Held at TEAM scope, answered by the server. Never inferred from the context kind. */
-  canSeeTeamSubscriptions: boolean
+  canSeeTeamSubscriptions?: boolean
 }): TabSpec[] {
-  // A team manager who may see this squad's subscription state does that most weeks; it earns the
-  // fifth cell for them and for nobody else. The capability is the server's answer -- `kind === "team"`
-  // alone would hand it to every coach who cannot open the page.
-  if (kind === "team" && canSeeTeamSubscriptions) {
-    return [...EVERYDAY, { key: "subscriptions", label: "Subscriptions" }]
-  }
+  // ONE ARRANGEMENT FOR EVERY CONTEXT, at this stage and deliberately. Subscriptions briefly took the
+  // fifth cell for a team manager holding the finance capability; Messages is a daily job for every
+  // persona, and a bar whose shape changes when you switch context costs more in confusion than a
+  // tailored fifth cell saves in taps. Subscriptions and Rugby Hub are both one tap away in More, and
+  // Subscriptions keeps its capability-aware behaviour on its own screen.
+  //
+  // The signature keeps its options so the projection stays the place this decision is made -- a
+  // per-context bar is a change here, not a change in the layout.
   return [...EVERYDAY, { key: "more", label: "More" }]
 }
 
@@ -62,4 +69,4 @@ export function projectTabs({
  * context does not want are hidden from the bar -- and More is always reachable, because it is where
  * everything the bar cannot hold lives.
  */
-export const ALL_TABS: TabKey[] = ["index", "fixtures", "calendar", "hub", "subscriptions", "more"]
+export const ALL_TABS: TabKey[] = ["index", "fixtures", "calendar", "messages", "hub", "subscriptions", "more"]

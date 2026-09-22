@@ -10,7 +10,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 import { View } from "react-native"
 
 import { SessionProvider, useSession } from "../src/auth/session"
-import { resolveIntent } from "../src/links/intents"
+import { resolveIntent, type LinkIntent } from "../src/links/intents"
 import { ContextProvider } from "../src/context/contexts"
 import { colour } from "../src/design/tokens"
 import { LaunchCanvas } from "../src/components/launch"
@@ -51,25 +51,65 @@ void SplashScreen.preventAutoHideAsync()
  * and a replayed PKCE code would fail at the auth server anyway -- this just stops the app asking.
  */
 function useIncomingLinks() {
-  const { beginRecovery } = useSession()
+  const { beginRecovery, status } = useSession()
   const router = useRouter()
   const handled = useRef(new Set<string>())
   const [linkProblem, setLinkProblem] = useState<string | null>(null)
+  // AN INTENT THAT ARRIVES BEFORE THE SESSION IS READY IS HELD, NOT DROPPED. A message link tapped by
+  // somebody who is signed out must survive signing in -- otherwise they authenticate and land on
+  // Home wondering where the message went. Recovery is the exception and is handled immediately,
+  // because the link IS the way in.
+  const pending = useRef<LinkIntent | null>(null)
+
+  const deliver = useCallback(
+    (intent: LinkIntent) => {
+      if (intent.kind === "MESSAGES") {
+        router.push("/(tabs)/messages")
+        return
+      }
+      if (intent.kind === "MESSAGE_THREAD") {
+        // The id decides WHERE to go, never WHETHER: the screen reads it through RLS and says the
+        // conversation is unavailable if it is not this person's.
+        router.push({
+          pathname: "/(tabs)/messages/[id]",
+          params: { id: intent.conversationId, kind: intent.conversationKind },
+        })
+      }
+    },
+    [router]
+  )
 
   const handle = useCallback(
     async (url: string | null) => {
       if (!url || handled.current.has(url)) return
       handled.current.add(url)
       const intent = resolveIntent(url)
-      if (intent.kind !== "AUTH_RECOVERY") return
-      const failure = await beginRecovery(intent.code)
-      if (failure) {
-        setLinkProblem(failure.message)
-        router.replace("/sign-in")
+
+      if (intent.kind === "AUTH_RECOVERY") {
+        const failure = await beginRecovery(intent.code)
+        if (failure) {
+          setLinkProblem(failure.message)
+          router.replace("/sign-in")
+        }
+        return
+      }
+
+      if (intent.kind === "MESSAGES" || intent.kind === "MESSAGE_THREAD") {
+        if (status === "signed-in") deliver(intent)
+        else pending.current = intent
       }
     },
-    [beginRecovery, router]
+    [beginRecovery, router, status, deliver]
   )
+
+  // The held intent is delivered once the session is real -- and cleared either way, so it cannot
+  // fire again later in a context where it no longer makes sense.
+  useEffect(() => {
+    if (status !== "signed-in" || !pending.current) return
+    const intent = pending.current
+    pending.current = null
+    deliver(intent)
+  }, [status, deliver])
 
   useEffect(() => {
     // Cold start: the URL that launched the app.

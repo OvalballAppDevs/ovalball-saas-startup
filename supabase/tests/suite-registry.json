@@ -114,7 +114,7 @@
     },
     "authority_helper_retirement": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "LEGACY AUTHORITY HELPER RETIREMENT (Identity/Auth Slice 4; Phase 2 AJ.1 authority_helper_retirement, J.15, Z.4 PG-15/16).",
       "measured": "Batch A ran it against both the persistent and the fresh clean-boot database: 76 passed, 1 failed on HR1 -- Step 11 had taken can_manage_fixture_side from 6 function-body references to 7. Fixed by 20270524000000, which moves community administration onto the canonical capability decision rather than raising a shrink-only ceiling."
     },
@@ -125,7 +125,7 @@
     },
     "bundle_legacy_parity": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "BUNDLE / LEGACY PARITY (Identity/Auth Slice 3, Phase 2 AF)."
     },
     "calendar_component_filtering": {
@@ -145,7 +145,7 @@
     },
     "call_up_and_dispensation_security": {
       "disposition": "UNVERIFIED",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Dedicated security/tampering tests for fixture_player_call_up (20260924830000, fixed 20260924900000) and player_team_dispensation (20260924910000), beyond what their own functional"
     },
     "canonical_recipient_safeguarding": {
@@ -168,43 +168,43 @@
     },
     "capability_adapters": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "CLUB HOME AND FIXTURE ADAPTERS OVER THE CANONICAL RESOLVER (Identity/Auth Slice 3, brief sections 29-30)."
     },
     "capability_attack_matrix": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "CAPABILITY ATTACK MATRIX (Identity/Auth Slice 3, brief section 38; Phase 2 attacks 36, 37, 43, 63)."
     },
     "capability_catalogue_integrity": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "CAPABILITY CATALOGUE INTEGRITY (Identity/Auth Slice 3, Phase 2 J, Y.6, Y.8)."
     },
     "capability_defaults_architecture": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "Canonical capability architecture (Identity/Auth Slice 3)."
     },
     "capability_engine": {
       "disposition": "UNVERIFIED",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "Canonical Scoped Capability Engine -- security regression + fixture setup (Master Architecture Pass, before Access & Teams). Batch A ran it and recorded the cause; the repair belongs to its owning domain.",
       "measured": "Run standalone in Step 10: 10 passed, 4 failed. Inserts into public.team_permissions (now a compatibility VIEW), and three statements call definer RPCs with no session, refused by the canonical session gate added at 20270501000000."
     },
     "capability_override_ceilings": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "EXPLICIT ALLOWS AND WITHHOLDS:"
     },
     "capability_precedence_truth_table": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "CAPABILITY PRECEDENCE TRUTH TABLE (Identity/Auth Slice 3, Phase 2 K.4)."
     },
     "capability_scope_isolation": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "CAPABILITY SCOPE ISOLATION AND MULTI-ROLE RESOLUTION (Identity/Auth Slice 3, brief sections 32-37)."
     },
     "chat_fixture_operations": {
@@ -338,11 +338,11 @@
     "club_venue_pitch_integrity": {
       "disposition": "CANONICAL_GATE",
       "owner": "Club and Site Admin",
-      "reason": "===================================================================================================== A PITCH IS AT A GROUND (Convergence Step 6; command §25, §45) Deterministic and self-seeding."
+      "reason": "===================================================================================================== A PITCH IS AT A GROUND (Convergence Step 6; command \u00a725, \u00a745) Deterministic and self-seeding."
     },
     "communication_policy_authority": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Who may change communication policy (20270243000000, 20270256000000)."
     },
     "competition_authority_matrix": {
@@ -370,7 +370,7 @@
     },
     "constituent_bodies": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Canonical Constituent Body directory."
     },
     "contact_cards": {
@@ -419,12 +419,12 @@
     },
     "cross_club_isolation_matrix": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "CROSS-CLUB ISOLATION MATRIX (Identity/Auth Slice 4; Phase 2 AJ.1 cross_club_isolation_matrix, L, S, AP #1-3)."
     },
     "definer_rpc_session_contract": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "===================================================================================================== THE DEFINER-RPC SESSION CONTRACT (Slice 6b.2a; Phase 2 D.2 / S6-9) SECURITY DE"
     },
     "direct_messaging_security": {
@@ -487,7 +487,7 @@
     },
     "explain_access_matches_enforcement": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "EXPLANATION MATCHES ENFORCEMENT (Identity/Auth Slice 3, Phase 2 AC, attack 63)."
     },
     "family_authority_matrix": {
@@ -916,17 +916,17 @@
     },
     "match_centre_capabilities": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Match Centre real-integration capability wrappers (Phase 1 of the Side Project 3 -> Main integration plan)."
     },
     "match_centre_core": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Match Centre Phase 3A:"
     },
     "membership_state_machine": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "CLUB MEMBERSHIP STATE MACHINE (Identity/Auth Slice 2, Phase 2 M.1)."
     },
     "message_communication_policy": {
@@ -1001,7 +1001,7 @@
     },
     "ovie_security": {
       "disposition": "UNVERIFIED",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Ovie Phase 1/2 security regression:"
     },
     "parent_add_child_regression": {
@@ -1051,7 +1051,7 @@
     },
     "permission_management": {
       "disposition": "SPECIAL_PURPOSE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "Manual verification for Site Admin Permission Management (permission_groups/capabilities/permission_group_capabilities RLS, delete_permission_group() dependency checks, and the rea",
       "prerequisites": [
         "permission_matrix"
@@ -1059,12 +1059,12 @@
     },
     "permission_matrix": {
       "disposition": "SPECIAL_PURPOSE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "Manual RLS/permission verification script."
     },
     "person_name_normalisation": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Person names are stored the way somebody would write them."
     },
     "personal_block_product": {
@@ -1114,12 +1114,12 @@
     },
     "platform_release_and_mode": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Phase C -- release history and platform mode."
     },
     "platform_rls_sweep": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Phase M -- a role-switched sweep across every commercial table."
     },
     "platform_trials": {
@@ -1202,7 +1202,7 @@
     },
     "public_support_tickets": {
       "disposition": "SPECIAL_PURPOSE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Manual verification for public/anonymous Support tickets (20260901140000_public_support_tickets.sql):",
       "prerequisites": [
         "permission_matrix",
@@ -1211,7 +1211,7 @@
     },
     "public_team_season_identity": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "PUBLIC SEASON TEAM NAMES (Identity/Auth Slice 1 forward-fix)."
     },
     "recipient_audience_engine": {
@@ -1226,17 +1226,17 @@
     },
     "referral_attribution_integrity": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Phase F0 -- referral attribution and reconciliation integrity."
     },
     "referral_intelligence_accounting": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Commercial Cards + F1 Referral Intelligence:"
     },
     "referral_reward_semantics": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Referral reward semantics:"
     },
     "registration_allocation": {
@@ -1256,12 +1256,12 @@
     },
     "role_assignment_ceilings": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "ROLE ASSIGNMENT CEILINGS (Identity/Auth Slice 2, Phase 2 M.2 / I)."
     },
     "role_assignment_state_machine": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "ROLE ASSIGNMENT STATE MACHINE (Identity/Auth Slice 2, Phase 2 M.2)."
     },
     "rollover_player_placement": {
@@ -1271,17 +1271,17 @@
     },
     "roster_authority_matrix": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "TEAM AND ROSTER AUTHORITY MATRIX (Identity/Auth Slice 4B; Phase 2 AA.3 row 4b, AA.4, J.6 lines 418-429, AI #70, AJ.1)."
     },
     "rugby_code_girls_identities": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Rugby code x girls team identity:"
     },
     "rugby_code_immutability": {
       "disposition": "SPECIAL_PURPOSE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Manual verification for Rugby Code immutability (20260901160000_rugby_code_immutability.sql):",
       "prerequisites": [
         "permission_matrix",
@@ -1290,7 +1290,7 @@
     },
     "rugby_code_isolation": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "A club is only ever shown its own sport."
     },
     "safeguarding_authority_matrix": {
@@ -1479,31 +1479,31 @@
     "step10_team_experience": {
       "disposition": "CANONICAL_GATE",
       "owner": "Convergence programme",
-      "reason": "CONVERGENCE STEP 10 — TEAM EXPERIENCE."
+      "reason": "CONVERGENCE STEP 10 \u2014 TEAM EXPERIENCE."
     },
     "step11_match_community": {
       "disposition": "CANONICAL_GATE",
       "owner": "Convergence programme",
-      "reason": "CONVERGENCE STEP 11 — MATCH CENTRE COMMUNITY + REWARDS."
+      "reason": "CONVERGENCE STEP 11 \u2014 MATCH CENTRE COMMUNITY + REWARDS."
     },
     "step12_safeguarding_and_age_grade": {
       "disposition": "CANONICAL_GATE",
       "owner": "Safeguarding",
-      "reason": "CONVERGENCE STEP 12 — RUGBY SAFEGUARDING + AGE-GRADE."
+      "reason": "CONVERGENCE STEP 12 \u2014 RUGBY SAFEGUARDING + AGE-GRADE."
     },
     "step8_operational_access": {
       "disposition": "CANONICAL_GATE",
       "owner": "Convergence programme",
-      "reason": "CONVERGENCE STEP 8 — OPERATIONAL ACCESS MANAGEMENT."
+      "reason": "CONVERGENCE STEP 8 \u2014 OPERATIONAL ACCESS MANAGEMENT."
     },
     "step9_family_and_availability": {
       "disposition": "CANONICAL_GATE",
       "owner": "Convergence programme",
-      "reason": "CONVERGENCE STEP 9 — PARENT / PLAYER / FAMILY."
+      "reason": "CONVERGENCE STEP 9 \u2014 PARENT / PLAYER / FAMILY."
     },
     "structured_venue_address": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Structured venue address -- the canonical shape, and the legacy safety rules around it."
     },
     "support_messaging": {
@@ -1579,32 +1579,32 @@
     },
     "training_centre_visibility": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "A training session is not public."
     },
     "training_communication": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "A coach can tell the squad about training -- and only the right people hear."
     },
     "training_management_extension_regression": {
       "disposition": "UNVERIFIED",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "SIDE PROJECT 2 -- TRAINING MANAGEMENT EXTENSION regression suite:"
     },
     "training_management_regression": {
       "disposition": "UNVERIFIED",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "SIDE PROJECT 2 -- TRAINING MANAGEMENT permanent regression suite."
     },
     "training_plan_regenerate_idempotency_regression": {
       "disposition": "UNVERIFIED",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Regression for the past-occurrence duplication bug found and fixed in 20261011140000_training_plan_regenerate_past_occurrence_dedup_fix.sql (POST-SIDE2 INTEGRATION -- DUPLICATE TRA"
     },
     "unified_fixture_conversation": {
       "disposition": "SPECIAL_PURPOSE",
-      "owner": "Unassigned — Batch A follow-up",
+      "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "Manual verification for the Master Fixture Registry's single-row identity (20260904600000_master_fixture_consolidation.sql), which supersedes the mirror-pair architecture this file",
       "prerequisites": [
         "permission_matrix"
@@ -1627,7 +1627,7 @@
     },
     "users_and_permissions_authority": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — capability engine",
+      "owner": "Identity/Auth \u2014 capability engine",
       "reason": "===================================================================================================== USERS & PERMISSIONS -- THE AUTHORITIES THE CENTRE CONSUMES (Convergence Step 2"
     },
     "venue_pitch_team_integrity": {
@@ -1642,7 +1642,7 @@
     },
     "step13_impersonation": {
       "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth — Slice 9 impersonation",
+      "owner": "Identity/Auth \u2014 Slice 9 impersonation",
       "reason": "Convergence Step 13 / Identity-Auth Slice 9: acting as somebody is capability-gated, reasoned, view-only by default, clamped at the capability engine, expiring at read time, attributed to both people, and notified afterwards (AN-9)."
     },
     "step14_governing_body": {
@@ -1669,6 +1669,11 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Team Operations / Fixture Operations",
       "reason": "Team fixture operations: who may administer a team's fixtures, and how far that reaches. Proves that the shipped Coach bundle DOES grant team-scoped create/edit/cancel and request.create -- recorded as the product's actual behaviour rather than assumed away -- while never reaching a team the person is not attached to and never becoming club-wide authority; that a Club Admin's scoped DENY overrides the role bundle for one person on one team and takes nothing else with it; that a capability granted for one team is not authority over another for create, edit, cancel or request; that a fixture request is refused at source against a different age band or a senior side, BY THE CANONICAL RULE (internal.teams_can_play_fixture, asserted on the message so an unrelated check constraint cannot pass for it) while a request whose opponent is not yet known is still allowed; that club-wide authority is unchanged in a club context; and that the Planner, bulk import and bulk edit remain separate and are not even grantable at team scope."
+    },
+    "mobile_message_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Mobile / Messaging",
+      "reason": "The authority the mobile Messages product inherits and cannot widen. The app reads through the same RPCs and RLS the website uses and sends by the same insert, so what is proved here is the SERVER's refusals: a conversation id is not a permission (the deep-link case), a forged sender column is refused, an outsider cannot rewrite a message, the inbox reader never lists somebody else's conversation, and candidate discovery is a per-caller function rather than a readable table. If the server refuses these, no client can perform them -- including a modified one."
     }
   },
   "prerequisite_defect": {
@@ -1678,6 +1683,6 @@
     ],
     "finding": "These suites end with `rollback;`, so a suite declared to run AFTER one of them finds nothing left behind. Every SPECIAL_PURPOSE suite whose prerequisites name one of them therefore CANNOT be run by its own documented procedure.",
     "consequence": "Such a suite is not gate coverage and is not currently runnable coverage either. It must never be described as passing.",
-    "owner": "Test-fixture harness (each suite’s owning domain, coordinated by test governance)"
+    "owner": "Test-fixture harness (each suite\u2019s owning domain, coordinated by test governance)"
   }
 }

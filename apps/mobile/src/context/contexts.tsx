@@ -11,8 +11,11 @@ import {
   type SwitchableContext,
 } from "@ovalball/contracts"
 
+import { AppState } from "react-native"
+
 import { supabase } from "../auth/supabase"
 import { useSession } from "../auth/session"
+import { loadInbox, unreadTotal } from "../messages/inbox"
 import { friendly, logDetail, type FriendlyError } from "../errors/translate"
 
 /**
@@ -44,6 +47,8 @@ interface ContextState {
   error: FriendlyError | null
   /** The signed-in person, never the context they are viewing. */
   person: { firstName: string | null; avatarUrl: string | null; email: string | null }
+  /** The canonical session context, for readers that take it (the inbox assembler does). */
+  sessionContext: OvalballSessionContext | null
   contexts: SwitchableContext[]
   active: SwitchableContext | null
   /**
@@ -72,6 +77,20 @@ interface ContextState {
    * Directory's branding logo, else nothing -- and nothing means initials, never a substitute image.
    */
   club: { name: string | null; crestUrl: string | null }
+  /**
+   * UNREAD MESSAGES, counted from the same rows the inbox lists.
+   *
+   * Not a second notification system: `loadInbox` returns the canonical rows and this is their sum,
+   * so the badge and the list agree by construction rather than by coincidence.
+   *
+   * REFRESHED DETERMINISTICALLY, not in realtime. Recounted when the app comes to the front, when the
+   * context changes, and when a conversation is read. Realtime exists in the platform and could be
+   * reused, but a subscription that must be torn down on every context switch is a correctness problem
+   * before it is a performance one -- recorded as hardening debt rather than half-built here.
+   */
+  unreadMessages: number
+  /** Recount after reading, so the badge clears without waiting for a focus event. */
+  refreshUnread: () => Promise<void>
   select: (key: string) => Promise<void>
   reload: () => Promise<void>
 }
@@ -180,19 +199,48 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(SELECTED_CONTEXT_KEY, key)
   }, [])
 
+  /**
+   * The unread count, recounted on the three events that can change it: the app coming to the front,
+   * the context changing, and a conversation being read.
+   */
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const refreshUnread = useCallback(async () => {
+    if (status !== "signed-in" || !session?.user || !ctx) {
+      setUnreadMessages(0)
+      return
+    }
+    try {
+      setUnreadMessages(unreadTotal(await loadInbox(supabase, ctx, session.user.id, active)))
+    } catch (caught) {
+      // A badge is not worth an error state. The inbox itself will report the failure when opened.
+      logDetail("unread count", friendly(caught, "your messages"))
+    }
+  }, [status, session, ctx, active])
+
+  useEffect(() => {
+    void refreshUnread()
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next === "active") void refreshUnread()
+    })
+    return () => subscription.remove()
+  }, [refreshUnread])
+
   const value = useMemo<ContextState>(
     () => ({
       loading,
       error,
       person: { firstName: ctx?.firstName ?? null, avatarUrl, email },
+      sessionContext: ctx,
       contexts,
       active,
       canSeeTeamSubscriptions,
+      unreadMessages,
+      refreshUnread,
       club,
       select,
       reload: load,
     }),
-    [loading, error, ctx, avatarUrl, email, contexts, active, canSeeTeamSubscriptions, club, select, load]
+    [loading, error, ctx, avatarUrl, email, contexts, active, canSeeTeamSubscriptions, unreadMessages, refreshUnread, club, select, load]
   )
 
   return <AppContexts.Provider value={value}>{children}</AppContexts.Provider>

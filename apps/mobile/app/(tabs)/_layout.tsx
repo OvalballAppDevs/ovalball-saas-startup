@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useAppContexts } from "../../src/context/contexts"
 import { projectTabs, type TabKey } from "../../src/context/tab-projection"
-import { BookOpen, CalendarDays, Ellipsis, House, OvalIcon, Receipt } from "../../src/components/icons"
+import { BookOpen, CalendarDays, Ellipsis, House, MessageSquare, OvalIcon, Receipt } from "../../src/components/icons"
 import { colour, type } from "../../src/design/tokens"
 
 /**
@@ -24,8 +24,8 @@ import { colour, type } from "../../src/design/tokens"
  */
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
-  const { active, canSeeTeamSubscriptions } = useAppContexts()
-  const visible = projectTabs({ kind: active?.kind ?? null, canSeeTeamSubscriptions })
+  const { active, unreadMessages } = useAppContexts()
+  const visible = projectTabs({ kind: active?.kind ?? null })
   const shown = new Set(visible.map((t) => t.key))
 
   return (
@@ -69,11 +69,21 @@ export default function TabsLayout() {
           name={key}
           options={{
             title: visible.find((t) => t.key === key)?.label ?? title,
+            tabBarAccessibilityLabel:
+              key === "messages" && unreadMessages > 0
+                ? `Messages, ${unreadMessages} unread`
+                : visible.find((t) => t.key === key)?.label ?? title,
             // `href: null` removes the cell from the bar while leaving the route addressable, which is
             // what keeps a deep link to a hidden destination working.
             href: shown.has(key) ? undefined : null,
             tabBarIcon: ({ color, focused }) => (
-              <TabCell tab={key} label={visible.find((t) => t.key === key)?.label ?? title} color={color} focused={focused} />
+              <TabCell
+                tab={key}
+                label={visible.find((t) => t.key === key)?.label ?? title}
+                color={color}
+                focused={focused}
+                badge={key === "messages" ? unreadMessages : 0}
+              />
             ),
           }}
         />
@@ -86,6 +96,7 @@ const ALL: { key: TabKey; title: string }[] = [
   { key: "index", title: "Home" },
   { key: "fixtures", title: "Fixtures" },
   { key: "calendar", title: "Calendar" },
+  { key: "messages", title: "Messages" },
   { key: "hub", title: "Rugby Hub" },
   { key: "subscriptions", title: "Subscriptions" },
   { key: "more", title: "More" },
@@ -100,13 +111,14 @@ const ALL: { key: TabKey; title: string }[] = [
  * THE ACTIVE STATE IS THREE THINGS, not a colour: a pitch-green rule above the glyph, a heavier stroke
  * on the glyph itself, and a heavier label. Colour alone fails the people most likely to need the cue.
  */
-function TabCell({ tab, label, color, focused }: { tab: TabKey; label: string; color: ColorValue; focused: boolean }) {
+function TabCell({ tab, label, color, focused, badge = 0 }: { tab: TabKey; label: string; color: ColorValue; focused: boolean; badge?: number }) {
   const tint = String(color)
   const size = 22
   const glyph =
     tab === "index" ? <House size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
     tab === "fixtures" ? <OvalIcon size={size} color={tint} /> :
     tab === "calendar" ? <CalendarDays size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
+    tab === "messages" ? <MessageSquare size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
     tab === "hub" ? <BookOpen size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
     tab === "subscriptions" ? <Receipt size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
     <Ellipsis size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} />
@@ -125,7 +137,39 @@ function TabCell({ tab, label, color, focused }: { tab: TabKey; label: string; c
           }}
         />
       )}
-      {glyph}
+      <View>
+        {glyph}
+        {/*
+          THE BADGE IS A REAL COUNT OR IT IS NOT THERE. It comes from the same rows the inbox lists,
+          so the bar and the list can never disagree, and it is bounded at 9+ because the exact number
+          past nine changes nothing a person would do. The spoken label carries the number in words --
+          a coloured dot says nothing to a screen reader.
+        */}
+        {badge > 0 && (
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            style={{
+              position: "absolute",
+              top: -4,
+              right: -8,
+              minWidth: 16,
+              height: 16,
+              paddingHorizontal: 4,
+              borderRadius: 8,
+              backgroundColor: colour.pitch600,
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1.5,
+              borderColor: colour.forest950,
+            }}
+          >
+            <Text style={{ color: colour.onForest, fontSize: 9, fontFamily: type.smallMedium.fontFamily, lineHeight: 11 }}>
+              {badge > 9 ? "9+" : String(badge)}
+            </Text>
+          </View>
+        )}
+      </View>
       <Text
         numberOfLines={1}
         // Announced by the tab's own role and title; repeating it here would read the word twice.

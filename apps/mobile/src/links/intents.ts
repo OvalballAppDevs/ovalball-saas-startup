@@ -20,6 +20,20 @@
 
 export type LinkIntent =
   | { kind: "AUTH_RECOVERY"; code: string }
+  /** Open the inbox. What is in it is the server's answer, as always. */
+  | { kind: "MESSAGES" }
+  /**
+   * Open one conversation.
+   *
+   * THE ID IS NOT A PERMISSION. It is carried so the app knows where to go; whether it may be opened
+   * is decided when the screen reads it, by RLS and by the canonical readers. A conversation this
+   * person is not in resolves to nothing and the screen says the conversation is unavailable -- which
+   * is also what a deleted one does, deliberately, because the difference is not this app's to reveal.
+   *
+   * This is the route a message PUSH NOTIFICATION will use when M7 adds one: a notification becomes an
+   * intent, and the intent is already handled, so nothing about authority changes when push arrives.
+   */
+  | { kind: "MESSAGE_THREAD"; conversationId: string; conversationKind: "direct" | "fixture" | "request" | "club" }
   /** A link Ovalball issued but this build does not handle yet -- named so it can be reported honestly. */
   | { kind: "NOT_YET_SUPPORTED"; path: string }
   | { kind: "UNKNOWN" }
@@ -29,7 +43,10 @@ export type LinkIntent =
  * than guessed so that "we know what this is and it is not built" can be told apart from "this is not
  * one of ours" -- two different things to say to somebody who just tapped a link.
  */
-const PLANNED = ["/join", "/invitation", "/fixtures", "/messages", "/notifications", "/subscriptions", "/rugby-hub"]
+const PLANNED = ["/join", "/invitation", "/fixtures", "/notifications", "/subscriptions", "/rugby-hub"]
+
+/** The conversation kinds this build can open. Anything else falls back to the inbox rather than guessing. */
+const THREAD_KINDS = ["direct", "fixture", "request", "club"] as const
 
 /**
  * Parse an incoming URL into an intent.
@@ -77,6 +94,28 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
     // treating it as one would take somebody to a Set Password screen that cannot possibly work.
     if (!code) return { kind: "NOT_YET_SUPPORTED", path }
     return { kind: "AUTH_RECOVERY", code }
+  }
+
+  // MESSAGES: /messages, and /messages/<kind>/<id> for one conversation.
+  if (path === "/messages") return { kind: "MESSAGES" }
+  if (path.startsWith("/messages/")) {
+    const parts = path.slice("/messages/".length).split("/").filter(Boolean)
+    const [conversationKind, conversationId] = parts
+    if (
+      parts.length === 2 &&
+      conversationId &&
+      (THREAD_KINDS as readonly string[]).includes(conversationKind)
+    ) {
+      return {
+        kind: "MESSAGE_THREAD",
+        conversationId,
+        conversationKind: conversationKind as (typeof THREAD_KINDS)[number],
+      }
+    }
+    // A messages link this build cannot open -- a support thread, an announcement, a shape that has
+    // changed -- lands in the inbox rather than nowhere. Somebody who tapped a message link should
+    // end up looking at their messages.
+    return { kind: "MESSAGES" }
   }
 
   if (PLANNED.some((planned) => path === planned || path.startsWith(`${planned}/`))) {

@@ -25,38 +25,47 @@ test("every context gets exactly five destinations", () => {
 
 test("the four everyday destinations are in the same place for everybody", () => {
   // The owner's rule: switching context must not feel like opening a different app. Muscle memory for
-  // Home, Fixtures, Calendar and Rugby Hub is worth more than a perfectly tailored bar.
-  const expected = ["index", "fixtures", "calendar", "hub"]
+  // Home, Fixtures, Calendar and Messages is worth more than a perfectly tailored bar.
+  //
+  // MESSAGES REPLACED RUGBY HUB IN THE BAR AT M3, an owner decision: messaging is a daily operational
+  // job and the Hub is something you go and read. The Hub's ROUTE is untouched -- see below.
+  const expected = ["index", "fixtures", "calendar", "messages"]
   for (const kind of ["site_admin", "club", "team", "parent", "player", "family", "governing", null] as const) {
     const keys = projectTabs({ kind, canSeeTeamSubscriptions: false }).map((t) => t.key)
     assert.deepEqual(keys.slice(0, 4), expected, `${kind} reordered the everyday destinations`)
   }
 })
 
-test("Rugby Hub is a first-class destination, never buried under More", () => {
+test("Messages is a first-class destination for every context", () => {
   for (const kind of ["team", "club", "parent", "family", "player", null] as const) {
-    const keys = projectTabs({ kind, canSeeTeamSubscriptions: false }).map((t) => t.key)
-    assert.ok(keys.includes("hub"), `${kind} lost Rugby Hub from the bar`)
+    const keys = projectTabs({ kind }).map((t) => t.key)
+    assert.ok(keys.includes("messages"), `${kind} lost Messages from the bar`)
   }
 })
 
-test("Subscriptions takes the fifth cell only where the SERVER says it may be opened", () => {
-  // Not from the context kind. A coach standing in a team does not necessarily hold
-  // finance.subscription.view, and giving them the cell would be a capability decided on a handset.
-  const withCapability = projectTabs({ kind: "team", canSeeTeamSubscriptions: true }).map((t) => t.key)
-  const without = projectTabs({ kind: "team", canSeeTeamSubscriptions: false }).map((t) => t.key)
-  assert.ok(withCapability.includes("subscriptions"))
-  assert.ok(!without.includes("subscriptions"))
-  assert.ok(without.includes("more"), "without the capability the fifth cell is not More")
+test("and Rugby Hub keeps its route and a place in More", () => {
+  // The shortcut moved; the destination did not. A route removed here is a deep link that stops
+  // working, which is a different and worse thing than a cell that moved.
+  assert.ok(ALL_TABS.includes("hub"), "the Rugby Hub route was removed rather than moved")
+  assert.ok(ALL_TABS.includes("subscriptions"), "the Subscriptions route was removed rather than moved")
+  const more = readFileSync("apps/mobile/app/(tabs)/more.tsx", "utf8")
+  assert.match(more, /label="Rugby Hub"/, "Rugby Hub is not reachable from More")
+  assert.match(more, /label="Subscriptions"/, "Subscriptions is not reachable from More")
+  assert.match(more, /router\.push\("\/\(tabs\)\/hub"\)/, "More links Rugby Hub somewhere other than its own route")
 })
 
-test("and holding the capability elsewhere does not put it in a club or family bar", () => {
-  // The capability is asked at TEAM scope for the team being viewed; a club context is a different
-  // question that this shell does not ask, so it must not act as though it had.
-  for (const kind of ["club", "parent", "family", "player", "site_admin", "governing"] as const) {
-    const keys = projectTabs({ kind, canSeeTeamSubscriptions: true }).map((t) => t.key)
-    assert.ok(!keys.includes("subscriptions"), `${kind} was given the Subscriptions cell`)
+test("the bar's shape does not change when the context does", () => {
+  // Subscriptions briefly took the fifth cell for a team manager holding the finance capability. A bar
+  // that changes shape on a context switch costs more in confusion than a tailored cell saves in taps,
+  // so the arrangement is now one arrangement -- and Subscriptions keeps its capability-aware
+  // behaviour on its own screen, where the server still decides.
+  const shapes = new Set<string>()
+  for (const kind of ["team", "club", "parent", "family", "player", "site_admin", "governing", null] as const) {
+    for (const canSeeTeamSubscriptions of [true, false]) {
+      shapes.add(projectTabs({ kind, canSeeTeamSubscriptions }).map((t) => t.key).join(","))
+    }
   }
+  assert.equal(shapes.size, 1, `the bar takes ${shapes.size} shapes: ${[...shapes].join(" | ")}`)
 })
 
 test("every projected destination is a route that exists", () => {

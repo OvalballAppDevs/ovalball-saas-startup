@@ -595,3 +595,56 @@ persistent-schema comparison · migration-history repair decision ·
 SQL-suite governance closure (H2) · stale-test reconciliation ·
 security and authority sweep · cross-domain regression · full browser
 regression · mobile · accessibility · race and concurrency · release readiness.
+
+## H12 — Mobile, owed at hardening
+
+The React Native client reached PRODUCT IMPLEMENTATION COMPLETE for M0–M3 (shell, auth, recovery,
+Home, Messages). What is deferred is recorded here so it is owed rather than forgotten. None of it is
+ordinary unfinished UX — those are finished or say plainly that they are not built.
+
+**Proof that cannot be obtained on this machine**
+
+- **No native run has ever happened.** There is no Xcode and no Android SDK here, so neither platform
+  has been launched: every automated proof is Expo Web, which is the same component tree, the same
+  router and the same readers. It does **not** exercise `expo-secure-store` (the session falls back to
+  `localStorage` on web), the real safe-area insets, or native keyboard behaviour. The owner reviews
+  on a physical iPhone through Expo Go; a **development-build proof** is owed.
+- **Expo Go is not App Store behaviour.** Custom-scheme and universal links behave differently in a
+  signed build, and the recovery hop below exists only because of it.
+
+**Deferred mobile work**
+
+- **Push notifications** (APNs/FCM), notification permissions and badge counts — M7. The route is
+  ready: a notification becomes a typed intent and the intent is already handled.
+- **Realtime messaging.** Unread refreshes on app-resume, context change and read. The platform has
+  realtime; a subscription that must be torn down on every context switch is a correctness problem
+  before it is a performance one, so it was not half-built.
+- **Offline message behaviour.** Network loss is a product state with a retry; there is no queue, no
+  optimistic send and no local cache of conversations.
+- **Attachments, document shares and contact cards.** The canonical reader returns them; there is no
+  native renderer, so a message carrying one shows its text.
+- **Announcements and Support threads** are listed with their unread state and are not openable — they
+  have their own reply rules and deserve their own screens rather than a conversation view that would
+  misdescribe them.
+- **Message reporting, deletion and moderation** — the platform has all three; none is on the phone.
+- **Delivery and read receipts** beyond the platform's existing unread semantics.
+- **Background refresh** of any kind.
+
+**Decisions owed before release**
+
+- **Leaked-password protection at the auth server.** Ovalball's Have I Been Pwned check lives in the
+  website's `server-only` validator, so it does not run when the mobile client sets a password through
+  GoTrue. Project-level leaked-password protection would cover both clients and close the web's own
+  direct-API gap. Recommended, and an owner decision.
+- **Abuse protection on the mobile reset request.** Turnstile is a browser challenge with no native
+  widget; the protection today is GoTrue's per-address rate limit.
+- **`password_requirements = ""`** — uppercase and special characters are enforced by Ovalball's
+  validator and not by GoTrue, pending owner decision AN-1.
+- **The Expo Go recovery hop.** `/auth/mobile-recovery` exists because Supabase refuses an `exp://`
+  redirect to a LAN host. It is development-only and disappears with a development build; it must not
+  be configured in production.
+- **Suspended or disabled accounts** have no mobile presentation. Not a dead end — signing in still
+  resolves — but the app cannot name that state.
+- **Store and signing**: Apple Developer membership, Play Console, `eas.json`, distribution
+  certificates, push credentials, app icons at store sizes, and privacy manifests for both stores.
+  None obtained; none needed before a development build.

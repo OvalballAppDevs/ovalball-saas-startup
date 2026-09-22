@@ -35,7 +35,7 @@ import { colour, space, type } from "../../src/design/tokens"
 export default function Home() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { loading, error, person, active, reload } = useAppContexts()
+  const { loading, error, person, active, reload, unreadMessages } = useAppContexts()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [summary, setSummary] = useState<HomeSummary | null>(null)
   const [summaryError, setSummaryError] = useState<{ message: string; offline: boolean } | null>(null)
@@ -65,7 +65,11 @@ export default function Home() {
     setRefreshing(false)
   }, [reload, loadSummary])
 
-  const attention = buildAttention(summary, active?.kind ?? null, () => router.push("/(tabs)/fixtures"))
+  const attention = buildAttention(summary, active?.kind ?? null, {
+    openFixtures: () => router.push("/(tabs)/fixtures"),
+    openMessages: () => router.push("/(tabs)/messages"),
+    unreadMessages,
+  })
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
@@ -211,8 +215,24 @@ function ContextHome({
  * reading. The rest of the sources (fixture requests, join requests, subscriptions) arrive with the
  * domains that own them, and land in this same component.
  */
-function buildAttention(summary: HomeSummary | null, kind: string | null, openFixtures: () => void): AttentionItem[] {
+function buildAttention(
+  summary: HomeSummary | null,
+  kind: string | null,
+  { openFixtures, openMessages, unreadMessages }: { openFixtures: () => void; openMessages: () => void; unreadMessages: number }
+): AttentionItem[] {
   const items: AttentionItem[] = []
+
+  // UNREAD MESSAGES ARE SOMETHING THAT NEEDS SOMEBODY, and the count is the canonical one -- the same
+  // rows the inbox lists and the same number on the tab badge. Not urgent: an unread message is a job,
+  // not an alarm, and colouring it as one would teach people to ignore the panel.
+  if (unreadMessages > 0) {
+    items.push({
+      key: "unread-messages",
+      label: unreadMessages === 1 ? "1 unread message" : `${unreadMessages} unread messages`,
+      detail: "In Messages",
+      onPress: openMessages,
+    })
+  }
   const fixture = summary?.nextFixture
   const availability = fixture?.availability
   if (fixture && availability && availability.awaiting > 0 && kind === "team") {

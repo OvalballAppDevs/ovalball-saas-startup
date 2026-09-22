@@ -11,7 +11,7 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { Bell, ChevronRight, ExternalLink, MessageSquare, Receipt, Users } from "../../src/components/icons"
+import { Bell, BookOpen, ChevronRight, ExternalLink, Receipt, Users } from "../../src/components/icons"
 import { Button, Card } from "../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
 
@@ -62,27 +62,33 @@ export default function More() {
           </View>
         </Card>
 
+        {/*
+          RUGBY HUB AND SUBSCRIPTIONS LIVE HERE NOW, and their routes are untouched -- only the
+          shortcut moved, because Messages earned the bar's fourth cell at M3. Both are in the app,
+          one tap away; neither was deleted or downgraded to a web link.
+        */}
         <Group title="Your Rugby">
-          {!canSeeTeamSubscriptions && (
-            <Row
-              icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
-              label="Subscriptions"
-              caption="Who is set up to pay, and what is outstanding"
-              onPress={() => router.push("/(tabs)/subscriptions")}
-            />
-          )}
+          <Row
+            icon={<BookOpen size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="Rugby Hub"
+            caption="Laws, age grades and guidance, in your own code"
+            onPress={() => router.push("/(tabs)/hub")}
+          />
+          <Row
+            icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="Subscriptions"
+            caption={
+              canSeeTeamSubscriptions
+                ? "Who in your squad is set up to pay"
+                : "Subscription and payment state, where you are authorised"
+            }
+            onPress={() => router.push("/(tabs)/subscriptions")}
+          />
           <Row
             icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
             label="People"
             caption="Players, parents and the staff who run the side — on the web for now"
             onPress={() => void Linking.openURL(`${webUrl}/people`)}
-            external
-          />
-          <Row
-            icon={<MessageSquare size={19} color={colour.forest800} strokeWidth={1.9} />}
-            label="Messages"
-            caption="Team and club conversations — on the web for now"
-            onPress={() => void Linking.openURL(`${webUrl}/messages`)}
             external
           />
           <Row
@@ -97,10 +103,23 @@ export default function More() {
         <Group title="Your Account">
           <Row
             icon={<ExternalLink size={19} color={colour.forest800} strokeWidth={1.9} />}
-            label="Profile and Security"
-            caption="Your name, picture, password and second factor"
+            label="Profile"
+            caption="Your name and your picture — on the web for now"
             onPress={() => void Linking.openURL(`${webUrl}/account`)}
             external
+          />
+          <Row
+            icon={<ExternalLink size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="Security"
+            caption="Password, authenticator and your signed-in devices"
+            onPress={() => void Linking.openURL(`${webUrl}/account/security`)}
+            external
+          />
+          <Row
+            icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="Switch Context"
+            caption="Move between your clubs, teams and children"
+            onPress={() => setSheetOpen(true)}
           />
         </Group>
 

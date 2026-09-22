@@ -30,8 +30,17 @@ export * from "./age-state"
 export * from "./club-logo"
 export * from "./governing-body"
 export * from "./governing-roles"
+export * from "./conversations"
+export * from "./messenger-direct"
+export * from "./messenger-rows"
+export * from "./messenger-thread"
+export * from "./messenger-thread-types"
+export * from "./messenger-view-model"
 export * from "./password-policy"
+export * from "./support-conversations"
+export * from "./support-types"
 export * from "./personal-avatar"
+export * from "./resolve-identities"
 /**
  * `role-labels` names two types that `session-context` also names -- ClubRole and
  * TeamPermissionValue. They are not a duplicate to be tidied away: session-context's are derived from

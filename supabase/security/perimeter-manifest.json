@@ -4902,7 +4902,7 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/messages/compact-actions.ts",
-          "lib/messenger/direct.ts"
+          "packages/contracts/src/messenger-direct.ts"
         ]
       },
       {
@@ -5674,7 +5674,7 @@
         "signature": "my_announcements(integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/messenger-rows.ts"
+          "packages/contracts/src/messenger-rows.ts"
         ]
       },
       {
@@ -5704,7 +5704,7 @@
         "signature": "my_direct_conversations(integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/messenger-rows.ts"
+          "packages/contracts/src/messenger-rows.ts"
         ]
       },
       {
@@ -5712,7 +5712,7 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/messages/new/person/actions.ts",
-          "lib/messenger/direct.ts"
+          "packages/contracts/src/messenger-direct.ts"
         ]
       },
       {
@@ -5784,7 +5784,7 @@
         "signature": "my_unread_message_counts()",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/conversations.ts"
+          "packages/contracts/src/conversations.ts"
         ]
       },
       {

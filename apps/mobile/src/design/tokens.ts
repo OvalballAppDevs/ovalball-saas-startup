@@ -38,6 +38,13 @@ export const colour = {
   onForest: "#ffffff",
   onForestMuted: "rgba(255,255,255,0.72)",
 
+  /**
+   * MESSAGING. Not decoration and not a choice made here: the website colours a message you SENT in
+   * messenger blue and one you RECEIVED in mint, and the app inherits both. Getting these the wrong
+   * way round -- which the first mobile draft did -- misattributes every message on the screen.
+   */
+  messengerBlue: "#2f5d8c",
+
   line: "rgba(16,21,18,0.10)",
   lineStrong: "rgba(16,21,18,0.16)",
 
