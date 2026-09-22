@@ -326,6 +326,42 @@ brand assets are never changed incidentally.
   and **J1–J2** hold the line, and **A6** specifically forbids asking the engine for the scope, which is
   the actual trap. *Owner: capability engine.*
 
+### Step 16 hardening pass (from `1858392`) — what it found
+
+**One product defect, three verification gaps.** The Step 16 suite was thorough — 72 assertions covering
+most of the handoff's cross-boundary list — so the hardening pass went looking for what it did *not* ask.
+
+- **Accepting an invitation lifted a suspension.** §28 asked whether a revoked or suspended person loses
+  authority; the suite proved neither, because it tested revoking an *invitation* and never a *role*.
+  Revocation turned out to be correct. Suspension was correct for every read and every authority
+  predicate — `internal.body_role()` requires `ACTIVE` — but `redeem_invitation`'s upsert sets
+  `state = 'ACTIVE'` with a conflict target of `state <> 'REVOKED'`, so it matched a SUSPENDED row too.
+  **Measured: a SUSPENDED `BODY_COMPETITIONS` officer redeemed and came back an ACTIVE `BODY_ADMIN`** —
+  reinstated *and* escalated by clicking a link. That contradicts the rule this platform states for the
+  club role machine, where suspended authority survives even a full club reactivation: *"reactivate_club()
+  deliberately does NOT clear it … data returns, privileged authority does not silently return with it."*
+  Fixed in `20270530000000`. **Latent, not live** — nothing writes `SUSPENDED` today; it is vocabulary the
+  table and the People page carry, so this closed the path before it was reachable.
+- **The first fix was wrong, and an existing test caught it.** It refused by raising, which
+  `invitation_authority_matrix` **IN-K2** rejects: this function refuses by *returning*, because a raise
+  rolls back the attempt record and defeats the redemption rate limits. Redone as a returned
+  `REFUSED / ORGANISATION_ACCESS_SUSPENDED`, matching the `AGE_ELIGIBILITY_REQUIRED` precedent. The
+  migration's own guard now pins the raise count at three so a fourth cannot creep in.
+- **The refusal would not have reached the person.** `lib/invitations/redeem.ts` shows a specific message
+  only for reasons on an allowlist, so the new reason failed closed but read as the generic sentence,
+  hiding the one action available. Added to `ACTIONABLE_REASONS` — safe, because the branch is only
+  reachable after step 6 has matched the redeemer's confirmed email to the invited address.
+- **§17's external-versus-external requirement was claimed, not proven.** *"External-v-external
+  Competition Matches must remain visible to the organiser even when zero Ovalball Fixtures exist."*
+  Every participant in the suite's E series was an Ovalball club with an Ovalball team. Now proven
+  (**L1–L6**) with two directory-only clubs, zero fixtures, and the organiser still reading the match —
+  and it passed first time, so this was a verification gap, not a defect.
+- **A VIEWER's email redaction was never asserted.** `governing_body_people` returns addresses only to
+  somebody who can manage access. Written in Step 15, now pinned (**K12–K13**).
+
+The suite goes **72 → 91** assertions. K9–K11 were confirmed to fail against the pre-fix function, which
+was replayed from a `pg_get_functiondef` snapshot rather than restored from git.
+
 ### New Step 16 debt
 
 - **H15.1 — governing-body invitations are not emailed.** The invitation is fully canonical, but

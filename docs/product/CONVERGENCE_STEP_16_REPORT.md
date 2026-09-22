@@ -190,3 +190,23 @@ Sign in as `uat.preston.admin@ovalball.test`, switch to *Ovalball Review County 
 - **Are we giving the governing body too much authority anywhere?** The specific things it deliberately
   cannot do: read a club's fixtures, members or roster; affiliate or un-affiliate a club; message as a
   club; touch anything safeguarding-shaped; withdraw a team from its own competition on a club's behalf.
+
+## 12. Hardening pass (after `1858392`)
+
+**One product defect, three verification gaps.** Full detail in the hardening ledger (H15) and the
+functionality matrix; the short version is that this report's §9 claim about external-versus-external
+matches was true but untested, and §28's question about losing access was answered for revocation and
+not for suspension.
+
+The defect: `redeem_invitation` reinstated a **SUSPENDED** governing-body role, and could raise it at the
+same time — measured, a `SUSPENDED BODY_COMPETITIONS` officer redeemed and returned as an ACTIVE
+`BODY_ADMIN`. Nothing writes `SUSPENDED` yet, so this was closed before it was reachable. The fix is
+migration `20270530000000`, which refuses it the way this function refuses everything else: by returning
+`REFUSED / ORGANISATION_ACCESS_SUSPENDED`, not by raising. An earlier attempt that raised was caught by
+`invitation_authority_matrix` **IN-K2**, whose whole point is that a raise rolls back the attempt record
+and defeats the redemption rate limits.
+
+`step16_governing_closure` goes **72 → 91** assertions. **FUNCTIONS LOST remains 0.**
+
+**Still owed:** the migration has been applied to the running local database and proved there, but the
+full chain has **not** been booted from empty since it was added. That remains required before release.

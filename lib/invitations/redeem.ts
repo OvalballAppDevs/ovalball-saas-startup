@@ -42,8 +42,20 @@ export type RedemptionResult =
  */
 export const GENERIC_REFUSAL = "That invitation or code can't be used."
 
-/** Reasons a person can act on. Anything else stays generic, so it cannot become an oracle. */
-const ACTIONABLE_REASONS = new Set(["AGE_ELIGIBILITY_REQUIRED", "MEMBERSHIP_REQUIRED"])
+/**
+ * Reasons a person can act on. Anything else stays generic, so it cannot become an oracle.
+ *
+ * Every reason here is only reachable AFTER the redeemer's confirmed session email has been matched to
+ * the invited address, so each one tells the invited person something about themselves that they need in
+ * order to get in. `ORGANISATION_ACCESS_SUSPENDED` joins them on those terms: without it the person is
+ * told only that the link cannot be used, and the one thing they need to do -- ask an administrator at
+ * that organisation to restore their access -- is the thing the generic sentence hides.
+ */
+const ACTIONABLE_REASONS = new Set([
+  "AGE_ELIGIBILITY_REQUIRED",
+  "MEMBERSHIP_REQUIRED",
+  "ORGANISATION_ACCESS_SUSPENDED",
+])
 
 export async function redeemInvitation(
   supabase: SupabaseClient,

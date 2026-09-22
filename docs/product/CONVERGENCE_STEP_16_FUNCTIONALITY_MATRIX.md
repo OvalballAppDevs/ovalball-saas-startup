@@ -57,3 +57,36 @@ All twenty-four, plus:
 4. **Invitation expiry moved out of the render.** `Date.now()` in a React render is impure and the lint
    rule catches it — the same defect Step 10 removed from the team page. The database answers
    `expires_soon`, because it is the thing that knows the time.
+
+## Hardening pass (after `1858392`)
+
+**FUNCTIONS BEFORE 34 · FUNCTIONS AFTER 34 · FUNCTIONALITY LOST 0.**
+
+The hardening pass added no function and removed none. It closed one latent fail-open and proved three
+things the implementation pass had asserted without testing.
+
+Nothing a person could legitimately do before they can no longer do. The single behavioural change
+refuses one thing that should never have worked: accepting a governing-body invitation while your access
+to that organisation is suspended. No such suspension can exist yet, so no live journey changes.
+
+### Product defect fixed
+
+| | defect | fix |
+|---|---|---|
+| S1 | `redeem_invitation` reinstated a **SUSPENDED** governing-body role and could raise it at the same time — measured, `SUSPENDED BODY_COMPETITIONS` → `ACTIVE BODY_ADMIN`. Privileged authority returning as a side effect of clicking a link, which the club role machine explicitly forbids | migration `20270530000000` refuses it as a returned `REFUSED / ORGANISATION_ACCESS_SUSPENDED`, leaving the role untouched and the invitation unspent so it still works after a deliberate restoration |
+
+### Verification gaps closed
+
+| | gap | now |
+|---|---|---|
+| S2 | revoking a **role** was never tested — only revoking an invitation | **K1–K5**: authority, the organisation read and the competition read all go immediately |
+| S3 | suspension was never tested at all | **K6–K7** hold it, **K8–K11** hold the way back in |
+| S4 | §17's external-versus-external requirement was claimed but every tested participant was an Ovalball club | **L1–L6**: two directory-only clubs, zero fixtures, organiser still sees the match, another body still cannot |
+| S5 | a VIEWER's email redaction was written in Step 15 and never asserted | **K12–K13** |
+
+### Contract preserved
+
+The first attempt at S1 refused by raising and was rejected by `invitation_authority_matrix` **IN-K2**:
+this function refuses by *returning*, because raising rolls back the attempt record and defeats the
+redemption rate limits. The fix follows the canonical pattern instead, and the migration's own guard now
+pins the raise count at three.

@@ -74,6 +74,8 @@ declare
   v_type uuid; v_team uuid; v_other_team uuid; v_fixture uuid;
   v_comp uuid; v_edition uuid; v_season uuid; v_stage uuid;
   v_p1 uuid; v_p2 uuid; v_match uuid; v_ver uuid;
+  v_ext_dir1 uuid; v_ext_dir2 uuid; v_ext_comp uuid; v_ext_edition uuid; v_ext_stage uuid;
+  v_ext_p1 uuid; v_ext_p2 uuid;
   v_inv uuid; v_inv2 uuid; v_token text; v_token2 text;
   v_n int; v_state text; v_txt text; v_bool boolean; v_json jsonb;
 begin
@@ -492,6 +494,149 @@ begin
     'J10 can_administer_invitation refuses an invitation that does not exist, definitely rather than null');
   perform pg_temp.check(internal.organised_edition_ids() is not null,
     'J11 and organised_edition_ids answers an array rather than null, so `= any(...)` cannot fail open');
+
+  -- =====================================================================
+  -- K. LOSING ACCESS ACTUALLY LOSES IT -- added by the Step 16 hardening pass.
+  --
+  -- The handoff asked for "revoked/body-removed person loses authority" and "suspension wins where
+  -- canonical architecture says it does". The original suite proved neither: it tested revoking an
+  -- INVITATION (I4) and never revoking or suspending a ROLE. Revocation turned out to be correct.
+  -- Suspension was correct everywhere except the one way back in, which is why K8-K10 exist.
+  -- =====================================================================
+  perform pg_temp.act('authenticated', v_body_comps);
+  perform pg_temp.check(v_edition = any (internal.organised_edition_ids()),
+    'K1 the competitions officer organises the edition while their role is ACTIVE');
+
+  perform pg_temp.act('authenticated', v_body_admin);
+  perform pg_temp.check(
+    pg_temp.try(format('select public.revoke_governing_body_role(%L,%L,''hardening'')', v_body, v_body_comps)) = 'OK',
+    'K2 the organisation''s administrator removes them');
+
+  perform pg_temp.act('authenticated', v_body_comps);
+  perform pg_temp.check(not (v_edition = any (internal.organised_edition_ids())),
+    'K3 and the authority is gone immediately, not at the next sign-in');
+  perform pg_temp.check(pg_temp.try(format('select * from public.governing_body_people(%L)', v_body)) = '42501',
+    'K4 they cannot even read the organisation any more');
+  perform pg_temp.check(pg_temp.try(format('select * from public.governing_body_competition_matches(%L)', v_comp)) = '42501',
+    'K5 nor the competition they used to run');
+
+  -- SUSPENDED. Nothing writes this state yet -- it is vocabulary the table and the People page carry --
+  -- so it is set directly here. That is the point: the behaviour is pinned BEFORE a control exists.
+  perform pg_temp.act_postgres();
+  update public.constituent_body_roles
+     set state = 'ACTIVE', revoked_at = null, revoked_by = null
+   where constituent_body_id = v_body and user_id = v_body_comps;
+  update public.constituent_body_roles
+     set state = 'SUSPENDED'
+   where constituent_body_id = v_body and user_id = v_body_comps;
+
+  perform pg_temp.act('authenticated', v_body_comps);
+  perform pg_temp.check(not (v_edition = any (internal.organised_edition_ids())),
+    'K6 a SUSPENDED officer holds no competition authority');
+  perform pg_temp.check(pg_temp.try(format('select * from public.governing_body_people(%L)', v_body)) = '42501',
+    'K7 and cannot read the organisation');
+
+  -- AND THE WAY BACK IN IS CLOSED. Measured before the fix: this redeemed, set the row ACTIVE, and
+  -- raised BODY_COMPETITIONS to BODY_ADMIN -- privileged authority returning as a side effect of
+  -- somebody clicking a link, which is what the club role machine forbids.
+  perform pg_temp.act('authenticated', v_body_admin);
+  select invitation_id, token into v_inv2, v_token2
+    from public.invite_governing_body_officer(v_body, 's16-' || v_body_comps::text || '@ovalball.test', 'BODY_ADMIN');
+  perform pg_temp.check(v_inv2 is not null,
+    'K8 an administrator may still invite a suspended person -- the refusal belongs at redemption');
+
+  -- REFUSED BY RETURNING, which is this function's contract: raising would roll back the attempt
+  -- record and defeat the redemption rate limits (invitation_authority_matrix IN-K1/IN-K2).
+  perform pg_temp.act('authenticated', v_body_comps);
+  select public.redeem_invitation(v_token2) into v_json;
+  perform pg_temp.check(v_json->>'outcome' = 'REFUSED' and v_json->>'reason' = 'ORGANISATION_ACCESS_SUSPENDED',
+    format('K9 but accepting it does NOT lift the suspension (%s)', coalesce(v_json->>'reason', v_json->>'outcome')));
+
+  perform pg_temp.act_postgres();
+  select state || '|' || role_key into v_txt from public.constituent_body_roles
+   where constituent_body_id = v_body and user_id = v_body_comps;
+  perform pg_temp.check(v_txt = 'SUSPENDED|BODY_COMPETITIONS',
+    format('K10 the role is untouched -- neither reinstated nor escalated (%s)', coalesce(v_txt, 'gone')));
+  perform pg_temp.check(
+    (select state from public.access_invitations where id = v_inv2) = 'ISSUED',
+    'K11 and the invitation is not spent, so it still works once access is deliberately restored');
+
+  -- A VIEWER IS NOT GIVEN EVERYBODY'S EMAIL ADDRESS. governing_body_people returns it only to somebody
+  -- who can manage access; that boundary was written in Step 15 and never asserted.
+  perform pg_temp.act('authenticated', v_body_viewer);
+  perform pg_temp.check(
+    (select count(*) from public.governing_body_people(v_body) where email is not null) = 0,
+    'K12 a VIEWER reads the organisation''s people without their email addresses');
+  perform pg_temp.act('authenticated', v_body_admin);
+  perform pg_temp.check(
+    (select count(*) from public.governing_body_people(v_body) where email is not null) > 0,
+    'K13 while an administrator, who may invite and remove, sees them');
+
+  -- =====================================================================
+  -- L. A COMPETITION BETWEEN TWO CLUBS THAT ARE NOT ON OVALBALL.
+  --
+  -- The handoff's §17 required this in as many words: "External-v-external Competition Matches must
+  -- remain visible to the organiser even when zero Ovalball Fixtures exist." The Step 16 report claims
+  -- it, on the sound reasoning that the read never joins a fixture -- but claiming is not proving, and
+  -- every participant in the E series is an Ovalball club with an Ovalball team. A county running a
+  -- schools or a colts cup is the ordinary case, not the exotic one.
+  --
+  -- An external participant is a club_directory row with NO clubs row and NO team: that is what the
+  -- competition_participants_one_external_entry index means by external.
+  -- =====================================================================
+  perform pg_temp.act_postgres();
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key, constituent_body_id)
+  values ('S16 External A ' || v_tag, 'T', 'T', 'union', 'United Kingdom', 'England', true, 'unverified', 'site_admin_manual', 's16-x1-' || v_tag, v_body)
+  returning id into v_ext_dir1;
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key, constituent_body_id)
+  values ('S16 External B ' || v_tag, 'T', 'T', 'union', 'United Kingdom', 'England', true, 'unverified', 'site_admin_manual', 's16-x2-' || v_tag, v_body)
+  returning id into v_ext_dir2;
+
+  perform pg_temp.act('authenticated', v_body_admin);
+  select competition_id, edition_id into v_ext_comp, v_ext_edition
+    from public.create_governing_body_competition('S16 Schools Cup ' || v_tag, v_body);
+  perform pg_temp.check(v_ext_comp is not null,
+    'L1 the county creates a competition for clubs that are not on Ovalball');
+
+  perform public.save_competition_participants(v_ext_edition, jsonb_build_array(
+    jsonb_build_object('slot', 1, 'club_directory_id', v_ext_dir1),
+    jsonb_build_object('slot', 2, 'club_directory_id', v_ext_dir2)));
+  select id into v_ext_p1 from public.competition_participants where edition_id = v_ext_edition and slot = 1;
+  select id into v_ext_p2 from public.competition_participants where edition_id = v_ext_edition and slot = 2;
+  perform pg_temp.check(
+    (select count(*) from public.competition_participants
+      where edition_id = v_ext_edition and club_id is null and team_id is null) = 2,
+    'L2 both sides are external -- no Ovalball club, no Ovalball team');
+
+  perform public.save_competition_stage(v_ext_edition, null, 'league', 'League', 1,
+    jsonb_build_object('points', jsonb_build_object('win', 4, 'draw', 2, 'loss', 0)), '[]'::jsonb);
+  select id into v_ext_stage from public.competition_stages where edition_id = v_ext_edition and kind = 'league';
+  perform public.replace_competition_draft_matches(v_ext_stage, jsonb_build_array(
+    jsonb_build_object('round_number', 1, 'home_participant_id', v_ext_p1, 'away_participant_id', v_ext_p2,
+                       'match_date', (current_date + 21)::text, 'kickoff_time', '14:00')));
+  perform public.issue_competition_matches(v_ext_edition);
+
+  -- THE POINT OF THE SECTION. Zero fixtures exist for this competition, and the organiser still sees
+  -- its match, because Competition Match is the canonical schedule and the fixture is only a club-side
+  -- projection that these clubs have no way to make.
+  perform pg_temp.act_postgres();
+  perform pg_temp.check(
+    (select count(*) from public.fixtures f where f.competition_edition_id = v_ext_edition) = 0,
+    'L3 and not one Ovalball fixture exists anywhere for it');
+
+  perform pg_temp.act('authenticated', v_body_admin);
+  select count(*) into v_n from public.governing_body_competition_matches(v_ext_comp);
+  perform pg_temp.check(v_n = 1,
+    format('L4 the organiser still sees the match -- competition truth does not depend on a fixture (%s)', v_n));
+  perform pg_temp.check(
+    (select count(*) from public.governing_body_competition_matches(v_ext_comp)
+      where home_label is not null and away_label is not null) = 1,
+    'L5 with both sides named, from the directory rather than from a club that does not exist here');
+
+  -- And it is still the organiser's, not everybody's.
+  perform pg_temp.act('authenticated', v_other_admin);
+  perform pg_temp.check(pg_temp.try(format('select * from public.governing_body_competition_matches(%L)', v_ext_comp)) = '42501',
+    'L6 while another organisation cannot read it at all');
 end $$;
 
 rollback;
