@@ -8,12 +8,14 @@ import { nextAnchor, previousAnchor, windowContainsToday } from "@ovalball/contr
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import { readAgenda, todayIso } from "../../../src/agenda/load"
+import { mondayOf } from "@ovalball/contracts"
 import { clubRugbyCode, loadSeasons, resolveSeason, seasonLabel, type SeasonPhase, type SeasonRow } from "../../../src/agenda/seasons"
 import { daysBetween, exactDate, groupByDay, relativeDate, restOfDate } from "../../../src/agenda/presentation"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { AppHeader } from "../../../src/components/app-header"
 import { ContextSheet } from "../../../src/components/context-sheet"
 import { AgendaRow } from "../../../src/components/agenda-row"
+import { SeasonGrid } from "../../../src/components/season-grid"
 import {
   AgendaFilterSheet,
   NO_FILTER,
@@ -21,7 +23,7 @@ import {
   countActive,
   type AgendaFilter,
 } from "../../../src/components/agenda-filter"
-import { CalendarDays, Check, ChevronDown, ChevronRight, SlidersHorizontal } from "../../../src/components/icons"
+import { CalendarDays, Check, ChevronDown, ChevronRight, SlidersHorizontal, X } from "../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
 
@@ -55,7 +57,10 @@ export default function Calendar() {
   const { sessionContext, active } = useAppContexts()
   const today = todayIso()
 
-  const [mode, setMode] = useState<Extract<RangeMode, "week" | "month">>("week")
+  // THREE GRAINS, AND THE SEASON IS ONE OF THEM. Week answers "what is on this week", month answers
+  // "when in October", and season answers "what has this side got on" -- which is the question the
+  // Pre/Main toggle was silently failing to answer, because it set a phase that nothing rendered.
+  const [mode, setMode] = useState<"week" | "month" | "season">("week")
   const [anchor, setAnchor] = useState(today)
   const [items, setItems] = useState<AgendaItem[] | null>(null)
   const [label, setLabel] = useState("")
@@ -69,6 +74,9 @@ export default function Calendar() {
   const [seasons, setSeasons] = useState<SeasonRow[]>([])
   const [seasonId, setSeasonId] = useState<string | null>(null)
   const [phase, setPhase] = useState<SeasonPhase | null>(null)
+  // WHICH SQUARE IS OPEN. Null means the grid alone -- the season's shape, which is what somebody came
+  // to Season view to see. Tapping a week expands it underneath rather than navigating away.
+  const [openWeek, setOpenWeek] = useState<string | null>(null)
 
   // The register, scoped to our own rugby code -- a Union club is never shown a League season.
   useEffect(() => {
@@ -95,15 +103,30 @@ export default function Calendar() {
     if (!sessionContext || !active) return
     setProblem(null)
     try {
-      const result = await readAgenda(supabase, sessionContext, active, { mode, anchor, includeTraining: true, today })
+      // IN SEASON MODE THE WINDOW IS THE REGISTER'S OWN. Not a year from today, not a computed
+      // boundary -- the dates Site Admin recorded for this season and this phase, which is what makes
+      // Pre-Season a real view rather than a label.
+      const result =
+        mode === "season" && season.range
+          ? await readAgenda(supabase, sessionContext, active, { range: season.range, includeTraining: true, today })
+          : await readAgenda(supabase, sessionContext, active, {
+              mode: mode === "season" ? "week" : mode,
+              anchor,
+              includeTraining: true,
+              today,
+            })
       setItems(result.items)
-      setLabel(result.label)
+      setLabel(
+        mode === "season"
+          ? `${seasonLabel(season.selected)}${season.phase === "pre" ? " · Pre-season" : ""}`
+          : result.label
+      )
     } catch (caught) {
       const failure = friendly(caught, "your calendar")
       logDetail("calendar", failure)
       setProblem({ message: failure.message, offline: /connection/i.test(failure.message) })
     }
-  }, [sessionContext, active, mode, anchor, today])
+  }, [sessionContext, active, mode, anchor, today, season.range, season.selected, season.phase])
 
   useEffect(() => {
     // CLEARED ON A CONTEXT CHANGE, never on a date change. Moving to next week should not blank the
@@ -133,6 +156,12 @@ export default function Calendar() {
   // filtered out does not still advertise itself as having rugby in it.
   const shown = useMemo(() => (items ? applyFilter(items, filter) : null), [items, filter])
   const days = useMemo(() => groupByDay(shown ?? []), [shown])
+  // The chosen square's own week, Monday to Sunday, out of the rows already on screen.
+  const weekDays = useMemo(() => {
+    if (!openWeek || !shown) return []
+    const end = addDays(openWeek, 6)
+    return groupByDay(shown.filter((item) => item.date >= openWeek && item.date <= end))
+  }, [openWeek, shown])
   const busyDates = useMemo(() => new Set((shown ?? []).map((item) => item.date)), [shown])
   const showOwner = active?.kind !== "team"
 
@@ -157,7 +186,16 @@ export default function Calendar() {
               const picked = seasons.find((option) => option.id === id)
               if (picked) setAnchor(picked.startsOn > today || picked.endsOn < today ? picked.startsOn : today)
             }}
-            onPhase={setPhase}
+            onPhase={(next) => {
+              setPhase(next)
+              // A PHASE THAT CHANGED NOTHING WAS THE DEFECT. In Season mode the window itself changes;
+              // in Week or Month the view moves into the phase, so switching to Pre-Season always takes
+              // somebody somewhere rather than leaving them on a week outside it.
+              const picked = seasons.find((option) => option.id === (season.selected?.id ?? ""))
+              if (!picked) return
+              const start = next === "pre" ? picked.preSeasonStartsOn : picked.startsOn
+              if (start) setAnchor(start)
+            }}
           />
         )}
 
@@ -167,6 +205,7 @@ export default function Calendar() {
           </Text>
         )}
 
+        {mode !== "season" && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
           {/* THE SEASON IS A BOUND, not just a starting point. Paging out of the selected season would
               show empty weeks belonging to a season nobody asked for; the anchor is clamped to the
@@ -189,6 +228,7 @@ export default function Calendar() {
             onPress={() => setAnchor(clamp(nextAnchor(mode, anchor), season.range))}
           />
         </View>
+        )}
 
         <View style={{ flexDirection: "row", gap: space.sm }}>
           <Toggle value={mode} onChange={setMode} />
@@ -238,6 +278,11 @@ export default function Calendar() {
           )}
         </View>
 
+        {mode === "season" && (
+          <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.ink, textAlign: "center" }]}>
+            {label}
+          </Text>
+        )}
         {mode === "week" && <WeekStrip anchor={anchor} today={today} busy={busyDates} onPick={setAnchor} />}
       </View>
 
@@ -267,7 +312,7 @@ export default function Calendar() {
           </View>
         )}
 
-        {shown?.length === 0 && (
+        {shown?.length === 0 && mode !== "season" && (
           <View style={{ paddingHorizontal: space.lg }}>
             <EmptyState
               title={countActive(filter) > 0 ? "Nothing matches that filter" : emptyTitle(mode, anchor, today)}
@@ -283,7 +328,47 @@ export default function Calendar() {
           </View>
         )}
 
-        {days.map((day) => (
+        {mode === "season" && !!season.range && !!shown && (
+          <>
+            <SeasonGrid
+              rangeStart={season.range.start}
+              rangeEnd={season.range.end}
+              items={shown}
+              today={today}
+              selectedWeek={openWeek}
+              onSelectWeek={(monday) => setOpenWeek((current) => (current === monday ? null : monday))}
+            />
+
+            {!!openWeek && (
+              <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, flexDirection: "row", alignItems: "center", gap: space.sm }}>
+                <Text accessibilityRole="header" style={[type.overline, { color: colour.forest800, flex: 1 }]}>
+                  WEEK OF {restOfDate(openWeek, today) || exactDate(openWeek)}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close this week"
+                  onPress={() => setOpenWeek(null)}
+                  hitSlop={8}
+                  style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "flex-end", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+                >
+                  <X size={18} color={colour.inkMuted} strokeWidth={2.2} />
+                </Pressable>
+              </View>
+            )}
+
+            {!!openWeek && weekDays.length === 0 && (
+              <View style={{ paddingHorizontal: space.lg }}>
+                <EmptyState
+                  title="A rest week"
+                  body="Nothing is scheduled in this week — which is a real answer, not a gap in the data."
+                  icon={<CalendarDays size={22} color={colour.inkSubtle} />}
+                />
+              </View>
+            )}
+          </>
+        )}
+
+        {(mode === "season" ? weekDays : days).map((day) => (
           <View key={day.date}>
             <View style={{ paddingHorizontal: space.lg, paddingBottom: space.xs, flexDirection: "row", alignItems: "baseline", gap: space.sm }}>
               <Text style={[type.overline, { color: day.date === today ? colour.pitch600 : colour.forest800 }]}>
@@ -523,22 +608,24 @@ function Toggle({
   value,
   onChange,
 }: {
-  value: "week" | "month"
-  onChange: (next: "week" | "month") => void
+  value: "week" | "month" | "season"
+  onChange: (next: "week" | "month" | "season") => void
 }) {
   return (
     <View
       accessibilityRole="tablist"
       style={{ flex: 1, flexDirection: "row", backgroundColor: "rgba(16,21,18,0.05)", borderRadius: radius.md, padding: 3 }}
     >
-      {(["week", "month"] as const).map((option) => {
+      {(["week", "month", "season"] as const).map((option) => {
         const selected = option === value
         return (
           <Pressable
             key={option}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            accessibilityLabel={option === "week" ? "One week at a time" : "One month at a time"}
+            accessibilityLabel={
+              option === "week" ? "One week at a time" : option === "month" ? "One month at a time" : "The whole season"
+            }
             onPress={() => onChange(option)}
             style={{
               flex: 1,
@@ -550,7 +637,7 @@ function Toggle({
             }}
           >
             <Text style={[type.smallMedium, { color: selected ? colour.ink : colour.inkMuted, fontSize: 13 }]}>
-              {option === "week" ? "Week" : "Month"}
+              {option === "week" ? "Week" : option === "month" ? "Month" : "Season"}
             </Text>
           </Pressable>
         )
@@ -591,6 +678,13 @@ function Step({
       </View>
     </Pressable>
   )
+}
+
+/** Six days on from a Monday, so a week's own rows can be cut out of the season's. */
+function addDays(iso: string, days: number): string {
+  const date = new Date(`${iso}T12:00:00`)
+  date.setDate(date.getDate() + days)
+  return format(date)
 }
 
 /** Keep an anchor inside the season the register describes. No range means no bound, not an open one. */

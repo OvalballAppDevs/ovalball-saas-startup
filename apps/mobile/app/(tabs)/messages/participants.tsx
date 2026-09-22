@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import type { GroupConversationKind } from "@ovalball/contracts"
+
 
 import { supabase } from "../../../src/auth/supabase"
 import { useSession } from "../../../src/auth/session"
@@ -18,6 +18,7 @@ import {
   setMuted,
   unblockPerson,
   type AddableMember,
+  type ConversationKind,
   type ParticipantsView,
 } from "../../../src/messages/participants"
 import { friendly, logDetail } from "../../../src/errors/translate"
@@ -52,7 +53,7 @@ export default function Participants() {
   const { session } = useSession()
   const { sessionContext } = useAppContexts()
   const params = useLocalSearchParams<{ kind?: string; id?: string }>()
-  const kind = (["fixture", "request", "club"].includes(String(params.kind)) ? params.kind : "fixture") as GroupConversationKind
+  const kind = (["fixture", "request", "club", "direct"].includes(String(params.kind)) ? params.kind : "fixture") as ConversationKind
   const id = String(params.id ?? "")
 
   const [view, setView] = useState<ParticipantsView | null>(null)
@@ -98,6 +99,8 @@ export default function Participants() {
   }
 
   async function openAdd() {
+    // Only reachable where `canAdd` is true, which a direct conversation never is.
+    if (kind === "direct") return
     setAdding(true)
     setCandidates(null)
     setCandidates(await addableMembers(supabase, kind, id))
@@ -226,7 +229,10 @@ export default function Participants() {
                       <Action
                         label={`Add ${person.name}`}
                         busy={busy === `add:${person.userId}`}
-                        onPress={() => void run(`add:${person.userId}`, () => addParticipant(supabase, kind, id, person.userId))}
+                        onPress={() =>
+                          kind !== "direct" &&
+                          void run(`add:${person.userId}`, () => addParticipant(supabase, kind, id, person.userId))
+                        }
                       >
                         <Plus size={19} color={colour.forest800} strokeWidth={2.2} />
                       </Action>
@@ -257,7 +263,10 @@ export default function Participants() {
                         <Action
                           label={`Remove ${person.name} from this conversation`}
                           busy={busy === `remove:${person.userId}`}
-                          onPress={() => void run(`remove:${person.userId}`, () => removeParticipant(supabase, kind, id, person.userId))}
+                          onPress={() =>
+                            kind !== "direct" &&
+                            void run(`remove:${person.userId}`, () => removeParticipant(supabase, kind, id, person.userId))
+                          }
                         >
                           <X size={18} color={colour.inkMuted} strokeWidth={2.2} />
                         </Action>
@@ -266,6 +275,17 @@ export default function Participants() {
                   ))}
                 </Card>
 
+                {/* A DIRECT CONVERSATION IS TWO PEOPLE AND CANNOT BECOME THREE. Said, rather than left
+                    as a missing Add button somebody wonders about -- and it points at the conversations
+                    that DO hold a group, which is the useful half of the answer. */}
+                {kind === "direct" && (
+                  <Text style={[type.caption, { color: colour.inkMuted }]}>
+                    A direct message is between the two of you. To include anyone else, use the
+                    fixture&apos;s or the team&apos;s conversation instead.
+                  </Text>
+                )}
+
+                {kind !== "direct" && (
                 <View style={{ gap: space.sm }}>
                   <Text style={[type.overline, { color: colour.inkSubtle }]}>THIS CONVERSATION</Text>
                   <Card>
@@ -318,6 +338,7 @@ export default function Participants() {
                     Leaving stops the messages reaching you. It does not remove your access, so you can rejoin.
                   </Text>
                 </View>
+                )}
 
                 {view.participants.some((p) => !p.isMe) && (
                   <View style={{ gap: space.sm }}>

@@ -406,11 +406,10 @@ export default function ConversationScreen() {
           setActionProblem(null)
           setActing(message)
         }}
-        onPeople={
-          kind === "direct"
-            ? undefined
-            : () => router.push({ pathname: "/messages/participants", params: { kind, id } })
-        }
+        // PEOPLE ON EVERY CONVERSATION, including a direct one. Two people is still an answer to "who
+        // is reading this", and blocking somebody is reached from the one place they are genuinely
+        // identifiable. The screen says why there is nothing to add.
+        onPeople={() => router.push({ pathname: "/messages/participants", params: { kind, id } })}
         header={
           <>
             {problem && <ErrorState message={problem} onRetry={load} />}

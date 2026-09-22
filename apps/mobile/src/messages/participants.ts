@@ -12,6 +12,9 @@ import {
   type SessionContext,
 } from "@ovalball/contracts"
 
+/** Every conversation kind that has a People screen -- which is now all of them. */
+export type ConversationKind = GroupConversationKind | "direct"
+
 /**
  * WHO IS IN THIS CONVERSATION, AND WHAT MAY BE DONE ABOUT IT.
  *
@@ -40,15 +43,67 @@ export interface ParticipantsView extends ConversationParticipants {
 export async function loadParticipants(
   supabase: Client,
   ctx: SessionContext,
-  kind: GroupConversationKind,
+  kind: ConversationKind,
   id: string,
   viewerId: string
 ): Promise<ParticipantsView | null> {
+  // A DIRECT CONVERSATION IS TWO PEOPLE, AND THAT IS THE WHOLE MODEL.
+  //
+  // `direct_conversations` holds `user_a` and `user_b` -- there is no third column and no membership
+  // table, so there is no such thing as adding somebody to one. That is not an omission to be worked
+  // around: a private message that a third person could be added to is not a private message, and the
+  // platform's group conversations (a fixture's, a team's, a club's) exist precisely for the case where
+  // more people belong.
+  //
+  // So this screen still opens for a DM -- knowing who you are talking to and being able to block them
+  // is worth having -- and it says plainly that the way to include somebody else is a different
+  // conversation, rather than offering an Add that nothing could honour.
+  if (kind === "direct") return loadDirectParticipants(supabase, id, viewerId)
+
   const parties = await resolveConversationParties(supabase, kind, id)
   if (!parties) return null
   const loaded = await loadConversationParticipants(supabase, kind, id, parties, viewerId)
   const canManage = canManageConversationParticipants(ctx, parties)
   return { ...loaded, canManage, canAdd: canManage && kind !== "club" }
+}
+
+async function loadDirectParticipants(supabase: Client, id: string, viewerId: string): Promise<ParticipantsView | null> {
+  // THE CANONICAL HEADER, which is already the one authority on who the other person is and whether
+  // this viewer is in the conversation at all. A conversation they are not in returns nothing.
+  const { data } = await supabase.rpc("direct_conversation_header", { p_conversation_id: id })
+  const header = data?.[0]
+  if (!header) return null
+
+  const other: ConversationParticipant = {
+    userId: header.other_user_id,
+    name: header.other_display_name ?? "Ovalball user",
+    roleLabel: "",
+    clubId: "",
+    clubName: "",
+    avatarUrl: null,
+    lastActiveAt: null,
+    isMe: false,
+  }
+  const me: ConversationParticipant = {
+    userId: viewerId,
+    name: "You",
+    roleLabel: "",
+    clubId: "",
+    clubName: "",
+    avatarUrl: null,
+    lastActiveAt: null,
+    isMe: true,
+  }
+
+  return {
+    participants: [me, other],
+    // A DIRECT CONVERSATION HAS NO SUBSCRIPTION. Muting and leaving belong to conversations somebody was
+    // added to; you do not leave a conversation that is you and one other person.
+    muted: false,
+    left: false,
+    canManage: false,
+    canAdd: false,
+  }
 }
 
 export async function addableMembers(supabase: Client, kind: GroupConversationKind, id: string): Promise<AddableMember[]> {

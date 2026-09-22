@@ -44,6 +44,18 @@ export interface AgendaRead {
 }
 
 export interface AgendaRequest {
+  /**
+   * AN EXPLICIT WINDOW, WHICH OVERRIDES THE MODE.
+   *
+   * The canonical `resolveWindow` covers day, week, month, year and "upcoming" -- every grain a URL can
+   * express. A SEASON is not one of them, because on the web a season is the page's own scope rather
+   * than a range mode, and the Calendar resolves it separately from the register.
+   *
+   * So a caller that already holds a season's dates passes them here rather than asking `resolveWindow`
+   * for something it has no mode for. The dates still come from `public.seasons`; this only carries
+   * them.
+   */
+  range?: { start: string; end: string; label?: string }
   mode?: RangeMode
   /** The day the window is anchored on. Ignored by "upcoming", which anchors on today. */
   anchor?: string
@@ -61,7 +73,9 @@ export async function readAgenda(
 ): Promise<AgendaRead> {
   const today = request.today ?? todayIso()
   const scope = resolveAgendaScope(ctx, active)
-  const window = resolveWindow(request.mode ?? "upcoming", request.anchor ?? today, today, request.direction ?? "upcoming")
+  const window = request.range
+    ? { startIso: request.range.start, endIso: request.range.end, label: request.range.label ?? "", order: "asc" as const }
+    : resolveWindow(request.mode ?? "upcoming", request.anchor ?? today, today, request.direction ?? "upcoming")
   const result = await loadAgenda(supabase, scope, window, { includeTraining: request.includeTraining ?? true })
   return { items: result.items, truncated: result.truncated, scope, label: window.label }
 }
