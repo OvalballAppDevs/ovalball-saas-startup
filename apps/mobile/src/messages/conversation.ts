@@ -246,33 +246,26 @@ async function conversationHeader(
     /**
      * WHICH UNDER 12 BOYS.
      *
-     * "vs Under 12 Boys" under a subtitle reading "Under 12 Boys" is what a fixture conversation used
-     * to be called, and it is genuinely ambiguous: age-grade names repeat across every club in the
-     * country, so a coach talking to three different clubs' U12s had three identical conversations.
+     * "vs Under 12 Boys" over a subtitle reading "Under 12 Boys" is what a fixture conversation used to
+     * be called, and it is genuinely ambiguous: age-grade names repeat at every club in the country, so
+     * a coach talking to three clubs' U12s had three identical conversations.
      *
-     * THE CLUB IS WHAT TELLS THEM APART, so the club leads and the side is in brackets -- "Preston
-     * Grasshoppers RFC (Under 12 Boys)". Both parts come from canonical identity: the club from the
-     * Club Directory, the side from its own display name, never from a snapshot string parsed apart.
+     * THE CLUB IS WHAT TELLS THEM APART, AND IT GETS THE FIRST LINE TO ITSELF. The first attempt put
+     * both on one line -- "Preston Grasshoppers RFC (Under 12 Boys)" -- and a real club name ran past
+     * the edge of the screen and was truncated mid-bracket, which loses the half that disambiguates.
+     * Two lines, each with room: the club, then the side.
      *
-     * An opponent that is not on Ovalball has no team to name, so it keeps the text the fixture was
-     * created with. Naming it "(Under 12 Boys)" would be asserting a side the platform has no record of.
+     * An opponent that is not on Ovalball has no side to name, so it keeps the text the fixture was
+     * created with and the second line is simply absent. Naming a side the platform has no record of
+     * would be asserting one.
      */
-    const opponent = teamTitle(
-      data.opponent?.clubs?.club_directory?.name ?? null,
-      data.opponent?.display_name ?? data.opponent_team_display_name_snapshot ?? null,
-      data.raw_opposition_text
-    )
-    const ours = teamTitle(
-      data.owning?.clubs?.club_directory?.name ?? null,
-      data.owning?.display_name ?? data.owning_team_display_name_snapshot ?? null,
-      null
-    )
+    const opponentClub = data.opponent?.clubs?.club_directory?.name ?? null
+    const opponentTeam = data.opponent?.display_name ?? data.opponent_team_display_name_snapshot ?? null
 
     return {
       conversationId: data.conversation_id,
-      title: opponent ?? "Opposition",
-      // OUR OWN SIDE AND A DATE SOMEBODY READS. "2026-10-02" is a value, not a date a person says.
-      subtitle: [ours, readableDate(data.kickoff_date)].filter(Boolean).join(" · ") || null,
+      title: opponentClub ?? opponentTeam ?? data.raw_opposition_text ?? "Opposition",
+      subtitle: opponentClub ? opponentTeam : null,
       clubIds: [],
       canSend: true,
     }
@@ -291,27 +284,6 @@ async function conversationHeader(
     clubIds: [],
     canSend: data.status === "sent" || data.status === "counter_proposed",
   }
-}
-
-/**
- * "Preston Grasshoppers RFC (Under 12 Boys)", or the club alone, or the free text.
- *
- * The club first because that is the disambiguating part; the side in brackets because a conversation
- * about a fixture is about one side of it. Everything is canonical -- nothing here parses or composes
- * a name out of parts the platform did not already give it.
- */
-function teamTitle(clubName: string | null, teamName: string | null, fallback: string | null): string | null {
-  if (clubName && teamName) return `${clubName} (${teamName})`
-  return clubName ?? teamName ?? fallback ?? null
-}
-
-/** "Fri 2 Oct 2026" -- a date somebody says, rather than the value the column holds. */
-function readableDate(iso: string | null): string | null {
-  if (!iso) return null
-  const date = new Date(`${iso}T12:00:00`)
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
 }
 
 /** The website's own insert: one container column, RLS decides. Never a service role. */
