@@ -72,6 +72,27 @@ export const radius = {
  */
 export const TOUCH_TARGET = 44
 
+/**
+ * ELEVATION, stated once. React Native's shadow props differ between the platforms, and a card that
+ * floats on iOS and sits flat on Android is the commonest way a shared design drifts apart.
+ */
+export const elevation = {
+  card: {
+    shadowColor: "#071c14",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  sheet: {
+    shadowColor: "#071c14",
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 16,
+  },
+} as const
+
 export const font = {
   display: "BebasNeue_400Regular",
   body: "Inter_400Regular",

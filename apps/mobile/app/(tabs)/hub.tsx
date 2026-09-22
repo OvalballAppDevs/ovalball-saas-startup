@@ -1,17 +1,21 @@
-import { ScrollView } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-
-import { ComingSoon } from "../../src/components/ui"
-import { colour, space } from "../../src/design/tokens"
+import { DestinationFoundation } from "../../src/components/destination"
+import { BookOpen } from "../../src/components/icons"
+import { colour } from "../../src/design/tokens"
 
 export default function Hub() {
-  const insets = useSafeAreaInsets()
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colour.chalk }} contentContainerStyle={{ paddingTop: insets.top + space.lg }}>
-      <ComingSoon
-        title="Rugby Hub"
-        body="Laws, age-grade guidance and the rest of Ovalball's rugby content, in your own code. Not built in this mobile foundation — the website has all of it today."
-      />
-    </ScrollView>
+    <DestinationFoundation
+      icon={<BookOpen size={30} color={colour.forest800} strokeWidth={1.9} />}
+      title="Rugby Hub"
+      intro="The laws, the age grades and the rest of the game — in your own code, written for the person asking."
+      willHold={[
+        "Age-grade rules and what changes at each one",
+        "Laws and how they are actually applied on a Sunday morning",
+        "Guidance for coaches, for parents and for players, each in their own words",
+        "The story of the game, and of the two codes",
+      ]}
+      webPath="/rugby-hub"
+      webLabel="Open Rugby Hub on the Web"
+    />
   )
 }

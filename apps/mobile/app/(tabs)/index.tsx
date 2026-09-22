@@ -1,41 +1,44 @@
 import { useCallback, useEffect, useState } from "react"
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
+import { RefreshControl, ScrollView, Text, View } from "react-native"
+import { useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Linking from "expo-linking"
 
 import { useAppContexts } from "../../src/context/contexts"
-import { loadHomeSummary, readableDate, type HomeSummary } from "../../src/context/home-data"
+import { loadHomeSummary, type HomeSummary } from "../../src/context/home-data"
 import { supabase } from "../../src/auth/supabase"
 import { webUrl } from "../../src/config/environment"
 import { friendly, logDetail } from "../../src/errors/translate"
-import { ContextSwitcher } from "../../src/components/context-switcher"
-import { ClubCrest, PersonAvatar } from "../../src/components/identity"
-import { Button, Card, EmptyState, ErrorState, Loading, SectionHeading, StatusPill } from "../../src/components/ui"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
+import { AppHeader } from "../../src/components/app-header"
+import { ContextSheet } from "../../src/components/context-sheet"
+import { FixtureCard } from "../../src/components/fixture-card"
+import { NeedsAttention, type AttentionItem } from "../../src/components/needs-attention"
+import { CalendarDays, ExternalLink, OvalIcon } from "../../src/components/icons"
+import { Button, Card, CardSkeleton, EmptyState, ErrorState, SectionHeading } from "../../src/components/ui"
+import { colour, space, type } from "../../src/design/tokens"
 
 /**
- * HOME IS WHATEVER THE SELECTED CONTEXT MAKES IT.
+ * HOME — what matters now, what is next, what needs me.
  *
- * Switching context has to change the product or the switcher is decoration. A coach standing in
- * Under 12 Boys gets that side's next fixture; the same person switching to the club gets the club's
- * home; switching to a child gets the child's. One identity, one app, one screen that answers to the
- * scope it is in.
+ * THE ORDER IS THE DESIGN. A person opening Ovalball on a Friday night is answering one of three
+ * questions, and they are not equal: is anything waiting on me, what is the next match, what else is
+ * on. So Needs Attention comes FIRST when it has anything in it and vanishes entirely when it does
+ * not -- an empty "nothing needs you" panel is a permanent reminder of a thing that is not happening.
  *
- * SITE ADMIN IS DELIBERATELY SMALL HERE. Master control is a desk job with wide, destructive
- * authority, and reproducing it on a phone in a foundation build would be both a lot of work and a bad
- * idea. It says what it is and opens the website, which is honest and is what somebody in that context
- * would do anyway.
+ * NOT A GRID OF CARDS. Every card here earns its place by answering one of those three questions, and
+ * the greeting is one line rather than a hero, because the person already knows who they are.
  *
- * THE HEADER NAMES THE PERSON, NOT THE SCOPE. Selecting a child does not turn the greeting into the
- * child -- you are still you. The CONTEXT strip below carries what you are looking at, with a crest
- * that came from the canonical resolver and is never a kit.
+ * SWITCHING CONTEXT CLEARS THE PAGE FIRST. The previous side's fixture must never sit under the new
+ * side's name for the moment the next read is in flight -- and the skeleton, not a spinner, holds the
+ * shape so the card does not shove the page down when it lands.
  */
 export default function Home() {
   const insets = useSafeAreaInsets()
-  const { loading, error, person, active, contexts, reload } = useAppContexts()
-  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const router = useRouter()
+  const { loading, error, person, active, reload } = useAppContexts()
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [summary, setSummary] = useState<HomeSummary | null>(null)
-  const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [summaryError, setSummaryError] = useState<{ message: string; offline: boolean } | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
   const loadSummary = useCallback(async () => {
@@ -46,13 +49,11 @@ export default function Home() {
     } catch (caught) {
       const problem = friendly(caught, "this week")
       logDetail("home summary", problem)
-      setSummaryError(problem.message)
+      setSummaryError({ message: problem.message, offline: problem.retryable && /connection/i.test(problem.message) })
     }
   }, [active])
 
   useEffect(() => {
-    // Cleared first: a fixture belonging to the side you just switched AWAY from must never sit on
-    // screen under the new context's name while the next read is in flight.
     setSummary(null)
     void loadSummary()
   }, [loadSummary])
@@ -64,61 +65,23 @@ export default function Home() {
     setRefreshing(false)
   }, [reload, loadSummary])
 
+  const attention = buildAttention(summary, active?.kind ?? null, () => router.push("/(tabs)/fixtures"))
+
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <View style={{ backgroundColor: colour.chalk, paddingTop: insets.top + space.md, paddingHorizontal: space.lg }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-          <PersonAvatar name={person.firstName} url={person.avatarUrl} size={48} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[type.small, { color: colour.inkMuted }]}>{greeting()},</Text>
-            <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]} numberOfLines={1}>
-              {person.firstName ?? "Welcome"}
-            </Text>
-          </View>
-        </View>
-
-        {active && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Context: ${active.label}, ${active.roleLabel}. Change context`}
-            accessibilityHint="Opens the list of clubs, teams and children you can switch to"
-            onPress={() => setSwitcherOpen(true)}
-            style={({ pressed }) => ({
-              marginTop: space.lg,
-              minHeight: TOUCH_TARGET + 16,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: space.md,
-              backgroundColor: colour.surface,
-              borderRadius: radius.lg,
-              borderWidth: 1,
-              borderColor: colour.line,
-              padding: space.md,
-              opacity: pressed ? 0.9 : 1,
-            })}
-          >
-            <ClubCrest clubName={summary?.clubName ?? active.label} url={summary?.clubLogoUrl ?? active.logoUrl} size={44} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={[type.bodyMedium, { color: colour.ink }]} numberOfLines={1}>
-                {active.label}
-              </Text>
-              <Text style={[type.caption, { color: colour.inkMuted }]} numberOfLines={1}>
-                {summary?.clubName && summary.clubName !== active.label
-                  ? `${summary.clubName} · ${active.roleLabel}`
-                  : active.roleLabel}
-              </Text>
-            </View>
-            <Text style={[type.small, { color: colour.forest800 }]}>{contexts.length > 1 ? "Switch" : ""}</Text>
-          </Pressable>
-        )}
-      </View>
+      <AppHeader onOpenContexts={() => setSheetOpen(true)} />
 
       <ScrollView
-        contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.lg }}
+        contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.xl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.forest800} />}
+        showsVerticalScrollIndicator={false}
       >
-        {loading && <Loading label="Loading your teams…" />}
+        <Text style={[type.body, { color: colour.inkMuted }]}>
+          {greeting()}, <Text style={[type.bodyMedium, { color: colour.ink }]}>{person.firstName ?? "there"}</Text>
+        </Text>
+
         {error && <ErrorState message={error.message} onRetry={reload} />}
+
         {!loading && !error && !active && (
           <EmptyState
             title="No rugby here yet"
@@ -126,26 +89,32 @@ export default function Home() {
           />
         )}
 
-        {!loading && active && <ContextHome context={active.kind} summary={summary} error={summaryError} label={active.label} />}
+        {attention.length > 0 && <NeedsAttention items={attention} />}
+
+        {active && <ContextHome active={active.kind} label={active.label} summary={summary} error={summaryError} onRetry={loadSummary} loading={loading} />}
       </ScrollView>
 
-      <ContextSwitcher visible={switcherOpen} onClose={() => setSwitcherOpen(false)} />
+      <ContextSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
     </View>
   )
 }
 
 function ContextHome({
-  context,
+  active,
+  label,
   summary,
   error,
-  label,
+  onRetry,
+  loading,
 }: {
-  context: string
-  summary: HomeSummary | null
-  error: string | null
+  active: string
   label: string
+  summary: HomeSummary | null
+  error: { message: string; offline: boolean } | null
+  onRetry: () => void
+  loading: boolean
 }) {
-  if (context === "site_admin") {
+  if (active === "site_admin") {
     return (
       <Card>
         <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
@@ -153,8 +122,7 @@ function ContextHome({
         </Text>
         <Text style={[type.body, { color: colour.inkMuted, marginTop: space.xs }]}>
           Platform administration — users, clubs, seasons, the team directory and release control — is a
-          desk job with wide authority, and it stays on the website rather than being squeezed onto a
-          phone. Everything else in Ovalball is here.
+          desk job with wide authority. It stays on the website rather than being squeezed onto a phone.
         </Text>
         <Button
           label="Open Ovalball Web Admin"
@@ -166,7 +134,7 @@ function ContextHome({
     )
   }
 
-  if (context === "governing") {
+  if (active === "governing") {
     return (
       <Card>
         <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
@@ -174,7 +142,7 @@ function ContextHome({
         </Text>
         <Text style={[type.body, { color: colour.inkMuted, marginTop: space.xs }]}>
           Competitions, affiliated clubs and the rest of a governing body&rsquo;s work are not in the
-          mobile build yet. You can see them on the Ovalball website today.
+          mobile build yet. They are on the Ovalball website today.
         </Text>
         <Button
           label="Open on the Web"
@@ -187,46 +155,26 @@ function ContextHome({
   }
 
   return (
-    <View style={{ gap: space.lg }}>
+    <View style={{ gap: space.xl }}>
       <View>
-        <SectionHeading>Next Fixture</SectionHeading>
+        <SectionHeading>Next Up</SectionHeading>
         {error ? (
-          <ErrorState message={error} />
-        ) : summary?.nextFixture ? (
-          <Card>
-            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.md }}>
-              <View style={{ alignItems: "center", minWidth: 52 }}>
-                <Text style={[type.overline, { color: colour.inkSubtle }]}>
-                  {readableDate(summary.nextFixture.date).split(" ")[0].toUpperCase()}
-                </Text>
-                <Text style={[type.displaySmall, { color: colour.ink }]}>
-                  {readableDate(summary.nextFixture.date).split(" ")[1]}
-                </Text>
-                <Text style={[type.caption, { color: colour.inkMuted }]}>
-                  {readableDate(summary.nextFixture.date).split(" ")[2]?.toUpperCase()}
-                </Text>
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[type.bodyMedium, { color: colour.ink }]} numberOfLines={2}>
-                  vs {summary.nextFixture.opponent}
-                </Text>
-                <Text style={[type.small, { color: colour.inkMuted, marginTop: 2 }]}>
-                  {[summary.nextFixture.kickoff?.slice(0, 5), homeAwayLabel(summary.nextFixture.homeAway)]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </Text>
-              </View>
-              {summary.nextFixture.status && (
-                <StatusPill label={titleise(summary.nextFixture.status)} tone={summary.nextFixture.status === "Booked" ? "positive" : "neutral"} />
-              )}
-            </View>
-          </Card>
-        ) : context === "team" ? (
-          <EmptyState title="Nothing scheduled yet" body={`${label} has no upcoming fixture on Ovalball.`} />
+          <ErrorState message={error.message} offline={error.offline} onRetry={onRetry} />
+        ) : loading || summary === null ? (
+          <CardSkeleton lines={2} />
+        ) : summary.nextFixture ? (
+          <FixtureCard fixture={summary.nextFixture} />
+        ) : active === "team" ? (
+          <EmptyState
+            title="Nothing scheduled yet"
+            body={`${label} has no upcoming fixture on Ovalball.`}
+            icon={<OvalIcon size={22} color={colour.inkSubtle} />}
+          />
         ) : (
           <EmptyState
-            title="Pick a team to see its next fixture"
-            body="A club or family context covers several teams. Switch to one of them, or open Fixtures."
+            title="Pick a team to see its next match"
+            body="A club covers several sides. Switch to one of them from the header, or open Fixtures."
+            icon={<OvalIcon size={22} color={colour.inkSubtle} />}
           />
         )}
       </View>
@@ -235,11 +183,60 @@ function ContextHome({
         <SectionHeading>This Week</SectionHeading>
         <EmptyState
           title="Training and events are coming"
-          body="The week's training, meetings and club events arrive with the mobile Calendar. The website has them all today."
+          body="The week's training, meetings and club events arrive with the mobile Calendar."
+          icon={<CalendarDays size={22} color={colour.inkSubtle} />}
         />
       </View>
+
+      <Card onPress={() => void Linking.openURL(webUrl)} accessibilityLabel="Open Ovalball on the web">
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+          <ExternalLink size={20} color={colour.forest800} />
+          <View style={{ flex: 1 }}>
+            <Text style={[type.smallMedium, { color: colour.ink }]}>Everything else is on the web</Text>
+            <Text style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>
+              Messages, People, Subscriptions and club administration, until they arrive in the app.
+            </Text>
+          </View>
+        </View>
+      </Card>
     </View>
   )
+}
+
+/**
+ * WHAT ACTUALLY NEEDS SOMEBODY, from data already on this page.
+ *
+ * Only real state: if nobody has answered for the next fixture, that is a job. Nothing is invented and
+ * nothing is shown speculatively -- an attention list that is sometimes wrong is one people stop
+ * reading. The rest of the sources (fixture requests, join requests, subscriptions) arrive with the
+ * domains that own them, and land in this same component.
+ */
+function buildAttention(summary: HomeSummary | null, kind: string | null, openFixtures: () => void): AttentionItem[] {
+  const items: AttentionItem[] = []
+  const fixture = summary?.nextFixture
+  const availability = fixture?.availability
+  if (fixture && availability && availability.awaiting > 0 && kind === "team") {
+    items.push({
+      key: "availability",
+      label:
+        availability.awaiting === 1
+          ? "1 player has not said whether they can play"
+          : `${availability.awaiting} players have not said whether they can play`,
+      detail: `vs ${fixture.opponent}`,
+      // Urgent only when the match is close enough that chasing is the actual job.
+      urgent: daysUntil(fixture.date) <= 3,
+      onPress: openFixtures,
+    })
+  }
+  return items
+}
+
+function daysUntil(iso: string): number {
+  const date = new Date(`${iso}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return 99
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.round((date.getTime() - start.getTime()) / 86400000)
 }
 
 function greeting(): string {
@@ -247,13 +244,4 @@ function greeting(): string {
   if (hour < 12) return "Good morning"
   if (hour < 18) return "Good afternoon"
   return "Good evening"
-}
-
-function homeAwayLabel(value: string | null): string | null {
-  if (!value) return null
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
-}
-
-function titleise(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase().replace(/_/g, " ")
 }

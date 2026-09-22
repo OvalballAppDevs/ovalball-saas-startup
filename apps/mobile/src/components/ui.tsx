@@ -1,14 +1,17 @@
+import { useEffect, useRef } from "react"
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Pressable,
   Text,
   View,
   type StyleProp,
-  type TextStyle,
   type ViewStyle,
 } from "react-native"
 
-import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
+import { CircleAlert, WifiOff } from "./icons"
+import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../design/tokens"
 
 /**
  * The small set of primitives every screen in this build actually uses.
@@ -73,22 +76,36 @@ export function Button({
   )
 }
 
-export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+export function Card({
+  children,
+  style,
+  onPress,
+  accessibilityLabel,
+}: {
+  children: React.ReactNode
+  style?: StyleProp<ViewStyle>
+  /** A card that does something is a button, and gets press feedback and a role. */
+  onPress?: () => void
+  accessibilityLabel?: string
+}) {
+  const shape: ViewStyle = {
+    backgroundColor: colour.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colour.line,
+    padding: space.lg,
+    ...elevation.card,
+  }
+  if (!onPress) return <View style={[shape, style]}>{children}</View>
   return (
-    <View
-      style={[
-        {
-          backgroundColor: colour.surface,
-          borderRadius: radius.lg,
-          borderWidth: 1,
-          borderColor: colour.line,
-          padding: space.lg,
-        },
-        style,
-      ]}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={({ pressed }) => [shape, { opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.995 : 1 }] }, style]}
     >
       {children}
-    </View>
+    </Pressable>
   )
 }
 
@@ -134,23 +151,95 @@ export function Loading({ label }: { label: string }) {
   )
 }
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+/**
+ * A SKELETON, NOT A SPINNER.
+ *
+ * A spinner says "something is happening"; a skeleton says "a fixture card is about to be here", and
+ * the page does not jump when it arrives because the space was already the right shape. Three spinners
+ * in a row on one screen is the pattern this exists to replace.
+ *
+ * It announces itself once, as busy, rather than as several unlabelled boxes -- a screen reader should
+ * hear "loading", not the geometry.
+ */
+export function Skeleton({ height = 16, width = "100%", style }: { height?: number; width?: number | string; style?: StyleProp<ViewStyle> }) {
+  const pulse = useRef(new Animated.Value(0.5)).current
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.5, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ])
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [pulse])
   return (
-    <Card style={{ borderColor: "rgba(193,34,27,0.25)", backgroundColor: colour.dangerSurface }}>
-      <Text accessibilityRole="alert" style={[type.body, { color: colour.danger }]}>
-        {message}
-      </Text>
+    <Animated.View
+      importantForAccessibility="no-hide-descendants"
+      style={[{ height, width: width as ViewStyle["width"], borderRadius: radius.sm, backgroundColor: "rgba(16,21,18,0.07)", opacity: pulse }, style]}
+    />
+  )
+}
+
+/** The shape a fixture card will be, so its arrival does not move the page. */
+export function CardSkeleton({ lines = 2 }: { lines?: number }) {
+  return (
+    <View accessible accessibilityLabel="Loading" accessibilityState={{ busy: true }}>
+      <Card>
+        <Skeleton height={14} width="45%" />
+        {Array.from({ length: lines }).map((_, i) => (
+          <Skeleton key={i} height={12} width={i === lines - 1 ? "60%" : "85%"} style={{ marginTop: space.sm }} />
+        ))}
+      </Card>
+    </View>
+  )
+}
+
+/**
+ * A PRODUCT STATE, NOT A STACK TRACE.
+ *
+ * Ovalball's own voice, its own card, and a way forward. Offline gets its own icon and wording because
+ * "check your signal" and "something went wrong" are different problems with different next steps, and
+ * a touchline is where the first one actually happens.
+ */
+export function ErrorState({ message, onRetry, offline = false }: { message: string; onRetry?: () => void; offline?: boolean }) {
+  return (
+    <Card style={{ borderColor: offline ? colour.lineStrong : "rgba(193,34,27,0.25)", backgroundColor: offline ? colour.surface : colour.dangerSurface }}>
+      <View style={{ flexDirection: "row", gap: space.md, alignItems: "flex-start" }}>
+        {offline ? <WifiOff size={20} color={colour.inkMuted} /> : <CircleAlert size={20} color={colour.danger} />}
+        <Text accessibilityRole="alert" style={[type.body, { color: offline ? colour.ink : colour.danger, flex: 1 }]}>
+          {message}
+        </Text>
+      </View>
       {onRetry && <Button label="Try Again" variant="secondary" onPress={onRetry} style={{ marginTop: space.md }} />}
     </Card>
   )
 }
 
-export function EmptyState({ title, body }: { title: string; body: string }) {
+/**
+ * EMPTY IS A REAL ANSWER, and it should read like one.
+ *
+ * "No fixtures this week" is information. It gets the same quiet card everywhere so a person learns
+ * the shape once, and it never borrows the error treatment -- nothing has gone wrong.
+ */
+export function EmptyState({ title, body, icon }: { title: string; body: string; icon?: React.ReactNode }) {
   return (
-    <Card style={{ borderStyle: "dashed", backgroundColor: "transparent" }}>
-      <Text style={[type.bodyMedium, { color: colour.ink }]}>{title}</Text>
-      <Text style={[type.small, { color: colour.inkMuted, marginTop: 2 }]}>{body}</Text>
-    </Card>
+    <View
+      style={{
+        borderRadius: radius.lg,
+        borderWidth: 1,
+        borderStyle: "dashed",
+        borderColor: colour.lineStrong,
+        paddingVertical: space.xl,
+        paddingHorizontal: space.lg,
+        alignItems: "center",
+        gap: space.xs,
+      }}
+    >
+      {icon}
+      <Text style={[type.bodyMedium, { color: colour.ink, textAlign: "center" }]}>{title}</Text>
+      <Text style={[type.small, { color: colour.inkMuted, textAlign: "center", maxWidth: 280 }]}>{body}</Text>
+    </View>
   )
 }
 

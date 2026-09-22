@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
 import {
+  clubLogoUrlFromPath,
   getSessionContext,
   listSwitchableContexts,
   resolveActiveContext,
@@ -45,6 +46,32 @@ interface ContextState {
   person: { firstName: string | null; avatarUrl: string | null; email: string | null }
   contexts: SwitchableContext[]
   active: SwitchableContext | null
+  /**
+   * THE ONE CAPABILITY THIS SHELL ASKS FOR, and it is asked of the SERVER.
+   *
+   * The bottom bar gives its fifth cell to Subscriptions for somebody who may actually open it, so it
+   * has to know -- and the only acceptable way to know is `my_capabilities`, which runs
+   * `internal.capability_decision` and is the same resolver the website uses. Deriving it from the
+   * context kind would hand the cell to every coach who cannot open the page, and would be a
+   * capability decided on a handset.
+   *
+   * It is re-asked on every context change and never cached across one: a cached yes outlives the
+   * permission it came from.
+   */
+  canSeeTeamSubscriptions: boolean
+  /**
+   * THE OWNING CLUB'S OWN IDENTITY, resolved once for whatever context is selected.
+   *
+   * Section 20's invariant: standing in Under 12 Boys, the club identity shown is Preston
+   * Grasshoppers' crest -- not the team's, and never a kit. It lives HERE rather than on each screen
+   * because the header is on every screen, and a screen that forgot to pass it fell back to the TEAM's
+   * initials, which is a different club identity on different pages of the same app. One resolution,
+   * one answer.
+   *
+   * The URL comes from `clubLogoUrlFromPath`, the canonical rule: the club's own upload, else the Club
+   * Directory's branding logo, else nothing -- and nothing means initials, never a substitute image.
+   */
+  club: { name: string | null; crestUrl: string | null }
   select: (key: string) => Promise<void>
   reload: () => Promise<void>
 }
@@ -100,6 +127,54 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
     [ctx, selectedKey]
   )
 
+  const [club, setClub] = useState<{ name: string | null; crestUrl: string | null }>({ name: null, crestUrl: null })
+  useEffect(() => {
+    let live = true
+    // Cleared first: the previous club's crest must never sit beside the new context's name.
+    setClub({ name: null, crestUrl: null })
+    const clubId = active?.clubId
+    if (!clubId) return
+    void (async () => {
+      const { data } = await supabase
+        .from("clubs")
+        .select("logo_storage_path, club_directory(name, logo_storage_path)")
+        .eq("id", clubId)
+        .maybeSingle()
+      if (!live || !data) return
+      setClub({
+        name: data.club_directory?.name ?? null,
+        crestUrl: clubLogoUrlFromPath(supabase, data.logo_storage_path ?? data.club_directory?.logo_storage_path ?? null),
+      })
+    })()
+    return () => {
+      live = false
+    }
+  }, [active])
+
+  const [canSeeTeamSubscriptions, setCanSeeTeamSubscriptions] = useState(false)
+  useEffect(() => {
+    let live = true
+    // Cleared FIRST: the previous context's answer must never decide this context's navigation, even
+    // for the moment the new answer is in flight.
+    setCanSeeTeamSubscriptions(false)
+    if (!active || active.kind !== "team" || !active.clubId) return
+    void (async () => {
+      const { data } = await supabase.rpc("my_capabilities", {
+        p_scope_type: "team",
+        p_club_id: active.clubId ?? undefined,
+        p_team_id: active.id ?? undefined,
+      })
+      if (!live) return
+      const allowed = (data ?? []).some(
+        (row) => row.capability_key === "finance.subscription.view" && row.allowed === true
+      )
+      setCanSeeTeamSubscriptions(allowed)
+    })()
+    return () => {
+      live = false
+    }
+  }, [active])
+
   const select = useCallback(async (key: string) => {
     setSelectedKey(key)
     await AsyncStorage.setItem(SELECTED_CONTEXT_KEY, key)
@@ -112,10 +187,12 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
       person: { firstName: ctx?.firstName ?? null, avatarUrl, email },
       contexts,
       active,
+      canSeeTeamSubscriptions,
+      club,
       select,
       reload: load,
     }),
-    [loading, error, ctx, avatarUrl, email, contexts, active, select, load]
+    [loading, error, ctx, avatarUrl, email, contexts, active, canSeeTeamSubscriptions, club, select, load]
   )
 
   return <AppContexts.Provider value={value}>{children}</AppContexts.Provider>

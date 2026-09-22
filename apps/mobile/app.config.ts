@@ -38,12 +38,23 @@ const config: ExpoConfig = {
   name: identity.name,
   slug: "ovalball",
   version: "0.1.0",
+  // PORTRAIT ONLY, on the phone. Ovalball on a touchline is a one-handed, upright product; a landscape
+  // layout for it is a design job nobody has done, and rotating into an untested one is worse than not
+  // rotating. Tablets are a separate decision and a separate pass.
   orientation: "portrait",
   scheme: identity.scheme,
   userInterfaceStyle: "light",
+  // The status bar sits on the forest launch canvas, so its content must be light from the first frame
+  // rather than flicking from dark to light once React has an opinion.
+  backgroundColor: "#071C14",
   ios: {
     bundleIdentifier: identity.bundle,
     supportsTablet: true,
+    infoPlist: {
+      // The launch storyboard's own background, so the very first frame the system draws -- before any
+      // JavaScript exists -- is already the brand ground. This is the frame that used to be white.
+      UIViewControllerBasedStatusBarAppearance: true,
+    },
   },
   android: {
     package: identity.bundle,
@@ -58,7 +69,19 @@ const config: ExpoConfig = {
     ["expo-secure-store", {}],
     // The launch screen is the brand ground, so the first rendered frame is the same colour and
     // the app never flashes white on the way in.
-    ["expo-splash-screen", { backgroundColor: "#071C14", resizeMode: "contain" }],
+    [
+      "expo-splash-screen",
+      {
+        // ONE CANVAS FROM THE FIRST FRAME. The native splash, the React hold and the sign-in screen's
+        // own header all sit on #071C14, so the handoff between them is invisible: there is no white
+        // frame to flash, because no layer in the stack is ever white.
+        image: "./assets/splash-mark.png",
+        backgroundColor: "#071C14",
+        imageWidth: 180,
+        resizeMode: "contain",
+        dark: { backgroundColor: "#071C14" },
+      },
+    ],
   ],
   experiments: { typedRoutes: true },
   extra: {

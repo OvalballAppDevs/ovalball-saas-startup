@@ -175,12 +175,36 @@ test("a person is never shown a raw database or auth error", () => {
   }
 })
 
-test("every destination that is not built says so", () => {
-  // The brief's rule: do not pretend functionality exists. An empty list reads as "you have nothing",
-  // which is a worse lie than "this is not built yet".
-  for (const screen of ["app/(tabs)/calendar.tsx", "app/(tabs)/hub.tsx", "app/(tabs)/fixtures.tsx"]) {
-    assert.match(read(screen), /ComingSoon/, `${screen} does not say it is unfinished`)
+test("every destination that is not built says so, and says it as a real screen", () => {
+  // The rule is not to pretend functionality exists, and the temptation is to answer that with an
+  // empty list -- which is worse, because an empty list says "you have no fixtures" rather than "this
+  // is not finished". Each one names what it WILL hold, so it is a foundation to build into rather
+  // than a placeholder to tear out.
+  for (const screen of ["app/(tabs)/calendar.tsx", "app/(tabs)/hub.tsx", "app/(tabs)/fixtures.tsx", "app/(tabs)/subscriptions.tsx"]) {
+    const src = read(screen)
+    assert.match(src, /DestinationFoundation/, `${screen} is not a real destination`)
+    assert.match(src, /willHold=\{\[/, `${screen} does not say what it will hold`)
   }
-  const ui = read("src/components/ui.tsx")
-  assert.match(ui, /Coming in this mobile build/, "the unfinished-destination state lost its wording")
+  const foundation = read("src/components/destination.tsx")
+  assert.match(foundation, /WHAT WILL BE HERE/, "the foundation state lost its heading")
+})
+
+test("and no unfinished destination is solved with a WebView", () => {
+  // Native app means native product. Opening the website is legitimate for the jobs that are
+  // deliberately web-only, and it happens in the SYSTEM browser -- an embedded browser pretending to
+  // be the app is the thing this must never become.
+  for (const file of FILES) {
+    const src = strip(read(file))
+    assert.ok(!/WebView|react-native-webview/.test(src), `${file} embeds a WebView`)
+  }
+  assert.match(strip(read("src/components/destination.tsx")), /Linking\.openURL/, "the web handoff no longer uses the system browser")
+})
+
+test("the launch canvas gets out of the way rather than fading in place", () => {
+  // While it fades it is still a full-screen view over the product: without this a tap lands on
+  // decoration and a screen reader can focus a layer on its way out. Found by an axe run timed to the
+  // fade, which is where a VoiceOver user actually lives.
+  const launch = strip(read("src/components/launch.tsx"))
+  assert.match(launch, /pointerEvents=\{fading \? "none" : "auto"\}/, "the fading canvas still takes taps")
+  assert.match(launch, /accessibilityElementsHidden=\{fading\}/, "the fading canvas is still in the accessibility tree")
 })

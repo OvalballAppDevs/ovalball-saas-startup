@@ -64,6 +64,34 @@ appears.
 
 Only the publishable (anon) key is bundled. No service role, no provider secret, no pepper.
 
+## The shell
+
+**Launch.** Native splash (forest `#071C14`, the app's own generated mark) → `LaunchCanvas`, the same
+colour and the same mark in React → the destination. Nothing in the stack is white, so the handoff has
+no colour to change; the canvas fades in 220ms the moment the session's status is known, and unmounts
+after it, `pointerEvents="none"` and hidden from assistive tech while it goes. There is no minimum
+display time: a fixed logo duration is a cost charged to somebody checking a kick-off time.
+
+**Header** — one row: the person's avatar, the context as the tappable thing (widest target, with a
+chevron), notifications. Not the sidebar's identity block, which has a column to spend and this does
+not.
+
+**Bottom bar** — five cells, drawn by Ovalball rather than by the library, because the library's own
+label slot clipped the word on a bar this height while leaving it in the accessibility tree. Home,
+Fixtures, Calendar and Rugby Hub are in the same position for everybody; the fifth is Subscriptions
+for somebody the **server** says holds `finance.subscription.view` at team scope, and More for
+everyone else. Cells are 46pt, the home indicator's height is added rather than absorbed, and the
+active state is three signals — a pitch-green rule, a heavier glyph stroke, a heavier label — never
+colour alone. `projectTabs` is a pure function so the projection can be asserted rather than
+inspected.
+
+**Context sheet** — a real bottom sheet: spring in, drag to dismiss, the page still visible behind it.
+The person is named first, then their rugby, from `listSwitchableContexts`.
+
+**Icons** — Lucide, the website's own family, so a calendar is the same calendar on both clients. The
+one exception is Fixtures: Lucide has no rugby ball, and a trophy or a flag says something Ovalball
+does not mean, so it draws the brand's own oval.
+
 ## Navigation
 
 `expo-router`, file-based, with one gate in `app/_layout.tsx` that maps session status to a place:

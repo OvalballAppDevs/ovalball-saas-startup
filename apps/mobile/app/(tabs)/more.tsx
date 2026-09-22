@@ -1,4 +1,6 @@
-import { ScrollView, Text, View } from "react-native"
+import { useState } from "react"
+import { Pressable, ScrollView, Text, View } from "react-native"
+import { useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Linking from "expo-linking"
 
@@ -6,81 +8,169 @@ import { useSession } from "../../src/auth/session"
 import { useAppContexts, forgetSelectedContext } from "../../src/context/contexts"
 import { environment, webUrl } from "../../src/config/environment"
 import { isSecure, sessionStorageDescription } from "../../src/auth/session-store"
+import { AppHeader } from "../../src/components/app-header"
+import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { Button, Card, SectionHeading } from "../../src/components/ui"
-import { colour, space, type } from "../../src/design/tokens"
+import { Bell, ChevronRight, ExternalLink, MessageSquare, Receipt, Users } from "../../src/components/icons"
+import { Button, Card } from "../../src/components/ui"
+import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
 
 /**
- * MORE — who you are, and the way out.
+ * MORE — organised around jobs, not around what would not fit.
  *
- * SIGNING OUT CLEARS THIS DEVICE. The Supabase session goes from the platform's secure store, and the
- * selected context goes with it: a phone gets handed around a clubhouse, and the next person to sign
- * in must not land in the previous person's team. Nothing else sensitive is written to disk, which is
- * what makes that a complete answer rather than a partial one.
+ * THE FAILURE MODE IS A DUMPING GROUND, and it is avoided by grouping: who you are, the jobs that are
+ * not in the bar yet, and leaving. Each row says what the job IS rather than which screen it opens, so
+ * the list stays readable as things move out of it into the bar over the next milestones.
  *
- * The build tells you what it is. In development, where several backends exist and all of them look
- * the same from the outside, "which Ovalball is this" is a question worth answering on screen.
+ * SUBSCRIPTIONS IS HERE FOR EVERYONE IT IS RELEVANT TO. It takes the bottom bar's fifth cell only for
+ * somebody the server says may see a team's subscription state; everybody else reaches the same
+ * destination from here. A tab is a shortcut, never the only way in.
  */
 export default function More() {
   const insets = useSafeAreaInsets()
+  const router = useRouter()
   const { signOut, email } = useSession()
-  const { person } = useAppContexts()
+  const { person, active, canSeeTeamSubscriptions } = useAppContexts()
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   async function leave() {
+    // The context goes with the session. A phone gets handed around a clubhouse, and the next person
+    // to sign in must not land in the previous person's team.
     await forgetSelectedContext()
     await signOut()
   }
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colour.chalk }}
-      contentContainerStyle={{ padding: space.lg, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.lg }}
-    >
-      <Card>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-          <PersonAvatar name={person.firstName} url={person.avatarUrl} size={56} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]} numberOfLines={1}>
-              {person.firstName ?? "Your account"}
-            </Text>
-            <Text style={[type.small, { color: colour.inkMuted }]} numberOfLines={1}>
-              {email ?? ""}
-            </Text>
+    <View style={{ flex: 1, backgroundColor: colour.chalk }}>
+      <AppHeader onOpenContexts={() => setSheetOpen(true)} />
+
+      <ScrollView
+        contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.xl }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Card>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <PersonAvatar name={person.firstName} url={person.avatarUrl} size={52} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]} numberOfLines={1}>
+                {person.firstName ?? "Your account"}
+              </Text>
+              <Text style={[type.small, { color: colour.inkMuted }]} numberOfLines={1}>
+                {email ?? ""}
+              </Text>
+            </View>
           </View>
-        </View>
-      </Card>
+        </Card>
 
-      <View>
-        <SectionHeading>On the Web for Now</SectionHeading>
-        <Card>
-          <Text style={[type.body, { color: colour.inkMuted }]}>
-            Messages, Subscriptions, People, club administration and Site Admin are on the Ovalball
-            website. They arrive in the app over the next mobile milestones.
-          </Text>
-          <Button
-            label="Open Ovalball on the Web"
-            variant="secondary"
-            style={{ marginTop: space.md }}
-            onPress={() => void Linking.openURL(webUrl)}
+        <Group title="Your Rugby">
+          {!canSeeTeamSubscriptions && (
+            <Row
+              icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
+              label="Subscriptions"
+              caption="Who is set up to pay, and what is outstanding"
+              onPress={() => router.push("/(tabs)/subscriptions")}
+            />
+          )}
+          <Row
+            icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="People"
+            caption="Players, parents and the staff who run the side — on the web for now"
+            onPress={() => void Linking.openURL(`${webUrl}/people`)}
+            external
           />
-        </Card>
-      </View>
+          <Row
+            icon={<MessageSquare size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="Messages"
+            caption="Team and club conversations — on the web for now"
+            onPress={() => void Linking.openURL(`${webUrl}/messages`)}
+            external
+          />
+          <Row
+            icon={<Bell size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="Notifications"
+            caption="Everything that has happened — on the web for now"
+            onPress={() => void Linking.openURL(`${webUrl}/notifications`)}
+            external
+          />
+        </Group>
 
-      <View>
-        <SectionHeading>This Build</SectionHeading>
-        <Card>
-          <Row label="Environment" value={environment} />
-          <Row label="Session stored in" value={sessionStorageDescription} />
-          <Row label="Secure storage" value={isSecure ? "Yes" : "No — this platform has none"} />
-        </Card>
-      </View>
+        <Group title="Your Account">
+          <Row
+            icon={<ExternalLink size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="Profile and Security"
+            caption="Your name, picture, password and second factor"
+            onPress={() => void Linking.openURL(`${webUrl}/account`)}
+            external
+          />
+        </Group>
 
-      <Button label="Sign Out" variant="secondary" onPress={() => void leave()} />
-    </ScrollView>
+        <View>
+          <Text style={[type.overline, { color: colour.inkSubtle, marginBottom: space.sm }]}>THIS BUILD</Text>
+          <Card>
+            <Detail label="Environment" value={environment} />
+            <Detail label="Session stored in" value={sessionStorageDescription} />
+            <Detail label="Secure storage" value={isSecure ? "Yes" : "No — this platform has none"} />
+          </Card>
+        </View>
+
+        <Button label="Sign Out" variant="secondary" onPress={() => void leave()} />
+      </ScrollView>
+
+      <ContextSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </View>
   )
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View>
+      <Text style={[type.overline, { color: colour.inkSubtle, marginBottom: space.sm }]}>{title.toUpperCase()}</Text>
+      <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+        {children}
+      </View>
+    </View>
+  )
+}
+
+function Row({
+  icon,
+  label,
+  caption,
+  onPress,
+  external = false,
+}: {
+  icon: React.ReactNode
+  label: string
+  caption: string
+  onPress: () => void
+  external?: boolean
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={external ? `${label}. ${caption}. Opens the Ovalball website` : `${label}. ${caption}`}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: TOUCH_TARGET + 12,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.md,
+        paddingVertical: space.md,
+        paddingHorizontal: space.lg,
+        backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent",
+      })}
+    >
+      {icon}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[type.smallMedium, { color: colour.ink }]}>{label}</Text>
+        <Text style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>{caption}</Text>
+      </View>
+      {external ? <ExternalLink size={15} color={colour.inkSubtle} /> : <ChevronRight size={17} color={colour.inkSubtle} />}
+    </Pressable>
+  )
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", gap: space.md, paddingVertical: 4 }}>
       <Text style={[type.small, { color: colour.inkMuted }]}>{label}</Text>

@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Slot, useRouter, useSegments } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import * as SplashScreen from "expo-splash-screen"
@@ -11,7 +11,7 @@ import { View } from "react-native"
 import { SessionProvider, useSession } from "../src/auth/session"
 import { ContextProvider } from "../src/context/contexts"
 import { colour } from "../src/design/tokens"
-import { OvalballMark, OvalballWordmark } from "../src/components/brand"
+import { LaunchCanvas } from "../src/components/launch"
 
 void SplashScreen.preventAutoHideAsync()
 
@@ -39,6 +39,15 @@ function Gate() {
   const { status } = useSession()
   const segments = useSegments()
   const router = useRouter()
+  // `settled` trails `status` by the length of the fade, so the canvas is unmounted only after it has
+  // finished fading -- not the moment the status changes, which would snap.
+  const [settled, setSettled] = useState(false)
+
+  useEffect(() => {
+    if (status === "restoring") return
+    const timer = setTimeout(() => setSettled(true), 260)
+    return () => clearTimeout(timer)
+  }, [status])
 
   useEffect(() => {
     if (status === "restoring") return
@@ -55,20 +64,13 @@ function Gate() {
     else if (status === "signed-out" && !onSignIn) router.replace("/sign-in")
   }, [status, segments, router])
 
-  if (status === "restoring") return <BrandHold />
-  return <Slot />
-}
-
-/** The launch state: the brand, on the brand's own ground, while the stored session is read back. */
-function BrandHold() {
+  // THE CANVAS STAYS UNTIL THE DESTINATION IS DECIDED AND PAINTED. Rendering the Slot underneath it
+  // from the first frame means the real screen is already laid out when the canvas fades, so the fade
+  // reveals a finished screen rather than starting one.
   return (
-    <View
-      accessible
-      accessibilityLabel="Ovalball is starting"
-      style={{ flex: 1, backgroundColor: colour.forest950, alignItems: "center", justifyContent: "center", gap: 24 }}
-    >
-      <OvalballMark size={140} />
-      <OvalballWordmark size={38} />
+    <View style={{ flex: 1, backgroundColor: colour.forest950 }}>
+      <Slot />
+      {!settled && <LaunchCanvas fading={status !== "restoring"} />}
     </View>
   )
 }
@@ -84,7 +86,8 @@ export default function RootLayout() {
   useEffect(() => {
     // The splash goes once the fonts have SETTLED -- loaded or failed. Waiting only on success is how
     // an app hangs on a blank brand screen forever, which is the web product's own development
-    // webfont defect moved onto a phone, and it must not be reproduced here.
+    // webfont defect moved onto a phone, and it must not be reproduced here. What the splash reveals
+    // is LaunchCanvas, the same mark on the same ground, so hiding it is not a visible event.
     if (fontsLoaded || fontError) void SplashScreen.hideAsync()
     if (fontError && __DEV__) {
       // eslint-disable-next-line no-console

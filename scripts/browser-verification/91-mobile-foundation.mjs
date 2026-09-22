@@ -117,7 +117,10 @@ try {
   record("A3 with an email and a password field", /Email Address/.test(signedOut) && /Password/.test(signedOut))
   // It must NOT offer providers the platform has switched off.
   record("A4 and offers no social button the platform has not enabled", !/Continue with Google|Sign in with Apple/.test(signedOut))
-  await recordAxe("A5 axe: the sign-in screen at 390px", await runAxe(page))
+  await page.waitForTimeout(700)
+  const canvasGone = await page.locator('[aria-label="Ovalball is starting"]').count()
+  record("A5 the launch canvas is gone once sign-in is on screen, not merely transparent", canvasGone === 0, String(canvasGone))
+  await recordAxe("A6 axe: the sign-in screen at 390px", await runAxe(page))
 
   // =====================================================================
   // B. SIGN IN
@@ -149,7 +152,7 @@ try {
   // D. MY REAL CONTEXTS
   // =====================================================================
   record("D1 the context strip shows the context being viewed", /Ovalball UAT RUFC|Under 12 Boys/.test(home), home.slice(0, 200))
-  await page.getByRole("button", { name: /Context:/ }).click()
+  await page.getByRole("button", { name: /^Viewing / }).click()
   await page.waitForTimeout(1200)
   const switcher = await page.locator("body").innerText()
   record("D2 the switcher names the person, not the scope", /Morgan/.test(switcher))
@@ -169,10 +172,10 @@ try {
   record("E1 selecting the team makes Home the team's", new RegExp(teamName).test(teamHome), teamHome.slice(0, 200))
   record(
     "E2 and the team's home answers the team's question, not the club's",
-    /Next Fixture/.test(teamHome) && !/Pick a team to see its next fixture/.test(teamHome)
+    /Next Up/.test(teamHome) && !/Pick a team to see its next match/.test(teamHome)
   )
 
-  await page.getByRole("button", { name: /Context:/ }).click()
+  await page.getByRole("button", { name: /^Viewing / }).click()
   await page.waitForTimeout(1200)
   await page.getByRole("button", { name: /^Ovalball UAT RUFC,/ }).click()
   await page.waitForTimeout(3000)
@@ -180,7 +183,7 @@ try {
   record("E3 switching back to the club changes Home again", /Ovalball UAT RUFC/.test(clubHome))
   record(
     "E4 and the club's home does not present one team's fixture as the club's",
-    /Pick a team to see its next fixture/.test(clubHome),
+    /Pick a team to see its next match/.test(clubHome),
     clubHome.slice(0, 200)
   )
 

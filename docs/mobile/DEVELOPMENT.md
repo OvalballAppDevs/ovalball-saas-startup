@@ -43,22 +43,64 @@ cd apps/mobile && npx expo start
 
 Then press `i` for iOS, `a` for Android, `w` for web, or scan the QR code with Expo Go.
 
-## On a physical phone: localhost will not work
+## On a physical iPhone — the proven loop
 
-A handset cannot resolve your Mac's `localhost` — that is the simulator's privilege. Point the app at
-the Mac's LAN address, with both devices on the same Wi-Fi:
+This works and is how the app is now reviewed. A handset cannot resolve your Mac's `localhost` — that
+is the simulator's privilege — so everything points at the Mac's address on your own network.
+
+**1. Find the Mac's LAN address.** It changes between networks, and between reboots on some routers,
+so read it rather than remember it:
 
 ```bash
-ipconfig getifaddr en0          # e.g. 192.168.1.42
+ipconfig getifaddr en0          # Wi-Fi
+ipconfig getifaddr en1          # if en0 is empty (wired, or a different interface order)
 ```
 
+**2. Put it in `apps/mobile/.env.local`** — which is gitignored, and must stay that way. An address
+from one developer's kitchen is not product configuration, and committing it breaks the app for
+everybody else the moment they pull:
+
 ```
-EXPO_PUBLIC_SUPABASE_URL=http://192.168.1.42:54321
-EXPO_PUBLIC_OVALBALL_WEB_URL=http://192.168.1.42:3000
+EXPO_PUBLIC_SUPABASE_URL=http://<that-address>:54321
+EXPO_PUBLIC_OVALBALL_WEB_URL=http://<that-address>:3000
 ```
 
-The app detects the loopback case on a device and says so on the sign-in screen rather than failing
-silently — but it cannot fix it for you.
+**3. Let Supabase answer on the network, not just on the loopback.** `supabase start` binds its API to
+all interfaces by default; if the phone times out at sign-in, check with `curl http://<that-address>:54321/rest/v1/`
+from the Mac before suspecting the app.
+
+**4. Start Expo on the LAN and scan the QR code** with the Camera app (Expo Go) or with a development
+build:
+
+```bash
+cd apps/mobile && npx expo start
+```
+
+Both devices must be on the same Wi-Fi, and a guest network or one with client isolation switched on
+will silently fail — that looks exactly like a broken app and is not one.
+
+**The app tells you when this is wrong.** If the build is pointed at `localhost` while running on a
+device, the sign-in screen says so in a developer-only notice. That notice never appears in a
+production build, and never appears when configuration is correct.
+
+## Expo Go, and when a development build becomes necessary
+
+Everything in this foundation runs in **Expo Go** — expo-router, expo-secure-store, expo-font,
+expo-image, expo-linking, react-native-svg and the Supabase client are all in the Expo SDK.
+
+**M3 to M6 can continue in Expo Go.** Home, Team, People, Fixtures, Calendar, Availability, Match
+Centre and the family surfaces are screens and reads; none of them needs a native module Expo Go does
+not already carry.
+
+**The first thing that genuinely requires a development build is push notifications — M7.** Remote
+push needs an APNs entitlement bound to Ovalball's own bundle identifier, and Expo Go's identifier is
+Expo's. The same build unlocks the rest of M10: biometrics (`expo-local-authentication`), the device
+calendar (`expo-calendar`), the camera roll and app-icon badges.
+
+**Do not migrate early.** A development build is a real build with real signing, and every day spent
+maintaining one before it is needed is a day not spent on the product. The trigger is M7, and the work
+is: an Apple Developer membership, `eas.json` build profiles, `npx expo run:ios --device` for a local
+build or EAS for a hosted one, and a push credential.
 
 ## This machine cannot run a simulator
 
@@ -84,6 +126,31 @@ node --import ./scripts/email-test-loader.mjs --experimental-strip-types --test 
   supabase/tests/js/shared_contracts.test.mts
 ```
 
+## Reviewing on the phone
+
+What to actually look at, in order, when the app is in your hand:
+
+1. **Cold open** — force-quit first. Forest green from the first frame, the mark centred, no white
+   flash, no spinner, and it does not hold you there once it knows where you are going.
+2. **Sign-in** — the mark stays on forest at the top while the form arrives as a chalk sheet. Tap the
+   email field: the keyboard opens, the field stays visible, and Sign In is still reachable. The eye
+   reveals the password. iOS should offer the Passwords entry.
+3. **Home** — your own name, the context strip with the crest, Needs Attention only if something
+   actually needs you, then Next Up.
+4. **The bottom bar** — five labelled cells; the active one has a green rule above the glyph as well
+   as green colour. Nothing sits under the home indicator. Tabs switch instantly.
+5. **The context sheet** — tap the context strip. Your name at the top, then your rugby. Drag the sheet
+   down to dismiss it.
+6. **Switch club → team** — Home changes, the header changes, the identity stays yours, and nothing
+   from the previous context flashes past.
+7. **Fixtures, Calendar, Rugby Hub** — each is a real screen that says what it will hold.
+8. **Rotate the phone** — it should stay portrait.
+9. **Turn Wi-Fi off, pull to refresh** — a product state with a Try Again, never a raw error.
+10. **VoiceOver** — the tabs announce their names and which is selected; the context rows announce the
+    club, the role and which is current.
+11. **Close and reopen** — you are still signed in, in the same context.
+12. **Sign out, reopen** — you are not.
+
 ## The acceptance journey
 
 Sign in, identity, real contexts, switching, session restoration, sign-out — 27 assertions. It seeds
@@ -95,7 +162,8 @@ persona.
 cd apps/mobile && npx expo start --web --port 8081
 
 # terminal 2, from the repository root
-node scripts/browser-verification/91-mobile-foundation.mjs
+node scripts/browser-verification/91-mobile-foundation.mjs   # the journey, 28 assertions
+node scripts/browser-verification/92-mobile-shell.mjs        # the shell's UX, 31 assertions
 ```
 
 It is declared in `scripts/browser-verification/suite-registry.json` rather than wired into the web
