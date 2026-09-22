@@ -114,7 +114,13 @@ begin
   insert into public.clubs (directory_id, slug, status) values (v_far_dir, 'dca-far-' || v_tag, 'active') returning id into v_far_club;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_far_club, v_far, 'CLUB_ADMIN', 'active');
 
-  select id into v_season from public.seasons order by starts_on desc limit 1;
+  -- The season whose window CONTAINS the fixture's date, from the register -- not merely the latest
+  -- one, which files a September fixture under next season.
+  select id into v_season
+    from public.seasons
+   where not is_regression_fixture and (current_date + 7) between starts_on and ends_on
+   order by starts_on desc
+   limit 1;
   insert into public.fixtures (owning_team_id, kickoff_date, home_away, status, raw_opposition_text, season_id, created_by)
   values (v_team, current_date + 7, 'Home', 'Booked', 'DCA Opposition RFC', v_season, v_ann)
   returning id into v_fixture;

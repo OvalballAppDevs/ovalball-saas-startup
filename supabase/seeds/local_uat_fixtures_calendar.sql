@@ -45,7 +45,18 @@ begin
 
   select id into v_u12 from public.teams where club_id = v_club and display_name = 'Under 12 Boys';
   select id into v_u8 from public.teams where club_id = v_club and display_name = 'Under 8 Mixed';
-  select id into v_season from public.seasons order by starts_on desc limit 1;
+  -- THE SEASON A FIXTURE IS IN IS THE ONE WHOSE WINDOW CONTAINS ITS DATE, resolved from the canonical
+  -- register. This said "the latest season" and was wrong in the way that is hardest to notice: every
+  -- seeded fixture in September 2026 was filed under 2027/28, which nothing rendered and which would
+  -- have corrupted every season-scoped answer about them -- the team identity they were played under,
+  -- the archive boundary, a season's own results.
+  select id into v_season
+    from public.seasons
+   where rugby_code = 'union'
+     and not is_regression_fixture
+     and current_date between starts_on and ends_on
+   order by starts_on desc
+   limit 1;
   select id into v_venue from public.venues where club_id = v_club limit 1;
 
   -- ---------------------------------------------------------------- past, with a result

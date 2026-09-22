@@ -112,7 +112,13 @@ begin
   insert into public.team_permissions (team_id, membership_id, permission) values (v_team_a, v_membership_a, 'coach');
   insert into public.team_permissions (team_id, membership_id, permission) values (v_team_b, v_membership_b, 'coach');
 
-  select id into v_season from public.seasons order by starts_on desc limit 1;
+  -- The season whose window CONTAINS the fixture's date, from the register -- not merely the latest
+  -- one, which files a September fixture under next season.
+  select id into v_season
+    from public.seasons
+   where not is_regression_fixture and (current_date + 7) between starts_on and ends_on
+   order by starts_on desc
+   limit 1;
   insert into public.fixtures (owning_team_id, kickoff_date, home_away, status, raw_opposition_text, season_id, created_by)
   values (v_team_a, current_date + 7, 'Home', 'Booked', 'MFA Opposition A', v_season, v_admin) returning id into v_fixture_a;
   insert into public.fixtures (owning_team_id, kickoff_date, home_away, status, raw_opposition_text, season_id, created_by)

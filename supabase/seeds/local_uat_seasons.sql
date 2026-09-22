@@ -57,15 +57,22 @@ begin
   -- RUGBY UNION 26/27 -- the current season.
   --
   -- Union runs across two calendar years: pre-season from August, the season
-  -- proper from September to the following June. The pre-season start is the
+  -- proper from September to the following May. The pre-season start is the
   -- canonical boundary the handover, registration windows and the Calendar's
   -- Pre-Season phase all read; it is a recorded fact here, never a computed
   -- "1 August" cutoff written into a function.
   -- ---------------------------------------------------------------------
+  -- THE DATES ARE THE PRODUCT OWNER'S OWN, not a plausible guess. Pre-season runs 1 June to 31 August
+  -- and the season proper 1 September to 31 May, which is what Ovalball's Site Admin holds. The seed
+  -- previously carried a made-up 1 August start and a 30 June end; both were invented, and an invented
+  -- canonical date is worse than a missing one because nothing ever questions it.
+  --
+  -- The pre-season WINDOW is derived, never stored twice: it runs from pre_season_starts_on to the day
+  -- before starts_on, so recording 1 June here is what makes "1 June – 31 August" true everywhere.
   update public.seasons
-     set pre_season_starts_on = date '2026-08-01',
+     set pre_season_starts_on = date '2026-06-01',
          starts_on            = date '2026-09-01',
-         ends_on              = date '2027-06-30',
+         ends_on              = date '2027-05-31',
          updated_by           = coalesce(v_actor, updated_by)
    where rugby_code = 'union'
      and season_ref = '26/27';
@@ -106,8 +113,10 @@ begin
   -- already answers.
   insert into public.seasons (name, season_ref, rugby_code, starts_on, ends_on,
                               pre_season_starts_on, active, created_by, updated_by)
-  select 'Rugby Union 27/28', '27/28', 'union', date '2027-09-01', date '2028-06-30',
-         date '2027-08-01', true, v_actor, v_actor
+  -- The same shape as 26/27, because a club's season does not change length from one year to the next
+  -- and a handover into a differently shaped season would be the seed inventing a second convention.
+  select 'Rugby Union 27/28', '27/28', 'union', date '2027-09-01', date '2028-05-31',
+         date '2027-06-01', true, v_actor, v_actor
   where not exists (
     select 1 from public.seasons s where s.rugby_code = 'union' and s.season_ref = '27/28'
   );
