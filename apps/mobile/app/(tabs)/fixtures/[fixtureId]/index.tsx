@@ -26,7 +26,7 @@ import {
   updateVenue,
   type MutationResult,
 } from "../../../../src/agenda/mutations"
-import { exactDate, relativeDate, statusTone } from "../../../../src/agenda/presentation"
+import { exactDate, relativeDate, shortVenue, statusTone } from "../../../../src/agenda/presentation"
 import { todayIso } from "../../../../src/agenda/load"
 import { openConversationWith } from "../../../../src/messages/recipients"
 import { friendly, logDetail } from "../../../../src/errors/translate"
@@ -329,9 +329,12 @@ export default function FixtureConsole() {
 
           {/* WHERE ----------------------------------------------------------------- */}
           <Group title="Where">
+            {/* THE GROUND'S NAME ON THE ROW, ITS ADDRESS UNDERNEATH. An away ground Ovalball has no
+                record of is stored as a whole postal address, so without this the row and the address
+                block said the same long string twice. */}
             <Row
               label="Venue"
-              value={fixture.venue ?? "Not set"}
+              value={shortVenue(fixture.venue) ?? "Not set"}
               muted={!fixture.venue}
               editable={canEditVenue}
               reason={fixture.editable.venue?.editable === false ? fixture.editable.venue.reason : null}

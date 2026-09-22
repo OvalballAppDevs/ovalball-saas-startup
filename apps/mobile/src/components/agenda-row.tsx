@@ -6,6 +6,7 @@ import {
   kickoffLabel,
   opponentLine,
   relativeDate,
+  shortVenue,
   spokenAgendaItem,
   statusTone,
   type StatusTone,
@@ -128,7 +129,7 @@ export function AgendaRow({
           {showOwner && !!ownerLabel(item) && (
             <Meta icon={<OvalIcon size={12} color={colour.inkMuted} />} text={ownerLabel(item)!} />
           )}
-          {!!item.venue && <Meta icon={<MapPin size={12} color={colour.inkMuted} />} text={item.venue} />}
+          {!!shortVenue(item.venue) && <Meta icon={<MapPin size={12} color={colour.inkMuted} />} text={shortVenue(item.venue)!} />}
           {training && !!item.us.teamName && <Meta text={item.us.teamName} />}
         </View>
       </View>
@@ -297,16 +298,21 @@ export function NextFixtureCard({
           ring and sits 16 from the edge, so it reaches 52 in, and a long venue name ran underneath it
           while still showing its own ellipsis. Reserved generously: an address is the longest thing on
           this card and it is the one somebody reads. */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg, flexWrap: "wrap", marginTop: space.xs, paddingRight: 58 }}>
+      {/* THE FACTS KEEP CLEAR OF THE BADGE'S CORNER, which is 34 wide plus a ring and 16 from the edge.
+          The venue is the GROUND'S NAME rather than its postal address -- the address belongs on the
+          console beside Directions, not in a card where it truncates to "Lightfoot Lane, Pr...". */}
+      <View style={{ gap: space.xs, marginTop: space.xs, paddingRight: 58 }}>
         <Fact
           icon={<Clock size={14} color={colour.onForestMuted} />}
           text={time ? `${relativeDate(item.date, today)} · ${time}` : relativeDate(item.date, today)}
         />
-        {!!item.venue && <Fact icon={<MapPin size={14} color={colour.onForestMuted} />} text={item.venue} />}
+        {!!shortVenue(item.venue) && (
+          <Fact icon={<MapPin size={14} color={colour.onForestMuted} />} text={shortVenue(item.venue)!} />
+        )}
       </View>
 
       {!!status && status.tone !== "confirmed" && (
-        <View style={{ alignSelf: "flex-start", marginTop: space.xs, backgroundColor: "rgba(255,255,255,0.16)", borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 3 }}>
+        <View style={{ alignSelf: "flex-start", marginTop: space.xs, marginRight: 58, backgroundColor: "rgba(255,255,255,0.16)", borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 3 }}>
           <Text style={[type.caption, { color: colour.onForest, fontSize: 11 }]}>{status.label}</Text>
         </View>
       )}

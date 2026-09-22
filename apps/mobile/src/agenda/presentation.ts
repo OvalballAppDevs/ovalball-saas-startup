@@ -149,6 +149,27 @@ export function daysBetween(fromIso: string, toIso: string): number {
   return Math.round((to.getTime() - from.getTime()) / 86400000)
 }
 
+/**
+ * THE GROUND'S NAME, WITHOUT ITS ADDRESS.
+ *
+ * A fixture at a ground Ovalball has a record of carries that ground's name. An AWAY fixture at a club
+ * that is not on Ovalball carries a postal address instead, because that is the only thing the owning
+ * club recorded -- and "Ovalball UAT Opposition RFC, Lightfoot Lane, Preston, PR4 0TA" is the right
+ * thing to route a car to and the wrong thing to put in a list row, where it either wraps over three
+ * lines or is truncated into meaninglessness.
+ *
+ * So a LIST shows the first segment, which is the ground. The full address stays exactly where it is
+ * useful: on the Fixture Console, under WHERE, next to Directions.
+ *
+ * It is a split on the comma rather than anything cleverer, because the canonical shape is
+ * "name, street, town, postcode" and guessing harder would start inventing a ground's name.
+ */
+export function shortVenue(venue: string | null): string | null {
+  if (!venue) return null
+  const first = venue.split(",")[0]?.trim()
+  return first || null
+}
+
 /** "10:30", or nothing. A fixture with no kick-off time has none, and inventing one would be a lie. */
 export function kickoffLabel(time: string | null): string | null {
   return time ? time.slice(0, 5) : null

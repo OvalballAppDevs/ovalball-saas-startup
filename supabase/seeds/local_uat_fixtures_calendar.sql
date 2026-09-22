@@ -143,11 +143,17 @@ begin
   -- An AWAY fixture's ground belongs to the other club, so Ovalball has no venue record for it and the
   -- canonical shape is an address recorded as text by the owning club. Without one, Directions has
   -- nothing to route to and the action correctly does not appear -- which is right, and unreviewable.
+  --
+  -- RESTORED RATHER THAN ONLY INSERTED. A home/away change legitimately clears the ground and the
+  -- pitch -- they belong to whichever club is at home -- so any review pass that flips this fixture,
+  -- including an automated one, leaves it with no ground. A review world that quietly loses the fact
+  -- it exists to demonstrate is worse than one that never had it, so the seed puts it back.
   update public.fixtures
      set venue_address = 'Ovalball UAT Opposition RFC, Lightfoot Lane, Preston, PR4 0TA',
          pitch_allocation = coalesce(pitch_allocation, 'Pitch 3')
    where owning_team_id = v_u12
      and raw_opposition_text = 'Ovalball UAT Opposition RFC'
+     and home_away = 'Away'
      and venue_address is null;
 
   -- ---------------------------------------------------------------- a fixture against a real Ovalball club
