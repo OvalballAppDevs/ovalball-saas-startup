@@ -39,11 +39,17 @@ const check = (ok, label, detail = "") => {
 }
 
 check(existsSync(CONSOLE), "the fixture console exists", CONSOLE)
-const source = existsSync(CONSOLE) ? readFileSync(CONSOLE, "utf8") : ""
+const consoleSource = existsSync(CONSOLE) ? readFileSync(CONSOLE, "utf8") : ""
+
+// The identity block is its own component, so the checks about how a fixture is PRESENTED read it
+// there. Splitting it out is the point -- the hero is drawn once and the console composes it.
+const HERO = join(ROOT, "apps", "mobile", "src", "components", "fixture-hero.tsx")
+check(existsSync(HERO), "the fixture hero exists", HERO)
+const source = consoleSource + (existsSync(HERO) ? readFileSync(HERO, "utf8") : "")
 
 // Comments legitimately explain WHY availability and documents are absent, so the checks look for the
 // code that would render them rather than for the words.
-const code = source
+const code = consoleSource
   .replace(/\/\*[\s\S]*?\*\//g, "")
   .replace(/^\s*\/\/.*$/gm, "")
 
@@ -60,8 +66,10 @@ check(!/delete_fixture|deleteFixture/.test(code), "there is no fixture deletion"
 // The corrections that must be PRESENT.
 check(/Match Centre/.test(source), "Match Centre has an entry point")
 check(/teamId:\s*fixture\.teamId/.test(source), "and it carries the team, so availability is one squad's")
-check(/oppositionPresenceLabel/.test(source), "opposition presence is shown from the shared contract")
-check(/home\.spoken\.toUpperCase\(\)/.test(source), "home and away is shown as a word, not a letter")
+check(/ON OVALBALL|NOT ON OVALBALL/.test(source), "opposition presence is shown")
+check(/onOvalball/.test(consoleSource), "from the shared contract's own answer")
+check(/WE'RE AT HOME|WE'RE AWAY/.test(source), "home and away is shown as words, not a letter")
+check(/homeAway !== "Away"/.test(source), "and the layout itself carries the orientation")
 check(/Cancel Fixture/.test(source), "Cancel Fixture is on the console")
 check(/colour\.danger/.test(source), "and is drawn in the danger tone")
 check(/CancelSheet/.test(source), "with a confirmation that names the fixture")
@@ -69,6 +77,8 @@ check(/updateKickoff/.test(source), "the kick-off is edited from the console")
 check(/updateMeetTime/.test(source), "so is the meet time")
 check(/updateVenue/.test(source), "so is the venue")
 check(/updatePitch/.test(source), "so is the pitch")
+check(/home_away/.test(consoleSource), "and so is home or away")
+check(/tells the other club/.test(consoleSource), "with the consequence stated before the change")
 check(/proposedKickoff/.test(source), "a proposed kick-off change is surfaced rather than reported as saved")
 
 // No separate Edit or Cancel destination beside the console.

@@ -55,6 +55,26 @@ export interface Conversation {
 
 type Client = SupabaseClient<Database>
 
+const FIXTURE_HEADER_SELECT = `
+  id, conversation_id, kickoff_date, raw_opposition_text,
+  opponent_team_display_name_snapshot, owning_team_display_name_snapshot,
+  opponent:teams!fixtures_opponent_team_id_fkey(display_name, clubs(club_directory(name))),
+  owning:teams!fixtures_owning_team_id_fkey(display_name, clubs(club_directory(name)))
+`
+
+type HeaderTeam = { display_name: string; clubs: { club_directory: { name: string } | null } | null } | null
+
+interface FixtureHeaderRow {
+  id: string
+  conversation_id: string | null
+  kickoff_date: string | null
+  raw_opposition_text: string | null
+  opponent_team_display_name_snapshot: string | null
+  owning_team_display_name_snapshot: string | null
+  opponent: HeaderTeam
+  owning: HeaderTeam
+}
+
 export async function loadConversation(
   supabase: Client,
   kind: ConversationKind,
@@ -210,17 +230,49 @@ async function conversationHeader(
   }
 
   if (kind === "fixture") {
-    const { data } = await supabase
-      .from("fixtures")
-      .select("id, conversation_id, kickoff_date, raw_opposition_text, opponent_team_display_name_snapshot, owning_team_display_name_snapshot")
+    // The shape is named rather than inferred: PostgREST's type for a select with two nested joins
+    // exceeds what the compiler will unfold, and naming it is clearer than simplifying a query that
+    // asks for exactly the right columns.
+    const { data } = await (supabase.from("fixtures") as unknown as {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => { maybeSingle: () => Promise<{ data: FixtureHeaderRow | null }> }
+      }
+    })
+      .select(FIXTURE_HEADER_SELECT)
       .eq("id", id)
       .maybeSingle()
     if (!data?.conversation_id) return null
-    const opponent = data.opponent_team_display_name_snapshot ?? data.raw_opposition_text ?? "Opposition"
+
+    /**
+     * WHICH UNDER 12 BOYS.
+     *
+     * "vs Under 12 Boys" under a subtitle reading "Under 12 Boys" is what a fixture conversation used
+     * to be called, and it is genuinely ambiguous: age-grade names repeat across every club in the
+     * country, so a coach talking to three different clubs' U12s had three identical conversations.
+     *
+     * THE CLUB IS WHAT TELLS THEM APART, so the club leads and the side is in brackets -- "Preston
+     * Grasshoppers RFC (Under 12 Boys)". Both parts come from canonical identity: the club from the
+     * Club Directory, the side from its own display name, never from a snapshot string parsed apart.
+     *
+     * An opponent that is not on Ovalball has no team to name, so it keeps the text the fixture was
+     * created with. Naming it "(Under 12 Boys)" would be asserting a side the platform has no record of.
+     */
+    const opponent = teamTitle(
+      data.opponent?.clubs?.club_directory?.name ?? null,
+      data.opponent?.display_name ?? data.opponent_team_display_name_snapshot ?? null,
+      data.raw_opposition_text
+    )
+    const ours = teamTitle(
+      data.owning?.clubs?.club_directory?.name ?? null,
+      data.owning?.display_name ?? data.owning_team_display_name_snapshot ?? null,
+      null
+    )
+
     return {
       conversationId: data.conversation_id,
-      title: `vs ${opponent}`,
-      subtitle: [data.owning_team_display_name_snapshot, data.kickoff_date].filter(Boolean).join(" · ") || null,
+      title: opponent ?? "Opposition",
+      // OUR OWN SIDE AND A DATE SOMEBODY READS. "2026-10-02" is a value, not a date a person says.
+      subtitle: [ours, readableDate(data.kickoff_date)].filter(Boolean).join(" · ") || null,
       clubIds: [],
       canSend: true,
     }
@@ -239,6 +291,27 @@ async function conversationHeader(
     clubIds: [],
     canSend: data.status === "sent" || data.status === "counter_proposed",
   }
+}
+
+/**
+ * "Preston Grasshoppers RFC (Under 12 Boys)", or the club alone, or the free text.
+ *
+ * The club first because that is the disambiguating part; the side in brackets because a conversation
+ * about a fixture is about one side of it. Everything is canonical -- nothing here parses or composes
+ * a name out of parts the platform did not already give it.
+ */
+function teamTitle(clubName: string | null, teamName: string | null, fallback: string | null): string | null {
+  if (clubName && teamName) return `${clubName} (${teamName})`
+  return clubName ?? teamName ?? fallback ?? null
+}
+
+/** "Fri 2 Oct 2026" -- a date somebody says, rather than the value the column holds. */
+function readableDate(iso: string | null): string | null {
+  if (!iso) return null
+  const date = new Date(`${iso}T12:00:00`)
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
 }
 
 /** The website's own insert: one container column, RLS decides. Never a service role. */

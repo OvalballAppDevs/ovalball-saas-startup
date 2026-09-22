@@ -293,9 +293,11 @@ export function NextFixtureCard({
         </View>
       </View>
 
-      {/* The facts stop short of the corner the badge occupies, so a long venue name wraps rather than
-          sliding underneath it. */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg, flexWrap: "wrap", marginTop: space.xs, paddingRight: 44 }}>
+      {/* THE FACTS STOP SHORT OF THE BADGE'S CORNER. 44 was not enough -- the badge is 34 wide plus a
+          ring and sits 16 from the edge, so it reaches 52 in, and a long venue name ran underneath it
+          while still showing its own ellipsis. Reserved generously: an address is the longest thing on
+          this card and it is the one somebody reads. */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg, flexWrap: "wrap", marginTop: space.xs, paddingRight: 58 }}>
         <Fact
           icon={<Clock size={14} color={colour.onForestMuted} />}
           text={time ? `${relativeDate(item.date, today)} · ${time}` : relativeDate(item.date, today)}

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { oppositionPresenceLabel } from "@ovalball/contracts"
 
 import { supabase } from "../../../../src/auth/supabase"
 import { useAppContexts } from "../../../../src/context/contexts"
@@ -27,11 +26,11 @@ import {
   updateVenue,
   type MutationResult,
 } from "../../../../src/agenda/mutations"
-import { exactDate, homeAwayLabel, relativeDate, statusTone } from "../../../../src/agenda/presentation"
+import { exactDate, relativeDate, statusTone } from "../../../../src/agenda/presentation"
 import { todayIso } from "../../../../src/agenda/load"
 import { openConversationWith } from "../../../../src/messages/recipients"
 import { friendly, logDetail } from "../../../../src/errors/translate"
-import { ClubCrest } from "../../../../src/components/identity"
+import { FixtureHero } from "../../../../src/components/fixture-hero"
 import { CancelSheet, ChoiceSheet, DateSheet, TextSheet, TimeSheet } from "../../../../src/components/field-sheet"
 import {
   ChevronRight,
@@ -91,7 +90,9 @@ export default function FixtureConsole() {
   const [venues, setVenues] = useState<VenueOption[]>([])
   const [pitches, setPitches] = useState<PitchOption[]>([])
 
-  const [editing, setEditing] = useState<null | "date" | "kickoff" | "meet" | "venue" | "pitch" | "pitchText" | "notes" | "cancel">(null)
+  const [editing, setEditing] = useState<
+    null | "date" | "kickoff" | "meet" | "venue" | "pitch" | "pitchText" | "homeAway" | "notes" | "cancel"
+  >(null)
   const [saving, setSaving] = useState(false)
   const [sheetProblem, setSheetProblem] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
@@ -203,7 +204,6 @@ export default function FixtureConsole() {
 
   const status = statusTone(fixture?.status ?? null)
   const cancelled = fixture?.status === "Cancelled"
-  const home = homeAwayLabel(fixture?.homeAway ?? null)
   // A CANCELLED FIXTURE IS NOT EDITED AS THOUGH IT WERE LIVE. The database refuses it too, but showing
   // tappable values on a match that is off invites somebody to reschedule a thing that no longer exists.
   const canEditSchedule = Boolean(authority?.edit) && !cancelled && (fixture?.editable.schedule?.editable ?? false)
@@ -213,6 +213,8 @@ export default function FixtureConsole() {
   // A NAMED PITCH IS A HOME FIXTURE'S BUSINESS. Away, the ground belongs to the other club and the
   // canonical mutation refuses a pitch id -- so the free-text fallback is what is offered instead.
   const namedPitch = fixture?.homeAway === "Home"
+  // HOME OR AWAY IS THE OWNING CLUB'S TO SET, which is what the server says through `homeAway`.
+  const canEditOrientation = Boolean(authority?.edit) && !cancelled && (fixture?.editable.homeAway?.editable ?? false)
 
   return (
     <Shell
@@ -236,51 +238,26 @@ export default function FixtureConsole() {
 
       {!!fixture && (
         <>
-          {/* IDENTITY -- who, against whom, where we are playing, and whether they are on Ovalball.
-              Compact on purpose: this used to be a tall decorative block that pushed the kick-off below
-              the fold on a normal iPhone. */}
-          <View style={{ gap: space.sm }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-              <ClubCrest clubName={fixture.us.clubName} url={fixture.us.crestUrl} size={40} />
-              <Text style={[type.caption, { color: colour.inkSubtle }]}>
-                {fixture.homeAway === "Away" ? "away to" : fixture.homeAway === "Home" ? "at home to" : "against"}
-              </Text>
-              <ClubCrest clubName={fixture.them.clubName} url={fixture.them.crestUrl} size={40} />
-            </View>
+          {/* THE FIXTURE, WRITTEN AS A FIXTURE: home on the left, away on the right, a V between them.
+              That is how it appears on every programme and whiteboard in the game, and the layout
+              carries the orientation without anybody decoding a letter. Tapping it changes home or
+              away, where the server allows it. */}
+          <FixtureHero
+            us={fixture.us}
+            them={fixture.them}
+            homeAway={fixture.homeAway}
+            onOvalball={fixture.opposition.onOvalball}
+            result={fixture.result}
+            editable={canEditOrientation}
+            onEdit={() => {
+              setSheetProblem(null)
+              setEditing("homeAway")
+            }}
+          />
 
-            <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
-              {fixture.them.teamName ? `${fixture.them.clubName} ${fixture.them.teamName}` : fixture.them.clubName}
-            </Text>
-
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
-              {/* HOME OR AWAY IN WORDS. "A" was too cryptic -- a manager should not have to decode a
-                  letter for the fact that decides whether they are travelling. */}
-              {!!home && (
-                <Badge
-                  label={home.spoken.toUpperCase()}
-                  background={fixture.homeAway === "Home" ? colour.forest800 : fixture.homeAway === "Away" ? colour.messengerBlue : colour.lineStrong}
-                  foreground={fixture.homeAway === "Home" || fixture.homeAway === "Away" ? colour.onForest : colour.inkMuted}
-                />
-              )}
-              {/* ON OVALBALL, from canonical club and team linkage -- never from the name, the crest or
-                  a string match. It tells a manager whether richer things are possible here. */}
-              <Badge
-                label={oppositionPresenceLabel(fixture.opposition).toUpperCase()}
-                background={fixture.opposition.onOvalball ? colour.mint100 : "rgba(16,21,18,0.05)"}
-                foreground={fixture.opposition.onOvalball ? colour.forest800 : colour.inkMuted}
-              />
-              {!!fixture.gameType && <Badge label={fixture.gameType.toUpperCase()} background="rgba(16,21,18,0.05)" foreground={colour.inkMuted} />}
-            </View>
-
-            {!!status && status.tone !== "confirmed" && !cancelled && (
-              <Text style={[type.caption, { color: colour.inkMuted }]}>{status.label}</Text>
-            )}
-            {!!fixture.result && (
-              <Text style={[type.title, { color: colour.forest800 }]}>
-                {fixture.result.ourScore}–{fixture.result.theirScore}
-              </Text>
-            )}
-          </View>
+          {!!status && status.tone !== "confirmed" && !cancelled && !fixture.result && (
+            <Text style={[type.caption, { color: colour.inkMuted }]}>{status.label}</Text>
+          )}
 
           {/* ASKED FOR, NOT AGREED. Both times are shown: the one that is still true, and the one that
               has been proposed. Hiding either would leave somebody confident about the wrong one. */}
@@ -563,6 +540,30 @@ export default function FixtureConsole() {
             problem={sheetProblem}
             onSave={(text) => void save(() => updatePitch(supabase, id, { pitchId: null, pitchText: text }))}
           />
+          <ChoiceSheet
+            visible={editing === "homeAway"}
+            title="Home or away"
+            // THE CONSEQUENCES, SAID BEFORE THE CHANGE RATHER THAN DISCOVERED AFTER IT. The platform
+            // clears the ground and the pitch because they belong to whichever club is at home, and it
+            // writes to the opposing club's fixture staff. Both are the canonical behaviour; the only
+            // thing this interface adds is the warning.
+            hint={
+              fixture.opposition.onOvalball
+                ? "This clears the ground and the pitch, and tells the other club."
+                : "This clears the ground and the pitch."
+            }
+            options={[
+              { id: "Home", name: "Home", detail: "We host" },
+              { id: "Away", name: "Away", detail: "We travel" },
+              { id: "TBD", name: "Not agreed", detail: "Still being arranged" },
+            ]}
+            value={fixture.homeAway}
+            emptyMessage=""
+            onClose={() => setEditing(null)}
+            saving={saving}
+            problem={sheetProblem}
+            onSave={(next) => next && void save(() => updateDetails(supabase, id, { home_away: next }))}
+          />
           <TextSheet
             visible={editing === "notes"}
             title="Notes"
@@ -717,14 +718,6 @@ function Action({
       </View>
       <ChevronRight size={17} color={colour.inkSubtle} />
     </Pressable>
-  )
-}
-
-function Badge({ label, background, foreground }: { label: string; background: string; foreground: string }) {
-  return (
-    <View style={{ backgroundColor: background, borderRadius: radius.sm, paddingHorizontal: space.sm + 2, paddingVertical: 4 }}>
-      <Text style={[type.overline, { color: foreground, fontSize: 10, letterSpacing: 0.8 }]}>{label}</Text>
-    </View>
   )
 }
 
