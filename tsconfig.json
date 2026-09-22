@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@ovalball/contracts": ["./packages/contracts/src/index.ts"],
+      "@ovalball/contracts/*": ["./packages/contracts/src/*.ts"]
     }
   },
   "include": [
@@ -31,5 +33,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "apps/**"]
 }

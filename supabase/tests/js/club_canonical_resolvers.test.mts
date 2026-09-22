@@ -62,7 +62,12 @@ test("no surface re-implements the club logo fallback", () => {
 })
 
 test("the canonical logo resolver exposes both legitimate call shapes", () => {
-  const resolver = readFileSync(path.join(ROOT, "lib/app-context/club-logo.ts"), "utf8")
+  // THE RESOLVER MOVED, AND THE RULE DID NOT. It now lives in `packages/contracts` so the mobile app
+  // compiles the same implementation rather than acquiring a fifteenth copy of `a ?? b`;
+  // `lib/app-context/club-logo.ts` re-exports it, so every existing web import still resolves here.
+  // This follows the implementation, and separately pins that the web path is still a re-export --
+  // a copy reappearing in lib/ is exactly the drift this test was written for.
+  const resolver = readFileSync(path.join(ROOT, "packages/contracts/src/club-logo.ts"), "utf8")
   for (const name of ["resolveClubLogoPath", "resolveClubLogoPathFrom", "resolveClubLogoUrl", "clubLogoUrlFromPath"]) {
     assert.ok(new RegExp(`export function ${name}\\b`).test(resolver), `${name} must be exported from the one resolver`)
   }
@@ -71,6 +76,9 @@ test("the canonical logo resolver exposes both legitimate call shapes", () => {
     /return resolveClubLogoPathFrom\(/.test(resolver),
     "resolveClubLogoPath must delegate to resolveClubLogoPathFrom so the fallback exists in exactly one expression"
   )
+  const webPath = readFileSync(path.join(ROOT, "lib/app-context/club-logo.ts"), "utf8")
+  assert.match(webPath, /export \* from "@ovalball\/contracts\/club-logo"/, "the web path no longer reaches the one resolver")
+  assert.ok(!/export function/.test(webPath), "a second copy of the logo rule has appeared in lib/")
 })
 
 test("only the theme resolver produces club theme variables", () => {

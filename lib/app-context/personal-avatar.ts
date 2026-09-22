@@ -1,39 +1,17 @@
 import "server-only"
 
-import type { SupabaseClient } from "@supabase/supabase-js"
-
-import type { Database } from "@/types/database.types"
-
 /**
- * The canonical personal-avatar rule: `profiles.avatar_storage_path` (bucket `avatars`), completely independent
- * of club logo (lib/app-context/club-logo.ts) -- no fallback chain, no directory-seeded default, because a
- * personal avatar genuinely has only the one source. Every consumer other than the upload/remove actions
- * themselves (which need the raw path, not a resolved URL) calls these instead.
+ * Moved to `packages/contracts` so React Native can reach it, and re-exported here so nothing on the
+ * web had to change. The implementation is unchanged and lives in exactly one place; this file exists
+ * only so the existing `@/lib/...` imports keep resolving to it.
  *
- * The bucket is private (Identity/Auth Slice 4a, Phase 2 Z-12): a picture is served through a short-lived signed
- * URL minted with the viewer's own session, so the bucket's policy decides who sees it -- an adult's picture any
- * signed-in person, a minor's only the minor, their guardians and the staff who may view them. A picture the
- * viewer may not see resolves to null and the interface shows initials.
+ * `export *` rather than a hand-written list: a list is a second declaration of what this module
+ * offers, and the first thing to go stale.
+ *
+ * `server-only` stays HERE rather than in the package. It was always a bundling directive -- this
+ * module holds no secret, and every function takes an already-authenticated client -- but keeping it on
+ * the web side means a browser component that reaches for these still fails exactly as it did before,
+ * while the mobile client, which has no such bundle boundary, imports the package directly.
  */
-const SIGNED_URL_SECONDS = 60 * 60
 
-export async function resolvePersonalAvatarUrl(supabase: SupabaseClient<Database>, avatarStoragePath: string | null | undefined): Promise<string | null> {
-  if (!avatarStoragePath) return null
-  const { data } = await supabase.storage.from("avatars").createSignedUrl(avatarStoragePath, SIGNED_URL_SECONDS)
-  return data?.signedUrl ?? null
-}
-
-/** Many pictures in one round trip; the map is keyed by storage path and omits any the viewer may not see. */
-export async function resolvePersonalAvatarUrls(
-  supabase: SupabaseClient<Database>,
-  avatarStoragePaths: Iterable<string | null | undefined>
-): Promise<Map<string, string>> {
-  const paths = Array.from(new Set(Array.from(avatarStoragePaths).filter((p): p is string => Boolean(p))))
-  const urls = new Map<string, string>()
-  if (paths.length === 0) return urls
-  const { data } = await supabase.storage.from("avatars").createSignedUrls(paths, SIGNED_URL_SECONDS)
-  for (const row of data ?? []) {
-    if (row.path && row.signedUrl && !row.error) urls.set(row.path, row.signedUrl)
-  }
-  return urls
-}
+export * from "@ovalball/contracts/personal-avatar"

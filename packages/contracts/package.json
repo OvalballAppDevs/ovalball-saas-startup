@@ -1,0 +1,11 @@
+{
+  "name": "@ovalball/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "@supabase/supabase-js": ">=2"
+  }
+}

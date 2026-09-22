@@ -7853,21 +7853,21 @@
         "signature": "get_governing_body(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/governing/body.ts"
+          "packages/contracts/src/governing-body.ts"
         ]
       },
       {
         "signature": "governing_body_clubs(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/governing/body.ts"
+          "packages/contracts/src/governing-body.ts"
         ]
       },
       {
         "signature": "my_governing_bodies()",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/governing/body.ts"
+          "packages/contracts/src/governing-body.ts"
         ]
       },
       {
@@ -7881,14 +7881,14 @@
         "signature": "governing_body_people(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/governing/body.ts"
+          "packages/contracts/src/governing-body.ts"
         ]
       },
       {
         "signature": "governing_body_competitions(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/governing/body.ts"
+          "packages/contracts/src/governing-body.ts"
         ]
       },
       {
@@ -7916,14 +7916,14 @@
         "signature": "governing_body_invitations(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/governing/body.ts"
+          "packages/contracts/src/governing-body.ts"
         ]
       },
       {
         "signature": "governing_body_competition_matches(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/governing/body.ts"
+          "packages/contracts/src/governing-body.ts"
         ]
       },
       {
@@ -7937,7 +7937,7 @@
         "signature": "current_competition_season(text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/governing/body.ts"
+          "packages/contracts/src/governing-body.ts"
         ]
       }
     ],

@@ -5,6 +5,10 @@
  * Two things need mapping, and only two:
  *
  *   "@/x"        -> <repo root>/x        (the tsconfig path alias)
+ *   "@ovalball/contracts[/x]"            (the shared package the web and the
+ *                -> packages/contracts    mobile app both compile from source;
+ *                                         it is a path alias on both sides
+ *                                         rather than an installed package)
  *   "server-only" -> a no-op stub        (that package throws by design
  *                                         outside a React Server Component
  *                                         graph, which a test is)
@@ -26,6 +30,14 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") {
       return { url: STUB, shortCircuit: true }
+    }
+    // The shared contracts package, resolved from source exactly as tsconfig and Metro resolve it.
+    // Not an installed dependency on purpose: it is this repository's own code, and an install step
+    // between an edit and a test is a step that goes stale.
+    if (specifier === "@ovalball/contracts" || specifier.startsWith("@ovalball/contracts/")) {
+      const rest = specifier.slice("@ovalball/contracts".length).replace(/^\//, "") || "index"
+      const hit = firstExisting(resolvePath(ROOT, "packages/contracts/src", rest))
+      if (hit) return { url: hit, shortCircuit: true }
     }
     // "@/x" -> repo root. TypeScript's own path alias.
     if (specifier.startsWith("@/")) {
