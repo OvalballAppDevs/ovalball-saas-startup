@@ -74,6 +74,27 @@ function useIncomingLinks() {
           pathname: "/messages/[kind]/[id]",
           params: { kind: intent.conversationKind, id: intent.conversationId },
         })
+        return
+      }
+      // THE SAME RULE FOR RUGBY. A fixture id says where to go and nothing about whether it may be
+      // opened; the detail screen reads it through RLS and says it is unavailable if it is not this
+      // person's -- which is also what a deleted fixture does, deliberately.
+      if (intent.kind === "FIXTURES") {
+        router.push("/fixtures")
+        return
+      }
+      if (intent.kind === "FIXTURE") {
+        router.push({ pathname: "/fixtures/[fixtureId]", params: { fixtureId: intent.fixtureId } })
+        return
+      }
+      if (intent.kind === "MATCH_CENTRE") {
+        router.push({ pathname: "/fixtures/[fixtureId]/match-centre", params: { fixtureId: intent.fixtureId } })
+        return
+      }
+      if (intent.kind === "CALENDAR") {
+        // The anchor is carried so a notification about a particular day opens on it. The Calendar
+        // ignores an absent one and opens on today, which is the right default for a tap with no date.
+        router.push("/calendar")
       }
     },
     [router]
@@ -94,7 +115,14 @@ function useIncomingLinks() {
         return
       }
 
-      if (intent.kind === "MESSAGES" || intent.kind === "MESSAGE_THREAD") {
+      if (
+        intent.kind === "MESSAGES" ||
+        intent.kind === "MESSAGE_THREAD" ||
+        intent.kind === "FIXTURES" ||
+        intent.kind === "FIXTURE" ||
+        intent.kind === "MATCH_CENTRE" ||
+        intent.kind === "CALENDAR"
+      ) {
         if (status === "signed-in") deliver(intent)
         else pending.current = intent
       }

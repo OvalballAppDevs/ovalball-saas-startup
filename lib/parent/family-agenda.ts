@@ -24,67 +24,14 @@ import { fixtureTitle as canonicalFixtureTitle } from "@/lib/fixtures/presentati
  * RLS-scoped, so this is defence in depth rather than the boundary itself.
  */
 
-export interface FamilyChild {
-  playerId: string
-  firstName: string
-  surname: string
-  fullName: string
-  teamId: string
-  teamName: string
-  clubId: string
-  clubName: string
-  avatarStoragePath: string | null
-}
-
 /**
- * Which children the active context covers.
- *
- *   family -> every child this guardian holds (All Children)
- *   parent -> exactly the one child selected, never their siblings
- *   player -> the signed-in person's own player record
- *
- * The "parent" case filters on playerId AND teamId together: a child on two
- * teams is two contexts, and selecting one must not silently pull in the
- * other's fixtures.
+ * `FamilyChild` and `resolveFamilyScope` moved to `packages/contracts/src/agenda/family-scope` so the
+ * mobile Fixtures and Calendar screens can apply the same rule about which children a context covers.
+ * Re-exported here so every existing `@/lib/parent/family-agenda` import keeps working, and so there is
+ * still exactly one answer to the question.
  */
-export function resolveFamilyScope(ctx: SessionContext, activeContext: SwitchableContext): FamilyChild[] {
-  const fromGuardian = (g: SessionContext["guardianRelationships"][number]): FamilyChild => ({
-    playerId: g.playerId,
-    firstName: g.playerFirstName,
-    surname: g.playerSurname,
-    fullName: `${g.playerFirstName} ${g.playerSurname}`.trim(),
-    teamId: g.teamId,
-    teamName: g.teamDisplayName,
-    clubId: g.clubId,
-    clubName: g.clubName,
-    avatarStoragePath: g.avatarStoragePath,
-  })
-
-  if (activeContext.kind === "family") {
-    return ctx.guardianRelationships.map(fromGuardian)
-  }
-  if (activeContext.kind === "parent") {
-    return ctx.guardianRelationships
-      .filter((g) => g.playerId === activeContext.playerId && g.teamId === activeContext.id)
-      .map(fromGuardian)
-  }
-  if (activeContext.kind === "player") {
-    return ctx.linkedPlayerTeams
-      .filter((p) => p.teamId === activeContext.id)
-      .map((p) => ({
-        playerId: p.playerId,
-        firstName: ctx.firstName ?? "You",
-        surname: "",
-        fullName: ctx.firstName ?? "You",
-        teamId: p.teamId,
-        teamName: p.teamDisplayName,
-        clubId: p.clubId,
-        clubName: p.clubName,
-        avatarStoragePath: p.avatarStoragePath,
-      }))
-  }
-  return []
-}
+import type { FamilyChild } from "@ovalball/contracts/agenda/family-scope"
+export { resolveFamilyScope, type FamilyChild } from "@ovalball/contracts/agenda/family-scope"
 
 /**
  * This function used to BE the home-first rule, written inline and reachable

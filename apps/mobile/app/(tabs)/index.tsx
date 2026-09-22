@@ -6,16 +6,17 @@ import * as Linking from "expo-linking"
 
 import { useAppContexts } from "../../src/context/contexts"
 import { loadHomeSummary, type HomeSummary } from "../../src/context/home-data"
+import { todayIso } from "../../src/agenda/load"
 import { supabase } from "../../src/auth/supabase"
 import { webUrl } from "../../src/config/environment"
 import { friendly, logDetail } from "../../src/errors/translate"
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
-import { FixtureCard } from "../../src/components/fixture-card"
+import { AgendaRow, NextFixtureCard } from "../../src/components/agenda-row"
 import { NeedsAttention, type AttentionItem } from "../../src/components/needs-attention"
 import { CalendarDays, ExternalLink, OvalIcon } from "../../src/components/icons"
 import { Button, Card, CardSkeleton, EmptyState, ErrorState, SectionHeading } from "../../src/components/ui"
-import { colour, space, type } from "../../src/design/tokens"
+import { colour, radius, space, type } from "../../src/design/tokens"
 
 /**
  * HOME — what matters now, what is next, what needs me.
@@ -35,23 +36,23 @@ import { colour, space, type } from "../../src/design/tokens"
 export default function Home() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { loading, error, person, active, reload, unreadMessages } = useAppContexts()
+  const { loading, error, person, active, sessionContext, reload, unreadMessages } = useAppContexts()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [summary, setSummary] = useState<HomeSummary | null>(null)
   const [summaryError, setSummaryError] = useState<{ message: string; offline: boolean } | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
   const loadSummary = useCallback(async () => {
-    if (!active) return
+    if (!active || !sessionContext) return
     setSummaryError(null)
     try {
-      setSummary(await loadHomeSummary(supabase, active))
+      setSummary(await loadHomeSummary(supabase, sessionContext, active))
     } catch (caught) {
       const problem = friendly(caught, "this week")
       logDetail("home summary", problem)
       setSummaryError({ message: problem.message, offline: problem.retryable && /connection/i.test(problem.message) })
     }
-  }, [active])
+  }, [active, sessionContext])
 
   useEffect(() => {
     setSummary(null)
@@ -95,7 +96,18 @@ export default function Home() {
 
         {attention.length > 0 && <NeedsAttention items={attention} />}
 
-        {active && <ContextHome active={active.kind} label={active.label} summary={summary} error={summaryError} onRetry={loadSummary} loading={loading} />}
+        {active && (
+          <ContextHome
+            active={active.kind}
+            label={active.label}
+            summary={summary}
+            error={summaryError}
+            onRetry={loadSummary}
+            loading={loading}
+            onOpenFixture={(id) => router.push(`/fixtures/${id}` as never)}
+            onOpenCalendar={() => router.push("/calendar")}
+          />
+        )}
       </ScrollView>
 
       <ContextSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
@@ -110,6 +122,8 @@ function ContextHome({
   error,
   onRetry,
   loading,
+  onOpenFixture,
+  onOpenCalendar,
 }: {
   active: string
   label: string
@@ -117,7 +131,10 @@ function ContextHome({
   error: { message: string; offline: boolean } | null
   onRetry: () => void
   loading: boolean
+  onOpenFixture: (fixtureId: string) => void
+  onOpenCalendar: () => void
 }) {
+  const today = todayIso()
   if (active === "site_admin") {
     return (
       <Card>
@@ -166,31 +183,48 @@ function ContextHome({
           <ErrorState message={error.message} offline={error.offline} onRetry={onRetry} />
         ) : loading || summary === null ? (
           <CardSkeleton lines={2} />
-        ) : summary.nextFixture ? (
-          <FixtureCard fixture={summary.nextFixture} />
-        ) : active === "team" ? (
-          <EmptyState
-            title="Nothing scheduled yet"
-            body={`${label} has no upcoming fixture on Ovalball.`}
-            icon={<OvalIcon size={22} color={colour.inkSubtle} />}
+        ) : summary.next ? (
+          <NextFixtureCard
+            item={summary.next}
+            today={today}
+            onPress={summary.next.kind === "fixture" ? () => onOpenFixture(summary.next!.eventId) : undefined}
           />
         ) : (
           <EmptyState
-            title="Pick a team to see its next match"
-            body="A club covers several sides. Switch to one of them from the header, or open Fixtures."
+            title="Nothing scheduled this week"
+            body={
+              active === "family"
+                ? "No fixtures or training for your children in the next seven days."
+                : `${label} has nothing in the next seven days.`
+            }
             icon={<OvalIcon size={22} color={colour.inkSubtle} />}
           />
         )}
       </View>
 
-      <View>
-        <SectionHeading>This Week</SectionHeading>
-        <EmptyState
-          title="Training and events are coming"
-          body="The week's training, meetings and club events arrive with the mobile Calendar."
-          icon={<CalendarDays size={22} color={colour.inkSubtle} />}
-        />
-      </View>
+      {/* THE REST OF THE WEEK, from the SAME read as Next Up -- so the two cannot disagree, and the
+          week does not cost a second query. Capped at four: Home is a summary, and the Calendar is one
+          tap away for the whole of it. */}
+      {!!summary?.week.length && (
+        <View>
+          <SectionHeading>This Week</SectionHeading>
+          <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+            {summary.week.slice(0, 4).map((item, index) => (
+              <View key={item.key} style={index === 0 ? undefined : { borderTopWidth: 1, borderTopColor: colour.line }}>
+                <AgendaRow
+                  item={item}
+                  today={today}
+                  showOwner={active !== "team"}
+                  onPress={item.kind === "fixture" ? () => onOpenFixture(item.eventId) : undefined}
+                />
+              </View>
+            ))}
+          </View>
+          {summary.week.length > 4 && (
+            <Button label="Open Calendar" variant="secondary" style={{ marginTop: space.md }} onPress={onOpenCalendar} />
+          )}
+        </View>
+      )}
 
       <Card onPress={() => void Linking.openURL(webUrl)} accessibilityLabel="Open Ovalball on the web">
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
@@ -233,16 +267,16 @@ function buildAttention(
       onPress: openMessages,
     })
   }
-  const fixture = summary?.nextFixture
-  const availability = fixture?.availability
-  if (fixture && availability && availability.awaiting > 0 && kind === "team") {
+  const fixture = summary?.next
+  const availability = summary?.nextAvailability
+  if (fixture && fixture.kind === "fixture" && availability && availability.awaiting > 0 && kind === "team") {
     items.push({
       key: "availability",
       label:
         availability.awaiting === 1
           ? "1 player has not said whether they can play"
           : `${availability.awaiting} players have not said whether they can play`,
-      detail: `vs ${fixture.opponent}`,
+      detail: fixture.them ? `vs ${[fixture.them.clubName, fixture.them.teamName].filter(Boolean).join(" ")}` : undefined,
       // Urgent only when the match is close enough that chasing is the actual job.
       urgent: daysUntil(fixture.date) <= 3,
       onPress: openFixtures,

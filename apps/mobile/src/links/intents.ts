@@ -34,6 +34,23 @@ export type LinkIntent =
    * intent, and the intent is already handled, so nothing about authority changes when push arrives.
    */
   | { kind: "MESSAGE_THREAD"; conversationId: string; conversationKind: "direct" | "fixture" | "request" | "club" }
+  /** Open the fixture list for whatever context the person is in. */
+  | { kind: "FIXTURES" }
+  /**
+   * Open one fixture.
+   *
+   * THE ID IS NOT A PERMISSION, exactly as for a conversation. The detail screen reads the fixture
+   * through RLS; one this person may not see returns nothing and the screen says it is unavailable.
+   *
+   * This is the route a fixture NOTIFICATION will use when M7 adds push -- a kick-off change, a
+   * cancellation, an availability chase. The destination exists now precisely so that adding push is
+   * about delivery rather than about inventing where a tap should land.
+   */
+  | { kind: "FIXTURE"; fixtureId: string }
+  /** The Match Centre for one fixture. A foundation route today; the same address when M6 fills it. */
+  | { kind: "MATCH_CENTRE"; fixtureId: string }
+  /** Open the calendar, optionally anchored on a day a notification was about. */
+  | { kind: "CALENDAR"; date: string | null }
   /** A link Ovalball issued but this build does not handle yet -- named so it can be reported honestly. */
   | { kind: "NOT_YET_SUPPORTED"; path: string }
   | { kind: "UNKNOWN" }
@@ -43,7 +60,10 @@ export type LinkIntent =
  * than guessed so that "we know what this is and it is not built" can be told apart from "this is not
  * one of ours" -- two different things to say to somebody who just tapped a link.
  */
-const PLANNED = ["/join", "/invitation", "/fixtures", "/notifications", "/subscriptions", "/rugby-hub"]
+const PLANNED = ["/join", "/invitation", "/notifications", "/subscriptions", "/rugby-hub"]
+
+/** A calendar anchor is a civil date and nothing else. Anything other shape is ignored rather than guessed at. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /** The conversation kinds this build can open. Anything else falls back to the inbox rather than guessing. */
 const THREAD_KINDS = ["direct", "fixture", "request", "club"] as const
@@ -116,6 +136,30 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
     // changed -- lands in the inbox rather than nowhere. Somebody who tapped a message link should
     // end up looking at their messages.
     return { kind: "MESSAGES" }
+  }
+
+  // FIXTURES: /fixtures, /fixtures/<id>, and /fixtures/<id>/match-centre.
+  //
+  // The web addresses a fixture at /fixtures/<id> and its Match Centre at the same id, so these are
+  // the SAME paths rather than a mobile invention -- a link shared from a browser resolves here.
+  if (path === "/fixtures") return { kind: "FIXTURES" }
+  if (path.startsWith("/fixtures/")) {
+    const parts = path.slice("/fixtures/".length).split("/").filter(Boolean)
+    const [fixtureId, section] = parts
+    if (!fixtureId) return { kind: "FIXTURES" }
+    if (parts.length === 1) return { kind: "FIXTURE", fixtureId }
+    if (parts.length === 2 && (section === "match-centre" || section === "matchcentre")) {
+      return { kind: "MATCH_CENTRE", fixtureId }
+    }
+    // A section of a fixture this build does not have a screen for -- the result, the team sheet --
+    // opens the fixture itself, which is where all of them live.
+    return { kind: "FIXTURE", fixtureId }
+  }
+
+  // CALENDAR: /calendar, optionally ?date=YYYY-MM-DD so a notification can open the day it was about.
+  if (path === "/calendar" || path === "/agenda") {
+    const date = parsed.searchParams.get("date")
+    return { kind: "CALENDAR", date: date && ISO_DATE.test(date) ? date : null }
   }
 
   if (PLANNED.some((planned) => path === planned || path.startsWith(`${planned}/`))) {
