@@ -64,15 +64,15 @@ function useIncomingLinks() {
   const deliver = useCallback(
     (intent: LinkIntent) => {
       if (intent.kind === "MESSAGES") {
-        router.push("/(tabs)/messages")
+        router.push("/messages")
         return
       }
       if (intent.kind === "MESSAGE_THREAD") {
         // The id decides WHERE to go, never WHETHER: the screen reads it through RLS and says the
         // conversation is unavailable if it is not this person's.
         router.push({
-          pathname: "/(tabs)/messages/[id]",
-          params: { id: intent.conversationId, kind: intent.conversationKind },
+          pathname: "/messages/[kind]/[id]",
+          params: { kind: intent.conversationKind, id: intent.conversationId },
         })
       }
     },

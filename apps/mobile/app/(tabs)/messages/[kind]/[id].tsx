@@ -12,15 +12,15 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { ThreadMessage } from "@ovalball/contracts"
 
-import { supabase } from "../../../src/auth/supabase"
-import { useSession } from "../../../src/auth/session"
-import { useAppContexts } from "../../../src/context/contexts"
-import { loadConversation, markRead, sendMessage, type Conversation, type ConversationKind } from "../../../src/messages/conversation"
-import { friendly, logDetail } from "../../../src/errors/translate"
-import { PersonAvatar } from "../../../src/components/identity"
-import { ChevronRight } from "../../../src/components/icons"
-import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
+import { supabase } from "../../../../src/auth/supabase"
+import { useSession } from "../../../../src/auth/session"
+import { useAppContexts } from "../../../../src/context/contexts"
+import { loadConversation, markRead, sendMessage, type Conversation, type ConversationKind } from "../../../../src/messages/conversation"
+import { friendly, logDetail } from "../../../../src/errors/translate"
+import { PersonAvatar } from "../../../../src/components/identity"
+import { ChevronRight } from "../../../../src/components/icons"
+import { CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
+import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
 
 /**
  * A CONVERSATION.
@@ -46,9 +46,13 @@ export default function ConversationScreen() {
   const router = useRouter()
   const { session } = useSession()
   const { refreshUnread } = useAppContexts()
+  // BOTH COME FROM THE PATH NOW. The route is /messages/<kind>/<id>, which is the same shape the
+  // links Ovalball issues already use -- so a link tapped on a cold start matches a real route rather
+  // than falling through to Unmatched Route before any handler can help.
   const params = useLocalSearchParams<{ id: string; kind?: string }>()
   const id = String(params.id ?? "")
-  const kind = (params.kind ?? "direct") as ConversationKind
+  const rawKind = String(params.kind ?? "direct")
+  const kind = (["direct", "fixture", "request", "club"].includes(rawKind) ? rawKind : "direct") as ConversationKind
 
   const scroller = useRef<ScrollView>(null)
   const [conversation, setConversation] = useState<Conversation | null>(null)

@@ -72,7 +72,7 @@ export default function More() {
             icon={<BookOpen size={19} color={colour.forest800} strokeWidth={1.9} />}
             label="Rugby Hub"
             caption="Laws, age grades and guidance, in your own code"
-            onPress={() => router.push("/(tabs)/hub")}
+            onPress={() => router.push("/hub")}
           />
           <Row
             icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
@@ -82,7 +82,7 @@ export default function More() {
                 ? "Who in your squad is set up to pay"
                 : "Subscription and payment state, where you are authorised"
             }
-            onPress={() => router.push("/(tabs)/subscriptions")}
+            onPress={() => router.push("/subscriptions")}
           />
           <Row
             icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}

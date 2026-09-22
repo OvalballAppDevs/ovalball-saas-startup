@@ -75,10 +75,17 @@ async function recoveryLinkFor(address) {
   return (body.match(/https?:\/\/[^\s"'<>]+/g) || [])[0] ?? null
 }
 
-seed()
+// SEEDING IS INSIDE THE GUARD, and that is not tidiness.
+//
+// It used to run above `try`, so a seeding failure -- a constraint this fixture got wrong, say --
+// skipped the `finally` entirely and left identities behind in the owner's local database. That
+// happened: a cast error in the conversation insert stranded two accounts, which were then found by
+// hand. Anything that CREATES must be inside the block whose `finally` removes it.
 const pageErrors = []
 const browser = await launch()
 try {
+  seed()
+
   const ctx = await newContext(browser, { width: 390, height: 844 })
   const page = await ctx.newPage()
   page.on("pageerror", (e) => pageErrors.push(String(e?.message ?? e)))

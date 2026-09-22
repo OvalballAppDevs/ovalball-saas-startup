@@ -155,9 +155,30 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://localhost:3000"
+# THE FALLBACK IS THE ONLY THING THIS LOCAL AUTH SERVER WILL HONOUR ON A DEVICE.
+#
+# Measured, repeatedly: GoTrue here refuses every `redirect_to` whose host is not a loopback --
+# `exp://<lan>:8081/...` and `http://<lan>:3000/...` were both listed exactly and as patterns, and both
+# fell back to this value. Only loopback hosts and host-less custom schemes (`ovalball://`) are
+# honoured. A phone cannot reach the Mac's loopback, so on a device the fallback IS the route.
+#
+# So for device testing, point the fallback at the Expo Go handoff page: set SUPABASE_SITE_URL in .env
+# to `http://<your Mac's LAN address>:3000/auth/mobile-recovery`. Leave it as the plain website
+# otherwise. Not committed -- an address belonging to one machine is not product configuration.
+#
+# A development build needs none of this: `ovalball-dev://` is honoured directly.
+site_url = "env(SUPABASE_SITE_URL)"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
-# external_url = ""
+#
+# THE HOST IN EVERY EMAIL LINK COMES FROM HERE, and the default is 127.0.0.1 -- which is the phone
+# itself when a recovery link is opened on a phone, so the link is unreachable. Measured: a reset
+# requested from the app on a device produced
+# `http://127.0.0.1:54321/auth/v1/verify?...`, which Safari on the handset cannot open.
+#
+# Set SUPABASE_AUTH_EXTERNAL_URL to `http://<your Mac's LAN address>:54321` in .env when testing on a
+# device (see docs/mobile/DEVELOPMENT.md). It is not committed, because an address that belongs to one
+# machine on one network is not product configuration.
+external_url = "env(SUPABASE_AUTH_EXTERNAL_URL)"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 # The website, plus the MOBILE APP's own schemes. GoTrue refuses to redirect anywhere not listed here,
 # which is the control that stops a recovery link being aimed at somebody else's site -- so the app's
@@ -192,6 +213,12 @@ additional_redirect_urls = [
   # A development build does not need any of this -- `ovalball-dev://` above is honoured -- which is
   # part of why the dev build is the eventual answer.
   "env(EXPO_RECOVERY_REDIRECT)",
+  # The Expo Go handoff page, on the Mac's LAN address. The app asks to come back to
+  # `<web>/auth/mobile-recovery`, and `<web>` is the LAN URL on a device -- so it has to be listed or
+  # GoTrue silently falls back to site_url and the link opens localhost, which the phone cannot reach.
+  # Measured on a real handset; the web-only proof missed it because Expo Web's own URL is a loopback,
+  # which GoTrue allows without any allow-list entry at all.
+  "env(EXPO_RECOVERY_WEB_REDIRECT)",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600

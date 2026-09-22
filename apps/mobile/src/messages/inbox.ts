@@ -57,11 +57,12 @@ export function routeForRow(row: MessengerRow): { pathname: string; params: Reco
   const id = row.key.slice(row.key.indexOf(":") + 1)
   switch (row.kind) {
     case "direct":
-      return { pathname: "/messages/[id]", params: { id, kind: "direct" } }
     case "fixture":
     case "request":
     case "club":
-      return { pathname: "/messages/[id]", params: { id, kind: row.kind } }
+      // The route shape IS the link shape, so a row and a deep link go to the same place by the same
+      // name -- there is no second mapping to keep in step.
+      return { pathname: "/messages/[kind]/[id]", params: { kind: row.kind, id } }
     default:
       // Support and announcements have their own shapes and their own reply rules; M7 gives them
       // native screens rather than forcing them through a conversation view that would misdescribe them.

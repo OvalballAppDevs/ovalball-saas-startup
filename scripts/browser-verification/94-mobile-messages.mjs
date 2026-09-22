@@ -90,10 +90,18 @@ function cleanup() {
   record("cleanup: this run left nothing behind", sql(`select count(*) from auth.users where email like 'uat.mobile.${TAG}%'`) === "0")
 }
 
-const { conversation } = seed()
+// SEEDING IS INSIDE THE GUARD, and that is not tidiness.
+//
+// It used to run above `try`, so a seeding failure -- a constraint this fixture got wrong, say --
+// skipped the `finally` entirely and left identities behind in the owner's local database. That
+// happened: a cast error in the conversation insert stranded two accounts, which were then found by
+// hand. Anything that CREATES must be inside the block whose `finally` removes it.
 const pageErrors = []
 const browser = await launch()
+let conversation = null
 try {
+  ;({ conversation } = seed())
+
   const ctx = await newContext(browser, { width: 390, height: 844 })
   const page = await ctx.newPage()
   page.on("pageerror", (e) => pageErrors.push(String(e?.message ?? e)))
@@ -191,7 +199,10 @@ try {
          select '${strangerConversation}', user_a, '${secret}', 'message', 'text'
          from public.direct_conversations where id = '${strangerConversation}'`)
 
-    await page.goto(`${APP}/messages/${strangerConversation}?kind=direct`, { waitUntil: "domcontentloaded", timeout: 60000 })
+    // THE REAL LINK SHAPE: /messages/<kind>/<id>, which is what Ovalball issues and what the route
+    // file now mirrors. The earlier `?kind=` query form was a route this build no longer has, so the
+    // test was exercising the not-found path rather than the conversation screen.
+    await page.goto(`${APP}/messages/direct/${strangerConversation}`, { waitUntil: "domcontentloaded", timeout: 60000 })
     await page.waitForTimeout(7000)
     const denied = await page.locator("body").innerText()
 

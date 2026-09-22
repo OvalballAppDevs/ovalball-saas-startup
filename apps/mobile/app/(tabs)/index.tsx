@@ -66,8 +66,8 @@ export default function Home() {
   }, [reload, loadSummary])
 
   const attention = buildAttention(summary, active?.kind ?? null, {
-    openFixtures: () => router.push("/(tabs)/fixtures"),
-    openMessages: () => router.push("/(tabs)/messages"),
+    openFixtures: () => router.push("/fixtures"),
+    openMessages: () => router.push("/messages"),
     unreadMessages,
   })
 
