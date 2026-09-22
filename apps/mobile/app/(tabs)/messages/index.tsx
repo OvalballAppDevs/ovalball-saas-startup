@@ -12,7 +12,7 @@ import { friendly, logDetail } from "../../../src/errors/translate"
 import { AppHeader } from "../../../src/components/app-header"
 import { ContextSheet } from "../../../src/components/context-sheet"
 import { ClubCrest } from "../../../src/components/identity"
-import { ChevronRight, MessageSquare } from "../../../src/components/icons"
+import { ChevronRight, MessageSquare, Plus } from "../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
 
@@ -70,6 +70,32 @@ export default function Inbox() {
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       <AppHeader onOpenContexts={() => setSheetOpen(true)} />
+
+      {/* NEW MESSAGE IS A DESTINATION, not a floating button over the list: a FAB on a conversation
+          list covers the newest row, which is the one people came for. */}
+      <View style={{ paddingHorizontal: space.lg, paddingTop: space.md }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="New message"
+          accessibilityHint="Choose somebody you can message"
+          onPress={() => router.push("/messages/new")}
+          style={({ pressed }) => ({
+            minHeight: TOUCH_TARGET,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: space.sm,
+            borderRadius: radius.md,
+            borderWidth: 1,
+            borderStyle: "dashed",
+            borderColor: colour.lineStrong,
+            opacity: pressed ? 0.75 : 1,
+          })}
+        >
+          <Plus size={17} color={colour.forest800} />
+          <Text style={[type.smallMedium, { color: colour.forest800 }]}>New Message</Text>
+        </Pressable>
+      </View>
 
       <ScrollView
         contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.sm }}

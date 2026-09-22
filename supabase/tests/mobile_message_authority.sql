@@ -169,6 +169,61 @@ begin
   select count(*) into v_n from public.my_unread_message_counts();
   perform pg_temp.check(v_n >= 0, 'D2 the unread reader answers only for the caller');
 
+  -- =====================================================================
+  -- E. WHO MAY BE MESSAGED AT ALL -- the New Message boundary.
+  -- =====================================================================
+  -- The picker is `my_direct_message_candidates()`, which applies the same predicate the send path
+  -- applies. So the thing worth proving is that the PREDICATE holds, because neither the picker nor
+  -- the app can widen it.
+  perform pg_temp.act('authenticated', v_alice);
+  perform pg_temp.check(internal.may_direct_message(v_bob),
+    'E1 two adults sharing a club may message each other');
+  perform pg_temp.check(not internal.may_direct_message(v_alice),
+    'E2 nobody may open a conversation with themselves');
+  perform pg_temp.check(not internal.may_direct_message(gen_random_uuid()),
+    'E3 nor with somebody Ovalball has no relationship to');
+
+  -- THE SAFEGUARDING BOUNDARY, AND IT OUTRANKS EVERYTHING. Alice is a Club Admin at this club; Bob is
+  -- about to become a minor. Club authority must not reach past it -- the predicate's own comment says
+  -- "not a shared club, not a guardian relationship, not a fixture, not an existing thread, not
+  -- administrator status", and an EXISTING conversation between them makes that the sharpest test.
+  perform pg_temp.act_postgres();
+  update public.profiles set date_of_birth = (current_date - interval '13 years')::date where id = v_bob;
+
+  perform pg_temp.act('authenticated', v_alice);
+  perform pg_temp.check(not internal.may_direct_message(v_bob),
+    'E4 a Club Admin may NOT message a minor, even with a conversation already open');
+  select count(*) into v_n from public.my_direct_message_candidates() where user_id = v_bob;
+  perform pg_temp.check(v_n = 0, format('E5 and the picker does not offer them (%s)', v_n));
+
+  -- Nor the other way round: a minor's own account cannot start one either.
+  perform pg_temp.act('authenticated', v_bob);
+  perform pg_temp.check(not internal.may_direct_message(v_alice),
+    'E6 and a minor may not message an adult');
+  v_txt := pg_temp.try(format('select public.open_direct_conversation(%L)', v_alice));
+  perform pg_temp.check(v_txt <> 'OK', format('E7 opening a conversation is refused at the server (%s)', v_txt));
+
+  -- AND IT IS THE AGE THAT DID IT, not something incidental: putting the date of birth back restores
+  -- eligibility, so E4-E7 were measuring the safeguarding rule rather than a side effect.
+  perform pg_temp.act_postgres();
+  update public.profiles set date_of_birth = (current_date - interval '34 years')::date where id = v_bob;
+  perform pg_temp.act('authenticated', v_alice);
+  perform pg_temp.check(internal.may_direct_message(v_bob),
+    'E8 restoring an adult date of birth restores eligibility');
+
+  -- UNKNOWN AGE IS CURRENTLY PERMITTED, and that is recorded rather than asserted as desirable:
+  -- is_adult_messaging_user disqualifies only where a date of birth EXISTS and resolves to a minor.
+  -- The player model has an `unknown_youth_protected` state this predicate does not consult. Pinned so
+  -- that a deliberate change to the posture is a visible test change rather than a silent one.
+  perform pg_temp.act_postgres();
+  update public.profiles set date_of_birth = null where id = v_bob;
+  perform pg_temp.act('authenticated', v_alice);
+  perform pg_temp.check(internal.may_direct_message(v_bob),
+    'E9 an unknown date of birth is currently treated as eligible -- owner decision, not an endorsement');
+
+  perform pg_temp.act_postgres();
+  update public.profiles set date_of_birth = (current_date - interval '34 years')::date where id = v_bob;
+
   raise notice 'MOBILE MESSAGE AUTHORITY: complete';
 end $$;
 

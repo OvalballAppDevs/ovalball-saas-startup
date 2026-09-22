@@ -51,7 +51,10 @@ test("and Rugby Hub keeps its route and a place in More", () => {
   const more = readFileSync("apps/mobile/app/(tabs)/more.tsx", "utf8")
   assert.match(more, /label="Rugby Hub"/, "Rugby Hub is not reachable from More")
   assert.match(more, /label="Subscriptions"/, "Subscriptions is not reachable from More")
-  assert.match(more, /router\.push\("\/\(tabs\)\/hub"\)/, "More links Rugby Hub somewhere other than its own route")
+  // The href carries no "(tabs)" group -- a group is invisible in a URL, and including it is what
+  // produces "no route matched with those values" against a typed route table.
+  assert.match(more, /router\.push\("\/hub"\)/, "More links Rugby Hub somewhere other than its own route")
+  assert.ok(!/\/\(tabs\)\//.test(more), "a navigation target still carries the invisible group segment")
 })
 
 test("the bar's shape does not change when the context does", () => {

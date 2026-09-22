@@ -6,6 +6,7 @@ import * as Linking from "expo-linking"
 
 import { useSession } from "../../src/auth/session"
 import { useAppContexts, forgetSelectedContext } from "../../src/context/contexts"
+import { clearAllDrafts } from "../../src/messages/drafts"
 import { environment, webUrl } from "../../src/config/environment"
 import { isSecure, sessionStorageDescription } from "../../src/auth/session-store"
 import { AppHeader } from "../../src/components/app-header"
@@ -34,9 +35,11 @@ export default function More() {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   async function leave() {
-    // The context goes with the session. A phone gets handed around a clubhouse, and the next person
-    // to sign in must not land in the previous person's team.
+    // EVERYTHING THIS PERSON LEFT ON THE DEVICE GOES WITH THE SESSION. A phone gets handed around a
+    // clubhouse: the next person to sign in must not land in the previous person's team, and must not
+    // find their half-typed message waiting in a composer.
     await forgetSelectedContext()
+    await clearAllDrafts()
     await signOut()
   }
 

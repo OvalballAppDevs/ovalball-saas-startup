@@ -172,6 +172,30 @@ try {
   record("D3 exactly once, despite a double tap", stored === "1", `rows: ${stored}`)
   record("D4 and the composer is empty again", (await page.getByLabel("Message", { exact: true }).inputValue()) === "")
 
+  // =====================================================================
+  // H. DRAFTS -- a half-typed message is not disposable
+  // =====================================================================
+  // Run here, while the conversation is already open, and moved between tabs rather than reloaded:
+  // the draft's promise is that it survives LEAVING THE SCREEN, which is what a person actually does.
+  const halfTyped = `Half typed ${TAG}`
+  await page.getByLabel("Message", { exact: true }).click()
+  await page.keyboard.type(halfTyped, { delay: 5 })
+  await page.waitForTimeout(1200)
+  await page.getByRole("tab", { name: /Home/ }).first().click()
+  await page.waitForTimeout(2500)
+  await page.getByRole("tab", { name: /Messages/ }).first().click()
+  await page.waitForTimeout(3500)
+  const backOnThread = (await page.getByLabel("Message", { exact: true }).count()) > 0
+  record("H1 the conversation is where you left it", backOnThread)
+  if (backOnThread) {
+    record(
+      "H2 and a half-typed message survived leaving the screen",
+      (await page.getByLabel("Message", { exact: true }).inputValue()) === halfTyped
+    )
+  }
+  const draftRows = sql(`select count(*) from public.fixture_messages where body = '${halfTyped}'`)
+  record("H3 a draft is never sent by accident", draftRows === "0", `rows: ${draftRows}`)
+
   // Reading clears the badge -- the count comes from the same rows the list shows.
   await page.getByRole("tab", { name: /Home/ }).first().click()
   await page.waitForTimeout(4000)
@@ -225,6 +249,44 @@ try {
   } else {
     record("F1 a conversation id belonging to other people does not open it", false, "NOT PROVED: no second pair available to build one")
   }
+
+  // =====================================================================
+  // G. NEW MESSAGE -- the recipient picker is the platform's own answer
+  // =====================================================================
+  // Explicitly, not by tapping the tab: section F left the app deep inside the Messages stack on the
+  // unavailable-conversation screen, and tapping a tab you are already in does not pop back to its root.
+  await page.goto(`${APP}/messages`, { waitUntil: "domcontentloaded", timeout: 60000 })
+  await page.getByRole("button", { name: "New message" }).waitFor({ timeout: 45000 })
+  await page.getByRole("button", { name: "New message" }).click()
+  await page.waitForTimeout(4000)
+  const picker = await page.locator("body").innerText()
+  record(
+    "G1 New Message opens a picker",
+    /New Message/.test(picker) && (await page.getByLabel("Search people you can message").count()) > 0
+  )
+  // Sam shares a club with Mo, so the canonical predicate offers them.
+  record("G2 and offers somebody the platform says may be messaged", /Sam/.test(picker), picker.slice(0, 140).replace(/\n/g, " "))
+  record("G3 grouped by the relationship that makes it legitimate", /YOUR CLUB|YOUR TEAM|FIXTURE CONTACT/.test(picker))
+
+  // SEARCH IS OVER THE LEGITIMATE SET, NOT A LOOKUP. The first version of this searched for "Priya",
+  // who turned out to share a club with the test identity and is therefore legitimately offered -- the
+  // test was wrong, not the product. A name nobody holds proves the point without that ambiguity: the
+  // picker has nothing to look up in.
+  const search = page.getByLabel("Search people you can message")
+  await search.click()
+  await page.keyboard.type("Zzqx Notaperson", { delay: 5 })
+  await page.waitForTimeout(1500)
+  const noMatch = await page.locator("body").innerText()
+  record(
+    "G4 search finds only people already in the legitimate set",
+    /No matches/.test(noMatch),
+    noMatch.slice(0, 90).replace(/\n/g, " ")
+  )
+  await search.press("Meta+A")
+  await page.keyboard.type("Sam", { delay: 5 })
+  await page.waitForTimeout(1500)
+  record("G5 and finds somebody inside it", /Sam/.test(await page.locator("body").innerText()))
+  await recordAxe("G6 axe: the recipient picker at 390px", await runAxe(page))
 
   const realErrors = pageErrors.filter((e) => !/ResizeObserver|DevTools|Failed to fetch|NetworkError/i.test(e))
   record("no uncaught page errors", realErrors.length === 0, realErrors.slice(0, 2).join(" | "))

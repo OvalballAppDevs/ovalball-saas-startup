@@ -43,18 +43,76 @@ export interface ThreadScope {
   teams: { id: string; displayName: string; clubName: string; clubId?: string }[]
 }
 
+/**
+ * How many messages a caller asking for "a page" gets.
+ *
+ * A phone must not pull a season of a club's conversation onto the device to show the last six
+ * messages, and the web has never needed to say so because a browser reads a whole thread once. The
+ * number lives here so both clients page the same way when they page at all.
+ */
+export const THREAD_PAGE_SIZE = 40
+
+/**
+ * A row as `MESSAGE_SELECT` returns it, inferred from a query built exactly as the readers build
+ * theirs -- so a change to the select is a compile error here rather than a shape that quietly
+ * disagrees. Never executed; only its type is used.
+ */
+function messagesQuery(supabase: SupabaseClient<Database>) {
+  return supabase.from("fixture_messages").select(MESSAGE_SELECT)
+}
+type MessageRow = NonNullable<Awaited<ReturnType<ReturnType<typeof messagesQuery>["eq"]>>["data"]>[number]
+
+export interface ThreadPageOptions {
+  /** Newest `limit` messages. Omitted entirely, the whole thread is read -- the web's behaviour, unchanged. */
+  limit?: number
+  /** Read messages strictly OLDER than this ISO timestamp. The cursor is a time, not an offset. */
+  before?: string | null
+}
+
 export async function loadThreadMessages(
   supabase: SupabaseClient<Database>,
   userId: string,
-  scope: ThreadScope
+  scope: ThreadScope,
+  page?: ThreadPageOptions
 ): Promise<ThreadMessage[]> {
-  const { data: rows } = await supabase
-    .from("fixture_messages")
-    .select(MESSAGE_SELECT)
+  // A TIME CURSOR, NOT AN OFFSET. An offset shifts under you the moment somebody sends a message
+  // while you are reading history, and the shift is silent: a message is skipped or repeated. Paging
+  // from a timestamp is stable whatever arrives.
+  //
+  // Paged reads come back NEWEST-FIRST because that is the page you want -- the most recent forty --
+  // and are then returned in the reader's usual ascending order, so no caller has to know which way
+  // the query ran.
+  if (page?.limit) {
+    let query = messagesQuery(supabase)
+      .eq(scope.key.column, scope.key.value)
+      .order("created_at", { ascending: false })
+      .limit(page.limit)
+    if (page.before) query = query.lt("created_at", page.before)
+    const { data: pageRows } = await query
+    return buildMessages(supabase, userId, scope, [...(pageRows ?? [])].reverse())
+  }
+
+  const { data: rows } = await messagesQuery(supabase)
     .eq(scope.key.column, scope.key.value)
     .order("created_at", { ascending: true })
 
-  const messages = rows ?? []
+  return buildMessages(supabase, userId, scope, rows ?? [])
+}
+
+/**
+ * ONE SHAPING STEP FOR BOTH READS.
+ *
+ * The whole-thread read and the paged read differ only in which rows they fetch; everything after
+ * that -- resolving identities, applying the tombstone, normalising an image's missing body -- has to
+ * be identical, or a paged message would render differently from the same message read unpaged.
+ */
+async function buildMessages(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  scope: ThreadScope,
+  rows: MessageRow[]
+): Promise<ThreadMessage[]> {
+  const messages = rows
   const identities = await resolveParticipantIdentities(
     supabase,
     messages.map((m) => m.sender_user_id),

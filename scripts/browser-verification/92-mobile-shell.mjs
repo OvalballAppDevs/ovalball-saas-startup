@@ -131,9 +131,14 @@ try {
     bar?.tabs.every((t) => t.text.length > 0),
     bar?.tabs.map((t) => `${t.text || "(none)"}`).join(" · ")
   )
+  // MESSAGES TOOK THE FOURTH CELL AT M3 and Rugby Hub moved to More -- an owner decision, and the
+  // same one twice: messaging is a daily job, the Hub is something you go and read. What matters is
+  // that the Hub did not LEAVE, which is asserted where its route lives
+  // (supabase/tests/js/mobile_tab_projection.test.mts).
   record(
-    "B4 and Rugby Hub is one of them, not buried under More",
-    bar?.tabs.some((t) => /Rugby Hub/.test(t.text))
+    "B4 and Messages is one of them, because it is a daily job",
+    bar?.tabs.some((t) => /Messages/.test(t.text)),
+    bar?.tabs.map((t) => t.text).join(" · ")
   )
   record(
     "B5 every cell is a comfortable target",
@@ -178,7 +183,7 @@ try {
   // =====================================================================
   // F. ACCESSIBILITY, on each destination
   // =====================================================================
-  for (const [label, tab] of [["Home", "Home"], ["Fixtures", "Fixtures"], ["Calendar", "Calendar"], ["Rugby Hub", "Rugby Hub"], ["More", "More"]]) {
+  for (const [label, tab] of [["Home", "Home"], ["Fixtures", "Fixtures"], ["Calendar", "Calendar"], ["Messages", "Messages"], ["More", "More"]]) {
     await page.getByRole("tab", { name: new RegExp(tab) }).first().click()
     await page.waitForTimeout(1200)
     await recordAxe(`F axe: ${label} at 390px`, await runAxe(page))
@@ -218,7 +223,7 @@ try {
   await page.getByRole("button", { name: /^Under 12 Boys,/ }).click()
   await page.waitForTimeout(4000)
   const crests = []
-  for (const tab of ["Home", "Fixtures", "Calendar", "Rugby Hub", "More"]) {
+  for (const tab of ["Home", "Fixtures", "Calendar", "Messages", "More"]) {
     await page.getByRole("tab", { name: new RegExp(tab) }).first().click()
     await page.waitForTimeout(1200)
     crests.push(

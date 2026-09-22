@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
+  ActivityIndicator,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -15,7 +16,16 @@ import type { ThreadMessage } from "@ovalball/contracts"
 import { supabase } from "../../../../src/auth/supabase"
 import { useSession } from "../../../../src/auth/session"
 import { useAppContexts } from "../../../../src/context/contexts"
-import { loadConversation, markRead, sendMessage, type Conversation, type ConversationKind } from "../../../../src/messages/conversation"
+import {
+  loadConversation,
+  loadOlderMessages,
+  markRead,
+  sendMessage,
+  type Conversation,
+  type ConversationKind,
+} from "../../../../src/messages/conversation"
+import { conversationTopic, useConversationRealtime } from "../../../../src/messages/realtime"
+import { clearDraft, readDraft, writeDraft } from "../../../../src/messages/drafts"
 import { friendly, logDetail } from "../../../../src/errors/translate"
 import { PersonAvatar } from "../../../../src/components/identity"
 import { ChevronRight } from "../../../../src/components/icons"
@@ -54,13 +64,16 @@ export default function ConversationScreen() {
   const rawKind = String(params.kind ?? "direct")
   const kind = (["direct", "fixture", "request", "club"].includes(rawKind) ? rawKind : "direct") as ConversationKind
 
-  const scroller = useRef<ScrollView>(null)
+  const list = useRef<FlatList<ThreadMessage>>(null)
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [missing, setMissing] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const viewerId = session?.user.id ?? null
+  const draftKey = `${kind}:${id}`
 
   const load = useCallback(async () => {
     if (!session?.user || !id) return
@@ -85,6 +98,56 @@ export default function ConversationScreen() {
     void load()
   }, [load])
 
+  // THE DRAFT SURVIVES THE KEYBOARD, THE APP BACKGROUNDING AND A FAILED SEND. Read once per
+  // conversation and per person, so one identity's unsent line is never offered to another.
+  useEffect(() => {
+    if (!viewerId) return
+    let live = true
+    void readDraft(viewerId, draftKey).then((saved) => {
+      if (live && saved) setDraft(saved)
+    })
+    return () => {
+      live = false
+    }
+  }, [viewerId, draftKey])
+
+  useEffect(() => {
+    if (!viewerId) return
+    void writeDraft(viewerId, draftKey, draft)
+  }, [viewerId, draftKey, draft])
+
+  // LIVE, THROUGH THE PLATFORM'S OWN BROADCAST. It carries no content, so the reaction is to re-read
+  // through RLS -- the same thing the website does, and the reason reusing it adds no new way for a
+  // message to reach a device.
+  useConversationRealtime(conversationTopic(kind, conversation?.conversationId ?? null), () => {
+    void load()
+  })
+
+  const older = useCallback(async () => {
+    if (loadingOlder || !conversation?.hasMore || !viewerId) return
+    const oldest = conversation.messages[0]
+    if (!oldest) return
+    setLoadingOlder(true)
+    try {
+      const page = await loadOlderMessages(supabase, kind, id, viewerId, oldest)
+      setConversation((current) =>
+        current
+          ? {
+              ...current,
+              // Prepended, and de-duplicated by id: a message that arrived while the page was in
+              // flight must not appear twice.
+              messages: dedupe([...page.messages, ...current.messages]),
+              hasMore: page.hasMore,
+            }
+          : current
+      )
+    } catch (caught) {
+      logDetail("older messages", friendly(caught, "older messages"))
+    } finally {
+      setLoadingOlder(false)
+    }
+  }, [loadingOlder, conversation, viewerId, kind, id])
+
   async function send() {
     // Guarded against a double tap as well as disabled: a slow network is exactly when somebody presses
     // twice, and two identical messages is the result nobody wants.
@@ -92,29 +155,39 @@ export default function ConversationScreen() {
     setSending(true)
     setSendError(null)
     const body = draft
+    // CLEARED OPTIMISTICALLY, RESTORED ON FAILURE -- but the MESSAGE is not shown until the server has
+    // it. A bubble that appears sent and later turns out not to be is the one outcome worth avoiding
+    // in a product where somebody may act on having told a parent something.
     setDraft("")
     const result = await sendMessage(supabase, kind, id, session.user.id, body)
     setSending(false)
     if (!result.ok) {
-      // The draft comes back, so a failed send never loses what somebody wrote.
+      // The draft comes back, so a failed send never loses what somebody wrote, and the composer is
+      // ready to try again.
       setDraft(body)
       setSendError(result.message)
       return
     }
+    if (viewerId) await clearDraft(viewerId, draftKey)
     await load()
-    // The new message lands at the TOP, so that is where to be -- scrolling to the end would take
-    // somebody to the oldest message in the thread, which is the opposite of what they just did.
-    requestAnimationFrame(() => scroller.current?.scrollTo({ y: 0, animated: true }))
+    // The newest message is at the TOP of the list, so that is where to be.
+    requestAnimationFrame(() => list.current?.scrollToOffset({ offset: 0, animated: true }))
   }
 
   if (missing) {
     return (
-      <Shell title="Messages" onBack={() => router.back()} insets={insets}>
-        <EmptyState
-          title="This conversation isn't available"
-          body="It may have been removed, or it may not be one you have access to. Your other conversations are in Messages."
-        />
-      </Shell>
+      <Shell
+        title="Messages"
+        onBack={() => router.back()}
+        insets={insets}
+        messages={[]}
+        header={
+          <EmptyState
+            title="This conversation isn't available"
+            body="It may have been removed, or it may not be one you have access to. Your other conversations are in Messages."
+          />
+        }
+      />
     )
   }
 
@@ -129,30 +202,30 @@ export default function ConversationScreen() {
         subtitle={conversation?.subtitle ?? undefined}
         onBack={() => router.back()}
         insets={insets}
-        scrollRef={scroller}
-      >
-        {problem && <ErrorState message={problem} onRetry={load} />}
-        {!problem && conversation === null && (
+        listRef={list}
+        // NEWEST FIRST, which is the website's order. Sorted once, here, because the canonical reader
+        // returns ascending and no screen should assume which way it came.
+        messages={[...(conversation?.messages ?? [])].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )}
+        onEndReached={older}
+        loadingOlder={loadingOlder}
+        hasMore={conversation?.hasMore ?? false}
+        header={
           <>
-            <CardSkeleton lines={2} />
-            <CardSkeleton lines={1} />
+            {problem && <ErrorState message={problem} onRetry={load} />}
+            {!problem && conversation === null && (
+              <>
+                <CardSkeleton lines={2} />
+                <CardSkeleton lines={1} />
+              </>
+            )}
+            {conversation?.messages.length === 0 && (
+              <EmptyState title="No messages yet" body="Start the conversation below." />
+            )}
           </>
-        )}
-        {conversation?.messages.length === 0 && (
-          <EmptyState title="No messages yet" body="Start the conversation below." />
-        )}
-        {/*
-          NEWEST AT THE TOP, which is the website's order and therefore the product's
-          (`components/messenger/message-thread.tsx`: sorted descending, so arrivals land at the top
-          and never move what somebody is reading). The canonical reader returns ascending, so the
-          reversal happens once, here, rather than being assumed anywhere.
-        */}
-        {[...(conversation?.messages ?? [])]
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .map((message) => (
-            <Bubble key={message.id} message={message} />
-          ))}
-      </Shell>
+        }
+      />
 
       {conversation && (
         <Composer
@@ -170,22 +243,39 @@ export default function ConversationScreen() {
   )
 }
 
+/**
+ * THE CONVERSATION, AS A VIRTUALISED LIST.
+ *
+ * A ScrollView renders every child; a club thread with six hundred messages would build six hundred
+ * views before the first frame. FlatList renders a window, which is what keeps a long conversation
+ * smooth -- and is why `messages` is passed as data rather than mapped into children.
+ *
+ * NEWEST AT THE TOP, which is the website's order. So "load older" belongs at the END of the list,
+ * and reaching the end is what asks for it.
+ */
 function Shell({
   title,
   subtitle,
   onBack,
   insets,
-  children,
-  scrollRef,
-  onContentSizeChange,
+  listRef,
+  messages,
+  header,
+  onEndReached,
+  loadingOlder,
+  hasMore,
 }: {
   title: string
   subtitle?: string
   onBack: () => void
   insets: { top: number; bottom: number }
-  children: React.ReactNode
-  scrollRef?: React.RefObject<ScrollView | null>
-  onContentSizeChange?: () => void
+  listRef?: React.RefObject<FlatList<ThreadMessage> | null>
+  messages: ThreadMessage[]
+  /** Loading, error and empty states sit above the list rather than inside it. */
+  header?: React.ReactNode
+  onEndReached?: () => void
+  loadingOlder?: boolean
+  hasMore?: boolean
 }) {
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
@@ -231,15 +321,30 @@ function Shell({
         </View>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
+      <FlatList
+        ref={listRef}
+        data={messages}
+        keyExtractor={(message) => message.id}
+        renderItem={({ item }) => <Bubble message={item} />}
+        ListHeaderComponent={header ? <View style={{ gap: space.md }}>{header}</View> : null}
+        ListFooterComponent={
+          loadingOlder ? (
+            <View accessible accessibilityLabel="Loading older messages" style={{ paddingVertical: space.lg, alignItems: "center" }}>
+              <ActivityIndicator color={colour.forest800} />
+            </View>
+          ) : null
+        }
         contentContainerStyle={{ padding: space.lg, gap: space.md }}
-        onContentSizeChange={onContentSizeChange}
-        showsVerticalScrollIndicator={false}
+        onEndReached={hasMore ? onEndReached : undefined}
+        onEndReachedThreshold={0.4}
         keyboardDismissMode="interactive"
-      >
-        {children}
-      </ScrollView>
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        // A conversation is read from the top, so keeping a few screens of window is enough.
+        initialNumToRender={15}
+        maxToRenderPerBatch={15}
+        windowSize={7}
+      />
     </View>
   )
 }
@@ -407,4 +512,22 @@ function Composer({
       </View>
     </View>
   )
+}
+
+/**
+ * One message, once.
+ *
+ * A page of older history and a live arrival can overlap -- the page was in flight when the message
+ * landed -- and the same row would then be rendered twice with the same key, which React reports and a
+ * person simply sees. Keyed by id, keeping the first occurrence.
+ */
+function dedupe(messages: ThreadMessage[]): ThreadMessage[] {
+  const seen = new Set<string>()
+  const out: ThreadMessage[] = []
+  for (const message of messages) {
+    if (seen.has(message.id)) continue
+    seen.add(message.id)
+    out.push(message)
+  }
+  return out
 }

@@ -616,13 +616,20 @@ ordinary unfinished UX — those are finished or say plainly that they are not b
 
 - **Push notifications** (APNs/FCM), notification permissions and badge counts — M7. The route is
   ready: a notification becomes a typed intent and the intent is already handled.
-- **Realtime messaging.** Unread refreshes on app-resume, context change and read. The platform has
-  realtime; a subscription that must be torn down on every context switch is a correctness problem
-  before it is a performance one, so it was not half-built.
+- ~~**Realtime messaging.**~~ **DONE at M4** — the platform's own private channel per conversation is
+  reused. The broadcast carries no content, so the reaction is to re-read through RLS, which is why
+  reusing it adds no new way for a message to reach a device. The INBOX still refreshes on
+  app-resume, context change and read rather than subscribing to every conversation at once; that
+  remains owed.
 - **Offline message behaviour.** Network loss is a product state with a retry; there is no queue, no
   optimistic send and no local cache of conversations.
-- **Attachments, document shares and contact cards.** The canonical reader returns them; there is no
-  native renderer, so a message carrying one shows its text.
+- **Attachments, document shares and contact cards.** The canonical reader returns them with signed
+  URLs; there is no native renderer, so a message carrying one shows its text. **Creating** one is a
+  separate job again — M4 deliberately did not build an upload path.
+- **Optimistic send.** A message is shown only once the server has it. A bubble that appears sent and
+  later turns out not to be is the one outcome worth avoiding in a product where somebody may act on
+  having told a parent something; the composer holds a short pending state instead.
+- **Offline outbox.** A failed send keeps the draft and says so; nothing is queued for later.
 - **Announcements and Support threads** are listed with their unread state and are not openable — they
   have their own reply rules and deserve their own screens rather than a conversation view that would
   misdescribe them.

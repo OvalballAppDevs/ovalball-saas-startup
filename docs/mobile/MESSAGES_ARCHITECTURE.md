@@ -4,8 +4,8 @@ What the platform already had, and what the app does with it. Written to build a
 
 ## The canonical model, as found
 
-**Five containers, one message table.** `public.fixture_messages` holds every message, with exactly one
-container column set — enforced by a CHECK constraint:
+**Seven containers, one message table.** `public.fixture_messages` holds every message, with exactly
+one container column set — enforced by a CHECK constraint:
 
 | container | conversation |
 |---|---|
@@ -13,7 +13,9 @@ container column set — enforced by a CHECK constraint:
 | `fixture_request_id` | an inter-club fixture request |
 | `club_conversation_id` | a club-to-club thread (`club_conversations`) |
 | `direct_conversation_id` | 1:1 (`direct_conversations`, one ordered-pair row per pair) |
-| — | announcements and Support have their own tables |
+| `team_conversation_id` | a team's own thread (`team_conversations`) |
+| `safeguarding_conversation_id` | a safeguarding thread, with its own access rules |
+| `announcement_id` | a one-to-many announcement, with a reply mode — not a conversation |
 
 **Readers are RPCs or RLS, always caller-scoped.** `my_direct_conversations`,
 `my_unread_message_counts`, `direct_conversation_header`, `my_direct_message_candidates`,

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   getDirectThread,
   loadThreadMessages,
+  THREAD_PAGE_SIZE,
   type Database,
   type ThreadMessage,
 } from "@ovalball/contracts"
@@ -33,6 +34,10 @@ export interface Conversation {
   canSend: boolean
   /** Present when sending is not possible. One sentence for every cause, on purpose. */
   unavailableReason: string | null
+  /** The realtime topic for this conversation, in the platform's own scheme. */
+  conversationId: string | null
+  /** False once the oldest message has been read, so "load older" can stop offering itself. */
+  hasMore: boolean
 }
 
 type Client = SupabaseClient<Database>
@@ -52,6 +57,11 @@ export async function loadConversation(
       messages: thread.messages,
       canSend: thread.canSend,
       unavailableReason: thread.unavailableReason,
+      // A direct thread has two people and its realtime topic is keyed by the conversation itself.
+      conversationId: id,
+      // The canonical direct reader returns the whole thread, so there is nothing older to fetch.
+      // Saying so is better than offering a button that would find nothing.
+      hasMore: false,
     }
   }
 
@@ -61,11 +71,18 @@ export async function loadConversation(
   const header = await conversationHeader(supabase, kind, id)
   if (!header) return null
 
-  const messages = await loadThreadMessages(supabase, viewerId, {
-    key: kind === "request" ? { column: "fixture_request_id", value: id } : { column: "conversation_id", value: header.conversationId },
-    clubIds: header.clubIds,
-    teams: [],
-  })
+  // THE NEWEST PAGE, not the whole history. A club's fixture thread can run for a season, and pulling
+  // all of it onto a phone to show the last six messages is slow before it is anything else.
+  const messages = await loadThreadMessages(
+    supabase,
+    viewerId,
+    {
+      key: kind === "request" ? { column: "fixture_request_id", value: id } : { column: "conversation_id", value: header.conversationId },
+      clubIds: header.clubIds,
+      teams: [],
+    },
+    { limit: THREAD_PAGE_SIZE }
+  )
 
   return {
     title: header.title,
@@ -73,7 +90,40 @@ export async function loadConversation(
     messages,
     canSend: header.canSend,
     unavailableReason: header.canSend ? null : "You can read this conversation but not reply to it.",
+    conversationId: header.conversationId,
+    // A full page back suggests there is more behind it. One short of a page means the thread ended.
+    hasMore: messages.length >= THREAD_PAGE_SIZE,
   }
+}
+
+/**
+ * The page before the one already on screen.
+ *
+ * The cursor is the oldest message's TIMESTAMP, not an offset: an offset shifts the moment somebody
+ * sends while history is being read, and the shift is silent -- a message skipped or shown twice.
+ */
+export async function loadOlderMessages(
+  supabase: Client,
+  kind: ConversationKind,
+  id: string,
+  viewerId: string,
+  oldest: ThreadMessage
+): Promise<{ messages: ThreadMessage[]; hasMore: boolean }> {
+  if (kind === "direct") return { messages: [], hasMore: false }
+  const header = await conversationHeader(supabase, kind, id)
+  if (!header) return { messages: [], hasMore: false }
+
+  const messages = await loadThreadMessages(
+    supabase,
+    viewerId,
+    {
+      key: kind === "request" ? { column: "fixture_request_id", value: id } : { column: "conversation_id", value: header.conversationId },
+      clubIds: header.clubIds,
+      teams: [],
+    },
+    { limit: THREAD_PAGE_SIZE, before: oldest.createdAt }
+  )
+  return { messages, hasMore: messages.length >= THREAD_PAGE_SIZE }
 }
 
 /**

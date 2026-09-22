@@ -214,13 +214,15 @@ test("a message bubble is coloured and ordered the way the website does it", () 
   // THE FIRST DRAFT HAD IT INVERTED -- forest for mine, white for received -- which misattributes
   // every message on the screen to the wrong side for anybody who learned the product in a browser.
   // The website is blue-right for your own and mint-left for received, newest at the top.
-  const bubble = strip(read("app/(tabs)/messages/[id].tsx"))
+  const bubble = strip(read("app/(tabs)/messages/[kind]/[id].tsx"))
   assert.match(bubble, /mine \? colour\.messengerBlue : colour\.mint100/, "the bubble colours no longer match the website")
   assert.match(bubble, /const mine = message\.isOwn/, "ownership is derived from something other than the server's answer")
   assert.ok(!/senderUserId === /.test(bubble), "ownership is recomputed from a sender id")
-  // Newest at the top, as the web thread sorts it.
+  // Newest at the top, as the web thread sorts it -- and a virtualised list, because a club thread
+  // can run for a season and a ScrollView would build every message before the first frame.
   assert.match(bubble, /new Date\(b\.createdAt\)\.getTime\(\) - new Date\(a\.createdAt\)\.getTime\(\)/, "the thread is not newest-first")
   assert.ok(!/scrollToEnd/.test(bubble), "the thread scrolls to the oldest message after sending")
+  assert.match(bubble, /<FlatList/, "the conversation renders every message rather than a window")
 
   // And the website still says the same thing, so this test fails if the product changes rather than
   // quietly describing a rule that has moved.
