@@ -353,6 +353,71 @@ brand assets are never changed incidentally.
   in which a native decision could be recorded, and existing rows' `governing_body_decided_by` points at
   club administrators. Reinterpreting them would falsify them.
 
+## H16 — Identity/Auth Slice 10 (Step 17) outcome
+
+**Slice 10 is legacy retirement, and measured against its own acceptance NO DROP IS DUE.** The
+acceptance is *"zero references in CI; full runner, clean boot and all browser suites green; production
+usage telemetry zero for 30 days before each drop"*. The estate is now **measured** rather than
+estimated, by `scripts/verify-slice10-retirement.mjs` against
+`supabase/security/slice10-retirement-baseline.json`, wired into the gate:
+
+| target | db | ts | ci |
+|---|---:|---:|---:|
+| `team_permissions` | 22 | 14 | 91 |
+| `has_capability` adapter | 62 | 7 | 31 |
+| `club_memberships` legacy columns | 39 | 0 | 14 |
+| `site_admins.admin_role` | 5 | 6 | 108 |
+| `site_admins.manage_*` flags | 6 | 0 | 5 |
+| `profiles.account_status` | 2 | 4 | 12 |
+| `permission_groups*` | 1 | 3 | 4 |
+| `role_capability_defaults` | 0 | 1 | 7 |
+| `invite_player_account` | 0 | 1 | 3 |
+| Phase 0 signup binding | 0 | 1 | 0 |
+| legacy invitation tables | 7 | — | — |
+| legacy plaintext-token issuers | 2 | — | — |
+
+**458 references, 12 targets, no target at zero.** The ratchet allows every count to fall and refuses
+any rise — including refusing to write a baseline that would legitimise one, which it demonstrated
+during Step 17 itself.
+
+### Closed by Step 17
+
+- **The last browser-reachable plaintext legacy invitation token is gone.**
+  `club_ovalball_invitations.token` was SELECT-able by a signed-in club administrator; the grant is now
+  column-scoped and omits it. `invitations` INSERT/UPDATE — which let a session write a legacy invitation
+  with a plaintext secret of its own choosing — is revoked. **Zero** browser-reachable invitation secret
+  columns remain anywhere in the schema, asserted as a hard zero rather than a ratchet.
+- **The canonical table stopped publishing its hash material.** `access_invitations.token_sha256` and
+  `code_hmac` are no longer readable by a browser role. A digest redeems nothing, but `code_hmac` is the
+  HMAC of a short human code and there is no reason to make the pepper the only obstacle.
+- **A guard that was asserting something untrue.** `verify-legacy-invitation-token-readers.mjs` claimed
+  *"THE LIST IS NOW EMPTY"* while `send_replacement_guardian_invitation` handed out a plaintext legacy
+  token; its regex required a `returning … token` clause and that function uses
+  `returning * into v_row` then returns `v_row.token`. It now also reads what a function gives back, and
+  strips comments first — without that, the word "invitations" in an English sentence reported the
+  *canonical* issuer.
+
+### New Step 17 debt
+
+- **H16.1 — `send_replacement_guardian_invitation` still issues a plaintext legacy token.** It is now a
+  **named shrink-list entry** with a reason and an owner rather than hidden by a regex hole. It cannot
+  move to `public.issue_invitation` until `link_guardian_to_existing_player` and
+  `create_player_for_guardian` accept a canonical invitation id — both take a legacy row id, and the
+  canonical `GUARDIAN` redemption links nobody. Exposure is bounded: `guardian_invitations` has **no
+  grant to `anon` or `authenticated`**, so only SECURITY DEFINER functions can read it.
+  *Owner: family architecture, with Slice 10.* **Owner ruling requested** — see the Step 17 report.
+- **H16.2 — every drop still owed.** Twelve targets, 458 references, and two preconditions that cannot be
+  met until something is deployed: the full runner/clean boot, and 30 days of zero telemetry. §20's
+  release bridge (`accept_invitation`, `get_invitation_preview`) is itself a drop target.
+  *Owner: hardening and release.*
+- **H16.3 — T7 magic-link removal is not due.** `/login` is password-primary with *"Email me a link
+  instead"* present, and the acceptance harness signs in through it. T7's gate is zero magic-link
+  sessions for 30 days. *Owner: release.*
+- **H16.4 — two SPECIAL_PURPOSE suites fail on their own seeding, unrelated to Step 17.**
+  `parent_add_child_regression` dies on a Team Directory catalogue mismatch (*"There is no boys team at
+  U10"*), and `admin_user_management` on a `club_memberships_club_id_fkey` violation. Neither error
+  mentions any table Step 17 touched. *Owner: test governance, with H2.*
+
 ## H11 — Owed at hardening, in one list
 
 Complete canonical gate on a frozen tree · full-chain clean boot ·

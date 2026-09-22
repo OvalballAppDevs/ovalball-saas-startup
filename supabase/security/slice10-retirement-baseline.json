@@ -1,0 +1,66 @@
+{
+  "contract": "Identity/Auth Slice 10 retirement ratchet. Every count may fall and none may rise; a drop becomes mechanical when a count reaches zero. Slice 10's own acceptance is 'zero references in CI; full runner, clean boot and all browser suites green; production usage telemetry zero for 30 days before each drop' -- this file measures the first clause. Written by scripts/verify-slice10-retirement.mjs --write-baseline, which refuses to record a rise. Re-seeded once at Convergence Step 17 when the ci dimension was added: the ratchet correctly refused to fold a new measurement into an existing baseline, which is the behaviour it exists for.",
+  "targets": {
+    "team_permissions": {
+      "db": 22,
+      "ts": 14,
+      "ci": 91
+    },
+    "profiles.account_status": {
+      "db": 2,
+      "ts": 4,
+      "ci": 12
+    },
+    "role_capability_defaults": {
+      "db": 0,
+      "ts": 1,
+      "ci": 7
+    },
+    "permission_groups": {
+      "db": 1,
+      "ts": 3,
+      "ci": 4
+    },
+    "has_capability_adapter": {
+      "db": 62,
+      "ts": 7,
+      "ci": 31
+    },
+    "site_admins.admin_role": {
+      "db": 5,
+      "ts": 6,
+      "ci": 108
+    },
+    "site_admins.manage_flags": {
+      "db": 6,
+      "ts": 0,
+      "ci": 5
+    },
+    "club_memberships.legacy_columns": {
+      "db": 39,
+      "ts": 0,
+      "ci": 14
+    },
+    "invite_player_account": {
+      "db": 0,
+      "ts": 1,
+      "ci": 3
+    },
+    "phase0_signup_binding": {
+      "db": 0,
+      "ts": 1,
+      "ci": 0
+    },
+    "legacy_invitation_tables": {
+      "db": 7,
+      "ts": 0,
+      "ci": 0
+    },
+    "legacy_token_issuing_functions": {
+      "db": 2,
+      "ts": 0,
+      "ci": 0
+    }
+  },
+  "browser_reachable_legacy_secrets": 0
+}

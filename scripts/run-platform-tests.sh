@@ -29,6 +29,13 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-redemption-callers.mjs"; then
   FAILED=$((FAILED + 1))
 fi
 
+# Identity/Auth Slice 10 (Convergence Step 17): the compatibility estate is a ratchet. Every reference
+# count may fall and none may rise, and no browser role may reach a plaintext legacy invitation secret.
+# Slice 10's own acceptance is "zero references in CI" -- this is what measures it.
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-slice10-retirement.mjs"; then
+  FAILED=$((FAILED + 1))
+fi
+
 if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-authority-guards.mjs"; then
   exit 1
 fi
@@ -349,6 +356,7 @@ BROWSER_SUITES=(
   83-governing-body-foundation
   84-governing-body-product-journey
   85-competition-governing-closure
+  86-legacy-estate-unreachable
   # SLICE 7e wired this one. It is Slice 7's own browser evidence -- S7-07 is what
   # the reconciliation cites for AN-8, "the setup link is never shown" -- and it
   # had never been in the release runner, so that evidence rested on somebody's

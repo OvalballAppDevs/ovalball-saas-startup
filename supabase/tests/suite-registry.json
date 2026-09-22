@@ -1650,6 +1650,11 @@
       "owner": "Governing Body programme (Steps 14-16)",
       "reason": "Convergence Step 14: governing-body authority comes from an ACTIVE constituent_body_roles row and nothing else -- not a club role, a Fixture Secretary, a Safeguarding Officer or a name -- with fail-closed predicates, wrong-body isolation, explicit Site Admin access, and suspension/revocation winning."
     },
+    "step17_legacy_retirement": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth Slice 10",
+      "reason": "Convergence Step 17 (Identity/Auth Slice 10): the retirement slice's own acceptance is 'zero references in CI; full runner, clean boot and all browser suites green; production usage telemetry zero for 30 days before each drop', and measured against that NO DROP IS DUE -- every compatibility target still has live references. So this proves the part that is: that no browser role can reach a plaintext legacy invitation secret by read or by write, table by table; that the legacy invitations table is no longer writable by a Club Admin OR a Full Site Admin because the grant is gone rather than the policy; that the partner-invitation and canonical-invitation readers keep every column they use while select * and the hash material are refused; that NOTHING was dropped and every release-bridge function and table survives; that a LIVE legacy invitation keeps its token while a terminal one loses it (Phase 2 O.5, which is why the one real pending guardian invitation was left alone); that the canonical issuer still issues and still stores only a hash; and that the capability engine, the organisation-scope refusal and Step 16's governing-body context are untouched, because Slice 10 owns none of them."
+    },
     "step16_governing_closure": {
       "disposition": "CANONICAL_GATE",
       "owner": "Governing Body programme (Steps 14-16)",

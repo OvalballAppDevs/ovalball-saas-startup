@@ -571,8 +571,22 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Slice 5, Phase 2 O.5. Row access is unchanged and RLS still limits these rows to the club's own administrators. The plaintext `token` column is still readable by a signed-in administrator ON PURPOSE and temporarily (D-S5-AUTO-6): three server actions read it back to build the emailed invitation link, and removing the grant breaks invitation sending. scripts/verify-legacy-invitation-token-readers.mjs pins exactly which modules may, so the surface cannot spread. Terminal and expired rows no longer hold a token at all, and anon reaches none of this."
+        "select": [
+          "accepted_at",
+          "accepted_by",
+          "club_directory_id",
+          "contact_email",
+          "contact_name",
+          "created_at",
+          "expires_at",
+          "id",
+          "invited_by",
+          "inviting_club_id",
+          "resulting_partnership_id",
+          "status",
+          "updated_at"
+        ],
+        "select_reason": "Slice 5, Phase 2 O.5; NARROWED by Convergence Step 17 (Identity/Auth Slice 10). Row access is unchanged and RLS still limits these rows to the club's own administrators. The plaintext `token` column WAS readable by a signed-in administrator, temporarily and on purpose (D-S5-AUTO-6), because server actions read it back to build the emailed invitation link. Those actions moved to the canonical issuer, so the reason expired -- and this was the LAST client-readable plaintext legacy invitation token on the platform. The grant is now column-scoped and omits it, so a future column is absent by default rather than exposed by default."
       }
     },
     "club_partnerships": {
@@ -2142,13 +2156,7 @@
           "created_at",
           "updated_at"
         ],
-        "insert": "all",
-        "update": "all",
-        "write_consumers": [
-          "app/(app)/people/actions.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Slice 5, D-S5-AUTO-6 closed. Every legacy issuer now goes through public.issue_invitation, so nothing reads the plaintext token back to build an emailed link. The table grant was replaced with this explicit column list -- which omits `token` -- because a column-level REVOKE does nothing underneath a table-level SELECT grant. The rows stay readable to the club administrators RLS already limits them to; the secret does not."
+        "select_reason": "LEGACY, RETIRING (Identity/Auth Slice 10). Convergence Step 17 revoked authenticated INSERT and UPDATE: the table holds zero rows, no RPC inserts into it, and the application read moved at Slice 5, but a live session holding people.invitation.create could still write a legacy invitation with a plaintext token of its own choosing. The club-scoped INSERT and UPDATE policies are retained and now unreachable -- a grant is checked before RLS -- because losing the scoping rule would be worse than leaving it inert."
       }
     },
     "membership_obligations": {
@@ -3404,8 +3412,38 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Slice 5. Rows gated by access_invitations_select_scoped to whoever holds the issuing capability at that scope. No client writes: issue, redeem, revoke and resend are definer RPCs. Administrators read invitations_admin_view, which cannot select token_sha256 or code_hmac."
+        "select": [
+          "club_directory_id",
+          "club_id",
+          "code_hint",
+          "constituent_body_id",
+          "created_at",
+          "delivery_id",
+          "expires_at",
+          "id",
+          "intended_outcome",
+          "invited_email_normalised",
+          "issued_by",
+          "issued_level",
+          "issuer_capability",
+          "kind",
+          "last_sent_at",
+          "max_uses",
+          "player_id",
+          "redeemed_at",
+          "redeemed_by",
+          "resend_count",
+          "revocation_reason",
+          "revoked_at",
+          "revoked_by",
+          "scope_key",
+          "state",
+          "target_user_id",
+          "team_id",
+          "updated_at",
+          "use_count"
+        ],
+        "select_reason": "Slice 5; NARROWED by Convergence Step 17. Rows gated by access_invitations_select_scoped to whoever holds the issuing capability at that scope. No client writes: issue, redeem, revoke and resend are definer RPCs. The grant now omits token_sha256 and code_hmac. A digest redeems nothing -- redemption hashes what it is given -- but code_hmac is the HMAC of a SHORT human code, and publishing the digest turns guessing it against a throttled server into grinding it offline. code_hint stays: it is the last two characters, printed so somebody can tell two codes apart."
       }
     },
     "invitation_redemption_attempts": {
