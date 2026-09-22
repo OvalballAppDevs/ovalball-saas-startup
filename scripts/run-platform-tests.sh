@@ -83,6 +83,15 @@ if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-mobile-messenger-scope.mjs"; th
   exit 1
 fi
 
+# FIXTURE CONSOLE SCOPE. One console with inline editing -- no availability strip (it belongs to Match
+# Centre), no Club Documents projection (it belongs to the Club Documents product), no separate Edit
+# destination, and Cancel at the bottom in the danger tone. Guarded structurally because each removal
+# is one a later session would undo on reasonable-sounding grounds: "just a small availability
+# summary", "the visitor guide is obviously relevant here".
+if ! node "$(dirname "${BASH_SOURCE[0]}")/verify-fixture-console-scope.mjs"; then
+  exit 1
+fi
+
 # SQL SUITE GOVERNANCE. Every .sql suite in supabase/tests must be declared in
 # suite-registry.json with a disposition and an owner, this runner must derive its
 # gate list from that one source, and no suite may be registered twice. Batch A

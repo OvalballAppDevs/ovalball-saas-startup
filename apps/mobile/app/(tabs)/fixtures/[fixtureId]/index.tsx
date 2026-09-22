@@ -2,24 +2,41 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { oppositionPresenceLabel } from "@ovalball/contracts"
 
 import { supabase } from "../../../../src/auth/supabase"
 import { useAppContexts } from "../../../../src/context/contexts"
-import { loadFixtureDetail, type FixtureDetail } from "../../../../src/agenda/fixture-detail"
+import {
+  loadFixtureDetail,
+  loadOppositionContacts,
+  loadPitchOptions,
+  loadVenueOptions,
+  type FixtureDetail,
+  type OppositionContact,
+  type PitchOption,
+  type VenueOption,
+} from "../../../../src/agenda/fixture-detail"
 import { loadFixtureAuthority, type FixtureAuthority } from "../../../../src/agenda/authority"
-import { exactDate, homeAwayLabel, kickoffLabel, relativeDate, statusTone } from "../../../../src/agenda/presentation"
+import {
+  cancelFixture,
+  rejectKickoffChange,
+  updateDetails,
+  updateMeetTime,
+  updateKickoff,
+  updatePitch,
+  updateVenue,
+  type MutationResult,
+} from "../../../../src/agenda/mutations"
+import { exactDate, homeAwayLabel, relativeDate, statusTone } from "../../../../src/agenda/presentation"
 import { todayIso } from "../../../../src/agenda/load"
-import { searchClubDocuments, readableSize, type ClubDocument } from "../../../../src/messages/documents"
-import { openAttachment } from "../../../../src/messages/open-attachment"
+import { openConversationWith } from "../../../../src/messages/recipients"
 import { friendly, logDetail } from "../../../../src/errors/translate"
 import { ClubCrest } from "../../../../src/components/identity"
-import { HomeAwayBadge } from "../../../../src/components/agenda-row"
+import { CancelSheet, ChoiceSheet, DateSheet, TextSheet, TimeSheet } from "../../../../src/components/field-sheet"
 import {
-  CalendarDays,
   ChevronRight,
   Clock,
   ExternalLink,
-  FileText,
   MapPin,
   MessageSquare,
   OvalIcon,
@@ -29,25 +46,35 @@ import { CardSkeleton, EmptyState, ErrorState } from "../../../../src/components
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
 
 /**
- * ONE FIXTURE.
+ * THE FIXTURE CONSOLE.
  *
- * The most important screen in the product after Home, and the one somebody opens standing in a car
- * park. So it is ordered by what is asked in that moment: who, when, where, how do I get there, who is
- * going, and then everything else.
+ * NOT A DETAIL PAGE WITH CARDS AND LINKS. This is where somebody opens one fixture and deals with it,
+ * and the difference is not cosmetic: a page of boxed modules makes a manager read seven headings to
+ * find the kick-off, then leave for a separate Edit screen to change it. A console shows the facts and
+ * lets you touch them.
  *
- * NOTHING HERE DECIDES AUTHORITY. The fixture arrives through RLS, the availability summary through an
- * RPC that returns nothing to somebody who may not see a squad's answers, and which fields may be
- * changed from `fixture_editable_fields` -- which also returns the REASON, so a refusal can be said
- * rather than implied by a greyed-out control.
+ * ONE SCREEN FOR EVERYBODY. A coach with authority and a parent without get the SAME information in the
+ * same order; capability decides which of it responds to a tap. There is no parent version of this
+ * screen, because two versions is how they come to disagree about what a fixture is.
  *
- * DIRECTIONS OPEN THE PHONE'S OWN MAPS. Ovalball is not building a map product: the device already has
- * one, it is better, and it knows about traffic on the M65.
+ * THE DISPLAYED VALUE IS THE CONTROL. Tap the kick-off, a sheet with the system time picker comes up,
+ * save, the console re-reads from the server. No permanent text fields, so the normal screen stays
+ * something you read rather than something you fill in -- and no separate Edit destination, so there is
+ * nothing to hunt for.
  *
- * THE DOORS OUT ARE THE ONES THAT ALREADY EXIST. Messages routes into the M4 conversation; documents
- * reuse the M4 renderer and its security. Neither is rebuilt here, because a second fixture chat and a
- * second document reader are two more things to keep in step.
+ * WHAT IS DELIBERATELY NOT HERE.
+ *
+ *   AVAILABILITY. It belongs in Match Centre with the team sheet and match day, and a second
+ *   availability surface here would be the drift Match Centre's whole architecture exists to prevent.
+ *
+ *   CLUB DOCUMENTS. Ovalball has a Club Documents product; pinning a club's library onto every fixture
+ *   was a second, worse projection of it. Documents reach a fixture through MESSAGING, which is where
+ *   sending one to somebody is an act rather than a list.
+ *
+ *   DELETE. `fixture.fixture.delete` is club-scoped and team staff never hold it. Cancelling is the
+ *   team's action and it preserves the record.
  */
-export default function FixtureDetailScreen() {
+export default function FixtureConsole() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { sessionContext, active } = useAppContexts()
@@ -60,8 +87,14 @@ export default function FixtureDetailScreen() {
   const [problem, setProblem] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [authority, setAuthority] = useState<FixtureAuthority | null>(null)
-  const [documents, setDocuments] = useState<ClubDocument[] | null>(null)
-  const [openingDocument, setOpeningDocument] = useState<string | null>(null)
+  const [contacts, setContacts] = useState<OppositionContact[]>([])
+  const [venues, setVenues] = useState<VenueOption[]>([])
+  const [pitches, setPitches] = useState<PitchOption[]>([])
+
+  const [editing, setEditing] = useState<null | "date" | "kickoff" | "meet" | "venue" | "pitch" | "pitchText" | "notes" | "cancel">(null)
+  const [saving, setSaving] = useState(false)
+  const [sheetProblem, setSheetProblem] = useState<string | null>(null)
+  const [opening, setOpening] = useState(false)
 
   const myTeamIds = useMemo(
     () =>
@@ -83,9 +116,19 @@ export default function FixtureDetailScreen() {
         return
       }
       setFixture(loaded)
+      // The grounds and playing areas come from the OWNING club and the fixture's own venue, which is
+      // what the canonical pitch mutation will insist on.
+      const [venueOptions, pitchOptions, oppositionContacts] = await Promise.all([
+        loadVenueOptions(supabase, loaded.clubId),
+        loadPitchOptions(supabase, loaded.clubId, loaded.venueId),
+        loadOppositionContacts(supabase, id),
+      ])
+      setVenues(venueOptions)
+      setPitches(pitchOptions)
+      setContacts(oppositionContacts)
     } catch (caught) {
       const failure = friendly(caught, "this fixture")
-      logDetail("fixture detail", failure)
+      logDetail("fixture console", failure)
       setProblem(failure.message)
     }
   }, [id, myTeamIds])
@@ -110,47 +153,40 @@ export default function FixtureDetailScreen() {
   }, [active])
 
   /**
-   * VISITOR INFORMATION, WHERE THE CLUB HAS PUBLISHED IT.
+   * One field, saved, then the console re-read from the server.
    *
-   * The same library the M4 document sharing reads, through the same RLS -- so this lists exactly what
-   * this person may already see, and nothing appears here because it is a fixture. The categories are
-   * the visitor-facing ones: a guide, ground and pitch information, parking, match-day instructions.
-   * A committee minute filed under "other" is not fixture information and is not offered.
+   * NOT OPTIMISTIC. The canonical mutation answers first; a fixture that appeared to move and did not
+   * is worse than one that took a moment. On failure the sheet stays open with the attempted value and
+   * the reason, so the next attempt is a correction rather than a retype.
    */
-  useEffect(() => {
-    let live = true
-    setDocuments(null)
-    void (async () => {
-      try {
-        const all = await searchClubDocuments(supabase, "", "direct")
-        if (live) setDocuments(all.slice(0, 6))
-      } catch {
-        if (live) setDocuments([])
-      }
-    })()
-    return () => {
-      live = false
+  async function save(action: () => Promise<MutationResult>) {
+    if (saving) return
+    setSaving(true)
+    setSheetProblem(null)
+    const result = await action()
+    if (!result.ok) {
+      setSaving(false)
+      setSheetProblem(result.message)
+      return
     }
-  }, [id])
-
-  const refresh = useCallback(async () => {
-    setRefreshing(true)
+    // A SCHEDULE CHANGE AGAINST ANOTHER OVALBALL CLUB IS A PROPOSAL. Saying "saved" would be telling a
+    // manager the kick-off had moved when the other club has not agreed -- and they would find out by
+    // somebody turning up at the wrong time. The banner on the console says which it was.
     await load()
-    setRefreshing(false)
-  }, [load])
+    setSaving(false)
+    setEditing(null)
+  }
 
-  async function openDocument(document: ClubDocument) {
-    if (openingDocument) return
-    setOpeningDocument(document.id)
-    const { data } = await supabase.storage.from("club-documents").createSignedUrl(await storagePath(document.id), 3600)
-    const result = await openAttachment({
-      id: document.id,
-      filename: document.filename ?? `${document.title}.pdf`,
-      mimeType: document.mimeType ?? "application/pdf",
-      signedUrl: data?.signedUrl ?? null,
-    })
-    setOpeningDocument(null)
-    if (!result.ok) setProblem(result.message)
+  async function messageOpposition(contact: OppositionContact) {
+    if (opening) return
+    setOpening(true)
+    const result = await openConversationWith(supabase, contact.userId)
+    setOpening(false)
+    if (!result.ok) {
+      setProblem(result.message)
+      return
+    }
+    router.push({ pathname: "/messages/[kind]/[id]", params: { kind: "direct", id: result.conversationId } })
   }
 
   if (missing) {
@@ -166,19 +202,29 @@ export default function FixtureDetailScreen() {
   }
 
   const status = statusTone(fixture?.status ?? null)
+  const cancelled = fixture?.status === "Cancelled"
   const home = homeAwayLabel(fixture?.homeAway ?? null)
-  const time = kickoffLabel(fixture?.kickoff ?? null)
-  const canEdit = (authority?.edit ?? false) && (fixture?.editable.details?.editable ?? fixture?.editable.schedule?.editable ?? false)
-  const canCancel = (authority?.cancel ?? false) && fixture?.status !== "Cancelled"
+  // A CANCELLED FIXTURE IS NOT EDITED AS THOUGH IT WERE LIVE. The database refuses it too, but showing
+  // tappable values on a match that is off invites somebody to reschedule a thing that no longer exists.
+  const canEditSchedule = Boolean(authority?.edit) && !cancelled && (fixture?.editable.schedule?.editable ?? false)
+  const canEditMeet = Boolean(authority?.edit) && !cancelled && (fixture?.editable.meetTime?.editable ?? false)
+  const canEditVenue = Boolean(authority?.edit) && !cancelled && (fixture?.editable.venue?.editable ?? false)
+  const canEditDetails = Boolean(authority?.edit) && !cancelled && (fixture?.editable.details?.editable ?? false)
+  // A NAMED PITCH IS A HOME FIXTURE'S BUSINESS. Away, the ground belongs to the other club and the
+  // canonical mutation refuses a pitch id -- so the free-text fallback is what is offered instead.
+  const namedPitch = fixture?.homeAway === "Home"
 
   return (
     <Shell
-      title={fixture ? (fixture.them.teamName ? `${fixture.them.clubName} ${fixture.them.teamName}` : fixture.them.clubName) : "Fixture"}
-      subtitle={fixture ? `${fixture.us.teamName ?? fixture.us.clubName} · ${relativeDate(fixture.date, today)}` : undefined}
+      title={fixture?.us.teamName ?? fixture?.us.clubName ?? "Fixture"}
       onBack={() => router.back()}
       insets={insets}
       refreshing={refreshing}
-      onRefresh={refresh}
+      onRefresh={async () => {
+        setRefreshing(true)
+        await load()
+        setRefreshing(false)
+      }}
     >
       {problem && <ErrorState message={problem} onRetry={load} />}
       {!problem && !fixture && (
@@ -190,50 +236,80 @@ export default function FixtureDetailScreen() {
 
       {!!fixture && (
         <>
-          {/* THE MATCH ITSELF: two sides, and which of them is at home said in words. */}
-          <View style={{ backgroundColor: colour.forest800, borderRadius: radius.lg, padding: space.lg, gap: space.md }}>
+          {/* IDENTITY -- who, against whom, where we are playing, and whether they are on Ovalball.
+              Compact on purpose: this used to be a tall decorative block that pushed the kick-off below
+              the fold on a normal iPhone. */}
+          <View style={{ gap: space.sm }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-              <ClubCrest clubName={fixture.us.clubName} url={fixture.us.crestUrl} size={44} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text numberOfLines={1} style={[type.smallMedium, { color: colour.onForest }]}>
-                  {fixture.us.teamName ?? fixture.us.clubName}
-                </Text>
-                <Text style={[type.caption, { color: colour.onForestMuted }]}>{fixture.us.clubName}</Text>
-              </View>
-              {/* THE SAME MARK AS EVERY FIXTURE ROW. The two sides are stacked here, so the badge sits
-                  on OUR line: it says where WE are playing, which is the question being asked. */}
-              {!!home && <HomeAwayBadge home={home} size={30} />}
+              <ClubCrest clubName={fixture.us.clubName} url={fixture.us.crestUrl} size={40} />
+              <Text style={[type.caption, { color: colour.inkSubtle }]}>
+                {fixture.homeAway === "Away" ? "away to" : fixture.homeAway === "Home" ? "at home to" : "against"}
+              </Text>
+              <ClubCrest clubName={fixture.them.clubName} url={fixture.them.crestUrl} size={40} />
             </View>
 
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-              <ClubCrest clubName={fixture.them.clubName} url={fixture.them.crestUrl} size={44} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text numberOfLines={2} style={[type.smallMedium, { color: colour.onForest }]}>
-                  {fixture.them.teamName ?? fixture.them.clubName}
-                </Text>
-                {!!fixture.them.teamName && (
-                  <Text style={[type.caption, { color: colour.onForestMuted }]}>{fixture.them.clubName}</Text>
-                )}
-              </View>
-              {/* A RESULT ONLY WHERE THE SERVER GAVE ONE. Youth rugby does not always publish a score,
-                  and the reader carries that decision -- this just renders what arrived. */}
-              {!!fixture.result && (
-                <Text style={[type.title, { color: colour.onForest }]}>
-                  {fixture.result.ourScore}–{fixture.result.theirScore}
-                </Text>
+            <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
+              {fixture.them.teamName ? `${fixture.them.clubName} ${fixture.them.teamName}` : fixture.them.clubName}
+            </Text>
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
+              {/* HOME OR AWAY IN WORDS. "A" was too cryptic -- a manager should not have to decode a
+                  letter for the fact that decides whether they are travelling. */}
+              {!!home && (
+                <Badge
+                  label={home.spoken.toUpperCase()}
+                  background={fixture.homeAway === "Home" ? colour.forest800 : fixture.homeAway === "Away" ? colour.messengerBlue : colour.lineStrong}
+                  foreground={fixture.homeAway === "Home" || fixture.homeAway === "Away" ? colour.onForest : colour.inkMuted}
+                />
               )}
+              {/* ON OVALBALL, from canonical club and team linkage -- never from the name, the crest or
+                  a string match. It tells a manager whether richer things are possible here. */}
+              <Badge
+                label={oppositionPresenceLabel(fixture.opposition).toUpperCase()}
+                background={fixture.opposition.onOvalball ? colour.mint100 : "rgba(16,21,18,0.05)"}
+                foreground={fixture.opposition.onOvalball ? colour.forest800 : colour.inkMuted}
+              />
+              {!!fixture.gameType && <Badge label={fixture.gameType.toUpperCase()} background="rgba(16,21,18,0.05)" foreground={colour.inkMuted} />}
             </View>
 
-            {!!status && status.tone !== "confirmed" && (
-              <View style={{ alignSelf: "flex-start", backgroundColor: "rgba(255,255,255,0.16)", borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 3 }}>
-                <Text style={[type.caption, { color: colour.onForest, fontSize: 11 }]}>{status.label}</Text>
-              </View>
+            {!!status && status.tone !== "confirmed" && !cancelled && (
+              <Text style={[type.caption, { color: colour.inkMuted }]}>{status.label}</Text>
+            )}
+            {!!fixture.result && (
+              <Text style={[type.title, { color: colour.forest800 }]}>
+                {fixture.result.ourScore}–{fixture.result.theirScore}
+              </Text>
             )}
           </View>
 
-          {/* A CANCELLATION SAYS WHY. The reason is required by the database precisely so that it can be
-              read here rather than leaving everybody to ring round. */}
-          {fixture.status === "Cancelled" && (
+          {/* ASKED FOR, NOT AGREED. Both times are shown: the one that is still true, and the one that
+              has been proposed. Hiding either would leave somebody confident about the wrong one. */}
+          {!!fixture.proposedKickoff && !cancelled && (
+            <View style={{ padding: space.md, borderRadius: radius.md, backgroundColor: colour.warningSurface, gap: space.xs }}>
+              <Text accessibilityRole="alert" style={[type.smallMedium, { color: colour.warning }]}>
+                {fixture.proposedKickoff.byUs ? "Change proposed — waiting for the other club" : "The other club has proposed a change"}
+              </Text>
+              <Text style={[type.small, { color: colour.warning }]}>
+                {shortDate(fixture.proposedKickoff.date)}
+                {fixture.proposedKickoff.time ? ` · ${fixture.proposedKickoff.time}` : ""}. Until they agree, this
+                fixture stays at {fixture.kickoff ?? "the agreed time"}.
+              </Text>
+              {authority?.edit && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={fixture.proposedKickoff.byUs ? "Withdraw the proposed change" : "Decline the proposed change"}
+                  onPress={() => void save(() => rejectKickoffChange(supabase, id))}
+                  style={({ pressed }) => ({ minHeight: TOUCH_TARGET, justifyContent: "center", opacity: pressed ? 0.7 : 1 })}
+                >
+                  <Text style={[type.smallMedium, { color: colour.warning }]}>
+                    {fixture.proposedKickoff.byUs ? "Withdraw" : "Decline"}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {cancelled && (
             <View style={{ padding: space.md, borderRadius: radius.md, backgroundColor: colour.dangerSurface, gap: 2 }}>
               <Text accessibilityRole="alert" style={[type.smallMedium, { color: colour.danger }]}>
                 This fixture is cancelled
@@ -244,125 +320,272 @@ export default function FixtureDetailScreen() {
             </View>
           )}
 
-          <Facts>
-            <Fact
-              icon={<CalendarDays size={18} color={colour.forest800} strokeWidth={1.9} />}
-              label={relativeDate(fixture.date, today)}
-              detail={exactDate(fixture.date)}
-            />
-            {!!time && (
-              <Fact
-                icon={<Clock size={18} color={colour.forest800} strokeWidth={1.9} />}
-                label={`Kick-off ${time}`}
-                detail={fixture.meetTime ? `Meet at ${fixture.meetTime}` : undefined}
-              />
-            )}
-            {!!fixture.venue && (
-              <Fact
-                icon={<MapPin size={18} color={colour.forest800} strokeWidth={1.9} />}
-                label={fixture.venue}
-                detail={[fixture.pitch, fixture.venueAddress].filter(Boolean).join(" · ") || undefined}
-                action={
-                  fixture.venueAddress
-                    ? { label: "Directions", onPress: () => void openDirections(fixture.venueAddress!) }
-                    : undefined
-                }
-              />
-            )}
-            {!!fixture.competitionName && (
-              <Fact icon={<OvalIcon size={18} color={colour.forest800} />} label={fixture.competitionName} detail="Competition" />
-            )}
-          </Facts>
-
-          {!!fixture.venueDirections && (
-            <Section title="Getting There">
-              <Text style={[type.small, { color: colour.inkMuted }]}>{fixture.venueDirections}</Text>
-            </Section>
-          )}
-
-          {!!fixture.notes && (
-            <Section title="Notes">
-              <Text style={[type.small, { color: colour.inkMuted }]}>{fixture.notes}</Text>
-            </Section>
-          )}
-
-          {/* WHO IS GOING. Absent entirely where this viewer may not see the squad's answers -- a
-              guardian sees their own child's response elsewhere, not the team's tally. M6 owns doing
-              anything about it; this only reports it. */}
-          {!!fixture.availability && (
-            <Section title="Availability">
-              <View
-                accessible
-                accessibilityLabel={`${fixture.availability.available} available, ${fixture.availability.unavailable} unavailable, ${fixture.availability.awaiting} awaiting a response, from a squad of ${fixture.availability.squad}.`}
-                style={{ flexDirection: "row", gap: space.lg }}
-              >
-                <Count value={fixture.availability.available} label="Available" tone={colour.forest800} />
-                <Count value={fixture.availability.unavailable} label="Unavailable" tone={colour.danger} />
-                <Count value={fixture.availability.awaiting} label="Awaiting" tone={colour.warning} />
-              </View>
-            </Section>
-          )}
-
-          <Section title="This Fixture">
-            {!!fixture.conversationId && (
-              <Row
-                icon={<MessageSquare size={19} color={colour.forest800} strokeWidth={1.9} />}
-                label="Messages"
-                detail="The conversation for this fixture"
-                onPress={() => router.push({ pathname: "/messages/[kind]/[id]", params: { kind: "fixture", id: fixture.id } })}
-              />
-            )}
+          {/* WHEN ------------------------------------------------------------------ */}
+          <Group title="When">
             <Row
-              icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
-              label="Match Centre"
-              detail="Team sheet, availability and match day"
-              onPress={() => router.push({ pathname: "/fixtures/[fixtureId]/match-centre", params: { fixtureId: fixture.id } })}
+              label="Date"
+              value={`${relativeDate(fixture.date, today)}${relativeDate(fixture.date, today) === exactDate(fixture.date) ? "" : ` · ${shortDate(fixture.date)}`}`}
+              editable={canEditSchedule}
+              reason={fixture.editable.schedule?.editable === false ? fixture.editable.schedule.reason : null}
+              onPress={() => setEditing("date")}
             />
-          </Section>
+            {/* MEET TIME IS FIRST-CLASS, not a grey subtitle under the kick-off. It is when a side is
+                expected at the ground, which for a parent is the time that actually governs the morning. */}
+            <Row
+              label="Meet"
+              value={fixture.meetTime ?? "Not set"}
+              muted={!fixture.meetTime}
+              editable={canEditMeet}
+              reason={fixture.editable.meetTime?.editable === false ? fixture.editable.meetTime.reason : null}
+              onPress={() => setEditing("meet")}
+            />
+            <Row
+              label="Kick-off"
+              value={fixture.kickoff ?? "Not set"}
+              muted={!fixture.kickoff}
+              editable={canEditSchedule}
+              reason={fixture.editable.schedule?.editable === false ? fixture.editable.schedule.reason : null}
+              onPress={() => setEditing("kickoff")}
+              last
+            />
+          </Group>
 
-          {!!documents?.length && (
-            <Section title="Club Documents">
-              {documents.map((document) => (
-                <Row
-                  key={document.id}
-                  icon={<FileText size={19} color={colour.forest800} strokeWidth={1.9} />}
-                  label={document.title}
-                  detail={[document.category, readableSize(document.sizeBytes)].filter(Boolean).join(" · ")}
-                  busy={openingDocument === document.id}
-                  onPress={() => void openDocument(document)}
-                />
-              ))}
-            </Section>
+          {/* WHERE ----------------------------------------------------------------- */}
+          <Group title="Where">
+            <Row
+              label="Venue"
+              value={fixture.venue ?? "Not set"}
+              muted={!fixture.venue}
+              editable={canEditVenue}
+              reason={fixture.editable.venue?.editable === false ? fixture.editable.venue.reason : null}
+              onPress={() => setEditing("venue")}
+            />
+            <Row
+              label="Pitch"
+              value={fixture.pitch ?? "Not set"}
+              muted={!fixture.pitch}
+              editable={canEditVenue}
+              reason={
+                fixture.editable.venue?.editable === false
+                  ? fixture.editable.venue.reason
+                  : namedPitch || !fixture.venue
+                    ? null
+                    : "Away — the ground belongs to the other club, so the pitch is recorded as text."
+              }
+              onPress={() => setEditing(namedPitch ? "pitch" : "pitchText")}
+            />
+            {!!fixture.venueAddress && (
+              <View style={{ paddingHorizontal: space.md, paddingBottom: space.md, gap: space.sm }}>
+                <Text style={[type.small, { color: colour.inkMuted }]}>{fixture.venueAddress}</Text>
+                {!!fixture.venueDirections && (
+                  <Text style={[type.caption, { color: colour.inkMuted }]}>{fixture.venueDirections}</Text>
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Directions to ${fixture.venue ?? "the ground"}`}
+                  onPress={() => void openDirections(fixture.venueAddress!)}
+                  style={({ pressed }) => ({
+                    alignSelf: "flex-start",
+                    minHeight: TOUCH_TARGET,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: space.sm,
+                    paddingHorizontal: space.md,
+                    borderRadius: radius.md,
+                    borderWidth: 1,
+                    borderColor: colour.lineStrong,
+                    backgroundColor: colour.surface,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <MapPin size={16} color={colour.forest800} strokeWidth={2} />
+                  <Text style={[type.smallMedium, { color: colour.forest800 }]}>Directions</Text>
+                </Pressable>
+              </View>
+            )}
+          </Group>
+
+          {/* MATCH CENTRE ---------------------------------------------------------- */}
+          <Group title="Match Centre">
+            <Action
+              icon={<Users size={20} color={colour.forest800} strokeWidth={1.9} />}
+              label="Match Centre"
+              detail="Team sheet · Availability · Match day"
+              onPress={() =>
+                router.push({
+                  pathname: "/fixtures/[fixtureId]/match-centre",
+                  // THE TEAM TRAVELS WITH THE FIXTURE. A fixture has two sides and a person may be
+                  // connected to either; Match Centre has to know whose availability it is showing
+                  // rather than aggregating both.
+                  params: { fixtureId: fixture.id, teamId: fixture.teamId },
+                })
+              }
+              last
+            />
+          </Group>
+
+          {/* COMMUNICATION --------------------------------------------------------- */}
+          <Group title="Communication">
+            <Action
+              icon={<MessageSquare size={20} color={colour.forest800} strokeWidth={1.9} />}
+              label="Fixture Messages"
+              detail="The conversation for this fixture"
+              onPress={() => router.push({ pathname: "/messages/[kind]/[id]", params: { kind: "fixture", id: fixture.id } })}
+              last={contacts.length === 0}
+            />
+            {/* MESSAGE OPPOSITION EXISTS ONLY WHERE THERE IS SOMEBODY TO MESSAGE.
+                `fixture_opposition_contacts` returns nothing when the opponent is not an Ovalball team,
+                when the viewer is not involved, or when the safeguarding rules say no -- so an empty
+                list means the row is simply absent. No disabled button, and nothing that fails after
+                being tapped. */}
+            {contacts.map((contact, index) => (
+              <Action
+                key={contact.userId}
+                icon={<ExternalLink size={20} color={colour.forest800} strokeWidth={1.9} />}
+                label={contacts.length === 1 ? "Message Opposition" : `Message ${contact.displayName}`}
+                detail={[contact.displayName, contact.clubLabel].filter(Boolean).join(" · ")}
+                busy={opening}
+                onPress={() => void messageOpposition(contact)}
+                last={index === contacts.length - 1}
+              />
+            ))}
+          </Group>
+
+          {!!fixture.competitionName && (
+            <Group title="Competition">
+              <Row label="Competition" value={fixture.competitionName} last />
+            </Group>
           )}
 
-          {(canEdit || canCancel) && (
-            <Section title="Manage">
-              {canEdit && (
-                <Row
-                  icon={<CalendarDays size={19} color={colour.forest800} strokeWidth={1.9} />}
-                  label="Edit Fixture"
-                  detail="Date, kick-off, venue and details"
-                  onPress={() => router.push({ pathname: "/fixtures/[fixtureId]/edit", params: { fixtureId: fixture.id } })}
-                />
-              )}
-              {canCancel && (
-                <Row
-                  icon={<OvalIcon size={19} color={colour.danger} />}
-                  label="Cancel Fixture"
-                  detail="Tells the other side and the players why"
-                  danger
-                  onPress={() => router.push({ pathname: "/fixtures/[fixtureId]/cancel", params: { fixtureId: fixture.id } })}
-                />
-              )}
-            </Section>
+          <Group title="Notes">
+            <Row
+              label="Notes"
+              value={fixture.notes ?? "None"}
+              muted={!fixture.notes}
+              editable={canEditDetails}
+              reason={fixture.editable.details?.editable === false ? fixture.editable.details.reason : null}
+              onPress={() => setEditing("notes")}
+              last
+            />
+          </Group>
+
+          {/* CANCEL ---------------------------------------------------------------- */}
+          {/* AT THE BOTTOM, RED, AND NOWHERE NEAR THE TIME FIELDS. It is the one consequential action on
+              the screen and it is separated by distance as well as by colour -- not buried in a menu,
+              and not adjacent to something somebody taps every week. */}
+          {authority?.cancel && !cancelled && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel this fixture"
+              onPress={() => {
+                setSheetProblem(null)
+                setEditing("cancel")
+              }}
+              style={({ pressed }) => ({
+                marginTop: space.lg,
+                minHeight: TOUCH_TARGET + 6,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: radius.md,
+                backgroundColor: colour.danger,
+                opacity: pressed ? 0.88 : 1,
+              })}
+            >
+              <Text style={[type.smallMedium, { color: colour.onForest, fontSize: 15 }]}>Cancel Fixture</Text>
+            </Pressable>
           )}
 
-          {/* WHERE A REFUSAL HAS A REASON, IT IS SAID. `fixture_editable_fields` returns the sentence
-              the database would have used; a greyed-out control that explains nothing makes somebody
-              guess whether the app is broken. */}
-          {authority?.edit && fixture.editable.schedule?.editable === false && !!fixture.editable.schedule.reason && (
-            <Text style={[type.caption, { color: colour.inkMuted }]}>{fixture.editable.schedule.reason}</Text>
-          )}
+          {/* ------------------------------------------------------------------ sheets */}
+          <DateSheet
+            visible={editing === "date"}
+            value={fixture.date}
+            onClose={() => setEditing(null)}
+            saving={saving}
+            problem={sheetProblem}
+            onSave={(iso) => void save(() => updateKickoff(supabase, id, { date: iso, time: fixture.kickoff }))}
+          />
+          <TimeSheet
+            visible={editing === "kickoff"}
+            title="Kick-off"
+            hint="Leave it clear if the time is not agreed yet."
+            value={fixture.kickoff}
+            onClose={() => setEditing(null)}
+            saving={saving}
+            problem={sheetProblem}
+            onSave={(time) => void save(() => updateKickoff(supabase, id, { date: fixture.date, time }))}
+          />
+          <TimeSheet
+            visible={editing === "meet"}
+            title="Meet time"
+            hint="When the side is expected at the ground."
+            value={fixture.meetTime}
+            onClose={() => setEditing(null)}
+            saving={saving}
+            problem={sheetProblem}
+            onSave={(time) => void save(() => updateMeetTime(supabase, id, time))}
+          />
+          <ChoiceSheet
+            visible={editing === "venue"}
+            title="Venue"
+            hint="Your club's grounds."
+            options={venues.map((venue) => ({ id: venue.id, name: venue.name, detail: venue.town }))}
+            value={fixture.venueId}
+            emptyMessage="Your club has no grounds recorded in Ovalball yet. They are added in Club Admin on the web."
+            onClose={() => setEditing(null)}
+            saving={saving}
+            problem={sheetProblem}
+            onSave={(venueId) => void save(() => updateVenue(supabase, id, venueId))}
+          />
+          <ChoiceSheet
+            visible={editing === "pitch"}
+            title="Pitch"
+            hint="Playing areas at this ground."
+            options={pitches.map((pitch) => ({ id: pitch.id, name: pitch.name }))}
+            value={fixture.pitchId}
+            emptyMessage={
+              fixture.venueId
+                ? "This ground has no playing areas recorded. They are added with the ground in Club Admin on the web."
+                : "Choose a ground first — a pitch belongs to one."
+            }
+            onClose={() => setEditing(null)}
+            saving={saving}
+            problem={sheetProblem}
+            onSave={(pitchId) => void save(() => updatePitch(supabase, id, { pitchId, pitchText: null }))}
+          />
+          <TextSheet
+            visible={editing === "pitchText"}
+            title="Pitch"
+            hint="An away ground Ovalball has no record of — write what the other club called it."
+            placeholder="Pitch 2"
+            value={fixture.pitch ?? ""}
+            onClose={() => setEditing(null)}
+            saving={saving}
+            problem={sheetProblem}
+            onSave={(text) => void save(() => updatePitch(supabase, id, { pitchId: null, pitchText: text }))}
+          />
+          <TextSheet
+            visible={editing === "notes"}
+            title="Notes"
+            hint="Anything the side needs to know."
+            placeholder="Meet at the clubhouse"
+            value={fixture.notes ?? ""}
+            multiline
+            onClose={() => setEditing(null)}
+            saving={saving}
+            problem={sheetProblem}
+            onSave={(text) => void save(() => updateDetails(supabase, id, { notes: text.trim() || null }))}
+          />
+          <CancelSheet
+            visible={editing === "cancel"}
+            summary={{
+              teams: `${fixture.us.teamName ?? fixture.us.clubName} ${fixture.homeAway === "Away" ? "at" : "v"} ${fixture.them.teamName ?? fixture.them.clubName}`,
+              when: `${exactDate(fixture.date)}${fixture.kickoff ? ` · ${fixture.kickoff}` : ""}`,
+            }}
+            onClose={() => setEditing(null)}
+            saving={saving}
+            problem={sheetProblem}
+            onConfirm={(reason) => void save(() => cancelFixture(supabase, id, reason))}
+          />
         </>
       )}
     </Shell>
@@ -370,36 +593,172 @@ export default function FixtureDetailScreen() {
 }
 
 /**
+ * A GROUP OF RELATED FACTS.
+ *
+ * A heading, a hairline, and rows -- not a rounded white card with a shadow. Seven boxed cards stacked
+ * on a phone read as a generic dashboard; spacing and typography carry the same hierarchy and leave the
+ * screen feeling like an operational tool.
+ */
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={{ gap: space.xs }}>
+      <Text accessibilityRole="header" style={[type.overline, { color: colour.inkSubtle }]}>
+        {title.toUpperCase()}
+      </Text>
+      <View style={{ backgroundColor: colour.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, overflow: "hidden" }}>
+        {children}
+      </View>
+    </View>
+  )
+}
+
+/**
+ * ONE FACT, WHICH MAY ALSO BE A CONTROL.
+ *
+ * The same row either way, so a read-only viewer sees the fixture laid out exactly as an authorised one
+ * does. Where it is editable it gains a chevron and responds to a tap; where a refusal has a reason the
+ * database supplied, the reason is shown rather than implied by an inert control.
+ */
+function Row({
+  label,
+  value,
+  editable,
+  reason,
+  onPress,
+  muted,
+  last,
+}: {
+  label: string
+  value: string
+  editable?: boolean
+  reason?: string | null
+  onPress?: () => void
+  muted?: boolean
+  last?: boolean
+}) {
+  const content = (
+    <View
+      style={{
+        minHeight: TOUCH_TARGET + 4,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.md,
+        paddingHorizontal: space.md,
+        paddingVertical: space.sm + 2,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: colour.line,
+      }}
+    >
+      <Text style={[type.small, { color: colour.inkMuted, width: 78 }]}>{label}</Text>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[type.bodyMedium, { color: muted ? colour.inkSubtle : colour.ink, fontSize: 15 }]}>{value}</Text>
+        {!!reason && <Text style={[type.caption, { color: colour.warning, marginTop: 2 }]}>{reason}</Text>}
+      </View>
+      {editable && <ChevronRight size={17} color={colour.inkSubtle} />}
+    </View>
+  )
+
+  if (!editable || !onPress) return content
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}. Change`}
+      onPress={onPress}
+      style={({ pressed }) => ({ backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent" })}
+    >
+      {content}
+    </Pressable>
+  )
+}
+
+function Action({
+  icon,
+  label,
+  detail,
+  onPress,
+  busy,
+  last,
+}: {
+  icon: React.ReactNode
+  label: string
+  detail?: string
+  onPress: () => void
+  busy?: boolean
+  last?: boolean
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={detail ? `${label}. ${detail}` : label}
+      accessibilityState={{ busy }}
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: TOUCH_TARGET + 10,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.md,
+        paddingHorizontal: space.md,
+        paddingVertical: space.sm + 2,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: colour.line,
+        backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent",
+        opacity: busy ? 0.6 : 1,
+      })}
+    >
+      {icon}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[type.smallMedium, { color: colour.ink }]}>{label}</Text>
+        {!!detail && (
+          <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>
+            {detail}
+          </Text>
+        )}
+      </View>
+      <ChevronRight size={17} color={colour.inkSubtle} />
+    </Pressable>
+  )
+}
+
+function Badge({ label, background, foreground }: { label: string; background: string; foreground: string }) {
+  return (
+    <View style={{ backgroundColor: background, borderRadius: radius.sm, paddingHorizontal: space.sm + 2, paddingVertical: 4 }}>
+      <Text style={[type.overline, { color: foreground, fontSize: 10, letterSpacing: 0.8 }]}>{label}</Text>
+    </View>
+  )
+}
+
+/** "25 September 2026" — the weekday is already on the line above it, so it is not said twice. */
+function shortDate(iso: string): string {
+  const date = new Date(`${iso}T12:00:00`)
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+}
+
+/**
  * DIRECTIONS, IN THE PHONE'S OWN MAPS.
  *
- * Apple Maps on iOS and the geo: scheme on Android, both falling back to a web map so the button
- * always does something. The address is encoded rather than interpolated: a ground called "St Mary's &
- * St John's" would otherwise break the URL and open nothing.
+ * Ovalball is not building a map product: the device already has one, it is better, and it knows about
+ * traffic on the M65. The address is encoded rather than interpolated, so a ground called "St Mary's &
+ * St John's" opens a map instead of breaking the URL.
  */
 async function openDirections(address: string): Promise<void> {
   const query = encodeURIComponent(address)
   const native = Platform.OS === "ios" ? `maps://?daddr=${query}` : `geo:0,0?q=${query}`
-  const web = `https://maps.google.com/?q=${query}`
   try {
     if (await Linking.canOpenURL(native)) {
       await Linking.openURL(native)
       return
     }
-    await Linking.openURL(web)
+    await Linking.openURL(`https://maps.google.com/?q=${query}`)
   } catch {
     Alert.alert("Directions", "This device can't open a map for that address.")
   }
 }
 
-/** The signed URL needs the storage path, which the search projection deliberately does not carry. */
-async function storagePath(documentId: string): Promise<string> {
-  const { data } = await supabase.from("club_documents").select("storage_path").eq("id", documentId).maybeSingle()
-  return data?.storage_path ?? ""
-}
-
 function Shell({
   title,
-  subtitle,
   onBack,
   insets,
   children,
@@ -407,7 +766,6 @@ function Shell({
   onRefresh,
 }: {
   title: string
-  subtitle?: string
   onBack: () => void
   insets: { top: number; bottom: number }
   children: React.ReactNode
@@ -439,16 +797,9 @@ function Shell({
             <ChevronRight size={22} color={colour.ink} />
           </View>
         </Pressable>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text accessibilityRole="header" numberOfLines={1} style={[type.heading, { color: colour.ink }]}>
-            {title}
-          </Text>
-          {!!subtitle && (
-            <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
-              {subtitle}
-            </Text>
-          )}
-        </View>
+        <Text accessibilityRole="header" numberOfLines={1} style={[type.heading, { color: colour.ink, flex: 1 }]}>
+          {title}
+        </Text>
       </View>
 
       <ScrollView
@@ -458,136 +809,6 @@ function Shell({
       >
         {children}
       </ScrollView>
-    </View>
-  )
-}
-
-function Facts({ children }: { children: React.ReactNode }) {
-  return (
-    <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
-      {children}
-    </View>
-  )
-}
-
-function Fact({
-  icon,
-  label,
-  detail,
-  action,
-}: {
-  icon: React.ReactNode
-  label: string
-  detail?: string
-  action?: { label: string; onPress: () => void }
-}) {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: space.md,
-        paddingVertical: space.md,
-        paddingHorizontal: space.md,
-        minHeight: TOUCH_TARGET + 6,
-      }}
-    >
-      {icon}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={[type.smallMedium, { color: colour.ink }]}>{label}</Text>
-        {!!detail && (
-          <Text style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>{detail}</Text>
-        )}
-      </View>
-      {!!action && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={action.label}
-          onPress={action.onPress}
-          style={({ pressed }) => ({
-            minHeight: TOUCH_TARGET,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 5,
-            paddingHorizontal: space.sm,
-            opacity: pressed ? 0.7 : 1,
-          })}
-        >
-          <ExternalLink size={15} color={colour.forest800} />
-          <Text style={[type.smallMedium, { color: colour.forest800, fontSize: 13 }]}>{action.label}</Text>
-        </Pressable>
-      )}
-    </View>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={{ gap: space.sm }}>
-      <Text accessibilityRole="header" style={[type.overline, { color: colour.inkSubtle }]}>
-        {title.toUpperCase()}
-      </Text>
-      <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
-        {children}
-      </View>
-    </View>
-  )
-}
-
-function Row({
-  icon,
-  label,
-  detail,
-  onPress,
-  danger,
-  busy,
-}: {
-  icon: React.ReactNode
-  label: string
-  detail?: string
-  onPress: () => void
-  danger?: boolean
-  busy?: boolean
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={detail ? `${label}. ${detail}` : label}
-      accessibilityState={{ busy }}
-      disabled={busy}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: TOUCH_TARGET + 10,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: space.md,
-        paddingVertical: space.sm + 2,
-        paddingHorizontal: space.md,
-        backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent",
-        opacity: busy ? 0.6 : 1,
-      })}
-    >
-      {icon}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={[type.smallMedium, { color: danger ? colour.danger : colour.ink }]}>
-          {label}
-        </Text>
-        {!!detail && (
-          <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>
-            {detail}
-          </Text>
-        )}
-      </View>
-      <ChevronRight size={17} color={colour.inkSubtle} />
-    </Pressable>
-  )
-}
-
-function Count({ value, label, tone }: { value: number; label: string; tone: string }) {
-  return (
-    <View accessible={false} style={{ alignItems: "flex-start", paddingVertical: space.md, paddingHorizontal: space.md }}>
-      <Text style={[type.title, { color: tone }]}>{value}</Text>
-      <Text style={[type.caption, { color: colour.inkMuted }]}>{label}</Text>
     </View>
   )
 }

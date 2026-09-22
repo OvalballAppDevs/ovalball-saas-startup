@@ -125,5 +125,93 @@ begin
     end if;
   end if;
 
+  -- ---------------------------------------------------------------- pitches at our own ground
+  -- WITHOUT THESE THE CONSOLE HAS NO PITCH TO SHOW. The club had a ground and no playing areas, which
+  -- is a legitimate state and an unreviewable one: "Pitch — Not set" with an empty selector proves
+  -- nothing about whether the selector works.
+  if v_venue is not null then
+    insert into public.club_pitches (club_id, venue_id, display_name, sort_order, active, created_by)
+    select v_club, v_venue, name, ord, true, v_admin
+    from (values ('Pitch 1', 1), ('Pitch 2', 2)) as p(name, ord)
+    where not exists (
+      select 1 from public.club_pitches cp where cp.venue_id = v_venue and cp.display_name = p.name
+    );
+    raise notice 'local_uat_fixtures_calendar: playing areas recorded at the ground';
+  end if;
+
+  -- ---------------------------------------------------------------- an away ground we can route to
+  -- An AWAY fixture's ground belongs to the other club, so Ovalball has no venue record for it and the
+  -- canonical shape is an address recorded as text by the owning club. Without one, Directions has
+  -- nothing to route to and the action correctly does not appear -- which is right, and unreviewable.
+  update public.fixtures
+     set venue_address = 'Ovalball UAT Opposition RFC, Lightfoot Lane, Preston, PR4 0TA',
+         pitch_allocation = coalesce(pitch_allocation, 'Pitch 3')
+   where owning_team_id = v_u12
+     and raw_opposition_text = 'Ovalball UAT Opposition RFC'
+     and venue_address is null;
+
+  -- ---------------------------------------------------------------- a fixture against a real Ovalball club
+  -- THE OTHER HALF OF THE REVIEW. Every fixture in the world so far names its opposition from the
+  -- Directory or as free text, so "On Ovalball" and Message Opposition could never be seen. Preston
+  -- Grasshoppers is a claimed club with a real Under 12 side; this puts the two in a fixture.
+  --
+  -- ONE ROW WITH AN OPPONENT TEAM, which is exactly what `accept_fixture_request` writes: a single
+  -- fixture naming the opposing side. The first attempt here wrote a mirror pair by hand and was
+  -- correctly refused by `enforce_shared_team_fixture_capacity` -- a team may hold one match per day,
+  -- and the second row counted the first. The platform's own acceptance path does not do that, so
+  -- neither does this.
+  declare
+    v_preston_club uuid;
+    v_preston_u12 uuid;
+    v_preston_admin uuid;
+    v_preston_membership uuid;
+    v_ours uuid;
+  begin
+    select c.id into v_preston_club
+      from public.clubs c join public.club_directory d on d.id = c.directory_id
+     where d.name = 'Preston Grasshoppers RFC';
+    select id into v_preston_u12 from public.teams
+     where club_id = v_preston_club and display_name = 'Under 12 Boys';
+    select id into v_preston_admin from auth.users where email = 'uat.preston.admin@ovalball.test';
+
+    if v_preston_u12 is not null and v_u12 is not null and v_preston_admin is not null then
+      -- SOMEBODY HAS TO STAFF THE OTHER SIDE. `fixture_opposition_contacts` returns people who staff
+      -- the opposing TEAM, not merely people who belong to its club -- so a club admin with no team
+      -- assignment is correctly nobody to message.
+      -- A NAME, so "Message Opposition" names somebody rather than "Ovalball user". Supplied as input
+      -- to `internal.normalise_person_name`, which decides the stored form.
+      update public.profiles
+         set first_name = 'Gareth', surname = 'Hollins'
+       where id = v_preston_admin and coalesce(first_name, '') = '';
+
+      select id into v_preston_membership from public.club_memberships
+       where club_id = v_preston_club and user_id = v_preston_admin and status = 'active';
+      if v_preston_membership is not null then
+        insert into public.team_permissions (team_id, membership_id, permission)
+        values (v_preston_u12, v_preston_membership, 'coach')
+        on conflict do nothing;
+      end if;
+
+      if not exists (
+        select 1 from public.fixtures
+         where owning_team_id = v_u12 and opponent_team_id = v_preston_u12
+      ) then
+        insert into public.fixtures (owning_team_id, opponent_team_id, kickoff_date, kickoff_time, meet_time,
+          home_away, status, raw_opposition_text, season_id, created_by, game_type, venue_id)
+        values (v_u12, v_preston_u12, current_date + 10, '10:30', '09:45', 'Home', 'Booked',
+          'Preston Grasshoppers RFC', v_season, v_admin, 'League Fixture', v_venue)
+        returning id into v_ours;
+
+        -- The named pitch, which only a home fixture may carry.
+        update public.fixtures
+           set pitch_id = (select id from public.club_pitches where venue_id = v_venue and display_name = 'Pitch 1'),
+               pitch_allocation = 'Pitch 1'
+         where id = v_ours;
+
+        raise notice 'local_uat_fixtures_calendar: two-sided fixture against a real Ovalball club added';
+      end if;
+    end if;
+  end;
+
   raise notice 'local_uat_fixtures_calendar: review schedule ready';
 end $$;

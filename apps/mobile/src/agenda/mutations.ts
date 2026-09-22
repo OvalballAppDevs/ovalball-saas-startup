@@ -26,6 +26,18 @@ import type { Database } from "@ovalball/contracts"
 type Client = SupabaseClient<Database>
 export type MutationResult = { ok: true; id?: string } | { ok: false; message: string }
 
+/**
+ * A KICK-OFF CHANGE IS NOT ALWAYS A KICK-OFF CHANGE.
+ *
+ * Against an external opponent, moving it moves it. Against another ACTIVE Ovalball club it does not:
+ * the change is recorded as a PROPOSED amendment and waits for the other club, because a date is a
+ * thing two clubs agreed and one of them does not get to move it unilaterally.
+ *
+ * Nothing in this module asserts which happened. The console re-reads the fixture, which carries the
+ * proposal, and says so. The failure worth avoiding is an interface reporting a success it did not
+ * have -- invisible until somebody turns up an hour early.
+ */
+
 function failed(error: { message?: string; code?: string } | null, fallback: string): MutationResult {
   const message = error?.message?.trim()
   // A BARE RLS REFUSAL IS NOT A SENTENCE. Everything else the RPCs raise is written for a person and is
@@ -70,28 +82,42 @@ export async function createFixture(supabase: Client, fixture: NewFixture): Prom
 }
 
 /**
- * The date, the kick-off and the ground, changed together.
+ * THE KICK-OFF, AND ONLY THE KICK-OFF.
  *
- * `update_fixture_schedule` exists because those three move as one: a fixture that shifts to a
- * different day usually shifts ground too, and writing them through three separate calls means three
- * chances for the fixture to be briefly half-moved -- and, for a two-sided fixture, three mirror
- * writes the opposing club sees arrive one at a time.
+ * `update_fixture_kickoff` is the focused mutation and it is the right one, which the first version of
+ * this module got wrong: it used `update_fixture_schedule`, which takes the date, the ground AND the
+ * pitch together and treats an omitted pitch as "clear the pitch". So moving a fixture by one hour
+ * silently wiped "Pitch 2" -- a change nobody asked for, notified to the opposing club, and invisible
+ * until somebody looked. The console edits one fact at a time, so each fact gets its own mutation.
+ *
+ * WHETHER IT APPLIED OR WAS ONLY PROPOSED IS NOT RETURNED -- this RPC returns void. Against an active
+ * Ovalball opponent a kick-off change is recorded as a PROPOSED amendment the other club must accept,
+ * because a date is something two clubs agreed. The console re-reads after every save and the fixture
+ * carries `proposedKickoff`, so the banner tells the truth without this having to guess.
  */
-export async function updateSchedule(
+export async function updateKickoff(
   supabase: Client,
   fixtureId: string,
-  schedule: { kickoffDate: string; kickoffTime: string | null; venueId: string | null }
+  kickoff: { date: string; time: string | null }
 ): Promise<MutationResult> {
-  const { error } = await supabase.rpc("update_fixture_schedule", {
+  const { error } = await supabase.rpc("update_fixture_kickoff", {
     p_fixture_id: fixtureId,
-    p_kickoff_date: schedule.kickoffDate,
-    p_kickoff_time: (schedule.kickoffTime ?? undefined) as string | undefined,
-    p_venue_id: (schedule.venueId ?? undefined) as string | undefined,
-    p_pitch_id: undefined as unknown as string,
-    p_pitch_text: undefined as unknown as string,
-    p_source: "mobile",
+    p_kickoff_date: kickoff.date,
+    p_kickoff_time: (kickoff.time ?? null) as unknown as string,
   })
-  return error ? failed(error, "You can't change this fixture's schedule.") : { ok: true }
+  return error ? failed(error, "You can't change this fixture's kick-off.") : { ok: true }
+}
+
+/**
+ * Withdrawing or refusing a proposed kick-off change.
+ *
+ * The other half of the amendment story: a club that has been offered a new time can decline it, and
+ * the club that offered it can take it back. One canonical mutation does both, deciding from who is
+ * calling -- which is why there is no separate "withdraw" here.
+ */
+export async function rejectKickoffChange(supabase: Client, fixtureId: string): Promise<MutationResult> {
+  const { error } = await supabase.rpc("reject_fixture_kickoff_change", { p_fixture_id: fixtureId })
+  return error ? failed(error, "You can't respond to this change.") : { ok: true }
 }
 
 /** Everything that is not the schedule: status, home/away, type, notes, meet time. */
@@ -102,6 +128,44 @@ export async function updateDetails(
 ): Promise<MutationResult> {
   const { error } = await supabase.rpc("update_fixture_details", { p_fixture_id: fixtureId, p_patch: patch })
   return error ? failed(error, "You can't change this fixture.") : { ok: true }
+}
+
+/**
+ * THE GROUND, CHANGED ON ITS OWN.
+ *
+ * Separate from the schedule because it is a separate decision: a fixture often moves ground without
+ * moving day, and `update_fixture_venue` is the canonical mutation for exactly that. It re-checks who
+ * owns the ground -- an away side does not choose the home club's venue -- and mirrors to the opposing
+ * club's row.
+ */
+export async function updateVenue(supabase: Client, fixtureId: string, venueId: string | null): Promise<MutationResult> {
+  const { error } = await supabase.rpc("update_fixture_venue", {
+    p_fixture_id: fixtureId,
+    p_venue_id: (venueId ?? null) as unknown as string,
+  })
+  return error ? failed(error, "You can't change this fixture's ground.") : { ok: true }
+}
+
+/**
+ * THE PLAYING AREA, WHICH IS NOT THE GROUND.
+ *
+ * `update_fixture_pitch` takes EITHER a named pitch or free text, and the distinction is the platform's
+ * rather than a preference: a named pitch must belong to the home club AND to the fixture's own venue
+ * AND the fixture must be at home, because those are the only circumstances in which Ovalball knows
+ * what the pitch is. An away ground it has no record of keeps its name as text, which is the canonical
+ * fallback and not a workaround.
+ */
+export async function updatePitch(
+  supabase: Client,
+  fixtureId: string,
+  pitch: { pitchId: string | null; pitchText: string | null }
+): Promise<MutationResult> {
+  const { error } = await supabase.rpc("update_fixture_pitch", {
+    p_pitch_id: (pitch.pitchId ?? null) as unknown as string,
+    p_pitch_text: (pitch.pitchText?.trim() || null) as unknown as string,
+    p_fixture_id: fixtureId,
+  })
+  return error ? failed(error, "You can't set the pitch for this fixture.") : { ok: true }
 }
 
 export async function updateMeetTime(supabase: Client, fixtureId: string, meetTime: string | null): Promise<MutationResult> {
