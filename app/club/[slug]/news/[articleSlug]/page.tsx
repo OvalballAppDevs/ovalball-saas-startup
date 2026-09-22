@@ -72,12 +72,16 @@ export default async function ClubArticlePage({ params }: { params: Params }) {
   if (!data) notFound()
   const { club, article, supabase } = data
 
-  const [related, canManage] = await Promise.all([
+  const [related, viewer] = await Promise.all([
     relatedArticles(supabase, club, article, 2),
-    supabase.auth.getUser().then(({ data: { user } }) =>
-      user ? hasCapability(supabase, "club.news.manage", "club", { clubId: club.id }) : false
-    ),
+    // One getUser call answers both questions: may they manage news, and are they signed in at all --
+    // the second is what UX-6's way back is gated on.
+    supabase.auth.getUser().then(async ({ data: { user } }) => ({
+      signedIn: Boolean(user),
+      canManage: user ? await hasCapability(supabase, "club.news.manage", "club", { clubId: club.id }) : false,
+    })),
   ])
+  const { signedIn, canManage } = viewer
 
   const url = absoluteUrl(articlePath(club.slug, article.slug))
   const pattern = club.theme.pattern
@@ -87,7 +91,12 @@ export default async function ClubArticlePage({ params }: { params: Params }) {
       <a href="#main" className="sr-only z-50 rounded-lg bg-white px-4 py-2 font-semibold text-ink focus:not-sr-only focus:absolute focus:top-2 focus:left-2">
         Skip to content
       </a>
-      <ClubBar club={club} onHome={false} manageHref={canManage ? "/club/settings/news" : null} />
+      <ClubBar
+        club={club}
+        onHome={false}
+        manageHref={canManage ? "/club/settings/news" : null}
+        returnHref={signedIn ? "/dashboard" : null}
+      />
       <main id="main" className="pb-20">
         <ArticleView
           club={club}

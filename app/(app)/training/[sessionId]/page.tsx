@@ -105,9 +105,8 @@ export default async function TrainingCentrePage({ params }: { params: Promise<{
   }
 
   return (
-    // pb-28 clears the global "Ask Ovie" widget, fixed bottom-right on every
-    // page -- the same allowance Match Centre makes, for the same reason.
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 pt-6 pb-28 md:px-8 md:pt-10 md:pb-28">
+    // CONVERGENCE STEP 18 (UX-4): the shell reserves the space the floating widget and the mobile bottom bar occupy (app/(app)/layout.tsx), so this page no longer carries its own allowance. UX-4: a page should not have to know what the shell is floating over it.
+    <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 pt-6 md:px-8 md:pt-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/agenda" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
           <ArrowLeft className="size-3.5" aria-hidden="true" /> Fixtures &amp; Training

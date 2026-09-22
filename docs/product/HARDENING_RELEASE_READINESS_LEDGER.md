@@ -418,6 +418,48 @@ during Step 17 itself.
   U10"*), and `admin_user_management` on a `club_memberships_club_id_fkey` violation. Neither error
   mentions any table Step 17 touched. *Owner: test governance, with H2.*
 
+## H17 — Application UX 4–7 (Step 18) outcome
+
+**Three of the four slices were already substantially complete**, by later convergence work rather than
+by UX: club navigation grouping and the bin relocation (UX-5, entirely), the mobile top bar, the shared
+hamburger IA and the 44px targets (UX-4), and the Rugby Hub return path (UX-6). Recorded in
+`CONVERGENCE_STEP_18_ARCHAEOLOGY.md` with the evidence, so nothing was rebuilt.
+
+### Closed by Step 18
+
+- **UX-4 — primary destinations are one tap away on a phone.** A context-aware bottom bar, built from
+  `buildNavItems`, with a *More* cell that opens the drawer that still holds everything. 44px+ targets, no
+  truncation and no overflow at 320px and 390px.
+- **UX-4 — the shell reserves the space its own furniture occupies.** The floating widget's allowance was
+  a per-page `pb-28` that 8 of about 100 files remembered; it is now declared once. The widget also used
+  to sit **on** the new bar and now clears it.
+- **UX-6 — the public club home is no longer a dead end.** It matters more than when the audit was
+  written, because Step 16's affiliated-club list links into it.
+- **UX-7 — measured, not asserted.** axe at AA on four shell routes at desktop **and** 320px: **0
+  violations**, not "0 introduced". Keyboard focus on the bar, one `h1` per shell route.
+
+### New Step 18 debt
+
+- **H17.1 — the bottom bar's destinations are a curated map plus a fallback.** `buildBottomBarItems` names
+  preferred hrefs per context and otherwise takes the first four a context offers. The fallback means a new
+  context works on a phone the day it is added; the curated part means the map must be revisited when a
+  context's jobs change. It is one function with the reasoning written in it, not scattered.
+  *Owner: UX, when navigation next changes.*
+- **H17.2 — `bottom-bar-label.ts` is a four-entry label override.** It exists because some sidebar labels
+  ("Overview" for `/people`, "Fixture Control Centre") do not stand alone in a 78px cell. If it grows, the
+  sidebar labels are the problem. *Owner: UX terminology work, with UX-0 §15.7.*
+- **H17.3 — `SessionContext` test fixtures cast through `as unknown as`.** That is why Step 15's new
+  `governingBodies` field passed the compiler and threw at runtime in two suites, found by this step. Two
+  fixtures are fixed; five files use the pattern. *Owner: test governance, with H2.*
+- **H17.4 — `navigation_architecture.test.mts` does not run.** It fails with `ERR_MODULE_NOT_FOUND`
+  before any assertion. Pre-existing, unrelated to this step, not chased (§34). *Owner: test governance.*
+
+### Owner review, not defects
+
+- **The person-first identity block** (UX-2, §8 of the Step 18 authorisation) was **evaluated and kept**,
+  with the reasoning recorded. It is directional, so it is the owner's call rather than a defect.
+- **The dev-only wordmark/webfont rendering difference** remains untouched UX owner debt (§23).
+
 ## H11 — Owed at hardening, in one list
 
 Complete canonical gate on a frozen tree · full-chain clean boot ·

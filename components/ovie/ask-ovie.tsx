@@ -131,7 +131,11 @@ export function AskOvie() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-5 bottom-5 z-50 flex h-12 items-center gap-2 rounded-full bg-forest-900 px-4 text-sm font-medium text-chalk shadow-lg transition-transform hover:scale-105 hover:bg-forest-800"
+        /* CONVERGENCE STEP 18 (UX-4): above the mobile bottom bar, not on top of it.
+           The bar is ~57px plus the safe-area inset, so the phone offset clears both; from md up there
+           is no bar and the original bottom-5 stands. The shell reserves the height for both
+           (app/(app)/layout.tsx), so no page carries its own allowance any more. */
+        className="fixed right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 flex h-12 items-center gap-2 rounded-full bg-forest-900 px-4 text-sm font-medium text-chalk shadow-lg transition-transform hover:scale-105 hover:bg-forest-800 md:bottom-5"
         aria-label="Ask Ovie"
       >
         <span aria-hidden className="text-base">🏉</span>
@@ -141,7 +145,11 @@ export function AskOvie() {
   }
 
   return (
-    <div className="fixed right-5 bottom-5 z-50 flex h-[32rem] w-[22rem] flex-col overflow-hidden rounded-2xl border border-forest-900/10 bg-chalk shadow-2xl">
+    <div
+      /* Same offset as the pill it replaces, and width-capped so a 320px phone cannot be overflowed by a
+         22rem panel. */
+      className="fixed right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 flex h-[32rem] w-[min(22rem,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-forest-900/10 bg-chalk shadow-2xl md:bottom-5"
+    >
       <div className="flex items-center justify-between bg-forest-900 px-4 py-3 text-chalk">
         <div className="flex items-center gap-2">
           <span aria-hidden>🏉</span>

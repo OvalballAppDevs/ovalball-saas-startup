@@ -357,6 +357,7 @@ BROWSER_SUITES=(
   84-governing-body-product-journey
   85-competition-governing-closure
   86-legacy-estate-unreachable
+  87-shell-coherence
   # SLICE 7e wired this one. It is Slice 7's own browser evidence -- S7-07 is what
   # the reconciliation cites for AN-8, "the setup link is never shown" -- and it
   # had never been in the release runner, so that evidence rested on somebody's

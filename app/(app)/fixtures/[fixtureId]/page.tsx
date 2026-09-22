@@ -173,12 +173,12 @@ export default async function FixtureMatchCentrePage({
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 pt-6 pb-28 md:px-8 md:pt-10 md:pb-28">
-      {/* pb-28 clears the global "Ask Ovie" floating widget, which sits fixed
-          bottom-right on every page -- without it, the messaging compose row's
-          Send button sits directly underneath it at narrow viewports
-          (confirmed overlapping via getBoundingClientRect during UAT), an
-          inaccessible, unclickable control. */}
+    <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 pt-6 md:px-8 md:pt-10">
+      {/* CONVERGENCE STEP 18 (UX-4): the messaging compose row's Send button used to sit directly
+          underneath the floating "Ask Ovie" widget at narrow viewports -- confirmed overlapping via
+          getBoundingClientRect during UAT, an inaccessible, unclickable control. The shell now reserves
+          that space once (app/(app)/layout.tsx), including for the mobile bottom bar, so Match Centre
+          does not carry its own allowance. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href={back.href} className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
           <ArrowLeft className="size-3.5" aria-hidden="true" /> {back.label}

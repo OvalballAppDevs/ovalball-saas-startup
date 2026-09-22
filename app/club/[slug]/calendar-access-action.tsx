@@ -60,9 +60,16 @@ export function CalendarAccessAction({
   }
 
   return (
-    <div className="flex flex-col items-start gap-1.5">
-      <Button type="button" variant="outline" className="h-10" disabled={working} onClick={handleRequest}>
-        {working ? "Requesting…" : `Request calendar access from ${targetClubName}`}
+    <div className="flex min-w-0 flex-col items-start gap-1.5">
+      {/* CONVERGENCE STEP 18 (UX-6/§21): the visible label is short, and the club's name stays in the
+          ACCESSIBLE name.
+          It used to read "Request calendar access from Step 2 Review RFC" in full. A Button is
+          whitespace-nowrap and shrink-0 by design, so a long label cannot wrap or shrink -- measured at
+          390px it was 355px wide inside a 316px row and gave this page a horizontal overflow. It was also
+          redundant: this IS that club's page, and the card it sits in is headed with the club. */}
+      <Button type="button" variant="outline" className="h-10 max-w-full" disabled={working} onClick={handleRequest}>
+        {working ? "Requesting…" : "Request calendar access"}
+        {!working && <span className="sr-only"> from {targetClubName}</span>}
       </Button>
       {error && <p className="text-xs text-destructive-text">{error}</p>}
     </div>

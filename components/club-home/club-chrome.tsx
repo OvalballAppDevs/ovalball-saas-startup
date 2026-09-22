@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
@@ -45,10 +46,52 @@ const HOME_SECTIONS = [
 ]
 
 /** The slim bar that carries the club's identity on every public club page. */
-export function ClubBar({ club, onHome, manageHref }: { club: PublicClub; onHome: boolean; manageHref: string | null }) {
+/**
+ * CONVERGENCE STEP 18 (UX-6) — THE WAY BACK.
+ *
+ * UX-6's outcome is "no dead ends", and it named the **public club home** first. A signed-in person who
+ * followed a link here had no route back into Ovalball: this page is outside the authenticated shell, so
+ * there is no sidebar, no bottom bar and no context switcher.
+ *
+ * It matters more now than when the audit was written. Step 16 gave a governing body a list of its
+ * affiliated clubs that links straight to `/club/{slug}` — deliberately, because a county officer should
+ * see a club the way anybody sees it — which made this dead end reachable from a normal county journey.
+ *
+ * ONLY WHEN SIGNED IN. An anonymous visitor has nowhere to be returned to, and offering them a dashboard
+ * link would be a dead end of its own. `returnHref` is null for them, and the affordance is absent
+ * rather than disabled.
+ */
+export function ClubBar({
+  club,
+  onHome,
+  manageHref,
+  returnHref,
+}: {
+  club: PublicClub
+  onHome: boolean
+  manageHref: string | null
+  /** Where a signed-in visitor goes to get back into the application. Null when nobody is signed in. */
+  returnHref?: string | null
+}) {
   const base = onHome ? "" : `/club/${club.slug}`
   return (
     <header className="sticky top-0 z-30 border-b border-black/10 bg-(--club-hero) text-(--club-hero-fg)">
+      {returnHref && (
+        <div className="border-b border-black/10">
+          <div className="mx-auto flex max-w-6xl px-4 md:px-8">
+            <Link
+              href={returnHref}
+              className={cn(
+                FOCUS_HERO,
+                "inline-flex min-h-11 items-center gap-1.5 rounded-lg py-1 pr-2 text-sm font-medium text-(--club-hero-muted) hover:text-(--club-hero-fg)"
+              )}
+            >
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              Back to Ovalball
+            </Link>
+          </div>
+        </div>
+      )}
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 md:px-8">
         <Link href={`/club/${club.slug}`} className={cn(FOCUS_HERO, "flex min-w-0 items-center gap-2.5 rounded-lg py-1 pr-2")}>
           <CrestPlate club={club} size="sm" />

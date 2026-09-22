@@ -39,10 +39,15 @@ export default async function ClubNewsIndexPage({
   const supabase = await createClient()
   const { articles, total } = await listPublishedArticles(supabase, club, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE })
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  // UX-6: only whether anybody is signed in, which is all the way back is gated on. This page reads no
+  // capability and gains none by asking.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   return (
     <ClubThemeScope theme={club.theme}>
-      <ClubBar club={club} onHome={false} manageHref={null} />
+      <ClubBar club={club} onHome={false} manageHref={null} returnHref={user ? "/dashboard" : null} />
       <main id="main" className="mx-auto max-w-6xl px-4 py-12 md:px-8 md:py-16">
         <h1 className="font-display text-5xl leading-none tracking-wide text-ink md:text-6xl">News</h1>
         <p className="mt-2 text-ink-muted">Everything {club.name} has published.</p>

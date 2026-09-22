@@ -86,14 +86,32 @@ check(
 )
 
 // ---------------------------------------------------------------- C
+// GROUPING IS PER CONTEXT, AND THE CLUB HAS IT TOO.
+//
+// This pair used to read "grouping is applied only in a Site Admin context" and "non-Site-Admin contexts
+// receive empty sections". Both still passed, and both had stopped being true: UX-5's whole point was that
+// a club's navigation should match Site Admin's information architecture, and buildClubSections now shares
+// groupNavItems with it. A green assertion that states something false about the product is worse than a
+// red one, so this says what the layout actually does.
 check(
-  "grouping is applied only in a Site Admin context",
+  "Site Admin is grouped by its own section map",
   /activeContext\.kind === "site_admin"\s*\?\s*buildSiteAdminSections/.test(layoutSrc)
 )
 
 check(
-  "non-Site-Admin contexts receive empty sections, selecting the flat list",
+  "and a club or team is grouped too, by the club section map (UX-5)",
+  /buildClubSections\(navPrimary/.test(layoutSrc) &&
+    /activeContext\.kind === "club" \|\| activeContext\.kind === "team"/.test(layoutSrc)
+)
+
+check(
+  "the contexts with a small fixed catalogue stay flat, selecting the plain list",
   /sections:\s*\[\]/.test(layoutSrc)
+)
+
+check(
+  "both section builders share one grouping function, so the fallback rule cannot diverge",
+  /return groupNavItems\(items, SITE_ADMIN_SECTIONS\)/.test(navSrc) && /return groupNavItems\(items, spec\)/.test(navSrc)
 )
 
 // ---------------------------------------------------------------- D
@@ -178,7 +196,29 @@ check(
 )
 check("club context resolves to Club Settings", /case "club":\s*\n\s*return \{ href: "\/club\/settings"/.test(identitySrc))
 check("team context resolves to that exact team", /href: `\/teams\/\$\{activeId\}`/.test(identitySrc))
-check("parent and player resolve to personal settings", /case "parent":\s*\n\s*case "player":\s*\n\s*return \{ href: "\/account"/.test(identitySrc))
+// EVERY KIND WITH NO SETTINGS SURFACE OF ITS OWN resolves to personal settings.
+//
+// This used to pin the exact pair `case "parent":` then `case "player":` then the return. It had been
+// failing since "family" (All Children) joined the chain, and Convergence Step 15 added "governing" -- a
+// county union has no settings surface either, because its record is verified reference data maintained
+// in Site Admin. Pinning a count is what made a correct product look broken, so the check now asserts the
+// RULE: each of these kinds falls through to /account, whatever order they are written in and however
+// many there come to be.
+{
+  const settingsBlock = identitySrc.slice(identitySrc.indexOf("export function resolveContextSettingsLink"))
+  const fallthrough = settingsBlock.slice(0, settingsBlock.indexOf('return { href: "/account"'))
+  const shareIt = ["parent", "player", "family", "governing"]
+  check(
+    `the kinds with no settings surface of their own resolve to personal settings (${shareIt.join(", ")})`,
+    shareIt.every((kind) => new RegExp(`case "${kind}":`).test(fallthrough))
+  )
+  // And the ones that DO have their own are still answered separately, not swept into the fallthrough.
+  check(
+    "club and team still resolve to their own settings, and Site Admin to none",
+    /case "club":/.test(settingsBlock.slice(0, settingsBlock.indexOf("/club/settings") + 20)) &&
+      /case "site_admin":\s*\n\s*return null/.test(settingsBlock)
+  )
+}
 
 console.log(`\n${pass} passed, ${fail} failed\n`)
 process.exit(fail > 0 ? 1 : 0)

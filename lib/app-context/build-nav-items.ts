@@ -1,6 +1,6 @@
 import type { ClubSettingsNavCapabilities } from "@/app/(app)/club/settings/resolve-nav-capabilities"
 
-import type { SwitchableContext } from "./active-context"
+import type { ActiveContextKind, SwitchableContext } from "./active-context"
 import { canManageClubFixturesAnywhere, isViewOnlyEverywhere, manageableTeams, type SessionContext } from "./session-context"
 
 export interface NavItem {
@@ -143,6 +143,65 @@ const CLUB_SECTIONS: { key: string; label: string; icon: string; hrefs: string[]
  * therefore always reachable, and the missing map entry shows up as an
  * oddly-placed link instead of a silently unreachable one.
  */
+/**
+ * THE MOBILE BOTTOM BAR — UX-4's "primary destinations one tap away".
+ *
+ * The shell already had a sticky top bar and a drawer, which puts every destination TWO taps away: open
+ * the hamburger, then choose. UX-4's outcome clause is one tap, and its mobile acceptance names a bottom
+ * bar. This decides WHICH destinations go on it.
+ *
+ * THE DECISION LIVES HERE, NOT IN THE COMPONENT, for the reason the rest of this module exists: the
+ * information architecture is a product decision, a native client will need the same answer, and a rule
+ * buried in a phone-only component is a rule nobody finds. The component renders what this returns.
+ *
+ * IT CAN ONLY EVER RETURN WHAT `buildNavItems` ALREADY GAVE IT — UX-4's stated authority invariant. It
+ * filters and orders; it never adds a destination, so a context whose navigation this session does not
+ * hold cannot acquire one by being on a phone.
+ *
+ * WHY DASHBOARD IS DROPPED where a context has a richer landing page of its own: the governing workspace
+ * sends /dashboard straight to its Overview (Step 15), so carrying both would spend one of four slots on
+ * a redirect. Where Dashboard IS the landing page it stays first, because burying the page somebody
+ * arrives on would be perverse — the same reasoning `groupNavItems` already applies on desktop.
+ *
+ * FOUR AT MOST, because the fifth cell is "More", which opens the drawer that holds everything. Five
+ * labelled cells at 320px is where text starts truncating into initials.
+ *
+ * GENERIC over the item type on purpose: the shell decorates its items with unread badges before the
+ * bar sees them, and a signature pinned to this module's own NavItem would have quietly stripped them.
+ * This function filters and orders; it does not reshape.
+ */
+export function buildBottomBarItems<T extends { href: string }>(primary: T[], kind: ActiveContextKind): T[] {
+  // Destinations that earn a cell, in the order they should appear, per context. Anything named here
+  // that this session does not hold is simply absent — the intersection is what renders.
+  const PREFERRED: Partial<Record<ActiveContextKind, string[]>> = {
+    // A club administrator's four jobs, ahead of settings and content. `/fixtures/management` is the
+    // club's fixtures destination -- `/fixtures` is not a nav destination, and naming it here is how the
+    // first version of this map silently produced a three-cell bar.
+    club: ["/dashboard", "/fixtures/management", "/teams", "/calendar"],
+    // Team staff arrive for what is happening next and the people in it.
+    team: ["/dashboard", "/fixtures/management", "/calendar", "/messages"],
+    // A guardian's fixed set, minus Settings, which is a rare visit.
+    parent: ["/dashboard", "/agenda", "/calendar", "/rugby-hub"],
+    player: ["/dashboard", "/agenda", "/calendar", "/rugby-hub"],
+    family: ["/dashboard", "/agenda", "/calendar", "/rugby-hub"],
+    site_admin: ["/dashboard", "/admin/clubs", "/admin/users", "/admin/fixtures"],
+  }
+
+  const byHref = new Map(primary.map((i) => [i.href, i]))
+  const preferred = PREFERRED[kind]
+
+  if (preferred) {
+    const picked = preferred.map((href) => byHref.get(href)).filter((i): i is T => Boolean(i))
+    if (picked.length > 0) return picked.slice(0, 4)
+  }
+
+  // NO PREFERENCE DECLARED — the governing workspace, and anything added later. Take the first four the
+  // context actually offers, skipping /dashboard where it is only a redirect into this workspace. This
+  // is the fallback that makes a new context work on a phone the day it is added rather than the day
+  // somebody remembers to extend the map, which is the same reasoning as groupNavItems' "More" section.
+  return primary.filter((i) => i.href !== "/dashboard").slice(0, 4)
+}
+
 export function buildSiteAdminSections(items: NavItem[]): { top: NavItem[]; sections: NavSection[] } {
   return groupNavItems(items, SITE_ADMIN_SECTIONS)
 }

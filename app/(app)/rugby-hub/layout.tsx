@@ -67,11 +67,10 @@ export default async function RugbyHubLayout({ children }: { children: React.Rea
 
       <HubNav />
 
-      {/* pb-28 clears the global "Ask Ovie" floating widget (fixed
-          bottom-right on every page) -- without it, the Safeguarding
-          Officer contact form's Send button sits directly underneath it at
-          narrow viewports (confirmed overlapping via getBoundingClientRect
-          on the equivalent Match Centre control during UAT).
+      {/* CONVERGENCE STEP 18 (UX-4): the Safeguarding Officer contact form's Send button used to sit
+          underneath the floating "Ask Ovie" widget at narrow viewports -- confirmed overlapping via
+          getBoundingClientRect during UAT -- and every page carried its own allowance for it. The shell
+          now reserves that space once (app/(app)/layout.tsx), including for the mobile bottom bar.
 
           activeTeamId is NOT a gate here: not every Rugby Hub destination
           is team-specific. The Story of Rugby (and any future universally-
@@ -82,7 +81,7 @@ export default async function RugbyHubLayout({ children }: { children: React.Rea
           rugby-hub/safeguarding/page.tsx and player-welfare/page.tsx --
           so a second, blunter block here was blocking a destination it
           should never have applied to. */}
-      <div className="mx-auto max-w-3xl px-4 pt-10 pb-28 md:px-8 md:pt-14 md:pb-28">{children}</div>
+      <div className="mx-auto max-w-3xl px-4 pt-10 md:px-8 md:pt-14">{children}</div>
     </div>
   )
 }

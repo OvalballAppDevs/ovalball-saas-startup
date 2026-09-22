@@ -112,7 +112,8 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
       <a href="#main" className="sr-only z-50 rounded-lg bg-white px-4 py-2 font-semibold text-ink focus:not-sr-only focus:absolute focus:top-2 focus:left-2">
         Skip to content
       </a>
-      <ClubBar club={club} onHome manageHref={manageHref} />
+      {/* UX-6: a signed-in visitor gets a way back into the app; an anonymous one has nowhere to go. */}
+      <ClubBar club={club} onHome manageHref={manageHref} returnHref={home.viewer.signedIn ? "/dashboard" : null} />
       <main id="main">
         <ClubHero club={club} />
         <MatchdayStrip next={home.upcoming[0] ?? null} latest={home.results[0] ?? null} teamCount={home.teamCount} clubSlug={club.slug} />

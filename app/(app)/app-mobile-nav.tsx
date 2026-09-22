@@ -34,6 +34,8 @@ import type { NavSection } from "@/lib/app-context/build-nav-items"
 
 import type { NavItem } from "./app-nav"
 import { MessagesPopover } from "./messages-popover"
+import { bottomBarLabel } from "@/lib/app-context/bottom-bar-label"
+
 import { NavSections } from "./nav-sections"
 import { NotificationBell } from "./notification-bell"
 import { SupportButton } from "./support-button"
@@ -45,6 +47,14 @@ interface AppMobileNavProps {
   top: NavItem[]
   /** Site Admin only: the grouped taxonomy. Empty elsewhere, which selects the flat list. */
   sections: NavSection[]
+  /**
+   * The mobile bottom bar's destinations (UX-4), chosen server-side by buildBottomBarItems.
+   *
+   * A PROP rather than computed here, for the same reason `top` and `sections` are: the information
+   * architecture is decided in lib/app-context, which is server-only, and this is a client component.
+   * Importing the chooser directly is what broke the build the first time.
+   */
+  bottomItems: NavItem[]
   contexts: SwitchableContext[]
   activeKey: string
   identityKind: ActiveContextKind
@@ -69,6 +79,7 @@ export function AppMobileNav({
   primaryItems,
   top,
   sections,
+  bottomItems,
   contexts,
   activeKey,
   identityKind,
@@ -102,6 +113,7 @@ export function AppMobileNav({
   })
 
   return (
+    <>
     <div className="sticky top-0 z-40 border-b border-forest-950/10 bg-forest-950 md:hidden">
     <div className="flex items-center justify-between px-4 py-3">
       <OvalballLogo variant="dark" />
@@ -309,6 +321,76 @@ export function AppMobileNav({
       subLabel={identity.subLabel}
     />
     </div>
+
+    {/* ---------- the bottom bar ----------
+
+        UX-4's outcome is "primary destinations one tap away", and its mobile acceptance names a bottom
+        bar. Before this, every destination on a phone was TWO taps: open the drawer, then choose. The
+        drawer is still there and still holds everything -- this is the shortcut to the four a person
+        actually came for, and the fifth cell opens the drawer for the rest.
+
+        THE SAME `open` STATE AS THE DRAWER ABOVE. The bar lives inside this component precisely so More
+        shares one Sheet rather than mounting a second: this file's own note on NavSections is that "two
+        renderers would drift the moment a section was added to one of them", and two Sheets drift the
+        same way.
+
+        WHICH destinations is decided by buildBottomBarItems in lib/, not here, and it can only return
+        what buildNavItems already granted -- UX-4's stated authority invariant. Each cell is a link to a
+        route that re-checks its own authority, exactly as the sidebar's links do.
+
+        The shell reserves the height (layout.tsx), so no page has to know this exists -- which is the
+        mistake the floating widget made. */}
+    {bottomItems.length > 0 && (
+      <nav
+        aria-label="Primary"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-forest-950 pb-[env(safe-area-inset-bottom)] md:hidden"
+      >
+        <ul className="flex items-stretch">
+          {bottomItems.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+            return (
+              <li key={item.href} className="min-w-0 flex-1">
+                <Link
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  // min-h-14, not exactly 44px: a bar a thumb reaches for one-handed should be more
+                  // generous than the minimum rather than precisely it.
+                  // The active cell carries a top BORDER as well as a colour, so the state is not colour
+                  // alone. A border rather than an absolutely-positioned span on purpose: this file is
+                  // guarded against `absolute top-*` by scripts/verify-admin-nav.mjs, because that is the
+                  // shape of the gear/close collision UX-2 fixed -- and a border is simpler anyway.
+                  className={cn(
+                    "relative flex min-h-14 flex-col items-center justify-center gap-0.5 border-t-2 px-1 py-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset",
+                    active ? "border-pitch-400 text-pitch-400" : "border-transparent text-white/70 hover:text-white"
+                  )}
+                >
+                  <span className="w-full truncate text-center text-[11px] leading-tight font-medium">{bottomBarLabel(item)}</span>
+                  {!!item.badge && (
+                    // Anchored from the cell's own inline end rather than from its top, for the same
+                    // reason as the border above.
+                    <span className="absolute end-2 bottom-8 flex size-4 items-center justify-center rounded-full bg-pitch-600 text-[10px] font-semibold text-white">
+                      {item.badge > 9 ? "9+" : item.badge}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            )
+          })}
+          <li className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-expanded={open}
+              className="flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-1 py-2 text-white/70 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-inset"
+            >
+              <Menu aria-hidden="true" className="size-4" />
+              <span className="text-[11px] leading-tight font-medium">More</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    )}
+    </>
   )
 }
 

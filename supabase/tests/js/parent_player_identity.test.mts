@@ -57,6 +57,9 @@ function guardianOfTwo(): SessionContext {
       },
     ],
     linkedPlayerTeams: [],
+    // Convergence Step 15 added this to SessionContext, and these fixtures cast through `as unknown` so
+    // the compiler could not tell them. listSwitchableContexts iterates it.
+    governingBodies: [],
   } as unknown as SessionContext
 }
 

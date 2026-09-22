@@ -28,6 +28,9 @@ function session(over: Partial<SessionContext> = {}): SessionContext {
     teamPermissions: [],
     guardianRelationships: [],
     linkedPlayerTeams: [],
+    // Convergence Step 15 added this to SessionContext. These fixtures cast through `as unknown`, so the
+    // compiler could not tell them -- listSwitchableContexts iterates it and threw at runtime instead.
+    governingBodies: [],
     ...over,
   } as unknown as SessionContext
 }

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { cookies, headers } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, isFamilyFacingContext, listSwitchableContexts, resolveActiveContext } from "@/lib/app-context/active-context"
-import { buildClubSections, buildNavItems, buildSiteAdminSections } from "@/lib/app-context/build-nav-items"
+import { buildBottomBarItems, buildClubSections, buildNavItems, buildSiteAdminSections } from "@/lib/app-context/build-nav-items"
 import { getMessengerRows } from "@/lib/app-context/messenger-rows"
 import { DIAGNOSTIC_SESSION_COOKIE, resolveDiagnosticClub } from "@/lib/app-context/diagnostic-access"
 import { getRecentNotifications } from "@/lib/app-context/notifications"
@@ -236,6 +236,11 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
         ? buildClubSections(navPrimary, activeContext.kind === "team" ? activeContext.id : null)
         : { top: [] as typeof navPrimary, sections: [] }
 
+  // UX-4's bottom bar, chosen from the same already-capability-filtered list the sidebar renders. Empty
+  // while a club is still being set up, for the same reason the sections are: four destinations and a
+  // half-built club do not need a shortcut bar.
+  const navBottom = setupInProgress ? [] : buildBottomBarItems(navPrimary, activeContext.kind)
+
   return (
     <SwitchContextProvider>
       {/*
@@ -288,6 +293,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
           </div>
           <AppMobileNav
             primaryItems={navPrimary}
+            bottomItems={navBottom}
             top={navTop}
             sections={navSections}
             contexts={contexts}
@@ -303,7 +309,16 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
             conversations={conversations}
             supportUnreadCount={unread.support}
           />
-          <main className="relative min-w-0 flex-1">
+          {/* THE SHELL RESERVES THE SPACE ITS OWN FURNITURE OCCUPIES.
+              UX-4's named defect was that the floating "Ask Ovie" widget -- fixed bottom-right on every
+              authenticated page -- sat over the bottom of the content, and the compensation was a
+              per-page `pb-28` that exactly EIGHT files remembered to add. A rule most pages do not
+              follow is the wrong shape of fix: a page should not have to know what the shell is
+              floating over it.
+              So it is reserved once, here. On a phone the reserve also clears the bottom bar; on
+              desktop there is no bottom bar and only the widget to clear. env(safe-area-inset-bottom)
+              keeps both above a home indicator. */}
+          <main className="relative min-w-0 flex-1 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-24">
             {setupGate ? <ClubSetupRequired clubName={setupGate.clubName} /> : children}
             <ContextSwitchOverlay />
           </main>

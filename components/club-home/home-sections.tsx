@@ -257,8 +257,13 @@ export function ClubInformation({
   return (
     <section aria-labelledby="club">
       <SectionHeading id="club" title="Club Information" />
+      {/* CONVERGENCE STEP 18 (UX-6): min-w-0 on each card.
+          A grid item defaults to min-width:auto, so one unbreakable string -- a long email address, a
+          ground name with no spaces -- widens its column past the viewport. Measured at 390px on a
+          signed-in visitor: the cards were 397px wide in a 390px window, giving the page a 23px
+          horizontal overflow. The page UX-6 is fixing the dead end on should not also shake sideways. */}
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-ink/10 bg-white p-5">
+        <div className="min-w-0 rounded-2xl border border-ink/10 bg-white p-5">
           <h3 className="text-sm font-semibold text-ink">Home Ground</h3>
           {hasGround ? (
             <address className="mt-2 text-sm leading-relaxed text-ink/80 not-italic">
@@ -285,7 +290,7 @@ export function ClubInformation({
           )}
         </div>
 
-        <div className="rounded-2xl border border-ink/10 bg-white p-5">
+        <div className="min-w-0 rounded-2xl border border-ink/10 bg-white p-5">
           <h3 className="text-sm font-semibold text-ink">Contact</h3>
           {contacts.length ? (
             <ul className="mt-2 grid gap-3">
@@ -308,7 +313,7 @@ export function ClubInformation({
           {partnerAction && <div className="mt-4">{partnerAction}</div>}
         </div>
 
-        <div className="flex items-center gap-4 rounded-2xl border border-ink/10 bg-white p-5">
+        <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-ink/10 bg-white p-5">
           {club.homeKit ? (
             <>
               <RugbyKit kit={club.homeKit} clubName={club.name} className="size-20 shrink-0 text-ink" />

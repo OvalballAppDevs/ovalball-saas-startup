@@ -144,9 +144,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           : (activeContext.subjectName ?? activeContext.label)
 
   return (
-    // pb-28 clears the global "Ask Ovie" widget, fixed bottom-right on every
-    // page -- without it the final card sits underneath it at 390px.
-    <div className="mx-auto max-w-3xl px-4 pt-8 pb-28 md:px-8 md:pt-12">
+    // CONVERGENCE STEP 18 (UX-4): the final card used to sit under the floating widget at 390px.
+    // Now the shell reserves the space the floating widget and the mobile bottom bar occupy (app/(app)/layout.tsx), so this page no longer carries its own allowance. UX-4: a page should not have to know what the shell is floating over it.
+    <div className="mx-auto max-w-3xl px-4 pt-8 md:px-8 md:pt-12">
       <div className="flex items-center gap-2">
         <CalendarDays className="size-5 text-forest-800" aria-hidden="true" />
         <p className="text-sm font-medium tracking-[0.08em] text-forest-800 uppercase">{eyebrow}</p>
