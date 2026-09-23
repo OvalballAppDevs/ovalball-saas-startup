@@ -221,3 +221,23 @@ scratchpad); the mark masters and wordmarks remain. Gate, destinations and autho
 
 **Not done:** the throw → zoom-to-logo *video* sequence from the storyboard. This is the frame it
 would rest on; the clip is a separate image-to-video pass to approve on the phone before wiring.
+
+## Second reference — the ball closer, the whole logo in frame
+
+The owner supplied a tighter frame ("this is perfect"): the ball muddy and close in sharp focus,
+the player falling out of focus behind, grass flying — with one instruction: the entire logo on
+the ball must be inside the picture (in the reference, BALL runs off the right edge).
+
+Edited on Higgsfield (`nano_banana_pro`, 2k, 9:16) from that frame plus the canonical mark:
+
+| | Result | Verdict |
+|---|---|---|
+| ball-a | whole logo in frame, embroidered patch, lower half cleared; ring and OVAL rendered white | good, held |
+| **ball-b** | whole logo in frame with margin, ball treatment as the reference (dark ring, green BALL), lower half cleared; chest badge printed | **plate** |
+| ball-c | ring rendered green | rejected |
+| badge-a (edit of ball-b) | embroidered the *ball's* logo as a patch | rejected |
+| **badge-b (edit of ball-b)** | **chest badge as an embroidered patch with a stitched border; ball, framing and background unchanged** | **approved → `welcome-still.jpg`** |
+
+Derivative 1290 × 2311 JPEG q86. Screen unchanged from the previous pass; measured again at
+375 × 667, 393 × 852 and 430 × 932, push-in 1.000 → 1.036 with motion and held at 1.000 under
+Reduce Motion.
