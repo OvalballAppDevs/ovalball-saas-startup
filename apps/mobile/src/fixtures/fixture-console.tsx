@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
+
+import { goBackOr } from "../links/back"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { supabase } from "../auth/supabase"
@@ -195,7 +197,7 @@ export function FixtureConsole() {
 
   if (missing) {
     return (
-      <Shell title="Fixture" onBack={() => router.back()} insets={insets}>
+      <Shell title="Fixture" onBack={() => goBackOr(router, "/fixtures")} insets={insets}>
         <EmptyState
           title="This fixture isn't available"
           body="It may have been removed, or it may not be one you have access to."
@@ -222,7 +224,7 @@ export function FixtureConsole() {
   return (
     <Shell
       title={fixture?.us.teamName ?? fixture?.us.clubName ?? "Fixture"}
-      onBack={() => router.back()}
+      onBack={() => goBackOr(router, "/fixtures")}
       insets={insets}
       refreshing={refreshing}
       onRefresh={async () => {

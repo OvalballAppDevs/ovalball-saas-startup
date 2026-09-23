@@ -341,7 +341,7 @@ test("the artwork is the app's own, bundled, and never fetched or invented in co
     const path = `apps/mobile/${file[1]}`
     assert.ok(existsSync(path), `${path} is referenced but not bundled`)
     assert.ok(statSync(path).size > 20_000, `${path} is not a real photograph`)
-    assert.ok(statSync(path).size < 600_000, `${path} is too heavy for a phone bundle`)
+    assert.ok(statSync(path).size < 900_000, `${path} is too heavy for a phone bundle`)
   }
   // The two heroes and all four news fallbacks are wired, not left null.
   assert.ok(!/heroMatch: null|heroTraining: null/.test(editorial), "a hero has no artwork")

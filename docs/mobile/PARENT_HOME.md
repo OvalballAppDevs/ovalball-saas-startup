@@ -313,3 +313,45 @@ cards, refined CTA, light-safe accent); `parent_home` 42, `mobile_parent_shell` 
 availability guards pass. Both typechecks clean. `expo export --platform ios` succeeds
 with all six assets in the bundle. Not done: an on-device screenshot — the physical
 iPhone review is the owner's.
+
+# Device review fixes — Back from Training Centre, and the hero photographs
+
+## Back navigation (owner: "I can't go back from Training Centre to Calendar")
+
+**Root cause.** Home pushes straight to `/calendar/training/[sessionId]` (and
+`/fixtures/[fixtureId]/match-centre`). Neither nested `Stack` named an initial route,
+so a screen reached that way was the ONLY route on its stack. `router.back()` dispatches
+`GO_BACK` unconditionally (`expo-router/build/global-state/router.js`), nothing on the
+stack could handle it, and the person was left on the event with an error.
+
+**Fix, two layers.** `unstable_settings = { initialRouteName: "index" }` on
+`calendar/_layout.tsx` and `fixtures/_layout.tsx` — expo-router's documented way to
+mount the agenda beneath any deep-linked screen so Back returns to it. And
+`src/links/back.ts` → `goBackOr(router, "/calendar" | "/fixtures")`: `canGoBack()` →
+`back()`, otherwise `replace(fallback)`, used by Training Centre (both back buttons),
+Match Centre and the fixture console. `participant_routing` (+2, now 22) pins both.
+
+Not reproduced on a simulator (none installed on this machine); the cause is read from
+the router source and the route tree. If the device still shows an error after reload,
+the red-box text is the next thing to look at.
+
+## Hero photographs (owner: "really poor quality … the same picture for training and matches")
+
+The first pass generated at 1k (768×1024) with `flux_2`; both approved heroes were
+posts-and-pitch, so they read as one picture. Regenerated with **GPT Image 2.5 at 2k
+(1744×2336), quality high**, 0.5 credit each:
+
+| Generation | Verdict |
+|---|---|
+| **hero2k-training-a** | **approved → `hero-training.jpg`** — tackle shields, cones, kicking tee, bibs; posts and floodlights behind; nothing legible |
+| hero2k-training-b | approved spare — cones, agility ladder, tackle bag at blue hour |
+| **hero2k-match-a** | **approved → `hero-match.jpg`** — a scrum from behind, plain kit, no faces, crowd blurred |
+| hero2k-match-b | rejected — a face turning to camera at the frame edge |
+
+Bundled at 1500×2009 JPEG q84 (≈645 KB each; ceiling raised to 900 KB for heroes).
+`HERO_HEIGHT` 348 → **396** and the crop moved from `top` to `center`: at the old size
+the cover crop discarded the bottom quarter, which is exactly where the gear and the
+scrum are. News fallbacks unchanged (1k is ample at 188×112 pt).
+
+Credits: the workspace showed 2 remaining before this pass and 491 after — the owner
+topped up mid-pass; 2 credits were spent here.

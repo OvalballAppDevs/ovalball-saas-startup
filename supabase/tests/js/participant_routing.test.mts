@@ -335,3 +335,31 @@ test("a family scope is offered no team or age-grade selector", () => {
   assert.match(calendar, /const family = active !== null && isFamilyFacingContext\(active\.kind\)/)
   assert.match(calendar, /familyScope=\{family\}/)
 })
+
+// ------------------------------------------------------------- the way back
+
+test("a participant screen reached from Home has the agenda beneath it", () => {
+  // Home pushes straight to a session or a fixture inside another tab. Without
+  // a named initial route that screen is alone on its stack, GO_BACK is dispatched
+  // with nothing to handle it, and the person is stuck on the event with an error
+  // -- which is what the owner hit on the device.
+  for (const layout of ["apps/mobile/app/(tabs)/calendar/_layout.tsx", "apps/mobile/app/(tabs)/fixtures/_layout.tsx"]) {
+    const source = readFileSync(layout, "utf8")
+    assert.match(source, /export const unstable_settings = \{ initialRouteName: "index" \}/, `${layout} lets a deep-linked screen stand alone`)
+  }
+})
+
+test("every participant back lands somewhere, never on an unhandled action", () => {
+  const back = readFileSync("apps/mobile/src/links/back.ts", "utf8")
+  assert.match(back, /if \(router\.canGoBack\(\)\) \{\s*\n\s*router\.back\(\)/)
+  assert.match(back, /router\.replace\(fallback\)/)
+  for (const [file, fallback] of [
+    ["apps/mobile/app/(tabs)/calendar/training/[sessionId].tsx", "/calendar"],
+    ["apps/mobile/src/fixtures/match-centre.tsx", "/fixtures"],
+    ["apps/mobile/src/fixtures/fixture-console.tsx", "/fixtures"],
+  ] as const) {
+    const source = readFileSync(file, "utf8")
+    assert.ok(!/=> router\.back\(\)/.test(source), `${file} still calls back() with nowhere to go`)
+    assert.ok(source.includes(`goBackOr(router, "${fallback}")`), `${file} does not fall back to ${fallback}`)
+  }
+})

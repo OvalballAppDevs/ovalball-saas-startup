@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react"
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
+
+import { goBackOr } from "../links/back"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import {
@@ -840,7 +842,7 @@ function Shell({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back to the fixture"
-          onPress={() => router.back()}
+          onPress={() => goBackOr(router, "/fixtures")}
           hitSlop={8}
           style={({ pressed }) => ({
             width: TOUCH_TARGET,

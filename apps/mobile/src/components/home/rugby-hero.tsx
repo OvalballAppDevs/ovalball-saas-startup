@@ -117,8 +117,14 @@ export function RugbyHero({
   )
 }
 
-/** The hero stands this tall so the photograph has room above the words. */
-export const HERO_HEIGHT = 348
+/**
+ * THE HERO STANDS THIS TALL so the photograph keeps its subject. The artwork is
+ * 3:4 and the card is nearly square: at 348 the cover crop threw away a quarter
+ * of the picture, and the gear or the scrum that makes it a training or a match
+ * picture sat in that quarter. Taller, centred, it keeps both the sky the chips
+ * sit on and the subject the words sit over.
+ */
+export const HERO_HEIGHT = 396
 
 function HeroCard({
   page,
@@ -166,13 +172,13 @@ function HeroCard({
     >
       {/* THE ARTWORK, decorative by declaration: the words over it say
           everything a screen reader needs, and the picture says nothing that
-          could be wrong. Cropped to keep the sky, where the negative space is. */}
+          could be wrong. Cropped from the centre so the subject survives. */}
       {artwork ? (
         <Image
           source={artwork}
           accessible={false}
           contentFit="cover"
-          contentPosition="top"
+          contentPosition="center"
           style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
         />
       ) : (
