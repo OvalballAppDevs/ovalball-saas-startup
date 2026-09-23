@@ -6,16 +6,25 @@ import {
   listClubNews,
   listLiveClubNotices,
   loadClubKitTheme,
+  EMPTY_FAMILY,
+  clubAccentsOnDark,
+  loadFamilySubscription,
   narrowToChild,
+  projectHomeHero,
   projectParentHome,
+  resolveFamilyScope,
   resolveClubTheme,
   resolveWindow,
   shiftDays,
   type AgendaItem,
   type ClubNewsCard,
   type ClubNotice,
+  type ClubAccents,
   type ClubTheme,
   type Database,
+  type FamilyProjection,
+  type FamilySubscription,
+  type HeroPage,
   type ParentHome,
   type SessionContext,
   type SwitchableContext,
@@ -68,6 +77,23 @@ export interface HomeSummary {
    */
   home: ParentHome
   /**
+   * THE HERO'S PAGES, in the order they actually happen.
+   *
+   * Another presentation of the same canonical rows the rest of the app reads --
+   * `projectHomeHero` reuses `projectParticipantMatch` and its training twin, so a
+   * hero cannot state a different kick-off from the Calendar card two taps away.
+   */
+  hero: HeroPage[]
+  /** The club's canonical home-kit colours, made safe on the forest ground. */
+  accents: ClubAccents
+  /**
+   * THE FAMILY'S MEMBERSHIP, per child, from the one payment domain.
+   *
+   * Empty where the club runs no subscription programme -- which is not a gap to
+   * report on screen, it is a club that does not collect through Ovalball.
+   */
+  subscriptions: FamilySubscription[]
+  /**
    * WHO HAS ANSWERED FOR THE NEXT MATCH, where the viewer may see it.
    *
    * Not part of the agenda, and deliberately not added to it: an agenda row is one line in a list and
@@ -119,10 +145,18 @@ export async function loadHomeSummary(
    * pushing a client-supplied player id into a server query is the shape that
    * eventually gets it wrong.
    */
-  selectedPlayerId: string | null = null
+  selectedPlayerId: string | null = null,
+  /**
+   * THE FAMILY, ALREADY PROJECTED.
+   *
+   * Passed in rather than resolved again: `FamilyProvider` holds the one
+   * projection the whole app draws a child from, and a second resolution here is
+   * how one screen comes to show a photograph another shows initials for.
+   */
+  family: FamilyProjection = EMPTY_FAMILY
 ): Promise<HomeSummary> {
   const today = todayIso()
-  const family = isFamilyFacingContext(context.kind)
+  const familyFacing = isFamilyFacingContext(context.kind)
   /*
     ONE READ, FOUR MONTHS AHEAD. The website's own family panel has read from
     today to today + FAMILY_HORIZON_DAYS since it was built, so the app asks the
@@ -131,7 +165,7 @@ export async function loadHomeSummary(
     disagreeing. A staff context keeps its shorter horizon: a club's Home is a
     week's operational view, not a season's.
   */
-  const range = family
+  const range = familyFacing
     ? { start: today, end: shiftDays(today, FAMILY_HORIZON_DAYS) }
     : { start: today, end: resolveWindow("week", today, today, "upcoming").endIso }
 
@@ -163,6 +197,7 @@ export async function loadHomeSummary(
   // to Sunday, because the fixture is on Saturday and the training that prepares
   // for it is on Tuesday. "This week" must mean the same seven days on both.
   const week = resolveWindow("week", today, today, "upcoming")
+  const accents = clubAccentsOnDark(resolveClubTheme(kit), FOREST_GROUND)
   const home = projectParentHome(items, {
     todayIso: today,
     weekStartIso: week.startIso,
@@ -172,9 +207,33 @@ export async function loadHomeSummary(
     viewerIsThePlayer: context.kind === "player",
   })
 
+  /*
+    THE FAMILY'S MEMBERSHIP, asked only of a family context and only for the
+    children this scope covers. `get_enrolment_eligibility` is the canonical
+    FAMILY authority -- a guardian's own relationship to that child and that club
+    -- never the team-staff `finance.subscription.view` rule, which answers a
+    different question about a squad.
+  */
+  const subscriptions = familyFacing
+    ? (
+        await Promise.all(
+          resolveFamilyScope(ctx, context).map((child) =>
+            loadFamilySubscription(supabase, {
+              playerId: child.playerId,
+              playerName: child.firstName,
+              clubId: child.clubId,
+            }).catch(() => null)
+          )
+        )
+      ).filter((row): row is FamilySubscription => row !== null)
+    : []
+
   return {
     ...club,
     home,
+    hero: projectHomeHero(items, family, today),
+    accents,
+    subscriptions,
     /*
       WHO HAS ANSWERED, FOR STAFF ONLY.
 
@@ -185,12 +244,15 @@ export async function loadHomeSummary(
       the better half of that: a read a family context never makes cannot leak.
     */
     nextAvailability:
-      !family && home.next?.kind === "fixture" ? await loadAvailability(supabase, home.next.eventId) : null,
+      !familyFacing && home.next?.kind === "fixture" ? await loadAvailability(supabase, home.next.eventId) : null,
     notices,
     news,
     theme: resolveClubTheme(kit),
   }
 }
+
+/** The forest the Parent Home stands on, so the club's accents are measured against it. */
+const FOREST_GROUND = "#071c14"
 
 async function loadAvailability(supabase: Client, fixtureId: string): Promise<Availability | null> {
   const { data } = await supabase.rpc("fixture_availability_summary", { p_fixture_ids: [fixtureId] })
