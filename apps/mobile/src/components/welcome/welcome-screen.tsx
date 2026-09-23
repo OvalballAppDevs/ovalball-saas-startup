@@ -3,6 +3,7 @@ import { AccessibilityInfo, Animated, Easing, Linking, Pressable, Text, View, us
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { Image } from "expo-image"
+import Svg, { Path } from "react-native-svg"
 
 import { BRAND_GREEN, OvalballMark, OvalballWordmark } from "../brand"
 import { welcomeObjects, type WelcomeObject } from "./objects"
@@ -37,49 +38,58 @@ export function WelcomeScreen({ onLogIn }: { onLogIn: () => void }) {
   const { width, height } = useWindowDimensions()
   const reduceMotion = useReduceMotion()
   const short = height < 720
-  const tall = height >= 900
 
   const scale = useMemo(() => layoutFor(width, height), [width, height])
+  /*
+    THE FIELD. The collage lives between the brand block and the call to action, and it is laid out
+    against THAT span rather than against the window: the ball takes a fixed share of it, and the
+    boots and cones hang from the CTA, so a tall phone gets a deeper composition instead of a gap
+    above the button, and a short one gets the boots tucked under the pill's edge.
+  */
+  const ctaTop = height - (insets.bottom + space.md + TOUCH_TARGET + 2 + 56)
+  const field = { top: (short ? 0.36 : height >= 900 ? 0.29 : 0.31) * height }
+  const span = ctaTop - field.top
+  const tall = (o: WelcomeObject | null, w: number) => (o ? w * (o.height / o.width) : 0)
+  const bootsW = 0.54 * width, conesW = 0.15 * width
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       <StatusBar style="dark" />
 
-      {/* THE COLLAGE. Decorative, cropped by the window, never read out. */}
+      {/* THE COLLAGE. Decorative, cropped by the window, never read out. Painted back to front:
+          a faint touchline, the jersey, the cap and boots, then the ball in front of everything;
+          the whistle and cones are small accents. Each large piece leaves the window on purpose. */}
       <View
         pointerEvents="none"
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden" }}
       >
-        {/* Painted back to front: the tall post and the turf sit behind everything; the ball is last
-            and biggest; each piece is cropped by an edge so the collage reads as a world, not a grid. */}
-        <Piece object={welcomeObjects.posts} order={6} reduceMotion={reduceMotion} style={{ left: -0.14 * width, top: 0.26 * height, width: 0.32 * width }} rotate="-4deg" />
-        <Piece object={welcomeObjects.turf} order={7} reduceMotion={reduceMotion} style={{ left: -0.2 * width, bottom: -0.05 * height, width: 0.42 * width }} rotate="-8deg" />
-        <Piece object={welcomeObjects.jersey} order={3} reduceMotion={reduceMotion} style={{ left: -0.19 * width, top: 0.43 * height, width: 0.44 * width }} rotate="11deg" />
-        <Piece object={welcomeObjects.whistle} order={4} reduceMotion={reduceMotion} style={{ left: -0.03 * width, top: insets.top + 0.04 * height, width: 0.24 * width }} rotate="16deg" />
-        <Piece object={welcomeObjects.scrumCap} order={2} reduceMotion={reduceMotion} style={{ right: -0.1 * width, top: insets.top + 0.01 * height, width: 0.31 * width }} rotate="-14deg" ambient="float" />
-        <Piece object={welcomeObjects.tape} order={8} reduceMotion={reduceMotion} style={{ right: 0.04 * width, top: 0.33 * height, width: 0.13 * width }} rotate="-20deg" />
-        <Piece object={welcomeObjects.cones} order={5} reduceMotion={reduceMotion} style={{ left: 0.02 * width, top: 0.66 * height, width: 0.17 * width }} rotate="6deg" />
-        <Piece object={welcomeObjects.boots} order={9} reduceMotion={reduceMotion} style={{ right: -0.12 * width, top: 0.6 * height, width: 0.33 * width }} rotate="8deg" />
-        <Piece object={welcomeObjects.ball} order={1} reduceMotion={reduceMotion} style={{ right: -0.15 * width, top: 0.43 * height, width: scale.ball * width }} rotate="-18deg" ambient="turn" />
+        <Touchline width={width} height={height} />
+        <Piece object={welcomeObjects.jersey} order={2} reduceMotion={reduceMotion} style={{ left: -0.15 * width, top: field.top + 0.05 * span, width: 0.54 * width }} rotate="9deg" />
+        <Piece object={welcomeObjects.scrumCap} order={3} reduceMotion={reduceMotion} style={{ right: -0.14 * width, top: field.top - 0.02 * height, width: 0.38 * width }} rotate="-16deg" ambient="float" />
+        <Piece object={welcomeObjects.boots} order={4} reduceMotion={reduceMotion} style={{ left: -0.18 * width, top: ctaTop - 0.8 * tall(welcomeObjects.boots, bootsW), width: bootsW }} rotate="6deg" />
+        <Piece object={welcomeObjects.whistle} order={6} reduceMotion={reduceMotion} style={{ left: -0.05 * width, top: insets.top + 0.015 * height, width: 0.21 * width }} rotate="18deg" />
+        <Piece object={welcomeObjects.cones} order={5} reduceMotion={reduceMotion} style={{ right: 0.03 * width, top: ctaTop - tall(welcomeObjects.cones, conesW) - space.sm, width: conesW }} rotate="-6deg" />
+        <Piece object={welcomeObjects.ball} order={1} reduceMotion={reduceMotion} style={{ right: -0.22 * width, top: field.top + 0.22 * span, width: scale.ball * width }} rotate="-18deg" ambient="turn" />
       </View>
 
-      {/* THE COLUMN. Ordinary layout, inside the safe area, over the collage. */}
-      <View style={{ flex: 1, paddingTop: insets.top + (short ? space.lg : space.xxl), paddingBottom: insets.bottom + space.lg, paddingHorizontal: space.xl }}>
-        <View style={{ alignItems: "center", gap: short ? space.sm : space.md }}>
-          <OvalballMark size={short ? 84 : tall ? 112 : 100} tint={colour.forest950} />
-          <OvalballWordmark size={short ? 22 : 26} onDark={false} />
+      {/* THE COLUMN. Ordinary layout, inside the safe area, over the collage. The brand block is
+          tight -- mark, wordmark, motto, one line -- so the collage has the middle of the screen. */}
+      <View style={{ flex: 1, paddingTop: insets.top + space.md, paddingBottom: insets.bottom + space.md, paddingHorizontal: space.xl }}>
+        <View style={{ alignItems: "center", gap: 6 }}>
+          <OvalballMark size={short ? 64 : 76} tint={colour.forest950} />
+          <OvalballWordmark size={short ? 18 : 21} onDark={false} />
         </View>
 
-        <View style={{ marginTop: short ? space.xl : space.xxl + space.sm, alignItems: "center" }}>
+        <View style={{ marginTop: short ? space.md : space.lg, alignItems: "center" }}>
           <Text
             accessibilityRole="header"
             style={{
               fontFamily: type.display.fontFamily,
               fontSize: scale.motto,
-              lineHeight: scale.motto * 0.92,
-              letterSpacing: 1,
+              lineHeight: scale.motto * 0.9,
+              letterSpacing: 0.8,
               color: colour.forest950,
               textAlign: "center",
             }}
@@ -87,27 +97,57 @@ export function WelcomeScreen({ onLogIn }: { onLogIn: () => void }) {
             RUGBY.{"\n"}
             <Text style={{ color: BRAND_GREEN }}>CONNECTED.</Text>
           </Text>
-          <Text style={[type.body, { color: colour.inkMuted, textAlign: "center", marginTop: short ? space.sm : space.md }]}>
+          <Text style={[type.small, { color: colour.inkMuted, textAlign: "center", marginTop: space.sm, fontSize: 15 }]}>
             Your rugby life, all in one place.
           </Text>
         </View>
 
         <View style={{ flex: 1 }} />
 
-        <View style={{ gap: space.xs }}>
+        <View style={{ gap: 2, marginHorizontal: space.sm }}>
           <PrimaryAction label="Get Started" onPress={openSignup} hint="Opens the Ovalball website to create your account" reduceMotion={reduceMotion} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Log In"
             accessibilityHint="Signs in to an existing Ovalball account"
             onPress={onLogIn}
-            style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+            style={({ pressed }) => ({ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
           >
             <Text style={[type.bodyMedium, { color: colour.forest800 }]}>Log In</Text>
           </Pressable>
         </View>
       </View>
     </View>
+  )
+}
+
+/**
+ * ONE RESTRAINED TACTICAL MARK: a faint chalk touchline sweeping behind the collage from the left
+ * edge up toward the ball, and a short arrow where a coach would draw the run. Native vector, brand
+ * forest at low opacity -- a mark, not a background.
+ */
+function Touchline({ width, height }: { width: number; height: number }) {
+  const y0 = height * 0.78, y1 = height * 0.46
+  return (
+    <Svg width={width} height={height} style={{ position: "absolute", top: 0, left: 0 }}>
+      <Path
+        d={`M ${-0.05 * width} ${y0} C ${0.25 * width} ${y0 - 0.02 * height}, ${0.45 * width} ${y1 + 0.06 * height}, ${0.72 * width} ${y1}`}
+        stroke={colour.forest800}
+        strokeOpacity={0.1}
+        strokeWidth={2}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Path
+        d={`M ${0.66 * width} ${y1 + 0.028 * height} L ${0.72 * width} ${y1} L ${0.655 * width} ${y1 - 0.012 * height}`}
+        stroke={colour.forest800}
+        strokeOpacity={0.16}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
   )
 }
 
@@ -131,8 +171,8 @@ function openSignup() {
 function layoutFor(width: number, height: number) {
   const short = height < 720
   return {
-    motto: Math.round(Math.min(width * 0.19, short ? 56 : height >= 900 ? 76 : 68)),
-    ball: short ? 0.6 : 0.68,
+    motto: Math.round(Math.min(width * 0.15, short ? 46 : height >= 900 ? 58 : 52)),
+    ball: short ? 0.76 : height >= 900 ? 0.9 : 0.84,
   }
 }
 
@@ -155,8 +195,11 @@ function Piece({
   rotate: string
   ambient?: "turn" | "float"
 }) {
+  // VISIBLE FIRST. Nothing about a piece's presence depends on an animation running: the settle
+  // moves it a few points, and if no frame ever ran it would simply be a few points low.
   const arrival = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current
   const breath = useRef(new Animated.Value(0)).current
+  const still = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
     if (reduceMotion) {
@@ -194,7 +237,7 @@ function Piece({
   const base = Number.parseFloat(rotate)
   const turn = breath.interpolate({ inputRange: [0, 1], outputRange: [`${base - 1.5}deg`, `${base + 1.5}deg`] })
   const float = breath.interpolate({ inputRange: [0, 1], outputRange: [-3, 3] })
-  const rise = arrival.interpolate({ inputRange: [0, 1], outputRange: [14, 0] })
+  const rise = arrival.interpolate({ inputRange: [0, 1], outputRange: [10, 0] })
 
   return (
     <Animated.View
@@ -202,9 +245,8 @@ function Piece({
         position: "absolute",
         ...style,
         height,
-        opacity: arrival,
         transform: [
-          { translateY: Animated.add(rise, ambient === "float" ? float : new Animated.Value(0)) },
+          { translateY: Animated.add(rise, ambient === "float" ? float : still) },
           { rotate: ambient === "turn" ? turn : rotate },
         ],
       }}

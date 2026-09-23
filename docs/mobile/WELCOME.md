@@ -124,3 +124,58 @@ reveals the light canvas and the collage settles around the same mark. No artifi
   earlier in this session with a real session on the web export (landed on `/`).
 - The screen imports nothing from auth, storage or the domain (tested), infers no role, club or
   family, and collects no input.
+
+# Visual correction pass — the collage is the idea
+
+Checkpoint `77813f8` was rejected on the physical iPhone: the screenshot showed the mark, the
+headline and dead white space — **no collage at all** — although the same commit rendered seven
+objects on the web export. Two causes, both fixed here.
+
+**Why the device showed nothing.** Every piece started at opacity 0 and depended on a
+native-driver arrival animation to become visible. On the phone that animation never applied, so
+the pieces were laid out and invisible. Presence no longer depends on any animation: pieces render
+at full opacity, and the arrival is a 10-pt settle only — if no frame ever ran, a piece would sit
+ten points low, not vanish. Reduce Motion is still honoured and still measured.
+
+**Why it was timid even where it rendered.** The composition treated each object as needing its
+own clear space, at 15–30% of the width, on a field that began below a headline sized for a poster.
+
+## Three iterations, screenshot-driven (393 × 852, plus 375 × 667 and 430 × 932 each time)
+
+1. Brand block tightened (mark 76, wordmark 21, gap 6), motto 68 → 52 pt, copy 15 pt; the field
+   opened at 0.31 H; ball 0.84 W crossing the right edge over a 0.54 W jersey; cap 0.38 W entering
+   from the right; boots 0.54 W leaving the left; whistle 0.21 W cropped top-left; cones 0.15 W;
+   CTA inset by a further 8 pt. One restrained mark: a faint chalk touchline and a short arrow.
+2. Field lifted to 0.31 / 0.29 / 0.36 H (normal / tall / short); ball 0.84 W at −18°; boots settled
+   toward the CTA; touchline made solid and quieter (10% / 16%).
+3. The collage laid out against the **span between the brand block and the CTA** rather than the
+   window: the ball takes 22% of that span from the top, the boots hang from the CTA with 20% of
+   their height under the pill's edge, the cones sit 8 pt above it. A tall phone gets a deeper
+   composition; a short one tucks the boots under the button.
+
+## The checklist, answered on iteration 3
+
+| | |
+|---|---|
+| A. ≥ 5 rugby elements visible without hunting | **Yes** — ball, jersey, boots, scrum cap, whistle, cones |
+| B. ≥ 2 deliberately edge-cropped | **Yes** — ball (right), jersey (left), boots (left), cap (right), whistle (top-left) |
+| C. ≥ 2 overlapping | **Yes** — ball over jersey; cap behind the ball; boots over the jersey's foot and under the CTA pill; cones under the ball's end |
+| D. Obvious large hero | **Yes** — the ball at 0.84 W (0.9 W on tall phones) |
+| E. Collage occupies a meaningful part of the screen | **Yes** — from ≈ 0.31 H to the CTA, ≈ 45–50% of the canvas |
+| F. Intentional negative space | **Yes** — chalk around the headline and between the ball's underside and the boots, with the touchline through it |
+| G. CTA belongs to the composition | **Yes** — the boots run under its left edge, the cones sit at its right shoulder |
+| H. Good with motion disabled | **Yes** — measured: all pieces at opacity 1.00 at first paint under Reduce Motion |
+
+Scale hierarchy: ball LARGE (0.84 W) · boots and jersey LARGE/MEDIUM (0.54 W) · cap MEDIUM
+(0.38 W) · whistle SMALL (0.21 W) · cones SMALL (0.15 W).
+
+Compared with the rejected screenshot, the middle/lower visual field is now occupied by the rugby
+collage rather than dead white space.
+
+## Motion, after the static design
+
+Unchanged in kind, reduced in weight: arrival is a 640 ms, 10-pt settle on a 70 ms stagger; the
+ball breathes ±1.5° over 9 s; the cap drifts ±3 pt over 7 s; nothing else moves. No fade governs
+visibility any more.
+
+No Higgsfield call was made in this pass; the six approved objects were enough.
