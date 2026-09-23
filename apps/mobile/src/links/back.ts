@@ -17,7 +17,7 @@ import { useNavigation, useRouter } from "expo-router"
  * and when there is not, it dismisses to the surface's own index, which
  * replaces the parked screen with the agenda the person expected.
  */
-export function useBackToSurface(surface: "/calendar" | "/fixtures"): () => void {
+export function useBackToSurface(surface: "/calendar" | "/fixtures" | "/hub"): () => void {
   const router = useRouter()
   const navigation = useNavigation()
   return useCallback(() => {

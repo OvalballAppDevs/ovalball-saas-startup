@@ -1,5 +1,6 @@
 import { isFamilyFacingContext, type ActiveContextKind, type AgendaItem } from "@ovalball/contracts"
 
+import { routeForHubDestination } from "../hub/route-table"
 import type { LinkIntent } from "./intents"
 
 /**
@@ -108,6 +109,11 @@ export function routeForIntent(intent: LinkIntent): Route | null {
       return { pathname: "/calendar/training/[sessionId]", params: { sessionId: intent.sessionId } }
     case "CALENDAR":
       return { pathname: "/calendar" }
+    // THE RUGBY HUB'S OWN TABLE decides, so a Hub screen that moves is a change in one
+    // place -- and a destination the vocabulary knows but this build has no screen for
+    // resolves to nothing here rather than to somewhere plausible.
+    case "RUGBY_HUB":
+      return routeForHubDestination(intent.destination)
     // A recovery code, an unbuilt destination and an unrecognised link are all
     // handled by the people who understand them, not by a route table.
     case "AUTH_RECOVERY":

@@ -76,6 +76,15 @@ test("the implicit flow's fragment is never read", () => {
   // to be, and the resolver must not quietly accept one as a way in.
   const source = strip(read("src/links/intents.ts"))
   assert.ok(!/access_token|\bhash\b/.test(source), "the resolver reads a URL fragment")
+  // The Rugby Hub is the one place a fragment means something -- `#section-SCRUM` is a scroll
+  // target -- and it is handed to the SHARED Hub parser, which accepts only that shape. A
+  // fragment on a recovery link is still not a way in.
+  assert.equal(resolveIntent("ovalball://auth/recovery#access_token=abc").kind, "NOT_YET_SUPPORTED")
+  const hub = resolveIntent("https://ovalball.co.uk/rugby-hub/rules?identity=u9-union#section-SCRUM")
+  assert.equal(hub.kind, "RUGBY_HUB")
+  assert.deepEqual(hub.kind === "RUGBY_HUB" ? hub.destination : null, { kind: "rules", identityKey: "u9-union", section: "SCRUM" })
+  const notASection = resolveIntent("https://ovalball.co.uk/rugby-hub/rules#access_token=abc")
+  assert.deepEqual(notASection.kind === "RUGBY_HUB" ? notASection.destination : null, { kind: "rules", identityKey: null, section: null })
   const client = strip(read("src/auth/supabase.ts"))
   assert.match(client, /flowType: "pkce"/, "the native client is not on PKCE")
 })

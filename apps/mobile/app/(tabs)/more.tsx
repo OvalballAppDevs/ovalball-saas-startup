@@ -6,6 +6,9 @@ import * as Linking from "expo-linking"
 
 import { useSession } from "../../src/auth/session"
 import { useAppContexts, forgetSelectedContext } from "../../src/context/contexts"
+import { forgetHubCache } from "../../src/hub/cache"
+import { forgetHubTeamPreference } from "../../src/hub/identity"
+import { forgetRecentSearches } from "../../src/hub/recent"
 import { clearAllDrafts } from "../../src/messages/drafts"
 import { environment, webUrl } from "../../src/config/environment"
 import { isSecure, sessionStorageDescription } from "../../src/auth/session-store"
@@ -40,6 +43,10 @@ export default function More() {
     // find their half-typed message waiting in a composer.
     await forgetSelectedContext()
     await clearAllDrafts()
+    // The Rugby Hub's team choice, recent searches and in-memory bundles go too.
+    await forgetHubTeamPreference()
+    await forgetRecentSearches()
+    forgetHubCache()
     await signOut()
   }
 

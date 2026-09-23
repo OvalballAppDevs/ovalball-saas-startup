@@ -26,7 +26,7 @@ actually checked in.
 | messages | **LATER** | `lib/messenger/view-model.ts`, realtime already used by the web | M7. Realtime works on RN unchanged |
 | notifications | **LATER** | `public.notifications` + `lib/notifications/destinations.ts` resolve a destination from `type` + `data`, with no client-authored href | M7. The resolver is nearly neutral — it needs the web route table replaced by a mobile one |
 | subscriptions | **NEEDS REUSABLE CONTRACT** | `lib/teams/team-subscriptions.ts`, bounded to operational state | M8. GoCardless itself stays server-side, always |
-| Rugby Hub | **LATER** | content lives in the database | M9 |
+| Rugby Hub | **NOW** | the whole web Hub natively: shared readers in `packages/contracts/src/rugby-hub`, 34 native screens, one search, deep links — see `RUGBY_HUB.md` and `RUGBY_HUB_PARITY_MAP.md` | Rugby Hub convergence |
 | Site Admin | **WEB-ONLY BY DESIGN** | wide, destructive platform authority | Mobile shows what it is and opens the web |
 | Club Admin permission configuration | **WEB-ONLY BY DESIGN** | the scope switcher and per-team grants just built | Stays a desk job |
 | Competition Creator, Season Planner, Import | **WEB-ONLY BY DESIGN** | spreadsheet-shaped work | Stays a desk job |

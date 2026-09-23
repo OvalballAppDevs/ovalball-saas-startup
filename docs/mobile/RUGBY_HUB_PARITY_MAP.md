@@ -1,0 +1,112 @@
+# Rugby Hub — web → native parity map
+
+One Rugby Hub, two clients. This map lists every web Rugby Hub route, what it
+reads, and what the mobile app does with it. It is the forensic map the
+convergence started from (RH-M0) and the record of where it ended.
+
+**Statuses**
+
+| Status | Meaning |
+|---|---|
+| NATIVE PARITY | The same destination exists natively, reads through the same shared reader, and shows the same content, relationships and sources. |
+| SHARED-CONVERGED | The logic was moved into `packages/contracts` and both clients now run the same code. |
+| INTENTIONAL EXTERNAL HANDOFF | The app deliberately opens something outside itself (the system browser, Mail, the phone dialler). |
+| NOT APPLICABLE | A web mechanism that has no native equivalent and needs none. |
+| BLOCKED | Could not be completed in this pass, with the reason. |
+
+## The shared layer (RH-M1) — SHARED-CONVERGED
+
+31 modules moved from `lib/app-context/*` and `components/rugby-hub/nav/hub-nav-groups.ts`
+into `packages/contracts/src/rugby-hub/`, unchanged. Each web path is now a
+re-export shim (`export * from "@ovalball/contracts/rugby-hub/<module>"`, with
+`import "server-only"` kept where it was). Nothing on the web changed its
+imports; `supabase/tests/js/mobile_rugby_hub.test.mts` fails if a shim grows an
+implementation again.
+
+| Module | Holds |
+|---|---|
+| `rugby-hub-data` | team options, active-team resolution, audience, identity context, Rules / Safeguarding / Welfare readers (own-team and by-identity), source metadata, officer projections |
+| `rugby-hub-format` | section labels, value formatting, obligation labels, pitch grouping |
+| `rugby-hub-search` | `searchRugbyHub` over the one `search_hub_content` RPC, with type labels and canonical hrefs |
+| `ia` | `HUB_GROUPS`, `HUB_START_HERE`, `findActiveDestination` — the five-group product IA |
+| `game-knowledge-*`, `glossary-*`, `officiating-*`, `teams-competitions-*`, `international-*`, `clubs-*`, `people-*`, `development-*`, `coaching-*`, `parents-*`, `position-explorer-*`, `skills-explorer-*`, `heritage-*` | the bundle readers and their types / helpers |
+| **`destinations`** (new) | `parseHubHref` / `hubHrefFor`: the canonical web href ↔ a typed `HubDestination`, including `?identity=`, `?code=` and `#section-` |
+
+## Web route → native destination
+
+Mobile routes live under `apps/mobile/app/(tabs)/hub/`. The web address and the
+app route deliberately mirror each other (`/rugby-hub/game/x` ↔ `/hub/game/x`).
+Every mobile screen reads with the app's own authenticated client through the
+shared reader named; RLS and the SECURITY DEFINER RPCs decide what comes back.
+
+| Web route | Domain / data | Shared contract | Native destination | Status | Notes |
+|---|---|---|---|---|---|
+| `/rugby-hub` | landing; `HUB_GROUPS`, `HUB_START_HERE`; personal strip from team options + identity RPC | `ia`, `rugby-hub-data` | `/hub` | NATIVE PARITY | Canonical app header; search field first; personal strip only when a real team resolves; "Viewing" team switch only with >1 real team (web `TeamSwitcher`). IA is imported, not copied. |
+| `/rugby-hub?q=` + header `HubSearch` | `search_hub_content` via `searchRugbyHub`, viewer identity as grouping signal | `rugby-hub-search` | `/hub/search?q=` | NATIVE PARITY | Same RPC, same limit semantics (20 on mobile for thumb scanning), results grouped by type label in rank order; recent searches kept locally, cleared on sign-out. Every result opens through `parseHubHref` → route table. |
+| `/rugby-hub/game` | GAME_CONCEPT (13); beginner journey + families; default code from identity | `game-knowledge-data` | `/hub/game` | NATIVE PARITY | Code switch seeded from own code, else Union. |
+| `/rugby-hub/game/[conceptKey]` | concept + positions/skills/related/regulatory facts | `game-knowledge-data` | `/hub/game/[conceptKey]` | NATIVE PARITY | Same sections; `how-a-game-flows` carries the native `GameFlow` (same seven nodes, vertical). |
+| `/rugby-hub/rules` (+ `?identity=`, `#section-`) | `get_rugby_hub_rules` / `_by_identity`, `resolve_public_source_metadata` | `rugby-hub-data`, `rugby-hub-format` | `/hub/rules` (+ `identity`, `section` params) | NATIVE PARITY | Own-team and browse modes, three notice tones, tier badge, competition overlay, Pitch merge, official source link, section scroll. |
+| `/rugby-hub/officiating` | OFFICIATING_CONCEPT (20) by family | `officiating-data` | `/hub/officiating` | NATIVE PARITY | |
+| `/rugby-hub/officiating/[contentKey]` | concept + signalled / misunderstanding callouts | `officiating-data` | `/hub/officiating/[contentKey]` | NATIVE PARITY | |
+| `/rugby-hub/positions` → `[code]` | redirect to own code | `rugby-hub-data` | `/hub/positions` (+ `code`) | NATIVE PARITY | Own code, else Union; "Based on … / You're exploring …" line. |
+| `/rugby-hub/positions/[code]` | `get_position_explorer` bundle with identity only when own code maps directly | `position-explorer-data` | `/hub/positions?code=` | NATIVE PARITY | Native SVG pitch with a real button per position (anchors from data), grouped list, code-level age-stage banner. |
+| `/rugby-hub/positions/[code]/[positionKey]` | position detail | `position-explorer-data` | `/hub/positions/[code]/[positionKey]` | NATIVE PARITY | Same sections; "What makes a good X" card; related positions. |
+| `/rugby-hub/glossary` | 38 terms; A–Z + code filter in memory | `glossary-data` | `/hub/glossary` | NATIVE PARITY | Letter rail scrolls within the list; dimmed letters are not targets. |
+| `/rugby-hub/glossary/[termKey]` | definition + aliases + Read more + relationships + rule | `glossary-data` | `/hub/glossary/[termKey]` | NATIVE PARITY | |
+| `/rugby-hub/skills` | `get_skills_explorer` with viewer identity (contact gate) | `skills-explorer-data` | `/hub/skills` | NATIVE PARITY | |
+| `/rugby-hub/skills/[skillKey]` | skill detail; superseded redirect | `skills-explorer-data`, `-types` | `/hub/skills/[skillKey]` | NATIVE PARITY | Technique steps, contact gate note, positions, related (Learn first), Develop This Further, Coaching This Skill, sources. Superseded key → `router.replace` to successor. |
+| `/rugby-hub/development` (+ `?code=`) | PLAYER_DEVELOPMENT_CONCEPT (19) | `development-data` | `/hub/development` | NATIVE PARITY | Journey with Start Here, "What Should I Work On?", family sections, governing-body-sourced line only when true. |
+| `/rugby-hub/development/[conceptKey]` | concept + facts + skills + positions + related + sources | `development-data` | `/hub/development/[conceptKey]` | NATIVE PARITY | |
+| `/rugby-hub/coaching` (+ `?code=`) | COACHING_CONCEPT (27); intents | `coaching-data` | `/hub/coaching` | NATIVE PARITY | "I Want To…" shortcuts are links, nothing remembered. |
+| `/rugby-hub/coaching/[conceptKey]` | concept + facts + chips by kind + sources | `coaching-data` | `/hub/coaching/[conceptKey]` | NATIVE PARITY | |
+| `/rugby-hub/story` | heritage eras + 42 entries; code filter | `heritage-data` | `/hub/story` | NATIVE PARITY | Era markers, code and certainty badges; filter never splits the shared root. |
+| `/rugby-hub/story/[entryKey]` | entry + sources (per-entry read) + relatives + prev/next | `heritage-data` | `/hub/story/[entryKey]` | NATIVE PARITY | Myth/legend warning beside the title; sources with tier, publisher, supports. |
+| `/rugby-hub/competitions` (+ `?code=`) | COMPETITION_GUIDE (25) | `teams-competitions-data` | `/hub/competitions` | NATIVE PARITY | Explainers first, named competitions second. |
+| `/rugby-hub/competitions/[contentKey]` | guide + editorial source + glossary/related/history | `teams-competitions-data` | `/hub/competitions/[contentKey]` | NATIVE PARITY | |
+| `/rugby-hub/international` (+ `?code=`) | RUGBY_TEAM national/representative + competitions | `international-data` | `/hub/international` | NATIVE PARITY | |
+| `/rugby-hub/international/teams/[teamKey]` | team + honours (59 rows across teams) + competitions + history | `international-data` | `/hub/international/teams/[teamKey]` | NATIVE PARITY | Team type and gender as text badges; no crest, no squad. |
+| `/rugby-hub/clubs` (+ `?code=`) | RUGBY_TEAM club (curated) | `clubs-data` | `/hub/clubs` | NATIVE PARITY | |
+| `/rugby-hub/clubs/[clubKey]` | club + honours + people + related + history + sources | `clubs-data` | `/hub/clubs/[clubKey]` | NATIVE PARITY | No crest is shown (none is registered for a famous club; a kit is never used as one). |
+| `/rugby-hub/people` | RUGBY_PERSON (14) by role | `people-data` | `/hub/people` | NATIVE PARITY | |
+| `/rugby-hub/people/[personKey]` | person + teams + honours + related + history + sources | `people-data` | `/hub/people/[personKey]` | NATIVE PARITY | Role badges; team links open the international team screen. |
+| `/rugby-hub/parents` | PARENT_GUIDE (25); journey; intents; authority links | `parents-data` | `/hub/parents` | NATIVE PARITY | |
+| `/rugby-hub/parents/[guideKey]` | guide + facts + chips by kind + sources | `parents-data` | `/hub/parents/[guideKey]` | NATIVE PARITY | Welfare & Safety guides carry the official-guidance callout. |
+| `/rugby-hub/player-welfare` (+ `?code=`, `?identity=`, `#section-`) | `get_rugby_hub_welfare` / `_by_identity`, audience-aware | `rugby-hub-data`, `rugby-hub-format` | `/hub/player-welfare` | NATIVE PARITY | Obligation badges; own-team and browse modes. |
+| `/rugby-hub/safeguarding` (+ browse params) | `get_rugby_hub_safeguarding_content` / `_routes` / `_by_identity`; officer projections via RLS | `rugby-hub-data`, `rugby-hub-format` | `/hub/safeguarding` | NATIVE PARITY | Three separate blocks as on the web. **Public guidance and a contact only** — no concern, case or report is read or written. |
+| `/rugby-hub/safeguarding/contact` | `start_or_get_safeguarding_officer_conversation` (OVALBALL) / registered email (EMAIL) | — (existing RPC, unchanged) | `/hub/safeguarding/contact` | NATIVE PARITY | Confirmation only after sending, exactly as the web. Neither client's inbox model lists safeguarding-officer conversations (documented risk below). |
+| Reporting route `mailto:` / `tel:` / `url` | governing-body contacts | — | system Mail / dialler / browser | INTENTIONAL EXTERNAL HANDOFF | The contact is the governing body's, never Ovalball's. |
+| Official source links (`canonical_url`), editorial sources, heritage sources | registered source metadata | `rugby-hub-data` | system browser | INTENTIONAL EXTERNAL HANDOFF | Never an embedded browser. |
+| `/legal/safeguarding` footer link | website legal page | — | system browser | INTENTIONAL EXTERNAL HANDOFF | Website-owned page. |
+| `HubNav` (web secondary navigation) | — | `ia` | — | NOT APPLICABLE | The phone has the tab bar and the landing; a Hub screen's bar carries Back, its section and Search. |
+| `RUGBY_HUB_TEAM_COOKIE` / `setRugbyHubTeam` server action | team preference | `rugby-hub-data` | AsyncStorage preference, `HubIdentityProvider` | SHARED-CONVERGED | Same resolution rule (`resolveActiveRugbyHubTeamId`'s), same options, same server validation; cleared on sign-out. |
+| `generateMetadata` / `<title>` | page metadata | — | — | NOT APPLICABLE | |
+
+## Deep links
+
+`apps/mobile/src/links/intents.ts` resolves any `/rugby-hub…` URL (custom
+scheme, Expo Go, https) into `{ kind: "RUGBY_HUB", destination }` using the
+shared parser, and `src/hub/route-table.ts` maps the destination to a screen.
+An address the vocabulary does not know resolves to **nothing** (never a
+plausible guess); it is reported by the intent, and the only case that leaves
+the app is a related-content href of that shape, which opens on the website in
+the system browser. No such href exists in the current content.
+
+## What was deliberately not built
+
+- No WebView, no duplicate content store, no hard-coded article text, no
+  mobile-only law. Every screen reads the database through the shared reader.
+- No child/team selector beyond the viewer's own real team relationships (the
+  web's own `TeamSwitcher` rule).
+- No safeguarding operational data. The Hub reads guidance, routes and the
+  club's registered officer contact, and calls the existing conversation RPC.
+- No new migration. Every RPC and every RLS policy used already existed.
+
+## Documented risks (outside this pass)
+
+- **Safeguarding-officer conversations are not listed by either client's
+  inbox model** (`messenger-view-model` knows request / fixture / club /
+  support / announcement / direct). The web contact form confirms and stops;
+  the app does the same. Surfacing the thread in Messages is a messaging-slice
+  decision, not a Hub one.
+- The recommended-content RPC (`get_hub_recommended_content`) is not consumed
+  by any web page today and is therefore not consumed by the app either.

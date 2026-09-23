@@ -109,6 +109,12 @@ Nothing beyond that is wired: invitations, fixtures, Match Centre, messages and 
 their handlers when those surfaces exist, and each will be authorised server-side on arrival — a deep
 link is a request, never a grant.
 
+Rugby Hub links are wired: any `/rugby-hub…` address — in the app's scheme, in Expo Go, or as https —
+is read by the shared `parseHubHref` into a typed destination and mapped by `src/hub/route-table.ts`
+to the native screen, with `?identity=`, `?code=` and `#section-` carried as browsing params. An
+address the vocabulary does not know resolves to nothing rather than to a guess. See
+`RUGBY_HUB.md`.
+
 ## Design
 
 Native tokens in `src/design/tokens.ts`, copied by value from `app/globals.css` (a React Native app

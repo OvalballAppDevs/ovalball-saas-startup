@@ -18,6 +18,8 @@
  * resolves to nothing is worse than an unrecognised link, because it looks handled.
  */
 
+import { parseHubHref, type HubDestination } from "@ovalball/contracts/rugby-hub/destinations"
+
 export type LinkIntent =
   | { kind: "AUTH_RECOVERY"; code: string }
   /** Open the inbox. What is in it is the server's answer, as always. */
@@ -60,6 +62,15 @@ export type LinkIntent =
    * it is not this person's.
    */
   | { kind: "TRAINING"; sessionId: string }
+  /**
+   * A Rugby Hub destination -- an article, a law, a position, a glossary term, the
+   * landing itself. The web address IS the app address: `parseHubHref` (shared, in
+   * contracts) reads the canonical `/rugby-hub/...` path, its `?identity=` / `?code=`
+   * browsing state and its `#section-` anchor into one typed destination, and the
+   * Hub's own route table decides the screen. Nothing in the destination is
+   * authority: every Hub screen re-derives what this viewer may see from the server.
+   */
+  | { kind: "RUGBY_HUB"; destination: HubDestination }
   /** A link Ovalball issued but this build does not handle yet -- named so it can be reported honestly. */
   | { kind: "NOT_YET_SUPPORTED"; path: string }
   | { kind: "UNKNOWN" }
@@ -69,7 +80,7 @@ export type LinkIntent =
  * than guessed so that "we know what this is and it is not built" can be told apart from "this is not
  * one of ours" -- two different things to say to somebody who just tapped a link.
  */
-const PLANNED = ["/join", "/invitation", "/notifications", "/subscriptions", "/rugby-hub"]
+const PLANNED = ["/join", "/invitation", "/notifications", "/subscriptions"]
 
 /** A calendar anchor is a civil date and nothing else. Anything other shape is ignored rather than guessed at. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -175,6 +186,19 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
   if (path === "/calendar" || path === "/agenda") {
     const date = parsed.searchParams.get("date")
     return { kind: "CALENDAR", date: date && ISO_DATE.test(date) ? date : null }
+  }
+
+  // RUGBY HUB: the canonical web addresses, parsed by the shared vocabulary. The query
+  // and the `#section-` anchor are taken from the ORIGINAL url rather than the
+  // lower-cased path, because an identity key is case-sensitive data, not a route.
+  //
+  // THE ONE FRAGMENT THIS RESOLVER PASSES ON. A Hub anchor is a scroll target -- which
+  // card on the Rules page to land on -- and the shared parser accepts only the
+  // `section-` shape; the recovery branch above still reads nothing but the PKCE code.
+  if (path === "/rugby-hub" || path.startsWith("/rugby-hub/")) {
+    const anchor = url.includes("#") ? url.slice(url.indexOf("#")) : ""
+    const destination = parseHubHref(`${path}${parsed.search}${anchor}`)
+    if (destination) return { kind: "RUGBY_HUB", destination }
   }
 
   if (PLANNED.some((planned) => path === planned || path.startsWith(`${planned}/`))) {
