@@ -179,3 +179,45 @@ ball breathes ±1.5° over 9 s; the cap drifts ±3 pt over 7 s; nothing else mov
 visibility any more.
 
 No Higgsfield call was made in this pass; the six approved objects were enough.
+
+# Direction change — one action frame on forest
+
+The owner rejected the collage direction on the phone and supplied a reference: a player mid-pass
+on a floodlit pitch, the ball toward the camera, the Ovalball mark on the jersey and the ball,
+then the mark, RUGBY. / CONNECTED., a line of copy, a green arrow pill and an outlined Log In. The
+instruction: exactly that, with the chest mark **embroidered** like a badge. Storyboard and brief:
+https://claude.ai/artifact/5SrmzWk9QowXWehKwfKLsP
+
+## The still
+
+Made on Higgsfield with `nano_banana_pro` (2k, 9:16) from two reference images: the owner's frame
+and the **canonical mark rendered on forest** (`ovalball-mark-master.png`), so the badge is derived
+from the real artwork rather than a generator's memory of it. Five edits:
+
+| | Result | Verdict |
+|---|---|---|
+| hero-a | embroidered badge, but the reference's baked-in text and centre logo copied into the picture | rejected |
+| hero-b | embroidered badge, baked-in text and a fake status bar | rejected |
+| hero-c | clean lower half, no text; badge reads printed, not embroidered | held as the clean plate |
+| **hero-d** | **embroidered patch with stitched border, ball mark kept, lower half clean pitch, no text** | **approved → `welcome-still.jpg`** |
+| hero-e | embroidered but flatter; clean | approved spare |
+
+Derivative: 1290 × 2311 JPEG q86 (250 KB), `contentFit="cover"` from the top so the player and ball
+hold their place on every height. One honest note: the marks *in the picture* (chest and ball) are
+the generator's rendering guided by the canonical file — close, not the measured geometry. Every
+mark that matters is native: the vector `OvalballMark` and the lifted wordmark sit over the still.
+
+## The screen
+
+Forest ground; the still full-bleed with a forest gradient rising from the foot (5% → 22% → 72% →
+96%); the column bottom-aligned inside the safe area: mark (chalk) → wordmark → **RUGBY. /
+CONNECTED.** at up to 70 pt with **line-height 1.0×** (0.9× is what clipped the tops on the device)
+→ copy → Get Started (56-pt `#03ac63` pill, chalk text, arrow) → Log In (outlined pill). Status bar
+light. Motion: one 6% push-in over 12 s, once; Reduce Motion holds at 1.000 (measured on the web
+export: 1.0032 → 1.0355 with motion, 1.0000 → 1.0000 without).
+
+The collage manifest and its six cut-outs are retired from the app (the files stay in the session
+scratchpad); the mark masters and wordmarks remain. Gate, destinations and authority unchanged.
+
+**Not done:** the throw → zoom-to-logo *video* sequence from the storyboard. This is the frame it
+would rest on; the clip is a separate image-to-video pass to approve on the phone before wiring.

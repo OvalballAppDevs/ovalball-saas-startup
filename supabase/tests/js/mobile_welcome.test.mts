@@ -56,7 +56,7 @@ test("the motto and the two actions are exactly the canonical ones", () => {
 })
 
 test("no fabricated club, team or person appears on the entrance", () => {
-  for (const file of ["apps/mobile/src/components/welcome/welcome-screen.tsx", "apps/mobile/src/components/welcome/objects.ts", "apps/mobile/src/components/brand.tsx"]) {
+  for (const file of ["apps/mobile/src/components/welcome/welcome-screen.tsx", "apps/mobile/src/components/welcome/still.ts", "apps/mobile/src/components/brand.tsx"]) {
     const src = read(file)
     for (const invented of ["Ovalball UAT", "Preston", "Burnley", "RFC", "Under 12", "Ava", "Harry"]) {
       assert.ok(!src.includes(invented), `${file} carries "${invented}"`)
@@ -66,26 +66,25 @@ test("no fabricated club, team or person appears on the entrance", () => {
 
 // -------------------------------------------------------------- the motion
 
-test("Reduce Motion renders every piece in its final place, and nothing spins or bounces", () => {
+test("Reduce Motion holds the still, and nothing loops, spins or bounces", () => {
   const screen = code("apps/mobile/src/components/welcome/welcome-screen.tsx")
   assert.match(screen, /AccessibilityInfo\.isReduceMotionEnabled\(\)/)
   assert.match(screen, /addEventListener\("reduceMotionChanged"/)
-  assert.match(screen, /if \(reduceMotion\) \{\s*\n\s*arrival\.setValue\(1\)\s*\n\s*breath\.setValue\(0\)\s*\n\s*return/)
-  // Two ambient behaviours only, both slow; no full rotations, no bounce.
-  assert.match(screen, /ambient\?: "turn" \| "float"/)
-  assert.match(screen, /period = ambient === "turn" \? 9000 : 7000/)
-  assert.match(screen, /outputRange: \[`\$\{base - 1\.5\}deg`, `\$\{base \+ 1\.5\}deg`\]/, "the ball turns more than a few degrees")
+  assert.match(screen, /if \(reduceMotion\) \{\s*\n\s*push\.setValue\(0\)\s*\n\s*return/)
+  // One slow push-in, once; no loop, no rotation, no bounce.
+  assert.match(screen, /duration: 12000/)
+  assert.match(screen, /outputRange: \[1, 1\.06\]/)
   assert.match(screen, /bounciness: 0/)
-  assert.ok(!/360deg|Easing\.bounce|Easing\.elastic|setInterval/.test(screen))
+  assert.ok(!/Animated\.loop|rotate|Easing\.bounce|Easing\.elastic|setInterval/.test(screen))
+  // The motto's line-height is never below its size: that is what clipped RUGBY. on the device.
+  assert.match(screen, /lineHeight: Math\.round\(motto \* 1\.0\)/)
 })
 
-test("the collage is decoration: hidden from assistive technology and never a touch target", () => {
+test("the still is decoration: hidden from assistive technology and never a touch target", () => {
   const screen = read("apps/mobile/src/components/welcome/welcome-screen.tsx")
   assert.match(screen, /pointerEvents="none"\s*\n\s*accessibilityElementsHidden\s*\n\s*importantForAccessibility="no-hide-descendants"/)
-  assert.match(screen, /overflow: "hidden"/)
-  // Sized in fractions of the window, not in pixels copied from a screenshot.
-  assert.match(screen, /width: 0\.\d+ \* width/)
-  assert.ok(!/left: \d{3}|top: \d{3}/.test(screen), "a piece is placed at an absolute pixel")
+  assert.match(screen, /contentFit="cover"/)
+  assert.ok(!/left: \d{3}|top: \d{3}/.test(screen), "something is placed at an absolute pixel")
 })
 
 // ---------------------------------------------------------------- the mark
@@ -124,18 +123,15 @@ test("the mark is the canonical geometry reproduced, not a new drawing", () => {
 
 // --------------------------------------------------------------- the assets
 
-test("every collage object is app-owned, bundled and free of domain truth", () => {
-  const manifest = read("apps/mobile/src/components/welcome/objects.ts")
-  for (const forbidden of ["https://", "uri:", "unsplash", "pexels", "crest", "logo", "club_", "fixture"]) {
-    assert.ok(!code("apps/mobile/src/components/welcome/objects.ts").includes(forbidden), `objects.ts carries ${forbidden}`)
+test("the still is app-owned, bundled, and free of domain truth", () => {
+  const still = read("apps/mobile/src/components/welcome/still.ts")
+  for (const forbidden of ["https://", "uri:", "unsplash", "pexels", "crest", "club_", "fixture"]) {
+    assert.ok(!code("apps/mobile/src/components/welcome/still.ts").includes(forbidden), `still.ts carries ${forbidden}`)
   }
-  let total = 0
-  for (const m of manifest.matchAll(/require\("\.\.\/\.\.\/\.\.\/(assets\/welcome\/[a-z-]+\.(?:png|webp))"\)/g)) {
-    const path = `apps/mobile/${m[1]}`
-    assert.ok(existsSync(path), `${path} is referenced but not bundled`)
-    const size = statSync(path).size
-    assert.ok(size > 10_000 && size < 700_000, `${path} weighs ${size}`)
-    total += size
-  }
-  assert.ok(total < 3_500_000, `the collage weighs ${total} bytes -- first launch must be instant`)
+  const m = still.match(/require\("\.\.\/\.\.\/\.\.\/(assets\/welcome\/[a-z-]+\.(?:jpg|png|webp))"\)/)
+  assert.ok(m, "no still is wired")
+  const path = `apps/mobile/${m![1]}`
+  assert.ok(existsSync(path), `${path} is referenced but not bundled`)
+  const size = statSync(path).size
+  assert.ok(size > 100_000 && size < 1_200_000, `${path} weighs ${size}`)
 })
