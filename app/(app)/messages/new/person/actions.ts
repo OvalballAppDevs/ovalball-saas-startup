@@ -6,7 +6,14 @@ export interface ContactCandidate {
   userId: string
   displayName: string
   contextLabel: string
+  /** The team or club that label refers to -- "Under 12 Boys". */
   contextDetail: string | null
+  /**
+   * WHOSE Under 12 Boys. A fixture contact is by definition from the other side,
+   * so a season against three different Under 12 sides produced three
+   * identical-looking rows. Added in M6 for both clients at once.
+   */
+  contextClub: string | null
 }
 
 /**
@@ -28,5 +35,6 @@ export async function listContactCandidates(): Promise<ContactCandidate[]> {
     displayName: row.display_name ?? "Ovalball user",
     contextLabel: row.context_label,
     contextDetail: row.context_detail,
+    contextClub: row.context_club,
   }))
 }

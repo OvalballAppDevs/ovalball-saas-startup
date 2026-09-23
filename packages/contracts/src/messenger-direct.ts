@@ -126,13 +126,16 @@ export async function getDirectThread(
   // absent when discovery no longer lists them.
   const { data: candidates } = await supabase.rpc("my_direct_message_candidates")
   const match = (candidates ?? []).find((c: { user_id: string }) => c.user_id === otherUserId)
+  // The club is part of the context line for the same reason it is part of a
+  // picker row: "Fixture contact · Under 12 Boys" does not say whose.
+  const context = match ? [match.context_label, match.context_detail, match.context_club].filter(Boolean) : []
 
   return {
     conversationId,
     otherUserId,
     otherName: header.other_display_name ?? "Ovalball user",
     otherAvatarUrl,
-    contextLabel: match ? [match.context_label, match.context_detail].filter(Boolean).join(" · ") : null,
+    contextLabel: context.length > 0 ? Array.from(new Set(context)).join(" · ") : null,
     messages,
     canSend,
     unavailableReason: canSend ? null : UNAVAILABLE,

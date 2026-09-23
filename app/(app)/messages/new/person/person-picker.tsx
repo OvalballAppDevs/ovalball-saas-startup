@@ -28,10 +28,26 @@ export function PersonPicker({ candidates }: { candidates: ContactCandidate[] })
   const [opening, setOpening] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  /**
+   * ONE SEARCH OVER EVERYTHING A ROW SAYS -- a person, their team, and their
+   * CLUB. It matched the name alone, which meant the only way to find the
+   * Preston fixture contact was to already know their name; typing "Preston"
+   * found nobody. It matches the club because the row now carries one, rather
+   * than because the search was taught to guess at it.
+   *
+   * NARROWING ONLY. This runs in the browser over an already-authorised list --
+   * `my_direct_message_candidates` is built from relationships the caller
+   * already holds, so a search here cannot reach anybody outside them and is
+   * not a directory lookup.
+   */
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return candidates
-    return candidates.filter((c) => c.displayName.toLowerCase().includes(q))
+    return candidates.filter((c) =>
+      [c.displayName, c.contextLabel, c.contextDetail, c.contextClub].some((field) =>
+        (field ?? "").toLowerCase().includes(q)
+      )
+    )
   }, [candidates, query])
 
   if (candidates.length === 0) {
@@ -57,8 +73,8 @@ export function PersonPicker({ candidates }: { candidates: ContactCandidate[] })
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name"
-          aria-label="Search the people you can message"
+          placeholder="Search by name or club"
+          aria-label="Search the people you can message, by name, team or club"
           className="pl-9"
         />
       </div>
@@ -74,7 +90,7 @@ export function PersonPicker({ candidates }: { candidates: ContactCandidate[] })
             <button
               type="button"
               disabled={opening !== null}
-              aria-label={`Message ${person.displayName}`}
+              aria-label={`Message ${person.displayName}, ${contextLine(person)}`}
               onClick={async () => {
                 setOpening(person.userId)
                 setError(null)
@@ -90,9 +106,13 @@ export function PersonPicker({ candidates }: { candidates: ContactCandidate[] })
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-ink">{person.displayName}</span>
-                <span className="block truncate text-xs text-ink-muted">
-                  {[person.contextLabel, person.contextDetail].filter(Boolean).join(" · ")}
-                </span>
+                {/* WHO THEY ARE, AND WHOSE. "Fixture contact · Under 12 Boys"
+                    did not say whose Under 12 Boys -- and a fixture contact is
+                    by definition from the other side, so a season against three
+                    different Under 12 sides produced three identical rows. The
+                    club is de-duplicated rather than repeated: a "Your club"
+                    row's detail already IS the club. */}
+                <span className="block truncate text-xs text-ink-muted">{contextLine(person)}</span>
               </span>
               {opening === person.userId && <span className="shrink-0 text-xs text-ink-muted">Opening…</span>}
             </button>
@@ -101,4 +121,9 @@ export function PersonPicker({ candidates }: { candidates: ContactCandidate[] })
       </ul>
     </div>
   )
+}
+
+/** The row's second line: the reason they are listed, the side, and the club — each said once. */
+function contextLine(person: { contextLabel: string; contextDetail: string | null; contextClub: string | null }): string {
+  return Array.from(new Set([person.contextLabel, person.contextDetail, person.contextClub].filter(Boolean) as string[])).join(" · ")
 }

@@ -16,6 +16,14 @@ export interface AgendaFilter {
   clubId: string | null
   homeAway: "all" | "Home" | "Away"
   includeTraining: boolean
+  /**
+   * Show fixtures that are not going ahead. ON by default, matching the
+   * website's `AgendaFilterState.includeCancelled` -- a cancelled match is the
+   * reason somebody does NOT drive to a ground on a Sunday morning, so hiding it
+   * by default would be the app deciding they no longer need to know. Switching
+   * it off is for looking down a season at what is actually being played.
+   */
+  includeCancelled: boolean
 }
 
 export const NO_FILTER: AgendaFilter = {
@@ -24,6 +32,7 @@ export const NO_FILTER: AgendaFilter = {
   clubId: null,
   homeAway: "all",
   includeTraining: true,
+  includeCancelled: true,
 }
 
 export function isFiltered(filter: AgendaFilter): boolean {
@@ -32,7 +41,8 @@ export function isFiltered(filter: AgendaFilter): boolean {
     filter.oppositionId !== null ||
     filter.clubId !== null ||
     filter.homeAway !== "all" ||
-    !filter.includeTraining
+    !filter.includeTraining ||
+    !filter.includeCancelled
   )
 }
 
@@ -43,6 +53,7 @@ export function countActive(filter: AgendaFilter): number {
     filter.clubId !== null,
     filter.homeAway !== "all",
     !filter.includeTraining,
+    !filter.includeCancelled,
   ].filter(Boolean).length
 }
 
@@ -55,6 +66,8 @@ export function countActive(filter: AgendaFilter): number {
 export function applyFilter(items: AgendaItem[], filter: AgendaFilter): AgendaItem[] {
   return items.filter((item) => {
     if (!filter.includeTraining && item.kind === "training") return false
+    // The canonical status, never a guess from a struck-through label.
+    if (!filter.includeCancelled && item.status === "Cancelled") return false
     if (filter.teamId && item.teamId !== filter.teamId) return false
     if (filter.clubId && item.clubId !== filter.clubId) return false
     // Opposition is matched on the canonical directory id, never on a name. Training has no

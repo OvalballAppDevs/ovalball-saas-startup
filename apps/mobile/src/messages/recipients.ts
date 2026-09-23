@@ -30,8 +30,20 @@ export interface Recipient {
   name: string
   /** The canonical grouping label: "Your team", "Your club", "Fixture contact". */
   group: string
-  /** The team or club that label refers to. */
+  /** The team or club that label refers to -- "Under 12 Boys". */
   detail: string | null
+  /**
+   * WHOSE Under 12 Boys.
+   *
+   * A fixture contact is by definition somebody from the other side, and a club
+   * that plays three different Under 12 sides across a season produced three
+   * identical-looking rows. The club is the Club Directory's canonical name and
+   * comes from the same RPC as everything else on the row.
+   *
+   * Null for nobody in practice, but typed honestly rather than defaulted to a
+   * club that might be the wrong one.
+   */
+  club: string | null
 }
 
 export interface RecipientGroup {
@@ -50,6 +62,7 @@ export async function loadRecipients(supabase: SupabaseClient<Database>): Promis
       name: row.display_name?.trim() || "Ovalball user",
       group: row.context_label ?? "Ovalball",
       detail: row.context_detail ?? null,
+      club: row.context_club ?? null,
     }))
 }
 
@@ -59,11 +72,26 @@ export async function loadRecipients(supabase: SupabaseClient<Database>): Promis
  */
 const GROUP_ORDER = ["Your team", "Your club", "Fixture contact"]
 
+/**
+ * ONE SEARCH OVER EVERYTHING A ROW SAYS.
+ *
+ * A person, their team and their CLUB. Searching a club name is the case the
+ * owner asked for and the one a long list actually needs -- somebody looking for
+ * the Preston contact types "Preston", not the name of a person they have never
+ * met. It matches the club because the row now carries the club, rather than
+ * because the search was taught to guess at one.
+ *
+ * NARROWING ONLY. Nothing here reaches past `my_direct_message_candidates`: the
+ * search removes rows from a list the server already decided, so a clever query
+ * cannot surface somebody the safeguarding rule excluded. That is also why there
+ * is no "no results, try searching the directory" affordance -- there is nothing
+ * else to search.
+ */
 export function groupRecipients(recipients: Recipient[], search: string): RecipientGroup[] {
   const needle = search.trim().toLowerCase()
   const matching = needle
-    ? recipients.filter(
-        (r) => r.name.toLowerCase().includes(needle) || (r.detail ?? "").toLowerCase().includes(needle)
+    ? recipients.filter((r) =>
+        [r.name, r.detail, r.club, r.group].some((field) => (field ?? "").toLowerCase().includes(needle))
       )
     : recipients
 

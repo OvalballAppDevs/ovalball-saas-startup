@@ -192,8 +192,8 @@ function item(over: Partial<AgendaItem>): AgendaItem {
     date: "2026-09-12",
     time: "14:30",
     meetTime: null,
-    us: { directoryId: "d-us", clubName: "Us", teamName: "U12 Boys", crestUrl: null, kit: null },
-    them: { directoryId: "d-them", clubName: "Rossendale", teamName: null, crestUrl: null, kit: null },
+    us: { directoryId: "d-us", clubName: "Us", teamName: "U12 Boys", compactName: null, crestUrl: null, kit: null },
+    them: { directoryId: "d-them", clubName: "Rossendale", teamName: null, compactName: null, crestUrl: null, kit: null },
     homeAway: "Home",
     venue: null,
     pitch: null,
@@ -241,7 +241,7 @@ test("a filter naming another club's team returns nothing rather than that team'
 })
 
 test("opposition is matched on the canonical directory id, never on a name", () => {
-  const rows = [item({ key: "a" }), item({ key: "b", them: { directoryId: "d-other", clubName: "Rossendale", teamName: null, crestUrl: null, kit: null } })]
+  const rows = [item({ key: "a" }), item({ key: "b", them: { directoryId: "d-other", clubName: "Rossendale", teamName: null, compactName: null, crestUrl: null, kit: null } })]
   // Two clubs sharing a display name are still two clubs.
   const out = applyAgendaFilters(rows, { ...defaultFilterState(TODAY), opposition: "d-them" })
   assert.deepEqual(out.map((r) => r.key), ["a"])

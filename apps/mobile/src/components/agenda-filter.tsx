@@ -5,7 +5,7 @@ import type { AgendaItem } from "@ovalball/contracts"
 import { clubOptions, oppositionOptions, teamOptions } from "@ovalball/contracts"
 
 import { NO_FILTER, countActive, isFiltered, type AgendaFilter } from "../agenda/filter"
-import { Check, ChevronDown, Users, X } from "./icons"
+import { Check, ChevronDown, CircleAlert, Users, X } from "./icons"
 import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../design/tokens"
 
 /**
@@ -192,40 +192,41 @@ export function AgendaFilterSheet({
             </Group>
           )}
 
-          {showTraining && (
-            <Group title="Show">
-              <Pressable
-                accessibilityRole="switch"
-                accessibilityState={{ checked: filter.includeTraining }}
-                accessibilityLabel="Show training as well as matches"
-                onPress={() => onChange({ ...filter, includeTraining: !filter.includeTraining })}
-                style={({ pressed }) => ({
-                  minHeight: TOUCH_TARGET,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: space.md,
-                  paddingHorizontal: space.md,
-                  borderRadius: radius.md,
-                  borderWidth: 1,
-                  borderColor: filter.includeTraining ? colour.forest800 : colour.lineStrong,
-                  backgroundColor: filter.includeTraining ? colour.mint100 : colour.surface,
-                  opacity: pressed ? 0.85 : 1,
-                })}
-              >
-                <Users size={18} color={colour.forest800} strokeWidth={1.9} />
-                <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>Training</Text>
-                {filter.includeTraining && <Check size={18} color={colour.forest800} strokeWidth={2.6} />}
-              </Pressable>
-              {/* MATCHES ARE THE FLOOR. There is deliberately no way to hide them: a fixture list with
-                  the fixtures switched off is not a state anybody wants to reach by accident. */}
-              <Text style={[type.caption, { color: colour.inkMuted }]}>Matches are always shown.</Text>
-            </Group>
-          )}
+          {/* WHAT TO INCLUDE. Two tick boxes rather than two more chip rows: each is a yes/no about a
+              whole category, and a pair of pills reading "Training / No training" would be asking the
+              same question twice. */}
+          <Group title="Show">
+            {showTraining && (
+              <Toggle
+                label="Training"
+                hint="Sessions as well as matches"
+                icon={<Users size={18} color={colour.forest800} strokeWidth={1.9} />}
+                checked={filter.includeTraining}
+                onToggle={() => onChange({ ...filter, includeTraining: !filter.includeTraining })}
+              />
+            )}
+            {/* CANCELLED FIXTURES ARE ON BY DEFAULT. A called-off match is the reason somebody does
+                NOT drive to a ground on a Sunday morning, so hiding it by default would be the app
+                deciding they no longer need to know. Switching it off is for looking down a season at
+                what is actually being played. Either way a cancelled fixture keeps its struck-through
+                name and its badge, so it never reads as a live one. */}
+            <Toggle
+              label="Cancelled Fixtures"
+              hint="Matches that are not going ahead"
+              icon={<CircleAlert size={18} color={colour.forest800} strokeWidth={1.9} />}
+              checked={filter.includeCancelled}
+              onToggle={() => onChange({ ...filter, includeCancelled: !filter.includeCancelled })}
+            />
+            {/* MATCHES ARE THE FLOOR. There is deliberately no way to hide the ones that ARE going
+                ahead: a fixture list with the fixtures switched off is not a state anybody wants to
+                reach by accident. */}
+            <Text style={[type.caption, { color: colour.inkMuted }]}>Matches that are going ahead are always shown.</Text>
+          </Group>
 
           {teams.length <= 1 && oppositions.length <= 1 && clubs.length <= 1 && !hasFixtures && (
             <Text style={[type.small, { color: colour.inkMuted }]}>
-              There is nothing to narrow down yet. Filters appear once there is more than one team or
-              opponent in view.
+              There is nothing else to narrow down yet. Team and opposition filters appear once there is
+              more than one of either in view.
             </Text>
           )}
         </ScrollView>
@@ -328,6 +329,56 @@ function Select({
         </View>
       )}
     </View>
+  )
+}
+
+/**
+ * A YES/NO ABOUT A WHOLE CATEGORY.
+ *
+ * Announced as a switch with its checked state, so it is answerable without
+ * seeing the tick -- the tick, the filled ground and the border are three
+ * carriers of one fact and none of them is the only one.
+ */
+function Toggle({
+  label,
+  hint,
+  icon,
+  checked,
+  onToggle,
+}: {
+  label: string
+  hint: string
+  icon: React.ReactNode
+  checked: boolean
+  onToggle: () => void
+}) {
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked }}
+      accessibilityLabel={`${label}. ${hint}`}
+      onPress={onToggle}
+      style={({ pressed }) => ({
+        minHeight: TOUCH_TARGET + 6,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.md,
+        paddingHorizontal: space.md,
+        paddingVertical: space.sm,
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: checked ? colour.forest800 : colour.lineStrong,
+        backgroundColor: checked ? colour.mint100 : colour.surface,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      {icon}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[type.smallMedium, { color: colour.ink }]}>{label}</Text>
+        <Text style={[type.caption, { color: colour.inkMuted }]}>{hint}</Text>
+      </View>
+      {checked && <Check size={18} color={colour.forest800} strokeWidth={2.6} />}
+    </Pressable>
   )
 }
 

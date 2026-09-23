@@ -164,6 +164,25 @@ begin
   select count(*) into v_n from public.my_direct_message_candidates() where user_id = v_outsider;
   perform pg_temp.check(v_n = 0, format('D1 candidate discovery never offers you yourself (%s)', v_n));
 
+  -- EVERY CANDIDATE SAYS WHICH CLUB THEY ARE FROM.
+  --
+  -- A row labelled "Fixture contact -- Under 12 Boys" does not say WHOSE Under 12
+  -- Boys, and a fixture contact is by definition somebody from the other side. A
+  -- club that plays three different Under 12 sides across a season produced three
+  -- identical-looking rows, and both clients' search had nothing to match a club
+  -- name against. So the club is a column, and it is never null for a row that
+  -- exists.
+  perform pg_temp.act('authenticated', v_alice);
+  select count(*) into v_n from public.my_direct_message_candidates() where context_club is null;
+  perform pg_temp.check(v_n = 0, format('D1a every candidate names the club they are from (%s without one)', v_n));
+
+  -- And it is the CLUB DIRECTORY's canonical name, never a slug and never a team
+  -- display name -- the same identity every other surface shows.
+  select count(*) into v_n
+    from public.my_direct_message_candidates() c
+   where not exists (select 1 from public.club_directory d where d.name = c.context_club);
+  perform pg_temp.check(v_n = 0, format('D1b and it is the canonical Club Directory name (%s that are not)', v_n));
+
   -- The unread counter the badge uses is scoped to the caller too, so a badge can never count somebody
   -- else's unread messages.
   select count(*) into v_n from public.my_unread_message_counts();

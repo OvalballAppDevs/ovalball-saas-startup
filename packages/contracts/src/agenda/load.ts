@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { KitConfig } from "./kit"
 import { resolveClubLogoUrl } from "../club-logo"
 import { dedupeMirrorPairs } from "./mirror-pair"
+import { compactTeamLabel } from "../teams/compact-label"
 import { loadTeamIdentitiesForSeason, teamIdentityKey } from "./team-identity"
 import type { Database } from "../database"
 
@@ -39,7 +40,21 @@ export interface AgendaSide {
   /** Canonical club directory id -- the identity the opposition filter groups on. Null for an unset opposition. */
   directoryId: string | null
   clubName: string
+  /** The DISPLAY form -- "Under 12 Boys". What a team is called everywhere a row has room for it. */
   teamName: string | null
+  /**
+   * The COMPACT form -- "U12", "Girls U14", "Men's 1st".
+   *
+   * The same canonical identity in the rugby identifier shape, for the dense
+   * surfaces whose design calls for it: Calendar lanes and FILTER CHIPS. Derived
+   * from the team's structured fields by `compactTeamLabel`, never shortened
+   * from the display name -- a label built by trimming words off another label
+   * is a naming convention invented for a screen.
+   *
+   * Null where the season identity did not resolve, and the caller falls back to
+   * the display form rather than inventing a short one.
+   */
+  compactName: string | null
   crestUrl: string | null
   kit: KitConfig | null
 }
@@ -262,11 +277,21 @@ export async function loadAgenda(
     const team = teamById.get(teamId)
     const club = team?.clubs
     const directory = club?.club_directory
-    const seasonName = seasonId ? identities.get(teamIdentityKey(teamId, seasonId))?.displayName : null
+    const identity = seasonId ? identities.get(teamIdentityKey(teamId, seasonId)) : null
+    const seasonName = identity?.displayName ?? null
     return {
       directoryId: club?.directory_id ?? directory?.id ?? null,
       clubName: directory?.name ?? "Club",
       teamName: seasonName ?? team?.display_name ?? null,
+      // The same season identity the display name comes from, in its short form.
+      compactName: identity
+        ? compactTeamLabel({
+            category: identity.category,
+            ageGroup: identity.ageGroup,
+            gender: identity.gender,
+            squadDesignation: identity.squadDesignation,
+          })
+        : null,
       crestUrl: club
         ? resolveClubLogoUrl(supabase, {
             logo_storage_path: club.logo_storage_path,
@@ -314,6 +339,7 @@ export async function loadAgenda(
             directoryId: dir.id,
             clubName: dir.name,
             teamName: null,
+            compactName: null,
             crestUrl: resolveClubLogoUrl(supabase, { logo_storage_path: null, club_directory: { logo_storage_path: dir.logo_storage_path } }),
             kit: null,
           }
@@ -321,6 +347,7 @@ export async function loadAgenda(
             directoryId: null,
             clubName: f.raw_opposition_text ?? "Opposition to be confirmed",
             teamName: null,
+            compactName: null,
             crestUrl: null,
             kit: null,
           }
@@ -400,7 +427,7 @@ export async function loadAgenda(
       meetTime: null,
       us: us
         ? { ...us, teamName: groupTag ?? us.teamName }
-        : { directoryId: null, clubName: "Club", teamName: groupTag ?? t.teams?.display_name ?? null, crestUrl: null, kit: null },
+        : { directoryId: null, clubName: "Club", teamName: groupTag ?? t.teams?.display_name ?? null, compactName: null, crestUrl: null, kit: null },
       // Training has no opposition, and is never given a fake one.
       them: null,
       homeAway: null,

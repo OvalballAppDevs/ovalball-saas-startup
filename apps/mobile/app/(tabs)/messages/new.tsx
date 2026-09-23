@@ -99,10 +99,10 @@ export default function NewMessage() {
 
       <View style={{ padding: space.lg, paddingBottom: space.sm }}>
         <TextInput
-          accessibilityLabel="Search people you can message"
+          accessibilityLabel="Search the people you can message, by name, team or club"
           value={search}
           onChangeText={setSearch}
-          placeholder="Search"
+          placeholder="Search by name or club"
           placeholderTextColor={colour.inkSubtle}
           autoCapitalize="none"
           autoCorrect={false}
@@ -159,7 +159,7 @@ export default function NewMessage() {
                 <Pressable
                   key={person.userId}
                   accessibilityRole="button"
-                  accessibilityLabel={`Message ${person.name}${person.detail ? `, ${person.detail}` : ""}`}
+                  accessibilityLabel={`Message ${person.name}${secondLine(person) ? `, ${secondLine(person)}` : ""}`}
                   accessibilityState={{ busy: opening === person.userId }}
                   disabled={Boolean(opening)}
                   onPress={() => void open(person)}
@@ -181,9 +181,22 @@ export default function NewMessage() {
                     <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
                       {person.name}
                     </Text>
+                    {/* WHO THEY ARE, AND WHOSE. "Under 12 Boys" on its own did
+                        not say whose Under 12 Boys -- and a fixture contact is by
+                        definition from the other side, so a season against three
+                        different Under 12 sides produced three identical rows.
+                        Two lines rather than one joined string: the club is the
+                        thing being scanned for in a long list, and it deserves
+                        to start at the left margin rather than arrive after a
+                        separator. */}
                     {!!person.detail && (
                       <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>
                         {person.detail}
+                      </Text>
+                    )}
+                    {!!person.club && person.club !== person.detail && (
+                      <Text numberOfLines={1} style={[type.caption, { color: colour.inkSubtle, marginTop: 1 }]}>
+                        {person.club}
                       </Text>
                     )}
                   </View>
@@ -196,4 +209,14 @@ export default function NewMessage() {
       </ScrollView>
     </View>
   )
+}
+
+/**
+ * The row read as one sentence, for VoiceOver.
+ *
+ * The club is included and the duplicate is not: a "Your club" row's detail IS
+ * the club, and hearing it twice is worse than hearing it once.
+ */
+function secondLine(person: { detail: string | null; club: string | null }): string {
+  return [person.detail, person.club !== person.detail ? person.club : null].filter(Boolean).join(", ")
 }

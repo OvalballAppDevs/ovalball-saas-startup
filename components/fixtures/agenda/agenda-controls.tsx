@@ -67,6 +67,7 @@ export function AgendaControls({
     (state.opposition ? 1 : 0) +
     (state.homeAway !== "all" ? 1 : 0) +
     (!state.includeTraining ? 1 : 0) +
+    (!state.includeCancelled ? 1 : 0) +
     (state.playerId ? 1 : 0) +
     (state.teamId ? 1 : 0) +
     (state.clubId ? 1 : 0) +
@@ -80,6 +81,7 @@ export function AgendaControls({
     opposition: null,
     homeAway: "all",
     includeTraining: true,
+    includeCancelled: true,
     playerId: null,
     teamId: null,
     clubId: null,
@@ -179,6 +181,23 @@ export function AgendaControls({
               </TactileLink>
               <TactileLink size="sm" href={href({ includeTraining: false })} selected={!state.includeTraining}>
                 Matches Only
+              </TactileLink>
+            </FilterRow>
+
+            {/* CANCELLED FIXTURES ARE SHOWN BY DEFAULT, and that is the half that
+                matters. A called-off match is the reason somebody does NOT drive
+                to a ground on a Sunday morning, so hiding it by default would be
+                the agenda quietly deciding they no longer need to know. This is
+                the other direction: a fixture secretary looking down a season at
+                what is actually being played can take them out of the way. Either
+                way a cancelled fixture keeps its struck-through name and its
+                badge, so it never reads as a live one. */}
+            <FilterRow label="Cancelled">
+              <TactileLink size="sm" href={href({ includeCancelled: true })} selected={state.includeCancelled}>
+                Show Cancelled
+              </TactileLink>
+              <TactileLink size="sm" href={href({ includeCancelled: false })} selected={!state.includeCancelled}>
+                Hide Cancelled
               </TactileLink>
             </FilterRow>
 

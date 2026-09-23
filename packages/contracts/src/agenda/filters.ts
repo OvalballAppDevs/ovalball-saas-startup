@@ -49,6 +49,21 @@ export interface AgendaFilterState {
   homeAway: "all" | "Home" | "Away"
   /** Show training alongside matches. Matches are never hidden -- this is the agenda's floor. */
   includeTraining: boolean
+  /**
+   * Show fixtures that are not going ahead.
+   *
+   * ON BY DEFAULT, and that is the important half. A cancelled match is
+   * information a parent acts on -- it is the reason they do not drive to a
+   * ground on a Sunday morning -- so hiding it by default would be the app
+   * quietly deciding they no longer need to know. What this offers is the other
+   * direction: a fixture secretary looking down a season at what is actually
+   * being played can take the called-off ones out of the way.
+   *
+   * A cancelled fixture is never merely dimmed into illegibility either: it
+   * keeps its struck-through name and its Cancelled badge, so it reads as
+   * cancelled whether this is on or off.
+   */
+  includeCancelled: boolean
   /** Guardian scope only: the child to narrow to, or null for all children. */
   playerId: string | null
   /** Club/staff scope: one team out of the authorised set. */
@@ -85,6 +100,7 @@ export function defaultFilterState(todayIso: string): AgendaFilterState {
     // Training is part of a player's week, so it is on by default and
     // switchable off in one tap rather than hidden behind a filter panel.
     includeTraining: true,
+    includeCancelled: true,
     playerId: null,
     teamId: null,
     clubId: null,
@@ -121,6 +137,7 @@ export function parseFilterState(sp: Params, todayIso: string, parseAnchor: (v: 
     opposition: one(sp, "opp"),
     homeAway: homeAway === "Home" || homeAway === "Away" ? homeAway : "all",
     includeTraining: show === "matches" ? false : d.includeTraining,
+    includeCancelled: one(sp, "cancelled") !== "0",
     playerId: one(sp, "child"),
     teamId: one(sp, "team"),
     clubId: one(sp, "club"),
@@ -140,6 +157,7 @@ export function filterQuery(state: AgendaFilterState, todayIso: string): string 
   if (state.opposition) p.set("opp", state.opposition)
   if (state.homeAway !== "all") p.set("ha", state.homeAway)
   if (!state.includeTraining) p.set("show", "matches")
+  if (!state.includeCancelled) p.set("cancelled", "0")
   if (state.playerId) p.set("child", state.playerId)
   if (state.teamId) p.set("team", state.teamId)
   if (state.clubId) p.set("club", state.clubId)
@@ -154,6 +172,7 @@ export function hasActiveFilters(state: AgendaFilterState): boolean {
     state.opposition !== null ||
     state.homeAway !== "all" ||
     !state.includeTraining ||
+    !state.includeCancelled ||
     state.playerId !== null ||
     state.teamId !== null ||
     state.clubId !== null ||
@@ -190,6 +209,8 @@ export function applyAgendaFilters(items: AgendaItem[], state: AgendaFilterState
     // reaches for a row the loader did not already return.
     if (state.needsResponse && todayIso && !needsResponse(item, todayIso)) return false
     if (!state.includeTraining && item.kind === "training") return false
+    // The canonical status, never a guess from a struck-through label.
+    if (!state.includeCancelled && item.status === "Cancelled") return false
 
     // Opposition is matched on the canonical directory id, never on a name.
     // Training has no opposition, so an opposition filter legitimately
@@ -262,9 +283,20 @@ export function oppositionOptions(items: AgendaItem[]): { id: string; name: stri
 export function teamOptions(items: AgendaItem[]): { id: string; name: string }[] {
   const byId = new Map<string, string>()
   for (const item of items) {
-    if (!byId.has(item.teamId)) byId.set(item.teamId, item.us.teamName ?? "Team")
+    /*
+      THE COMPACT FORM, because a filter chip is the dense surface the canonical
+      naming rule names for it -- "U12", "Girls U14", "Men's 1st". A row of chips
+      reading "Under 12 Boys", "Under 13 Boys", "Under 14 Boys" is three widths of
+      the same four words with the distinguishing part last, which is the opposite
+      of scannable.
+
+      It falls back to the DISPLAY form rather than shortening one: a label built
+      by trimming words off another label is a naming convention invented for a
+      screen.
+    */
+    if (!byId.has(item.teamId)) byId.set(item.teamId, item.us.compactName ?? item.us.teamName ?? "Team")
   }
-  return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 }
 
 /** Clubs present in the authorised rows, for the Site Admin club filter. */

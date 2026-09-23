@@ -25218,6 +25218,7 @@ export type Database = {
       my_direct_message_candidates: {
         Args: never
         Returns: {
+          context_club: string
           context_detail: string
           context_label: string
           display_name: string
