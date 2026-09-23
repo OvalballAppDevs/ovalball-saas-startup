@@ -55,9 +55,20 @@ test("rubbish, and somebody else's link, resolve to nothing", () => {
 
 test("links Ovalball already issues are told apart from links that are not ours", () => {
   // Two different things to say to somebody who just tapped a link, so they are two different answers.
-  assert.equal(resolveIntent("ovalball://fixtures/abc").kind, "NOT_YET_SUPPORTED")
+  //
+  // `/fixtures/<id>` was on this list until M5 BUILT the destination. A link
+  // Ovalball issues that the app can now open must resolve to the thing it
+  // opens, so the assertion follows the product rather than pinning it: the test
+  // asks for a path that is still genuinely unbuilt, and names the built ones
+  // separately so that building another one shows up here as a change rather
+  // than as a failure.
   assert.equal(resolveIntent("ovalball://join/xyz").kind, "NOT_YET_SUPPORTED")
+  assert.equal(resolveIntent("ovalball://notifications").kind, "NOT_YET_SUPPORTED")
   assert.equal(resolveIntent("ovalball://something-invented").kind, "UNKNOWN")
+  // Built, and therefore resolved rather than deferred.
+  assert.equal(resolveIntent("ovalball://fixtures/abc").kind, "FIXTURE")
+  assert.equal(resolveIntent("ovalball://fixtures/abc/match-centre").kind, "MATCH_CENTRE")
+  assert.equal(resolveIntent("ovalball://training/abc").kind, "TRAINING")
 })
 
 test("the implicit flow's fragment is never read", () => {

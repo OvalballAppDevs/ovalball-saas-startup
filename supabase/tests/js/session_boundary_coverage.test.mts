@@ -137,6 +137,28 @@ const PROTECTED_HANDLERS = [
 ]
 
 /**
+ * Handlers called by the MOBILE CLIENT, which carries a bearer token rather than
+ * a cookie.
+ *
+ * `requireSession` reads the Ovalball session cookie, so it is the wrong tool
+ * here and would refuse every legitimate request from the app. The boundary
+ * these carry instead has three parts, and the test below asserts all three:
+ *
+ *   1. an Authorization header is REQUIRED, and its absence is a 401 rather than
+ *      an anonymous read;
+ *   2. the Supabase client is built from the CALLER'S token, so every read runs
+ *      under the caller's own RLS and the handler can see no more than they can;
+ *   3. no service key is reachable from the file at all -- a handler holding one
+ *      is a handler that can answer for anybody.
+ *
+ * Ovalball's own session liveness is carried by the database rather than by the
+ * handler: the tables these read are RESTRICTIVE-gated on `session_ok_required`,
+ * so a revoked or dead session returns no rows and the handler answers 404 --
+ * the same answer a fixture somebody may not see gives, which is deliberate.
+ */
+const TOKEN_AUTHENTICATED_HANDLERS = ["app/api/fixtures/[fixtureId]/forecast/route.ts"]
+
+/**
  * Handlers that must work with NO Ovalball session, each for a stated reason. This is an explicit
  * list, not a pattern: a generic escape hatch would let the next unguarded handler hide inside it.
  */
@@ -158,10 +180,24 @@ test("S6-9 every protected route handler carries the session boundary itself", (
   assert.deepEqual(missing, [], "a route handler is a URL; it cannot rely on a layout having run")
 })
 
+test("S6-9 a bearer-token handler refuses an unauthenticated caller and borrows the caller's authority", () => {
+  for (const f of TOKEN_AUTHENTICATED_HANDLERS) {
+    const src = code(f)
+    assert.match(src, /headers\.get\("authorization"\)/i, `${f} does not read an Authorization header`)
+    assert.match(src, /status:\s*401/, `${f} does not refuse a caller without a token`)
+    assert.match(src, /global:\s*\{\s*headers:\s*\{\s*Authorization/, `${f} does not build its client from the caller's token`)
+    assert.match(src, /auth\.getUser\(\)/, `${f} never asks the auth server who the token belongs to`)
+    assert.ok(
+      !/SERVICE_ROLE|service_role|createServiceClient/.test(src),
+      `${f} can reach a service key, so it could answer for somebody other than the caller`
+    )
+  }
+})
+
 test("S6-9 the pre-session handler exceptions are exactly the declared ones", () => {
   const handlers = walk("app").filter((f) => f.endsWith("/route.ts"))
   const unaccounted = handlers.filter(
-    (f) => !PROTECTED_HANDLERS.includes(f) && !(f in PRE_SESSION_HANDLERS),
+    (f) => !PROTECTED_HANDLERS.includes(f) && !TOKEN_AUTHENTICATED_HANDLERS.includes(f) && !(f in PRE_SESSION_HANDLERS),
   )
   assert.deepEqual(
     unaccounted,

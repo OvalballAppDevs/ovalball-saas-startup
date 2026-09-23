@@ -97,3 +97,86 @@ export function clubRoleLabel(role: string): string {
 export function teamPermissionLabel(permission: string): string {
   return TEAM_PERMISSION_LABEL[permission as TeamPermissionValue] ?? permission
 }
+
+/**
+ * THE CANONICAL ROLE KEYS, AND WHAT EACH IS CALLED.
+ *
+ * `ClubRole` and `TeamPermissionValue` above are the LEGACY projection --
+ * `club_memberships.role` and the `team_permissions` view, which between them
+ * can express one club role and one team role per person. The authority model
+ * outgrew that: `public.role_assignments` holds as many roles as somebody
+ * actually does, and `public.role_definitions` names them.
+ *
+ * One person is very often several of these at once. A club's Safeguarding
+ * Officer is usually also somebody's parent; a Fixtures Secretary is very often
+ * a coach as well. The database has always allowed it -- `role_assignments`
+ * is unique on (user, club, team, ROLE_KEY), so the roles stack -- and
+ * `internal.grant_role` refuses none of these combinations. Only the
+ * projection into `ClubRole` collapsed them, by taking Club Admin over
+ * Fixtures Secretary over Member and dropping everything else.
+ *
+ * THE LABELS ARE `role_definitions.label`, VERBATIM. Not a second wording: the
+ * database is where a role is named, and a client that phrased one differently
+ * would be the seventh file to redeclare the same union with conflicting
+ * copy -- which is the exact history CLUB_ROLE_LABEL above exists to end.
+ */
+export type CanonicalRoleKey =
+  | "CLUB_ADMIN"
+  | "FIXTURES_SECRETARY"
+  | "SAFEGUARDING_OFFICER"
+  | "VOLUNTEER"
+  | "MEMBER"
+  | "COACH"
+  | "TEAM_MANAGER"
+  | "TEAM_ADMINISTRATION"
+
+export const CANONICAL_ROLE_LABEL: Record<CanonicalRoleKey, string> = {
+  CLUB_ADMIN: "Club Admin",
+  FIXTURES_SECRETARY: "Fixture Secretary",
+  SAFEGUARDING_OFFICER: "Safeguarding Officer",
+  VOLUNTEER: "Volunteer",
+  MEMBER: "Member",
+  COACH: "Coach",
+  TEAM_MANAGER: "Team Manager",
+  TEAM_ADMINISTRATION: "Team Administration",
+}
+
+/**
+ * THE CLUB-SCOPED ROLES THAT EARN THEIR OWN PLACE IN THE SWITCHER, in the order
+ * they appear there.
+ *
+ * A role is here when holding it means being offered a genuinely different set
+ * of destinations -- which is what the switcher is for. Club Admin runs the
+ * club; a Fixtures Secretary arranges matches; a Safeguarding Officer handles
+ * welfare and has their own screens; a Volunteer holds whichever narrow job
+ * their preset describes.
+ *
+ * MEMBER is deliberately absent, and that is not an oversight. Being an ordinary
+ * member of a club is not a job with its own workspace, and offering "Member" as
+ * something to switch INTO would put an empty room in the list. It stays what it
+ * has always been: the seat somebody holds when they hold nothing else.
+ *
+ * ORDER IS AUTHORITY-DESCENDING rather than alphabetical, so the list reads the
+ * way a club is organised and the broadest context is the one a session falls
+ * back to.
+ */
+export const SWITCHABLE_CLUB_ROLES: readonly CanonicalRoleKey[] = [
+  "CLUB_ADMIN",
+  "FIXTURES_SECRETARY",
+  "SAFEGUARDING_OFFICER",
+  "VOLUNTEER",
+] as const
+
+/**
+ * The team-scoped roles, most-to-least authoritative.
+ *
+ * Unlike the club list, a team context is still ONE per team: Coach and Team
+ * Manager of the same side are the same job seen from two angles and would offer
+ * the same destinations, so two entries for one team would be two doors into one
+ * room. The rank picks which name that single context carries.
+ */
+export const TEAM_ROLE_RANK: readonly CanonicalRoleKey[] = ["TEAM_ADMINISTRATION", "TEAM_MANAGER", "COACH"] as const
+
+export function canonicalRoleLabel(roleKey: string): string {
+  return CANONICAL_ROLE_LABEL[roleKey as CanonicalRoleKey] ?? roleKey
+}

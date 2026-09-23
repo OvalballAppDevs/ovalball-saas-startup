@@ -29,7 +29,10 @@ function session(over: Partial<SessionContext> = {}): SessionContext {
   } as unknown as SessionContext
 }
 const clubCtx = (label = "Burnley RUFC"): SwitchableContext =>
-  ({ key: "club:c-1", kind: "club", id: "c-1", playerId: null, label, switcherLabel: label, roleLabel: "Club Admin", logoUrl: null, clubId: "c-1" }) as SwitchableContext
+  // `clubRoleKey` is what the navigation gates on now -- it compared the printed
+  // roleLabel, which worked and would have broken silently the first time
+  // somebody reworded the label.
+  ({ key: "club:c-1:CLUB_ADMIN", kind: "club", id: "c-1", playerId: null, label, switcherLabel: label, roleLabel: "Club Admin", clubRoleKey: "CLUB_ADMIN", logoUrl: null, clubId: "c-1" }) as SwitchableContext
 const teamCtx = (id = "t-1"): SwitchableContext =>
   ({ key: `team:${id}`, kind: "team", id, playerId: null, label: "Under 12 Boys", switcherLabel: "Under 12 Boys", roleLabel: "Team Manager", logoUrl: null, clubId: "c-1" }) as SwitchableContext
 const clubAdminSession = () => session({

@@ -4139,6 +4139,13 @@
         ]
       },
       {
+        "signature": "apply_capability_preset(uuid, text, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/permissions/actions.ts"
+        ]
+      },
+      {
         "signature": "apply_season_handover(uuid, integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4336,6 +4343,13 @@
         ]
       },
       {
+        "signature": "cast_match_award_vote(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
         "signature": "change_membership_access_profile(uuid, uuid, jsonb, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4439,6 +4453,34 @@
         ]
       },
       {
+        "signature": "close_match_award(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
+        "signature": "club_access_history(uuid, uuid, integer)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/people/[membershipId]/page.tsx"
+        ]
+      },
+      {
+        "signature": "club_capability_presets(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/permissions/page.tsx"
+        ]
+      },
+      {
+        "signature": "club_competition_entries(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/competitions/club-entries.ts"
+        ]
+      },
+      {
         "signature": "club_credit_balance_pence(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4515,10 +4557,31 @@
         ]
       },
       {
+        "signature": "club_team_capabilities(uuid, uuid, text[])",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/permissions/page.tsx"
+        ]
+      },
+      {
         "signature": "club_trial_state(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
           "lib/platform/trial.ts"
+        ]
+      },
+      {
+        "signature": "compatible_opponent_identities(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/new/search-opponents.ts"
+        ]
+      },
+      {
+        "signature": "compatible_opponent_teams(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/new/search-opponents.ts"
         ]
       },
       {
@@ -4639,9 +4702,14 @@
       },
       {
         "signature": "create_fixture_message_with_attachment(uuid, uuid, text, text, text, text, integer)",
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": []
+      },
+      {
+        "signature": "create_governing_body_competition(text, uuid, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/messages/actions.ts"
+          "app/(app)/governing/actions.ts"
         ]
       },
       {
@@ -4650,6 +4718,14 @@
         "consumers": [
           "app/(app)/club/finance/actions.ts",
           "lib/payments/gocardless/activate-membership.ts"
+        ]
+      },
+      {
+        "signature": "create_message_attachment(message_target_type, uuid, text, text, text, text, integer)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/messages/actions.ts",
+          "apps/mobile/src/messages/attachments.ts"
         ]
       },
       {
@@ -4744,6 +4820,13 @@
           "app/(app)/club/setup/actions.ts"
         ],
         "reason": "Convergence Step 6. Names a venue and sets its default flag. The address parameters were REMOVED: create_venue and update_venue wrote the derived single-line venues.address directly and never touched the structured columns, so editing a venue in Club Settings left address_line_1/town/county stale. set_venue_address is now the only writer of a venue address."
+      },
+      {
+        "signature": "current_competition_season(text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/governing-body.ts"
+        ]
       },
       {
         "signature": "current_platform_mode()",
@@ -4948,10 +5031,24 @@
         ]
       },
       {
+        "signature": "end_impersonation(text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/impersonation-actions.ts"
+        ]
+      },
+      {
         "signature": "end_membership_subscription(uuid, text, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
           "lib/payments/gocardless/cancel-membership.ts"
+        ]
+      },
+      {
+        "signature": "end_my_guardian_access(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "supabase/tests/step9_family_and_availability.sql"
         ]
       },
       {
@@ -5070,27 +5167,6 @@
         ]
       },
       {
-        "signature": "club_team_capabilities(uuid, uuid, text[])",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/club/permissions/page.tsx"
-        ]
-      },
-      {
-        "signature": "compatible_opponent_identities(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/new/search-opponents.ts"
-        ]
-      },
-      {
-        "signature": "compatible_opponent_teams(uuid, uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/new/search-opponents.ts"
-        ]
-      },
-      {
         "signature": "get_club_event_card(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5186,6 +5262,13 @@
         ]
       },
       {
+        "signature": "get_governing_body(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/governing-body.ts"
+        ]
+      },
+      {
         "signature": "get_guardian_invitation_preview(text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5241,6 +5324,34 @@
         ]
       },
       {
+        "signature": "get_match_community(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/app-context/match-community.ts"
+        ]
+      },
+      {
+        "signature": "get_match_community_admin(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/app-context/match-community.ts"
+        ]
+      },
+      {
+        "signature": "get_match_kudos(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/app-context/match-community.ts"
+        ]
+      },
+      {
+        "signature": "get_match_recognition_squad(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/app-context/match-community.ts"
+        ]
+      },
+      {
         "signature": "get_membership_operational_detail(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5260,6 +5371,14 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "lib/app-context/event-centre-data.ts"
+        ]
+      },
+      {
+        "signature": "get_my_players_for_fixture(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/app-context/match-centre-data.ts",
+          "apps/mobile/src/match-centre/load.ts"
         ]
       },
       {
@@ -5398,7 +5517,7 @@
         "signature": "get_team_identities_for_season_batch(jsonb)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/mini-rugby/team-identity.server.ts"
+          "packages/contracts/src/agenda/team-identity.ts"
         ]
       },
       {
@@ -5441,6 +5560,48 @@
         "consumers": [
           "app/(app)/calendar/training-session-actions.ts",
           "lib/app-context/training-centre-data.ts"
+        ]
+      },
+      {
+        "signature": "give_match_kudos(uuid, uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
+        "signature": "governing_body_clubs(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/governing-body.ts"
+        ]
+      },
+      {
+        "signature": "governing_body_competition_matches(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/governing-body.ts"
+        ]
+      },
+      {
+        "signature": "governing_body_competitions(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/governing-body.ts"
+        ]
+      },
+      {
+        "signature": "governing_body_invitations(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/governing-body.ts"
+        ]
+      },
+      {
+        "signature": "governing_body_people(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/governing-body.ts"
         ]
       },
       {
@@ -5512,6 +5673,13 @@
           "app/(app)/people/actions.ts"
         ],
         "reason": "The roles a staff invitation may carry, read from the role catalogue so the invite form and the issuer cannot disagree. Returns catalogue rows only -- no club, person or invitation data."
+      },
+      {
+        "signature": "invite_governing_body_officer(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/governing/actions.ts"
+        ]
       },
       {
         "signature": "invite_player_account(uuid, text)",
@@ -5716,11 +5884,32 @@
         ]
       },
       {
+        "signature": "my_governing_bodies()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/governing-body.ts"
+        ]
+      },
+      {
         "signature": "my_guardian_link_requests()",
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/account/parent-guardian-section.tsx",
           "app/(app)/parent/children/page.tsx"
+        ]
+      },
+      {
+        "signature": "my_impersonation()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/layout.tsx"
+        ]
+      },
+      {
+        "signature": "my_player_age_grade_status(uuid, date)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/teams/age-grade.ts"
         ]
       },
       {
@@ -5774,6 +5963,13 @@
         "reason": "Phase 2 SA-4: Site Admin navigation renders from the database's site capabilities."
       },
       {
+        "signature": "my_team_relationship(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/teams/[teamId]/page.tsx"
+        ]
+      },
+      {
         "signature": "my_unread_counts()",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5804,6 +6000,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/messages/direct/[id]/actions.ts"
+        ]
+      },
+      {
+        "signature": "open_match_award(uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
         ]
       },
       {
@@ -5862,6 +6065,13 @@
         ]
       },
       {
+        "signature": "player_adult_transition(uuid, date)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "supabase/tests/step9_family_and_availability.sql"
+        ]
+      },
+      {
         "signature": "player_team_allocation(uuid, uuid)",
         "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
         "consumers": []
@@ -5896,9 +6106,15 @@
       },
       {
         "signature": "preview_my_fixture_contact_card(uuid, uuid)",
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": []
+      },
+      {
+        "signature": "preview_my_message_contact_card(message_target_type, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/messages/[kind]/[id]/contact-card.ts"
+          "app/(app)/messages/[kind]/[id]/contact-card.ts",
+          "apps/mobile/src/messages/contact-card.ts"
         ]
       },
       {
@@ -6213,6 +6429,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/club/settings/guardians/actions.ts"
+        ]
+      },
+      {
+        "signature": "remove_match_kudos(uuid, uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
         ]
       },
       {
@@ -6570,6 +6793,13 @@
         ]
       },
       {
+        "signature": "revoke_governing_body_role(uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/governing/actions.ts"
+        ]
+      },
+      {
         "signature": "revoke_invitation(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6856,6 +7086,13 @@
         ]
       },
       {
+        "signature": "set_governing_body_role(uuid, uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "supabase/tests/step14_governing_body.sql"
+        ]
+      },
+      {
         "signature": "set_guardian_player_permission(uuid, text, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7043,6 +7280,13 @@
         ]
       },
       {
+        "signature": "set_team_award_category(uuid, text, boolean, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ]
+      },
+      {
         "signature": "set_team_conversation_active(uuid, boolean)",
         "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
         "consumers": []
@@ -7073,6 +7317,22 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/messages/[kind]/[id]/document-share.ts"
+        ]
+      },
+      {
+        "signature": "share_message_contact_card(message_target_type, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/messages/[kind]/[id]/contact-card.ts",
+          "apps/mobile/src/messages/contact-card.ts"
+        ]
+      },
+      {
+        "signature": "share_message_document(message_target_type, uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/messages/[kind]/[id]/document-share.ts",
+          "apps/mobile/src/messages/attachments.ts"
         ]
       },
       {
@@ -7369,6 +7629,13 @@
         ]
       },
       {
+        "signature": "start_impersonation(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/impersonation-actions.ts"
+        ]
+      },
+      {
         "signature": "start_or_get_club_conversation(uuid, uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7423,6 +7690,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/admin/fixtures/actions.ts"
+        ]
+      },
+      {
+        "signature": "team_age_grade_attention(uuid, date)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/teams/age-grade.ts"
         ]
       },
       {
@@ -7682,125 +7956,6 @@
         ]
       },
       {
-        "signature": "withdraw_player_club_join_request(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/player/join/actions.ts"
-        ]
-      },
-      {
-        "signature": "apply_capability_preset(uuid, text, uuid, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/club/permissions/actions.ts"
-        ]
-      },
-      {
-        "signature": "club_capability_presets(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/club/permissions/page.tsx"
-        ]
-      },
-      {
-        "signature": "club_access_history(uuid, uuid, integer)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/people/[membershipId]/page.tsx"
-        ]
-      },
-      {
-        "signature": "player_adult_transition(uuid, date)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "supabase/tests/step9_family_and_availability.sql"
-        ]
-      },
-      {
-        "signature": "end_my_guardian_access(uuid, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "supabase/tests/step9_family_and_availability.sql"
-        ]
-      },
-      {
-        "signature": "my_team_relationship(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/teams/[teamId]/page.tsx"
-        ]
-      },
-      {
-        "signature": "cast_match_award_vote(uuid, uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
-        ]
-      },
-      {
-        "signature": "close_match_award(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
-        ]
-      },
-      {
-        "signature": "get_match_community(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "lib/app-context/match-community.ts"
-        ]
-      },
-      {
-        "signature": "get_match_community_admin(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "lib/app-context/match-community.ts"
-        ]
-      },
-      {
-        "signature": "get_match_kudos(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "lib/app-context/match-community.ts"
-        ]
-      },
-      {
-        "signature": "get_match_recognition_squad(uuid, uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "lib/app-context/match-community.ts"
-        ]
-      },
-      {
-        "signature": "give_match_kudos(uuid, uuid, uuid, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
-        ]
-      },
-      {
-        "signature": "open_match_award(uuid, uuid, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
-        ]
-      },
-      {
-        "signature": "remove_match_kudos(uuid, uuid, uuid, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
-        ]
-      },
-      {
-        "signature": "set_team_award_category(uuid, text, boolean, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
-        ]
-      },
-      {
         "signature": "withdraw_match_award_vote(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7815,129 +7970,10 @@
         ]
       },
       {
-        "signature": "my_player_age_grade_status(uuid, date)",
+        "signature": "withdraw_player_club_join_request(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/teams/age-grade.ts"
-        ]
-      },
-      {
-        "signature": "team_age_grade_attention(uuid, date)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "lib/teams/age-grade.ts"
-        ]
-      },
-      {
-        "signature": "end_impersonation(text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/impersonation-actions.ts"
-        ]
-      },
-      {
-        "signature": "my_impersonation()",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/layout.tsx"
-        ]
-      },
-      {
-        "signature": "start_impersonation(uuid, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/impersonation-actions.ts"
-        ]
-      },
-      {
-        "signature": "get_governing_body(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/governing-body.ts"
-        ]
-      },
-      {
-        "signature": "governing_body_clubs(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/governing-body.ts"
-        ]
-      },
-      {
-        "signature": "my_governing_bodies()",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/governing-body.ts"
-        ]
-      },
-      {
-        "signature": "set_governing_body_role(uuid, uuid, text, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "supabase/tests/step14_governing_body.sql"
-        ]
-      },
-      {
-        "signature": "governing_body_people(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/governing-body.ts"
-        ]
-      },
-      {
-        "signature": "governing_body_competitions(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/governing-body.ts"
-        ]
-      },
-      {
-        "signature": "revoke_governing_body_role(uuid, uuid, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/governing/actions.ts"
-        ]
-      },
-      {
-        "signature": "create_governing_body_competition(text, uuid, uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/governing/actions.ts"
-        ]
-      },
-      {
-        "signature": "invite_governing_body_officer(uuid, text, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/governing/actions.ts"
-        ]
-      },
-      {
-        "signature": "governing_body_invitations(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/governing-body.ts"
-        ]
-      },
-      {
-        "signature": "governing_body_competition_matches(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/governing-body.ts"
-        ]
-      },
-      {
-        "signature": "club_competition_entries(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "lib/competitions/club-entries.ts"
-        ]
-      },
-      {
-        "signature": "current_competition_season(text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/governing-body.ts"
+          "app/(app)/player/join/actions.ts"
         ]
       }
     ],
@@ -8136,6 +8172,7 @@
       "can_access_fixture_conversation(uuid, uuid)",
       "can_access_fixture_presence_topic(text)",
       "can_access_message(fixture_messages)",
+      "can_access_message_attachment_path(text, boolean)",
       "can_access_player_avatar(uuid)",
       "can_access_support_attachment_path(text, boolean)",
       "can_address_club_audience(uuid)",
@@ -8174,6 +8211,9 @@
       "can_player(text, uuid)",
       "can_player_as_family(text, uuid)",
       "can_player_at_club_or_team(text, uuid, boolean)",
+      "can_post_to_message_target(message_target_type, uuid)",
+      "can_read_attached_message(uuid)",
+      "can_read_message_target(message_target_type, uuid)",
       "can_review_club_access(uuid)",
       "can_run_directory_verification()",
       "can_send_safeguarding_conversation(uuid)",
@@ -8263,8 +8303,10 @@
       "may_publish_club_content(uuid, uuid)",
       "may_resolve_join_request(uuid, uuid)",
       "may_send_as(text, uuid)",
+      "may_share_document_to_target(uuid, message_target_type, uuid)",
       "may_view_club_member_content(uuid, uuid)",
       "message_realtime_topic(fixture_messages)",
+      "message_target_storage_prefix(message_target_type)",
       "messaging_club_ids(uuid)",
       "mini_rugby_display_tag(uuid[], uuid)",
       "next_age_grade(text)",
@@ -8305,8 +8347,11 @@
       "resolve_canonical_team_type(text, text, text, text, text)",
       "resolve_directory_verification_scope(text, uuid, jsonb)",
       "resolve_incoming_request_target(uuid)",
+      "resolve_my_direct_contact_role(uuid)",
       "resolve_my_fixture_club_id(uuid, uuid)",
       "resolve_my_fixture_contact_role(uuid, uuid)",
+      "resolve_my_message_contact_role(message_target_type, uuid)",
+      "resolve_my_message_policy_club(message_target_type, uuid)",
       "resolve_normal_placement_team(uuid, uuid, uuid)",
       "resolve_player_chronological_age(date, date)",
       "resolve_player_movement_eligibility(text, date, date, uuid, uuid, uuid)",

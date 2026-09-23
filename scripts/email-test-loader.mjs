@@ -21,7 +21,7 @@
 import { registerHooks } from "node:module"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { dirname, resolve as resolvePath } from "node:path"
-import { existsSync } from "node:fs"
+import { existsSync, statSync } from "node:fs"
 
 const ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), "..")
 const STUB = pathToFileURL(resolvePath(ROOT, "scripts/server-only-stub.mjs")).href
@@ -56,10 +56,23 @@ registerHooks({
   },
 })
 
-/** The first of base, base.ts, base.tsx, base/index.ts that exists on disk. */
+/**
+ * The first of base, base.ts, base.tsx, base/index.ts that exists AS A FILE.
+ *
+ * The directory check is the whole point of the `statSync` here. `base` was
+ * returned whenever it existed, and a specifier naming a DIRECTORY -- which is
+ * what `export * from "./agenda"` and `export * from "./availability"` are --
+ * exists, so the loader handed Node a directory and it failed with
+ * `EISDIR: illegal operation on a directory, read`. The effect was that the
+ * contracts barrel could not be imported from a test at all, while importing a
+ * module inside it by its full path worked -- so it looked like one test file
+ * being awkward rather than a resolver bug.
+ */
 function firstExisting(base) {
   for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`]) {
-    if (existsSync(candidate)) return pathToFileURL(candidate).href
+    if (!existsSync(candidate)) continue
+    if (statSync(candidate).isDirectory()) continue
+    return pathToFileURL(candidate).href
   }
   return null
 }

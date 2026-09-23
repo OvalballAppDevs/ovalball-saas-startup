@@ -16,7 +16,32 @@ export interface ClubMembershipContext {
   clubName: string
   clubSlug: string
   clubLogoUrl: string | null
+  /**
+   * THE LEGACY PROJECTION -- Club Admin, else Fixture Secretary, else Member.
+   *
+   * Kept because a great deal of the product asks exactly this question ("does
+   * this person run the club?") and is right to. It is lossy by construction:
+   * somebody who is both a Club Admin and the Safeguarding Officer reads
+   * CLUB_ADMIN here, and somebody who is both a Club Admin and the Fixtures
+   * Secretary reads CLUB_ADMIN here too. Use `roles` where the answer needs to
+   * be complete.
+   */
   role: ClubRole
+  /**
+   * EVERY CLUB-SCOPED ROLE THIS PERSON ACTUALLY HOLDS at this club, from the
+   * canonical `role_assignments`.
+   *
+   * The database has always allowed them to stack -- `role_assignments` is
+   * unique on (user, club, team, ROLE_KEY), and `internal.grant_role` refuses
+   * none of the ordinary combinations -- and one person very often does hold
+   * several. A club's Safeguarding Officer is usually also somebody's parent; a
+   * Fixtures Secretary is very often a coach as well. What collapsed them was
+   * this projection, not the model.
+   *
+   * Only ACTIVE assignments on an ACTIVE membership, so a suspended role stops
+   * putting its screens in front of somebody the database would refuse.
+   */
+  roles: string[]
 }
 
 export interface TeamPermissionContext {
@@ -25,6 +50,17 @@ export interface TeamPermissionContext {
   clubId: string
   clubName: string
   permission: TeamPermissionValue
+  /**
+   * The canonical `role_assignments.role_key` this permission was projected
+   * from -- COACH, TEAM_MANAGER or TEAM_ADMINISTRATION -- so a surface can name
+   * the role the way `role_definitions` does rather than the way the legacy
+   * `team_permissions` view spells it.
+   *
+   * Still ONE per team: Coach and Team Manager of the same side are the same job
+   * seen from two angles and offer the same destinations, so two entries for one
+   * team would be two doors into one room. The rank picks which name it carries.
+   */
+  roleKey: string
 }
 
 export type SiteAdminRole = "full" | "fixture_ops" | "club_data" | "user_access" | "message_moderator" | "read_only" | "content"
@@ -237,19 +273,23 @@ export async function getSessionContext(
       clubSlug: m.clubs?.slug ?? "",
       clubLogoUrl: resolveClubLogoUrl(supabase, m.clubs),
       role: held?.has("CLUB_ADMIN") ? "CLUB_ADMIN" : held?.has("FIXTURES_SECRETARY") ? "FIXTURE_SECRETARY" : "BASIC_USER",
+      // EVERY role, not the winner of a three-way. The line above is the legacy
+      // question most of the product asks; this is the complete answer, and it
+      // is what the context switcher is built from.
+      roles: held ? Array.from(held) : [],
     }
   })
 
   // One legacy permission per team, as the team_permissions view projects it:
   // Team Administration over Team Manager over Coach.
-  const TEAM_ROLE_RANK: Record<string, [number, TeamPermissionValue]> = {
+  const TEAM_ROLE_PROJECTION: Record<string, [number, TeamPermissionValue]> = {
     TEAM_ADMINISTRATION: [1, "team_admin"],
     TEAM_MANAGER: [2, "manager"],
     COACH: [3, "coach"],
   }
   const bestByTeam = new Map<string, { rank: number; row: NonNullable<typeof roleRows>[number] }>()
   for (const r of roleRows ?? []) {
-    const rank = r.team_id ? TEAM_ROLE_RANK[r.role_key] : undefined
+    const rank = r.team_id ? TEAM_ROLE_PROJECTION[r.role_key] : undefined
     if (!r.team_id || !rank) continue
     const current = bestByTeam.get(r.team_id)
     if (!current || rank[0] < current.rank) bestByTeam.set(r.team_id, { rank: rank[0], row: r })
@@ -259,7 +299,8 @@ export async function getSessionContext(
     teamDisplayName: row.teams?.display_name ?? "Team",
     clubId: row.teams?.club_id ?? row.club_id,
     clubName: row.teams?.clubs?.club_directory?.name ?? "Club",
-    permission: TEAM_ROLE_RANK[row.role_key][1],
+    permission: TEAM_ROLE_PROJECTION[row.role_key][1],
+    roleKey: row.role_key,
   }))
 
   // One answer for site authority: the database's site capabilities, never the legacy switches.

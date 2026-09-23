@@ -587,7 +587,41 @@ export function buildNavItems(
       if (ctx.clubMemberships.length > 0) {
         items.push({ href: "/documents", label: "Documents" })
       }
-      if (activeContext.kind === "club" && activeContext.roleLabel === "Club Admin") {
+
+      /*
+        THE SAFEGUARDING OFFICER'S OWN WORKSPACE.
+
+        Standing in the Safeguarding Officer context used to produce the generic
+        club navigation -- Fixtures, Calendar, Fixture Control Centre, Partner
+        Clubs -- which is somebody else's job entirely. A context that offers
+        nothing belonging to the role it is named after is a context in name
+        only, and it is worse than no context, because it looks like the product
+        has an answer.
+
+        The destination is the club's own safeguarding hub, which is where the
+        officer's contact details, their nomination state and their safeguarding
+        conversations live. Gated on `clubNav.canSafeguarding`, the canonical
+        resolver's answer -- not on the context being selected, which decides
+        only what is OFFERED.
+      */
+      if (activeContext.kind === "club" && activeContext.clubRoleKey === "SAFEGUARDING_OFFICER" && clubNav?.canSafeguarding) {
+        items.push({ href: "/club/settings/safeguarding", label: "Safeguarding" })
+      }
+      /*
+        THE ROLE KEY, NOT THE PRINTED WORD.
+
+        This compared `activeContext.roleLabel === "Club Admin"` -- the label a
+        person reads. It worked, and it would have stopped working silently the
+        first time somebody reworded the label, taking the entire
+        club-administration group with it. The key is `role_definitions.role_key`
+        and is not presentation.
+
+        Still presentation-gating, exactly as this whole file is: every page and
+        every RPC behind these links re-checks the real capability server-side,
+        and `clubNav` below is the canonical resolver's answer rather than a role
+        string.
+      */
+      if (activeContext.kind === "club" && activeContext.clubRoleKey === "CLUB_ADMIN") {
         // The landing page of the Users & Permissions group. It was called
         // "People", which named the longest list on it rather than the question
         // it answers, and sat as a sibling of Permissions and Join Requests as

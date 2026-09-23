@@ -1,5 +1,5 @@
 import { BODY_ROLE_LABEL } from "./governing-roles"
-import { CLUB_ROLE_LABEL, teamPermissionLabel } from "./role-labels"
+import { CLUB_ROLE_LABEL, SWITCHABLE_CLUB_ROLES, canonicalRoleLabel, teamPermissionLabel } from "./role-labels"
 
 import type { SessionContext } from "./session-context"
 
@@ -60,7 +60,8 @@ export type ActiveContextKind = "site_admin" | "club" | "team" | "parent" | "pla
 export interface SwitchableContext {
   /**
    * Stable identity for the cookie and the switcher UI -- "site_admin" |
-   * "club:<id>" | "team:<id>" | "parent:<id>" | "parent:<playerId>:<teamId>"
+   * "club:<clubId>:<roleKey>" | "team:<id>" | "parent:<id>" |
+   * "parent:<playerId>:<teamId>"
    * | "player:<id>". A guardian-relationship-sourced "parent" context is
    * keyed by BOTH playerId and teamId (Side Project 1 integration,
    * Section 17): a Guardian with two children on the SAME team must get
@@ -104,6 +105,21 @@ export interface SwitchableContext {
   logoUrl: string | null
   /** The owning club, resolved once at push time from whichever source produced this context (club membership, team_permissions, guardianRelationships, or linkedPlayerTeams) -- never re-derived by looking a team back up in team_permissions, which doesn't exist for a Guardian/Player-sourced context. null only for "site_admin" (no ambient club) or the empty fallback context. */
   clubId: string | null
+  /**
+   * WHICH club role this context is, for a `kind: "club"` context -- CLUB_ADMIN,
+   * FIXTURES_SECRETARY, SAFEGUARDING_OFFICER or VOLUNTEER.
+   *
+   * One person can hold several at one club, so the club alone no longer
+   * identifies the context and `key` carries this too. Undefined on every other
+   * kind.
+   *
+   * PRESENTATION AND DEFAULT SCOPE ONLY, exactly like every other field here.
+   * Selecting the Safeguarding Officer context grants nothing: the role has to
+   * be a CONFIRMED assignment in `role_assignments` for the session to be
+   * offered it at all, and every read and write behind it is still decided by
+   * `internal.can` against that same assignment.
+   */
+  clubRoleKey?: string
 }
 
 export const ACTIVE_CONTEXT_COOKIE = "ovalball_ctx"
@@ -150,18 +166,52 @@ export function isFamilyFacingContext(kind: ActiveContextKind): boolean {
  */
 export function listSwitchableContexts(ctx: SessionContext): SwitchableContext[] {
   const out: SwitchableContext[] = []
+
+  /*
+    ONE CONTEXT PER ROLE ACTUALLY HELD, NOT ONE PER CLUB.
+
+    This used to read `m.role`, which is the LEGACY projection -- Club Admin,
+    else Fixture Secretary, else Member. It could express exactly one club role
+    per person, so somebody who is both a Club Admin and their club's
+    Safeguarding Officer got a single "Club Admin" entry, and the Safeguarding
+    Officer half of their job had nowhere in the product to be. Somebody who was
+    both Club Admin and Fixtures Secretary got one entry too, and it was the
+    wrong shape of answer rather than a shortage of room.
+
+    The database never had that limit. `role_assignments` is unique on
+    (user, club, team, ROLE_KEY) -- the roles STACK -- and `internal.grant_role`
+    refuses none of the ordinary combinations; it only revokes the plain Member
+    seat when a Club Admin or Fixtures Secretary role arrives, because being an
+    ordinary member is what you are when you are nothing else. One person holding
+    several is the normal case in a volunteer-run club, not an edge one.
+
+    WHICH ROLES GET AN ENTRY is `SWITCHABLE_CLUB_ROLES`, and the rule is whether
+    holding it means being offered a genuinely different set of destinations --
+    which is the only thing a context switcher is for. MEMBER is deliberately not
+    among them: an ordinary membership is not a job with its own workspace, and
+    offering it would put an empty room in the list.
+
+    THE KEY NOW CARRIES THE ROLE, because two contexts at one club must not
+    collide on one identity. A stored `club:<id>` selection from before this
+    change simply no longer matches, and `resolveActiveContext` falls back to the
+    first club context -- which is the Club-Admin one, ordered first, and
+    therefore the same place that person was already standing.
+  */
   for (const m of ctx.clubMemberships) {
-    if (m.role === "CLUB_ADMIN" || m.role === "FIXTURE_SECRETARY") {
+    for (const roleKey of SWITCHABLE_CLUB_ROLES) {
+      if (!m.roles.includes(roleKey)) continue
       out.push({
-        key: `club:${m.clubId}`,
+        key: `club:${m.clubId}:${roleKey}`,
         kind: "club",
         id: m.clubId,
         playerId: null,
         label: m.clubName,
         switcherLabel: m.clubName,
-        roleLabel: CLUB_ROLE_LABEL[m.role],
+        // The database's own word for the role, from role_definitions.
+        roleLabel: canonicalRoleLabel(roleKey),
         logoUrl: m.clubLogoUrl,
         clubId: m.clubId,
+        clubRoleKey: roleKey,
       })
     }
   }

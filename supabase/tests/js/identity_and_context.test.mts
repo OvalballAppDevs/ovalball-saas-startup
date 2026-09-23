@@ -35,9 +35,20 @@ function session(over: Partial<SessionContext> = {}): SessionContext {
   } as unknown as SessionContext
 }
 
-const club = (id: string, name: string, role = "CLUB_ADMIN") => ({
+/**
+ * `roles` is derived from `role` rather than passed, so every call site stays
+ * correct as the switcher moved from one context per CLUB to one per ROLE HELD.
+ * These fixtures cast through `as unknown`, so the compiler cannot tell a call
+ * site that forgot a field -- which is exactly how governingBodies was missed
+ * once already (see the note in `session` above). Deriving it removes the chance.
+ */
+const club = (id: string, name: string, role = "CLUB_ADMIN", roles?: string[]) => ({
   clubId: id, clubName: name, role, clubLogoUrl: null, clubSlug: `slug-${id}`,
+  roles: roles ?? (role === "CLUB_ADMIN" ? ["CLUB_ADMIN"] : role === "FIXTURE_SECRETARY" ? ["FIXTURES_SECRETARY"] : ["MEMBER"]),
 }) as unknown as SessionContext["clubMemberships"][number]
+
+/** The key a club context carries now that one club can hold several roles. */
+const CLUB_KEY = "club:c-1:CLUB_ADMIN"
 const child = (playerId: string, first: string, teamId: string) => ({
   playerId, playerFirstName: first, playerSurname: "Everly", teamId,
   teamDisplayName: "Under 10 Mixed", clubId: "c-1", clubName: "UX2 Multi RUFC", avatarStoragePath: null,
@@ -130,7 +141,7 @@ test("3. switching selects a different context and leaves the identity alone", (
     clubMemberships: [club("c-1", "UX2 Multi RUFC")],
   })
   const contexts = listSwitchableContexts(ctx)
-  const asClub = resolveActiveContext(ctx, "club:c-1")
+  const asClub = resolveActiveContext(ctx, CLUB_KEY)
   const asSite = resolveActiveContext(ctx, "site_admin")
   assert.notEqual(asClub.key, asSite.key)
   // The person is not part of a context at all -- which is the whole point. Switching cannot change who
@@ -170,14 +181,14 @@ test("4. a context the identity does not hold cannot be selected", () => {
 test("4c. X-4: a context this session HELD YESTERDAY and no longer holds does not resolve", () => {
   // Yesterday: a Club Admin at c-1, with a cookie naming it.
   const before = session({ clubMemberships: [club("c-1", "UX2 Multi RUFC")] })
-  const held = resolveActiveContext(before, "club:c-1")
-  assert.equal(held.key, "club:c-1", "the precondition failed: this context was never held")
+  const held = resolveActiveContext(before, CLUB_KEY)
+  assert.equal(held.key, CLUB_KEY, "the precondition failed: this context was never held")
 
   // Today: the role is gone. The cookie in the browser has not changed.
   const after = session({ clubMemberships: [] })
-  const stale = resolveActiveContext(after, "club:c-1")
+  const stale = resolveActiveContext(after, CLUB_KEY)
 
-  assert.notEqual(stale.key, "club:c-1", "a removed club authority still resolved from a stale cookie")
+  assert.notEqual(stale.key, CLUB_KEY, "a removed club authority still resolved from a stale cookie")
   assert.equal(stale.key, "none", "a session with nothing left resolved to something other than the fallback")
   // The fallback is deliberately shaped like a club context with no club in it
   // -- the shell always has something to render -- so the assertion that
@@ -189,7 +200,7 @@ test("4c. X-4: a context this session HELD YESTERDAY and no longer holds does no
 test("4d. X-4: a stale cookie falls back to a context the session really has, not to nothing usable", () => {
   // Club Admin at c-1 and c-2 yesterday; c-1 removed today.
   const after = session({ clubMemberships: [club("c-2", "UX2 Other RUFC")] })
-  const stale = resolveActiveContext(after, "club:c-1")
+  const stale = resolveActiveContext(after, CLUB_KEY)
   assert.equal(stale.clubId, "c-2")
   assert.ok(
     listSwitchableContexts(after).some((c) => c.key === stale.key),
@@ -199,7 +210,7 @@ test("4d. X-4: a stale cookie falls back to a context the session really has, no
 
 test("4e. X-4: losing the LAST context leaves a stale cookie resolving to nothing scoped", () => {
   const after = session({ clubMemberships: [] })
-  const stale = resolveActiveContext(after, "club:c-1")
+  const stale = resolveActiveContext(after, CLUB_KEY)
   assert.equal(stale.clubId, null)
   assert.equal(stale.playerId, null, "a session with nothing left still carried a subject through")
 })
@@ -228,7 +239,7 @@ test("4f. a linked player with a legacy view_only row on their OWN team is not o
   const ctx = session({
     linkedPlayerTeams: [own],
     teamPermissions: [
-      { teamId: "team-9", teamDisplayName: "Under 16 Boys", clubId: "club-1", clubName: "UX2 Multi RUFC", permission: "view_only" },
+      { teamId: "team-9", teamDisplayName: "Under 16 Boys", clubId: "club-1", clubName: "UX2 Multi RUFC", permission: "view_only", roleKey: "MEMBER" },
     ],
   })
   const contexts = listSwitchableContexts(ctx)
@@ -243,7 +254,7 @@ test("4f. a linked player with a legacy view_only row on their OWN team is not o
 test("4g. but an unmigrated PARENT with only a view_only row still gets their context", () => {
   const ctx = session({
     teamPermissions: [
-      { teamId: "team-9", teamDisplayName: "Under 16 Boys", clubId: "club-1", clubName: "UX2 Multi RUFC", permission: "view_only" },
+      { teamId: "team-9", teamDisplayName: "Under 16 Boys", clubId: "club-1", clubName: "UX2 Multi RUFC", permission: "view_only", roleKey: "MEMBER" },
     ],
   })
   const contexts = listSwitchableContexts(ctx)
@@ -264,7 +275,7 @@ test("5. Site Admin and club authority coexist, and selecting one does not distu
   const ctx = session({ isSiteAdmin: true, clubMemberships: [club("c-1", "UX2 Multi RUFC")] })
   const before = JSON.stringify(ctx)
   const asSite = resolveActiveContext(ctx, "site_admin")
-  const asClub = resolveActiveContext(ctx, "club:c-1")
+  const asClub = resolveActiveContext(ctx, CLUB_KEY)
   assert.equal(asSite.kind, "site_admin")
   assert.equal(asClub.kind, "club")
   // Site Admin is platform authority and is not scoped to a club; a club context must not inherit it.
