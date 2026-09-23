@@ -8,6 +8,7 @@ import { getRecentNotifications, type NotificationItem } from "@ovalball/contrac
 import { supabase } from "../../src/auth/supabase"
 import { webUrl } from "../../src/config/environment"
 import { useAppContexts } from "../../src/context/contexts"
+import { routeForIntent } from "../../src/links/destinations"
 import { resolveIntent } from "../../src/links/intents"
 import { Bell, ChevronRight } from "../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../src/components/ui"
@@ -80,30 +81,14 @@ export default function Notifications() {
       filtered out of a list by a client.
     */
     const intent = resolveIntent(`ovalball://${item.href.replace(/^\//, "")}`)
-    switch (intent.kind) {
-      case "FIXTURE":
-        router.push({ pathname: "/fixtures/[fixtureId]", params: { fixtureId: intent.fixtureId } })
-        return
-      case "MATCH_CENTRE":
-        router.push({ pathname: "/fixtures/[fixtureId]/match-centre", params: { fixtureId: intent.fixtureId } })
-        return
-      case "TRAINING":
-        router.push({ pathname: "/calendar/training/[sessionId]", params: { sessionId: intent.sessionId } })
-        return
-      case "MESSAGE_THREAD":
-        router.push({ pathname: "/messages/[kind]/[id]", params: { kind: intent.conversationKind, id: intent.conversationId } })
-        return
-      case "MESSAGES":
-        router.push("/messages")
-        return
-      case "CALENDAR":
-        router.push("/calendar")
-        return
-      default:
-        // Everything the app has no native screen for yet opens the canonical
-        // page rather than nothing at all.
-        void Linking.openURL(`${webUrl}${item.href}`)
+    const route = routeForIntent(intent)
+    if (route) {
+      router.push(route as never)
+      return
     }
+    // Everything the app has no native screen for yet opens the canonical page
+    // rather than nothing at all.
+    void Linking.openURL(`${webUrl}${item.href}`)
   }
 
   return (

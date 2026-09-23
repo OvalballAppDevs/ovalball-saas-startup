@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { AgendaItem, RangeMode } from "@ovalball/contracts"
-import { nextAnchor, previousAnchor, windowContainsToday } from "@ovalball/contracts"
+import { memberFor, nextAnchor, previousAnchor, windowContainsToday } from "@ovalball/contracts"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -17,6 +17,7 @@ import { ChildFilter } from "../../../src/components/child-filter"
 import { useFamily } from "../../../src/family/family"
 import { ContextSheet } from "../../../src/components/context-sheet"
 import { AgendaRow } from "../../../src/components/agenda-row"
+import { routeForAgendaItem } from "../../../src/links/destinations"
 import { SeasonGrid } from "../../../src/components/season-grid"
 import { WeekSheet } from "../../../src/components/week-sheet"
 import {
@@ -168,7 +169,7 @@ export default function Calendar() {
   /* The same merge Fixtures does, and for the same reason: the selected child
      is family state, already normalised against the resolved family, so the
      chip row and the calendar cannot disagree about who is selected. */
-  const { selectedPlayerId } = useFamily()
+  const { selectedPlayerId, projection } = useFamily()
   const effective = useMemo(() => ({ ...filter, playerId: selectedPlayerId }), [filter, selectedPlayerId])
   const shown = useMemo(() => (items ? applyFilter(items, effective) : null), [items, effective])
   const days = useMemo(() => {
@@ -184,6 +185,21 @@ export default function Calendar() {
   }, [openWeek, shown])
   const busyDates = useMemo(() => new Set((shown ?? []).map((item) => item.date)), [shown])
   const showOwner = active?.kind !== "team"
+
+  /*
+    ONE DESTINATION TABLE, for every way into an event from this screen -- the
+    month grid, the week list and the week sheet. Three copies of the same two
+    lines is three chances for one of them to keep sending a parent to fixture
+    administration after the others stopped.
+  */
+  const openEvent = useCallback(
+    (item: AgendaItem) => {
+      if (!active) return
+      const route = routeForAgendaItem(item, active.kind)
+      if (route) router.push(route as never)
+    },
+    [router, active]
+  )
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
@@ -406,14 +422,15 @@ export default function Calendar() {
                     item={item}
                     today={today}
                     showOwner={showOwner}
-                    // EVERY EVENT ROUTES TO ITS OWN DOMAIN OBJECT. A fixture opens the Fixture Console
-                    // -- the same screen the Fixtures tab opens, not a calendar-flavoured copy -- and a
-                    // training session opens the Training Centre. Neither is a "calendar event detail".
-                    onPress={() =>
-                      item.kind === "fixture"
-                        ? router.push(`/fixtures/${item.eventId}` as never)
-                        : router.push(`/calendar/training/${item.eventId}` as never)
-                    }
+                    child={memberFor(projection, item.playerId)}
+                    // EVERY EVENT ROUTES TO ITS OWN DOMAIN OBJECT, and which one it
+                    // is comes from the single destination table in
+                    // src/links/destinations -- shared with Home, Fixtures, a
+                    // notification and a deep link. A match opens the Match Centre
+                    // for a parent or a player and the fixture console for staff; a
+                    // session opens the Training Centre. Neither is ever a
+                    // "calendar event detail".
+                    onPress={() => openEvent(item)}
                   />
                 </View>
               ))}
@@ -442,8 +459,7 @@ export default function Calendar() {
         onClose={() => setOpenWeek(null)}
         onOpenItem={(item) => {
           setOpenWeek(null)
-          if (item.kind === "fixture") router.push(`/fixtures/${item.eventId}` as never)
-          else router.push(`/calendar/training/${item.eventId}` as never)
+          openEvent(item)
         }}
       />
 

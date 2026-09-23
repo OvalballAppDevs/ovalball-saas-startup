@@ -10,6 +10,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 import { View } from "react-native"
 
 import { SessionProvider, useSession } from "../src/auth/session"
+import { routeForIntent } from "../src/links/destinations"
 import { resolveIntent, type LinkIntent } from "../src/links/intents"
 import { ContextProvider } from "../src/context/contexts"
 import { FamilyProvider } from "../src/family/family"
@@ -64,43 +65,16 @@ function useIncomingLinks() {
 
   const deliver = useCallback(
     (intent: LinkIntent) => {
-      if (intent.kind === "MESSAGES") {
-        router.push("/messages")
-        return
-      }
-      if (intent.kind === "MESSAGE_THREAD") {
-        // The id decides WHERE to go, never WHETHER: the screen reads it through RLS and says the
-        // conversation is unavailable if it is not this person's.
-        router.push({
-          pathname: "/messages/[kind]/[id]",
-          params: { kind: intent.conversationKind, id: intent.conversationId },
-        })
-        return
-      }
-      // THE SAME RULE FOR RUGBY. A fixture id says where to go and nothing about whether it may be
-      // opened; the detail screen reads it through RLS and says it is unavailable if it is not this
-      // person's -- which is also what a deleted fixture does, deliberately.
-      if (intent.kind === "FIXTURES") {
-        router.push("/fixtures")
-        return
-      }
-      if (intent.kind === "FIXTURE") {
-        router.push({ pathname: "/fixtures/[fixtureId]", params: { fixtureId: intent.fixtureId } })
-        return
-      }
-      if (intent.kind === "MATCH_CENTRE") {
-        router.push({ pathname: "/fixtures/[fixtureId]/match-centre", params: { fixtureId: intent.fixtureId } })
-        return
-      }
-      if (intent.kind === "TRAINING") {
-        router.push({ pathname: "/calendar/training/[sessionId]", params: { sessionId: intent.sessionId } })
-        return
-      }
-      if (intent.kind === "CALENDAR") {
-        // The anchor is carried so a notification about a particular day opens on it. The Calendar
-        // ignores an absent one and opens on today, which is the right default for a tap with no date.
-        router.push("/calendar")
-      }
+      // ONE ROUTE TABLE, shared with every list in the app (src/links/destinations).
+      // An id says WHERE to go and nothing about WHETHER it may be opened: each
+      // screen reads its event through the canonical readers and RLS, and says it
+      // is unavailable if it is not this person's -- which is also what a deleted
+      // one does, deliberately, because the difference is not ours to reveal.
+      //
+      // A CALENDAR anchor is carried in the intent and ignored by the route: the
+      // Calendar opens on today, which is the right default for a tap with no date.
+      const route = routeForIntent(intent)
+      if (route) router.push(route as never)
     },
     [router]
   )

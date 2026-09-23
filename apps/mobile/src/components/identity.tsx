@@ -33,11 +33,22 @@ export function PersonAvatar({
   url,
   size = 44,
   style,
+  initials,
 }: {
   name: string | null
   url: string | null
   size?: number
   style?: StyleProp<ViewStyle>
+  /**
+   * THE AUTHORITY'S OWN INITIALS, where one exists.
+   *
+   * A child's identity is projected by `FamilyProjection`, which already decides
+   * their initials from the canonical name -- so a caller that has a family member
+   * passes them rather than letting this component reach the same answer a second
+   * way. The local derivation below stays for a person nobody has projected: the
+   * signed-in user's own picture, a message sender, an opposition contact.
+   */
+  initials?: string
 }) {
   const label = name ? `${name}'s picture` : "Your picture"
   return (
@@ -61,7 +72,7 @@ export function PersonAvatar({
       {url ? (
         <Image source={{ uri: url }} style={{ width: size, height: size }} contentFit="cover" transition={120} />
       ) : (
-        <Text style={[type.smallMedium, { color: colour.forest800, fontSize: size * 0.36 }]}>{initialsOf(name)}</Text>
+        <Text style={[type.smallMedium, { color: colour.forest800, fontSize: size * 0.36 }]}>{initials ?? initialsOf(name)}</Text>
       )}
     </View>
   )

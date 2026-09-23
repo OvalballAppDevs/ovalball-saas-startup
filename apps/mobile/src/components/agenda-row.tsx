@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from "react-native"
-import type { ClubTheme, AgendaItem } from "@ovalball/contracts"
+import type { ClubTheme, AgendaItem, FamilyMember } from "@ovalball/contracts"
 import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
 
 import {
@@ -13,6 +13,7 @@ import {
   statusTone,
   type StatusTone,
 } from "../agenda/presentation"
+import { ChildMark } from "./child-mark"
 import { ClubCrest, PersonAvatar } from "./identity"
 import { Clock, MapPin, OvalIcon, Users } from "./icons"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
@@ -41,11 +42,22 @@ export function AgendaRow({
   onPress,
   /** Shown in a family or club view, where a row needs to say whose rugby it is. */
   showOwner = false,
+  child = null,
 }: {
   item: AgendaItem
   today: string
   onPress?: () => void
   showOwner?: boolean
+  /**
+   * THE CHILD THIS ROW BELONGS TO, projected by `FamilyProjection`.
+   *
+   * Passed in rather than derived, because the projection is the one authority
+   * for a child's name and picture. When it is present the row LEADS with the
+   * child -- which is the first thing a guardian of two is asking -- and the
+   * child's first name is dropped from the grey metadata below, where it used to
+   * be the quietest thing on the most important row.
+   */
+  child?: FamilyMember | null
 }) {
   const status = statusTone(item.status)
   const struck = status?.struck ?? false
@@ -112,6 +124,10 @@ export function AgendaRow({
       )}
 
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        {/* WHO, THEN WHAT. A guardian scanning a week is looking for a person
+            before a date, and the aggregated view must never make them work it out
+            from an age grade. */}
+        {!!child && <ChildMark member={child} style={{ marginBottom: 1 }} />}
         <Text
           numberOfLines={2}
           style={[
@@ -128,8 +144,10 @@ export function AgendaRow({
         </Text>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
-          {!!ownerLabel(item) && (
-            <Meta icon={<OvalIcon size={12} color={colour.inkMuted} />} text={ownerLabel(item)!} />
+          {/* The child's name is above now when there is one, so repeating it here
+              would be the same fact twice; our own side's name still belongs. */}
+          {!!ownerLabel(item, child !== null) && (
+            <Meta icon={<OvalIcon size={12} color={colour.inkMuted} />} text={ownerLabel(item, child !== null)!} />
           )}
           {!!shortVenue(item.venue) && <Meta icon={<MapPin size={12} color={colour.inkMuted} />} text={shortVenue(item.venue)!} />}
         </View>
@@ -161,7 +179,8 @@ export function AgendaRow({
  * which of our sides is playing -- and a club running seven teams needs that more than it needs the
  * word "v".
  */
-function ownerLabel(item: AgendaItem): string | null {
+function ownerLabel(item: AgendaItem, childShownAbove: boolean): string | null {
+  if (childShownAbove) return item.us.teamName ?? null
   return item.childFirstName ?? item.us.teamName ?? null
 }
 
@@ -279,6 +298,7 @@ export function NextFixtureCard({
   today,
   theme,
   onPress,
+  child = null,
 }: {
   item: AgendaItem
   today: string
@@ -297,6 +317,15 @@ export function NextFixtureCard({
    */
   theme?: ClubTheme | null
   onPress?: () => void
+  /**
+   * THE CHILD THIS IS ABOUT, projected by `FamilyProjection`.
+   *
+   * On the card that a parent looks at first, "whose match is this" outranks every
+   * other fact on it. The child's first name used to be a suffix on the team line
+   * -- "Under 12 Boys · Pippa" -- which is the least prominent place on the card
+   * for the most important word.
+   */
+  child?: FamilyMember | null
 }) {
   const status = statusTone(item.status)
   const struck = status?.struck ?? false
@@ -340,9 +369,22 @@ export function NextFixtureCard({
         opacity: pressed ? 0.94 : 1,
       })}
     >
-      <Text style={[type.overline, { color: inkMuted }]}>
-        {item.kind === "training" ? "NEXT TRAINING" : "NEXT FIXTURE"}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
+        <Text style={[type.overline, { color: inkMuted }]}>
+          {item.kind === "training" ? "NEXT TRAINING" : "NEXT FIXTURE"}
+        </Text>
+        {/* WHOSE, ON THE CARD'S OWN TOP LINE. Drawn in the card's ink rather than
+            the page's, because the ground here is the club's colour and the shared
+            mark's default would disappear into a dark kit. */}
+        {!!child && (
+          <View accessible accessibilityLabel={child.shortLabel} style={{ flexDirection: "row", alignItems: "center", gap: space.xs, flexShrink: 1 }}>
+            <PersonAvatar name={child.fullName} url={child.avatarUrl} initials={child.initials} size={22} />
+            <Text numberOfLines={1} style={[type.smallMedium, { color: ink, flexShrink: 1 }]}>
+              {child.shortLabel}
+            </Text>
+          </View>
+        )}
+      </View>
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
         {item.kind === "fixture" && (
@@ -360,7 +402,9 @@ export function NextFixtureCard({
               and told nobody which of our teams was playing. */}
           <Text style={[type.small, { color: inkMuted, marginTop: 2 }]}>
             {item.us.teamName ?? item.us.clubName}
-            {item.childFirstName ? ` · ${item.childFirstName}` : ""}
+            {/* The child is named on the top line when there is one, so repeating
+                them here would say it twice. */}
+            {!child && item.childFirstName ? ` · ${item.childFirstName}` : ""}
           </Text>
         </View>
       </View>

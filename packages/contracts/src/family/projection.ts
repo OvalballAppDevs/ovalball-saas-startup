@@ -159,6 +159,22 @@ export function normaliseSelection(projection: FamilyProjection, playerId: strin
 
 /** The member a selection names, or null for "all children". */
 export function selectedMember(projection: FamilyProjection, playerId: string | null): FamilyMember | null {
+  return memberFor(projection, playerId)
+}
+
+/**
+ * THE CHILD BEHIND A PLAYER ID, or null when there is none.
+ *
+ * What a row on an aggregated screen uses: a fixture carries a `playerId`, and the
+ * name and picture to draw beside it come from here rather than from the row. That
+ * is what keeps one child's identity identical on Home, on a chip and in the Match
+ * Centre -- and it means an id the projection does not contain draws NOTHING,
+ * rather than a name assembled from whatever the row happened to carry.
+ *
+ * A child registered with two teams appears twice in `members`; their identity is
+ * the same in both, so the first is the answer.
+ */
+export function memberFor(projection: FamilyProjection, playerId: string | null): FamilyMember | null {
   if (!playerId) return null
   return projection.members.find((m) => m.playerId === playerId) ?? null
 }

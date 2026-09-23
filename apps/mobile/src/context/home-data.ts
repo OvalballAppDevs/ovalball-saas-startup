@@ -1,15 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import {
+  FAMILY_HORIZON_DAYS,
   clubLogoUrlFromPath,
+  isFamilyFacingContext,
   listClubNews,
   listLiveClubNotices,
   loadClubKitTheme,
+  narrowToChild,
+  projectParentHome,
   resolveClubTheme,
+  resolveWindow,
+  shiftDays,
   type AgendaItem,
   type ClubNewsCard,
   type ClubNotice,
   type ClubTheme,
   type Database,
+  type ParentHome,
   type SessionContext,
   type SwitchableContext,
 } from "@ovalball/contracts"
@@ -51,10 +58,15 @@ export interface HomeSummary {
   clubLogoUrl: string | null
   /** The club's public page slug, so a news story opens where it is published rather than being reproduced in the app. */
   clubSlug: string | null
-  /** The next thing on, whatever context is selected. Null is a legitimate answer, not a failure. */
-  next: AgendaItem | null
-  /** The rest of the week, so Home can say what else is on without a second read. */
-  week: AgendaItem[]
+  /**
+   * THE THREE QUESTIONS, FROM ONE SET OF ROWS.
+   *
+   * What needs me, what is next, what else is on this week -- answered by
+   * `projectParentHome` in the shared package, so the phone and the website
+   * cannot come to different conclusions about the same rugby. Home does not
+   * decide any of it; it renders it.
+   */
+  home: ParentHome
   /**
    * WHO HAS ANSWERED FOR THE NEXT MATCH, where the viewer may see it.
    *
@@ -110,11 +122,22 @@ export async function loadHomeSummary(
   selectedPlayerId: string | null = null
 ): Promise<HomeSummary> {
   const today = todayIso()
+  const family = isFamilyFacingContext(context.kind)
+  /*
+    ONE READ, FOUR MONTHS AHEAD. The website's own family panel has read from
+    today to today + FAMILY_HORIZON_DAYS since it was built, so the app asks the
+    same question rather than a similar one -- and asking once is what stops
+    "what is next", "what needs an answer" and "what is on this week" from
+    disagreeing. A staff context keeps its shorter horizon: a club's Home is a
+    week's operational view, not a season's.
+  */
+  const range = family
+    ? { start: today, end: shiftDays(today, FAMILY_HORIZON_DAYS) }
+    : { start: today, end: resolveWindow("week", today, today, "upcoming").endIso }
+
   const [club, agenda, kit] = await Promise.all([
     loadClub(supabase, context.clubId),
-    // ONE READ FOR BOTH ANSWERS. "What is next" and "what else is on this week" are the same rows
-    // looked at twice, and asking twice is how they would come to disagree.
-    readAgenda(supabase, ctx, context, { mode: "week", anchor: today, includeTraining: true, today }).catch(() => null),
+    readAgenda(supabase, ctx, context, { range, includeTraining: true, today }).catch(() => null),
     context.clubId ? loadClubKitTheme(supabase, context.clubId).catch(() => null) : Promise.resolve(null),
   ])
 
@@ -133,15 +156,36 @@ export async function loadHomeSummary(
     : [[], []]
 
   const all = agenda?.items ?? []
-  const items = selectedPlayerId ? all.filter((item) => item.playerId === selectedPlayerId) : all
-  // NOT THE FIRST ROW -- the first row that is still ON. A cancelled match is not what somebody is
-  // getting ready for, so it does not take the headline; it stays perfectly visible in Fixtures.
-  const next = items.find((item) => item.status !== "Cancelled") ?? null
+  // The canonical narrowing, shared so that Home and the projection's own tests
+  // are asserting the same function rather than two lines that look alike.
+  const items = narrowToChild(all, selectedPlayerId)
+  // THE CANONICAL RUGBY WEEK, from the same resolver the Calendar uses -- Monday
+  // to Sunday, because the fixture is on Saturday and the training that prepares
+  // for it is on Tuesday. "This week" must mean the same seven days on both.
+  const week = resolveWindow("week", today, today, "upcoming")
+  const home = projectParentHome(items, {
+    todayIso: today,
+    weekStartIso: week.startIso,
+    weekEndIso: week.endIso,
+    // An adult player reading their own rugby is asked about themselves; a
+    // guardian is asked about their child. The context already knows which.
+    viewerIsThePlayer: context.kind === "player",
+  })
+
   return {
     ...club,
-    next,
-    week: items.filter((item) => item !== next),
-    nextAvailability: next?.kind === "fixture" ? await loadAvailability(supabase, next.eventId) : null,
+    home,
+    /*
+      WHO HAS ANSWERED, FOR STAFF ONLY.
+
+      This is a SQUAD TALLY -- how many of a team have said yes, no or nothing --
+      and it is a coach's question. A guardian sees their own child's answer, on
+      the child's own row and in the Match Centre, and has no business being shown
+      the rest of the squad's. The server already refuses it, and not asking is
+      the better half of that: a read a family context never makes cannot leak.
+    */
+    nextAvailability:
+      !family && home.next?.kind === "fixture" ? await loadAvailability(supabase, home.next.eventId) : null,
     notices,
     news,
     theme: resolveClubTheme(kit),

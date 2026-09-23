@@ -49,6 +49,7 @@ export * from "./club/theme"
 export * from "./club/vocabulary"
 export * from "./teams/compact-label"
 export * from "./notifications"
+export * from "./parent/home"
 export * from "./unread"
 export * from "./weather/types"
 export * from "./personal-avatar"
@@ -71,5 +72,29 @@ export {
   teamPermissionLabel,
 } from "./role-labels"
 export type { TeamStaffPermission } from "./role-labels"
+
+/**
+ * THE SAME REASONING, FOR THE PARENT AGENDA MODEL.
+ *
+ * `parent/agenda-model` names an `applyAgendaFilters` over `AgendaEvent` -- one
+ * child's view of one event, which is the shape the website's own parent agenda
+ * reads -- and `agenda/filters` names a different one over `AgendaItem`. Neither
+ * is a duplicate of the other and the barrel must not pick a winner, so the
+ * members whose names are unambiguous are re-exported here and the rest are
+ * imported from `@ovalball/contracts/parent/agenda-model` explicitly, which is
+ * exactly what the web already does.
+ */
+export {
+  ATTENDANCE_HORIZON_DAYS,
+  FAMILY_HORIZON_DAYS,
+  countOutstandingResponses,
+  daysBetween,
+  dedupeAgendaEvents,
+  groupAgendaByMonth,
+  needsAttendanceResponse,
+  outstandingResponseEvents,
+  resolveDateWindow,
+} from "./parent/agenda-model"
+export type { AgendaEvent, AgendaEventKind, AgendaMonth, AttendanceResponse } from "./parent/agenda-model"
 export * from "./session-context"
 export type { Database, Json } from "./database"

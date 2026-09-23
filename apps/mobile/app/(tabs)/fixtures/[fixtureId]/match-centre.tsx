@@ -564,9 +564,20 @@ export default function MatchCentre() {
           </View>
         )}
 
-        {/* THE ROUTE BACK TO THE RECORD. Match Centre owns people; the Fixture
-            Console owns when, where and who to contact. Offered to everybody,
-            because the console is itself capability-aware. */}
+        {/* THE ROUTE TO THE RECORD, FOR THE PEOPLE WHOSE JOB IT IS.
+            Match Centre owns people; the Fixture Console owns when, where and who
+            to contact -- moving a kick-off, changing a pitch, cancelling, reaching
+            the opposition. That is administration.
+
+            It used to be offered to everybody on the grounds that the console is
+            itself capability-aware, and that was the wrong test. Every control in
+            there is correctly refused to a guardian, but the SCREEN is still
+            fixture administration, and a parent who taps their child's match should
+            not arrive at one -- the product rule is that a fixture card is an
+            entrance to Match Centre, not to the console. So the offer follows the
+            canonical `can_manage_fixture` capability the server already resolved
+            for this viewer and this fixture. */}
+        {view.canManageFixture && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Fixture details"
@@ -589,6 +600,7 @@ export default function MatchCentre() {
           </View>
           <ChevronRight size={18} color={colour.inkSubtle} />
         </Pressable>
+        )}
       </ScrollView>
 
       {announcing && (

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import type { AgendaItem } from "@ovalball/contracts"
+import { memberFor, type AgendaItem } from "@ovalball/contracts"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -15,6 +15,7 @@ import { ChildFilter } from "../../../src/components/child-filter"
 import { useFamily } from "../../../src/family/family"
 import { ContextSheet } from "../../../src/components/context-sheet"
 import { AgendaRow, NextFixtureCard } from "../../../src/components/agenda-row"
+import { routeForAgendaItem } from "../../../src/links/destinations"
 import {
   AgendaFilterSheet,
   NO_FILTER,
@@ -125,7 +126,21 @@ export default function Fixtures() {
     has become null before it reaches the filter. Merged here rather than stored
     twice, so the chip row and the list cannot disagree about who is selected.
   */
-  const { selectedPlayerId } = useFamily()
+  const { selectedPlayerId, projection } = useFamily()
+
+  /*
+    ONE DESTINATION TABLE, shared with Home, the Calendar, a notification and an
+    incoming deep link. A match opens the Match Centre for a parent or a player and
+    the fixture console for staff; a session opens the Training Centre.
+  */
+  const openEvent = useCallback(
+    (item: AgendaItem) => {
+      if (!active) return
+      const route = routeForAgendaItem(item, active.kind)
+      if (route) router.push(route as never)
+    },
+    [router, active]
+  )
   const effective = useMemo(() => ({ ...filter, playerId: selectedPlayerId }), [filter, selectedPlayerId])
   const shown = useMemo(() => (items ? applyFilter(items, effective) : null), [items, effective])
 
@@ -208,7 +223,12 @@ export default function Fixtures() {
 
         {!!next && (
           <View style={{ paddingHorizontal: space.lg }}>
-            <NextFixtureCard item={next} today={today} onPress={() => router.push(`/fixtures/${next.eventId}`)} />
+            <NextFixtureCard
+              item={next}
+              today={today}
+              child={memberFor(projection, next.playerId)}
+              onPress={() => openEvent(next)}
+            />
           </View>
         )}
 
@@ -251,7 +271,8 @@ export default function Fixtures() {
                     item={item}
                     today={today}
                     showOwner={active?.kind !== "team"}
-                    onPress={() => router.push(`/fixtures/${item.eventId}`)}
+                    child={memberFor(projection, item.playerId)}
+                    onPress={() => openEvent(item)}
                   />
                 </View>
               ))}

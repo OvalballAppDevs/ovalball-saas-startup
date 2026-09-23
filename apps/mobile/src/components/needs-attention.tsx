@@ -25,6 +25,15 @@ export interface AttentionItem {
   /** The count, where one exists. Rendered as part of the sentence, never as a bare badge. */
   detail?: string | null
   urgent?: boolean
+  /**
+   * WHO THIS JOB BELONGS TO, where it belongs to a person.
+   *
+   * A family of two gets one row per child, and a picture is how a parent finds
+   * the right one without reading. Passed in as a node rather than as a name and a
+   * URL, because the caller holds the projection and this component must not start
+   * resolving an identity of its own.
+   */
+  leading?: React.ReactNode
   onPress?: () => void
 }
 
@@ -87,10 +96,11 @@ export function NeedsAttention({ items }: { items: AttentionItem[] }) {
                 backgroundColor: item.urgent ? colour.warning : colour.pitch600,
               }}
             />
-            <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              {item.leading}
               <Text style={[type.small, { color: colour.ink }]}>{item.label}</Text>
               {!!item.detail && (
-                <Text style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>{item.detail}</Text>
+                <Text style={[type.caption, { color: colour.inkMuted }]}>{item.detail}</Text>
               )}
             </View>
             {item.onPress && <ChevronRight size={17} color={colour.inkSubtle} />}
