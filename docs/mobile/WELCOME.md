@@ -241,3 +241,10 @@ Edited on Higgsfield (`nano_banana_pro`, 2k, 9:16) from that frame plus the cano
 Derivative 1290 × 2311 JPEG q86. Screen unchanged from the previous pass; measured again at
 375 × 667, 393 × 852 and 430 × 932, push-in 1.000 → 1.036 with motion and held at 1.000 under
 Reduce Motion.
+
+## Correction — no embroidered badge
+
+The owner reviewed the embroidered patch on the phone and rejected it ("looks silly"): the still
+is to be the reference frame as it is. `welcome-still.jpg` is now **ball-b** — the reference's own
+small printed chest badge, the whole ball logo inside the frame, the lower half cleared for the
+native layers. badge-b is withdrawn. Nothing else on the screen changed.

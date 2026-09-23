@@ -14,7 +14,7 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../design/tokens"
  * THE PUBLIC ENTRANCE — the first thing somebody who is not signed in sees.
  *
  * ONE PICTURE, ON FOREST. The owner's direction is a single action frame: a player mid-pass on a
- * floodlit pitch, the ball coming at the camera, the Ovalball mark embroidered on the jersey. The
+ * floodlit pitch, the ball coming at the camera, the Ovalball mark on the jersey. The
  * frame is an app-owned still (`welcomeStill`), shown full-bleed on the forest ground and darkened
  * toward the foot so the words read. Everything that says something -- the mark, the motto, the
  * copy, the two actions -- is native, laid over the picture, never baked into it.
