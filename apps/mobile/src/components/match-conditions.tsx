@@ -129,10 +129,15 @@ export function MatchConditions({
                 <Text style={[type.displaySmall, { color: colour.ink, fontSize: 19, lineHeight: 23 }]}>
                   {venueName ?? "Venue to be confirmed"}
                 </Text>
-                {addressLines.length > 0 && (
-                  <Text style={[type.small, { color: colour.inkMuted, marginTop: 2 }]}>{addressLines.join(", ")}</Text>
-                )}
-                {postcode && <Text style={[type.small, { color: colour.inkMuted, marginTop: 2 }]}>{postcode}</Text>}
+                {/* THE GROUND'S NAME, AND NOT ITS POSTAL ADDRESS.
+
+                    "Where are we playing" is answered by a name. "How do I get
+                    there" is a different question, and it belongs to Directions --
+                    which still receives the whole address, including every line
+                    that used to be printed here. A Match Centre that reads like an
+                    envelope is one nobody scans. */}
+                {/* Nothing beneath it. The pitch has its own section below and the
+                    address belongs to Directions. */}
               </View>
             </View>
 

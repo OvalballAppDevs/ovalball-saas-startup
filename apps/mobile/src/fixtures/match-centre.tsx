@@ -15,6 +15,7 @@ import {
 } from "@ovalball/contracts"
 
 import { supabase } from "../auth/supabase"
+import { useAppContexts } from "../context/contexts"
 import { loadMatchCentre, type MatchCentreSide, type MatchCentreView, type MyAvailability } from "../match-centre/load"
 import { loadFixtureForecast } from "../match-centre/forecast"
 import { respondToFixture } from "../match-centre/respond"
@@ -101,6 +102,14 @@ export function MatchCentre() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { fixtureId } = useLocalSearchParams<{ fixtureId: string }>()
+  /*
+    WHICH HAT THIS PERSON IS WEARING, not merely who they are.
+
+    One person holds several roles on Ovalball -- a club admin whose daughter plays
+    Under 12 -- and the switcher exists so they can say which they are operating
+    as. Read as a parent, this page is the parent's Match Centre.
+  */
+  const { active } = useAppContexts()
   const id = String(fixtureId ?? "")
   const today = todayIso()
 
@@ -133,7 +142,10 @@ export function MatchCentre() {
     if (!id) return
     setProblem(null)
     try {
-      const loaded = await loadMatchCentre(supabase, id)
+      // THE HAT, NOT JUST THE PERSON. A club admin reading their daughter's match
+      // as a parent gets the parent's Match Centre; switching back to their club
+      // context gets their controls back, because they really are a club admin.
+      const loaded = await loadMatchCentre(supabase, id, active?.kind ?? null)
       if (!loaded) {
         setMissing(true)
         return
@@ -172,7 +184,7 @@ export function MatchCentre() {
       logDetail("match centre", failure)
       setProblem(failure.message)
     }
-  }, [id])
+  }, [id, active])
 
   useEffect(() => {
     void load()
@@ -457,6 +469,7 @@ export function MatchCentre() {
         <MatchConditions
           venueName={view.venueName}
           postcode={view.venuePostcode}
+          // The whole address, for Directions. The panel prints the NAME.
           addressLines={view.venueAddressLines}
           pitchName={view.pitchName}
           weather={weather}

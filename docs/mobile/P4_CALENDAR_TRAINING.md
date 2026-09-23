@@ -686,3 +686,140 @@ authority changed and no RED suite was re-run.
 | Away ordering (opposition left) | 25 Sep · 6 Oct |
 | Cancelled, no meet time | 13 Oct |
 | Initials on the child strip | everywhere — no child has a photograph |
+
+---
+
+# P4 review fixes — permissions, venue, weather, avatar
+
+Five reported issues. Root cause for each, then the fix.
+
+## 1 & 2. Announce and Fixture Details for a parent
+
+**Root cause: the capability is scoped to the PERSON, the surface never asked which HAT.**
+
+`get_match_centre_capabilities(fixture)` answers *may this user manage this
+fixture* — correctly. `uat.manyhats` holds **CLUB_ADMIN, FIXTURES_SECRETARY,
+COACH and SAFEGUARDING_OFFICER** *and* guardians Ava, so it returns `t, t, t`
+**whichever context they are standing in**. Operating as Parent/Guardian they kept
+their coach's controls. Proved live:
+
+```
+manyhats  → can_view_participants t · can_message t · can_manage_fixture t
+uat.guardian.two (pure parent) → f · f · f
+```
+
+**This was never an authority hole.** A genuine parent is refused every one of
+these writes at the server — `participant_route_authority.sql` (40/40) proves it
+again unchanged. It was a person being offered the wrong hat's controls.
+
+**Fix:** `narrowCapabilitiesToContext` in `packages/contracts/src/participant/
+match-centre-capabilities.ts`, applied in `loadMatchCentre` with the active
+context. A family-facing context gets none of the three. **It can only ever
+remove** — a test asserts nothing can turn a false into a true — so the database
+remains the authority. A club admin switching back to their club context gets
+everything back, because they really are a club admin.
+
+## 3. "The venue hasn't been confirmed yet"
+
+**Root cause: the Match Centre read `venue_id` alone.** That fixture has:
+
+```
+venue_id      = NULL
+venue_address = "Ovalball UAT Opposition RFC, Lightfoot Lane, Preston, PR4 0TA"
+```
+
+— which is exactly what the Calendar was showing two taps away. One reader saw
+three ways a fixture records where it is played; the other saw one.
+
+**Fix:** `packages/contracts/src/fixtures/venue.ts`, applied in the platform's own
+order:
+
+1. the **explicit venue** (`fixtures.venue_id`) — a choice beats a default;
+2. the **fixture's own address** (`fixtures.venue_address`);
+3. the **home side's default ground** (`venues.is_default_home`), which for an away
+   fixture is the **opposition's** — and where that side is only a Club Directory
+   entry, the ground that entry records;
+4. only then genuinely unconfirmed.
+
+**Match Centre now shows the ground's NAME** — the address is no longer printed
+beneath it, and **Directions still receives every line of it**, so navigation is
+unchanged. The Calendar keeps its address line.
+
+## 4. "Weather not available"
+
+**Two causes, both real.**
+
+**(a) The forecast route resolved coordinates from `venue_id` alone** — the same
+narrow read, so any fixture recorded by address could never have weather. It now
+calls the same resolver, so the page cannot name a ground the weather was never
+asked about. A test asserts the route no longer queries `venues` itself.
+
+**(b) The geocoding had never been run in this review world.** Every venue and
+every directory row sat at `geocode_status = 'pending'` with no coordinates, and
+the route correctly refuses coordinates without provenance — a number somebody
+typed pins a rugby club on a football ground three kilometres away. I ran the
+canonical backfill (`postcodes.io`, the same provider and the same columns Site
+Admin → Clubs → Geocoding writes): **2 venues and 105 directory entries geocoded,
+1 failed.** Note `Ovalball UAT Ground` moved from the seeded `53.7890, -2.2300`
+to its real postcode position `53.819394, -2.234962` — the provenance rule doing
+its job.
+
+**Free text names a ground and locates nothing**, so for this fixture the name
+comes from the typed address and the **coordinates from the opposition's geocoded
+Club Directory entry**. `coordinateSource` records which, rather than implying the
+typed line was geocoded.
+
+**Verified end to end against the live route:**
+
+```
+GET /api/fixtures/b3db774a…/forecast
+{"state":"FORECAST_AVAILABLE","forecast":{"forecastFor":"2026-09-25T09:00Z",
+ "temperatureC":14,"conditionLabel":"Overcast","precipitationProbability":17,
+ "windSpeedMph":4,"windDirection":"W","provider":"Met Office"}}
+```
+
+`TOO_EARLY_FOR_FORECAST` and `LOCATION_UNAVAILABLE` remain distinct states — this
+fixture was never "too early"; it had no location.
+
+## 5. Ava's avatar
+
+**Traced rather than assumed, and the answer did not change.**
+
+| Question | Answer |
+|---|---|
+| Who is the top-left photograph? | **The signed-in guardian** — `uat.manyhats` is **Ffion Meredith**, `profiles.avatar_storage_path` set, public `avatars` bucket. The header *title* says "Ava Whitaker" because a parent context is named after its child; the avatar is the person. |
+| Who is the card row? | **Ava Whitaker, a child player** |
+| Does Ava have a player photograph? | **No.** `players.avatar_storage_path` is NULL, and `storage.objects` in `player-avatars` is **empty — zero rows**. Confirmed while authenticated as the guardian. |
+| Can a guardian's picture reach a child's row? | **No.** One path only: `players.avatar_storage_path → player-avatars (private) → FamilyProjection → ChildMark / child strip`. Tests assert the resolver never touches the `avatars` bucket and that no player surface can reach `person.avatarUrl`. |
+
+**So initials are correct for Ava**, and they are correct consistently: the Match
+Centre register is initials-only by design ("a register is not a gallery"). To see
+a real photograph, upload one against the **player**.
+
+**One genuine divergence found, and it does not affect Ava.** The *web* Match
+Centre has a second legitimate rule mobile lacks: for an **adult** player,
+`profiles.avatar_storage_path` may serve as their player avatar — never for a
+child. Converging it means carrying `isAdult` and the account path through the
+session context, which is a deliberate change rather than one to fold into a fix
+batch. **Recommended as the next avatar item**; it changes nothing for any child.
+
+## Proof
+
+**104 suites, 1096 assertions, 0 failing** — new `match_centre_parent` (17).
+`participant_route_authority.sql` **40/40 unchanged**. Structural guards pass (the
+content standard caught a heading on the way through). Both typechecks clean, no
+new lint, iOS bundle builds. **No SQL changed** — the geocoding is data written by
+the canonical backfill, not schema.
+
+## Acceptance checks
+
+| Check | Result |
+|---|---|
+| No "Announce to the Squad" for a parent | ✔ narrowed by context |
+| No "Fixture Details" for a parent | ✔ same gate |
+| Direct calls permission-protected | ✔ a pure parent gets `f,f,f`; every write refused (40/40) |
+| Away fixture resolves the opposition's ground | ✔ name from the fixture's address, location from their Directory entry |
+| Match Centre shows the ground name, not the address | ✔ |
+| Calendar keeps the address | ✔ unchanged |
+| Weather resolves for 25 Sep | ✔ live Met Office forecast |
+| Ava's avatar consistent across player surfaces | ✔ initials everywhere; she has no player photograph |

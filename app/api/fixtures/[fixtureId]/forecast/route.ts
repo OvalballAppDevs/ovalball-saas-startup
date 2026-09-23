@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase/env"
 import { getFixtureForecast } from "@/lib/weather/fixture-forecast"
+import { forecastLocation, homeClubIdFor, resolveFixtureVenue } from "@ovalball/contracts/fixtures/venue"
 import type { Database } from "@/types/database.types"
 
 export const dynamic = "force-dynamic"
@@ -61,29 +62,47 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: fixture } = await supabase
     .from("fixtures")
-    .select("id, kickoff_date, kickoff_time, venue_id")
+    .select("id, kickoff_date, kickoff_time, home_away, venue_id, venue_address, owning_team_id, opponent_team_id, opponent_directory_id")
     .eq("id", fixtureId)
     .maybeSingle()
   if (!fixture) return NextResponse.json({ error: "Fixture not available." }, { status: 404 })
 
-  const { data: venue } = fixture.venue_id
-    ? await supabase.from("venues").select("latitude, longitude, geocode_status").eq("id", fixture.venue_id).maybeSingle()
-    : { data: null }
+  /*
+    The venue Match Centre shows is the venue the forecast asks about.
+
+    This used to read `venue_id` alone, which is only one of the three ways a
+    fixture records where it is played -- so a fixture whose ground is the
+    fixture's own address, or the home side's default ground, had no location and
+    every such match reported no forecast. One resolver now answers both questions,
+    so the page cannot name a ground the weather was never asked about.
+  */
+  const [owningClubId, opponentClubId] = await Promise.all([
+    clubIdOfTeam(supabase, fixture.owning_team_id),
+    clubIdOfTeam(supabase, fixture.opponent_team_id),
+  ])
+  const venue = await resolveFixtureVenue(supabase, {
+    venueId: fixture.venue_id,
+    venueAddress: fixture.venue_address,
+    homeClubId: homeClubIdFor({ homeAway: fixture.home_away, owningClubId, opponentClubId }),
+    // An away fixture against a Directory-only opponent still has a home ground:
+    // theirs, recorded in the Club Directory with its own postcode and geocode.
+    homeDirectoryId: fixture.home_away === "Away" ? fixture.opponent_directory_id : null,
+  })
 
   /*
-    THE SAME PROVENANCE RULE THE WEB APPLIES. Only coordinates derived from the
-    venue's OWN canonical postcode are used. Anything else is a number somebody
-    typed -- UAT found a venue pinned on a football ground three kilometres from
-    the rugby club -- and asking the sky about the wrong place produces a
-    confident wrong answer rather than an honest absent one.
+    THE SAME PROVENANCE RULE AS EVER, now applied by the shared resolver. Only
+    coordinates derived from the venue's OWN canonical postcode are used --
+    anything else is a number somebody typed, and UAT found a venue pinned on a
+    football ground three kilometres from the rugby club. Asking the sky about the
+    wrong place produces a confident wrong answer rather than an honest absent one.
   */
-  const usable = venue && venue.geocode_status === "success"
+  const location = forecastLocation(venue)
 
   const forecast = await getFixtureForecast({
     kickoffDate: fixture.kickoff_date,
     kickoffTime: fixture.kickoff_time,
-    latitude: usable && venue.latitude !== null ? Number(venue.latitude) : null,
-    longitude: usable && venue.longitude !== null ? Number(venue.longitude) : null,
+    latitude: location?.latitude ?? null,
+    longitude: location?.longitude ?? null,
   })
 
   return NextResponse.json(forecast, {
@@ -92,4 +111,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // would outlive that policy without knowing it existed.
     headers: { "Cache-Control": "private, no-store" },
   })
+}
+
+/** Which club a team belongs to, for resolving whose ground a fixture is played at. */
+async function clubIdOfTeam(
+  supabase: ReturnType<typeof createSupabaseClient<Database>>,
+  teamId: string | null
+): Promise<string | null> {
+  if (!teamId) return null
+  const { data } = await supabase.from("teams").select("club_id").eq("id", teamId).maybeSingle()
+  return data?.club_id ?? null
 }

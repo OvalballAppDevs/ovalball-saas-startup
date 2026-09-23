@@ -1,5 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { matchCentreStatus, resolveClubLogoUrl, type Database, type KitConfig, type MatchCentreStatus } from "@ovalball/contracts"
+import {
+  homeClubIdFor,
+  matchCentreStatus,
+  narrowCapabilitiesToContext,
+  resolveClubLogoUrl,
+  resolveFixtureVenue,
+  type ActiveContextKind,
+  type Database,
+  type KitConfig,
+  type MatchCentreStatus,
+} from "@ovalball/contracts"
 import type { AvailabilityStatus } from "@ovalball/contracts/availability"
 
 import type { RegisterEntry } from "../components/availability-register"
@@ -87,8 +97,11 @@ export interface MatchCentreView {
   cancellationReason: string | null
   /** A recorded result, or null. Two nulls are not a nil-nil draw. */
   result: { homeScore: number; awayScore: number } | null
+  /** The GROUND'S NAME -- what the page shows. Never its postal address. */
   venueName: string | null
   venuePostcode: string | null
+  /** The full address, kept for navigation. Not drawn on the page. */
+  venueAddress: string | null
   venueAddressLines: string[]
   pitchName: string | null
   competitionName: string | null
@@ -101,9 +114,22 @@ export interface MatchCentreView {
 }
 
 const FIXTURE_FIELDS =
-  "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, pitch_id, competition_edition_id, raw_opposition_text, home_score, away_score, result_status"
+  "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, venue_address, pitch_id, competition_edition_id, raw_opposition_text, home_score, away_score, result_status"
 
-export async function loadMatchCentre(supabase: Client, fixtureId: string): Promise<MatchCentreView | null> {
+export async function loadMatchCentre(
+  supabase: Client,
+  fixtureId: string,
+  /**
+   * WHICH HAT THIS PERSON IS WEARING.
+   *
+   * The capability RPC answers about the USER; the context says which of their
+   * roles they are operating as. A club admin reading their daughter's match as a
+   * parent must not be offered their coach's controls. It can only ever REMOVE a
+   * capability -- the database is still the authority, and a genuine parent is
+   * refused every one of these writes whatever any client believes.
+   */
+  contextKind: ActiveContextKind | null = null
+): Promise<MatchCentreView | null> {
   const { data: f, error } = await supabase.from("fixtures").select(FIXTURE_FIELDS).eq("id", fixtureId).maybeSingle()
   // A fixture that does not exist and one this viewer may not see are the same
   // answer. Telling them apart would let somebody map the platform's fixtures by
@@ -111,16 +137,9 @@ export async function loadMatchCentre(supabase: Client, fixtureId: string): Prom
   // 404 records.
   if (error || !f) return null
 
-  const [{ data: caps }, { data: mineRows }, { data: venue }, { data: pitch }, { data: competition }] = await Promise.all([
+  const [{ data: caps }, { data: mineRows }, { data: pitch }, { data: competition }] = await Promise.all([
     supabase.rpc("get_match_centre_capabilities", { p_fixture_id: fixtureId }).maybeSingle(),
     supabase.rpc("get_my_players_for_fixture", { p_fixture_id: fixtureId }),
-    f.venue_id
-      ? supabase
-          .from("venues")
-          .select("id, name, address_line_1, address_line_2, town, county, postcode")
-          .eq("id", f.venue_id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
     f.pitch_id ? supabase.from("club_pitches").select("id, display_name").eq("id", f.pitch_id).maybeSingle() : Promise.resolve({ data: null }),
     f.competition_edition_id
       ? supabase.from("competition_editions").select("competitions(name)").eq("id", f.competition_edition_id).maybeSingle()
@@ -132,7 +151,49 @@ export async function loadMatchCentre(supabase: Client, fixtureId: string): Prom
     resolveSide(supabase, f.opponent_team_id, f.opponent_directory_id, f.raw_opposition_text),
   ])
 
-  const canViewRegister = Boolean(caps?.can_view_participants)
+  /*
+    THE VENUE, THROUGH THE ONE CANONICAL RESOLVER.
+
+    It used to read `venue_id` alone, so a fixture whose ground is recorded as the
+    fixture's own ADDRESS -- which is how an opponent from the Club Directory is
+    usually recorded -- came back with nothing, and the page said "the venue hasn't
+    been confirmed yet" about a match whose address the Calendar was showing two
+    taps away. The resolver applies the platform's order: the chosen venue, then
+    the fixture's own address, then the HOME side's default ground -- which for an
+    away fixture is the OPPOSITION's, not ours.
+  */
+  const venue = await resolveFixtureVenue(supabase, {
+    venueId: f.venue_id,
+    venueAddress: f.venue_address,
+    homeClubId: homeClubIdFor({
+      homeAway: f.home_away,
+      owningClubId: await clubIdOfTeam(supabase, f.owning_team_id),
+      opponentClubId: await clubIdOfTeam(supabase, f.opponent_team_id),
+    }),
+    // An away fixture against a Directory-only opponent still has a home ground:
+    // theirs, recorded in the Club Directory with its own postcode and geocode.
+    homeDirectoryId: f.home_away === "Away" ? f.opponent_directory_id : null,
+  })
+
+  /*
+    WHICH HAT, NOT JUST WHICH PERSON.
+
+    `get_match_centre_capabilities` answers about the USER, and a club admin who is
+    also a parent holds all three whichever context they are standing in. Operating
+    AS a parent, they were still offered "Announce to the Squad" and the fixture
+    console's entry point. The narrowing can only ever remove -- the database
+    remains the authority and refuses a genuine parent regardless.
+  */
+  const capabilities = narrowCapabilitiesToContext(
+    {
+      canViewParticipants: Boolean(caps?.can_view_participants),
+      canMessage: Boolean(caps?.can_message),
+      canManageFixture: Boolean(caps?.can_manage_fixture),
+    },
+    contextKind
+  )
+
+  const canViewRegister = capabilities.canViewParticipants
   const register = canViewRegister ? await loadRegister(supabase, fixtureId) : []
 
   return {
@@ -158,11 +219,11 @@ export async function loadMatchCentre(supabase: Client, fixtureId: string): Prom
         : null,
     venueName: venue?.name ?? null,
     venuePostcode: venue?.postcode ?? null,
+    /** The full address, for navigation only. Match Centre shows the NAME. */
+    venueAddress: venue?.address ?? null,
     // Built from the structured columns, blanks dropped -- never a string
     // concatenation that yields "Holden Road, , , BB11".
-    venueAddressLines: venue
-      ? [venue.address_line_1, venue.address_line_2, venue.town, venue.county].filter((l): l is string => Boolean(l && l.trim()))
-      : [],
+    venueAddressLines: venue?.address ? venue.address.split(",").map((l) => l.trim()).filter(Boolean) : [],
     pitchName: pitch?.display_name ?? null,
     competitionName: (competition?.competitions as { name: string } | null)?.name ?? null,
     mine: (mineRows ?? []).map((r) => ({
@@ -178,8 +239,8 @@ export async function loadMatchCentre(supabase: Client, fixtureId: string): Prom
     })),
     register,
     canViewRegister,
-    canMessage: Boolean(caps?.can_message),
-    canManageFixture: Boolean(caps?.can_manage_fixture),
+    canMessage: capabilities.canMessage,
+    canManageFixture: capabilities.canManageFixture,
   }
 }
 
@@ -308,4 +369,11 @@ async function resolveSide(
   // An opponent recorded as free text, or none recorded yet. Both are real
   // states and neither is given a fake identity.
   return { clubName: rawText?.trim() || "Opposition to be confirmed", teamName: null, crestUrl: null, kit: null, onOvalball: false }
+}
+
+/** Which club a team belongs to, for resolving whose ground a fixture is played at. */
+async function clubIdOfTeam(supabase: Client, teamId: string | null): Promise<string | null> {
+  if (!teamId) return null
+  const { data } = await supabase.from("teams").select("club_id").eq("id", teamId).maybeSingle()
+  return data?.club_id ?? null
 }
