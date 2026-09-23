@@ -3,7 +3,19 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { AgendaItem, RangeMode } from "@ovalball/contracts"
-import { isFamilyFacingContext, memberFor, nextAnchor, previousAnchor, windowContainsToday } from "@ovalball/contracts"
+import {
+  dayLabel,
+  isFamilyFacingContext,
+  marksByDay,
+  memberFor,
+  monthCells,
+  monthLabel,
+  nextAnchor,
+  nextDayWithSomething,
+  previousAnchor,
+  startOfMonth,
+  windowContainsToday,
+} from "@ovalball/contracts"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -20,6 +32,7 @@ import { AgendaRow } from "../../../src/components/agenda-row"
 import { routeForAgendaItem } from "../../../src/links/destinations"
 import { SeasonGrid } from "../../../src/components/season-grid"
 import { WeekSheet } from "../../../src/components/week-sheet"
+import { MonthCalendar } from "../../../src/components/month-calendar"
 import {
   AgendaFilterSheet,
   NO_FILTER,
@@ -61,10 +74,20 @@ export default function Calendar() {
   const { sessionContext, active } = useAppContexts()
   const today = todayIso()
 
-  // THREE GRAINS, AND THE SEASON IS ONE OF THEM. Week answers "what is on this week", month answers
-  // "when in October", and season answers "what has this side got on" -- which is the question the
-  // Pre/Main toggle was silently failing to answer, because it set a phase that nothing rendered.
-  const [mode, setMode] = useState<"week" | "month" | "season">("week")
+  /*
+    TWO GRAINS. THE MONTH IS THE CALENDAR.
+
+    A month grid with the chosen day's rugby in a sheet beneath it -- the shape the
+    owner asked for, and the shape every native calendar uses. It answers "what has
+    this family got on in October" at a glance, which no scrolling list does, and
+    the sheet answers "and what exactly" in words the moment a day is tapped.
+
+    The old WEEK grain is gone: a month grid contains every week, the strip it used
+    is the same information in less of it, and two date pickers on one screen is one
+    too many. SEASON stays, because "what has this side got on all year" is a
+    different question and the register is its own authority.
+  */
+  const [mode, setMode] = useState<"month" | "season">("month")
   const [anchor, setAnchor] = useState(today)
   const [items, setItems] = useState<AgendaItem[] | null>(null)
   const [label, setLabel] = useState("")
@@ -81,10 +104,12 @@ export default function Calendar() {
   // WHICH SQUARE IS OPEN. Null means the grid alone -- the season's shape, which is what somebody came
   // to Season view to see. Tapping a week expands it underneath rather than navigating away.
   const [openWeek, setOpenWeek] = useState<string | null>(null)
-  // WHICH DAY, IN WEEK VIEW. Tapping a day in the strip used to move the anchor and leave the whole
-  // week on screen, which made the tap pointless -- you were already looking at that week. Choosing a
-  // day now narrows to it; choosing it again goes back to the week.
-  const [openDay, setOpenDay] = useState<string | null>(null)
+  /*
+    WHICH DAY THE SHEET IS SHOWING. It opens on today, because that is the day
+    somebody has in mind when they open a calendar, and it is what makes "find
+    today" a thing you do not have to do.
+  */
+  const [openDay, setOpenDay] = useState<string>(today)
 
   // The register, scoped to our own rugby code -- a Union club is never shown a League season.
   useEffect(() => {
@@ -114,12 +139,26 @@ export default function Calendar() {
       // IN SEASON MODE THE WINDOW IS THE REGISTER'S OWN. Not a year from today, not a computed
       // boundary -- the dates Site Admin recorded for this season and this phase, which is what makes
       // Pre-Season a real view rather than a label.
+      /*
+        ONE READ, THE WHOLE VISIBLE GRID.
+
+        The month view draws six rows, which spill into the neighbouring months, so
+        the read covers exactly those forty-two days -- from the Monday on or before
+        the first to the Sunday on or after the last. Reading only the calendar
+        month would leave the spill days dotless while their numbers were plainly
+        on screen, which reads as "nothing on" rather than "not asked about".
+
+        IT IS ONE BOUNDED QUERY, and it does not grow with the family: the scope is
+        resolved once from the session and every child's rugby comes back in the
+        same read. No request per day, none per child, and no unbounded history --
+        stepping to another month asks once more.
+      */
+      const grid = monthCells(anchor)
       const result =
         mode === "season" && season.range
           ? await readAgenda(supabase, sessionContext, active, { range: season.range, includeTraining: true, today })
           : await readAgenda(supabase, sessionContext, active, {
-              mode: mode === "season" ? "week" : mode,
-              anchor,
+              range: { start: grid[0].iso, end: grid[grid.length - 1].iso, label: monthLabel(anchor) },
               includeTraining: true,
               today,
             })
@@ -144,9 +183,16 @@ export default function Calendar() {
     setProblem(null)
   }, [active])
 
+  /*
+    MOVING MONTH MOVES THE SHEET WITH IT. Stepping to November and leaving the sheet
+    on a day in October would leave the grid and the list describing two different
+    months -- so the selection lands on the first of the month arrived at, or on
+    today when the month arrived at is this one.
+  */
   useEffect(() => {
-    setOpenDay(null)
-  }, [anchor, mode])
+    if (mode !== "month") return
+    setOpenDay((current) => (current.slice(0, 7) === anchor.slice(0, 7) ? current : monthStartOrToday(anchor, today)))
+  }, [anchor, mode, today])
 
   useEffect(() => {
     void load()
@@ -175,7 +221,9 @@ export default function Calendar() {
   const days = useMemo(() => {
     const rows = shown ?? []
     // A day the strip selected narrows the list; nothing selected shows the whole week or month.
-    return groupByDay(mode === "week" && openDay ? rows.filter((item) => item.date === openDay) : rows)
+    // THE SHEET SHOWS ONE DAY. Season mode keeps its whole-range list, because its
+    // question is the shape of a year rather than the detail of an afternoon.
+    return groupByDay(mode === "month" ? rows.filter((item) => item.date === openDay) : rows)
   }, [shown, mode, openDay])
   // The chosen square's own week, Monday to Sunday, cut out of the rows already on screen.
   const weekItems = useMemo(() => {
@@ -183,7 +231,17 @@ export default function Calendar() {
     const end = addDays(openWeek, 6)
     return shown.filter((item) => item.date >= openWeek && item.date <= end)
   }, [openWeek, shown])
-  const busyDates = useMemo(() => new Set((shown ?? []).map((item) => item.date)), [shown])
+  /*
+    THE DOTS FOLLOW THE NARROWING. A day filtered down to nothing must not still
+    advertise itself as having rugby on it -- the grid and the sheet are two views
+    of one list, and a dot over an empty day is the grid contradicting the sheet.
+  */
+  const marks = useMemo(() => marksByDay(shown ?? []), [shown])
+  /** The next day at or after the one being read that has anything on it. */
+  const nextBusyDay = useMemo(
+    () => nextDayWithSomething(new Set((shown ?? []).map((item) => item.date)), openDay),
+    [shown, openDay]
+  )
   const showOwner = active?.kind !== "team"
 
   /*
@@ -242,123 +300,114 @@ export default function Calendar() {
           </Text>
         )}
 
-        {mode !== "season" && (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-          {/* THE SEASON IS A BOUND, not just a starting point. Paging out of the selected season would
-              show empty weeks belonging to a season nobody asked for; the anchor is clamped to the
-              register's own dates, so Previous stops at the first week of the season. */}
-          <Step
-            label={mode === "week" ? "Previous week" : "Previous month"}
-            direction="back"
-            disabled={season.range ? anchor <= season.range.start : false}
-            onPress={() => setAnchor(clamp(previousAnchor(mode, anchor), season.range))}
-          />
-          <View style={{ flex: 1, alignItems: "center" }}>
-            <Text accessibilityRole="header" numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
-              {label}
-            </Text>
-          </View>
-          <Step
-            label={mode === "week" ? "Next week" : "Next month"}
-            direction="forward"
-            disabled={season.range ? anchor >= season.range.end : false}
-            onPress={() => setAnchor(clamp(nextAnchor(mode, anchor), season.range))}
-          />
-        </View>
-        )}
-
-        <View style={{ flexDirection: "row", gap: space.sm }}>
-          <Toggle value={mode} onChange={setMode} />
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space.sm }}>
+          {/* TODAY IS ALWAYS ONE TAP AWAY, and it says so only when you are not
+              already there -- a control that does nothing is a control people
+              learn to distrust. */}
+          {(anchor.slice(0, 7) !== today.slice(0, 7) || openDay !== today) && mode === "month" && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Go to today"
+              onPress={() => {
+                setAnchor(clamp(today, season.range))
+                setOpenDay(today)
+              }}
+              style={({ pressed }) => ({
+                minHeight: 34,
+                justifyContent: "center",
+                paddingHorizontal: space.md,
+                borderRadius: radius.pill,
+                borderWidth: 1,
+                borderColor: colour.lineStrong,
+                backgroundColor: pressed ? colour.chalk : colour.surface,
+              })}
+            >
+              <Text style={[type.caption, { color: colour.forest800 }]}>Today</Text>
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={countActive(filter) > 0 ? `Filter, ${countActive(filter)} applied` : "Filter"}
             onPress={() => setFilterOpen(true)}
             style={({ pressed }) => ({
-              minHeight: TOUCH_TARGET - 8,
+              minHeight: 34,
               flexDirection: "row",
               alignItems: "center",
               gap: space.xs,
               paddingHorizontal: space.md,
-              borderRadius: radius.md,
+              borderRadius: radius.pill,
               borderWidth: 1,
               borderColor: countActive(filter) > 0 ? colour.forest800 : colour.lineStrong,
-              backgroundColor: countActive(filter) > 0 ? colour.mint100 : colour.surface,
-              opacity: pressed ? 0.85 : 1,
+              backgroundColor: pressed ? colour.chalk : colour.surface,
             })}
           >
-            <SlidersHorizontal size={15} color={colour.forest800} strokeWidth={2} />
-            <Text style={[type.smallMedium, { color: colour.forest800, fontSize: 13 }]}>
+            <SlidersHorizontal size={14} color={colour.forest800} strokeWidth={2} />
+            <Text style={[type.caption, { color: colour.forest800 }]}>
               {countActive(filter) > 0 ? `Filter · ${countActive(filter)}` : "Filter"}
             </Text>
           </Pressable>
-          {/* TODAY IS ALWAYS ONE TAP AWAY, and it disappears when you are already there rather than
-              sitting inert. Somebody three months into the future should never have to count back. */}
-          {anchor !== today && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Go to today"
-              onPress={() => setAnchor(today)}
-              style={({ pressed }) => ({
-                minHeight: TOUCH_TARGET - 8,
-                paddingHorizontal: space.lg,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: radius.md,
-                borderWidth: 1,
-                borderColor: colour.lineStrong,
-                backgroundColor: colour.surface,
-                opacity: pressed ? 0.85 : 1,
-              })}
-            >
-              <Text style={[type.smallMedium, { color: colour.forest800 }]}>Today</Text>
-            </Pressable>
-          )}
+          <Toggle value={mode} onChange={setMode} />
         </View>
-
-        {/* THE DATES THE PHASE ACTUALLY COVERS, said out loud.
-            Switching to Pre-Season looked like it did nothing, and the reason was not the resolver --
-            it returns the register's 1 August to 31 August correctly -- but that the screen never said
-            so. A pre-season with no rugby in it is thirty empty squares under a heading that had not
-            visibly changed. Naming the window makes the switch unmistakable whether or not there is
-            anything in it. */}
-        {mode === "season" && (
-          <View style={{ alignItems: "center", gap: 1 }}>
-            <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.ink }]}>
-              {label}
-            </Text>
-            {!!season.range && (
-              <Text style={[type.caption, { color: colour.inkMuted }]}>
-                {rangeLabel(season.range.start, season.range.end)}
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* A PHASE THAT IS GENUINELY EMPTY SAYS SO, rather than leaving a grid of blank squares to be
-            read as a failure. */}
-        {mode === "season" && shown?.length === 0 && (
-          <Text style={[type.caption, { color: colour.inkMuted, textAlign: "center" }]}>
-            {season.phase === "pre"
-              ? "Nothing is scheduled in pre-season yet."
-              : "Nothing is scheduled this season yet."}
-          </Text>
-        )}
-        {mode === "week" && (
-          <WeekStrip
-            anchor={anchor}
-            today={today}
-            busy={busyDates}
-            selectedDay={openDay}
-            onPick={(iso) => setOpenDay((current) => (current === iso ? null : iso))}
-          />
-        )}
       </View>
 
+      {/* ============================================================
+            THE MONTH, ON ITS OWN DARK PLATE.
+
+            The owner's reference design, in Ovalball's forest rather than its
+            navy: the month named top left, two round steps top right, a weekday
+            row, and six rows of days carrying a dot for rugby played and a dot
+            for rugby trained. The plate is dark so the grid reads as one object
+            and the sheet of events below it reads as another -- which is the
+            whole idea of the layout.
+         ============================================================ */}
+      {mode === "month" && (
+        <View style={{ backgroundColor: colour.forest900, paddingTop: space.md, paddingBottom: space.xl }}>
+          <MonthCalendar
+            anchor={anchor}
+            today={today}
+            selected={openDay}
+            marks={marks}
+            onSelect={setOpenDay}
+            onStep={(direction) =>
+              setAnchor(clamp(direction === -1 ? previousAnchor("month", anchor) : nextAnchor("month", anchor), season.range))
+            }
+          />
+        </View>
+      )}
+
+      {/* THE SHEET, LIFTED OVER THE PLATE. Rounded and pulled up so the day's
+          rugby reads as a card drawn out of the month above it rather than as the
+          next section down the page -- which is what makes the grid and the list
+          feel like one control. */}
       <ScrollView
+        style={
+          mode === "month"
+            ? {
+                marginTop: -space.lg,
+                borderTopLeftRadius: radius.xl,
+                borderTopRightRadius: radius.xl,
+                backgroundColor: colour.chalk,
+              }
+            : undefined
+        }
         contentContainerStyle={{ paddingBottom: insets.bottom + space.xxl, paddingTop: space.md, gap: space.md }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.forest800} />}
         showsVerticalScrollIndicator={false}
       >
+        {mode === "month" && (
+          <>
+            {/* The grab handle from the reference: it says this panel is the thing
+                that moves, and it costs one line. */}
+            <View style={{ alignSelf: "center", width: 36, height: 4, borderRadius: 2, backgroundColor: colour.line }} />
+            <Text
+              accessibilityRole="header"
+              style={[type.overline, { color: colour.inkMuted, paddingHorizontal: space.lg, marginTop: space.xs }]}
+            >
+              {dayLabel(openDay, today).toUpperCase()}
+              {restOfDate(openDay, today) ? ` · ${restOfDate(openDay, today).toUpperCase()}` : ""}
+            </Text>
+          </>
+        )}
         {problem && !shown && (
           <View style={{ paddingHorizontal: space.lg }}>
             <ErrorState message={problem.message} offline={problem.offline} onRetry={load} />
@@ -380,17 +429,55 @@ export default function Calendar() {
           </View>
         )}
 
-        {shown?.length === 0 && mode !== "season" && (
+        {/* A QUIET DAY IS AN ANSWER, and it says where the rugby actually is
+            rather than leaving somebody tapping across the month to find out.
+            `nextDayWithSomething` reads the days already on screen, so the
+            suggestion can never point at a day the filter has emptied. */}
+        {mode === "month" && days.length === 0 && !!shown && !problem && (
           <View style={{ paddingHorizontal: space.lg }}>
             <EmptyState
-              title={countActive(filter) > 0 ? "Nothing matches that filter" : emptyTitle(mode, anchor, today)}
+              title={countActive(filter) > 0 ? "Nothing matches that filter" : "Nothing on this day"}
               body={
                 countActive(filter) > 0
-                  ? "Clear the filter to see the rest of this period."
-                  : active?.kind === "family"
-                  ? "No fixtures or training for your children in this period. Try the next one."
-                  : "No fixtures or training in this period. Try the next one."
+                  ? "Clear the filter to see the rest of the month."
+                  : nextBusyDay
+                    ? `The next thing on is ${dayLabel(nextBusyDay, today)}${restOfDate(nextBusyDay, today) ? `, ${restOfDate(nextBusyDay, today)}` : ""}.`
+                    : active?.kind === "family"
+                      ? "No fixtures or training for your children this month."
+                      : "No fixtures or training this month."
               }
+              icon={<CalendarDays size={24} color={colour.inkSubtle} />}
+            />
+            {!!nextBusyDay && countActive(filter) === 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Go to ${dayLabel(nextBusyDay, today)}`}
+                onPress={() => setOpenDay(nextBusyDay)}
+                style={({ pressed }) => ({
+                  alignSelf: "center",
+                  marginTop: space.md,
+                  minHeight: TOUCH_TARGET,
+                  justifyContent: "center",
+                  paddingHorizontal: space.lg,
+                  borderRadius: radius.pill,
+                  borderWidth: 1,
+                  borderColor: colour.lineStrong,
+                  backgroundColor: pressed ? colour.chalk : colour.surface,
+                })}
+              >
+                <Text style={[type.smallMedium, { color: colour.forest800 }]}>
+                  Go to {dayLabel(nextBusyDay, today)}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {mode === "season" && shown?.length === 0 && countActive(filter) > 0 && (
+          <View style={{ paddingHorizontal: space.lg }}>
+            <EmptyState
+              title="Nothing matches that filter"
+              body="Clear the filter to see the rest of the season."
               icon={<CalendarDays size={24} color={colour.inkSubtle} />}
             />
           </View>
@@ -407,34 +494,74 @@ export default function Calendar() {
           />
         )}
 
-        {mode !== "season" && days.map((day) => (
-          <View key={day.date}>
-            <View style={{ paddingHorizontal: space.lg, paddingBottom: space.xs, flexDirection: "row", alignItems: "baseline", gap: space.sm }}>
-              <Text style={[type.overline, { color: day.date === today ? colour.pitch600 : colour.forest800 }]}>
-                {relativeDate(day.date, today).toUpperCase()}
-              </Text>
-              <Text style={[type.caption, { color: colour.inkSubtle }]}>{restOfDate(day.date, today)}</Text>
-            </View>
-            <View style={{ backgroundColor: colour.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colour.line }}>
-              {day.items.map((item, index) => (
-                <View key={item.key} style={index === 0 ? undefined : { borderTopWidth: 1, borderTopColor: colour.line }}>
+        {days.map((day) => (
+          <View key={day.date} style={mode === "month" ? { paddingHorizontal: space.lg, gap: space.sm } : undefined}>
+            {/* IN MONTH MODE THE SHEET ALREADY SAYS WHICH DAY IT IS, so a heading
+                here would say it twice, three lines apart. Season mode keeps its
+                per-day heading, because its list spans a whole year. */}
+            {mode !== "month" && (
+              <View style={{ paddingHorizontal: space.lg, paddingBottom: space.xs, flexDirection: "row", alignItems: "baseline", gap: space.sm }}>
+                <Text style={[type.overline, { color: day.date === today ? colour.pitch600 : colour.forest800 }]}>
+                  {relativeDate(day.date, today).toUpperCase()}
+                </Text>
+                <Text style={[type.caption, { color: colour.inkSubtle }]}>{restOfDate(day.date, today)}</Text>
+              </View>
+            )}
+
+            {/* ONE CARD PER EVENT in the day sheet -- the reference's shape, and
+                the right one for a family: Pippa's training at six and George's
+                match at half past are two separate things to be at, so they are
+                two separate objects rather than two rows of one table. Season
+                mode stays a dense list, because a year of rugby as cards is a
+                scroll nobody finishes.
+
+                THE ROW INSIDE IS THE SHARED ONE. Home, Fixtures and Calendar draw
+                a piece of rugby with one component, so a cancelled match is struck
+                through here exactly as it is there and a redesign reaches all
+                three. Only the frame around it differs. */}
+            {mode === "month" ? (
+              day.items.map((item) => (
+                <View
+                  key={item.key}
+                  style={{
+                    borderRadius: radius.lg,
+                    backgroundColor: colour.surface,
+                    borderWidth: 1,
+                    borderColor: colour.line,
+                    overflow: "hidden",
+                  }}
+                >
                   <AgendaRow
                     item={item}
                     today={today}
                     showOwner={showOwner}
                     child={memberFor(projection, item.playerId)}
-                    // EVERY EVENT ROUTES TO ITS OWN DOMAIN OBJECT, and which one it
-                    // is comes from the single destination table in
-                    // src/links/destinations -- shared with Home, Fixtures, a
-                    // notification and a deep link. A match opens the Match Centre
-                    // for a parent or a player and the fixture console for staff; a
-                    // session opens the Training Centre. Neither is ever a
-                    // "calendar event detail".
                     onPress={() => openEvent(item)}
                   />
                 </View>
-              ))}
-            </View>
+              ))
+            ) : (
+              <View style={{ backgroundColor: colour.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colour.line }}>
+                {day.items.map((item, index) => (
+                  <View key={item.key} style={index === 0 ? undefined : { borderTopWidth: 1, borderTopColor: colour.line }}>
+                    {/* EVERY EVENT ROUTES TO ITS OWN DOMAIN OBJECT, and which one it
+                        is comes from the single destination table in
+                        src/links/destinations -- shared with Home, Fixtures, a
+                        notification and a deep link. A match opens the Match Centre
+                        for a parent or a player and the fixture console for staff; a
+                        session opens the Training Centre. Neither is ever a
+                        "calendar event detail". */}
+                    <AgendaRow
+                      item={item}
+                      today={today}
+                      showOwner={showOwner}
+                      child={memberFor(projection, item.playerId)}
+                      onPress={() => openEvent(item)}
+                    />
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         ))}
       </ScrollView>
@@ -472,79 +599,6 @@ export default function Calendar() {
   )
 }
 
-/**
- * SEVEN DAYS, WITH THE BUSY ONES MARKED.
- *
- * The one thing a month grid was genuinely good at -- seeing at a glance where something is -- without
- * the thing it was bad at, which is being four millimetres wide. A dot means the day has rugby in it.
- */
-function WeekStrip({
-  anchor,
-  today,
-  busy,
-  selectedDay,
-  onPick,
-}: {
-  anchor: string
-  today: string
-  busy: Set<string>
-  /** The day the list is narrowed to, or null for the whole week. */
-  selectedDay: string | null
-  onPick: (iso: string) => void
-}) {
-  const start = startOfWeek(anchor)
-  const days = Array.from({ length: 7 }, (_, index) => shift(start, index))
-
-  return (
-    <View style={{ flexDirection: "row", gap: 4 }}>
-      {days.map((iso) => {
-        const date = new Date(`${iso}T12:00:00`)
-        const isToday = iso === today
-        const hasRugby = busy.has(iso)
-        // SELECTED IS NOT THE SAME AS TODAY. Today is where you are; selected is what you asked to see,
-        // and on a Tuesday somebody looking at Saturday needs both marked.
-        const isSelected = iso === selectedDay
-        return (
-          <Pressable
-            key={iso}
-            accessibilityRole="button"
-            accessibilityLabel={`${exactDate(iso)}${hasRugby ? ". Has rugby" : ". Nothing scheduled"}${isSelected ? ". Showing this day. Choose again for the whole week" : ""}`}
-            accessibilityState={{ selected: isSelected }}
-            onPress={() => onPick(iso)}
-            style={({ pressed }) => ({
-              flex: 1,
-              minHeight: TOUCH_TARGET + 6,
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 3,
-              borderRadius: radius.md,
-              borderWidth: isSelected ? 2 : 0,
-              borderColor: colour.forest800,
-              backgroundColor: isToday ? colour.forest800 : isSelected ? colour.mint100 : pressed ? colour.mint100 : "transparent",
-            })}
-          >
-            <Text style={[type.caption, { color: isToday ? colour.onForestMuted : colour.inkMuted, fontSize: 10 }]}>
-              {date.toLocaleDateString("en-GB", { weekday: "narrow" })}
-            </Text>
-            <Text style={[type.smallMedium, { color: isToday ? colour.onForest : colour.ink }]}>
-              {date.getDate()}
-            </Text>
-            {/* A DOT, AND A LABEL THAT SAYS IT. The dot is a convenience for the eye; the spoken label
-                carries the same fact for anybody who is not using one. */}
-            <View
-              style={{
-                width: 4,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: hasRugby ? (isToday ? colour.mint300 : colour.pitch600) : "transparent",
-              }}
-            />
-          </Pressable>
-        )
-      })}
-    </View>
-  )
-}
 
 /**
  * THE SEASON, AND WHICH PART OF IT.
@@ -670,28 +724,35 @@ function SeasonBar({
   )
 }
 
+/**
+ * Where the sheet lands when the month changes: the first of the month arrived at,
+ * or today when that month is this one -- so stepping back to this month returns
+ * somebody to the day they actually care about rather than to the 1st.
+ */
+function monthStartOrToday(anchor: string, today: string): string {
+  return anchor.slice(0, 7) === today.slice(0, 7) ? today : startOfMonth(anchor)
+}
+
 function Toggle({
   value,
   onChange,
 }: {
-  value: "week" | "month" | "season"
-  onChange: (next: "week" | "month" | "season") => void
+  value: "month" | "season"
+  onChange: (next: "month" | "season") => void
 }) {
   return (
     <View
       accessibilityRole="tablist"
-      style={{ flex: 1, flexDirection: "row", backgroundColor: "rgba(16,21,18,0.05)", borderRadius: radius.md, padding: 3 }}
+      style={{ flexDirection: "row", backgroundColor: "rgba(16,21,18,0.05)", borderRadius: radius.md, padding: 3 }}
     >
-      {(["week", "month", "season"] as const).map((option) => {
+      {(["month", "season"] as const).map((option) => {
         const selected = option === value
         return (
           <Pressable
             key={option}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            accessibilityLabel={
-              option === "week" ? "One week at a time" : option === "month" ? "One month at a time" : "The whole season"
-            }
+            accessibilityLabel={option === "month" ? "One month at a time" : "The whole season"}
             onPress={() => onChange(option)}
             style={{
               flex: 1,
@@ -703,7 +764,7 @@ function Toggle({
             }}
           >
             <Text style={[type.smallMedium, { color: selected ? colour.ink : colour.inkMuted, fontSize: 13 }]}>
-              {option === "week" ? "Week" : option === "month" ? "Month" : "Season"}
+              {option === "month" ? "Month" : "Season"}
             </Text>
           </Pressable>
         )
@@ -770,32 +831,6 @@ function clamp(iso: string, range: { start: string; end: string } | null): strin
   return iso
 }
 
-function emptyTitle(mode: "week" | "month", anchor: string, today: string): string {
-  if (mode === "month") return "Nothing scheduled this month"
-  const days = daysBetween(today, anchor)
-  if (days >= 0 && days < 7) return "Nothing scheduled this week"
-  return "Nothing scheduled"
-}
-
-/**
- * A RUGBY WEEK STARTS ON MONDAY.
- *
- * The same rule the canonical window uses, and it is not arbitrary: the fixture is on Saturday and the
- * training that prepares for it is on Tuesday and Thursday, so a Sunday-start week cuts that story in
- * half. Reimplemented here only because the strip needs the seven dates rather than a window.
- */
-function startOfWeek(iso: string): string {
-  const date = new Date(`${iso}T12:00:00`)
-  const day = (date.getDay() + 6) % 7
-  date.setDate(date.getDate() - day)
-  return format(date)
-}
-
-function shift(iso: string, days: number): string {
-  const date = new Date(`${iso}T12:00:00`)
-  date.setDate(date.getDate() + days)
-  return format(date)
-}
 
 function format(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`

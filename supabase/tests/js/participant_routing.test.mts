@@ -267,8 +267,17 @@ test("every editable field in the Training Centre is gated on the server's own a
   // `canManage` comes from `get_training_session_card`, which runs
   // `internal.can_manage_training`. Not a role name, not the context kind.
   assert.match(screen, /canEdit = Boolean\(session\?\.canManage\)/)
-  // Cancelling is the one that cannot be undone, so it is gated separately and again.
-  assert.match(screen, /session\.canManage && !cancelled/)
+  /*
+    CANCELLING IS THE ONE THAT CANNOT BE UNDONE, so it is gated twice and, since P4,
+    not even mounted without the first gate. The whole administrative half lives in
+    `TrainingOperations`, which is rendered inside `{session.canManage && (...)}`,
+    and the cancel control inside that on `!cancelled`.
+  */
+  assert.match(screen, /\{session\.canManage && \(/, "the administrative half is not gated on the server's answer")
+  const gate = screen.indexOf("{session.canManage && (")
+  assert.ok(screen.indexOf("<CancelSessionButton") > gate, "the cancel control is mounted outside the gate")
+  assert.ok(screen.indexOf("<TrainingOperations") > gate, "the edit sheets are mounted outside the gate")
+  assert.match(screen, /\{!cancelled && \(\s*<CancelSessionButton/, "a cancelled session can still be cancelled")
   // And a row that is not editable draws no press target and no chevron at all,
   // rather than a control that fails after being tapped.
   assert.match(screen, /if \(!editable \|\| !onPress\) return content/)
@@ -298,11 +307,19 @@ test("the Calendar creates, edits and deletes nothing", () => {
 
 test("the Calendar's every way into an event is the same one function", () => {
   const calendar = readFileSync(`${APP}/calendar/index.tsx`, "utf8")
-  // The week list's rows and the week sheet -- the two places an EVENT is opened
-  // from (the month grid opens a day, which then lists rows through the same
-  // component). Two copies of two lines was two chances for one of them to keep
-  // sending a parent to administration after the other stopped.
-  assert.equal((calendar.match(/openEvent\(item\)/g) ?? []).length, 2)
+  /*
+    EVERY WAY IN GOES THROUGH `openEvent`, whichever view it is: the day sheet's
+    cards, the season list and the week sheet. What matters is not how many there
+    are -- P4 added the month grid and its sheet -- but that no OTHER routing rule
+    survives beside them. Before P3 there were copies, and they disagreed.
+  */
+  assert.ok((calendar.match(/openEvent\(item\)/g) ?? []).length >= 2, "the calendar's rows no longer route through openEvent")
+  assert.equal(
+    (calendar.match(/routeForAgendaItem\(/g) ?? []).length,
+    1,
+    "the calendar resolves a destination in more than one place"
+  )
+  assert.ok(!/router\.push\(\s*[`"']\/(fixtures|calendar\/training)/.test(calendar), "a second routing rule survives in the Calendar")
   assert.ok(!/item\.kind === "fixture"\s*\n?\s*\?\s*router\./.test(calendar), "a second routing rule survives in the Calendar")
 })
 

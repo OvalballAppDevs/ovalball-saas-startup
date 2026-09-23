@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import {
   NO_ANSWER_YET,
+  attendanceConfirmation,
   availabilityEventLabel,
   availabilityQuestion,
   availabilitySubject,
@@ -13,24 +14,25 @@ import {
 
 import { supabase } from "../../../../src/auth/supabase"
 import {
-  cancelTrainingSession,
   loadMyTrainingAvailability,
   loadTrainingRegister,
   loadTrainingSession,
-  overrideTrainingSession,
   type TrainingAvailability,
-  type TrainingResult,
   type TrainingSession,
 } from "../../../../src/agenda/training"
+import {
+  CancelSessionButton,
+  TrainingOperations,
+  type TrainingEdit,
+} from "../../../../src/training/training-operations"
 import { respondToTraining } from "../../../../src/match-centre/respond"
+import { loadRecipients } from "../../../../src/messages/recipients"
 import { AvailabilityChoice } from "../../../../src/components/availability-choice"
 import { AvailabilityRegister, type RegisterEntry } from "../../../../src/components/availability-register"
-import { loadPitchOptions, loadVenueOptions, type PitchOption, type VenueOption } from "../../../../src/agenda/fixture-detail"
 import { exactDate, relativeDate, restOfDate } from "../../../../src/agenda/presentation"
 import { todayIso } from "../../../../src/agenda/load"
 import { friendly, logDetail } from "../../../../src/errors/translate"
-import { CancelSheet, ChoiceSheet, DateSheet, TextSheet, TimeSheet } from "../../../../src/components/field-sheet"
-import { ChevronRight, MapPin, Users } from "../../../../src/components/icons"
+import { ChevronRight, MapPin, MessageSquare, Users } from "../../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
 
@@ -64,13 +66,29 @@ export default function TrainingCentre() {
   const [missing, setMissing] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [venues, setVenues] = useState<VenueOption[]>([])
-  const [pitches, setPitches] = useState<PitchOption[]>([])
   const [mine, setMine] = useState<TrainingAvailability[]>([])
+  /**
+   * WHETHER THERE IS ANYBODY THIS PERSON MAY MESSAGE AT ALL.
+   *
+   * The same question, and the same one answer, as Match Centre:
+   * `my_direct_message_candidates()` applies `internal.may_direct_message` to its
+   * own output -- adulthood first and unconditionally, then blocks, then policy,
+   * then relationship. Zero means no row, which is what an under-18 player gets.
+   */
+  const [canReachSomebody, setCanReachSomebody] = useState(false)
+  /** The one sentence shown after an answer lands. Cleared on every re-read. */
+  const [confirmation, setConfirmation] = useState<string | null>(null)
   const [register, setRegister] = useState<RegisterEntry[]>([])
-  const [editing, setEditing] = useState<null | "date" | "start" | "venue" | "pitch" | "agenda" | "notes" | "cancel">(null)
-  const [saving, setSaving] = useState(false)
-  const [sheetProblem, setSheetProblem] = useState<string | null>(null)
+  /**
+   * WHICH FIELD A COACH IS EDITING.
+   *
+   * Held here so the read-only rows can say which one is open, but the sheets that
+   * do the editing live in `TrainingOperations`, which is mounted only where the
+   * server said this viewer may manage the session. A participant can set this
+   * state to nothing, because they are offered no press target to set it with --
+   * and even if they could, nothing is mounted to read it.
+   */
+  const [editing, setEditing] = useState<TrainingEdit>(null)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -82,22 +100,28 @@ export default function TrainingCentre() {
         return
       }
       setSession(loaded)
+      setConfirmation(null)
       /*
-        THE SAME FOUR QUESTIONS THE WEBSITE'S TRAINING CENTRE ASKS, asked
-        together. `loadMyTrainingAvailability` and `loadTrainingRegister` are the
-        canonical RPCs -- the register one REFUSES rather than filtering, so an
-        empty array here means "not staff" and the section simply is not drawn.
+        WHAT THIS VIEWER IS ACTUALLY ENTITLED TO ASK.
+
+        `loadMyTrainingAvailability` is everybody's -- it returns this person's own
+        family, and only theirs. The REGISTER is asked for only where the server
+        already said `can_view_register`; the RPC refuses rather than filtering, so
+        an empty array would mean "not staff" either way, and not asking is the
+        better half of that.
+
+        The GROUNDS AND PITCHES are gone from here entirely. They exist to fill an
+        edit control, so they are now read by `TrainingOperations` when it mounts --
+        which happens only for somebody the server said may edit.
       */
-      const [venueOptions, pitchOptions, myAvailability, sessionRegister] = await Promise.all([
-        loadVenueOptions(supabase, loaded.clubId),
-        loadPitchOptions(supabase, loaded.clubId, loaded.venueId),
+      const [myAvailability, sessionRegister, people] = await Promise.all([
         loadMyTrainingAvailability(supabase, id),
         loaded.canViewRegister ? loadTrainingRegister(supabase, id) : Promise.resolve([] as RegisterEntry[]),
+        loadRecipients(supabase).catch(() => []),
       ])
-      setVenues(venueOptions)
-      setPitches(pitchOptions)
       setMine(myAvailability)
       setRegister(sessionRegister)
+      setCanReachSomebody(people.length > 0)
     } catch (caught) {
       const failure = friendly(caught, "this training session")
       logDetail("training centre", failure)
@@ -115,21 +139,6 @@ export default function TrainingCentre() {
     }, [load])
   )
 
-  async function save(action: () => Promise<TrainingResult>) {
-    if (saving) return
-    setSaving(true)
-    setSheetProblem(null)
-    const result = await action()
-    if (!result.ok) {
-      setSaving(false)
-      setSheetProblem(result.message)
-      return
-    }
-    await load()
-    setSaving(false)
-    setEditing(null)
-  }
-
   /**
    * THE SERVER'S ANSWER IS WHAT MOVES THE CONTROL. `respondToTraining` calls the
    * canonical `respond_to_training_attendance`, which refuses a cancelled session
@@ -144,6 +153,31 @@ export default function TrainingCentre() {
       return false
     }
     setProblem(null)
+    /*
+      A STATEMENT ABOUT THE CHILD, from canonical values only.
+
+      Owner decision O-4: the confirmation says what is now true of the person --
+      "Pippa can attend training on Saturday 18 October at Prairie Playing
+      Fields" -- rather than reporting that a record was written. The words come
+      from the shared `attendanceConfirmation`, so the fixture half and the
+      training half of the same product say the same thing.
+
+      AND IT DOES NOT CLAIM ANYBODY HAS BEEN TOLD. Turning an availability answer
+      into a notification for the coach is a real platform gap, owner-scheduled
+      for P5; a confirmation that implied it had happened would be the app
+      inventing the feature in words.
+    */
+    setConfirmation(
+      session
+        ? attendanceConfirmation({
+            status,
+            subjectFirstName: entry.isSelf ? null : entry.firstName,
+            kind: "training",
+            whenLabel: exactDate(session.date),
+            venueName: session.venueName,
+          })
+        : null
+    )
     await load()
     return true
   }
@@ -246,6 +280,20 @@ export default function TrainingCentre() {
               </View>
             )}
           </View>
+
+          {/* WHAT IS NOW TRUE, said once, where the answer was given.
+              `attendanceConfirmation` is the shared sentence, so the fixture half
+              and the training half of the same product confirm alike -- and it
+              stops at what the record says, because nobody has been notified yet
+              and claiming otherwise would be the app inventing P5 in words. */}
+          {!!confirmation && (
+            <View
+              accessibilityRole="alert"
+              style={{ padding: space.md, borderRadius: radius.md, backgroundColor: colour.successSurface }}
+            >
+              <Text style={[type.smallMedium, { color: colour.forest800 }]}>{confirmation}</Text>
+            </View>
+          )}
 
           {cancelled && (
             <View style={{ padding: space.md, borderRadius: radius.md, backgroundColor: colour.dangerSurface, gap: 2 }}>
@@ -361,108 +409,81 @@ export default function TrainingCentre() {
             />
           )}
 
-          {session.canManage && !cancelled && (
+          {/* ============================================================
+                ASKING SOMEBODY A QUESTION ABOUT THIS SESSION.
+
+                The same action, the same authority and the same words as Match
+                Centre: a shortcut into the canonical chooser, which is built on
+                `my_direct_message_candidates()` and therefore on
+                `internal.may_direct_message`. No recipient is resolved here, no id
+                is constructed, and being at a training session has never been a
+                reason anybody may message anybody.
+
+                ABSENT WHEN THE CANONICAL LIST IS EMPTY, which is what an under-18
+                player gets -- and there is no participant directory of any kind:
+                "message everybody attending training" is not a thing this offers.
+                A coach with the club-to-club thread does not need this row, and
+                training has no opposition for one to arise from.
+             ============================================================ */}
+          {!session.canManage && canReachSomebody && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Cancel this training session"
-              onPress={() => {
-                setSheetProblem(null)
-                setEditing("cancel")
-              }}
+              accessibilityLabel="Message somebody at your club"
+              onPress={() => router.push("/messages/new")}
               style={({ pressed }) => ({
-                marginTop: space.lg,
-                minHeight: TOUCH_TARGET + 6,
+                minHeight: TOUCH_TARGET,
+                flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "center",
-                borderRadius: radius.md,
-                backgroundColor: colour.danger,
-                opacity: pressed ? 0.88 : 1,
+                gap: space.md,
+                padding: space.lg,
+                borderRadius: radius.lg,
+                borderWidth: 1,
+                borderColor: colour.line,
+                backgroundColor: pressed ? colour.chalk : colour.surface,
               })}
             >
-              <Text style={[type.smallMedium, { color: colour.onForest, fontSize: 15 }]}>Cancel Session</Text>
+              <MessageSquare size={18} color={colour.forest800} />
+              <View style={{ flex: 1 }}>
+                <Text style={[type.smallMedium, { color: colour.ink }]}>Message Team Staff</Text>
+                <Text style={[type.caption, { color: colour.inkMuted, marginTop: 2 }]}>
+                  Ask a question about this session. Who you can reach is set by your club.
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colour.inkSubtle} />
             </Pressable>
           )}
 
-          <DateSheet
-            visible={editing === "date"}
-            value={session.date}
-            onClose={() => setEditing(null)}
-            saving={saving}
-            problem={sheetProblem}
-            onSave={(date) => void save(() => overrideTrainingSession(supabase, id, { date }))}
-          />
-          <TimeSheet
-            visible={editing === "start"}
-            title="Start time"
-            value={session.startTime}
-            onClose={() => setEditing(null)}
-            saving={saving}
-            problem={sheetProblem}
-            onSave={(startTime) => void save(() => overrideTrainingSession(supabase, id, { startTime }))}
-          />
-          <ChoiceSheet
-            visible={editing === "venue"}
-            title="Venue"
-            hint="Your club's grounds."
-            options={venues.map((venue) => ({ id: venue.id, name: venue.name, detail: venue.town }))}
-            value={session.venueId}
-            emptyMessage="Your club has no grounds recorded in Ovalball yet. They are added in Club Admin on the web."
-            onClose={() => setEditing(null)}
-            saving={saving}
-            problem={sheetProblem}
-            onSave={(venueId) => void save(() => overrideTrainingSession(supabase, id, { venueId }))}
-          />
-          <ChoiceSheet
-            visible={editing === "pitch"}
-            title="Pitch"
-            hint="Playing areas at this ground."
-            options={pitches.map((pitch) => ({ id: pitch.id, name: pitch.name }))}
-            value={session.pitchId}
-            emptyMessage={
-              session.venueId
-                ? "This ground has no playing areas recorded."
-                : "Choose a ground first — a pitch belongs to one."
-            }
-            onClose={() => setEditing(null)}
-            saving={saving}
-            problem={sheetProblem}
-            onSave={(pitchId) => void save(() => overrideTrainingSession(supabase, id, { pitchId, venueId: session.venueId }))}
-          />
-          <TextSheet
-            visible={editing === "agenda"}
-            title="Agenda"
-            hint="What the session is working on."
-            placeholder="Scrum shape, defensive line speed"
-            value={session.agenda ?? ""}
-            multiline
-            onClose={() => setEditing(null)}
-            saving={saving}
-            problem={sheetProblem}
-            onSave={(agenda) => void save(() => overrideTrainingSession(supabase, id, { agenda: agenda.trim() || null }))}
-          />
-          <TextSheet
-            visible={editing === "notes"}
-            title="Notes"
-            hint="Anything the squad needs to know."
-            placeholder="Bring a gumshield"
-            value={session.furtherNotes ?? ""}
-            multiline
-            onClose={() => setEditing(null)}
-            saving={saving}
-            problem={sheetProblem}
-            onSave={(notes) => void save(() => overrideTrainingSession(supabase, id, { furtherNotes: notes.trim() || null }))}
-          />
-          <CancelSheet
-            visible={editing === "cancel"}
-            summary={{
-              teams: session.teamLabel ?? "Training",
-              when: `${exactDate(session.date)}${session.startTime ? ` · ${session.startTime}` : ""}`,
-            }}
-            onClose={() => setEditing(null)}
-            saving={saving}
-            problem={sheetProblem}
-            onConfirm={(reason) => void save(() => cancelTrainingSession(supabase, id, reason))}
-          />
+          {/* ============================================================
+                RUNNING THE SESSION — mounted only on the server's own answer.
+
+                Every sheet that edits this session, the two reads that fill them,
+                and the cancel control live in `TrainingOperations`, which is
+                rendered only where `session.canManage` is true -- the value
+                `get_training_session_card` returns from
+                `internal.can_manage_training`.
+
+                Before P4 all of it was in this tree for EVERY viewer. Nothing was
+                drawn, because each row's press target is gated and a non-editable
+                row renders no chevron -- but the administrative components were
+                MOUNTED, and the grounds and pitches were fetched, for a parent
+                whose screen had nowhere to put them. The URL still does not grant
+                the surface, and now it does not assemble it either.
+             ============================================================ */}
+          {session.canManage && (
+            <>
+              {!cancelled && (
+                <CancelSessionButton
+                  onPress={() => setEditing("cancel")}
+                />
+              )}
+              <TrainingOperations
+                session={session}
+                editing={editing}
+                onClose={() => setEditing(null)}
+                onSaved={load}
+              />
+            </>
+          )}
         </>
       )}
     </Shell>

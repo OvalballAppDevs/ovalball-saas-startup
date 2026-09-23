@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from "react-native"
 import type { ClubTheme, AgendaItem, FamilyMember } from "@ovalball/contracts"
 import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
+import { needsAttendanceResponse } from "@ovalball/contracts"
 
 import {
   homeAwayLabel,
@@ -164,8 +165,19 @@ export function AgendaRow({
           status && status.tone !== "confirmed" && <Pill status={status} />
         )}
         {/* THE CHILD'S OWN ANSWER, where this row belongs to one. A guardian's agenda is about people,
-            not just dates. */}
-        {!!item.attendance && <Attendance value={item.attendance} />}
+            not just dates.
+
+            AND WHERE THERE IS NO ANSWER YET, the row says so rather than saying nothing. A blank was
+            indistinguishable from a row that belongs to nobody, so a parent scanning a week could not
+            see which events were still waiting on them -- the one thing the week is being scanned for.
+            It appears only where an answer is genuinely outstanding: `needsAttendanceResponse` is the
+            canonical rule, so the word here and the row in Needs Attention appear and disappear
+            together, and a cancelled or long-past event is never marked as waiting. */}
+        {item.attendance ? (
+          <Attendance value={item.attendance} />
+        ) : (
+          item.playerId !== null && needsAttendanceResponse(item, today) && <Attendance value={null} />
+        )}
       </View>
     </Pressable>
   )
@@ -279,9 +291,12 @@ function Pill({ status }: { status: StatusTone }) {
  * Can't Attend / Maybe". This is a row DESCRIBING somebody's answer, so it takes
  * the third-person register words, which is what the web's equivalent shows.
  */
-function Attendance({ value }: { value: NonNullable<AgendaItem["attendance"]> }) {
-  const label = ATTENDANCE_STATE_WORDS[value]
-  const colours = value === "ATTENDING" ? colour.forest800 : value === "CANNOT_ATTEND" ? colour.danger : colour.warning
+function Attendance({ value }: { value: AgendaItem["attendance"] }) {
+  // NULL IS THE CANONICAL "AWAITING" STATE -- the absence of a row, which the shared
+  // vocabulary already has a word for. Not a fourth state invented for a list.
+  const label = ATTENDANCE_STATE_WORDS[value ?? "AWAITING"]
+  const colours =
+    value === "ATTENDING" ? colour.forest800 : value === "CANNOT_ATTEND" ? colour.danger : colour.warning
   return <Text style={[type.caption, { color: colours, fontSize: 10 }]}>{label}</Text>
 }
 

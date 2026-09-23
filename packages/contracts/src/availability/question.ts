@@ -68,3 +68,40 @@ export const NO_ANSWER_YET = "You haven't responded yet."
  * moment somebody needs to see it.
  */
 export const SAVING_LABEL = "Saving…"
+
+/**
+ * WHAT IS NOW TRUE OF THE PERSON, once an answer has landed.
+ *
+ * Owner decision O-4: a confirmation is a STATEMENT ABOUT THE CHILD, not a report
+ * that a record was written. "Pippa can attend training on Saturday 18 October at
+ * Prairie Playing Fields" tells a parent the thing they wanted to know; "Response
+ * saved" tells them about the database.
+ *
+ * FIRST NAME ONLY, and "You" for somebody answering about themselves -- the same
+ * two cases `availabilityQuestion` has, so the question and the answer cannot
+ * disagree about who was being asked.
+ *
+ * IT SAYS NOTHING ABOUT ANYBODY HAVING BEEN TOLD. Turning an availability answer
+ * into a notification for the coach is a real platform gap rather than something
+ * either client may imply, so this sentence stops at what the record now says.
+ *
+ * EVERY VALUE IS CANONICAL: the state comes from the three the database accepts,
+ * the date label from the agenda's own formatter, the venue from the event.
+ */
+export function attendanceConfirmation(input: {
+  status: "ATTENDING" | "CANNOT_ATTEND" | "UNSURE"
+  /** The child's first name, or null when the person is answering about themselves. */
+  subjectFirstName: string | null
+  kind: AvailabilityEventKind
+  /** The date in the agenda's own words -- "Saturday 18 October". */
+  whenLabel: string
+  venueName?: string | null
+}): string {
+  const subject = input.subjectFirstName?.trim() || "You"
+  const event = input.kind === "training" ? "training" : "the match"
+  // "Might attend" for Unsure, because UNSURE IS A RECORDED ANSWER rather than a
+  // failure to give one, and the sentence has to read like one.
+  const verb = { ATTENDING: "can attend", CANNOT_ATTEND: "cannot attend", UNSURE: "might attend" }[input.status]
+  const where = input.venueName?.trim() ? ` at ${input.venueName.trim()}` : ""
+  return `${subject} ${verb} ${event} on ${input.whenLabel}${where}.`
+}

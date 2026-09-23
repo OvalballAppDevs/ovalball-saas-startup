@@ -76,7 +76,7 @@ declare
   v_team uuid; v_team_other uuid; v_team_teen uuid;
   v_child uuid; v_other_child uuid; v_teen_player uuid;
   v_fx_mine uuid; v_fx_theirs uuid; v_fx_teen uuid;
-  v_session uuid;
+  v_session uuid; v_session_other uuid; v_session_teen uuid;
   v_n int; v_bool boolean;
 begin
   foreach v_person in array array[v_admin, v_guardian, v_other_guardian, v_teen] loop
@@ -151,6 +151,8 @@ begin
 
   insert into public.training_sessions (club_id, team_id, session_date, start_time, end_time, created_by)
   values (v_club, v_team, current_date + 3, '18:00', '19:30', v_admin) returning id into v_session;
+  insert into public.training_sessions (club_id, team_id, session_date, start_time, end_time, created_by)
+  values (v_club, v_team_teen, current_date + 5, '19:00', '20:30', v_admin) returning id into v_session_teen;
 
   -- =====================================================================
   -- A. THE ROUTE DECISION, FOR THE PEOPLE IT DECIDES FOR
@@ -234,6 +236,65 @@ begin
   perform pg_temp.check(v_n = 0, 'F7 which returns nobody for them either');
 
   -- =====================================================================
+  -- H. THE TRAINING CENTRE, IN FULL (P4)
+  --
+  -- The Calendar routes a session here, so this is the one surface a parent reaches
+  -- for training -- and the only thing standing between them and a coach's controls
+  -- is the answer below.
+  -- =====================================================================
+  perform pg_temp.act('authenticated', v_guardian);
+
+  -- Their own child's session IS theirs to see and answer.
+  select count(*) into v_n from (select * from public.get_my_players_for_training_session(v_session)) q;
+  perform pg_temp.check(v_n = 1, 'H1 a guardian sees their own child on their own child''s session');
+  select count(*) into v_n from (select * from public.get_training_session_card(v_session)) q;
+  perform pg_temp.check(v_n = 1, 'H2 and the session card itself');
+
+  -- ANOTHER FAMILY'S SESSION IS NOT.
+  perform pg_temp.act_postgres();
+  insert into public.training_sessions (club_id, team_id, session_date, start_time, end_time, created_by)
+  values (v_club, v_team_other, current_date + 4, '18:00', '19:30', v_admin) returning id into v_session_other;
+  perform pg_temp.act('authenticated', v_guardian);
+  select count(*) into v_n from (select * from public.get_my_players_for_training_session(v_session_other)) q;
+  perform pg_temp.check(v_n = 0, 'H3 and NOBODY on a session belonging to another family''s side');
+  -- The card reader REFUSES a session this person may not view, rather than
+  -- returning it with the capabilities turned off. Either answer is safe; refusing
+  -- is the stronger one, and it is what the screen's "unavailable" state reads.
+  perform pg_temp.check(pg_temp.try(format('select * from public.get_training_session_card(%L)', v_session_other)) = 'REFUSED',
+    'H4 and the session card for it is refused outright');
+
+  -- EVERY ADMINISTRATIVE WRITE, called directly as a typed URL would have allowed.
+  perform pg_temp.check(pg_temp.try(format('select public.override_training_session(%L, p_session_date => %L::date)', v_session, (current_date + 5)::text)) = 'REFUSED',
+    'H5 a guardian cannot move the session to another day');
+  perform pg_temp.check(pg_temp.try(format('select public.override_training_session(%L, p_start_time => %L::time)', v_session, '19:00')) = 'REFUSED',
+    'H6 nor change its start time');
+  perform pg_temp.check(pg_temp.try(format('select public.override_training_session(%L, p_venue_id => %L::uuid)', v_session, gen_random_uuid())) = 'REFUSED',
+    'H7 nor move it to another ground');
+  perform pg_temp.check(pg_temp.try(format('select public.override_training_session(%L, p_agenda => %L)', v_session, 'probe')) = 'REFUSED',
+    'H8 nor rewrite the session plan');
+  perform pg_temp.check(pg_temp.try(format('select public.cancel_training_session(%L, %L)', v_session, 'probe')) = 'REFUSED',
+    'H9 nor cancel it');
+
+  -- BUT THEY CAN ANSWER FOR THEIR OWN CHILD, which is the whole point of the screen.
+  perform pg_temp.check(pg_temp.try(format('select public.respond_to_training_attendance(%L, %L, %L)', v_session, v_child, 'ATTENDING')) = 'ALLOWED',
+    'H10 while answering for their own child is allowed — the participant half still works');
+
+  -- AND NOT FOR SOMEBODY ELSE'S.
+  perform pg_temp.check(pg_temp.try(format('select public.respond_to_training_attendance(%L, %L, %L)', v_session_other, v_other_child, 'ATTENDING')) = 'REFUSED',
+    'H11 and answering for another family''s child is refused');
+
+  -- =====================================================================
+  -- I. A PLAYER IS A PARTICIPANT AT TRAINING TOO
+  -- =====================================================================
+  perform pg_temp.act('authenticated', v_teen);
+  select coalesce(bool_or(can_manage), false) into v_bool from public.get_training_session_card(v_session_teen);
+  perform pg_temp.check(v_bool = false, 'I1 a 16-year-old player may not manage their own training session');
+  perform pg_temp.check(pg_temp.try(format('select public.cancel_training_session(%L, %L)', v_session_teen, 'probe')) = 'REFUSED',
+    'I2 and cannot cancel it');
+  perform pg_temp.check(pg_temp.try(format('select public.override_training_session(%L, p_start_time => %L::time)', v_session_teen, '19:00')) = 'REFUSED',
+    'I3 nor move it');
+
+  -- =====================================================================
   -- G. LEGITIMATE OPERATIONS ARE NOT COLLATERAL DAMAGE
   -- =====================================================================
   perform pg_temp.act('authenticated', v_admin);
@@ -241,6 +302,8 @@ begin
   perform pg_temp.check(v_bool = true, 'G1 a club admin DOES project operations on their own club''s fixture');
   select can_manage into v_bool from public.get_training_session_card(v_session);
   perform pg_temp.check(v_bool = true, 'G2 and may manage the training session');
+  perform pg_temp.check(pg_temp.try(format('select public.override_training_session(%L, p_agenda => %L)', v_session, 'Scrum shape')) = 'ALLOWED',
+    'G4 and may actually rewrite the session plan — the staff half is not collateral damage');
   select can_view_participants into v_bool from public.get_match_centre_capabilities(v_fx_mine);
   perform pg_temp.check(v_bool = true, 'G3 and sees the squad register the participant is not shown');
 
