@@ -105,9 +105,28 @@ export function AppHeader({
   const clubName = club.name
   const crestUrl = club.crestUrl
 
+  /*
+    WHAT THE CONTEXT ROW SAYS, AND WHY THE CHILD'S NAME LEADS.
+
+    Standing in a parent context, this read:
+
+        Under 12 Boys
+        Ovalball UAT RUFC · Under 12 Boys
+
+    -- the team twice, the child not at all, and no word for what the viewer IS.
+    `label` is the plain team name on purpose (every header and nav consumer
+    expects that), and `switcherLabel` is the one field that names the specific
+    child, which is exactly what this row should lead with: a guardian of two is
+    looking at ONE of them, and the whole point of having switched is which.
+
+    THE ROLE IS SAID, as it is on the website. "Parent/Guardian" is the viewer's
+    relationship, not the child's -- the caption keeps it last, after the club
+    and the team, so it reads as what you are rather than as what they are.
+  */
+  const title = active ? (active.subjectName ? active.switcherLabel : active.label) : "Ovalball"
   const caption = active
     ? active.subjectName
-      ? [active.subjectClubName, active.label].filter(Boolean).join(" · ")
+      ? [active.subjectClubName, active.label, active.roleLabel].filter(Boolean).join(" · ")
       : [clubName && clubName !== active.label ? clubName : null, active.roleLabel].filter(Boolean).join(" · ")
     : ""
 
@@ -138,7 +157,7 @@ export function AppHeader({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={active ? `Viewing ${active.label}, ${caption}` : "No context selected"}
+        accessibilityLabel={active ? `Viewing ${title}, ${caption}` : "No context selected"}
         accessibilityHint={switchable ? "Opens the clubs, teams and children you can switch to" : undefined}
         accessibilityState={{ disabled: !switchable }}
         disabled={!switchable}
@@ -175,8 +194,9 @@ export function AppHeader({
             <ClubCrest clubName={clubName ?? active.label} url={crestUrl ?? active.logoUrl} size={30} />
           ))}
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[type.smallMedium, { color: colour.ink }]} numberOfLines={1}>
-            {active?.label ?? "Ovalball"}
+          {/* BOLD, because it is the answer to "who am I looking at". */}
+          <Text style={[type.bodyMedium, { color: colour.ink, fontFamily: "Inter_600SemiBold", fontSize: 15 }]} numberOfLines={1}>
+            {title}
           </Text>
           {!!caption && (
             <Text style={[type.caption, { color: colour.inkMuted }]} numberOfLines={1}>

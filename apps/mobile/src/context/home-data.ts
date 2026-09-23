@@ -1,7 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   clubLogoUrlFromPath,
+  listClubNews,
+  listLiveClubNotices,
+  loadClubKitTheme,
+  resolveClubTheme,
   type AgendaItem,
+  type ClubNewsCard,
+  type ClubNotice,
+  type ClubTheme,
   type Database,
   type SessionContext,
   type SwitchableContext,
@@ -25,8 +32,11 @@ import { readAgenda, todayIso } from "../agenda/load"
  * the list; Calendar takes a week of it. They cannot disagree about who is playing whom, which side is
  * at home or what a fixture is called, because there is one answer.
  *
- * WHAT HOME KEEPS FOR ITSELF is the CLUB IDENTITY on the header -- the crest and the name for whatever
- * context is selected -- which is not an agenda question and has its own canonical rule.
+ * WHAT HOME KEEPS FOR ITSELF is the CLUB IDENTITY on the header -- the crest, the name and the club's
+ * own kit COLOURS for whatever context is selected -- and what the club has SAID. Neither is an agenda
+ * question. The notices and the news come from the same two tables and the same two rules the
+ * website's club desk reads, so a notice published in Club or Team Management appears on the phone
+ * because it was published, not because a second query happened to agree.
  */
 
 export interface Availability {
@@ -39,6 +49,8 @@ export interface Availability {
 export interface HomeSummary {
   clubName: string | null
   clubLogoUrl: string | null
+  /** The club's public page slug, so a news story opens where it is published rather than being reproduced in the app. */
+  clubSlug: string | null
   /** The next thing on, whatever context is selected. Null is a legitimate answer, not a failure. */
   next: AgendaItem | null
   /** The rest of the week, so Home can say what else is on without a second read. */
@@ -54,6 +66,27 @@ export interface HomeSummary {
    * team's tally -- and absence is rendered as absence, never as zeroes.
    */
   nextAvailability: Availability | null
+  /**
+   * WHAT THE CLUB HAS SAID.
+   *
+   * Short, dated notices and the club's news, written in Club and Team
+   * Management and published to the club's own page. An empty list is an
+   * ordinary answer -- most clubs have nothing pinned most weeks -- and the
+   * screen collapses the section rather than announcing the absence, which is
+   * the correction the web's own desk already made after a club with nothing to
+   * say was told so three times in a column.
+   */
+  notices: ClubNotice[]
+  news: ClubNewsCard[]
+  /**
+   * THE CLUB'S OWN COLOURS, from its home kit.
+   *
+   * Derived by the same `resolveClubTheme` the website's club home uses, from
+   * the same `club_kits` row -- so a club that changes its shirt changes both
+   * clients at once. Never null: a club with no recorded kit gets Ovalball's
+   * own, and the theme says which of the two it is.
+   */
+  theme: ClubTheme
 }
 
 type Client = SupabaseClient<Database>
@@ -64,12 +97,27 @@ export async function loadHomeSummary(
   context: SwitchableContext
 ): Promise<HomeSummary> {
   const today = todayIso()
-  const [club, agenda] = await Promise.all([
+  const [club, agenda, kit] = await Promise.all([
     loadClub(supabase, context.clubId),
     // ONE READ FOR BOTH ANSWERS. "What is next" and "what else is on this week" are the same rows
     // looked at twice, and asking twice is how they would come to disagree.
     readAgenda(supabase, ctx, context, { mode: "week", anchor: today, includeTraining: true, today }).catch(() => null),
+    context.clubId ? loadClubKitTheme(supabase, context.clubId).catch(() => null) : Promise.resolve(null),
   ])
+
+  /*
+    THE CLUB'S VOICE. Asked for alongside the rugby rather than after it, and
+    each failing on its own: a club with no news must not cost the week's
+    fixtures, and a notices query that errors must not blank the screen. Both
+    resolve to an empty list, which is also what a club with nothing to say
+    returns, so the screen has one case to render rather than three.
+  */
+  const [notices, news] = context.clubId
+    ? await Promise.all([
+        listLiveClubNotices(supabase, context.clubId, 4).catch(() => []),
+        listClubNews(supabase, context.clubId, club.clubName ?? "Club", 3).catch(() => []),
+      ])
+    : [[], []]
 
   const items = agenda?.items ?? []
   // NOT THE FIRST ROW -- the first row that is still ON. A cancelled match is not what somebody is
@@ -80,6 +128,9 @@ export async function loadHomeSummary(
     next,
     week: items.filter((item) => item !== next),
     nextAvailability: next?.kind === "fixture" ? await loadAvailability(supabase, next.eventId) : null,
+    notices,
+    news,
+    theme: resolveClubTheme(kit),
   }
 }
 
@@ -95,20 +146,24 @@ async function loadAvailability(supabase: Client, fixtureId: string): Promise<Av
   }
 }
 
-async function loadClub(supabase: Client, clubId: string | null): Promise<{ clubName: string | null; clubLogoUrl: string | null }> {
-  if (!clubId) return { clubName: null, clubLogoUrl: null }
+async function loadClub(
+  supabase: Client,
+  clubId: string | null
+): Promise<{ clubName: string | null; clubLogoUrl: string | null; clubSlug: string | null }> {
+  if (!clubId) return { clubName: null, clubLogoUrl: null, clubSlug: null }
   const { data } = await supabase
     .from("clubs")
-    .select("logo_storage_path, club_directory(name, logo_storage_path)")
+    .select("slug, logo_storage_path, club_directory(name, logo_storage_path)")
     .eq("id", clubId)
     .maybeSingle()
-  if (!data) return { clubName: null, clubLogoUrl: null }
+  if (!data) return { clubName: null, clubLogoUrl: null, clubSlug: null }
   // THE CANONICAL RULE, from the shared package: the club's own upload, else the Club Directory's
   // branding logo, else nothing. Never a kit.
   const path = data.logo_storage_path ?? data.club_directory?.logo_storage_path ?? null
   return {
     clubName: data.club_directory?.name ?? null,
     clubLogoUrl: clubLogoUrlFromPath(supabase, path),
+    clubSlug: data.slug ?? null,
   }
 }
 

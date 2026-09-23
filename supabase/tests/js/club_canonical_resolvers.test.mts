@@ -93,7 +93,7 @@ test("only the theme resolver produces club theme variables", () => {
   // themed surface -- which is a property of who produces the CSS variables,
   // not of who reads the table. There is one producer.
   const producers = FILES.filter(({ file, source }) => {
-    if (file === "lib/club-theme/theme.ts") return false
+    if (file === "lib/club-theme/theme.ts" || file === THEME_RESOLVER) return false
     return /--club-[a-z-]+\s*["'`]?\s*:/.test(source) || /clubThemeVariables\s*=/.test(source)
   }).map((f) => f.file)
 
@@ -105,8 +105,31 @@ test("only the theme resolver produces club theme variables", () => {
   )
 })
 
+/**
+ * WHERE THE RESOLVER ACTUALLY LIVES.
+ *
+ * It was `lib/club-theme/theme.ts` until the mobile app needed a club's colours
+ * for its home screen -- a club's kit decides the colour of its home card on
+ * both clients now, so the engine moved to the shared package and `lib/` became
+ * a one-line re-export. A guard reading the shim is a guard inspecting a file
+ * with nothing in it to inspect, which is how a rule goes quietly green.
+ *
+ * Both are tried and the first one that actually CONTAINS the resolver is the
+ * one checked, so moving it again fails loudly rather than silently.
+ */
+const THEME_CANDIDATES = ["packages/contracts/src/club/theme.ts", "lib/club-theme/theme.ts"]
+const THEME_RESOLVER =
+  THEME_CANDIDATES.find((f) => {
+    try {
+      return /OVALBALL_DEFAULT_KIT/.test(readFileSync(path.join(ROOT, f), "utf8"))
+    } catch {
+      return false
+    }
+  }) ?? ""
+
 test("the theme resolver is the only place a default club colour is declared", () => {
-  const resolver = readFileSync(path.join(ROOT, "lib/club-theme/theme.ts"), "utf8")
+  assert.ok(THEME_RESOLVER, `the club theme resolver was not found in any of: ${THEME_CANDIDATES.join(", ")}`)
+  const resolver = readFileSync(path.join(ROOT, THEME_RESOLVER), "utf8")
   assert.ok(/OVALBALL_DEFAULT_KIT/.test(resolver), "the fallback kit must be declared in the resolver")
   assert.ok(
     /export function resolveClubTheme\b/.test(resolver) && /export function clubThemeVariables\b/.test(resolver),

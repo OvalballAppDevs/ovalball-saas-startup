@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from "react-native"
-import type { AgendaItem } from "@ovalball/contracts"
+import type { ClubTheme, AgendaItem } from "@ovalball/contracts"
 import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
 
 import {
@@ -277,16 +277,48 @@ function Attendance({ value }: { value: NonNullable<AgendaItem["attendance"]> })
 export function NextFixtureCard({
   item,
   today,
+  theme,
   onPress,
 }: {
   item: AgendaItem
   today: string
+  /**
+   * THE CLUB'S OWN COLOURS, from its home kit.
+   *
+   * The card is the club's card, and on the website it has been the club's
+   * colours since the Club Digital Home landed -- a Burnley member opens their
+   * club home and it is amber and blue, not Ovalball green. Resolved by the
+   * shared `resolveClubTheme` from the same `club_kits` row, so a club that
+   * changes its shirt changes both clients at once.
+   *
+   * Optional, and Ovalball's forest is the honest fallback: a club with no
+   * recorded kit has no colours to show, and inventing some would be worse than
+   * the platform's own.
+   */
+  theme?: ClubTheme | null
   onPress?: () => void
 }) {
   const status = statusTone(item.status)
   const struck = status?.struck ?? false
   const home = homeAwayLabel(item.homeAway)
   const time = kickoffLabel(item.time)
+
+  /*
+    EVERY COLOUR ON THIS CARD COMES FROM ONE PLACE.
+
+    `theme.hero` is a MEASURED palette, not a set of guesses: `foreground` is
+    chosen to clear WCAG AA against `background`, and `mutedForeground` is the
+    dimmest value that still does -- so a club with a white kit gets a white card
+    with dark text, and a club with a navy kit gets light text, both readable.
+    Picking the ground from the club and then keeping Ovalball's white text would
+    be how a pale-kit club ends up with an unreadable home screen.
+  */
+  const ground = theme?.hero.background ?? colour.forest800
+  const ink = theme?.hero.foreground ?? colour.onForest
+  const inkMuted = theme?.hero.mutedForeground ?? colour.onForestMuted
+  // The translucent chips read over any ground, light or dark, because they are
+  // mixed from the card's OWN text colour rather than from white.
+  const chip = `${ink}22`
 
   return (
     <Pressable
@@ -297,13 +329,18 @@ export function NextFixtureCard({
       disabled={!onPress}
       style={({ pressed }) => ({
         borderRadius: radius.lg,
-        backgroundColor: colour.forest800,
+        backgroundColor: ground,
+        // A near-white kit produces a near-white card, which would float free of
+        // the chalk page without an edge. The theme's own plate border is the
+        // value measured for exactly that case.
+        borderWidth: theme ? 1 : 0,
+        borderColor: theme?.hero.plateBorder ?? "transparent",
         padding: space.lg,
         gap: space.sm,
         opacity: pressed ? 0.94 : 1,
       })}
     >
-      <Text style={[type.overline, { color: colour.onForestMuted }]}>
+      <Text style={[type.overline, { color: inkMuted }]}>
         {item.kind === "training" ? "NEXT TRAINING" : "NEXT FIXTURE"}
       </Text>
 
@@ -314,14 +351,14 @@ export function NextFixtureCard({
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
             numberOfLines={2}
-            style={[type.title, { color: colour.onForest, textDecorationLine: struck ? "line-through" : "none" }]}
+            style={[type.title, { color: ink, textDecorationLine: struck ? "line-through" : "none" }]}
           >
             {item.kind === "training" ? "Training" : opponentLine(item)}
           </Text>
           {/* OUR SIDE, ONCE. The title is the opponent's CLUB, so this is the only place the age grade
               appears -- "Preston Grasshoppers RFC Under 13 Boys" above "Under 13 Boys" said it twice
               and told nobody which of our teams was playing. */}
-          <Text style={[type.small, { color: colour.onForestMuted, marginTop: 2 }]}>
+          <Text style={[type.small, { color: inkMuted, marginTop: 2 }]}>
             {item.us.teamName ?? item.us.clubName}
             {item.childFirstName ? ` · ${item.childFirstName}` : ""}
           </Text>
@@ -337,17 +374,18 @@ export function NextFixtureCard({
           console beside Directions, not in a card where it truncates to "Lightfoot Lane, Pr...". */}
       <View style={{ gap: space.xs, marginTop: space.xs, paddingRight: 58 }}>
         <Fact
-          icon={<Clock size={14} color={colour.onForestMuted} />}
+          icon={<Clock size={14} color={inkMuted} />}
+          tint={ink}
           text={time ? `${relativeDate(item.date, today)} · ${time}` : relativeDate(item.date, today)}
         />
         {!!shortVenue(item.venue) && (
-          <Fact icon={<MapPin size={14} color={colour.onForestMuted} />} text={shortVenue(item.venue)!} />
+          <Fact icon={<MapPin size={14} color={inkMuted} />} tint={ink} text={shortVenue(item.venue)!} />
         )}
       </View>
 
       {!!status && status.tone !== "confirmed" && (
-        <View style={{ alignSelf: "flex-start", marginTop: space.xs, marginRight: 58, backgroundColor: "rgba(255,255,255,0.16)", borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 3 }}>
-          <Text style={[type.caption, { color: colour.onForest, fontSize: 11 }]}>{status.label}</Text>
+        <View style={{ alignSelf: "flex-start", marginTop: space.xs, marginRight: 58, backgroundColor: chip, borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 3 }}>
+          <Text style={[type.caption, { color: ink, fontSize: 11 }]}>{status.label}</Text>
         </View>
       )}
 
@@ -369,11 +407,18 @@ export function NextFixtureCard({
   )
 }
 
-function Fact({ icon, text }: { icon?: React.ReactNode; text: string }) {
+/**
+ * One fact on the Next Up card.
+ *
+ * The colour is PASSED rather than read from the tokens: the card takes the
+ * club's own ground, which may be dark navy or near-white, and a fact hard-coded
+ * to white is a fact nobody can read on an amber shirt.
+ */
+function Fact({ icon, text, tint }: { icon?: React.ReactNode; text: string; tint: string }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1 }}>
       {icon}
-      <Text numberOfLines={1} style={[type.small, { color: colour.onForest }]}>
+      <Text numberOfLines={1} style={[type.small, { color: tint }]}>
         {text}
       </Text>
     </View>

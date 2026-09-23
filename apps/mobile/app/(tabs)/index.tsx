@@ -7,6 +7,7 @@ import * as Linking from "expo-linking"
 import { useAppContexts } from "../../src/context/contexts"
 import { loadHomeSummary, type HomeSummary } from "../../src/context/home-data"
 import { todayIso } from "../../src/agenda/load"
+import { ClubNews, ClubNotices, RugbyHubCard } from "../../src/components/club-voice"
 import { supabase } from "../../src/auth/supabase"
 import { webUrl } from "../../src/config/environment"
 import { friendly, logDetail } from "../../src/errors/translate"
@@ -187,6 +188,11 @@ function ContextHome({
           <NextFixtureCard
             item={summary.next}
             today={today}
+            // THE CLUB'S OWN COLOURS. The website's club home has been the
+            // club's kit since the Club Digital Home landed -- a Burnley member
+            // opens it and it is amber and blue. Ovalball's forest is the
+            // fallback, for a club with no recorded kit.
+            theme={summary.theme}
             onPress={summary.next.kind === "fixture" ? () => onOpenFixture(summary.next!.eventId) : undefined}
           />
         ) : (
@@ -225,6 +231,24 @@ function ContextHome({
           )}
         </View>
       )}
+
+      {/* WHAT THE CLUB HAS SAID.
+          Below the rugby, because somebody opening Ovalball on a Saturday
+          morning is asking when and where before they are asking anything else
+          -- and above the web handoff, because it IS the app rather than a
+          reason to leave it. Both sections collapse when the club has nothing
+          to say, which is most weeks for most clubs. */}
+      {!!summary?.notices.length && <ClubNotices notices={summary.notices} />}
+      {!!summary?.news.length && summary.theme && (
+        <ClubNews
+          news={summary.news}
+          theme={summary.theme}
+          // The article opens on the club's own page. A news reader is its own
+          // product; reproducing the body here would be a second one.
+          onOpen={(article) => void Linking.openURL(`${webUrl}/club/${summary.clubSlug ?? ""}/news/${article.slug}`)}
+        />
+      )}
+      {!!summary?.theme && <RugbyHubCard theme={summary.theme} onOpen={() => void Linking.openURL(`${webUrl}/rugby-hub`)} />}
 
       <Card onPress={() => void Linking.openURL(webUrl)} accessibilityLabel="Open Ovalball on the web">
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
