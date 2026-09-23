@@ -24,7 +24,7 @@ import { colour, type } from "../../src/design/tokens"
  */
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
-  const { active, unreadMessages } = useAppContexts()
+  const { active } = useAppContexts()
   const visible = projectTabs({ kind: active?.kind ?? null })
   const shown = new Set(visible.map((t) => t.key))
 
@@ -69,10 +69,10 @@ export default function TabsLayout() {
           name={key}
           options={{
             title: visible.find((t) => t.key === key)?.label ?? title,
-            tabBarAccessibilityLabel:
-              key === "messages" && unreadMessages > 0
-                ? `Messages, ${unreadMessages} unread`
-                : visible.find((t) => t.key === key)?.label ?? title,
+            // NO UNREAD IN THE BAR ANY MORE. Messages moved to the global header, where its badge
+            // lives beside Notifications and Support -- three independent counts from one canonical
+            // read. A bar cell carrying a fourth copy of one of them is how they come to disagree.
+            tabBarAccessibilityLabel: visible.find((t) => t.key === key)?.label ?? title,
             // `href: null` removes the cell from the bar while leaving the route addressable, which is
             // what keeps a deep link to a hidden destination working.
             href: shown.has(key) ? undefined : null,
@@ -82,7 +82,7 @@ export default function TabsLayout() {
                 label={visible.find((t) => t.key === key)?.label ?? title}
                 color={color}
                 focused={focused}
-                badge={key === "messages" ? unreadMessages : 0}
+                badge={0}
               />
             ),
           }}
@@ -92,12 +92,22 @@ export default function TabsLayout() {
   )
 }
 
+/**
+ * Every route the tab group owns, whether or not it has a cell.
+ *
+ * `notifications` and `support` are deliberately here with no cell: they belong
+ * to the GLOBAL HEADER, which reaches them from every screen, and `href: null`
+ * below removes the cell while leaving the route addressable -- which is what
+ * keeps a header tap and a deep link working.
+ */
 const ALL: { key: TabKey; title: string }[] = [
   { key: "index", title: "Home" },
   { key: "fixtures", title: "Fixtures" },
   { key: "calendar", title: "Calendar" },
   { key: "messages", title: "Messages" },
   { key: "hub", title: "Rugby Hub" },
+  { key: "notifications", title: "Notifications" },
+  { key: "support", title: "Support" },
   { key: "subscriptions", title: "Subscriptions" },
   { key: "more", title: "More" },
 ]

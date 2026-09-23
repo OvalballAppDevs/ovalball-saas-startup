@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 
-import { projectTabs, ALL_TABS } from "../../../apps/mobile/src/context/tab-projection"
+import { projectTabs, ALL_TABS, HEADER_UTILITIES } from "../../../apps/mobile/src/context/tab-projection"
 
 /**
  * WHICH FIVE DESTINATIONS EACH CONTEXT GETS.
@@ -25,35 +25,57 @@ test("every context gets exactly five destinations", () => {
 
 test("the four everyday destinations are in the same place for everybody", () => {
   // The owner's rule: switching context must not feel like opening a different app. Muscle memory for
-  // Home, Fixtures, Calendar and Messages is worth more than a perfectly tailored bar.
+  // Home, Fixtures, Calendar and Rugby Hub is worth more than a perfectly tailored bar.
   //
-  // MESSAGES REPLACED RUGBY HUB IN THE BAR AT M3, an owner decision: messaging is a daily operational
-  // job and the Hub is something you go and read. The Hub's ROUTE is untouched -- see below.
-  const expected = ["index", "fixtures", "calendar", "messages"]
+  // MESSAGES LEFT THE BAR AT P1, an owner decision (O-1) that reverses M3's. Messaging, alerts and help
+  // are UTILITIES -- wanted from wherever somebody already is -- so all three now sit in the global
+  // header on every screen, which is more available than a single cell, not less. Rugby Hub took the
+  // fourth cell back. Messages' ROUTE is untouched: see below.
+  const expected = ["index", "fixtures", "calendar", "hub"]
   for (const kind of ["site_admin", "club", "team", "parent", "player", "family", "governing", null] as const) {
     const keys = projectTabs({ kind, canSeeTeamSubscriptions: false }).map((t) => t.key)
     assert.deepEqual(keys.slice(0, 4), expected, `${kind} reordered the everyday destinations`)
   }
 })
 
-test("Messages is a first-class destination for every context", () => {
+test("Messages is still first-class — in the header, on every screen, for every context", () => {
+  // A cell is available on one tab; the header is available on all of them. The test that matters is
+  // that Messages has not lost its place, not which row it sits in -- and that it has exactly one.
+  assert.ok(HEADER_UTILITIES.includes("messages"), "Messages left the bar without arriving in the header")
+  assert.ok(ALL_TABS.includes("messages"), "the Messages route was removed rather than moved")
   for (const kind of ["team", "club", "parent", "family", "player", null] as const) {
     const keys = projectTabs({ kind }).map((t) => t.key)
-    assert.ok(keys.includes("messages"), `${kind} lost Messages from the bar`)
+    assert.ok(!keys.includes("messages"), `${kind} shows Messages in both the bar and the header`)
   }
 })
 
-test("and Rugby Hub keeps its route and a place in More", () => {
-  // The shortcut moved; the destination did not. A route removed here is a deep link that stops
-  // working, which is a different and worse thing than a cell that moved.
+test("no header utility is also a bar cell, on any context", () => {
+  // Two shortcuts to one destination is one destination that looks like two.
+  for (const kind of ["site_admin", "club", "team", "parent", "player", "family", "governing", null] as const) {
+    const bar = new Set(projectTabs({ kind }).map((t) => t.key))
+    for (const utility of HEADER_UTILITIES) {
+      assert.ok(!bar.has(utility), `${kind} carries ${utility} in the bar as well as the header`)
+    }
+  }
+})
+
+test("More holds what has no other home, and does not repeat what has", () => {
+  // The shortcut moved; the destination did not. A route removed is a deep link that stops working,
+  // which is a different and worse thing than a cell that moved.
   assert.ok(ALL_TABS.includes("hub"), "the Rugby Hub route was removed rather than moved")
   assert.ok(ALL_TABS.includes("subscriptions"), "the Subscriptions route was removed rather than moved")
   const more = readFileSync("apps/mobile/app/(tabs)/more.tsx", "utf8")
-  assert.match(more, /label="Rugby Hub"/, "Rugby Hub is not reachable from More")
   assert.match(more, /label="Subscriptions"/, "Subscriptions is not reachable from More")
-  // The href carries no "(tabs)" group -- a group is invisible in a URL, and including it is what
-  // produces "no route matched with those values" against a typed route table.
-  assert.match(more, /router\.push\("\/hub"\)/, "More links Rugby Hub somewhere other than its own route")
+  // Rugby Hub has a permanent cell again and Notifications a permanent badge, so neither is listed
+  // here as well -- and the Notifications row in particular used to hand the job to the website,
+  // which is no longer true.
+  assert.ok(!/label="Rugby Hub"/.test(more), "Rugby Hub is in the bar and in More")
+  assert.ok(!/label="Notifications"/.test(more), "Notifications is in the header and in More")
+  assert.ok(!/\/notifications`\)/.test(more), "More still sends Notifications to the website")
+  // What More does still link, it links by plain route: an href carries no "(tabs)" group, because a
+  // group is invisible in a URL and including it is what produces "no route matched with those values"
+  // against a typed route table.
+  assert.match(more, /router\.push\("\/subscriptions"\)/, "More links Subscriptions somewhere other than its own route")
   assert.ok(!/\/\(tabs\)\//.test(more), "a navigation target still carries the invisible group segment")
 })
 

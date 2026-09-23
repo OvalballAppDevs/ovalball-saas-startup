@@ -11,6 +11,25 @@ import type { AgendaItem } from "@ovalball/contracts"
  */
 
 export interface AgendaFilter {
+  /**
+   * ONE CHILD, OR ALL OF THEM.
+   *
+   * The equivalent of the website's `AgendaFilterState.playerId`, which mobile
+   * lacked entirely -- so a guardian of two had no way to look at one of them
+   * and the only selector on offer was by TEAM, which is a different question
+   * wearing the same shape.
+   *
+   * THE ALLOWED VALUES ARE NOT THIS MODULE'S. They come from the family
+   * projection, which is built from `resolveFamilyScope` -- relationships the
+   * session proved. An id from anywhere else is normalised to null before it
+   * reaches here, and even if one did not, the narrowing below could only ever
+   * REMOVE rows the loader already returned for this person's own children.
+   *
+   * A CHILD FILTER IS NOT A CONTEXT SWITCH. Choosing Pippa narrows what is
+   * shown; it does not make the signed-in person Pippa, and nothing about their
+   * authority changes.
+   */
+  playerId: string | null
   teamId: string | null
   oppositionId: string | null
   clubId: string | null
@@ -27,6 +46,7 @@ export interface AgendaFilter {
 }
 
 export const NO_FILTER: AgendaFilter = {
+  playerId: null,
   teamId: null,
   oppositionId: null,
   clubId: null,
@@ -37,6 +57,7 @@ export const NO_FILTER: AgendaFilter = {
 
 export function isFiltered(filter: AgendaFilter): boolean {
   return (
+    filter.playerId !== null ||
     filter.teamId !== null ||
     filter.oppositionId !== null ||
     filter.clubId !== null ||
@@ -48,6 +69,7 @@ export function isFiltered(filter: AgendaFilter): boolean {
 
 export function countActive(filter: AgendaFilter): number {
   return [
+    filter.playerId !== null,
     filter.teamId !== null,
     filter.oppositionId !== null,
     filter.clubId !== null,
@@ -65,6 +87,10 @@ export function countActive(filter: AgendaFilter): number {
  */
 export function applyFilter(items: AgendaItem[], filter: AgendaFilter): AgendaItem[] {
   return items.filter((item) => {
+    // THE CHILD, FIRST. An agenda row in a family scope carries the player it
+    // belongs to; a row with no player at all belongs to no child and is
+    // legitimately excluded when one is chosen.
+    if (filter.playerId && item.playerId !== filter.playerId) return false
     if (!filter.includeTraining && item.kind === "training") return false
     // The canonical status, never a guess from a struck-through label.
     if (!filter.includeCancelled && item.status === "Cancelled") return false

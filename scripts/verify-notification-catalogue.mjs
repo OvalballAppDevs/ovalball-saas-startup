@@ -39,7 +39,29 @@ import { dirname, join, relative } from "node:path"
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 const problems = []
 
-const HREF_FILE = "lib/notifications/destinations.ts"
+/**
+ * WHERE THE ONE DESTINATION MAP LIVES.
+ *
+ * It moved into `packages/contracts` so the app resolves a notification through
+ * the very same table the website does -- a notification landing on the wrong
+ * screen in one client and the right one in the other is two products. A
+ * re-export shim stayed behind on the web side, and reading THAT would find no
+ * `switch (type)` and quietly report that every registered type is unrouted. So
+ * the candidates are tried in order, and the guard moves with the map.
+ */
+const HREF_CANDIDATES = [
+  "packages/contracts/src/notifications/destinations.ts",
+  "lib/notifications/destinations.ts",
+]
+
+const HREF_FILE =
+  HREF_CANDIDATES.find((candidate) => {
+    try {
+      return /switch \(type\)/.test(readFileSync(join(root, candidate), "utf8"))
+    } catch {
+      return false
+    }
+  }) ?? HREF_CANDIDATES[0]
 
 // ---------------------------------------------------------------------------
 // Parsing helpers.

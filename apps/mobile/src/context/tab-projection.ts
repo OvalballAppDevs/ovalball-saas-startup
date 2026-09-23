@@ -13,15 +13,24 @@ import type { ActiveContextKind } from "@ovalball/contracts"
  * instruction, and the reason the fifth cell is the only one that varies. Muscle memory for the four
  * everyday destinations is worth more than a perfectly tailored bar.
  *
- * THE FIFTH CELL IS THE CONTEXT'S OWN. A team manager who holds the bounded finance capability gets
- * Subscriptions there, because chasing subscriptions is a weekly job for exactly that person. Everyone
- * else gets More, which holds the same destination one tap further away rather than losing it.
+ * THE FIFTH CELL IS MORE. Everything that does not earn a permanent cell lives one tap inside it
+ * rather than being lost.
  *
  * AND IT IS A PROJECTION, NOT AN AUTHORITY. Every route re-checks the server, exactly as the
  * website's navigation does. Showing a cell grants nothing and hiding one protects nothing.
  */
 
-export type TabKey = "index" | "fixtures" | "calendar" | "messages" | "hub" | "subscriptions" | "more"
+export type TabKey =
+  | "index"
+  | "fixtures"
+  | "calendar"
+  | "messages"
+  | "hub"
+  | "subscriptions"
+  | "more"
+  /** Header utilities. Routes in this group, never cells in the bar. */
+  | "notifications"
+  | "support"
 
 export interface TabSpec {
   key: TabKey
@@ -29,31 +38,37 @@ export interface TabSpec {
 }
 
 /**
- * The five destinations, in the same place for every context.
+ * The four everyday destinations, in the same place for every context.
  *
- * MESSAGES EARNED THE FOURTH CELL at M3, and Rugby Hub moved to More. Both are owner decisions and
- * they are the same decision: messaging is a DAILY operational job -- a coach answering a parent on a
- * Friday night -- while Rugby Hub is something you go and read. A bar holds five before the labels
- * stop being readable, so the fifth is the one a person opens most.
+ * MESSAGES IS NO LONGER ONE OF THEM, and this supersedes the M3 decision that put it here. The
+ * reasoning then was that messaging is a DAILY operational job while Rugby Hub is something you go
+ * and read -- which was true, and is not the whole question. Communication is a UTILITY: it is needed
+ * from wherever you already are, not navigated to, and the same is true of notifications and of
+ * support. All three now live in the global header, persistently, on every screen -- which is more
+ * available than a tab, not less.
  *
- * Rugby Hub's ROUTE is untouched; only its shortcut moved.
+ * That frees the bar to hold five PRODUCT AREAS. Rugby Hub takes the fourth cell.
+ *
+ * MESSAGES' ROUTE IS UNTOUCHED. `/messages`, `/messages/[kind]/[id]`, every deep-link intent and every
+ * recipient rule are exactly as they were: this moved a shortcut, not a product.
  */
 const EVERYDAY: TabSpec[] = [
   { key: "index", label: "Home" },
   { key: "fixtures", label: "Fixtures" },
   { key: "calendar", label: "Calendar" },
-  { key: "messages", label: "Messages" },
+  { key: "hub", label: "Rugby Hub" },
 ]
 
 export function projectTabs(_options?: {
   kind: ActiveContextKind | null
   canSeeTeamSubscriptions?: boolean
 }): TabSpec[] {
-  // ONE ARRANGEMENT FOR EVERY CONTEXT, at this stage and deliberately. Subscriptions briefly took the
-  // fifth cell for a team manager holding the finance capability; Messages is a daily job for every
-  // persona, and a bar whose shape changes when you switch context costs more in confusion than a
-  // tailored fifth cell saves in taps. Subscriptions and Rugby Hub are both one tap away in More, and
-  // Subscriptions keeps its capability-aware behaviour on its own screen.
+  // ONE ARRANGEMENT FOR EVERY CONTEXT, at this stage and deliberately. A bar whose shape changes when
+  // you switch context costs more in confusion than a tailored cell saves in taps, and the owner's
+  // rule for Parent and Player is the same five either way -- identical navigation, different
+  // authority INSIDE each destination.
+  //
+  // Subscriptions is one tap away in More and keeps its capability-aware behaviour on its own screen.
   //
   // The signature keeps its options so the projection stays the place this decision is made -- a
   // per-context bar is a change here, not a change in the layout.
@@ -69,4 +84,23 @@ export function projectTabs(_options?: {
  * context does not want are hidden from the bar -- and More is always reachable, because it is where
  * everything the bar cannot hold lives.
  */
-export const ALL_TABS: TabKey[] = ["index", "fixtures", "calendar", "messages", "hub", "subscriptions", "more"]
+export const ALL_TABS: TabKey[] = [
+  "index",
+  "fixtures",
+  "calendar",
+  "messages",
+  "hub",
+  "subscriptions",
+  "more",
+  "notifications",
+  "support",
+]
+
+/**
+ * THE GLOBAL HEADER'S THREE, in the order they appear.
+ *
+ * Declared here beside the bar so that "which destinations exist, and where each
+ * one lives" is one list rather than two -- and so a test can assert that none of
+ * them is also a bar cell.
+ */
+export const HEADER_UTILITIES: TabKey[] = ["messages", "notifications", "support"]

@@ -94,7 +94,20 @@ type Client = SupabaseClient<Database>
 export async function loadHomeSummary(
   supabase: Client,
   ctx: SessionContext,
-  context: SwitchableContext
+  context: SwitchableContext,
+  /**
+   * ONE CHILD, OR ALL OF THEM.
+   *
+   * A NARROWING OVER ROWS THE READ ALREADY RETURNED, never a different read: the
+   * agenda is loaded for the whole family and this removes from it. There is no
+   * query here for a selection to widen, and an id that is not one of this
+   * person's children simply matches nothing.
+   *
+   * It is applied AFTER the read rather than pushed into it deliberately --
+   * pushing a client-supplied player id into a server query is the shape that
+   * eventually gets it wrong.
+   */
+  selectedPlayerId: string | null = null
 ): Promise<HomeSummary> {
   const today = todayIso()
   const [club, agenda, kit] = await Promise.all([
@@ -119,7 +132,8 @@ export async function loadHomeSummary(
       ])
     : [[], []]
 
-  const items = agenda?.items ?? []
+  const all = agenda?.items ?? []
+  const items = selectedPlayerId ? all.filter((item) => item.playerId === selectedPlayerId) : all
   // NOT THE FIRST ROW -- the first row that is still ON. A cancelled match is not what somebody is
   // getting ready for, so it does not take the headline; it stays perfectly visible in Fixtures.
   const next = items.find((item) => item.status !== "Cancelled") ?? null

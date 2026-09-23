@@ -12,6 +12,8 @@ import { supabase } from "../../src/auth/supabase"
 import { webUrl } from "../../src/config/environment"
 import { friendly, logDetail } from "../../src/errors/translate"
 import { AppHeader } from "../../src/components/app-header"
+import { ChildFilter } from "../../src/components/child-filter"
+import { useFamily } from "../../src/family/family"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { AgendaRow, NextFixtureCard } from "../../src/components/agenda-row"
 import { NeedsAttention, type AttentionItem } from "../../src/components/needs-attention"
@@ -37,7 +39,9 @@ import { colour, radius, space, type } from "../../src/design/tokens"
 export default function Home() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { loading, error, person, active, sessionContext, reload, unreadMessages } = useAppContexts()
+  const { loading, error, person, active, sessionContext, reload, unread } = useAppContexts()
+  // The selected child, already normalised against the resolved family.
+  const { selectedPlayerId } = useFamily()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [summary, setSummary] = useState<HomeSummary | null>(null)
   const [summaryError, setSummaryError] = useState<{ message: string; offline: boolean } | null>(null)
@@ -47,13 +51,14 @@ export default function Home() {
     if (!active || !sessionContext) return
     setSummaryError(null)
     try {
-      setSummary(await loadHomeSummary(supabase, sessionContext, active))
+      setSummary(await loadHomeSummary(supabase, sessionContext, active, selectedPlayerId))
     } catch (caught) {
       const problem = friendly(caught, "this week")
       logDetail("home summary", problem)
       setSummaryError({ message: problem.message, offline: problem.retryable && /connection/i.test(problem.message) })
     }
-  }, [active, sessionContext])
+  // Re-read when the child changes, so the headline is that child's next thing.
+  }, [active, sessionContext, selectedPlayerId])
 
   useEffect(() => {
     setSummary(null)
@@ -70,12 +75,16 @@ export default function Home() {
   const attention = buildAttention(summary, active?.kind ?? null, {
     openFixtures: () => router.push("/fixtures"),
     openMessages: () => router.push("/messages"),
-    unreadMessages,
+    unreadMessages: unread.messages,
   })
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       <AppHeader onOpenContexts={() => setSheetOpen(true)} />
+      {/* The family filter sits directly under the identity row, where a parent
+          of two looks first: it answers "whose week am I reading" before any of
+          the week is read. */}
+      <ChildFilter style={{ paddingHorizontal: space.lg, paddingTop: space.md }} />
 
       <ScrollView
         contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.xl }}

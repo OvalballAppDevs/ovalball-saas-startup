@@ -20,6 +20,31 @@ import { readFileSync } from "node:fs"
 
 const read = (p: string) => readFileSync(p, "utf8")
 
+/**
+ * WHERE THE DESTINATION MAP LIVES NOW.
+ *
+ * It moved into `packages/contracts` so the app resolves notifications through
+ * the same table the website does, leaving a re-export behind on the web side.
+ * Reading the shim would find nothing and pass nothing, so the candidates are
+ * tried in order and a missing map is loud rather than silent.
+ */
+function destinationMap(): string {
+  const candidates = [
+    "packages/contracts/src/notifications/destinations.ts",
+    "lib/notifications/destinations.ts",
+  ]
+  for (const candidate of candidates) {
+    let body: string
+    try {
+      body = read(candidate)
+    } catch {
+      continue
+    }
+    if (/notificationHref/.test(body)) return body
+  }
+  assert.fail(`no notification destination map found in ${candidates.join(" or ")}`)
+}
+
 /** The domain, from the migration that owns the column rather than from a copy of it here. */
 function fixtureRequestStatuses(): string[] {
   const migration = read("supabase/migrations/20260831092000_fixture_requests.sql")
@@ -59,7 +84,7 @@ test("a single incoming request leads to that request, not to the register", () 
   // routes into this job now resolve the same way.
   const source = read("lib/teams/team-overview.ts")
   assert.match(source, /\/messages\/request\/\$\{/, "a single incoming request does not deep-link to itself")
-  const destinations = read("lib/notifications/destinations.ts")
+  const destinations = destinationMap()
   assert.match(
     destinations,
     /\/messages\/request\/\$\{requestId\}/,

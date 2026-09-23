@@ -12,7 +12,7 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { Bell, BookOpen, ChevronRight, ExternalLink, Receipt, Users } from "../../src/components/icons"
+import { ChevronRight, ExternalLink, Receipt, Users } from "../../src/components/icons"
 import { Button, Card } from "../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
 
@@ -66,17 +66,17 @@ export default function More() {
         </Card>
 
         {/*
-          RUGBY HUB AND SUBSCRIPTIONS LIVE HERE NOW, and their routes are untouched -- only the
-          shortcut moved, because Messages earned the bar's fourth cell at M3. Both are in the app,
-          one tap away; neither was deleted or downgraded to a web link.
+          WHAT HAS NO OTHER HOME. More is the overflow, so a destination that has
+          earned a permanent place elsewhere does not also sit here.
+
+          RUGBY HUB LEFT THIS LIST at P1, because it took the bar's fourth cell
+          back when Messages moved into the global header. NOTIFICATIONS LEFT IT
+          TOO: the bell is now in that header on every screen, and it opens a
+          native screen rather than the website. Neither route changed; both are
+          simply reachable from somewhere better, and listing them twice would
+          make one destination look like two.
         */}
         <Group title="Your Rugby">
-          <Row
-            icon={<BookOpen size={19} color={colour.forest800} strokeWidth={1.9} />}
-            label="Rugby Hub"
-            caption="Laws, age grades and guidance, in your own code"
-            onPress={() => router.push("/hub")}
-          />
           <Row
             icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
             label="Subscriptions"
@@ -92,13 +92,6 @@ export default function More() {
             label="People"
             caption="Players, parents and the staff who run the side — on the web for now"
             onPress={() => void Linking.openURL(`${webUrl}/people`)}
-            external
-          />
-          <Row
-            icon={<Bell size={19} color={colour.forest800} strokeWidth={1.9} />}
-            label="Notifications"
-            caption="Everything that has happened — on the web for now"
-            onPress={() => void Linking.openURL(`${webUrl}/notifications`)}
             external
           />
         </Group>

@@ -15,7 +15,7 @@ import { AppState } from "react-native"
 
 import { supabase } from "../auth/supabase"
 import { useSession } from "../auth/session"
-import { loadInbox, unreadTotal } from "../messages/inbox"
+import { getUnreadCounts, type UnreadCounts } from "@ovalball/contracts"
 import { canManageClubCrest } from "../identity/images"
 import { friendly, logDetail, type FriendlyError } from "../errors/translate"
 
@@ -42,6 +42,9 @@ import { friendly, logDetail, type FriendlyError } from "../errors/translate"
  */
 
 const SELECTED_CONTEXT_KEY = "ovalball.selected-context"
+
+/** Nothing unread, and the shape the canonical reader returns. Signed out is zero, never unknown. */
+const NO_UNREAD = { notifications: 0, messages: 0, support: 0, total: 0 } as const
 
 interface ContextState {
   loading: boolean
@@ -79,18 +82,24 @@ interface ContextState {
    */
   club: { name: string | null; crestUrl: string | null; clubId: string | null; hasOwnCrest: boolean; canManageCrest: boolean }
   /**
-   * UNREAD MESSAGES, counted from the same rows the inbox lists.
+   * THREE INDEPENDENT UNREAD COUNTS, FROM ONE CANONICAL READ.
    *
-   * Not a second notification system: `loadInbox` returns the canonical rows and this is their sum,
-   * so the badge and the list agree by construction rather than by coincidence.
+   * `public.my_unread_counts()` returns messages, notifications and support in one round trip, and
+   * the split between them is decided IN THE DATABASE from the notification registry's own topic --
+   * so no client holds a list of type names, and none can drift from what a badge actually opens.
+   *
+   * This used to sum `loadInbox` for the messages badge: a second answer to a question the database
+   * already answers, and one that could not see a Support ticket or a notification at all. The header
+   * now carries three controls and each needs its own number; deriving one from another is exactly
+   * how a bell stops going down when you clear your messages.
    *
    * REFRESHED DETERMINISTICALLY, not in realtime. Recounted when the app comes to the front, when the
    * context changes, and when a conversation is read. Realtime exists in the platform and could be
-   * reused, but a subscription that must be torn down on every context switch is a correctness problem
-   * before it is a performance one -- recorded as hardening debt rather than half-built here.
+   * reused, but a subscription that must be torn down on every context switch is a correctness
+   * problem before it is a performance one -- recorded as hardening debt rather than half-built here.
    */
-  unreadMessages: number
-  /** Recount after reading, so the badge clears without waiting for a focus event. */
+  unread: UnreadCounts
+  /** Recount after reading, so a badge clears without waiting for a focus event. */
   refreshUnread: () => Promise<void>
   /**
    * RE-READ THE TWO IDENTITY PICTURES, after one of them has been changed.
@@ -247,19 +256,19 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
    * The unread count, recounted on the three events that can change it: the app coming to the front,
    * the context changing, and a conversation being read.
    */
-  const [unreadMessages, setUnreadMessages] = useState(0)
+  const [unread, setUnread] = useState<UnreadCounts>(NO_UNREAD)
   const refreshUnread = useCallback(async () => {
-    if (status !== "signed-in" || !session?.user || !ctx) {
-      setUnreadMessages(0)
+    if (status !== "signed-in" || !session?.user) {
+      setUnread(NO_UNREAD)
       return
     }
     try {
-      setUnreadMessages(unreadTotal(await loadInbox(supabase, ctx, session.user.id, active)))
+      setUnread(await getUnreadCounts(supabase))
     } catch (caught) {
-      // A badge is not worth an error state. The inbox itself will report the failure when opened.
-      logDetail("unread count", friendly(caught, "your messages"))
+      // A badge is not worth an error state. Each destination reports its own failure when opened.
+      logDetail("unread counts", friendly(caught, "your unread items"))
     }
-  }, [status, session, ctx, active])
+  }, [status, session])
 
   useEffect(() => {
     void refreshUnread()
@@ -286,14 +295,14 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
       contexts,
       active,
       canSeeTeamSubscriptions,
-      unreadMessages,
+      unread,
       refreshUnread,
       refreshIdentityImages,
       club,
       select,
       reload: load,
     }),
-    [loading, error, ctx, avatarUrl, email, contexts, active, canSeeTeamSubscriptions, unreadMessages, refreshUnread, refreshIdentityImages, club, select, load]
+    [loading, error, ctx, avatarUrl, email, contexts, active, canSeeTeamSubscriptions, unread, refreshUnread, refreshIdentityImages, club, select, load]
   )
 
   return <AppContexts.Provider value={value}>{children}</AppContexts.Provider>

@@ -12,6 +12,7 @@ import { View } from "react-native"
 import { SessionProvider, useSession } from "../src/auth/session"
 import { resolveIntent, type LinkIntent } from "../src/links/intents"
 import { ContextProvider } from "../src/context/contexts"
+import { FamilyProvider } from "../src/family/family"
 import { colour } from "../src/design/tokens"
 import { LaunchCanvas } from "../src/components/launch"
 
@@ -230,8 +231,15 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="auto" />
       <SessionProvider>
+        {/* THE FAMILY SITS INSIDE THE CONTEXT, never beside it. Which children a
+            view covers is derived from the SELECTED context, so it has to be
+            able to read it -- and the nesting is the architecture: switching
+            context re-resolves the family, while choosing a child cannot touch
+            the context. A parent choosing Pippa remains the parent. */}
         <ContextProvider>
-          <Gate />
+          <FamilyProvider>
+            <Gate />
+          </FamilyProvider>
         </ContextProvider>
       </SessionProvider>
     </SafeAreaProvider>

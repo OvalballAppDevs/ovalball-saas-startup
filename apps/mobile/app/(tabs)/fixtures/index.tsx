@@ -11,6 +11,8 @@ import { anyManagement, loadFixtureAuthority, type FixtureAuthority } from "../.
 import { groupByDay, relativeDate, restOfDate } from "../../../src/agenda/presentation"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { AppHeader } from "../../../src/components/app-header"
+import { ChildFilter } from "../../../src/components/child-filter"
+import { useFamily } from "../../../src/family/family"
 import { ContextSheet } from "../../../src/components/context-sheet"
 import { AgendaRow, NextFixtureCard } from "../../../src/components/agenda-row"
 import {
@@ -115,7 +117,17 @@ export default function Fixtures() {
 
   // NARROWED, NEVER WIDENED. `items` is what the server authorised; this only removes from it, and the
   // filter's own options are drawn from the same array.
-  const shown = useMemo(() => (items ? applyFilter(items, filter) : null), [items, filter])
+  /*
+    THE CHILD COMES FROM THE FAMILY, NOT FROM THIS SCREEN.
+
+    `selectedPlayerId` is already normalised against the resolved family, so an
+    id from a restored selection or a deep link that this guardian does not hold
+    has become null before it reaches the filter. Merged here rather than stored
+    twice, so the chip row and the list cannot disagree about who is selected.
+  */
+  const { selectedPlayerId } = useFamily()
+  const effective = useMemo(() => ({ ...filter, playerId: selectedPlayerId }), [filter, selectedPlayerId])
+  const shown = useMemo(() => (items ? applyFilter(items, effective) : null), [items, effective])
 
   const [next, rest] = useMemo(() => {
     const items = shown
@@ -134,6 +146,9 @@ export default function Fixtures() {
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       <AppHeader onOpenContexts={() => setSheetOpen(true)} />
+      {/* Absent entirely for a parent of one -- a chooser between one child and
+          themselves is a control that cannot do anything. */}
+      <ChildFilter style={{ paddingHorizontal: space.lg, paddingTop: space.md }} />
 
       <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, gap: space.md }}>
         <Segments value={direction} onChange={setDirection} />

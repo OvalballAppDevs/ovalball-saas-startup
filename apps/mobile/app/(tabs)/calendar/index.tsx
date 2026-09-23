@@ -13,6 +13,8 @@ import { clubRugbyCode, loadSeasons, resolveSeason, seasonLabel, type SeasonPhas
 import { daysBetween, exactDate, groupByDay, relativeDate, restOfDate } from "../../../src/agenda/presentation"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { AppHeader } from "../../../src/components/app-header"
+import { ChildFilter } from "../../../src/components/child-filter"
+import { useFamily } from "../../../src/family/family"
 import { ContextSheet } from "../../../src/components/context-sheet"
 import { AgendaRow } from "../../../src/components/agenda-row"
 import { SeasonGrid } from "../../../src/components/season-grid"
@@ -163,7 +165,12 @@ export default function Calendar() {
 
   // NARROWED, NEVER WIDENED -- and the strip's dots follow the same narrowing, so a day that has been
   // filtered out does not still advertise itself as having rugby in it.
-  const shown = useMemo(() => (items ? applyFilter(items, filter) : null), [items, filter])
+  /* The same merge Fixtures does, and for the same reason: the selected child
+     is family state, already normalised against the resolved family, so the
+     chip row and the calendar cannot disagree about who is selected. */
+  const { selectedPlayerId } = useFamily()
+  const effective = useMemo(() => ({ ...filter, playerId: selectedPlayerId }), [filter, selectedPlayerId])
+  const shown = useMemo(() => (items ? applyFilter(items, effective) : null), [items, effective])
   const days = useMemo(() => {
     const rows = shown ?? []
     // A day the strip selected narrows the list; nothing selected shows the whole week or month.
@@ -181,6 +188,7 @@ export default function Calendar() {
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       <AppHeader onOpenContexts={() => setSheetOpen(true)} />
+      <ChildFilter style={{ paddingHorizontal: space.lg, paddingTop: space.md }} />
 
       <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, gap: space.sm }}>
         {/* THE SEASON, WHERE THERE IS MORE THAN ONE TO CHOOSE FROM. A club in its first season has one

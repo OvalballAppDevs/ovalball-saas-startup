@@ -7,7 +7,8 @@ import { useAppContexts } from "../context/contexts"
 import { removeClubCrest, removeMyAvatar, replaceClubCrest, replaceMyAvatar } from "../identity/images"
 import { ClubCrest, PersonAvatar } from "./identity"
 import { PictureSheet, type PictureAction } from "./picture-sheet"
-import { Bell, ChevronDown } from "./icons"
+import { HeaderUtilities } from "./header-utilities"
+import { ChevronDown } from "./icons"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
 
 /**
@@ -43,17 +44,9 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
  * `my_capabilities`, which is the same engine the storage policy evaluates, so for everybody else the
  * crest stays a plain picture. A control that is offered and then refused is worse than no control.
  */
-export function AppHeader({
-  onOpenContexts,
-  onOpenNotifications,
-  unreadCount = 0,
-}: {
-  onOpenContexts: () => void
-  onOpenNotifications?: () => void
-  unreadCount?: number
-}) {
+export function AppHeader({ onOpenContexts }: { onOpenContexts: () => void }) {
   const insets = useSafeAreaInsets()
-  const { person, active, contexts, club, refreshIdentityImages } = useAppContexts()
+  const { person, active, contexts, club, unread, refreshIdentityImages } = useAppContexts()
   const switchable = contexts.length > 1
   const [picture, setPicture] = useState<PictureAction | null>(null)
 
@@ -207,35 +200,12 @@ export function AppHeader({
         {switchable && <ChevronDown size={16} color={colour.inkMuted} />}
       </Pressable>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-        onPress={onOpenNotifications}
-        hitSlop={8}
-        style={({ pressed }) => ({
-          width: TOUCH_TARGET,
-          height: TOUCH_TARGET,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: radius.pill,
-          backgroundColor: pressed ? "rgba(16,21,18,0.05)" : "transparent",
-        })}
-      >
-        <Bell size={21} color={colour.ink} strokeWidth={1.9} />
-        {unreadCount > 0 && (
-          <View
-            style={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              minWidth: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: colour.pitch600,
-            }}
-          />
-        )}
-      </Pressable>
+      {/* MESSAGES · NOTIFICATIONS · SUPPORT.
+          Three utilities rather than one bell, in the same order the website's
+          own header has carried them since Support was built. Three independent
+          counts, from the one canonical read -- deriving any of them from
+          another is how a bell stops going down when you clear your messages. */}
+      <HeaderUtilities unread={unread} />
 
       {/* One sheet for either picture. It stays open while the write is in
           flight and closes on the server's success, so nobody is left looking
