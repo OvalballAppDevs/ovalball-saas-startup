@@ -46,6 +46,7 @@ function fixture(partial: Partial<AgendaItem> & { key: string; teamId: string })
     venue: null,
     pitch: null,
     status: "Booked",
+    gameType: "League Fixture",
     result: null,
     playerId: null,
     childFirstName: null,

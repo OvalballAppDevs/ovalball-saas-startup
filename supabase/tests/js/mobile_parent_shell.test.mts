@@ -254,6 +254,7 @@ function row(key: string, playerId: string | null): AgendaItem {
     venue: null,
     pitch: null,
     status: "Booked",
+    gameType: "League Fixture",
     result: null,
     playerId,
     childFirstName: null,

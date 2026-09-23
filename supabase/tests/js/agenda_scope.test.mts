@@ -198,6 +198,7 @@ function item(over: Partial<AgendaItem>): AgendaItem {
     venue: null,
     pitch: null,
     status: null,
+    gameType: "League Fixture",
     result: null,
     playerId: null,
     childFirstName: null,

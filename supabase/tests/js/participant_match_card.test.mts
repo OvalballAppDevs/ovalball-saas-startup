@@ -18,6 +18,8 @@ import { test } from "node:test"
 
 import {
   ATTENDANCE_STATE_WORDS,
+  GAME_TYPE_OPTIONS,
+  isCanonicalGameType,
   matchClassification,
   projectFamily,
   projectParticipantMatch,
@@ -59,7 +61,8 @@ function match(overrides: Partial<AgendaItem> = {}): AgendaItem {
   return {
     key: "fx", kind: "fixture", eventId: "fx-1", date: "2026-09-25", time: "10:30", meetTime: "09:45",
     us: OURS, them: THEIRS, homeAway: "Away", venue: "Ashton Playing Fields", pitch: null,
-    status: "Booked", result: null, playerId: "p-1", childFirstName: "Ava", attendance: "ATTENDING",
+    status: "Booked",
+    gameType: "League Fixture", result: null, playerId: "p-1", childFirstName: "Ava", attendance: "ATTENDING",
     teamId: "t-1", clubId: "c-1", href: null,
     ...overrides,
   } as AgendaItem
@@ -241,7 +244,7 @@ test("the whole card is one sentence, and VoiceOver never has to read a VS", () 
   const card = projectParticipantMatch(match(), FAMILY)
   assert.equal(
     card.spoken,
-    "Ava, Under 12 Boys. Ashton Under Lyne RUFC Under 12 Boys versus Ovalball UAT RUFC Under 12 Boys. Away for Ovalball UAT RUFC Under 12 Boys. Kick off 10:30. Meet 09:45. Ashton Playing Fields. Attending."
+    "Ava, Under 12 Boys. Ashton Under Lyne RUFC Under 12 Boys versus Ovalball UAT RUFC Under 12 Boys. Away for Ovalball UAT RUFC Under 12 Boys. Kick off 10:30. Meet 09:45. Ashton Playing Fields. League Fixture. Attending."
   )
 })
 
@@ -256,6 +259,105 @@ test("a side whose team and club share a name is not said twice", () => {
   assert.equal(spokenSideLabel({ clubName: "Burnley RUFC", teamName: "Burnley RUFC", crestUrl: null, isOurs: false }), "Burnley RUFC")
   assert.equal(spokenSideLabel({ clubName: "Burnley RUFC", teamName: null, crestUrl: null, isOurs: false }), "Burnley RUFC")
   assert.equal(spokenSideLabel(null), "an opponent to be confirmed")
+})
+
+// ---------------------------------------------- the canonical match type
+
+test("the match type is the canonical game_type, verbatim", () => {
+  for (const value of ["Friendly", "League Fixture", "Cup Fixture", "Scheduled Match"] as const) {
+    const card = projectParticipantMatch(match({ gameType: value }), FAMILY)
+    assert.equal(card.matchType, value, "the canonical value was translated into something else")
+    assert.ok(card.spoken.includes(`${value}.`), "the match type is visual only")
+  }
+})
+
+test("a fixture with no match type recorded is not Friendly", () => {
+  for (const empty of [null, "", "   "]) {
+    assert.equal(projectParticipantMatch(match({ gameType: empty }), FAMILY).matchType, null)
+  }
+  // And the chip is simply absent rather than guessing.
+  const component = readFileSync("apps/mobile/src/components/participant/match-card.tsx", "utf8")
+  assert.match(component, /trailing=\{match\.matchType\}/)
+  assert.match(component, /\{!!trailing && \(/)
+})
+
+test("the taxonomy is the database's own, and mobile holds no second copy", () => {
+  // The CHECK constraint on fixtures.game_type is these four values.
+  assert.deepEqual([...GAME_TYPE_OPTIONS], ["Friendly", "League Fixture", "Cup Fixture", "Scheduled Match"])
+  assert.equal(isCanonicalGameType("League Fixture"), true)
+  assert.equal(isCanonicalGameType("League"), false, "the mock-up's shorthand is not a canonical value")
+  assert.equal(isCanonicalGameType(null), false)
+  // No list of match types anywhere in the app.
+  const component = readFileSync("apps/mobile/src/components/participant/match-card.tsx", "utf8")
+  for (const word of ["Friendly", "League Fixture", "Cup Fixture", "Scheduled Match"]) {
+    assert.ok(!component.includes(word), `the card holds its own copy of "${word}"`)
+  }
+})
+
+test("a competition is not a match type, and neither is derived from the other", () => {
+  const model = readFileSync("packages/contracts/src/participant/match-card.ts", "utf8")
+  assert.ok(!/competition/i.test(model.replace(/\/\*[\s\S]*?\*\//g, "")), "the model infers a type from a competition")
+  const taxonomy = readFileSync("packages/contracts/src/fixtures/game-type.ts", "utf8")
+  assert.match(taxonomy, /matchTypeLabel/)
+  assert.ok(!/competition_edition_id/.test(taxonomy.replace(/\/\*[\s\S]*?\*\//g, "")))
+})
+
+test("the web reads the same rule from the same place", () => {
+  // Extracted, not copied: the web's own module re-exports it, so a change moves
+  // both clients rather than one of them.
+  const webTypes = readFileSync("app/(app)/admin/fixtures/types.ts", "utf8")
+  assert.match(webTypes, /from "@ovalball\/contracts\/fixtures\/game-type"/)
+  const webPresentation = readFileSync("lib/fixtures/presentation.ts", "utf8")
+  assert.match(webPresentation, /export \{ matchTypeLabel \} from "@ovalball\/contracts\/fixtures\/game-type"/)
+})
+
+test("the fixture's own record is what the phone reads — no mobile copy, no sync table", () => {
+  const loader = readFileSync("packages/contracts/src/agenda/load.ts", "utf8")
+  assert.match(loader, /game_type/, "the agenda does not read the canonical column")
+  assert.match(loader, /gameType: f\.game_type \?\? null/, "the value is transformed on the way through")
+  // Training is not a match and has no match type.
+  assert.match(loader, /\/\/ A session is not a match and has no match type\.\s*\n\s*gameType: null/)
+})
+
+// ------------------------------------------------- the event-type accent
+
+test("a match and a session are told apart by an accent, a word and an icon", () => {
+  const component = readFileSync("apps/mobile/src/components/participant/match-card.tsx", "utf8")
+  assert.match(component, /accent=\{eventTone\.match\.accent\}/)
+  assert.match(component, /accent=\{eventTone\.training\.accent\}/)
+  // COLOUR IS SUPPLEMENTARY: the word is always there too.
+  assert.match(component, /kind="MATCH"/)
+  assert.match(component, /kind="TRAINING"/)
+  // A marker, not a block.
+  assert.match(component, /width: 4, alignSelf: "stretch", backgroundColor: accent/)
+})
+
+test("the two accents are distinct, and neither invents a colour", () => {
+  const tokens = readFileSync("apps/mobile/src/design/tokens.ts", "utf8")
+  assert.match(tokens, /match: \{ accent: colour\.pitch600/)
+  assert.match(tokens, /training: \{ accent: colour\.messengerBlue/)
+  // The card reaches for the tokens rather than a literal.
+  const component = readFileSync("apps/mobile/src/components/participant/match-card.tsx", "utf8")
+  assert.deepEqual(component.match(/#[0-9a-fA-F]{6}/g) ?? [], [])
+})
+
+test("the kind of event is spoken, not only coloured", () => {
+  const card = projectParticipantMatch(match(), FAMILY)
+  const session = projectParticipantTraining(match({ kind: "training", them: null }), FAMILY)
+  assert.ok(session.spoken.includes("Training session."))
+  assert.ok(card.spoken.includes("versus"), "a match is not identifiable as one when read aloud")
+})
+
+// ------------------------------------------------ the club leads the identity
+
+test("the club is the dominant name, and the side is beneath it", () => {
+  const component = readFileSync("apps/mobile/src/components/participant/match-card.tsx", "utf8")
+  // "Under 12 Boys versus Under 12 Boys" identifies neither club.
+  assert.match(component, /\{side\?\.clubName \?\? "To be confirmed"\}/)
+  assert.match(component, /\{side\.teamName\}/)
+  const clubLine = component.indexOf("side?.clubName ?? \"To be confirmed\"")
+  const teamLine = component.indexOf("{side.teamName}")
+  assert.ok(clubLine > 0 && teamLine > clubLine, "the team is drawn above the club")
 })
 
 // ----------------------------------------------------------------- training

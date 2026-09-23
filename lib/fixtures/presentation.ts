@@ -89,13 +89,10 @@ export function fixtureTitleFromSides(homeLabel: string | null | undefined, away
 /**
  * MATCH TYPE.
  *
- * `fixtures.game_type` is the canonical taxonomy and its permitted values live
- * in `GAME_TYPE_OPTIONS` (`app/(app)/admin/fixtures/types.ts`). This is
- * presentation only: a fixture with no match type recorded is not "Friendly",
- * it is a fixture with no match type recorded, and inventing a default here is
- * how a second taxonomy starts.
+ * Moved to `packages/contracts/src/fixtures/game-type` so both clients read one
+ * rule, and re-exported here so nothing on the web had to change. The taxonomy is
+ * `fixtures.game_type`, constrained by the database itself; a fixture with no match
+ * type recorded is not "Friendly", it is a fixture with no match type recorded.
  */
-export function matchTypeLabel(gameType: string | null | undefined): string | null {
-  const value = (gameType ?? "").trim()
-  return value.length > 0 ? value : null
-}
+export { matchTypeLabel } from "@ovalball/contracts/fixtures/game-type"
+

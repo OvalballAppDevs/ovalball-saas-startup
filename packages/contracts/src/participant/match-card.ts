@@ -1,5 +1,6 @@
 import type { AgendaItem, AgendaSide } from "../agenda/load"
 import { ATTENDANCE_STATE_WORDS } from "../availability/vocabulary"
+import { matchTypeLabel } from "../fixtures/game-type"
 import { memberFor, type FamilyMember, type FamilyProjection } from "../family/projection"
 
 /**
@@ -47,6 +48,18 @@ export interface ParticipantMatch {
   oriented: boolean
   /** "Away" / "Home" for the viewer's own side, or null where there is no orientation. */
   ourOrientation: "Home" | "Away" | null
+  /**
+   * THE CANONICAL MATCH TYPE — `fixtures.game_type`, verbatim.
+   *
+   * "Friendly", "League Fixture", "Cup Fixture", "Scheduled Match": the taxonomy the
+   * database constrains and a Fixture Secretary sets on the web. Shown on the card so
+   * that changing it there changes it here, on the same record, with no
+   * synchronisation of any kind between the two clients.
+   *
+   * NULL IS AN ANSWER. A fixture with no match type recorded is not "Friendly", and
+   * the chip is simply absent rather than guessing.
+   */
+  matchType: string | null
   /** "Union · U12" -- the canonical code and the canonical compact identity, where both are known. */
   classification: string | null
   kickoff: string | null
@@ -127,6 +140,7 @@ export function projectParticipantMatch(item: AgendaItem, family: FamilyProjecti
     away,
     oriented,
     ourOrientation: oriented ? (item.homeAway as "Home" | "Away") : null,
+    matchType: matchTypeLabel(item.gameType),
     classification: matchClassification(item.us),
     kickoff: item.time ? item.time.slice(0, 5) : null,
     meetTime: item.meetTime ? item.meetTime.slice(0, 5) : null,
@@ -151,6 +165,7 @@ export function projectParticipantMatch(item: AgendaItem, family: FamilyProjecti
       item.time ? `Kick off ${item.time.slice(0, 5)}.` : null,
       item.meetTime ? `Meet ${item.meetTime.slice(0, 5)}.` : null,
       item.venue ? `${item.venue}.` : null,
+      matchTypeLabel(item.gameType) ? `${matchTypeLabel(item.gameType)}.` : null,
       cancelled ? "Cancelled." : item.status && item.status !== "Booked" ? `${item.status}.` : null,
       child ? `${attendanceWord}.` : null,
     ]

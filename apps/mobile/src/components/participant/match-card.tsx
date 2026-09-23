@@ -15,7 +15,7 @@ import { attendanceStateShape } from "@ovalball/contracts/availability"
 import { AVAILABILITY_ICONS } from "../../availability/presentation"
 import { ClubCrest, PersonAvatar } from "../identity"
 import { ChevronRight, Clock, MapPin, OvalIcon, Users } from "../icons"
-import { TOUCH_TARGET, colour, radius, space, surface, type } from "../../design/tokens"
+import { TOUCH_TARGET, colour, eventTone, radius, space, surface, type } from "../../design/tokens"
 
 /**
  * A PARTICIPANT'S MATCH, AS A CARD.
@@ -58,12 +58,13 @@ export function ParticipantMatchCard({
   const crestSize = expanded ? 64 : 52
 
   return (
-    <CardFrame spoken={match.spoken} cancelled={match.cancelled} onPress={onPress}>
+    <CardFrame spoken={match.spoken} cancelled={match.cancelled} accent={eventTone.match.accent} onPress={onPress}>
       <View style={{ padding: space.lg, gap: space.md }}>
         <Banner
           kind="MATCH"
-          icon={<OvalIcon size={12} color={colour.forest800} />}
-          trailing={match.classification}
+          tone={eventTone.match}
+          icon={<OvalIcon size={12} color={eventTone.match.text} />}
+          trailing={match.matchType}
         />
 
         {/* CREST — VS — CREST. The sides get the room; everything else is beneath. */}
@@ -142,11 +143,12 @@ export function ParticipantTrainingCard({
   const training = projectParticipantTraining(item, family, endTime)
 
   return (
-    <CardFrame spoken={training.spoken} cancelled={training.cancelled} onPress={onPress}>
+    <CardFrame spoken={training.spoken} cancelled={training.cancelled} accent={eventTone.training.accent} onPress={onPress}>
       <View style={{ padding: space.lg, gap: space.md }}>
         <Banner
           kind="TRAINING"
-          icon={<Users size={12} color={colour.forest800} strokeWidth={2.2} />}
+          tone={eventTone.training}
+          icon={<Users size={12} color={eventTone.training.text} strokeWidth={2.2} />}
           trailing={training.teamName}
         />
 
@@ -187,11 +189,14 @@ export function ParticipantTrainingCard({
 function CardFrame({
   spoken,
   cancelled,
+  accent,
   onPress,
   children,
 }: {
   spoken: string
   cancelled: boolean
+  /** The event-type accent down the left edge. Narrow on purpose: a marker, not a block. */
+  accent: string
   onPress: () => void
   children: React.ReactNode
 }) {
@@ -203,6 +208,7 @@ function CardFrame({
       accessibilityHint="Opens the details"
       onPress={onPress}
       style={({ pressed }) => ({
+        flexDirection: "row",
         marginHorizontal: space.lg,
         borderRadius: radius.lg,
         backgroundColor: surface.card,
@@ -212,13 +218,34 @@ function CardFrame({
         opacity: cancelled ? 0.72 : pressed ? 0.95 : 1,
       })}
     >
-      {children}
+      {/* FOUR POINTS OF COLOUR, and that is the whole job. Enough that three cards
+          on one day separate instantly; not so much that the card becomes a
+          coloured block and stops belonging to the same design system. */}
+      <View accessible={false} style={{ width: 4, alignSelf: "stretch", backgroundColor: accent }} />
+      <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
     </Pressable>
   )
 }
 
 /** The kind of thing this is, and its canonical classification on the other side. */
-function Banner({ kind, icon, trailing }: { kind: string; icon: React.ReactNode; trailing?: string | null }) {
+/**
+ * WHAT KIND OF EVENT, IN WORDS, and the canonical classification opposite it.
+ *
+ * The word is the point. The accent down the card's edge and the tint behind this
+ * label are both supplementary: somebody who cannot tell the two apart by colour
+ * reads "MATCH" or "TRAINING" and loses nothing at all.
+ */
+function Banner({
+  kind,
+  tone,
+  icon,
+  trailing,
+}: {
+  kind: string
+  tone: { surface: string; text: string }
+  icon: React.ReactNode
+  trailing?: string | null
+}) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
       <View
@@ -229,16 +256,26 @@ function Banner({ kind, icon, trailing }: { kind: string; icon: React.ReactNode;
           paddingHorizontal: space.sm,
           paddingVertical: 4,
           borderRadius: radius.sm,
-          backgroundColor: colour.mint100,
+          backgroundColor: tone.surface,
         }}
       >
         {icon}
-        <Text style={[type.caption, { color: colour.forest800, fontSize: 10, letterSpacing: 0.8 }]}>{kind}</Text>
+        <Text style={[type.caption, { color: tone.text, fontSize: 10, letterSpacing: 0.8 }]}>{kind}</Text>
       </View>
       {!!trailing && (
-        <Text numberOfLines={1} style={[type.caption, { color: colour.inkSubtle, flexShrink: 1 }]}>
-          {trailing}
-        </Text>
+        <View
+          style={{
+            paddingHorizontal: space.sm,
+            paddingVertical: 4,
+            borderRadius: radius.sm,
+            backgroundColor: colour.chalk,
+            flexShrink: 1,
+          }}
+        >
+          <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
+            {trailing}
+          </Text>
+        </View>
       )}
     </View>
   )
@@ -246,6 +283,19 @@ function Banner({ kind, icon, trailing }: { kind: string; icon: React.ReactNode;
 
 /**
  * One side: the crest, then who they are.
+ *
+ * THE CREST COMES FROM THE CANONICAL RESOLVER -- the club's own upload, else the
+ * Club Directory's branding logo, else initials on a neutral ground. There is no
+ * third source and no `fallback` prop, so a kit cannot be passed where a crest
+ * belongs and a missing crest looks deliberate rather than broken.
+ */
+/**
+ * ONE SIDE: THE CLUB, THEN THE SIDE.
+ *
+ * THE CLUB LEADS. "Under 12 Boys versus Under 12 Boys" is what two age-grade sides
+ * are both called, and as the dominant line it identifies neither of them -- a
+ * parent reads the crest and then wants the club's name under it. The team goes
+ * beneath, quieter, where it answers "which of their sides" rather than "who".
  *
  * THE CREST COMES FROM THE CANONICAL RESOLVER -- the club's own upload, else the
  * Club Directory's branding logo, else initials on a neutral ground. There is no
@@ -263,13 +313,11 @@ function SideColumn({ side, size, expanded }: { side: MatchSide | null; size: nu
           { color: colour.ink, textAlign: "center", fontSize: expanded ? 14 : 13, lineHeight: expanded ? 18 : 16 },
         ]}
       >
-        {sideLabel(side)}
+        {side?.clubName ?? "To be confirmed"}
       </Text>
-      {/* The club under the team, where a team name is what the line above says --
-          a club running three Under 12 sides needs both, and only then. */}
       {!!side?.teamName && side.teamName !== side.clubName && (
         <Text numberOfLines={1} style={[type.caption, { color: colour.inkSubtle, textAlign: "center" }]}>
-          {side.clubName}
+          {side.teamName}
         </Text>
       )}
     </View>

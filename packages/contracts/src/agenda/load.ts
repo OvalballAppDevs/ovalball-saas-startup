@@ -86,6 +86,18 @@ export interface AgendaItem {
   venue: string | null
   pitch: string | null
   status: string | null
+  /**
+   * THE CANONICAL MATCH TYPE — `fixtures.game_type`, verbatim.
+   *
+   * "Friendly", "League Fixture", "Cup Fixture", "Scheduled Match": the taxonomy
+   * the database constrains and a Fixture Secretary sets on the web. Carried
+   * here so a parent's phone shows the value that record holds, changed on the
+   * web and read on the phone with no synchronisation of any kind -- one record,
+   * two clients.
+   *
+   * Null where nothing is recorded, which is not "Friendly". Training has none.
+   */
+  gameType: string | null
   /** Canonical result, where one exists. Never inferred, never fabricated. */
   result: { ourScore: number; theirScore: number } | null
   /** Which player this row belongs to in a family scope; null for staff/club/platform scopes. */
@@ -118,7 +130,7 @@ export interface AgendaReadResult {
 type Client = SupabaseClient<Database>
 
 const FIXTURE_FIELDS =
-  "id, owning_team_id, opponent_team_id, opponent_directory_id, season_id, mirror_fixture_id, kickoff_date, kickoff_time, meet_time, home_away, status, raw_opposition_text, venue_address, venue_id, pitch_id, home_score, away_score"
+  "id, owning_team_id, opponent_team_id, opponent_directory_id, season_id, mirror_fixture_id, kickoff_date, kickoff_time, meet_time, home_away, status, game_type, raw_opposition_text, venue_address, venue_id, pitch_id, home_score, away_score"
 
 /**
  * Which teams' rugby this scope covers.
@@ -412,6 +424,7 @@ export async function loadAgenda(
       pitch: f.pitch_id ? (pitchById.get(f.pitch_id) ?? null) : null,
       status: f.status,
       result,
+      gameType: f.game_type ?? null,
       playerId: family?.playerId ?? null,
       childFirstName: family?.firstName ?? null,
       attendance: family ? responseFor(family.playerId, "fixture", f.id) : null,
@@ -470,6 +483,8 @@ export async function loadAgenda(
       pitch: t.club_pitches?.display_name ?? null,
       status: null,
       result: null,
+      // A session is not a match and has no match type.
+      gameType: null,
       playerId: family?.playerId ?? null,
       childFirstName: family?.firstName ?? null,
       attendance: family ? responseFor(family.playerId, "training", t.id) : null,

@@ -561,3 +561,128 @@ lint, iOS bundle builds. **No SQL touched**, so no RED suite was re-run.
 - Match Centre keeps its older treatment.
 - The chip wording differs from the mockup, enforced by the availability guard —
   see above.
+
+---
+
+# P4 — event separation, club-first identity, and canonical classification
+
+## 1. Event separation
+
+A 4pt accent down the left edge of each card, inside the card's own boundary:
+**green (`pitch-600`) for a match, blue (`messengerBlue`) for training** — the
+app's established second colour, already used by the Away badge and a received
+message. New semantic token `eventTone.{match,training}.{accent,surface,text}`;
+the card file contains **zero hex literals** (tested).
+
+**Colour is supplementary and never the answer.** Every card also carries the word
+`MATCH` or `TRAINING`, its own icon, and a spoken label that names the kind. The
+accent is a marker, not a block: four points of colour, and the card still belongs
+to the same design system.
+
+Cards keep their own hairline border, `radius.lg` and 8pt between them, so a day
+holding match · training · match reads as three independent events.
+
+## 2. Club-first identity
+
+```
+      [CREST]                           [CREST]
+  Ovalball UAT RUFC      VS      Preston Grasshoppers RFC
+     Under 12 Boys                    Under 12 Boys
+```
+
+The **club is the dominant line**; the side is beneath it, quieter. "Under 12 Boys
+versus Under 12 Boys" identified neither club — now the crest and the club answer
+"who", and the team answers "which of their sides".
+
+**Home is still canonical.** The ordering comes from `fixtures.home_away`, not from
+"our club first" — a test asserts Home and Away produce different left-hand clubs,
+and an unsettled orientation (`TBD`, festival) claims nothing at all.
+
+## 3. The child photograph — investigated, not patched
+
+**A. The top-left photograph is the signed-in adult's.** `uat.manyhats` is
+**Ffion Meredith**, whose `profiles.avatar_storage_path` is set. The header *title*
+reads "Ava Whitaker" because a parent context is named after the child it is about;
+the avatar beside it is the person, which is the locked platform rule.
+
+**B. The Match Card row is the child**, Ava Whitaker, `players.id`
+`d6b75b91-…`.
+
+**C/D. Different entities, different buckets.** An adult's photograph is
+`profiles.avatar_storage_path` in the public `avatars` bucket. A child's is
+`players.avatar_storage_path` in the **private `player-avatars`** bucket, whose
+policy resolves the canonical guardian relationship — asking for a signed URL *is*
+the authorisation question.
+
+**E. Nothing was lost in projection.** Queried as the guardian:
+
+```
+first_name | child_photo | my_own_photo
+Ava        | (null)      | 00b56202-…/avatar-1790149260277.jpg
+```
+
+`players.avatar_storage_path` is **NULL for Ava**, and
+`select count(*) from storage.objects where bucket_id='player-avatars'` is **0** —
+**no child in the review world has a photograph at all.** So initials are the
+correct rendering, and the chain
+`players.avatar_storage_path → GuardianTeamContext → FamilyChild → FamilyProjection
+→ ChildMark/child strip` carries no other source: a guardian's photograph cannot
+reach a child's row, because the child's path is the only input.
+
+**Conclusion:** there is no resolver to converge — there is one, and it is right.
+If your device shows a photograph on the child row it is a stale bundle, because
+the data cannot produce one. To see a real child photograph, upload one against the
+**player** (Ava), not the account.
+
+Nothing was patched locally and no image was copied from the header.
+
+## 4. Canonical fixture classification — recovered, extracted, shared
+
+**Traced:**
+
+| Layer | What is there |
+|---|---|
+| Database | `fixtures.game_type text`, `CHECK (game_type IN ('Friendly','League Fixture','Cup Fixture','Scheduled Match'))` |
+| Canonical list | `GAME_TYPE_OPTIONS` — was in `app/(app)/admin/fixtures/types.ts`, a Next.js route, unreachable from React Native |
+| Presentation rule | `matchTypeLabel` in `lib/fixtures/presentation.ts` — returns the stored value, **no default**, because "a fixture with no match type recorded is not Friendly" |
+| Web consumer | `app/(app)/admin/fixtures/fixture-table-row.tsx` |
+| Competition | `fixtures.competition_edition_id` — a **separate** concept, not a match type |
+| Other events | `fixtures.event_type` ∈ holiday · festival · vacant — a different axis again |
+
+**Extracted** to `packages/contracts/src/fixtures/game-type.ts`; both web modules now
+re-export from it, so nothing on the web changed. `gameType` rides on `AgendaItem`
+from the same `fixtures` row.
+
+**Web ↔ mobile is one record.** A Fixture Secretary changing a fixture on the web
+from `Friendly` to `League Fixture` changes `fixtures.game_type`; the phone's next
+canonical read returns the new value. No mobile copy, no sync table, no
+`web_fixture_type`/`mobile_fixture_type` — a test asserts the app holds no list of
+match types anywhere and that the value is not transformed on the way through.
+
+**One note on wording:** the mock-up's chip says "League". The canonical value is
+**"League Fixture"**, and `matchTypeLabel` shows the stored value verbatim — which
+is the web's own rule. Renaming the taxonomy is a database CHECK constraint plus a
+migration, not a card's decision. Your review data already covers `Friendly`,
+`League Fixture` and **a fixture with none recorded** (20 Jan), which shows no chip
+at all rather than guessing.
+
+## 5. Focused proof
+
+**103 suites, 1079 assertions, 0 failing** — `participant_match_card` now 37, with
+new cases for the accents, the club-first ordering, the canonical taxonomy, the
+absent-match-type case, and the extraction itself. Structural guards pass; both
+typechecks clean; no new lint; iOS bundle builds. **No SQL touched**, so no
+authority changed and no RED suite was re-run.
+
+## 6. Owner review — what your data shows
+
+| Case | Where |
+|---|---|
+| Match + training on one day, green and blue accents | **2 Oct** |
+| `League Fixture` chip | 25 Sep · 2 Oct · 6 Oct |
+| `Friendly` chip | 8 Sep · 13 Oct |
+| **No match type recorded** — no chip | **20 Jan 2027** |
+| Home ordering (our club left) | 2 Oct |
+| Away ordering (opposition left) | 25 Sep · 6 Oct |
+| Cancelled, no meet time | 13 Oct |
+| Initials on the child strip | everywhere — no child has a photograph |

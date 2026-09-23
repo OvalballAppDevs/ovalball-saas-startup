@@ -103,6 +103,24 @@ export const statusOnForest = {
   danger: { ground: "rgba(248,113,113,0.18)", ink: "#fee2e2" },
 } as const
 
+/**
+ * WHAT KIND OF EVENT THIS IS — a narrow accent down the left of its card.
+ *
+ * A day holding a match, a session and another match should read as THREE things
+ * at a glance, and a colour down the edge does that faster than any amount of
+ * reading. Green is the brand's own for rugby played; blue is the app's
+ * established second colour -- the same one the Away badge and a received message
+ * already use -- for rugby trained.
+ *
+ * COLOUR IS SUPPLEMENTARY AND NEVER THE ANSWER. Every card also carries the WORD
+ * -- MATCH or TRAINING -- its own icon, and an accessible label that names the
+ * kind. Somebody who cannot tell the two greens apart loses nothing.
+ */
+export const eventTone = {
+  match: { accent: colour.pitch600, surface: colour.mint100, text: colour.forest800 },
+  training: { accent: colour.messengerBlue, surface: "#e8eff7", text: colour.messengerBlue },
+} as const
+
 /** The month grid's own states, named for what they mean. */
 export const calendarTone = {
   /** The day whose events are in the sheet. */

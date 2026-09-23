@@ -53,6 +53,7 @@ function item(overrides: Partial<AgendaItem> & { key: string; date: string }): A
     venue: "Ashton Under Lyne RUFC",
     pitch: null,
     status: "Booked",
+    gameType: "League Fixture",
     result: null,
     playerId: "p-1",
     childFirstName: "Pippa",

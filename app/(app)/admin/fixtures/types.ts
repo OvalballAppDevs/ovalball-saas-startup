@@ -5,9 +5,19 @@ import type { FixtureStatus } from "@/lib/fixtures/status"
 export { PAGE_SIZES, DEFAULT_PAGE_SIZE }
 export type { PageSize }
 
-/** The canonical match-type taxonomy. `fixtures.game_type` holds one of these; there is no second list anywhere in the product. */
-export const GAME_TYPE_OPTIONS = ["Friendly", "League Fixture", "Cup Fixture", "Scheduled Match"] as const
-export type GameType = (typeof GAME_TYPE_OPTIONS)[number]
+/**
+ * The canonical match-type taxonomy. `fixtures.game_type` holds one of these; there
+ * is no second list anywhere in the product.
+ *
+ * It MOVED to `packages/contracts/src/fixtures/game-type` so React Native can read
+ * it -- a parent's phone shows the match type a Fixture Secretary set on the web,
+ * and two copies of four words is how a taxonomy drifts. Re-exported here so every
+ * existing import keeps working.
+ */
+import { GAME_TYPE_OPTIONS, type GameType } from "@ovalball/contracts/fixtures/game-type"
+
+export { GAME_TYPE_OPTIONS }
+export type { GameType }
 
 export type SortKey = "date-asc" | "date-desc" | "club" | "created-desc" | "updated-desc"
 export type DateFilter = "all" | "upcoming" | "past"

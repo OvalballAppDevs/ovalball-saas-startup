@@ -31,6 +31,7 @@ function item(overrides: Partial<AgendaItem> = {}): AgendaItem {
     venue: null,
     pitch: null,
     status: "Booked",
+    gameType: "League Fixture",
     result: null,
     playerId: "player-1",
     childFirstName: "Ava",
