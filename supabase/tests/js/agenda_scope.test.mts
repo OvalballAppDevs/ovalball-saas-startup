@@ -201,7 +201,6 @@ function item(over: Partial<AgendaItem>): AgendaItem {
     result: null,
     playerId: null,
     childFirstName: null,
-    childAvatarUrl: null,
     attendance: null,
     teamId: "t1",
     clubId: "club-a",

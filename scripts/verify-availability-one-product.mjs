@@ -171,10 +171,23 @@ for (const f of walk(join(ROOT, "packages/contracts/src/availability"))) {
 // ---------------------------------------------------------------------------
 // 5. ONE MOBILE MATCH CENTRE, NO ROLE-NAMED COPY
 // ---------------------------------------------------------------------------
-const mobileMatchCentres = mobileFiles.filter((f) => /match-centre\.tsx$/.test(f))
+/*
+  ONE IMPLEMENTATION, however many addresses point at it.
+
+  P3 separated the two: the Match Centre became a component in `src/fixtures/`, and
+  the route files are now thin -- one is a two-line re-export of the participant
+  address, and the canonical `/fixtures/<id>` chooses between the Match Centre and
+  the fixture console from the server's own per-fixture capability. So this counts
+  files that actually RENDER a Match Centre rather than files whose name says so; a
+  re-export is an address, and addresses are allowed to multiply as long as the
+  surface behind them does not.
+*/
+const mobileMatchCentres = mobileFiles.filter(
+  (f) => /match-centre\.tsx$/.test(f) && /return\s*\(|<ScrollView|<Shell/.test(read(f))
+)
 check(
   mobileMatchCentres.length === 1,
-  `There must be exactly one mobile Match Centre route. Found ${mobileMatchCentres.length}: ${mobileMatchCentres.map(rel).join(", ")}.`
+  `There must be exactly one mobile Match Centre implementation. Found ${mobileMatchCentres.length}: ${mobileMatchCentres.map(rel).join(", ")}.`
 )
 const ROLE_PREFIXED = /\b(Parent|Player|Staff|Club|Guardian|Coach|Admin)(MatchCentre|TrainingCentre|AvailabilityChoice|AvailabilityRegister)\b/
 for (const f of mobileFiles) {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { memberFor, type AgendaItem } from "@ovalball/contracts"
+import { isFamilyFacingContext, memberFor, type AgendaItem } from "@ovalball/contracts"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -295,6 +295,10 @@ export default function Fixtures() {
         showTraining={false}
         onChange={setFilter}
         onClose={() => setFilterOpen(false)}
+        // NO TEAM CHIPS FOR A FAMILY. The child chips above the list are the
+        // canonical way a guardian narrows; a side's name is the same question in
+        // the wrong language.
+        familyScope={active !== null && isFamilyFacingContext(active.kind)}
       />
 
       <ContextSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />

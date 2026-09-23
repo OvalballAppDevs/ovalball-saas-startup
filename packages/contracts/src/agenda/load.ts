@@ -79,8 +79,18 @@ export interface AgendaItem {
   result: { ourScore: number; theirScore: number } | null
   /** Which player this row belongs to in a family scope; null for staff/club/platform scopes. */
   playerId: string | null
+  /**
+   * The child's FIRST NAME, for a row that needs to say whose rugby it is in a
+   * context where the family projection is not to hand.
+   *
+   * There is deliberately no `childAvatarUrl` beside it. There used to be, and it
+   * was always null: resolving a child's photograph needs a signed URL from a
+   * private bucket, which this reader never asked for. `FamilyProjection` is the one
+   * authority for how a child is DRAWN -- picture, initials and the name a chip
+   * carries -- and a second, permanently empty field on every agenda row was an
+   * invitation to draw them a second way.
+   */
   childFirstName: string | null
-  childAvatarUrl: string | null
   attendance: "ATTENDING" | "CANNOT_ATTEND" | "UNSURE" | null
   teamId: string
   clubId: string | null
@@ -325,7 +335,7 @@ export async function loadAgenda(
    * the mistake that makes an away fixture read as home the moment a club
    * hosts at a neutral ground.
    */
-  function pushFixture(f: (typeof primaryFixtures)[number], ourTeamId: string, family: { playerId: string; firstName: string; avatarUrl: string | null } | null) {
+  function pushFixture(f: (typeof primaryFixtures)[number], ourTeamId: string, family: { playerId: string; firstName: string } | null) {
     const isOwning = f.owning_team_id === ourTeamId
     const theirTeamId = isOwning ? f.opponent_team_id : f.owning_team_id
     const us = sideFor(ourTeamId, f.season_id)
@@ -386,7 +396,6 @@ export async function loadAgenda(
       result,
       playerId: family?.playerId ?? null,
       childFirstName: family?.firstName ?? null,
-      childAvatarUrl: family?.avatarUrl ?? null,
       attendance: family ? responseFor(family.playerId, "fixture", f.id) : null,
       teamId: ourTeamId,
       clubId: teamById.get(ourTeamId)?.club_id ?? null,
@@ -396,7 +405,7 @@ export async function loadAgenda(
 
   function pushTraining(
     t: (typeof trainingRows)[number],
-    family: { playerId: string; firstName: string; avatarUrl: string | null } | null,
+    family: { playerId: string; firstName: string } | null,
     viewerTeamId: string | null
   ) {
     // A training session belongs to EITHER a team or a scheduling group.
@@ -437,7 +446,6 @@ export async function loadAgenda(
       result: null,
       playerId: family?.playerId ?? null,
       childFirstName: family?.firstName ?? null,
-      childAvatarUrl: family?.avatarUrl ?? null,
       attendance: family ? responseFor(family.playerId, "training", t.id) : null,
       teamId,
       clubId: t.club_id ?? null,
@@ -453,14 +461,14 @@ export async function loadAgenda(
     for (const child of scope.children) {
       for (const f of primaryFixtures) {
         if (f.owning_team_id !== child.teamId && f.opponent_team_id !== child.teamId) continue
-        pushFixture(f, child.teamId, { playerId: child.playerId, firstName: child.firstName, avatarUrl: null })
+        pushFixture(f, child.teamId, { playerId: child.playerId, firstName: child.firstName })
       }
       for (const t of trainingRows) {
         // Their own team's session, or a group session their team is in.
         const inGroup =
           t.scheduling_group_id !== null && (scopeTeamsByGroup.get(t.scheduling_group_id)?.includes(child.teamId) ?? false)
         if (t.team_id !== child.teamId && !inGroup) continue
-        pushTraining(t, { playerId: child.playerId, firstName: child.firstName, avatarUrl: null }, child.teamId)
+        pushTraining(t, { playerId: child.playerId, firstName: child.firstName }, child.teamId)
       }
     }
   } else {

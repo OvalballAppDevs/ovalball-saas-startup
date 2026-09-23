@@ -52,7 +52,6 @@ function event(overrides: Partial<AgendaItem> & { key: string; date: string }): 
     result: null,
     playerId: "p-1",
     childFirstName: "Pippa",
-    childAvatarUrl: null,
     attendance: null,
     teamId: "team-u12",
     clubId: "club-1",

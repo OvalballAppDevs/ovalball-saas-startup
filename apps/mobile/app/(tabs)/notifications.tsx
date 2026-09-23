@@ -8,7 +8,7 @@ import { getRecentNotifications, type NotificationItem } from "@ovalball/contrac
 import { supabase } from "../../src/auth/supabase"
 import { webUrl } from "../../src/config/environment"
 import { useAppContexts } from "../../src/context/contexts"
-import { routeForIntent } from "../../src/links/destinations"
+import { narrowIntentForContext, routeForIntent } from "../../src/links/destinations"
 import { resolveIntent } from "../../src/links/intents"
 import { Bell, ChevronRight } from "../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../src/components/ui"
@@ -44,7 +44,7 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/toke
 export default function Notifications() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { refreshUnread } = useAppContexts()
+  const { refreshUnread, active } = useAppContexts()
 
   const [items, setItems] = useState<NotificationItem[] | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -80,7 +80,16 @@ export default function Notifications() {
       RLS; one this person may no longer see says so on arrival rather than being
       filtered out of a list by a client.
     */
-    const intent = resolveIntent(`ovalball://${item.href.replace(/^\//, "")}`)
+    /*
+      AND NARROWED TO THE VIEWER'S OWN CONTEXT FIRST.
+
+      The canonical href for every fixture notification is `/fixtures/<id>`, which
+      resolves to the address that decides by authority. For a parent or a player
+      that is narrowed here to the participant address, which cannot draw
+      administration at all -- so the bell cannot be a way into a fixture console
+      even if the deciding gate were ever wrong.
+    */
+    const intent = narrowIntentForContext(resolveIntent(`ovalball://${item.href.replace(/^\//, "")}`), active?.kind ?? null)
     const route = routeForIntent(intent)
     if (route) {
       router.push(route as never)

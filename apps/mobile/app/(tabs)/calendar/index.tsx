@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { AgendaItem, RangeMode } from "@ovalball/contracts"
-import { memberFor, nextAnchor, previousAnchor, windowContainsToday } from "@ovalball/contracts"
+import { isFamilyFacingContext, memberFor, nextAnchor, previousAnchor, windowContainsToday } from "@ovalball/contracts"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -447,6 +447,10 @@ export default function Calendar() {
         showTraining
         onChange={setFilter}
         onClose={() => setFilterOpen(false)}
+        // NO TEAM CHIPS FOR A FAMILY. The child chips above the list are the
+        // canonical way a guardian narrows; a side's name is the same question in
+        // the wrong language.
+        familyScope={active !== null && isFamilyFacingContext(active.kind)}
       />
 
       {/* THE WEEK ARRIVES OVER THE GRID, not underneath it. Expanding in place put February's rugby

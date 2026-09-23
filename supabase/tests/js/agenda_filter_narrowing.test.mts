@@ -49,7 +49,6 @@ function fixture(partial: Partial<AgendaItem> & { key: string; teamId: string })
     result: null,
     playerId: null,
     childFirstName: null,
-    childAvatarUrl: null,
     attendance: null,
     clubId: "club-1",
     href: null,

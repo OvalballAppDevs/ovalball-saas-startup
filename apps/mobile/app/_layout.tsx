@@ -10,9 +10,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 import { View } from "react-native"
 
 import { SessionProvider, useSession } from "../src/auth/session"
-import { routeForIntent } from "../src/links/destinations"
+import { narrowIntentForContext, routeForIntent } from "../src/links/destinations"
 import { resolveIntent, type LinkIntent } from "../src/links/intents"
-import { ContextProvider } from "../src/context/contexts"
+import { ContextProvider, useAppContexts } from "../src/context/contexts"
 import { FamilyProvider } from "../src/family/family"
 import { colour } from "../src/design/tokens"
 import { LaunchCanvas } from "../src/components/launch"
@@ -54,6 +54,18 @@ void SplashScreen.preventAutoHideAsync()
  */
 function useIncomingLinks() {
   const { beginRecovery, status } = useSession()
+  /*
+    THE VIEWER'S OWN CONTEXT, so an incoming link can be narrowed before it is
+    routed. A fixture link is canonical -- `/fixtures/<id>` is what the website,
+    an email and a future push payload all carry -- and it resolves to the address
+    that decides by authority. For a parent or a player it is narrowed here to the
+    participant address, which cannot draw administration at all.
+
+    A link that arrives before the context has resolved is NOT held for it: the
+    canonical address is authority-aware on its own, so routing it immediately is
+    correct and narrowing is the second of two protections rather than the only one.
+  */
+  const { active } = useAppContexts()
   const router = useRouter()
   const handled = useRef(new Set<string>())
   const [linkProblem, setLinkProblem] = useState<string | null>(null)
@@ -73,10 +85,10 @@ function useIncomingLinks() {
       //
       // A CALENDAR anchor is carried in the intent and ignored by the route: the
       // Calendar opens on today, which is the right default for a tap with no date.
-      const route = routeForIntent(intent)
+      const route = routeForIntent(narrowIntentForContext(intent, active?.kind ?? null))
       if (route) router.push(route as never)
     },
-    [router]
+    [router, active]
   )
 
   const handle = useCallback(

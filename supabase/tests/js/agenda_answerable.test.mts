@@ -34,7 +34,6 @@ function item(overrides: Partial<AgendaItem> = {}): AgendaItem {
     result: null,
     playerId: "player-1",
     childFirstName: "Ava",
-    childAvatarUrl: null,
     attendance: null,
     teamId: "team-1",
     clubId: "club-1",

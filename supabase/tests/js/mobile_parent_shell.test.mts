@@ -257,7 +257,6 @@ function row(key: string, playerId: string | null): AgendaItem {
     result: null,
     playerId,
     childFirstName: null,
-    childAvatarUrl: null,
     attendance: null,
     teamId: "team-u12",
     clubId: "club-1",

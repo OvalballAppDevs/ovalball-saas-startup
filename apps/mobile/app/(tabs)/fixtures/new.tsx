@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { routeForIntent } from "../../../src/links/destinations"
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import {
@@ -159,7 +160,12 @@ export default function AddFixture() {
       setProblem(result.message)
       return
     }
-    if (!asking && result.id) router.replace(`/fixtures/${result.id}` as never)
+    if (!asking && result.id) {
+      // The canonical address, through the one table. Whoever just created a fixture
+      // holds `fixture.fixture.create`, so the gate lands them on the console.
+      const route = routeForIntent({ kind: "FIXTURE", fixtureId: result.id })
+      if (route) router.replace(route as never)
+    }
     else router.back()
   }
 

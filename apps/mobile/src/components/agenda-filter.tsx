@@ -33,6 +33,7 @@ export function AgendaFilterSheet({
   items,
   filter,
   showTraining,
+  familyScope = false,
   onChange,
   onClose,
 }: {
@@ -42,6 +43,20 @@ export function AgendaFilterSheet({
   filter: AgendaFilter
   /** False on Fixtures, which never shows training, so the toggle would be a control over nothing. */
   showTraining: boolean
+  /**
+   * TRUE FOR A PARENT/GUARDIAN OR A PLAYER.
+   *
+   * It removes the "Our Team" chips. In a family scope the canonical filter is the
+   * CHILD -- the chips above the list, drawn from `FamilyProjection` -- and offering
+   * the same narrowing again in team language would be an age-grade selector
+   * standing in for a person. A guardian of two would then have two ways to say the
+   * same thing, one of which makes them decode "Under 12 Boys" back into "Pippa";
+   * and a family filter must name the child, never the side.
+   *
+   * Everything else stays. An opponent and a club are facts about the fixtures
+   * already returned, and a family can genuinely span two clubs.
+   */
+  familyScope?: boolean
   onChange: (next: AgendaFilter) => void
   onClose: () => void
 }) {
@@ -127,8 +142,10 @@ export function AgendaFilterSheet({
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.lg, gap: space.lg }}>
           {/* OUR OWN SIDES. Absent for somebody who only has one, because a filter between one thing
-              and itself is not a filter. */}
-          {teams.length > 1 && (
+              and itself is not a filter -- and absent altogether in a family scope, where the child
+              chips above the list are the canonical way to narrow and a team name would be the same
+              question asked in the wrong language. */}
+          {!familyScope && teams.length > 1 && (
             <Group title="Our Team">
               <Chips
                 options={[{ id: null, name: "All teams" }, ...teams.map((t) => ({ id: t.id as string | null, name: t.name }))]}

@@ -155,9 +155,13 @@ test("a person's picture and a club's crest cannot be substituted for one anothe
     arrived at by removing the `fallback` prop rather than by asking people not
     to use it.
   */
+  // The kit renderer itself, and the Match Centre, whose header IS about what the
+  // two sides wear. It moved out of the route tree at P3, when the fixture console
+  // stopped being addressable and both surfaces became components the canonical
+  // route chooses between.
   const MAY_DRAW_A_KIT = new Set([
     "src/components/rugby-kit.tsx",
-    "app/(tabs)/fixtures/[fixtureId]/match-centre.tsx",
+    "src/fixtures/match-centre.tsx",
   ])
   for (const file of FILES) {
     if (MAY_DRAW_A_KIT.has(file)) continue
