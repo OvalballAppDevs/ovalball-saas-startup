@@ -218,3 +218,193 @@ Physical acceptance is yours. Nothing here claims it.
 - **`AgendaRow`'s `showOwner` prop is unused** and predates P2.
 - **`verify-recipient-audience-boundary`** unchanged, pre-existing, not weakened,
   not suppressed, not fixed (§25).
+
+---
+
+# P4 visual rebuild — built to the approved mockup
+
+The earlier P4 pass got the model right and the composition wrong: a white header,
+a white season dropdown, a white Pre/Main bar, a white mode selector, then a green
+calendar, then a white panel. Six surfaces for one screen. That is gone.
+
+## The structure now
+
+```
+┌─────────────────────────────────┐
+│ FOREST  (one ground, top to sheet)
+│  ◯ avatar   Under 12 Boys  ⌄    💬 🔔 ?   ← same P1 header, forest tone,
+│             Ovalball UAT RUFC               no white card, no rule
+│                                 │
+│  September 2026          ( ‹ ) ( › )      ← 26pt, round pitch-600 steps
+│                                 │
+│  [  Month  |  List  ]           │        ← low dark segmented surface
+│                                 │
+│  MON TUE WED THU FRI SAT SUN    │        ← faint, letter-spaced
+│   31   1   2   3   4   5   6    │
+│    7  (8)  9  10  11  12  13    │        ← ● dot under a busy day
+│   14  15  16  17  18  19  20    │
+│   21  22 ⟨23⟩ 24 ⟦25⟧ 26  27    │        ← ⟨⟩ today ring · ⟦⟧ selected disc
+│   28  29  30   1   2   3   4    │        ← spill days faint
+│  [ All ][ Pippa ][ George ]     │        ← chips on forest, outlined
+├──────── ▂▂▂ ────────────────────┤        ← chalk sheet, r26, lifted 12pt
+│ Friday · 25 September   2 events│
+│ ┌─────────────────────────────┐ │
+│ │ 10:30  (crest)  v Ashton …  │ │
+│ │ meet            ⬭ Under 12  │ │
+│ │ 09:45           ⚲ Ashton  A ›│ │
+│ └─────────────────────────────┘ │
+│ ┌─────────────────────────────┐ │
+│ │ 18:00  (squad)  Training …  │ │
+│ └─────────────────────────────┘ │
+├─────────────────────────────────┤
+│ Home Fixtures ▮Calendar Hub More│        ← already deep forest, pitch-400
+└─────────────────────────────────┘          active with a top indicator
+```
+
+## Components introduced
+
+| File | What it is |
+|---|---|
+| `components/calendar/calendar-chrome.tsx` | `CalendarHeading` (month + round steps) and `CalendarModeSwitch` |
+| `components/calendar/month-grid.tsx` | `MonthGrid` and `CalendarDay` |
+| `components/calendar/event-sheet.tsx` | `EventSheet`, `EventCard`, `CalendarEmptyDay`, `ListDayHeading` |
+| `components/participant/event-hero.tsx` | `EventHero`, `ParticipantActionCard`, `ParticipantSheet` |
+| `SeasonSheet` (in the Calendar) | the season and its phase, as a sheet |
+
+`month-calendar.tsx` from the first pass was deleted, not left beside its
+replacement. The old `WeekStrip`, `emptyTitle`, `startOfWeek`, `shift` and the
+Training Centre's `Shell` went with the things that used them.
+
+## Controls removed or repositioned
+
+| Was | Now |
+|---|---|
+| White season dropdown, permanent | A chip beside the month → `SeasonSheet`. **Not offered at all to a family.** |
+| White Pre / Main segmented bar, permanent | Inside that sheet, and only where the register records a pre-season |
+| White Week / Month / Season selector | `Month | List` on forest; Season is a third segment **only** outside a family |
+| White header with a bottom rule | The same header, forest, no card, no rule |
+| White "Today" pill + white "Filter" pill above the grid | Today is the ring in the grid itself; Filter opens from the sheet's own controls |
+| Bordered day list under a repeated date heading | Cards on the chalk sheet, under one date heading |
+
+**Nothing was deleted blindly.** Season selection, the pre-season phase, the
+season overview grid, the filter and the week sheet all still work; they stopped
+being furniture. Pre/Main is hidden from a parent because it is a distinction a
+club draws for its own planning — a guardian checking Saturday has no use for it.
+
+## Month / List
+
+One read, one model, one set of rows narrowed by the one family filter — two ways
+of looking at them. Month is the grid with the selected day beneath it; List is the
+same rows from today onward, grouped by day, using the **same `EventCard`**. A test
+asserts there are exactly two `readAgenda` calls on the screen (the month and the
+season) so a third data path cannot appear behind the toggle.
+
+## Date states
+
+Faint spill days · light in-month days · **today: a 1.5pt pitch-400 ring** ·
+**selected: a filled pitch-600 disc with forest ink** · **both: the ring around the
+disc**, one combined mark · **a dot** under any day with something, drawn in the
+disc's own ink when it falls on the selection · **hollow** where something that day
+is cancelled. Each day's spoken label is "23, today, matches and training" — the
+fact, never the decoration.
+
+## Event sheet and cards
+
+26pt top corners, a 38×4 handle, lifted 12pt over the forest. The heading is the
+selected day in words with the count on the right. Cards are `surface.card` on
+chalk with a hairline, `radius.lg`, 16pt gutters.
+
+Each card: kick-off with **meet time beneath it where the club has set one** · a
+round mark (the opposition's crest where there is one, else a rugby ball; a squad
+glyph for training) · the opponent or "Training Session", the side, the venue, the
+canonical status in words · the H/A badge · a chevron. In a multi-child view the
+`ChildMark` leads the text block, resolved through `memberFor` — a test asserts the
+card reconstructs no name, initial or avatar of its own.
+
+**Cancelled** is struck through, dimmed to 0.66, and written in words.
+
+## Training Centre
+
+Forest hero: back · "Training Centre" · the three header utilities. Then the event
+mark, the side and child, "Training Session", and the canonical status pill.
+Beneath: the date, the times, and the venue with "View on map".
+
+**No stock photograph.** The mockup has one; Ovalball has no picture of this club's
+training, and somebody else's rugby on a page about your child is worse than none.
+A test forbids `ImageBackground`, `require(` and remote image URLs in the hero.
+
+**No "Arrive from".** The mockup shows one. `meet_time` is a **fixture** column —
+`training_sessions` has no arrival field, no RPC for one and no product concept of
+one. A time no coach set is worse than no time. Tested.
+
+Then the chalk sheet: the **availability answer first**, because it is what a parent
+came for; then `Message Team Staff`, `Training Information`, `Location` as uniform
+`ParticipantActionCard`s. No tabs were invented — there is not enough content for
+three, and §18 said not to imitate them for their own sake.
+
+## Availability
+
+The shared canonical control gained a **light ground** (`ANSWER_ON_LIGHT`) so it can
+sit on the chalk sheet — same three answers, same words, same order, same icons,
+same `AVAILABILITY_ANSWER_ORDER`. Selection carries an icon, the words, a filled
+ground and `accessibilityState.selected`; never colour alone. Confirmation wording
+is unchanged and still claims no notification.
+
+## Tokens
+
+New in `design/tokens.ts`: `surface.{forest,forestRaised,chalk,card}`,
+`onForest.{primary,secondary,faint,line}`,
+`calendarTone.{selected,selectedInk,today,eventDot,control,controlInk}`,
+`statusOnForest.{calm,warning,danger}`. **Every one is drawn from the existing
+`colour` palette — no new green.** A test asserts the five new view files contain
+**zero** hex literals.
+
+## Accessibility
+
+44pt+ targets throughout (day cells are 46pt tall and a seventh of the width);
+`accessibilityRole` on every control; day labels speak the facts; the availability
+control announces "I'm Available — Pippa, training on Saturday"; safe-area insets
+top and bottom; no horizontal scroll at 320pt (the grid is flex-distributed and the
+card's text block is `minWidth: 0`); Dynamic Island cleared by `insets.top`.
+
+## Focused tests
+
+**102 suites, 1042 assertions, 0 failing** — `family_calendar` now 54, including
+fourteen that lock the approved composition. Structural guards pass (availability
+one-product 1729 checks — it caught a real collision, a hero reading "Not
+available" against the canonical availability word, now "Session unavailable").
+Typecheck web + app clean. No new lint (the 5 errors are pre-existing web files).
+iOS bundle builds.
+
+## The floating blue gear
+
+Not Ovalball. The app bundles no `expo-dev-client`, `expo-dev-menu` or
+`expo-dev-launcher`, and there is no app-owned floating control anywhere in
+`apps/mobile` — the only absolutely-positioned elements are badges, sheets,
+backdrops and the launch canvas. It is the **Expo development launcher**, present
+in Expo Go and development builds and absent from a production build. Per §27 it
+has not been removed or suppressed: it is legitimate development tooling.
+
+## Owner visual review
+
+| | Screen | Use |
+|---|---|---|
+| A | Month, one event | any Friday with a single fixture |
+| B | Month, multiple events | **23 September** — two 18:00 sessions |
+| C | Month, empty date | any quiet weekday; check the "Go to …" button |
+| D | Multi-child, All | `uat.guardian.two` |
+| E | One child | tap either chip |
+| F | List | the toggle's second segment |
+| G | Training Centre | tap a 23 September session |
+| H | Availability selected | answer, then read the confirmation |
+| I | Back to Calendar | no stale child, no white strip |
+
+## Remaining visual debt
+
+- **Match Centre still has its own older treatment.** §21 said not to redesign it
+  in P4; the hero/sheet/action-card language is now reusable for it.
+- **No tabs on the Training Centre** (Overview / Availability / Information) —
+  deliberate, per §18.
+- **No arrival time for training** until the platform has one.
+- Fixtures and Home keep the chalk header; only the Calendar and the Training
+  Centre are forest so far.

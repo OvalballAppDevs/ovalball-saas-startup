@@ -29,12 +29,17 @@ import { respondToTraining } from "../../../../src/match-centre/respond"
 import { loadRecipients } from "../../../../src/messages/recipients"
 import { AvailabilityChoice } from "../../../../src/components/availability-choice"
 import { AvailabilityRegister, type RegisterEntry } from "../../../../src/components/availability-register"
+import {
+  EventHero,
+  ParticipantActionCard,
+  ParticipantSheet,
+} from "../../../../src/components/participant/event-hero"
 import { exactDate, relativeDate, restOfDate } from "../../../../src/agenda/presentation"
 import { todayIso } from "../../../../src/agenda/load"
 import { friendly, logDetail } from "../../../../src/errors/translate"
-import { ChevronRight, MapPin, MessageSquare, Users } from "../../../../src/components/icons"
+import { CalendarDays, ChevronRight, ClipboardList, Clock, MapPin, MessageSquare, Users } from "../../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
+import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../../../../src/design/tokens"
 
 /**
  * TRAINING CENTRE.
@@ -184,309 +189,337 @@ export default function TrainingCentre() {
 
   if (missing) {
     return (
-      <Shell title="Training" onBack={() => router.back()} insets={insets}>
-        <EmptyState
-          title="This session isn't available"
-          body="It may have been removed, or it may not be one you have access to."
-          icon={<Users size={24} color={colour.inkSubtle} />}
+      /* THE SAME SURFACE, even when there is nothing on it. A session that was
+         removed and one that is not this person's are deliberately the same
+         answer -- the difference is not ours to reveal -- and it is said on the
+         screen it would have been said on, not on a different-looking one. */
+      <View style={{ flex: 1, backgroundColor: surface.forest }}>
+        <EventHero
+          surfaceName="Training Centre"
+          // NOT "Not available": that is the canonical word for an availability
+          // ANSWER, and a hero saying it about the session itself would be the same
+          // two words meaning two different things on one screen.
+          title="Session unavailable"
+          eyebrow="Training"
+          mark={<Users size={26} color={colour.pitch400} strokeWidth={1.9} />}
+          facts={[]}
+          onBack={() => router.back()}
         />
-      </Shell>
+        <ParticipantSheet>
+          <View style={{ paddingTop: space.lg }}>
+            <EmptyState
+              title="This session isn't available"
+              body="It may have been removed, or it may not be one you have access to."
+              icon={<Users size={24} color={colour.inkSubtle} />}
+            />
+          </View>
+        </ParticipantSheet>
+      </View>
     )
   }
 
   const cancelled = Boolean(session?.cancelledAt)
   const canEdit = Boolean(session?.canManage) && !cancelled
+  const child = mine.length === 1 && !mine[0].isSelf ? mine[0].firstName : null
 
   return (
-    <Shell
-      title={session?.teamLabel ?? "Training"}
-      subtitle={session ? relativeDate(session.date, today) : undefined}
-      onBack={() => router.back()}
-      insets={insets}
-      refreshing={refreshing}
-      onRefresh={async () => {
-        setRefreshing(true)
-        await load()
-        setRefreshing(false)
-      }}
-    >
-      {problem && <ErrorState message={problem} onRetry={load} />}
-      {!problem && !session && (
-        <>
-          <CardSkeleton lines={2} />
-          <CardSkeleton lines={2} />
-        </>
-      )}
+    <View style={{ flex: 1, backgroundColor: surface.forest }}>
+      {/* ============================================================
+            THE HERO — what this is, whose it is, and the three facts a parent
+            came for. Forest rather than a stock photograph: Ovalball has no
+            picture of this club's training, and somebody else's rugby on a page
+            about your child is worse than none.
+         ============================================================ */}
+      <EventHero
+        surfaceName="Training Centre"
+        title="Training Session"
+        eyebrow={[session?.teamLabel, child].filter(Boolean).join(" · ") || "Training"}
+        status={
+          cancelled
+            ? { label: "Cancelled", tone: "danger" }
+            : session
+              ? { label: session.date >= today ? "Upcoming" : "Finished", tone: "calm" }
+              : null
+        }
+        mark={<Users size={26} color={colour.pitch400} strokeWidth={1.9} />}
+        facts={
+          session
+            ? [
+                { icon: <CalendarDays size={17} color={onForest.secondary} />, label: exactDate(session.date) },
+                {
+                  icon: <Clock size={17} color={onForest.secondary} />,
+                  label: [session.startTime, session.endTime].filter(Boolean).join(" – ") || "Time to be confirmed",
+                  /*
+                    NO ARRIVAL TIME HERE, and that is a finding rather than an
+                    omission. The reference design shows "Arrive from 17:45" and
+                    Ovalball has no such field for training: `meet_time` exists on a
+                    FIXTURE and there is no column, no RPC and no product concept
+                    for it on `training_sessions`. Inventing one -- by subtracting a
+                    quarter of an hour, say -- would put a time on a parent's screen
+                    that no coach ever set, which is worse than not showing one.
+                  */
+                  detail: null,
+                },
+                {
+                  icon: <MapPin size={17} color={onForest.secondary} />,
+                  label: session.venueName ?? "Venue to be confirmed",
+                  detail: session.venueName ? "View on map" : null,
+                  onPress: session.venueName ? () => void openDirections(session.venueName!) : undefined,
+                },
+              ]
+            : []
+        }
+        onBack={() => router.back()}
+      />
 
-      {!!session && (
-        <>
-          {/* THE SESSION CARD, WITH THE VIEWER'S OWN ANSWER INSIDE IT.
-              The invitation and the reply to it are one object -- the website's
-              Training Centre puts the same control in the same place, inside the
-              same hero, for the same reason. Detached below it reads as an
-              administrative form about the session rather than the answer to it. */}
-          <View style={{ backgroundColor: colour.forest800, borderRadius: radius.lg, overflow: "hidden" }}>
-            <View style={{ padding: space.lg, gap: space.xs }}>
-              <Text style={[type.overline, { color: colour.onForestMuted }]}>TRAINING</Text>
-              <Text accessibilityRole="header" style={[type.title, { color: colour.onForest }]}>
-                {session.teamLabel ?? "Session"}
-              </Text>
-              <Text style={[type.small, { color: colour.onForestMuted }]}>
-                {relativeDate(session.date, today)}
-                {restOfDate(session.date, today) ? ` · ${restOfDate(session.date, today)}` : ""}
-                {session.startTime ? ` · ${session.startTime}` : ""}
-                {session.venueName ? ` · ${session.venueName}` : ""}
-              </Text>
+      <ParticipantSheet>
+        <ScrollView
+          contentContainerStyle={{ paddingTop: space.md, paddingBottom: insets.bottom + space.xxl, gap: space.md }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={async () => {
+                setRefreshing(true)
+                await load()
+                setRefreshing(false)
+              }}
+              tintColor={colour.forest800}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {!!problem && (
+            <View style={{ paddingHorizontal: space.lg }}>
+              <ErrorState message={problem} onRetry={load} />
             </View>
-
-            {mine.length > 0 && (
-              <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.10)", backgroundColor: "rgba(0,0,0,0.15)" }}>
-                {mine.map((entry, index) => (
-                  <View
-                    key={entry.playerId}
-                    style={{ padding: space.lg, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: "rgba(255,255,255,0.10)" }}
-                  >
-                    {entry.canRespond ? (
-                      <>
-                        <AvailabilityChoice
-                          question={availabilityQuestion("training", entry.isSelf, entry.firstName)}
-                          subject={availabilitySubject(entry.isSelf, entry.firstName)}
-                          what={availabilityEventLabel("training", relativeDate(session.date, today))}
-                          committed={entry.response}
-                          disabled={false}
-                          onChoose={(status) => answerTraining(entry, status)}
-                        />
-                        {entry.response === null && (
-                          <Text style={[type.small, { color: colour.onForestMuted, marginTop: space.sm }]}>{NO_ANSWER_YET}</Text>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <Text style={[type.smallMedium, { color: colour.onForest }]}>
-                          {availabilityQuestion("training", entry.isSelf, entry.firstName)}
-                        </Text>
-                        {/* THE DATABASE'S OWN SENTENCE. A 16-year-old without
-                            recorded guardian consent reads the rule rather than
-                            learning it from a red error after tapping -- which is
-                            exactly what Match Centre does for the same person
-                            under the same policy. */}
-                        <Text style={[type.small, { color: colour.onForestMuted, marginTop: space.xs }]}>
-                          {entry.cannotRespondReason ?? "You cannot respond for this player."}
-                        </Text>
-                      </>
-                    )}
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-
-          {/* WHAT IS NOW TRUE, said once, where the answer was given.
-              `attendanceConfirmation` is the shared sentence, so the fixture half
-              and the training half of the same product confirm alike -- and it
-              stops at what the record says, because nobody has been notified yet
-              and claiming otherwise would be the app inventing P5 in words. */}
-          {!!confirmation && (
-            <View
-              accessibilityRole="alert"
-              style={{ padding: space.md, borderRadius: radius.md, backgroundColor: colour.successSurface }}
-            >
-              <Text style={[type.smallMedium, { color: colour.forest800 }]}>{confirmation}</Text>
+          )}
+          {!problem && !session && (
+            <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
+              <CardSkeleton lines={2} />
+              <CardSkeleton lines={2} />
             </View>
           )}
 
-          {cancelled && (
-            <View style={{ padding: space.md, borderRadius: radius.md, backgroundColor: colour.dangerSurface, gap: 2 }}>
-              <Text accessibilityRole="alert" style={[type.smallMedium, { color: colour.danger }]}>
-                This session is cancelled
-              </Text>
-              {!!session.cancellationReason && (
-                <Text style={[type.small, { color: colour.danger }]}>{session.cancellationReason}</Text>
-              )}
-            </View>
-          )}
-
-          <Group title="When">
-            <Row
-              label="Date"
-              value={exactDate(session.date)}
-              editable={canEdit}
-              onPress={() => setEditing("date")}
-            />
-            <Row
-              label="Start"
-              value={session.startTime ?? "Not set"}
-              muted={!session.startTime}
-              editable={canEdit}
-              onPress={() => setEditing("start")}
-            />
-            <Row
-              label="Ends"
-              value={session.endTime ?? (session.durationMinutes ? `${session.durationMinutes} minutes` : "Not set")}
-              muted={!session.endTime && !session.durationMinutes}
-              last
-            />
-          </Group>
-
-          <Group title="Where">
-            <Row
-              label="Venue"
-              value={session.venueName ?? "Not set"}
-              muted={!session.venueName}
-              editable={canEdit}
-              onPress={() => setEditing("venue")}
-            />
-            <Row
-              label="Pitch"
-              value={session.pitchName ?? "Not set"}
-              muted={!session.pitchName}
-              editable={canEdit}
-              onPress={() => setEditing("pitch")}
-              last={!session.venueName}
-            />
-            {!!session.venueName && (
-              <View style={{ paddingHorizontal: space.md, paddingBottom: space.md }}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Directions to ${session.venueName}`}
-                  onPress={() => void openDirections(session.venueName!)}
-                  style={({ pressed }) => ({
-                    alignSelf: "flex-start",
-                    minHeight: TOUCH_TARGET,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: space.sm,
-                    paddingHorizontal: space.md,
-                    borderRadius: radius.md,
-                    borderWidth: 1,
-                    borderColor: colour.lineStrong,
-                    backgroundColor: colour.surface,
-                    opacity: pressed ? 0.85 : 1,
-                  })}
-                >
-                  <MapPin size={16} color={colour.forest800} strokeWidth={2} />
-                  <Text style={[type.smallMedium, { color: colour.forest800 }]}>Directions</Text>
-                </Pressable>
-              </View>
-            )}
-          </Group>
-
-          <Group title="The Session">
-            <Row
-              label="Agenda"
-              value={session.agenda ?? "None"}
-              muted={!session.agenda}
-              editable={canEdit}
-              onPress={() => setEditing("agenda")}
-            />
-            <Row
-              label="Notes"
-              value={session.furtherNotes ?? session.notes ?? "None"}
-              muted={!session.furtherNotes && !session.notes}
-              editable={canEdit}
-              onPress={() => setEditing("notes")}
-              last
-            />
-          </Group>
-
-          {/* WHO'S TRAINING. The same section Match Centre draws, with the one
-              word that differs, from the same component -- so a coach reading a
-              matchday register and a training register is reading one design.
-              Nothing at all without the capability: a parent is not shown a
-              locked panel, because they are not missing a feature.
-
-              WHAT THIS REPLACED. A line reading "Your response: Going / Can't go
-              / Unsure" -- a THIRD first-person vocabulary for the three states
-              the shared control calls "I'm Available / Not Available / Unsure"
-              and the register calls "Attending / Can't attend / Unsure". It was a
-              placeholder, and a placeholder that invents wording is how a product
-              ends up with four names for one answer. */}
-          {session.canViewRegister && (
-            <AvailabilityRegister
-              title="Who's Training"
-              entries={register}
-              emptyBody="No players are on this team yet, so there is nobody to expect at training."
-            />
-          )}
-
-          {/* ============================================================
-                ASKING SOMEBODY A QUESTION ABOUT THIS SESSION.
-
-                The same action, the same authority and the same words as Match
-                Centre: a shortcut into the canonical chooser, which is built on
-                `my_direct_message_candidates()` and therefore on
-                `internal.may_direct_message`. No recipient is resolved here, no id
-                is constructed, and being at a training session has never been a
-                reason anybody may message anybody.
-
-                ABSENT WHEN THE CANONICAL LIST IS EMPTY, which is what an under-18
-                player gets -- and there is no participant directory of any kind:
-                "message everybody attending training" is not a thing this offers.
-                A coach with the club-to-club thread does not need this row, and
-                training has no opposition for one to arise from.
-             ============================================================ */}
-          {!session.canManage && canReachSomebody && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Message somebody at your club"
-              onPress={() => router.push("/messages/new")}
-              style={({ pressed }) => ({
-                minHeight: TOUCH_TARGET,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: space.md,
-                padding: space.lg,
-                borderRadius: radius.lg,
-                borderWidth: 1,
-                borderColor: colour.line,
-                backgroundColor: pressed ? colour.chalk : colour.surface,
-              })}
-            >
-              <MessageSquare size={18} color={colour.forest800} />
-              <View style={{ flex: 1 }}>
-                <Text style={[type.smallMedium, { color: colour.ink }]}>Message Team Staff</Text>
-                <Text style={[type.caption, { color: colour.inkMuted, marginTop: 2 }]}>
-                  Ask a question about this session. Who you can reach is set by your club.
-                </Text>
-              </View>
-              <ChevronRight size={18} color={colour.inkSubtle} />
-            </Pressable>
-          )}
-
-          {/* ============================================================
-                RUNNING THE SESSION — mounted only on the server's own answer.
-
-                Every sheet that edits this session, the two reads that fill them,
-                and the cancel control live in `TrainingOperations`, which is
-                rendered only where `session.canManage` is true -- the value
-                `get_training_session_card` returns from
-                `internal.can_manage_training`.
-
-                Before P4 all of it was in this tree for EVERY viewer. Nothing was
-                drawn, because each row's press target is gated and a non-editable
-                row renders no chevron -- but the administrative components were
-                MOUNTED, and the grounds and pitches were fetched, for a parent
-                whose screen had nowhere to put them. The URL still does not grant
-                the surface, and now it does not assemble it either.
-             ============================================================ */}
-          {session.canManage && (
+          {!!session && (
             <>
-              {!cancelled && (
-                <CancelSessionButton
-                  onPress={() => setEditing("cancel")}
+              {!!confirmation && (
+                <View
+                  accessibilityRole="alert"
+                  style={{
+                    marginHorizontal: space.lg,
+                    padding: space.md,
+                    borderRadius: radius.md,
+                    backgroundColor: colour.successSurface,
+                  }}
+                >
+                  <Text style={[type.smallMedium, { color: colour.forest800 }]}>{confirmation}</Text>
+                </View>
+              )}
+
+              {cancelled && (
+                <View
+                  style={{
+                    marginHorizontal: space.lg,
+                    padding: space.md,
+                    borderRadius: radius.md,
+                    backgroundColor: colour.dangerSurface,
+                    gap: 2,
+                  }}
+                >
+                  <Text accessibilityRole="alert" style={[type.smallMedium, { color: colour.danger }]}>
+                    This session is cancelled
+                  </Text>
+                  {!!session.cancellationReason && (
+                    <Text style={[type.small, { color: colour.danger }]}>{session.cancellationReason}</Text>
+                  )}
+                </View>
+              )}
+
+              {/* ============================================================
+                    THE ANSWER, AS THE FIRST THING ON THE SHEET.
+
+                    It is the one action a parent came to take, so it is the one
+                    that does not have to be looked for. The control is the shared
+                    canonical one -- the same three answers, words, order and icons
+                    as Match Centre and as the website -- on its light ground.
+                 ============================================================ */}
+              {mine.length > 0 && (
+                <View
+                  style={{
+                    marginHorizontal: space.lg,
+                    padding: space.lg,
+                    borderRadius: radius.lg,
+                    backgroundColor: surface.card,
+                    borderWidth: 1,
+                    borderColor: colour.line,
+                    gap: space.md,
+                  }}
+                >
+                  {mine.map((entry) => (
+                    <View key={entry.playerId} style={{ gap: space.sm }}>
+                      {entry.canRespond ? (
+                        <>
+                          <AvailabilityChoice
+                            ground="light"
+                            question={availabilityQuestion("training", entry.isSelf, entry.firstName)}
+                            subject={availabilitySubject(entry.isSelf, entry.firstName)}
+                            what={availabilityEventLabel("training", relativeDate(session.date, today))}
+                            committed={entry.response}
+                            disabled={false}
+                            onChoose={(status) => answerTraining(entry, status)}
+                          />
+                          {entry.response === null && (
+                            <Text style={[type.caption, { color: colour.inkMuted }]}>{NO_ANSWER_YET}</Text>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <Text style={[type.smallMedium, { color: colour.ink }]}>
+                            {availabilityQuestion("training", entry.isSelf, entry.firstName)}
+                          </Text>
+                          {/* THE DATABASE'S OWN SENTENCE. A 16-year-old without
+                              recorded guardian consent reads the rule rather than
+                              learning it from a red error after tapping. */}
+                          <Text style={[type.small, { color: colour.inkMuted }]}>
+                            {entry.cannotRespondReason ?? "You cannot respond for this player."}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* ============================================================
+                    WHAT ELSE A PARTICIPANT MAY DO OR READ.
+
+                    Uniform cards, no administrative variant. The communication one
+                    is the canonical chooser's shortcut and is absent when
+                    `may_direct_message` offers nobody -- which is what an under-18
+                    player gets.
+                 ============================================================ */}
+              {!session.canManage && canReachSomebody && (
+                <ParticipantActionCard
+                  icon={<MessageSquare size={18} color={colour.forest800} strokeWidth={1.9} />}
+                  title="Message Team Staff"
+                  detail="Ask a question about this session. Who you can reach is set by your club."
+                  onPress={() => router.push("/messages/new")}
                 />
               )}
-              <TrainingOperations
-                session={session}
-                editing={editing}
-                onClose={() => setEditing(null)}
-                onSaved={load}
-              />
+
+              {(!!session.agenda || !!session.furtherNotes || !!session.notes) && (
+                <ParticipantActionCard
+                  icon={<ClipboardList size={18} color={colour.forest800} strokeWidth={1.9} />}
+                  title="Training Information"
+                  detail={session.agenda ?? session.furtherNotes ?? session.notes ?? undefined}
+                />
+              )}
+
+              {!!session.venueName && (
+                <ParticipantActionCard
+                  icon={<MapPin size={18} color={colour.forest800} strokeWidth={1.9} />}
+                  title="Location"
+                  detail={[session.venueName, session.pitchName].filter(Boolean).join(" · ")}
+                  onPress={() => void openDirections(session.venueName!)}
+                />
+              )}
+
+              {/* WHO'S TRAINING. Nothing at all without the capability: a parent is
+                  not shown a locked panel, because they are not missing a feature. */}
+              {session.canViewRegister && (
+                <AvailabilityRegister
+                  title="Who's Training"
+                  entries={register}
+                  emptyBody="No players are on this team yet, so there is nobody to expect at training."
+                />
+              )}
+
+              {/* ============================================================
+                    RUNNING THE SESSION — mounted only on the server's own answer.
+
+                    Every sheet that edits this session, the two reads that fill
+                    them, and the cancel control live in `TrainingOperations`, which
+                    renders only where `session.canManage` is true -- the value
+                    `get_training_session_card` returns from
+                    `internal.can_manage_training`.
+
+                    Before P4 all of it was in this tree for EVERY viewer. Nothing
+                    was drawn, because each row's press target is gated and a
+                    non-editable row renders no chevron -- but the administrative
+                    components were MOUNTED, and the grounds and pitches were
+                    fetched, for a parent whose screen had nowhere to put them. The
+                    URL still does not grant the surface, and now it does not
+                    assemble it either.
+                 ============================================================ */}
+              {session.canManage && (
+                <>
+                  <Group title="When">
+                    <Row label="Date" value={exactDate(session.date)} editable={canEdit} onPress={() => setEditing("date")} />
+                    <Row
+                      label="Start"
+                      value={session.startTime ?? "Not set"}
+                      muted={!session.startTime}
+                      editable={canEdit}
+                      onPress={() => setEditing("start")}
+                    />
+                    <Row
+                      label="Ends"
+                      value={session.endTime ?? (session.durationMinutes ? `${session.durationMinutes} minutes` : "Not set")}
+                      muted={!session.endTime && !session.durationMinutes}
+                      last
+                    />
+                  </Group>
+
+                  <Group title="Where">
+                    <Row
+                      label="Venue"
+                      value={session.venueName ?? "Not set"}
+                      muted={!session.venueName}
+                      editable={canEdit}
+                      onPress={() => setEditing("venue")}
+                    />
+                    <Row
+                      label="Pitch"
+                      value={session.pitchName ?? "Not set"}
+                      muted={!session.pitchName}
+                      editable={canEdit}
+                      onPress={() => setEditing("pitch")}
+                      last
+                    />
+                  </Group>
+
+                  <Group title="The Session">
+                    <Row
+                      label="Agenda"
+                      value={session.agenda ?? "None"}
+                      muted={!session.agenda}
+                      editable={canEdit}
+                      onPress={() => setEditing("agenda")}
+                    />
+                    <Row
+                      label="Notes"
+                      value={session.furtherNotes ?? session.notes ?? "None"}
+                      muted={!session.furtherNotes && !session.notes}
+                      editable={canEdit}
+                      onPress={() => setEditing("notes")}
+                      last
+                    />
+                  </Group>
+
+                  {!cancelled && <CancelSessionButton onPress={() => setEditing("cancel")} />}
+                  <TrainingOperations
+                    session={session}
+                    editing={editing}
+                    onClose={() => setEditing(null)}
+                    onSaved={load}
+                  />
+                </>
+              )}
             </>
           )}
-        </>
-      )}
-    </Shell>
+        </ScrollView>
+      </ParticipantSheet>
+    </View>
   )
 }
 
@@ -502,71 +535,6 @@ async function openDirections(place: string): Promise<void> {
   } catch {
     Alert.alert("Directions", "This device can't open a map for that address.")
   }
-}
-
-function Shell({
-  title,
-  subtitle,
-  onBack,
-  insets,
-  children,
-  refreshing,
-  onRefresh,
-}: {
-  title: string
-  subtitle?: string
-  onBack: () => void
-  insets: { top: number; bottom: number }
-  children: React.ReactNode
-  refreshing?: boolean
-  onRefresh?: () => void
-}) {
-  return (
-    <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <View
-        style={{
-          paddingTop: insets.top + space.sm,
-          paddingBottom: space.sm,
-          paddingHorizontal: space.md,
-          borderBottomWidth: 1,
-          borderBottomColor: colour.line,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: space.xs,
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back to Calendar"
-          onPress={onBack}
-          hitSlop={8}
-          style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
-        >
-          <View style={{ transform: [{ rotate: "180deg" }] }}>
-            <ChevronRight size={22} color={colour.ink} />
-          </View>
-        </Pressable>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text accessibilityRole="header" numberOfLines={1} style={[type.heading, { color: colour.ink }]}>
-            {title}
-          </Text>
-          {!!subtitle && (
-            <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
-              {subtitle}
-            </Text>
-          )}
-        </View>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.lg }}
-        refreshControl={onRefresh ? <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} tintColor={colour.forest800} /> : undefined}
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-      </ScrollView>
-    </View>
-  )
 }
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {

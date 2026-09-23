@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
+import { Modal, Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { AgendaItem, RangeMode } from "@ovalball/contracts"
@@ -32,7 +32,14 @@ import { AgendaRow } from "../../../src/components/agenda-row"
 import { routeForAgendaItem } from "../../../src/links/destinations"
 import { SeasonGrid } from "../../../src/components/season-grid"
 import { WeekSheet } from "../../../src/components/week-sheet"
-import { MonthCalendar } from "../../../src/components/month-calendar"
+import { CalendarHeading, CalendarModeSwitch } from "../../../src/components/calendar/calendar-chrome"
+import { MonthGrid } from "../../../src/components/calendar/month-grid"
+import {
+  CalendarEmptyDay,
+  EventCard,
+  EventSheet,
+  ListDayHeading,
+} from "../../../src/components/calendar/event-sheet"
 import {
   AgendaFilterSheet,
   NO_FILTER,
@@ -42,31 +49,35 @@ import {
 } from "../../../src/components/agenda-filter"
 import { CalendarDays, Check, ChevronDown, ChevronRight, SlidersHorizontal, X } from "../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
+import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../../../src/design/tokens"
 
 /**
- * CALENDAR — when is my rugby happening.
+ * CALENDAR — one surface, not five panels.
  *
- * NOT A SECOND FIXTURE LIST. Fixtures answers "what matches have we got"; this answers "what is on
- * this week", which is a different question with training and club events in it, and for a parent it
- * is the question that actually matters on a Tuesday evening.
+ * WHAT THIS REPLACED. A white header, a white season dropdown, a white Pre/Main
+ * bar, a white Week/Month/Season selector and then, finally, a green calendar --
+ * five unrelated rectangles stacked down one screen, which is precisely what makes
+ * a product look like an administration tool rather than something a parent opens
+ * on a Saturday morning. The owner's reference fixed the diagnosis: forest runs
+ * from behind the status bar down through the month, and a chalk sheet rises over
+ * it carrying the day's rugby. Nothing else is in the top half.
  *
- * AN AGENDA, NOT A MONTH GRID. A month grid on a phone is 35 cells four millimetres across, and a
- * fixture in one of them is a dot. The useful default on a handset is a list of days with what is
- * actually happening in them, so that is what this is -- with a month STRIP above it for movement,
- * which is the part a grid was genuinely good at.
+ * THE SETTINGS DID NOT GO, THEY STOPPED BEING FURNITURE. A control a parent never
+ * changes during ordinary use has no business holding permanent screen space, so
+ * the season and its phase moved into a compact chip beside the month -- and for a
+ * FAMILY context they are not offered at all, because "pre-season or main season"
+ * is a planning distinction a club makes and a parent has no use for. Season
+ * OVERVIEW, the shape of a whole year, is still there for the people who plan one.
  *
- * THE STRIP CARRIES DOTS, SO A JUMP IS INFORMED. Moving through empty weeks looking for a fixture is
- * the failure this avoids: the days with something on them are marked, so somebody can see where to
- * go before they go there.
+ * TWO WAYS TO READ THE SAME ROWS. Month is the grid with a day beneath it; List is
+ * the same canonical agenda in a row, grouped by day. Presentation only -- one
+ * read, one model, one set of rows narrowed by the one family filter. A toggle
+ * that fetched differently would be two calendars wearing one name.
  *
- * THE SAME AGENDA AS HOME AND FIXTURES. Same loader, same scope resolver, same items -- so if Home
- * says Saturday, U12 Boys v Burnley, 10:30, this says the same, because it is the same row.
- *
- * FAMILY IS THE POINT, not a mode. In a family context the loader returns one row per child per event
- * and each row names the child, so a parent with three children sees all three children's rugby in one
- * list -- and two children playing at the same time appear as two rows at the same time, which is how
- * a clash makes itself obvious without a conflict engine.
+ * AND IT REMAINS READ-ONLY. There is no create, no edit, no drag, no reschedule and
+ * no mutation imported anywhere in this file. An event card is an entrance to the
+ * Match Centre or the Training Centre -- decided once, in src/links/destinations --
+ * and never to administration.
  */
 export default function Calendar() {
   const insets = useSafeAreaInsets()
@@ -87,7 +98,7 @@ export default function Calendar() {
     too many. SEASON stays, because "what has this side got on all year" is a
     different question and the register is its own authority.
   */
-  const [mode, setMode] = useState<"month" | "season">("month")
+  const [mode, setMode] = useState<"month" | "list" | "season">("month")
   const [anchor, setAnchor] = useState(today)
   const [items, setItems] = useState<AgendaItem[] | null>(null)
   const [label, setLabel] = useState("")
@@ -96,6 +107,8 @@ export default function Calendar() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [filter, setFilter] = useState<AgendaFilter>(NO_FILTER)
   const [filterOpen, setFilterOpen] = useState(false)
+  /** The season chip's sheet. Not on the screen, because it is not a daily decision. */
+  const [seasonOpen, setSeasonOpen] = useState(false)
   // THE SEASON COMES FROM THE CANONICAL REGISTER, never from a date. A club's season is whatever Site
   // Admin recorded, and a calendar that computed one from a month boundary would be a second answer.
   const [seasons, setSeasons] = useState<SeasonRow[]>([])
@@ -221,10 +234,14 @@ export default function Calendar() {
   const days = useMemo(() => {
     const rows = shown ?? []
     // A day the strip selected narrows the list; nothing selected shows the whole week or month.
-    // THE SHEET SHOWS ONE DAY. Season mode keeps its whole-range list, because its
-    // question is the shape of a year rather than the detail of an afternoon.
-    return groupByDay(mode === "month" ? rows.filter((item) => item.date === openDay) : rows)
-  }, [shown, mode, openDay])
+    /*
+      MONTH SHOWS ONE DAY; LIST SHOWS THEM ALL, grouped, from today onwards -- the
+      same rows either way, which is what makes the toggle presentation rather than
+      a second product. Season keeps its own grid.
+    */
+    if (mode === "month") return groupByDay(rows.filter((item) => item.date === openDay))
+    return groupByDay(rows.filter((item) => item.date >= today))
+  }, [shown, mode, openDay, today])
   // The chosen square's own week, Monday to Sunday, cut out of the rows already on screen.
   const weekItems = useMemo(() => {
     if (!openWeek || !shown) return []
@@ -259,329 +276,223 @@ export default function Calendar() {
     [router, active]
   )
 
+  const family = active !== null && isFamilyFacingContext(active.kind)
+  /*
+    THE SEASON CHIP IS FOR PEOPLE WHO PLAN A SEASON.
+
+    A club with a history can look back at last year's rugby, and a club that runs
+    a pre-season can look at it. A PARENT does neither: "pre-season or main season"
+    is a distinction a club makes for its own planning, and a guardian checking
+    Saturday has no use for it. So the whole control -- the season, its phase and
+    the season overview -- is offered only outside a family context, and even there
+    it is a chip beside the month rather than two bars above it.
+  */
+  const offerSeason = !family && seasons.length > 1
+
+  const sheetHeading =
+    mode === "list"
+      ? monthLabel(anchor)
+      : `${dayLabel(openDay, today)}${restOfDate(openDay, today) ? ` · ${restOfDate(openDay, today)}` : ""}`
+
   return (
-    <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <AppHeader onOpenContexts={() => setSheetOpen(true)} />
-      <ChildFilter style={{ paddingHorizontal: space.lg, paddingTop: space.md }} />
+    <View style={{ flex: 1, backgroundColor: surface.forest }}>
+      {/* ============================================================
+            ONE FOREST SURFACE, from behind the status bar to the sheet.
 
-      <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, gap: space.sm }}>
-        {/* THE SEASON, WHERE THERE IS MORE THAN ONE TO CHOOSE FROM. A club in its first season has one
-            and needs no selector; a club with a history gets to look back at last year's rugby without
-            paging through the months between. */}
-        {seasons.length > 1 && (
-          <SeasonBar
-            seasons={seasons}
-            selectedId={season.selected?.id ?? null}
-            phase={season.phase}
-            hasPreSeason={Boolean(season.selected?.preSeasonStartsOn)}
-            onSeason={(id: string) => {
-              setSeasonId(id)
-              // MOVING SEASON MOVES THE VIEW INTO IT. Staying on this week while looking at last season
-              // would show an empty week and no reason why.
-              const picked = seasons.find((option) => option.id === id)
-              if (picked) setAnchor(picked.startsOn > today || picked.endsOn < today ? picked.startsOn : today)
-            }}
-            onPhase={(next) => {
-              setPhase(next)
-              // A PHASE THAT CHANGED NOTHING WAS THE DEFECT. In Season mode the window itself changes;
-              // in Week or Month the view moves into the phase, so switching to Pre-Season always takes
-              // somebody somewhere rather than leaving them on a week outside it.
-              const picked = seasons.find((option) => option.id === (season.selected?.id ?? ""))
-              if (!picked) return
-              const start = next === "pre" ? picked.preSeasonStartsOn : picked.startsOn
-              if (start) setAnchor(start)
-            }}
-          />
+            The header is the same P1 header -- the same identity, the same three
+            utilities, the same badges from the same canonical read -- standing on
+            forest instead of chalk, with no white card behind it and no rule under
+            it, because it runs straight into more of its own ground.
+         ============================================================ */}
+      <AppHeader onOpenContexts={() => setSheetOpen(true)} tone="forest" bottomRule={false} />
+
+      <View style={{ paddingTop: space.md, gap: space.md, paddingBottom: space.lg }}>
+        <CalendarHeading
+          anchor={anchor}
+          onStep={(direction) =>
+            setAnchor(clamp(direction === -1 ? previousAnchor("month", anchor) : nextAnchor("month", anchor), season.range))
+          }
+          trailing={
+            offerSeason ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Season, ${seasonLabel(season.selected)}${season.phase === "pre" ? ", pre-season" : ""}. Change it`}
+                onPress={() => setSeasonOpen(true)}
+                hitSlop={8}
+                style={({ pressed }) => ({
+                  minHeight: 34,
+                  justifyContent: "center",
+                  paddingHorizontal: space.md,
+                  borderRadius: radius.pill,
+                  backgroundColor: surface.forestRaised,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <Text style={[type.caption, { color: onForest.secondary }]}>
+                  {seasonLabel(season.selected)}
+                  {season.phase === "pre" ? " · Pre" : ""}
+                </Text>
+              </Pressable>
+            ) : undefined
+          }
+        />
+
+        {/* TWO WAYS TO READ ONE SET OF ROWS. Presentation only. */}
+        <CalendarModeSwitch
+          value={mode}
+          onChange={setMode}
+          options={[
+            { key: "month" as const, label: "Month", hint: "The month, with a day at a time beneath it" },
+            { key: "list" as const, label: "List", hint: "Everything coming up, in order" },
+            ...(offerSeason ? [{ key: "season" as const, label: "Season", hint: "The whole season at once" }] : []),
+          ]}
+        />
+
+        {mode === "month" && (
+          <MonthGrid anchor={anchor} today={today} selected={openDay} marks={marks} onSelect={setOpenDay} />
         )}
 
-        {season.configBroken && (
-          <Text accessibilityRole="alert" style={[type.caption, { color: colour.warning }]}>
-            This season&apos;s dates are incomplete in Site Admin, so the period cannot be shown.
-          </Text>
-        )}
-
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space.sm }}>
-          {/* TODAY IS ALWAYS ONE TAP AWAY, and it says so only when you are not
-              already there -- a control that does nothing is a control people
-              learn to distrust. */}
-          {(anchor.slice(0, 7) !== today.slice(0, 7) || openDay !== today) && mode === "month" && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Go to today"
-              onPress={() => {
-                setAnchor(clamp(today, season.range))
-                setOpenDay(today)
-              }}
-              style={({ pressed }) => ({
-                minHeight: 34,
-                justifyContent: "center",
-                paddingHorizontal: space.md,
-                borderRadius: radius.pill,
-                borderWidth: 1,
-                borderColor: colour.lineStrong,
-                backgroundColor: pressed ? colour.chalk : colour.surface,
-              })}
-            >
-              <Text style={[type.caption, { color: colour.forest800 }]}>Today</Text>
-            </Pressable>
-          )}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={countActive(filter) > 0 ? `Filter, ${countActive(filter)} applied` : "Filter"}
-            onPress={() => setFilterOpen(true)}
-            style={({ pressed }) => ({
-              minHeight: 34,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: space.xs,
-              paddingHorizontal: space.md,
-              borderRadius: radius.pill,
-              borderWidth: 1,
-              borderColor: countActive(filter) > 0 ? colour.forest800 : colour.lineStrong,
-              backgroundColor: pressed ? colour.chalk : colour.surface,
-            })}
-          >
-            <SlidersHorizontal size={14} color={colour.forest800} strokeWidth={2} />
-            <Text style={[type.caption, { color: colour.forest800 }]}>
-              {countActive(filter) > 0 ? `Filter · ${countActive(filter)}` : "Filter"}
-            </Text>
-          </Pressable>
-          <Toggle value={mode} onChange={setMode} />
-        </View>
+        {/* The family chips sit on the forest, above the sheet, where a guardian
+            of two looks first: whose week am I reading, before any of it is read. */}
+        <ChildFilter style={{ paddingHorizontal: space.lg }} tone="forest" />
       </View>
 
       {/* ============================================================
-            THE MONTH, ON ITS OWN DARK PLATE.
-
-            The owner's reference design, in Ovalball's forest rather than its
-            navy: the month named top left, two round steps top right, a weekday
-            row, and six rows of days carrying a dot for rugby played and a dot
-            for rugby trained. The plate is dark so the grid reads as one object
-            and the sheet of events below it reads as another -- which is the
-            whole idea of the layout.
+            THE CHALK SHEET.
          ============================================================ */}
-      {mode === "month" && (
-        <View style={{ backgroundColor: colour.forest900, paddingTop: space.md, paddingBottom: space.xl }}>
-          <MonthCalendar
-            anchor={anchor}
-            today={today}
-            selected={openDay}
-            marks={marks}
-            onSelect={setOpenDay}
-            onStep={(direction) =>
-              setAnchor(clamp(direction === -1 ? previousAnchor("month", anchor) : nextAnchor("month", anchor), season.range))
-            }
-          />
-        </View>
-      )}
+      <EventSheet heading={sheetHeading} count={mode === "month" ? (days[0]?.items.length ?? 0) : undefined}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: insets.bottom + space.xxl, paddingTop: space.xs, gap: space.sm }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.forest800} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {problem && !shown && (
+            <View style={{ paddingHorizontal: space.lg }}>
+              <ErrorState message={problem.message} offline={problem.offline} onRetry={load} />
+            </View>
+          )}
 
-      {/* THE SHEET, LIFTED OVER THE PLATE. Rounded and pulled up so the day's
-          rugby reads as a card drawn out of the month above it rather than as the
-          next section down the page -- which is what makes the grid and the list
-          feel like one control. */}
-      <ScrollView
-        style={
-          mode === "month"
-            ? {
-                marginTop: -space.lg,
-                borderTopLeftRadius: radius.xl,
-                borderTopRightRadius: radius.xl,
-                backgroundColor: colour.chalk,
-              }
-            : undefined
-        }
-        contentContainerStyle={{ paddingBottom: insets.bottom + space.xxl, paddingTop: space.md, gap: space.md }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.forest800} />}
-        showsVerticalScrollIndicator={false}
-      >
-        {mode === "month" && (
-          <>
-            {/* The grab handle from the reference: it says this panel is the thing
-                that moves, and it costs one line. */}
-            <View style={{ alignSelf: "center", width: 36, height: 4, borderRadius: 2, backgroundColor: colour.line }} />
-            <Text
-              accessibilityRole="header"
-              style={[type.overline, { color: colour.inkMuted, paddingHorizontal: space.lg, marginTop: space.xs }]}
-            >
-              {dayLabel(openDay, today).toUpperCase()}
-              {restOfDate(openDay, today) ? ` · ${restOfDate(openDay, today).toUpperCase()}` : ""}
-            </Text>
-          </>
-        )}
-        {problem && !shown && (
-          <View style={{ paddingHorizontal: space.lg }}>
-            <ErrorState message={problem.message} offline={problem.offline} onRetry={load} />
-          </View>
-        )}
+          {/* STALE RATHER THAN BLANK, and said out loud rather than presented as
+              current. An out-of-date kick-off looks like a fact. */}
+          {problem && shown && (
+            <View style={{ marginHorizontal: space.lg, padding: space.md, borderRadius: radius.md, backgroundColor: colour.warningSurface }}>
+              <Text accessibilityRole="alert" style={[type.caption, { color: colour.warning }]}>
+                {problem.offline ? "Offline — showing the calendar as it was." : problem.message}
+              </Text>
+            </View>
+          )}
 
-        {problem && shown && (
-          <View style={{ marginHorizontal: space.lg, padding: space.md, borderRadius: radius.md, backgroundColor: colour.warningSurface }}>
-            <Text accessibilityRole="alert" style={[type.caption, { color: colour.warning }]}>
-              {problem.offline ? "Offline — showing the calendar as it was." : problem.message}
-            </Text>
-          </View>
-        )}
+          {!problem && shown === null && (
+            <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
+              <CardSkeleton lines={1} />
+              <CardSkeleton lines={1} />
+            </View>
+          )}
 
-        {!problem && shown === null && (
-          <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
-            <CardSkeleton lines={1} />
-            <CardSkeleton lines={1} />
-          </View>
-        )}
-
-        {/* A QUIET DAY IS AN ANSWER, and it says where the rugby actually is
-            rather than leaving somebody tapping across the month to find out.
-            `nextDayWithSomething` reads the days already on screen, so the
-            suggestion can never point at a day the filter has emptied. */}
-        {mode === "month" && days.length === 0 && !!shown && !problem && (
-          <View style={{ paddingHorizontal: space.lg }}>
-            <EmptyState
-              title={countActive(filter) > 0 ? "Nothing matches that filter" : "Nothing on this day"}
-              body={
-                countActive(filter) > 0
-                  ? "Clear the filter to see the rest of the month."
-                  : nextBusyDay
-                    ? `The next thing on is ${dayLabel(nextBusyDay, today)}${restOfDate(nextBusyDay, today) ? `, ${restOfDate(nextBusyDay, today)}` : ""}.`
-                    : active?.kind === "family"
-                      ? "No fixtures or training for your children this month."
-                      : "No fixtures or training this month."
-              }
-              icon={<CalendarDays size={24} color={colour.inkSubtle} />}
+          {mode === "season" && !!season.range && !!shown && (
+            <SeasonGrid
+              rangeStart={season.range.start}
+              rangeEnd={season.range.end}
+              items={shown}
+              today={today}
+              selectedWeek={openWeek}
+              onSelectWeek={setOpenWeek}
             />
-            {!!nextBusyDay && countActive(filter) === 0 && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Go to ${dayLabel(nextBusyDay, today)}`}
-                onPress={() => setOpenDay(nextBusyDay)}
-                style={({ pressed }) => ({
-                  alignSelf: "center",
-                  marginTop: space.md,
-                  minHeight: TOUCH_TARGET,
-                  justifyContent: "center",
-                  paddingHorizontal: space.lg,
-                  borderRadius: radius.pill,
-                  borderWidth: 1,
-                  borderColor: colour.lineStrong,
-                  backgroundColor: pressed ? colour.chalk : colour.surface,
-                })}
-              >
-                <Text style={[type.smallMedium, { color: colour.forest800 }]}>
-                  Go to {dayLabel(nextBusyDay, today)}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        )}
+          )}
 
-        {mode === "season" && shown?.length === 0 && countActive(filter) > 0 && (
-          <View style={{ paddingHorizontal: space.lg }}>
-            <EmptyState
-              title="Nothing matches that filter"
-              body="Clear the filter to see the rest of the season."
-              icon={<CalendarDays size={24} color={colour.inkSubtle} />}
-            />
-          </View>
-        )}
-
-        {mode === "season" && !!season.range && !!shown && (
-          <SeasonGrid
-            rangeStart={season.range.start}
-            rangeEnd={season.range.end}
-            items={shown}
-            today={today}
-            selectedWeek={openWeek}
-            onSelectWeek={setOpenWeek}
-          />
-        )}
-
-        {days.map((day) => (
-          <View key={day.date} style={mode === "month" ? { paddingHorizontal: space.lg, gap: space.sm } : undefined}>
-            {/* IN MONTH MODE THE SHEET ALREADY SAYS WHICH DAY IT IS, so a heading
-                here would say it twice, three lines apart. Season mode keeps its
-                per-day heading, because its list spans a whole year. */}
-            {mode !== "month" && (
-              <View style={{ paddingHorizontal: space.lg, paddingBottom: space.xs, flexDirection: "row", alignItems: "baseline", gap: space.sm }}>
-                <Text style={[type.overline, { color: day.date === today ? colour.pitch600 : colour.forest800 }]}>
-                  {relativeDate(day.date, today).toUpperCase()}
-                </Text>
-                <Text style={[type.caption, { color: colour.inkSubtle }]}>{restOfDate(day.date, today)}</Text>
-              </View>
-            )}
-
-            {/* ONE CARD PER EVENT in the day sheet -- the reference's shape, and
-                the right one for a family: Pippa's training at six and George's
-                match at half past are two separate things to be at, so they are
-                two separate objects rather than two rows of one table. Season
-                mode stays a dense list, because a year of rugby as cards is a
-                scroll nobody finishes.
-
-                THE ROW INSIDE IS THE SHARED ONE. Home, Fixtures and Calendar draw
-                a piece of rugby with one component, so a cancelled match is struck
-                through here exactly as it is there and a redesign reaches all
-                three. Only the frame around it differs. */}
-            {mode === "month" ? (
-              day.items.map((item) => (
-                <View
-                  key={item.key}
-                  style={{
-                    borderRadius: radius.lg,
-                    backgroundColor: colour.surface,
-                    borderWidth: 1,
-                    borderColor: colour.line,
-                    overflow: "hidden",
-                  }}
-                >
-                  <AgendaRow
+          {/* ONE CARD PER EVENT, and the SAME card in Month and in List -- two ways
+              of reading, never two products. */}
+          {mode !== "season" &&
+            days.map((day) => (
+              <View key={day.date} style={{ gap: space.sm }}>
+                {mode === "list" && <ListDayHeading label={`${dayLabel(day.date, today)} · ${restOfDate(day.date, today)}`} />}
+                {day.items.map((item) => (
+                  <EventCard
+                    key={item.key}
                     item={item}
                     today={today}
-                    showOwner={showOwner}
-                    child={memberFor(projection, item.playerId)}
+                    family={projection}
                     onPress={() => openEvent(item)}
                   />
-                </View>
-              ))
-            ) : (
-              <View style={{ backgroundColor: colour.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colour.line }}>
-                {day.items.map((item, index) => (
-                  <View key={item.key} style={index === 0 ? undefined : { borderTopWidth: 1, borderTopColor: colour.line }}>
-                    {/* EVERY EVENT ROUTES TO ITS OWN DOMAIN OBJECT, and which one it
-                        is comes from the single destination table in
-                        src/links/destinations -- shared with Home, Fixtures, a
-                        notification and a deep link. A match opens the Match Centre
-                        for a parent or a player and the fixture console for staff; a
-                        session opens the Training Centre. Neither is ever a
-                        "calendar event detail". */}
-                    <AgendaRow
-                      item={item}
-                      today={today}
-                      showOwner={showOwner}
-                      child={memberFor(projection, item.playerId)}
-                      onPress={() => openEvent(item)}
-                    />
-                  </View>
                 ))}
               </View>
-            )}
-          </View>
-        ))}
-      </ScrollView>
+            ))}
 
+          {mode !== "season" && days.length === 0 && !!shown && !problem && (
+            <CalendarEmptyDay
+              body={
+                countActive(filter) > 0
+                  ? "Nothing matches that filter. Clear it to see the rest."
+                  : mode === "list"
+                    ? "No rugby scheduled in this period."
+                    : "No rugby scheduled for this day."
+              }
+              action={
+                mode === "month" && nextBusyDay && countActive(filter) === 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Go to ${dayLabel(nextBusyDay, today)}`}
+                    onPress={() => setOpenDay(nextBusyDay)}
+                    style={({ pressed }) => ({
+                      minHeight: TOUCH_TARGET,
+                      justifyContent: "center",
+                      paddingHorizontal: space.lg,
+                      borderRadius: radius.pill,
+                      borderWidth: 1,
+                      borderColor: colour.lineStrong,
+                      backgroundColor: pressed ? colour.chalk : colour.surface,
+                    })}
+                  >
+                    <Text style={[type.smallMedium, { color: colour.forest800 }]}>
+                      Go to {dayLabel(nextBusyDay, today)}
+                    </Text>
+                  </Pressable>
+                ) : undefined
+              }
+            />
+          )}
+
+          {season.configBroken && mode === "season" && (
+            <Text accessibilityRole="alert" style={[type.caption, { color: colour.warning, paddingHorizontal: space.lg }]}>
+              This season&apos;s dates are incomplete in Site Admin, so the period cannot be shown.
+            </Text>
+          )}
+        </ScrollView>
+      </EventSheet>
+
+      {/* THE FILTER, THE SEASON AND THE WEEK all open as sheets rather than living
+          on the screen -- which is the difference between a calendar and a form. */}
       <AgendaFilterSheet
         visible={filterOpen}
         items={items ?? []}
         filter={filter}
-        // The Calendar genuinely mixes matches and training, so the toggle has something to do here.
         showTraining
         onChange={setFilter}
         onClose={() => setFilterOpen(false)}
-        // NO TEAM CHIPS FOR A FAMILY. The child chips above the list are the
-        // canonical way a guardian narrows; a side's name is the same question in
-        // the wrong language.
-        familyScope={active !== null && isFamilyFacingContext(active.kind)}
+        familyScope={family}
       />
 
-      {/* THE WEEK ARRIVES OVER THE GRID, not underneath it. Expanding in place put February's rugby
-          below thirty squares, so reading it meant scrolling past the whole season and back. */}
+      <SeasonSheet
+        visible={seasonOpen}
+        seasons={seasons}
+        selectedId={season.selected?.id ?? null}
+        phase={season.phase}
+        hasPreSeason={Boolean(season.selected?.preSeasonStartsOn)}
+        onClose={() => setSeasonOpen(false)}
+        onSeason={(id: string) => {
+          setSeasonId(id)
+          const picked = seasons.find((option) => option.id === id)
+          if (picked) setAnchor(picked.startsOn > today || picked.endsOn < today ? picked.startsOn : today)
+        }}
+        onPhase={(next: SeasonPhase) => {
+          setPhase(next)
+          const picked = seasons.find((option) => option.id === (season.selected?.id ?? ""))
+          if (!picked) return
+          const start = next === "pre" ? picked.preSeasonStartsOn : picked.startsOn
+          if (start) setAnchor(start)
+        }}
+      />
+
       <WeekSheet
         visible={openWeek !== null}
         mondayIso={openWeek}
@@ -598,129 +509,143 @@ export default function Calendar() {
     </View>
   )
 }
-
-
 /**
- * THE SEASON, AND WHICH PART OF IT.
+ * THE SEASON, AS A SHEET RATHER THAN AS FURNITURE.
  *
- * A DROPDOWN RATHER THAN ARROWS. A club with five seasons behind it should reach 2023/24 in one tap,
- * not four; and the register's own names -- "2026/27" -- are what a person recognises, never a label
- * assembled from dates.
+ * WHAT THIS REPLACED. Two full-width white bars living permanently above the
+ * calendar -- a season dropdown and a Pre/Main segmented control -- which between
+ * them took about a fifth of the screen to hold two settings almost nobody changes
+ * twice in a session. The functionality is identical; it now opens from a chip
+ * beside the month and closes again.
  *
- * PRE-SEASON APPEARS ONLY WHERE THE REGISTER RECORDS ONE. It is a real phase with real dates for clubs
- * that run it and no phase at all for clubs that do not, so offering it everywhere would be inventing a
- * window. The canonical resolver draws that line; this only renders it.
+ * AND IT IS NOT OFFERED TO A FAMILY AT ALL. "Pre-season or main season" is a
+ * distinction a club draws for its own planning. A guardian checking whether
+ * Saturday is on has no use for it, and a control that cannot help somebody is
+ * worse than an absent one.
+ *
+ * THE SEASONS ARE THE CANONICAL REGISTER'S. Site Admin's `public.seasons` rows,
+ * scoped to this club's own rugby code -- never a year computed from a date, and
+ * never a second answer to "which season is this".
  */
-function SeasonBar({
+function SeasonSheet({
+  visible,
   seasons,
   selectedId,
   phase,
   hasPreSeason,
+  onClose,
   onSeason,
   onPhase,
 }: {
+  visible: boolean
   seasons: SeasonRow[]
   selectedId: string | null
   phase: SeasonPhase
   hasPreSeason: boolean
+  onClose: () => void
   onSeason: (id: string) => void
   onPhase: (phase: SeasonPhase) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const selected = seasons.find((season) => season.id === selectedId) ?? null
-
+  const insets = useSafeAreaInsets()
   return (
-    <View style={{ gap: space.sm }}>
-      <View style={{ flexDirection: "row", gap: space.sm }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: open }}
-          accessibilityLabel={`Season: ${seasonLabel(selected)}. Choose`}
-          onPress={() => setOpen((value) => !value)}
-          style={({ pressed }) => ({
-            flex: 1,
-            minHeight: TOUCH_TARGET - 8,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: space.xs,
-            paddingHorizontal: space.md,
-            borderRadius: radius.md,
-            borderWidth: 1,
-            borderColor: colour.lineStrong,
-            backgroundColor: colour.surface,
-            opacity: pressed ? 0.85 : 1,
-          })}
-        >
-          <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink, flex: 1, fontSize: 13 }]}>
-            {seasonLabel(selected)}
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+        onPress={onClose}
+        style={{ flex: 1, backgroundColor: "rgba(7,28,20,0.5)" }}
+      />
+      <View
+        style={{
+          backgroundColor: colour.chalk,
+          borderTopLeftRadius: 26,
+          borderTopRightRadius: 26,
+          paddingTop: space.sm,
+          paddingBottom: insets.bottom + space.lg,
+        }}
+      >
+        <View style={{ alignSelf: "center", width: 38, height: 4, borderRadius: 2, backgroundColor: colour.line }} />
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg, paddingVertical: space.md }}>
+          <Text accessibilityRole="header" style={[type.heading, { color: colour.ink, flex: 1 }]}>
+            Season
           </Text>
-          <View style={open ? { transform: [{ rotate: "180deg" }] } : undefined}>
-            <ChevronDown size={16} color={colour.inkSubtle} strokeWidth={2.2} />
-          </View>
-        </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={8}>
+            <X size={22} color={colour.ink} strokeWidth={2.2} />
+          </Pressable>
+        </View>
 
-        {hasPreSeason && (
-          <View style={{ flexDirection: "row", backgroundColor: "rgba(16,21,18,0.05)", borderRadius: radius.md, padding: 3 }}>
-            {(["pre", "main"] as const).map((option) => {
-              const selectedPhase = option === phase
-              return (
-                <Pressable
-                  key={option}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: selectedPhase }}
-                  accessibilityLabel={option === "pre" ? "Pre-season" : "Main season"}
-                  onPress={() => onPhase(option)}
-                  style={{
-                    minHeight: TOUCH_TARGET - 14,
-                    paddingHorizontal: space.md,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: radius.sm,
-                    backgroundColor: selectedPhase ? colour.surface : "transparent",
-                  }}
-                >
-                  <Text style={[type.smallMedium, { color: selectedPhase ? colour.ink : colour.inkMuted, fontSize: 12 }]}>
-                    {option === "pre" ? "Pre" : "Main"}
-                  </Text>
-                </Pressable>
-              )
-            })}
-          </View>
-        )}
-      </View>
-
-      {open && (
-        <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
-          {seasons.map((option, index) => {
-            const isSelected = option.id === selectedId
+        <View style={{ paddingHorizontal: space.lg, gap: space.sm }}>
+          {seasons.map((season) => {
+            const selected = season.id === selectedId
             return (
               <Pressable
-                key={option.id}
+                key={season.id}
                 accessibilityRole="radio"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={option.name}
+                accessibilityState={{ selected }}
+                accessibilityLabel={seasonLabel(season)}
                 onPress={() => {
-                  onSeason(option.id)
-                  setOpen(false)
+                  onSeason(season.id)
+                  onClose()
                 }}
                 style={({ pressed }) => ({
                   minHeight: TOUCH_TARGET,
                   flexDirection: "row",
                   alignItems: "center",
-                  paddingHorizontal: space.md,
-                  borderTopWidth: index === 0 ? 0 : 1,
-                  borderTopColor: colour.line,
-                  backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent",
+                  gap: space.md,
+                  paddingHorizontal: space.lg,
+                  borderRadius: radius.md,
+                  borderWidth: 1,
+                  borderColor: selected ? colour.forest800 : colour.line,
+                  backgroundColor: pressed ? colour.chalk : colour.surface,
                 })}
               >
-                <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>{option.name}</Text>
-                {isSelected && <Check size={18} color={colour.forest800} strokeWidth={2.6} />}
+                <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>{seasonLabel(season)}</Text>
+                {selected && <Check size={18} color={colour.forest800} strokeWidth={2.4} />}
               </Pressable>
             )
           })}
+
+          {/* PRE-SEASON ONLY WHERE THE REGISTER HAS ONE. A club that records no
+              pre-season is not offered an empty one. */}
+          {hasPreSeason && (
+            <View style={{ marginTop: space.sm, gap: space.sm }}>
+              <Text style={[type.overline, { color: colour.inkMuted }]}>PERIOD</Text>
+              <View style={{ flexDirection: "row", gap: space.sm }}>
+                {(["main", "pre"] as const).map((option) => {
+                  const selected = option === phase
+                  return (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={option === "pre" ? "Pre-season" : "Main season"}
+                      onPress={() => {
+                        onPhase(option)
+                        onClose()
+                      }}
+                      style={({ pressed }) => ({
+                        flex: 1,
+                        minHeight: TOUCH_TARGET,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: radius.md,
+                        borderWidth: 1,
+                        borderColor: selected ? colour.forest800 : colour.line,
+                        backgroundColor: selected ? colour.forest800 : pressed ? colour.chalk : colour.surface,
+                      })}
+                    >
+                      <Text style={[type.smallMedium, { color: selected ? colour.onForest : colour.ink }]}>
+                        {option === "pre" ? "Pre-season" : "Main season"}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </View>
+          )}
         </View>
-      )}
-    </View>
+      </View>
+    </Modal>
   )
 }
 

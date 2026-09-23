@@ -10,7 +10,7 @@ import {
   type AvailabilityStatus,
 } from "@ovalball/contracts/availability"
 
-import { ANSWER_ON_DARK, AVAILABILITY_ICONS } from "../availability/presentation"
+import { ANSWER_ON_DARK, ANSWER_ON_LIGHT, AVAILABILITY_ICONS } from "../availability/presentation"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
 
 /**
@@ -48,6 +48,7 @@ export function AvailabilityChoice({
   committed,
   disabled,
   onChoose,
+  ground = "dark",
 }: {
   /** The sentence above the buttons, built by the shared `availabilityQuestion`. */
   question: string
@@ -59,8 +60,19 @@ export function AvailabilityChoice({
   disabled: boolean
   /** Resolves to true when the SERVER accepted the answer. Anything else leaves the previous one standing. */
   onChoose: (status: AvailabilityStatus) => Promise<boolean>
+  /**
+   * WHICH GROUND THE CONTROL IS STANDING ON.
+   *
+   * "dark" is inside a hero; "light" is on the chalk sheet, where the Training
+   * Centre puts it. The same control, the same three answers, the same words and
+   * the same order -- only the ink changes, so it stays readable on whichever
+   * ground the screen chose.
+   */
+  ground?: "dark" | "light"
 }) {
   const [pending, setPending] = useState<AvailabilityStatus | null>(null)
+  const onLight = ground === "light"
+  const palette = onLight ? ANSWER_ON_LIGHT : ANSWER_ON_DARK
 
   async function choose(status: AvailabilityStatus) {
     if (pending || disabled) return
@@ -74,14 +86,14 @@ export function AvailabilityChoice({
 
   return (
     <View>
-      <Text style={[type.smallMedium, { color: colour.chalk }]}>{question}</Text>
+      <Text style={[type.smallMedium, { color: onLight ? colour.ink : colour.chalk }]}>{question}</Text>
       <View
         accessibilityRole="radiogroup"
         accessibilityLabel={question}
         style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}
       >
         {AVAILABILITY_ANSWER_ORDER.map((status) => {
-          const paint = ANSWER_ON_DARK[status]
+          const paint = palette[status]
           const Icon = AVAILABILITY_ICONS[attendanceStateShape(status).icon]
           const chosen = committed === status
           const saving = pending === status
@@ -103,8 +115,8 @@ export function AvailabilityChoice({
                 paddingHorizontal: space.xs,
                 borderRadius: radius.md,
                 borderWidth: 1,
-                borderColor: chosen ? paint.chosenEdge : "rgba(255,255,255,0.15)",
-                backgroundColor: chosen ? paint.chosenWash : "rgba(255,255,255,0.05)",
+                borderColor: chosen ? paint.chosenEdge : onLight ? colour.line : "rgba(255,255,255,0.15)",
+                backgroundColor: chosen ? paint.chosenWash : onLight ? colour.surface : "rgba(255,255,255,0.05)",
                 opacity: disabled ? 0.6 : pressed ? 0.85 : 1,
               })}
             >
@@ -120,7 +132,7 @@ export function AvailabilityChoice({
                 }}
               >
                 {saving ? (
-                  <ActivityIndicator size="small" color={colour.chalk} />
+                  <ActivityIndicator size="small" color={onLight ? colour.forest800 : colour.chalk} />
                 ) : (
                   <Icon size={16} color={chosen ? paint.chosenText : paint.idle} strokeWidth={chosen ? 3 : 2.25} />
                 )}
@@ -133,7 +145,7 @@ export function AvailabilityChoice({
                   type.caption,
                   {
                     textAlign: "center",
-                    color: chosen ? paint.chosenText : "rgba(255,255,255,0.80)",
+                    color: chosen ? paint.chosenText : onLight ? colour.inkMuted : "rgba(255,255,255,0.80)",
                     fontFamily: chosen ? "Inter_600SemiBold" : "Inter_500Medium",
                   },
                 ]}

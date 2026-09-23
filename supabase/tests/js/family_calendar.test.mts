@@ -399,8 +399,11 @@ test("a day carries one dot for rugby played and one for rugby trained, never on
 test("a day with something cancelled says so, and the dot is hollow rather than merely a colour", () => {
   const marks = marksByDay([item({ key: "off", date: "2026-10-03", status: "Cancelled" })])
   assert.equal(marks.get("2026-10-03")?.cancelled, true)
-  const panel = readFileSync("apps/mobile/src/components/month-calendar.tsx", "utf8")
-  assert.match(panel, /hollow \? "transparent" : tone/, "a cancelled day is distinguished by colour alone")
+  const panel = readFileSync("apps/mobile/src/components/calendar/month-grid.tsx", "utf8")
+  // A HOLLOW DOT, not merely a different colour: the difference has to survive
+  // greyscale, sunlight and a screenshot.
+  assert.match(panel, /borderWidth: marks\?\.cancelled \? 1 : 0/, "a cancelled day is distinguished by colour alone")
+  assert.match(panel, /backgroundColor: marks\?\.cancelled\s*\n?\s*\? "transparent"/)
   // And the spoken label carries the fact rather than describing the decoration.
   assert.match(panel, /marks\?\.cancelled \? "something cancelled" : null/)
 })
@@ -431,4 +434,155 @@ test("the calendar reads exactly the grid it draws, in one bounded query", () =>
   // No request per day and none per child: one scope, one window, one read.
   assert.ok(!/for \(const (day|child)/.test(src), "the calendar loops a query")
   assert.equal((src.match(/readAgenda\(/g) ?? []).length, 2, "more reads than the month and the season")
+})
+
+// ------------------------------------------------- the approved visual shape
+
+/**
+ * THE COMPOSITION IS PART OF THE PRODUCT, so it is asserted like one.
+ *
+ * What these lock is the STRUCTURE the owner approved -- one forest surface from
+ * the status bar to the sheet, a chalk sheet rising over it, and no stack of white
+ * controls in between. They cannot check that it is beautiful; they can check that
+ * the specific things that made it look like an administration tool have not come
+ * back.
+ */
+
+test("the calendar is one forest surface, not a white header over a green panel", () => {
+  const src = readFileSync(CALENDAR, "utf8")
+  assert.match(src, /backgroundColor: surface\.forest/, "the screen's ground is not the shared forest token")
+  // The header stands ON that ground, with no white card and no rule under it.
+  assert.match(src, /<AppHeader onOpenContexts=\{[^}]+\} tone="forest" bottomRule=\{false\} \/>/)
+  // And the family chips stand on it too, rather than as white pills.
+  assert.match(src, /<ChildFilter [^>]*tone="forest"/)
+})
+
+test("nothing invents a second green", () => {
+  // One forest, from the tokens. A header that is nearly the calendar's colour is
+  // how a screen ends up looking like three panels that do not quite line up.
+  for (const file of [
+    CALENDAR,
+    "apps/mobile/src/components/calendar/calendar-chrome.tsx",
+    "apps/mobile/src/components/calendar/month-grid.tsx",
+    "apps/mobile/src/components/calendar/event-sheet.tsx",
+    "apps/mobile/src/components/participant/event-hero.tsx",
+  ]) {
+    const src = readFileSync(file, "utf8")
+    const literals = src.match(/#[0-9a-fA-F]{6}/g) ?? []
+    assert.deepEqual(literals, [], `${file} hard-codes a colour instead of using a token`)
+  }
+})
+
+test("the old stack of white controls is gone from the calendar's top", () => {
+  const src = readFileSync(CALENDAR, "utf8")
+  // A season bar and a Pre/Main bar used to live permanently above the grid.
+  assert.ok(!/function SeasonBar/.test(src), "the permanent season bar is back")
+  // They are a sheet now, opened from a chip.
+  assert.match(src, /<SeasonSheet/)
+  assert.match(src, /setSeasonOpen\(true\)/)
+})
+
+test("a family is not offered the season or its phase at all", () => {
+  const src = readFileSync(CALENDAR, "utf8")
+  // "Pre-season or main season" is a distinction a club draws for its own
+  // planning. A guardian checking Saturday has no use for it.
+  assert.match(src, /const offerSeason = !family && seasons\.length > 1/)
+  assert.match(src, /offerSeason \? \(/, "the season chip is not gated on that")
+})
+
+test("Month and List read the same rows, and Season is not a peer for a family", () => {
+  const src = readFileSync(CALENDAR, "utf8")
+  assert.match(src, /key: "month" as const/)
+  assert.match(src, /key: "list" as const/)
+  assert.match(src, /\.\.\.\(offerSeason \? \[\{ key: "season" as const/, "Season is offered to a family")
+  // One read feeds every mode: two readAgenda calls, the month grid and the season.
+  assert.equal((src.match(/readAgenda\(/g) ?? []).length, 2)
+})
+
+test("the chalk sheet rises over the forest, with a handle and a date", () => {
+  const sheet = readFileSync("apps/mobile/src/components/calendar/event-sheet.tsx", "utf8")
+  assert.match(sheet, /borderTopLeftRadius: 26/)
+  assert.match(sheet, /borderTopRightRadius: 26/)
+  assert.match(sheet, /marginTop: -12/, "the sheet is butted against the calendar rather than lifted over it")
+  assert.match(sheet, /width: 38, height: 4/, "the grab handle is missing")
+  assert.match(sheet, /count === 1 \? "1 event" : `\$\{count\} events`/)
+})
+
+/** Prose explaining why something is absent must not be mistaken for the thing. */
+function code(path: string): string {
+  return readFileSync(path, "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n")
+}
+
+test("an event card is informational and navigational, never administrative", () => {
+  const card = code("apps/mobile/src/components/calendar/event-sheet.tsx")
+  for (const forbidden of ["Edit", "Manage", "Cancel", "Fixture Details", "mutations", "field-sheet"]) {
+    assert.ok(!card.includes(forbidden), `the event card offers ${forbidden}`)
+  }
+  // The whole card goes somewhere, and it says so.
+  assert.match(card, /accessibilityRole="button"/)
+  assert.match(card, /accessibilityHint="Opens the details"/)
+})
+
+test("the card leads with the time and the time to be there", () => {
+  const card = readFileSync("apps/mobile/src/components/calendar/event-sheet.tsx", "utf8")
+  assert.match(card, /item\.meetTime/, "meet time is not shown where the club has set one")
+  assert.match(card, /kickoffLabel\(item\.time\)/, "the time is not the canonical kick-off label")
+})
+
+test("the child's identity on a card comes from the projection and nowhere else", () => {
+  const card = readFileSync("apps/mobile/src/components/calendar/event-sheet.tsx", "utf8")
+  assert.match(card, /memberFor\(family, item\.playerId\)/)
+  assert.match(card, /<ChildMark member=\{child\}/)
+  // No local reconstruction of a name, an initial or an avatar.
+  assert.ok(!/initials|avatar_/i.test(card.replace(/ChildMark|memberFor/g, "")), "a card rebuilds an identity itself")
+})
+
+test("the Training Centre is a participant experience, not a form", () => {
+  const src = readFileSync(TRAINING_SCREEN, "utf8")
+  assert.match(src, /<EventHero/)
+  assert.match(src, /<ParticipantSheet>/)
+  assert.match(src, /surfaceName="Training Centre"/)
+  // The answer is the first thing on the sheet, because it is what a parent came for.
+  const availability = src.indexOf("<AvailabilityChoice")
+  const actions = src.indexOf("<ParticipantActionCard")
+  assert.ok(availability > 0 && actions > availability, "the action cards come before the answer")
+  assert.match(src, /ground="light"/, "the shared control is not drawn for the chalk sheet")
+})
+
+test("the Training Centre invents no arrival time, because training has none", () => {
+  // The reference shows "Arrive from 17:45". `meet_time` is a FIXTURE column;
+  // `training_sessions` has no such field, no RPC for one and no product concept
+  // of one. A time no coach set is worse than no time.
+  const src = code(TRAINING_SCREEN)
+  assert.ok(!/Arrive from/.test(src), "an arrival time is shown for training")
+  assert.ok(!/meetTime/.test(src), "training reaches for a meet time it does not have")
+})
+
+test("no stock photograph stands in for a club's own rugby", () => {
+  const hero = readFileSync("apps/mobile/src/components/participant/event-hero.tsx", "utf8")
+  for (const forbidden of ["unsplash", "ImageBackground", "require(", "https://images"]) {
+    assert.ok(!hero.includes(forbidden), `the hero reaches for ${forbidden}`)
+  }
+})
+
+test("the availability control is the shared one, on either ground", () => {
+  const control = readFileSync("apps/mobile/src/components/availability-choice.tsx", "utf8")
+  // One control, one vocabulary, one order -- only the ink changes.
+  assert.match(control, /ANSWER_ON_LIGHT/)
+  assert.match(control, /AVAILABILITY_ANSWER_ORDER/)
+  assert.match(control, /ATTENDANCE_ANSWER_WORDS\[status\]/)
+  // Selection is never colour alone: an icon, the words, and the accessible state.
+  assert.match(control, /accessibilityState=\{\{ selected: chosen/)
+  assert.match(control, /<Icon size=\{16\}/)
+})
+
+test("the participant action cards carry no administrative variant", () => {
+  const cards = code("apps/mobile/src/components/participant/event-hero.tsx")
+  for (const forbidden of ["Edit", "Manage", "Cancel", "Delete", "Attendees"]) {
+    assert.ok(!cards.includes(forbidden), `a participant action card offers ${forbidden}`)
+  }
 })

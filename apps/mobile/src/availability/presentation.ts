@@ -122,4 +122,39 @@ export const ANSWER_ON_DARK: Record<"ATTENDING" | "CANNOT_ATTEND" | "UNSURE", { 
   },
 }
 
+/**
+ * THE SAME THREE ANSWERS, ON A LIGHT GROUND.
+ *
+ * The Training Centre's availability selector sits on the chalk sheet rather than
+ * inside a dark hero, so the control needs a palette measured against chalk. It is
+ * the SAME control and the same three answers -- only the ground changed, and with
+ * it the ink that stays readable on it.
+ *
+ * SELECTION IS STILL NEVER COLOUR ALONE: each choice keeps its own icon, its own
+ * words, a filled ground when chosen and `accessibilityState.selected`.
+ */
+export const ANSWER_ON_LIGHT: Record<
+  "ATTENDING" | "CANNOT_ATTEND" | "UNSURE",
+  { idle: string; chosenEdge: string; chosenWash: string; chosenText: string }
+> = {
+  ATTENDING: {
+    idle: colour.forest800,
+    chosenEdge: colour.pitch600,
+    chosenWash: colour.successSurface,
+    chosenText: colour.forest800,
+  },
+  CANNOT_ATTEND: {
+    idle: colour.danger,
+    chosenEdge: colour.danger,
+    chosenWash: colour.dangerSurface,
+    chosenText: colour.danger,
+  },
+  UNSURE: {
+    idle: colour.warning,
+    chosenEdge: colour.warning,
+    chosenWash: colour.warningSurface,
+    chosenText: colour.warning,
+  },
+}
+
 export { ICON as AVAILABILITY_ICONS }

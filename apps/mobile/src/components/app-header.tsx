@@ -9,7 +9,7 @@ import { ClubCrest, PersonAvatar } from "./identity"
 import { PictureSheet, type PictureAction } from "./picture-sheet"
 import { HeaderUtilities } from "./header-utilities"
 import { ChevronDown } from "./icons"
-import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
+import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../design/tokens"
 
 /**
  * THE HEADER — who I am, what I am operating as, and what needs me.
@@ -44,8 +44,32 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
  * `my_capabilities`, which is the same engine the storage policy evaluates, so for everybody else the
  * crest stays a plain picture. A control that is offered and then refused is worse than no control.
  */
-export function AppHeader({ onOpenContexts }: { onOpenContexts: () => void }) {
+export function AppHeader({
+  onOpenContexts,
+  tone = "chalk",
+  bottomRule = true,
+}: {
+  onOpenContexts: () => void
+  /**
+   * WHICH GROUND THIS HEADER IS STANDING ON.
+   *
+   * "chalk" is the app's ordinary light header. "forest" is for a screen whose
+   * whole upper half is the brand ground -- the Calendar -- where a white bar
+   * across the top would cut the screen in two and make the product look like
+   * four unrelated panels stacked on one another.
+   *
+   * IT IS A GROUND, NOT A THEME. The same identity, the same three utilities, the
+   * same badges from the same canonical read; only the ink changes so it stays
+   * readable. Nothing about what the header SAYS depends on this.
+   */
+  tone?: "chalk" | "forest"
+  /** False where the header runs straight into more of its own ground. */
+  bottomRule?: boolean
+}) {
   const insets = useSafeAreaInsets()
+  const onForestGround = tone === "forest"
+  const ink = onForestGround ? onForest.primary : colour.ink
+  const inkQuiet = onForestGround ? onForest.secondary : colour.inkMuted
   const { person, active, contexts, club, unread, refreshIdentityImages } = useAppContexts()
   const switchable = contexts.length > 1
   const [picture, setPicture] = useState<PictureAction | null>(null)
@@ -129,9 +153,9 @@ export function AppHeader({ onOpenContexts }: { onOpenContexts: () => void }) {
         paddingTop: insets.top + space.sm,
         paddingBottom: space.sm,
         paddingHorizontal: space.lg,
-        backgroundColor: colour.chalk,
-        borderBottomWidth: 1,
-        borderBottomColor: colour.line,
+        backgroundColor: onForestGround ? surface.forest : colour.chalk,
+        borderBottomWidth: bottomRule ? 1 : 0,
+        borderBottomColor: onForestGround ? onForest.line : colour.line,
         flexDirection: "row",
         alignItems: "center",
         gap: space.sm,
@@ -165,7 +189,11 @@ export function AppHeader({ onOpenContexts }: { onOpenContexts: () => void }) {
           paddingHorizontal: space.sm,
           marginLeft: -space.xs,
           borderRadius: radius.md,
-          backgroundColor: pressed ? "rgba(16,21,18,0.05)" : "transparent",
+          backgroundColor: pressed
+            ? onForestGround
+              ? "rgba(255,255,255,0.08)"
+              : "rgba(16,21,18,0.05)"
+            : "transparent",
         })}
       >
         {active &&
@@ -188,16 +216,16 @@ export function AppHeader({ onOpenContexts }: { onOpenContexts: () => void }) {
           ))}
         <View style={{ flex: 1, minWidth: 0 }}>
           {/* BOLD, because it is the answer to "who am I looking at". */}
-          <Text style={[type.bodyMedium, { color: colour.ink, fontFamily: "Inter_600SemiBold", fontSize: 15 }]} numberOfLines={1}>
+          <Text style={[type.bodyMedium, { color: ink, fontFamily: "Inter_600SemiBold", fontSize: 15 }]} numberOfLines={1}>
             {title}
           </Text>
           {!!caption && (
-            <Text style={[type.caption, { color: colour.inkMuted }]} numberOfLines={1}>
+            <Text style={[type.caption, { color: inkQuiet }]} numberOfLines={1}>
               {caption}
             </Text>
           )}
         </View>
-        {switchable && <ChevronDown size={16} color={colour.inkMuted} />}
+        {switchable && <ChevronDown size={16} color={inkQuiet} />}
       </Pressable>
 
       {/* MESSAGES · NOTIFICATIONS · SUPPORT.
@@ -205,7 +233,7 @@ export function AppHeader({ onOpenContexts }: { onOpenContexts: () => void }) {
           own header has carried them since Support was built. Three independent
           counts, from the one canonical read -- deriving any of them from
           another is how a bell stops going down when you clear your messages. */}
-      <HeaderUtilities unread={unread} />
+      <HeaderUtilities unread={unread} tone={tone} />
 
       {/* One sheet for either picture. It stays open while the write is in
           flight and closes on the server's success, so nobody is left looking

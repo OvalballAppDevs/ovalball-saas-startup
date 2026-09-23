@@ -4,7 +4,7 @@ import { Image } from "expo-image"
 import type { FamilyMember } from "@ovalball/contracts"
 
 import { useFamily } from "../family/family"
-import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
+import { TOUCH_TARGET, calendarTone, colour, onForest, radius, space, type } from "../design/tokens"
 
 /**
  * ALL · PIPPA · GEORGE.
@@ -29,7 +29,18 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
  * SELECTION IS NEVER CARRIED BY COLOUR ALONE. The chosen chip is filled, ringed
  * and announced with `accessibilityState.selected`.
  */
-export function ChildFilter({ style }: { style?: object }) {
+export function ChildFilter({
+  style,
+  tone = "chalk",
+}: {
+  style?: object
+  /**
+   * The ground the chips are standing on. On the Calendar they sit on forest, so
+   * an unselected chip becomes a light outline rather than a white pill -- a row of
+   * white pills on the brand ground is the fragmented look the rebuild removed.
+   */
+  tone?: "chalk" | "forest"
+}) {
   const { projection, selectedPlayerId, hasChoice, select } = useFamily()
   if (!hasChoice) return null
 
@@ -53,11 +64,12 @@ export function ChildFilter({ style }: { style?: object }) {
         accessibilityRole="radiogroup"
         accessibilityLabel="Show one child, or all of them"
       >
-        <Chip label="All" selected={selectedPlayerId === null} onPress={() => select(null)} />
+        <Chip label="All" tone={tone} selected={selectedPlayerId === null} onPress={() => select(null)} />
         {children.map((child) => (
           <Chip
             key={child.playerId}
             label={child.shortLabel}
+            tone={tone}
             avatarUrl={child.avatarUrl}
             initials={child.initials}
             selected={selectedPlayerId === child.playerId}
@@ -75,13 +87,21 @@ function Chip({
   initials,
   selected,
   onPress,
+  tone,
 }: {
   label: string
   avatarUrl?: string | null
   initials?: string
   selected: boolean
   onPress: () => void
+  tone: "chalk" | "forest"
 }) {
+  const onForestGround = tone === "forest"
+  const selectedGround = onForestGround ? calendarTone.selected : colour.forest800
+  const selectedInk = onForestGround ? calendarTone.selectedInk : colour.onForest
+  const restingGround = onForestGround ? "transparent" : colour.surface
+  const restingEdge = onForestGround ? onForest.line : colour.lineStrong
+  const restingInk = onForestGround ? onForest.primary : colour.ink
   return (
     <Pressable
       accessibilityRole="radio"
@@ -97,8 +117,8 @@ function Chip({
         paddingRight: space.lg,
         borderRadius: radius.pill,
         borderWidth: 1,
-        borderColor: selected ? colour.forest800 : colour.lineStrong,
-        backgroundColor: selected ? colour.forest800 : colour.surface,
+        borderColor: selected ? selectedGround : restingEdge,
+        backgroundColor: selected ? selectedGround : restingGround,
         opacity: pressed ? 0.85 : 1,
       })}
     >
@@ -111,13 +131,19 @@ function Chip({
             overflow: "hidden",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: selected ? "rgba(255,255,255,0.18)" : colour.mint100,
+            backgroundColor: selected
+              ? onForestGround
+                ? "rgba(7,28,20,0.18)"
+                : "rgba(255,255,255,0.18)"
+              : onForestGround
+                ? "rgba(255,255,255,0.14)"
+                : colour.mint100,
           }}
         >
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={{ width: 30, height: 30 }} contentFit="cover" transition={120} />
           ) : (
-            <Text style={[type.caption, { color: selected ? colour.onForest : colour.forest800, fontFamily: "Inter_600SemiBold" }]}>
+            <Text style={[type.caption, { color: selected ? selectedInk : restingInk, fontFamily: "Inter_600SemiBold" }]}>
               {initials}
             </Text>
           )}
@@ -127,7 +153,7 @@ function Chip({
           label somebody chose, it is what they are called. */}
       <Text
         numberOfLines={1}
-        style={[type.smallMedium, { color: selected ? colour.onForest : colour.ink, flexShrink: 1, maxWidth: 150 }]}
+        style={[type.smallMedium, { color: selected ? selectedInk : restingInk, flexShrink: 1, maxWidth: 150 }]}
       >
         {label}
       </Text>

@@ -5,7 +5,7 @@ import type { UnreadCounts } from "@ovalball/contracts"
 
 import { Bell, CircleHelp, MessageSquare } from "./icons"
 import { projectHeaderUtilities, type HeaderUtility } from "../context/header-projection"
-import { TOUCH_TARGET, colour, radius, type } from "../design/tokens"
+import { TOUCH_TARGET, colour, radius, surface, type } from "../design/tokens"
 
 /**
  * MESSAGES · NOTIFICATIONS · SUPPORT — the persistent utility cluster.
@@ -36,8 +36,16 @@ import { TOUCH_TARGET, colour, radius, type } from "../design/tokens"
  * at the full touch target with the hit area extended beyond the glyph. Three
  * labelled buttons would take the row the context identity needs.
  */
-export function HeaderUtilities({ unread }: { unread: UnreadCounts }) {
+export function HeaderUtilities({
+  unread,
+  tone = "chalk",
+}: {
+  unread: UnreadCounts
+  /** The ground the header is standing on, so the glyphs and the badge ring stay readable on it. */
+  tone?: "chalk" | "forest"
+}) {
   const router = useRouter()
+  const onForestGround = tone === "forest"
   return (
     <View style={{ flexDirection: "row", alignItems: "center" }}>
       {projectHeaderUtilities(unread).map((utility) => (
@@ -45,6 +53,7 @@ export function HeaderUtilities({ unread }: { unread: UnreadCounts }) {
           key={utility.key}
           utility={utility}
           icon={ICON[utility.key]}
+          onForestGround={onForestGround}
           onPress={() => router.push(utility.href as never)}
         />
       ))}
@@ -67,10 +76,12 @@ function Utility({
   utility,
   icon,
   onPress,
+  onForestGround,
 }: {
   utility: HeaderUtility
   icon: (colour: string) => React.ReactNode
   onPress: () => void
+  onForestGround: boolean
 }) {
   return (
     <Pressable
@@ -84,11 +95,17 @@ function Utility({
         alignItems: "center",
         justifyContent: "center",
         borderRadius: radius.pill,
-        backgroundColor: pressed ? "rgba(16,21,18,0.06)" : "transparent",
+        backgroundColor: pressed
+          ? onForestGround
+            ? "rgba(255,255,255,0.10)"
+            : "rgba(16,21,18,0.06)"
+          : "transparent",
       })}
     >
-      {icon(colour.ink)}
-      {utility.showBadge && <Badge text={utility.badgeText} wide={utility.count > 9} />}
+      {icon(onForestGround ? colour.onForest : colour.ink)}
+      {utility.showBadge && (
+        <Badge text={utility.badgeText} wide={utility.count > 9} ring={onForestGround ? surface.forest : colour.chalk} />
+      )}
     </Pressable>
   )
 }
@@ -100,7 +117,7 @@ function Utility({
  * happened. What it reads is decided by the projection, so that the rule can be
  * asserted without a renderer; this draws the text it is given.
  */
-function Badge({ text, wide }: { text: string; wide: boolean }) {
+function Badge({ text, wide, ring }: { text: string; wide: boolean; ring: string }) {
   return (
     <View
       accessibilityElementsHidden
@@ -119,7 +136,7 @@ function Badge({ text, wide }: { text: string; wide: boolean }) {
         // A ring in the header's own colour, so the badge reads as separate from
         // the glyph beneath it whatever the glyph is doing.
         borderWidth: 2,
-        borderColor: colour.chalk,
+        borderColor: ring,
       }}
     >
       <Text style={[type.caption, { color: colour.onForest, fontSize: 10, lineHeight: 13, fontFamily: "Inter_600SemiBold" }]}>

@@ -56,6 +56,67 @@ export const colour = {
   successSurface: "#e9f7ee",
 } as const
 
+/**
+ * SEMANTIC TOKENS — what a thing IS, not what colour it happens to be.
+ *
+ * Every value below is drawn from `colour` above or mixed from it. Nothing here
+ * invents a green: a second forest that is nearly the first one is how a product
+ * ends up with three slightly different headers, and it is the exact thing the
+ * Calendar's rebuild had to undo.
+ *
+ * They exist so that a screen can say `surface.forest` rather than `colour.forest900`,
+ * and so that changing what "the calendar's ground" means is one edit rather than
+ * a search across components.
+ */
+export const surface = {
+  /** The deep ground the Calendar, its header and the tab bar all share. */
+  forest: colour.forest950,
+  /** A panel lifted slightly off that ground -- a segmented control, a chip. */
+  forestRaised: "rgba(255,255,255,0.08)",
+  /** The page beneath the forest: the sheet the events live on. */
+  chalk: colour.chalk,
+  /** A card lifted off the chalk. */
+  card: colour.surface,
+} as const
+
+export const onForest = {
+  /** Headings and dates on the forest ground. */
+  primary: colour.onForest,
+  /** Weekday labels, captions, the month's quieter half. */
+  secondary: "rgba(255,255,255,0.62)",
+  /** Days belonging to the neighbouring month. */
+  faint: "rgba(255,255,255,0.30)",
+  /** A hairline on forest, for a divider that must not read as a border. */
+  line: "rgba(255,255,255,0.12)",
+} as const
+
+/**
+ * A CANONICAL STATE, SHOWN ON THE FOREST GROUND.
+ *
+ * The same three tones the light surfaces use, measured against forest instead of
+ * chalk. Never colour alone: every one of these carries the state's own WORD, and
+ * the tone only makes it findable.
+ */
+export const statusOnForest = {
+  calm: { ground: "rgba(90,203,131,0.22)", ink: colour.chalk },
+  warning: { ground: "rgba(251,191,36,0.18)", ink: "#fef3c7" },
+  danger: { ground: "rgba(248,113,113,0.18)", ink: "#fee2e2" },
+} as const
+
+/** The month grid's own states, named for what they mean. */
+export const calendarTone = {
+  /** The day whose events are in the sheet. */
+  selected: colour.pitch600,
+  selectedInk: colour.forest950,
+  /** Today, when it is not the selected day: an outline, never a fill. */
+  today: colour.pitch400,
+  /** Something is on. One dot, whatever is on. */
+  eventDot: colour.pitch400,
+  /** The round month steps. */
+  control: colour.pitch600,
+  controlInk: colour.forest950,
+} as const
+
 export const space = {
   xs: 4,
   sm: 8,

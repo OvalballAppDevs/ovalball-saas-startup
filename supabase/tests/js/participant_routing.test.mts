@@ -277,7 +277,7 @@ test("every editable field in the Training Centre is gated on the server's own a
   const gate = screen.indexOf("{session.canManage && (")
   assert.ok(screen.indexOf("<CancelSessionButton") > gate, "the cancel control is mounted outside the gate")
   assert.ok(screen.indexOf("<TrainingOperations") > gate, "the edit sheets are mounted outside the gate")
-  assert.match(screen, /\{!cancelled && \(\s*<CancelSessionButton/, "a cancelled session can still be cancelled")
+  assert.match(screen, /!cancelled && <CancelSessionButton/, "a cancelled session can still be cancelled")
   // And a row that is not editable draws no press target and no chevron at all,
   // rather than a control that fails after being tapped.
   assert.match(screen, /if \(!editable \|\| !onPress\) return content/)
@@ -328,7 +328,10 @@ test("the Calendar's every way into an event is the same one function", () => {
 test("a family scope is offered no team or age-grade selector", () => {
   const sheet = readFileSync("apps/mobile/src/components/agenda-filter.tsx", "utf8")
   assert.match(sheet, /\{!familyScope && teams\.length > 1 && \(/, "the team chips are not withheld from a family")
-  for (const screen of [`${APP}/fixtures/index.tsx`, `${APP}/calendar/index.tsx`]) {
-    assert.match(readFileSync(screen, "utf8"), /familyScope=\{active !== null && isFamilyFacingContext\(active\.kind\)\}/)
-  }
+  // Both screens derive it from the context and pass it in; the Calendar reads the
+  // same value it uses to decide whether to offer a season at all.
+  assert.match(readFileSync(`${APP}/fixtures/index.tsx`, "utf8"), /familyScope=\{active !== null && isFamilyFacingContext\(active\.kind\)\}/)
+  const calendar = readFileSync(`${APP}/calendar/index.tsx`, "utf8")
+  assert.match(calendar, /const family = active !== null && isFamilyFacingContext\(active\.kind\)/)
+  assert.match(calendar, /familyScope=\{family\}/)
 })
