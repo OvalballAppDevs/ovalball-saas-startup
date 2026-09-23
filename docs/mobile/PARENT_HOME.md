@@ -355,3 +355,30 @@ scrum are. News fallbacks unchanged (1k is ample at 188×112 pt).
 
 Credits: the workspace showed 2 remaining before this pass and 491 after — the owner
 topped up mid-pass; 2 credits were spent here.
+
+## Back navigation — measured, and fixed for real
+
+The first fix (`initialRouteName` + `canGoBack()`) was insufficient, and the owner said so.
+Reproduced headlessly against the **web export of the same router** at 390×844 with
+`uat.guardian.two` (Playwright, isolated context): Home → Training Centre → Back gave
+`/` — the **Tabs** navigator answered GO_BACK because `router.canGoBack()` is the router's
+answer, not the stack's — and the Calendar tab then opened on `/calendar/training/<id>`
+again. `initialRouteName` did not mount the Calendar beneath a cross-tab push.
+
+**Fix.** `useBackToSurface("/calendar" | "/fixtures")` in `src/links/back.ts`: it reads the
+nearest **stack's** state; with something beneath it pops (`router.back()`), otherwise
+`router.dismissTo(surface)`, which React Navigation's POP_TO implements as "remove the
+current route and add the index" — so nothing stays parked. Used by Training Centre, Match
+Centre and the fixture console.
+
+**Measured after the fix** (`scratchpad/nav/back.mjs`, screenshots 01–08):
+
+| Route | Back lands on | Tab afterwards |
+|---|---|---|
+| Home → Training Centre → Back | `/calendar`, month grid, no Training Centre node in the tree | Calendar → `/calendar` |
+| Calendar → training event → Back | `/calendar` (popped) | — |
+| Home → Match Centre → Back | `/fixtures` | Fixtures → `/fixtures` |
+
+Design note: a match opened from the Calendar returns to **Fixtures**, the surface a fixture
+belongs to, not to the Calendar tab. Consistent and never stuck; flagged for the owner.
+`participant_routing` 21/21.

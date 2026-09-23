@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 
-import { goBackOr } from "../links/back"
+import { useBackToSurface } from "../links/back"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import {
@@ -825,6 +825,7 @@ function Shell({
   subtitle: string | null
   children: React.ReactNode
 }) {
+  const back = useBackToSurface("/fixtures")
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       <View
@@ -842,7 +843,7 @@ function Shell({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back to the fixture"
-          onPress={() => goBackOr(router, "/fixtures")}
+          onPress={back}
           hitSlop={8}
           style={({ pressed }) => ({
             width: TOUCH_TARGET,

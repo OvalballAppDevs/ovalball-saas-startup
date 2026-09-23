@@ -338,28 +338,28 @@ test("a family scope is offered no team or age-grade selector", () => {
 
 // ------------------------------------------------------------- the way back
 
-test("a participant screen reached from Home has the agenda beneath it", () => {
-  // Home pushes straight to a session or a fixture inside another tab. Without
-  // a named initial route that screen is alone on its stack, GO_BACK is dispatched
-  // with nothing to handle it, and the person is stuck on the event with an error
-  // -- which is what the owner hit on the device.
-  for (const layout of ["apps/mobile/app/(tabs)/calendar/_layout.tsx", "apps/mobile/app/(tabs)/fixtures/_layout.tsx"]) {
-    const source = readFileSync(layout, "utf8")
-    assert.match(source, /export const unstable_settings = \{ initialRouteName: "index" \}/, `${layout} lets a deep-linked screen stand alone`)
-  }
-})
-
-test("every participant back lands somewhere, never on an unhandled action", () => {
+test("a participant screen's Back goes to its own surface, never to whichever navigator can pop", () => {
+  // Measured on the web build before the fix: Home → Training Centre → Back gave
+  // "/" (the TABS navigator answered GO_BACK) and the Calendar tab then opened on
+  // the parked Training Centre with no way out -- the owner's report exactly.
+  // `initialRouteName` on the nested stack did not mount the agenda beneath a
+  // cross-tab push, so Back asks the STACK whether anything is beneath, and
+  // otherwise dismisses to the surface's index, which replaces the parked screen.
   const back = readFileSync("apps/mobile/src/links/back.ts", "utf8")
-  assert.match(back, /if \(router\.canGoBack\(\)\) \{\s*\n\s*router\.back\(\)/)
-  assert.match(back, /router\.replace\(fallback\)/)
-  for (const [file, fallback] of [
+  assert.match(back, /const state = navigation\.getState\(\)\s*\n\s*if \(state && state\.index > 0\) \{\s*\n\s*router\.back\(\)/)
+  assert.match(back, /router\.dismissTo\(surface\)/)
+  assert.ok(!/router\.canGoBack\(\)/.test(back), "canGoBack() is the router's answer, and the router lets the tabs pop")
+  for (const [file, surface] of [
     ["apps/mobile/app/(tabs)/calendar/training/[sessionId].tsx", "/calendar"],
     ["apps/mobile/src/fixtures/match-centre.tsx", "/fixtures"],
     ["apps/mobile/src/fixtures/fixture-console.tsx", "/fixtures"],
   ] as const) {
     const source = readFileSync(file, "utf8")
     assert.ok(!/=> router\.back\(\)/.test(source), `${file} still calls back() with nowhere to go`)
-    assert.ok(source.includes(`goBackOr(router, "${fallback}")`), `${file} does not fall back to ${fallback}`)
+    assert.ok(source.includes(`useBackToSurface("${surface}")`), `${file} does not go back to ${surface}`)
+  }
+  // The nested stacks still name their initial route -- harmless, and right for a true deep link.
+  for (const layout of ["apps/mobile/app/(tabs)/calendar/_layout.tsx", "apps/mobile/app/(tabs)/fixtures/_layout.tsx"]) {
+    assert.match(readFileSync(layout, "utf8"), /initialRouteName: "index"/)
   }
 })

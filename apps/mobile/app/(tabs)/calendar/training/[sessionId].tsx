@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 
-import { goBackOr } from "../../../../src/links/back"
+import { useBackToSurface } from "../../../../src/links/back"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import {
@@ -65,6 +65,7 @@ import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "..
 export default function TrainingCentre() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const back = useBackToSurface("/calendar")
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const id = String(sessionId ?? "")
   const today = todayIso()
@@ -205,7 +206,7 @@ export default function TrainingCentre() {
           eyebrow="Training"
           mark={<Users size={26} color={colour.pitch400} strokeWidth={1.9} />}
           facts={[]}
-          onBack={() => goBackOr(router, "/calendar")}
+          onBack={back}
         />
         <ParticipantSheet>
           <View style={{ paddingTop: space.lg }}>
@@ -271,7 +272,7 @@ export default function TrainingCentre() {
               ]
             : []
         }
-        onBack={() => goBackOr(router, "/calendar")}
+        onBack={back}
       />
 
       <ParticipantSheet>
