@@ -248,7 +248,7 @@ function row(key: string, playerId: string | null): AgendaItem {
     date: "2026-10-02",
     time: "10:30",
     meetTime: null,
-    us: { directoryId: null, clubName: "Ovalball UAT RUFC", teamName: "Under 12 Boys", compactName: "U12", crestUrl: null, kit: null },
+    us: { directoryId: null, clubName: "Ovalball UAT RUFC", teamName: "Under 12 Boys", compactName: "U12", rugbyCode: "union", crestUrl: null, kit: null },
     them: null,
     homeAway: "Home",
     venue: null,

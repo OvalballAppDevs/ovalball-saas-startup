@@ -34,12 +34,11 @@ import { SeasonGrid } from "../../../src/components/season-grid"
 import { WeekSheet } from "../../../src/components/week-sheet"
 import { CalendarHeading, CalendarModeSwitch } from "../../../src/components/calendar/calendar-chrome"
 import { MonthGrid } from "../../../src/components/calendar/month-grid"
+import { CalendarEmptyDay, EventSheet, ListDayHeading } from "../../../src/components/calendar/event-sheet"
 import {
-  CalendarEmptyDay,
-  EventCard,
-  EventSheet,
-  ListDayHeading,
-} from "../../../src/components/calendar/event-sheet"
+  ParticipantMatchCard,
+  ParticipantTrainingCard,
+} from "../../../src/components/participant/match-card"
 import {
   AgendaFilterSheet,
   NO_FILTER,
@@ -406,15 +405,27 @@ export default function Calendar() {
             days.map((day) => (
               <View key={day.date} style={{ gap: space.sm }}>
                 {mode === "list" && <ListDayHeading label={`${dayLabel(day.date, today)} · ${restOfDate(day.date, today)}`} />}
-                {day.items.map((item) => (
-                  <EventCard
-                    key={item.key}
-                    item={item}
-                    today={today}
-                    family={projection}
-                    onPress={() => openEvent(item)}
-                  />
-                ))}
+                {/* ONE PREMIUM CARD PER EVENT, never a "+2 more" link: a day with a
+                    match and two sessions is three things to be at, and each of them
+                    names its own child. The sheet scrolls. */}
+                {day.items.map((item) =>
+                  item.kind === "training" ? (
+                    <ParticipantTrainingCard
+                      key={item.key}
+                      item={item}
+                      family={projection}
+                      onPress={() => openEvent(item)}
+                    />
+                  ) : (
+                    <ParticipantMatchCard
+                      key={item.key}
+                      item={item}
+                      family={projection}
+                      density="compact"
+                      onPress={() => openEvent(item)}
+                    />
+                  )
+                )}
               </View>
             ))}
 

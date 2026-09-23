@@ -30,7 +30,7 @@ import type { AgendaItem } from "@ovalball/contracts/agenda/load"
 const TODAY = "2026-09-23"
 
 function side(teamName: string, compactName: string | null) {
-  return { directoryId: null, clubName: "Ovalball UAT RUFC", teamName, compactName, crestUrl: null, kit: null }
+  return { directoryId: null, clubName: "Ovalball UAT RUFC", teamName, compactName, rugbyCode: "union", crestUrl: null, kit: null }
 }
 
 function fixture(partial: Partial<AgendaItem> & { key: string; teamId: string }): AgendaItem {

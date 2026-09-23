@@ -55,6 +55,17 @@ export interface AgendaSide {
    * the display form rather than inventing a short one.
    */
   compactName: string | null
+  /**
+   * THE CANONICAL RUGBY CODE this side plays -- "union" or "league".
+   *
+   * Carried so a participant surface can say what kind of rugby a fixture is
+   * without parsing it out of a name. `teams.rugby_code` is the one authority;
+   * never inferred from an age grade, a competition or a club.
+   *
+   * Null for a side that is only a Club Directory entry, which has a team name
+   * but no Ovalball team behind it to ask.
+   */
+  rugbyCode: string | null
   crestUrl: string | null
   kit: KitConfig | null
 }
@@ -230,7 +241,7 @@ export async function loadAgenda(
   const { data: teamRows } = involvedTeamIds.length
     ? await supabase
         .from("teams")
-        .select("id, display_name, club_id, clubs(id, directory_id, logo_storage_path, club_directory(id, name, logo_storage_path))")
+        .select("id, display_name, rugby_code, club_id, clubs(id, directory_id, logo_storage_path, club_directory(id, name, logo_storage_path))")
         .in("id", involvedTeamIds)
     : { data: [] }
   const teamById = new Map((teamRows ?? []).map((t) => [t.id, t]))
@@ -293,6 +304,8 @@ export async function loadAgenda(
       directoryId: club?.directory_id ?? directory?.id ?? null,
       clubName: directory?.name ?? "Club",
       teamName: seasonName ?? team?.display_name ?? null,
+      // The team's own canonical code. Never inferred from an age grade or a name.
+      rugbyCode: team?.rugby_code ?? null,
       // The same season identity the display name comes from, in its short form.
       compactName: identity
         ? compactTeamLabel({
@@ -349,6 +362,9 @@ export async function loadAgenda(
             directoryId: dir.id,
             clubName: dir.name,
             teamName: null,
+            // A Club Directory entry is not an Ovalball team, so there is no
+            // team row to ask which code it plays. Null rather than assumed.
+            rugbyCode: null,
             compactName: null,
             crestUrl: resolveClubLogoUrl(supabase, { logo_storage_path: null, club_directory: { logo_storage_path: dir.logo_storage_path } }),
             kit: null,
@@ -358,6 +374,8 @@ export async function loadAgenda(
             clubName: f.raw_opposition_text ?? "Opposition to be confirmed",
             teamName: null,
             compactName: null,
+            // Free text typed by a fixture secretary. There is no team behind it.
+            rugbyCode: null,
             crestUrl: null,
             kit: null,
           }
@@ -436,7 +454,15 @@ export async function loadAgenda(
       meetTime: null,
       us: us
         ? { ...us, teamName: groupTag ?? us.teamName }
-        : { directoryId: null, clubName: "Club", teamName: groupTag ?? t.teams?.display_name ?? null, compactName: null, crestUrl: null, kit: null },
+        : {
+            directoryId: null,
+            clubName: "Club",
+            teamName: groupTag ?? t.teams?.display_name ?? null,
+            compactName: null,
+            rugbyCode: null,
+            crestUrl: null,
+            kit: null,
+          },
       // Training has no opposition, and is never given a fake one.
       them: null,
       homeAway: null,

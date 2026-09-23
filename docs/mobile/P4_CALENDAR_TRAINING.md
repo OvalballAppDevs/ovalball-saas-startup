@@ -408,3 +408,156 @@ has not been removed or suppressed: it is legitimate development tooling.
 - **No arrival time for training** until the platform has one.
 - Fixtures and Home keep the chalk header; only the Calendar and the Training
   Centre are forest so far.
+
+---
+
+# P4 visual correction — the premium participant cards
+
+The Calendar composition stayed exactly as approved. What changed is what lives in
+the selected-day sheet: the compact text row is gone and there is one premium card
+per event, crest against crest.
+
+## Architecture — one model, two densities
+
+**The truth is resolved once**, in `packages/contracts/src/participant/match-card.ts`:
+
+```ts
+projectParticipantMatch(item, family) -> ParticipantMatch {
+  home, away, oriented, ourOrientation,   // canonical home/away
+  classification,                          // "Union · U12"
+  kickoff, meetTime, venue, status, cancelled,
+  child, attendance, attendanceWord, answered,
+  spoken                                   // the whole card as one sentence
+}
+projectParticipantTraining(item, family, endTime) -> ParticipantTraining
+```
+
+**The component chooses the density**: `<ParticipantMatchCard density="compact" />`
+today, `"expanded"` reserved for the Fixtures pass — so that screen inherits the
+same answer rather than working out home and away a second time. That is the whole
+point: which side is at home is a domain question with one answer, and two
+components each deciding it is how a parent gets told they are playing at home when
+they are not.
+
+**Fixtures was not touched** (§17). Only the shared model exists for it.
+
+## Crest against crest, and the ordering
+
+`homeAway` is the viewer's own side's orientation, so **Home puts our side on the
+left and Away puts the opposition there**. A test asserts the two produce different
+left-hand clubs — "our team first" would pass a weaker test and be wrong.
+
+Where the orientation is genuinely unsettled — `TBD`, `Not Applicable`, null — the
+card **claims nothing**: both sides are drawn, no ground is implied, and the spoken
+label omits the orientation entirely.
+
+Crests come from the canonical `ClubCrest`: the club's own upload, else the Club
+Directory's branding logo, else initials on a neutral ground. There is no
+`fallback` prop, so a kit cannot reach where a crest belongs. A test asserts the
+card file contains no reference to a kit at all. **On your review data no opposition
+has a crest**, so the initials fallback is what you will see — and it is meant to
+look deliberate.
+
+## Classification
+
+`Union · U12`, from two canonical fields: `teams.rugby_code` and the compact team
+identity. `rugbyCode` was added to `AgendaSide` and to the agenda's own team select
+— one column, additive, nothing switches on it. Where either is absent (a Club
+Directory opponent, free text typed by a fixture secretary) the missing half is
+dropped and nothing is parsed out of a name. `matchClassification(null) === null`.
+
+## KO · Meet · Venue
+
+A wrapping row beneath the crests. Each appears **only where the club has set it** —
+no "Meet —", no fabricated venue — and the row reflows rather than crushing on a
+narrow phone. Kick-off is `type.smallMedium` in ink; meet and venue are captions in
+muted ink.
+
+## The child strip
+
+Bottom third of every card, on chalk so it reads as its own band: the child's own
+picture and name from `FamilyProjection`, their side beneath it, the availability
+chip, and the chevron. Absent entirely where the row belongs to no child. A test
+asserts the card performs no `split`, `toUpperCase` or `slice` — it draws what the
+projection handed it.
+
+## Availability — one note you should see
+
+The chip carries an **icon, the word and a tone**, never a tone alone.
+
+**The words are the canonical register words**: `Attending` · `Unsure` ·
+`Can't attend` · `Awaiting` — not the mockup's "Can Attend" / "Cannot Attend".
+That is not a preference: `verify-availability-one-product` **fails the build** on
+the literal `"Can Attend"`, because the platform has been through "Can't attend",
+"Can't make it" and "Cannot attend" all meaning one thing. If you want the chips to
+read "Can Attend", the change belongs in
+`packages/contracts/src/availability/vocabulary.ts` and it moves every surface at
+once — say the word and it is one edit.
+
+## Training card
+
+Same frame, same child strip, no opposition — a session has none and is never given
+a fake one. The **time leads** (22pt), with the window beneath where the record has
+an end, then the title and the venue. `18:00 – ` never appears: no end, no window.
+
+## Multiple events, multiple children
+
+One card per event, always. No "+2 events" link. The sheet scrolls, the header says
+"2 events", and each card names its own child — so a day holding Ava's match and
+George's session is two cards with two faces, two sides and two answers. Tests cover
+distinct children, distinct avatars (one has a photograph and one does not), and an
+id outside the family drawing no identity at all.
+
+## Accessibility
+
+One tap target per card and **exactly one `<Pressable>`** — asserted — so no crest,
+name, club or chip is independently tappable. That is what keeps the opposition
+informational rather than relational.
+
+The card's accessible label is the whole fixture as one sentence:
+
+> "Ava, Under 12 Boys. Ashton Under Lyne RUFC Under 12 Boys versus Ovalball UAT RUFC
+> Under 12 Boys. Away for Ovalball UAT RUFC Under 12 Boys. Kick off 10:30. Meet
+> 09:45. Ashton Playing Fields. Attending."
+
+Writing that test **found a real defect**: spoken as the team alone it read "Under
+12 Boys versus Under 12 Boys", which tells a blind parent nothing. `spokenSideLabel`
+now carries the club and the team, and says the club once where they are the same.
+
+## Responsive cases covered
+
+Short and very long opposition names (2-line wrap, no truncation in the model) ·
+missing crest · missing meet time · missing venue · missing kick-off · one child ·
+several children · all three answers plus no answer · cancelled · a non-`Booked`
+status · home · away · unsettled orientation · two and three events on a day.
+
+## Focused tests
+
+**103 suites, 1069 assertions, 0 failing.** New `participant_match_card` (27) plus
+`family_calendar` (54). Structural guards pass — availability one-product included,
+which is the guard that enforces the chip wording. Typecheck web + app clean, no new
+lint, iOS bundle builds. **No SQL touched**, so no RED suite was re-run.
+
+## Physical review — what your data will show
+
+| | Case | Where |
+|---|---|---|
+| 1 | One match | 2 Oct, 6 Oct |
+| 2 | Match + training | **25 Sep** |
+| 3 | Multi-child All | `uat.guardian.two`, 23 Sep |
+| 4 | **Home** ordering | 2 Oct — our crest left |
+| 5 | **Away** ordering | 25 Sep — opposition crest left |
+| 6–8 | Can attend / Unsure / Can't attend | answer in a centre and come back |
+| 9 | **Missing opposition crest** | every fixture — none has one |
+| 10 | Long opposition name | "Ovalball UAT Opposition RFC" |
+| — | **No meet time** | 13 Oct, 20 Jan — the row simply is not there |
+| — | **Cancelled** | 13 Oct — dimmed, the word, no confirmed kick-off |
+| 11–12 | Tap → Match Centre / Training Centre | both |
+
+## Remaining visual debt
+
+- **Fixtures still uses the old row.** The expanded variant exists in the model and
+  is unimplemented by design (§17).
+- Match Centre keeps its older treatment.
+- The chip wording differs from the mockup, enforced by the availability guard —
+  see above.

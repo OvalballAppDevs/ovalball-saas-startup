@@ -49,8 +49,8 @@ const STAFF = ["team", "club", "site_admin", "governing"] as const
 function fixture(overrides: Partial<AgendaItem> = {}): AgendaItem {
   return {
     key: "fx", kind: "fixture", eventId: "fx-1", date: "2026-10-03", time: "10:30", meetTime: null,
-    us: { directoryId: null, clubName: "Ovalball UAT RUFC", teamName: "Under 12 Boys", compactName: "U12", crestUrl: null, kit: null },
-    them: { directoryId: null, clubName: "Ashton Under Lyne RUFC", teamName: "Under 12 Boys", compactName: "U12", crestUrl: null, kit: null },
+    us: { directoryId: null, clubName: "Ovalball UAT RUFC", teamName: "Under 12 Boys", compactName: "U12", rugbyCode: "union", crestUrl: null, kit: null },
+    them: { directoryId: null, clubName: "Ashton Under Lyne RUFC", teamName: "Under 12 Boys", compactName: "U12", rugbyCode: "union", crestUrl: null, kit: null },
     homeAway: "Away", venue: null, pitch: null, status: "Booked", result: null,
     playerId: "p-1", childFirstName: "Pippa", attendance: null,
     teamId: "team-u12", clubId: "club-1", href: null,

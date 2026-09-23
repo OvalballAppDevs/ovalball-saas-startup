@@ -47,8 +47,8 @@ function item(overrides: Partial<AgendaItem> & { key: string; date: string }): A
     eventId: overrides.eventId ?? overrides.key,
     time: "10:30",
     meetTime: null,
-    us: { directoryId: null, clubName: "Ovalball UAT RUFC", teamName: "Under 12 Boys", compactName: "U12", crestUrl: null, kit: null },
-    them: { directoryId: null, clubName: "Ashton Under Lyne RUFC", teamName: "Under 12 Boys", compactName: "U12", crestUrl: null, kit: null },
+    us: { directoryId: null, clubName: "Ovalball UAT RUFC", teamName: "Under 12 Boys", compactName: "U12", rugbyCode: "union", crestUrl: null, kit: null },
+    them: { directoryId: null, clubName: "Ashton Under Lyne RUFC", teamName: "Under 12 Boys", compactName: "U12", rugbyCode: "union", crestUrl: null, kit: null },
     homeAway: "Away",
     venue: "Ashton Under Lyne RUFC",
     pitch: null,
@@ -517,28 +517,48 @@ function code(path: string): string {
     .join("\n")
 }
 
+const MATCH_CARD = "apps/mobile/src/components/participant/match-card.tsx"
+
 test("an event card is informational and navigational, never administrative", () => {
-  const card = code("apps/mobile/src/components/calendar/event-sheet.tsx")
-  for (const forbidden of ["Edit", "Manage", "Cancel", "Fixture Details", "mutations", "field-sheet"]) {
-    assert.ok(!card.includes(forbidden), `the event card offers ${forbidden}`)
+  const card = code(MATCH_CARD)
+  /*
+    THE CARD CANNOT CHANGE ANYTHING, and the way to assert that is what it imports
+    rather than which words appear in it -- "Cancelled" is a canonical STATUS the
+    card must show, and forbidding the substring would forbid saying a match is off.
+  */
+  for (const forbidden of ["mutations", "field-sheet", "fixture-console", "training-operations", "respondTo"]) {
+    assert.ok(!card.includes(forbidden), `the event card reaches for ${forbidden}`)
   }
-  // The whole card goes somewhere, and it says so.
+  for (const label of ["Edit Fixture", "Manage", "Fixture Details", "Cancel Session", "Cancel Fixture"]) {
+    assert.ok(!card.includes(label), `the event card offers "${label}"`)
+  }
+  // ONE TAP TARGET FOR THE WHOLE CARD, and it says where it goes.
   assert.match(card, /accessibilityRole="button"/)
   assert.match(card, /accessibilityHint="Opens the details"/)
+  // Nothing inside it is separately pressable -- which is what keeps the
+  // opposition informational rather than relational.
+  assert.equal((card.match(/<Pressable/g) ?? []).length, 1, "something inside the card is independently tappable")
 })
 
-test("the card leads with the time and the time to be there", () => {
-  const card = readFileSync("apps/mobile/src/components/calendar/event-sheet.tsx", "utf8")
-  assert.match(card, /item\.meetTime/, "meet time is not shown where the club has set one")
-  assert.match(card, /kickoffLabel\(item\.time\)/, "the time is not the canonical kick-off label")
+test("the card shows the kick-off, the meet time and the venue — each only where it exists", () => {
+  const card = readFileSync(MATCH_CARD, "utf8")
+  assert.match(card, /\{!!match\.kickoff && \(/, "a kick-off row is drawn without a kick-off")
+  assert.match(card, /\{!!match\.meetTime && \(/, "\"Meet —\" can be drawn with no meet time")
+  assert.match(card, /\{!!match\.venue && </, "a venue row is drawn without a venue")
+  assert.match(card, /`KO \$\{match\.kickoff\}`/)
+  assert.match(card, /`Meet \$\{match\.meetTime\}`/)
 })
 
 test("the child's identity on a card comes from the projection and nowhere else", () => {
-  const card = readFileSync("apps/mobile/src/components/calendar/event-sheet.tsx", "utf8")
-  assert.match(card, /memberFor\(family, item\.playerId\)/)
-  assert.match(card, /<ChildMark member=\{child\}/)
-  // No local reconstruction of a name, an initial or an avatar.
-  assert.ok(!/initials|avatar_/i.test(card.replace(/ChildMark|memberFor/g, "")), "a card rebuilds an identity itself")
+  // The projection resolves the child once, from `memberFor`, and the card draws
+  // exactly what it is handed: the shortLabel, the teamName, the avatar and the
+  // initials the projection already decided.
+  const projection = readFileSync("packages/contracts/src/participant/match-card.ts", "utf8")
+  assert.match(projection, /const child = memberFor\(family, item\.playerId\)/)
+  const card = readFileSync(MATCH_CARD, "utf8")
+  assert.match(card, /initials=\{child\.initials\}/, "the card derives initials itself")
+  assert.match(card, /\{child\.shortLabel\}/)
+  assert.ok(!/split\(|toUpperCase\(|slice\(0, 2\)/.test(card), "a card rebuilds an identity itself")
 })
 
 test("the Training Centre is a participant experience, not a form", () => {
