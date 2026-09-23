@@ -19,7 +19,7 @@ import { configurationProblem } from "../src/config/environment"
 import { Button } from "../src/components/ui"
 import { EntranceLink } from "../src/components/entrance"
 import { OvalballMark, OvalballWordmark } from "../src/components/brand"
-import { CircleAlert, Eye, EyeOff, Lock, Mail } from "../src/components/icons"
+import { ChevronLeft, CircleAlert, Eye, EyeOff, Lock, Mail } from "../src/components/icons"
 import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../src/design/tokens"
 
 /**
@@ -84,6 +84,25 @@ export default function SignIn() {
         <OvalballMark size={markSize} />
         <OvalballWordmark size={short ? 26 : 30} />
       </View>
+      {/* Back to Welcome. The root is a Slot, not a stack, so there is no swipe to return with. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        onPress={() => router.replace("/welcome")}
+        hitSlop={8}
+        style={({ pressed }) => ({
+          position: "absolute",
+          top: insets.top + space.xs,
+          left: space.sm,
+          width: TOUCH_TARGET,
+          height: TOUCH_TARGET,
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: pressed ? 0.6 : 1,
+        })}
+      >
+        <ChevronLeft size={24} color={colour.chalk} strokeWidth={2.2} />
+      </Pressable>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}

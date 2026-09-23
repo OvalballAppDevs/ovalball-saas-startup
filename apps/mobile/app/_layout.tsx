@@ -32,7 +32,7 @@ void SplashScreen.preventAutoHideAsync()
  *   needs-mfa   → the verification screen. A password gets a session at AAL1; Ovalball's standard is
  *                 AAL2, and until the auth server says the session has reached it, the product is not
  *                 reachable. The requirement is not relaxed because native navigation makes it awkward.
- *   signed-out  → sign in.
+ *   signed-out  → the public Welcome, from which Log In reaches sign in.
  *   signed-in   → the app.
  *
  * The redirect runs in an effect rather than during render because expo-router's navigation state is
@@ -166,8 +166,9 @@ function Gate() {
     const inApp = group === "(tabs)"
     const onVerify = group === "verify"
     const onRecovery = group === "auth"
-    // Forgot Password is part of being signed out, not a place to be moved away from.
-    const onEntrance = group === "sign-in" || group === "forgot-password"
+    // Welcome, sign in and forgot password are all part of being signed out, not places to be
+    // moved away from. Welcome is where a signed-out session LANDS; a signed-in one never sees it.
+    const onEntrance = group === "welcome" || group === "sign-in" || group === "forgot-password"
 
     // RECOVERY OUTRANKS EVERYTHING. A validated recovery link produces a real session at AAL1, and
     // without this rule the next two branches would read that as "signed in" and drop somebody into
@@ -176,7 +177,7 @@ function Gate() {
     if (status === "recovering" && !onRecovery) router.replace("/auth/recovery")
     else if (status === "signed-in" && !inApp) router.replace("/(tabs)")
     else if (status === "needs-mfa" && !onVerify) router.replace("/verify")
-    else if (status === "signed-out" && !onEntrance) router.replace("/sign-in")
+    else if (status === "signed-out" && !onEntrance) router.replace("/welcome")
   }, [status, segments, router])
 
   // THE CANVAS STAYS UNTIL THE DESTINATION IS DECIDED AND PAINTED. Rendering the Slot underneath it
