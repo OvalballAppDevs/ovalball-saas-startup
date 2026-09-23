@@ -69,7 +69,13 @@ export const colour = {
  * a search across components.
  */
 export const surface = {
-  /** The deep ground the Calendar, its header and the tab bar all share. */
+  /**
+   * THE APPLICATION PAGE. Warm chalk: the majority of every content screen stands
+   * on this, so that the forest -- the brand's signature -- keeps its force by
+   * being used for the structure and the features rather than every inch.
+   */
+  page: colour.chalk,
+  /** The deep ground the Calendar's feature area and the tab bar share. */
   forest: colour.forest950,
   /** A panel lifted slightly off that ground -- a segmented control, a chip. */
   forestRaised: "rgba(255,255,255,0.08)",

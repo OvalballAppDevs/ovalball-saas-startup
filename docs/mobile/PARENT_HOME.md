@@ -216,3 +216,100 @@ them with two dots · D the car-park announcement · E news with image — **non
 published, so not reproducible** · F news fallback — likewise not reproducible until an
 article is published · G subscription — **no programme at this club, card absent** ·
 H full scroll.
+
+# Full visual recolour + Higgsfield asset pass
+
+The all-dark Home was rejected. The structure stays (header → child filter → revolving
+Match/Training hero → Announcements → Latest News → Subscription → bottom nav); the
+visual system is rebuilt to the Calendar's: a light application frame, ONE strong forest
+feature, white cards.
+
+## Where forest was removed, and where it remains
+
+| Surface | Was | Now |
+|---|---|---|
+| Page | `surface.forest` | **`surface.page` (chalk)** — new token |
+| Header | forest tone | chalk tone (forest icons, ink text) |
+| Child chips | on forest | on chalk |
+| Hero | club-tinted forest + SVG ball | **photograph + controlled forest overlay** — the one forest feature |
+| Announcement / News / Subscription | `surface.forestRaised` | **`surface.card` (white) + hairline**, ink text |
+| Carousel dots | chalk | ink, active dot in the club's light-safe accent |
+| Bottom nav | dark forest | **unchanged**, dark forest |
+
+## The rugby ball
+
+`club-ball.tsx` **deleted** (`git rm`). Not resized, recoloured or moved; nothing draws
+another. `parent_home_experience` asserts the file is gone and that the hero contains
+no `ClubBall`, `<Ellipse`, `hoopPath` or ball asset.
+
+## Higgsfield — asset tool only
+
+CLI, workspace `7e45…0755`, model `flux_2` (1 credit / image). **17 credits spent, 3
+remain.** Every generation was reviewed by eye for: real rugby union (H posts, pitch),
+no malformed ball, no lettering, no fake crest/brand/sponsor, no faces as subject,
+negative space, portrait for heroes.
+
+| Generation | Verdict | Reason |
+|---|---|---|
+| hero-match-1 | rejected | readable sponsor boards, brand mark on post protectors, numbered shirts, faces |
+| hero-match-2 | rejected | clubhouse sponsor lettering, numbered shirts |
+| **hero-match-3** | **approved → `hero-match.jpg`** | posts sharp, everything human/textual blurred beyond reading, sky as negative space |
+| hero-training-1/2/3 | rejected | fake lettering / pseudo-brand on the ball; -2 malformed lacing |
+| hero-training-4 | rejected | emblem on the tackle bag |
+| hero-training-5 | rejected | mark on the sled pad; half a person cut at the frame edge |
+| **hero-training-6** | **approved → `hero-training.jpg`** | dusk, posts, clubhouse silhouette, drill cones, nothing legible |
+| news-matchday/-training/-community/-general (first set) | 4 × rejected | 3:2 not offered; re-run at 4:3 — protector/sponsor lettering, badges on pads, marked balls |
+| news-matchday-2 | rejected | faces toward camera, badge on post protector |
+| **news-community-2** | **approved → `rugby-community.jpg`** | golden-hour clubhouse, supporters from behind, plain railing |
+| **news-general-2** | **approved → `rugby-general.jpg`** | frost line, posts in mist; distant boards illegible |
+| **news-training-2** | **approved → `rugby-training.jpg`** | players from behind through floodlit mist |
+| **news-matchday-3** | **approved → `rugby-matchday.jpg`** | posts framing a huddle from behind, plain protectors |
+
+Stored under `apps/mobile/assets/editorial/` as JPEG (1.2 MB for six; each 127–266 KB),
+referenced ONLY from `src/components/home/editorial.ts` via `require()`, so they ship in
+the bundle (verified byte-for-byte in `expo export --platform ios`). Rejected files stay in
+the session scratchpad and are not in the repo. The Ovalball logo and every club crest
+were never requested from Higgsfield; the two protected root logo files are untouched.
+
+## Hero
+
+Photograph (`contentFit="cover"`, `contentPosition="top"`, `accessible={false}`) on a
+`heroBase` ground → vertical forest overlay (0.42 → 0.18 → 0.62 → 0.94 opacity, so the
+picture lives at the top and the words at the bottom) → a faint club-accent breath at
+the foot → native content: kind chip in `accents.highlight`, canonical `game_type` chip,
+crest on a chalk plate, `sideLabel` title / `vs` / team line, date, `timeLine()`, venue,
+`ChildMark`, "Availability needed" chip, and a **refined CTA**: chalk pill with forest
+ink (always safe on every club's photograph), not a painted club block. A kind with no
+artwork falls back to the tinted forest gradient rather than a broken image.
+
+## Cards
+
+`AnnouncementPreview`: white card, 4 px club rule (danger red for URGENT), priority + team
+in ink-muted, title/body in ink. `NewsCard`: image first (article's own → editorial
+fallback by category → forest tile), category dot in the club accent, title in ink.
+`SubscriptionStatusCard`: white; colour is the **state** (green / amber / red disc + chip),
+never the club. `SectionHeading` in ink, "View all" in forest.
+
+## Canonical club colours, and a new light-safe projection
+
+Still `club_kits` variant `primary` → `resolveClubTheme` → `clubAccentsOnDark`. New
+field **`highlightOnLight`**: the most chromatic kit colour darkened toward black until it
+stands ≥ 3:1 off white; a white kit gets forest. Tested for green/white/amber, white/yellow,
+navy/gold and sky-blue kits. Review club (`#14532d / #ffffff / #f59e0b`) → accent rule and
+dots in a darkened amber; highlight chip stays `#f59e0b`.
+
+## Domain unchanged
+
+No SQL, no migration, no loader change, no new read. `loadHomeSummary`, the projections,
+`listLiveClubNotices`, `listClubNews`, the subscription domain and `routeForAgendaItem`
+are exactly as banked in `93823cd`.
+
+## Proof
+
+`parent_home_experience` **39** (rewritten: chalk page, no ball, bundled artwork, light
+cards, refined CTA, light-safe accent); `parent_home` 42, `mobile_parent_shell` 30,
+`family_calendar` 54, `participant_match_card` 37, `match_centre_parent` 17,
+`participant_routing` 20 — **239 assertions, 0 failing**. Content-standard and
+availability guards pass. Both typechecks clean. `expo export --platform ios` succeeds
+with all six assets in the bundle. Not done: an on-device screenshot — the physical
+iPhone review is the owner's.

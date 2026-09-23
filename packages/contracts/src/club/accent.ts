@@ -58,6 +58,16 @@ export interface ClubAccents {
    */
   highlight: string
   onHighlight: string
+  /**
+   * THE SAME CHROMATIC ACCENT, SAFE ON A LIGHT CARD.
+   *
+   * The Home page is chalk and its cards are white; a club colour used there as a
+   * rule, a category dot or a pill must stand off white by at least 3:1, and a
+   * pale kit colour -- white, yellow, sky blue -- does not. So it is darkened
+   * toward the club's own colour until it does, and a club whose kit is white gets
+   * forest, which is the one accent every Ovalball surface may fall back to.
+   */
+  highlightOnLight: string
   /** A barely-there wash of the club's colour over forest, for a card's own surface. */
   wash: string
   /** A hairline of the club's colour, for an edge or a rule. */
@@ -113,6 +123,22 @@ function darkTint(ground: string, kitColour: string, t: number): string {
   return contrastRatio("#f8faf7", candidate) >= 4.5 ? candidate : ground
 }
 
+/**
+ * The most chromatic kit colour that can be made to stand 3:1 off a light ground
+ * by darkening it toward black -- or Ovalball forest where none of them can.
+ */
+function darkenOnto(kitColours: string[], ground: string): string {
+  const ordered = [...kitColours].sort((a, b) => saturation(b) - saturation(a))
+  for (const kit of ordered) {
+    if (lightness(kit) > 0.96) continue
+    for (let t = 0; t <= 0.7; t += 0.05) {
+      const candidate = mix(kit, "#000000", t)
+      if (contrastRatio(candidate, ground) >= 3) return candidate
+    }
+  }
+  return "#123d2c"
+}
+
 export function clubAccentsOnDark(theme: ClubTheme, ground: string): ClubAccents {
   const primary = liftOnto(theme.kit.primary, ground, MINIMUM_ON_DARK)
 
@@ -160,6 +186,10 @@ export function clubAccentsOnDark(theme: ClubTheme, ground: string): ClubAccents
   return {
     highlight,
     onHighlight: inkFor(highlight),
+    highlightOnLight: darkenOnto(
+      [theme.kit.accent, theme.kit.secondary, theme.kit.primary].filter((c): c is string => Boolean(c)),
+      "#ffffff"
+    ),
     source: theme.source,
     primary,
     secondary,

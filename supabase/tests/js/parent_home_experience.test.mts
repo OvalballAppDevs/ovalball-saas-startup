@@ -12,7 +12,7 @@
  */
 
 import assert from "node:assert/strict"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync, statSync } from "node:fs"
 import { test } from "node:test"
 
 import {
@@ -29,6 +29,7 @@ import {
   type AgendaItem,
   type AgendaSide,
 } from "@ovalball/contracts"
+import { contrastRatio } from "@ovalball/contracts/club/colour"
 
 import { routeForAgendaItem } from "../../../apps/mobile/src/links/destinations"
 
@@ -213,11 +214,30 @@ test("a club with no recorded kit gets Ovalball's own, and says so", () => {
   assert.ok(none.contrast.primaryOnDark >= 3)
 })
 
-test("every accent is a wash or a highlight — the page is never repainted", () => {
+test("the page is chalk, and the club is an accent on it — never the ground", () => {
   const home = readFileSync("apps/mobile/app/(tabs)/index.tsx", "utf8")
-  // The screen's own ground is Ovalball's forest, whatever the club wears.
-  assert.match(home, /backgroundColor: surface\.forest/)
+  // The screen's own ground is the app's light surface, whatever the club wears,
+  // and the header stands on it in its ordinary chalk tone.
+  assert.match(home, /backgroundColor: surface\.page/)
+  assert.ok(!/backgroundColor: surface\.forest\b/.test(home), "Home is painted forest again")
+  assert.ok(!/tone="forest"/.test(home), "the header is on the dark ground again")
   assert.ok(!/accents\.primary\s*\}\}\s*>\s*<ScrollView/.test(home), "the club's colour became the page")
+})
+
+test("a club's accent is made safe on a white card, not just on forest", () => {
+  // A white or yellow kit as a rule down a white notice would vanish; the
+  // projection darkens the club's own colour until it stands 3:1 off white.
+  for (const [p, sec, acc] of [
+    ["#14532d", "#ffffff", "#f59e0b"],
+    ["#ffffff", "#ffe600", null],
+    ["#1b2a5e", "#d4af37", null],
+    ["#87ceeb", "#ffffff", null],
+  ] as const) {
+    const a = accentsFor(p, sec, acc)
+    assert.ok(contrastRatio(a.highlightOnLight, "#ffffff") >= 3, `${p}: accent on white at ${contrastRatio(a.highlightOnLight, "#ffffff").toFixed(2)}:1`)
+  }
+  // And a club with no kit gets forest, the one accent every surface may fall to.
+  assert.equal(clubAccentsOnDark(resolveClubTheme(null), FOREST).highlightOnLight.length, 7)
 })
 
 // ------------------------------------------------------------ the membership
@@ -300,20 +320,46 @@ test("no fabricated club, news, announcement or membership text ships", () => {
   }
 })
 
-test("the ball is drawn from the club's colours, not fetched as an image", () => {
-  const ball = readFileSync("apps/mobile/src/components/home/club-ball.tsx", "utf8")
-  assert.match(ball, /accents\.primary/)
-  assert.match(ball, /accents\.secondary/)
-  for (const forbidden of ["Image", "require(", "https://", "uri:"]) {
-    assert.ok(!ball.includes(forbidden), `the ball reaches for an image: ${forbidden}`)
+test("there is no rugby ball on Home — not drawn, not resized, not moved", () => {
+  // The owner rejected the generated ball outright. It is gone, and nothing
+  // draws another: no ellipse, no ball component, no ball asset.
+  assert.ok(!existsSync("apps/mobile/src/components/home/club-ball.tsx"), "the ball component is back")
+  const hero = readFileSync("apps/mobile/src/components/home/rugby-hero.tsx", "utf8")
+  for (const forbidden of ["ClubBall", "club-ball", "<Ellipse", "hoopPath", "ball.png", "ball.jpg", "ball.svg"]) {
+    assert.ok(!hero.includes(forbidden), `the hero still has a ball: ${forbidden}`)
+  }
+  assert.ok(!existsSync("apps/mobile/assets/editorial/ball.jpg"))
+})
+
+test("the artwork is the app's own, bundled, and never fetched or invented in code", () => {
+  const editorial = readFileSync("apps/mobile/src/components/home/editorial.ts", "utf8")
+  for (const forbidden of ["https://", "uri:", "unsplash", "pexels", "placeholder.com"]) {
+    assert.ok(!editorial.includes(forbidden), `an editorial asset is fetched: ${forbidden}`)
+  }
+  // Every reference is a bundled file that actually exists and weighs something.
+  for (const file of editorial.matchAll(/require\("\.\.\/\.\.\/\.\.\/(assets\/editorial\/[a-z-]+\.jpg)"\)/g)) {
+    const path = `apps/mobile/${file[1]}`
+    assert.ok(existsSync(path), `${path} is referenced but not bundled`)
+    assert.ok(statSync(path).size > 20_000, `${path} is not a real photograph`)
+    assert.ok(statSync(path).size < 600_000, `${path} is too heavy for a phone bundle`)
+  }
+  // The two heroes and all four news fallbacks are wired, not left null.
+  assert.ok(!/heroMatch: null|heroTraining: null/.test(editorial), "a hero has no artwork")
+  for (const key of ["matchday", "training", "community", "general"]) {
+    assert.match(editorial, new RegExp(`${key}: require\\("\\.\\./\\.\\./\\.\\./assets/editorial/rugby-${key}\\.jpg"\\)`), `the ${key} news fallback is missing`)
+  }
+  // And none of it carries domain truth: no club, no crest, no kit, no fixture.
+  for (const forbidden of ["crest", "logo", "kit", "fixture", "club_", "Ovalball UAT"]) {
+    assert.ok(!editorial.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n").includes(forbidden), `editorial.ts reaches into the domain: ${forbidden}`)
   }
 })
 
-test("no stock photography stands in for a club's own news", () => {
+test("a news card shows the club's own photograph first, and an editorial one only in its absence", () => {
   const sections = readFileSync("apps/mobile/src/components/home/sections.tsx", "utf8")
   assert.match(sections, /article\.heroUrl \? \(/, "a news card has no branded fallback")
-  for (const forbidden of ["unsplash", "pexels", "placeholder.com"]) {
-    assert.ok(!sections.includes(forbidden))
+  assert.match(sections, /editorial\.news\.(matchday|training|community|general)/)
+  for (const forbidden of ["unsplash", "pexels", "placeholder.com", "https://"]) {
+    assert.ok(!sections.includes(forbidden), `sections fetch ${forbidden}`)
   }
 })
 
@@ -355,7 +401,7 @@ test("the review club resolves to its canonical kit, and the amber is what perso
   const a = accentsFor("#14532d", "#ffffff", "#f59e0b")
   assert.equal(a.source, "home-kit")
   // Its green primary lifts to near-white on forest, so the chromatic highlight
-  // -- the club's own amber -- is what the chips, the action and the ball use.
+  // -- the club's own amber -- is what the chips and the active dot use.
   assert.equal(a.highlight, "#f59e0b")
   assert.ok(a.contrast.onPrimary >= 4.5)
 })
@@ -385,18 +431,39 @@ test("the hero is at most one match and one session — never a carousel of fill
   assert.equal(projectHomeHero([event({ key: "only", date: "2026-10-03" })], FAMILY, TODAY).length, 1, "one thing coming is one page and no dots")
 })
 
-test("the ball is composed as a vector, whole, inside the card", () => {
-  const ball = readFileSync("apps/mobile/src/components/home/club-ball.tsx", "utf8")
-  assert.match(ball, /from "react-native-svg"/)
-  assert.match(ball, /<Ellipse/)
-  assert.match(ball, /hoopPath\(/, "the hoops are not clipped to the ball's own edge")
+test("the hero is a photograph beneath a controlled overlay, and the words are native", () => {
   const hero = readFileSync("apps/mobile/src/components/home/rugby-hero.tsx", "utf8")
-  assert.match(hero, /right: space\.md, bottom: space\.md/, "the ball is pushed off the card's edge again")
+  assert.match(hero, /editorial\.heroMatch : editorial\.heroTraining/, "the artwork is not chosen by kind")
+  assert.match(hero, /accessible=\{false\}/, "the artwork is announced as content")
+  assert.match(hero, /id="heroShade"/, "no controlled dark overlay")
+  assert.match(hero, /stopColor=\{colour\.forest950\}/, "the overlay is not forest")
+  // Every fact is text over the picture, never baked into it.
+  assert.match(hero, /\{heroKindLabel\(page\.kind\)\}/)
+  assert.match(hero, /<ClubCrest clubName=\{clubName\} url=\{crestUrl\}/)
+  assert.match(hero, /text=\{timeLine\(page\)\}/)
+  // A card that has no artwork falls back to the club-tinted forest, not a hole.
+  assert.match(hero, /stopColor=\{accents\.heroBase\}/)
 })
 
-test("every dark surface writes chalk, and no card is the raw kit colour", () => {
+test("the call to action is refined — chalk on the photograph, never a painted club button", () => {
+  const hero = readFileSync("apps/mobile/src/components/home/rugby-hero.tsx", "utf8")
+  const cta = hero.split("THE CALL TO ACTION")[1] ?? ""
+  assert.match(cta, /backgroundColor: colour\.chalk/)
+  assert.ok(!/backgroundColor: accents\.highlight/.test(cta.split("</Pressable>")[0]), "the action is the club's amber block again")
+  assert.match(cta, /color: colour\.forest800/)
+})
+
+test("announcements, news and the membership live on light cards with dark type", () => {
   const sections = readFileSync("apps/mobile/src/components/home/sections.tsx", "utf8")
-  assert.ok(!/backgroundColor: accents\.wash/.test(sections), "a section is painted in the wash")
-  assert.ok(!/backgroundColor: accents\.primary,\s*\n\s*alignItems: "center",\s*\n\s*justifyContent: "center" \}\}>\s*\n\s*<Megaphone/.test(sections), "the news fallback is still a flat block with a megaphone")
-  assert.match(sections, /backgroundColor: surface\.forestRaised/)
+  assert.match(sections, /backgroundColor: surface\.card/)
+  for (const dark of ["surface.forestRaised", "surface.forest,", "onForest.primary", "accents.wash", "accents.heroBase"]) {
+    assert.ok(!sections.includes(dark), `a section is still on the dark ground: ${dark}`)
+  }
+  assert.match(sections, /color: colour\.ink\b/)
+  // The club's colour is a rule and a dot, sized in single digits.
+  assert.match(sections, /width: 4, backgroundColor: rule/)
+  assert.match(sections, /width: 6, height: 6, borderRadius: 3, backgroundColor: accents\.highlightOnLight/)
+  // The membership's colour is its state, never the club.
+  const membership = sections.split("export function SubscriptionStatusCard")[1] ?? ""
+  assert.ok(!/accents\./.test(membership.split("const card =")[0]), "the membership card is painted in club colours")
 })

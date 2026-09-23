@@ -18,10 +18,9 @@ import { useFamily } from "../../src/family/family"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { RugbyHero } from "../../src/components/home/rugby-hero"
 import { AnnouncementPreview, NewsRail, SubscriptionStatusCard } from "../../src/components/home/sections"
-import { ClubAccentEdge } from "../../src/components/home/club-ball"
 import { Button, Card, CardSkeleton, EmptyState, ErrorState } from "../../src/components/ui"
 import { ExternalLink, OvalIcon } from "../../src/components/icons"
-import { colour, onForest, space, surface, type } from "../../src/design/tokens"
+import { colour, space, surface, type } from "../../src/design/tokens"
 
 /**
  * PARENT HOME — what do I need to know now.
@@ -108,16 +107,24 @@ export default function Home() {
   )
 
   return (
-    <View style={{ flex: 1, backgroundColor: surface.forest }}>
-      <AppHeader onOpenContexts={() => setSheetOpen(true)} tone="forest" bottomRule={false} />
+    /*
+      A LIGHT APPLICATION SHELL. The page is chalk and the header stands on it,
+      exactly as the Calendar's sheet and the rest of the product do. Forest is
+      the signature -- the hero's feature ground, the active tab, the icons -- and
+      a signature keeps its force by not being written over every inch of the
+      page. The previous build was forest on forest on forest; this is the same
+      application the Calendar belongs to.
+    */
+    <View style={{ flex: 1, backgroundColor: surface.page }}>
+      <AppHeader onOpenContexts={() => setSheetOpen(true)} />
 
       <ScrollView
         contentContainerStyle={{ paddingTop: space.md, paddingBottom: insets.bottom + space.xxl, gap: space.xl }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.pitch400} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.forest800} />}
         showsVerticalScrollIndicator={false}
       >
         {/* The family chips, where there is a family to choose between. */}
-        <ChildFilter style={{ paddingHorizontal: space.lg }} tone="forest" />
+        <ChildFilter style={{ paddingHorizontal: space.lg }} />
 
         {error && (
           <View style={{ paddingHorizontal: space.lg }}>
@@ -216,7 +223,6 @@ export default function Home() {
             {/* The club's own colours as a quiet rule, and the honest handoff for
                 what the app does not hold yet. */}
             <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
-              <ClubAccentEdge accents={summary.accents} />
               <Card onPress={() => void Linking.openURL(webUrl)} accessibilityLabel="Open Ovalball on the web">
                 <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
                   <ExternalLink size={20} color={colour.forest800} />

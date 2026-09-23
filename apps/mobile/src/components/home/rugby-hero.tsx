@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native"
+import { Image } from "expo-image"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 
 import {
@@ -10,28 +11,35 @@ import {
   type HeroPage,
 } from "@ovalball/contracts"
 
-import { ClubBall } from "./club-ball"
+import { editorial } from "./editorial"
 import { ChildMark } from "../child-mark"
 import { ClubCrest } from "../identity"
 import { CalendarDays, ChevronRight, Clock, MapPin, Users } from "../icons"
 import { TOUCH_TARGET, colour, onForest, radius, space, type } from "../../design/tokens"
 
 /**
- * WHAT IS NEXT FOR THIS FAMILY — the strongest thing on Parent Home.
+ * WHAT IS NEXT FOR THIS FAMILY — the one dark feature on a light Home.
  *
- * A HERO, NOT A BILLBOARD. It carries what a parent is planning around -- who,
- * when, where, and whether they still owe an answer -- and then stops, so that the
- * club's announcement beneath it is on the same screen. The old Home led with a
- * greeting and a plain "Next Up" row; this leads with the rugby.
+ * THE FOREST IS A FEATURE HERE, NOT THE PAGE. Home is chalk, its cards are white,
+ * and this is the single place the brand ground appears: the same shape the
+ * Calendar makes with its forest plate above a white sheet, so the two screens
+ * read as one product. Everything else on Home is quiet so that this can be loud.
+ *
+ * A PHOTOGRAPH, NOT A DRAWING. The ground is an editorial photograph of rugby
+ * union -- posts, a pitch, an evening -- owned by the app and bundled with it,
+ * chosen once per kind of event. It carries no words, no crest and no face, so
+ * nothing in it can contradict the canonical facts laid over it: the sides, the
+ * crest, the kick-off and the ground all come from the same projection as the
+ * Calendar's card. A card that has no artwork yet (a kind not yet approved) gets
+ * the club-tinted forest instead of a broken picture.
+ *
+ * THE OVERLAY IS CONTROLLED, not a mood. It darkens toward the bottom, where the
+ * words are, and lifts toward the top, where the picture is, and the chalk type
+ * reads at every point over it. The club is present as an ACCENT -- the kind
+ * chip, the availability chip, the active dot -- never as the ground.
  *
  * SWIPED, NEVER SPUN. The next match and the next session are both worth a page,
- * and a parent reading one must not have it taken away mid-sentence, so nothing
- * auto-rotates. The dots say there is more and the gesture is the ordinary one.
- *
- * EVERY WORD IS CANONICAL. The sides, the crests, the kick-off, the meet time, the
- * ground and the classification all come from `projectParticipantMatch` -- the same
- * projection behind the Calendar's card -- so the hero cannot say a different
- * kick-off from the card two taps away. Training comes from its twin.
+ * and a parent reading one must not have it taken away mid-sentence.
  *
  * THE WHOLE CARD IS THE ACTION. One target, one destination, and it names it:
  * "View Match Centre" for a parent, never a fixture console.
@@ -83,7 +91,8 @@ export function RugbyHero({
         ))}
       </ScrollView>
 
-      {/* ONE DOT PER PAGE, and none at all for a family with one thing on. */}
+      {/* ONE DOT PER PAGE, and none at all for a family with one thing on. On the
+          chalk page the resting dots are ink, and the active one is the club. */}
       {pages.length > 1 && (
         <View
           accessible
@@ -97,7 +106,8 @@ export function RugbyHero({
                 width: i === index ? 18 : 6,
                 height: 6,
                 borderRadius: 3,
-                backgroundColor: i === index ? accents.highlight : onForest.faint,
+                backgroundColor: i === index ? accents.highlightOnLight : colour.inkSubtle,
+                opacity: i === index ? 1 : 0.4,
               }}
             />
           ))}
@@ -106,6 +116,9 @@ export function RugbyHero({
     </View>
   )
 }
+
+/** The hero stands this tall so the photograph has room above the words. */
+export const HERO_HEIGHT = 348
 
 function HeroCard({
   page,
@@ -125,12 +138,11 @@ function HeroCard({
   const match = page.match
   const training = page.training
   const child = match?.child ?? training?.child ?? null
+  const artwork = page.kind === "match" ? editorial.heroMatch : editorial.heroTraining
 
   /*
     ONE IDENTITY, SAID ONCE. A match is "home side / vs away side / our team". A
-    session is "Training / our team". The first version put the team on the title
-    line AND on the line beneath it for training, so the card read "Training /
-    Under 12 Boys / Under 12 Boys". Each line now carries a different fact.
+    session is "Training / our team". Each line carries a different fact.
   */
   const title = match ? sideLabel(match.home) : "Training"
   const subtitle = match ? `vs ${sideLabel(match.away)}` : null
@@ -145,41 +157,57 @@ function HeroCard({
       onPress={onPress}
       style={({ pressed }) => ({
         width,
+        height: HERO_HEIGHT,
         borderRadius: 22,
         overflow: "hidden",
         backgroundColor: accents.heroBase,
-        borderWidth: 1,
-        borderColor: accents.edge,
         opacity: pressed ? 0.95 : 1,
       })}
     >
-      {/* THE GROUND: forest pulled toward the club's own kit colour and kept
-          dark, deepening toward the corner the ball sits in. Chalk text reads on
-          every point of it by construction -- the projection clamps the tint
-          before it could ever lighten past 4.5:1. This replaces a pale-grey
-          rectangle that white text could not be read on. */}
-      <Svg style={{ position: "absolute", inset: 0 }} width="100%" height="100%">
+      {/* THE ARTWORK, decorative by declaration: the words over it say
+          everything a screen reader needs, and the picture says nothing that
+          could be wrong. Cropped to keep the sky, where the negative space is. */}
+      {artwork ? (
+        <Image
+          source={artwork}
+          accessible={false}
+          contentFit="cover"
+          contentPosition="top"
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+      ) : (
+        <Svg style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">
+          <Defs>
+            <LinearGradient id="heroGround" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={accents.heroBase} />
+              <Stop offset="1" stopColor={accents.heroDeep} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroGround)" />
+        </Svg>
+      )}
+
+      {/* THE OVERLAY. A transparent forest that thins where the picture lives
+          and deepens where the words do; the club's accent breathes in at the
+          foot, faintly, so the card is the club's without being painted in it. */}
+      <Svg style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">
         <Defs>
-          <LinearGradient id="heroGround" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={accents.heroBase} />
-            <Stop offset="1" stopColor={accents.heroDeep} />
+          <LinearGradient id="heroShade" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={colour.forest950} stopOpacity="0.42" />
+            <Stop offset="0.38" stopColor={colour.forest950} stopOpacity="0.18" />
+            <Stop offset="0.62" stopColor={colour.forest950} stopOpacity="0.62" />
+            <Stop offset="1" stopColor={colour.forest950} stopOpacity="0.94" />
           </LinearGradient>
-          <LinearGradient id="heroGlow" x1="1" y1="1" x2="0" y2="0">
-            <Stop offset="0" stopColor={accents.highlight} stopOpacity="0.22" />
-            <Stop offset="0.55" stopColor={accents.highlight} stopOpacity="0" />
+          <LinearGradient id="heroAccent" x1="0" y1="1" x2="0" y2="0">
+            <Stop offset="0" stopColor={accents.highlight} stopOpacity="0.16" />
+            <Stop offset="0.3" stopColor={accents.highlight} stopOpacity="0" />
           </LinearGradient>
         </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroGround)" />
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroGlow)" />
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroShade)" />
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroAccent)" />
       </Svg>
 
-      {/* THE CLUB'S OWN BALL, whole and composed into the corner rather than
-          escaping it -- drawn from their canonical kit colours, never an image. */}
-      <View style={{ position: "absolute", right: space.md, bottom: space.md, opacity: 0.92 }}>
-        <ClubBall accents={accents} size={124} />
-      </View>
-
-      <View style={{ padding: space.lg, gap: space.md }}>
+      <View style={{ flex: 1, padding: space.lg, justifyContent: "space-between" }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
           <View
             style={{
@@ -210,6 +238,7 @@ function HeroCard({
                 paddingHorizontal: space.md,
                 paddingVertical: 5,
                 borderRadius: radius.pill,
+                backgroundColor: "rgba(7,28,20,0.45)",
                 borderWidth: 1,
                 borderColor: onForest.line,
               }}
@@ -221,89 +250,94 @@ function HeroCard({
           )}
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, paddingRight: 96 }}>
-          {/* THE CREST ON A PLATE, so it holds its own colours whatever the
-              hero's tint is -- a crest drawn straight onto dark forest loses its
-              dark quarters. The canonical resolver decides what it is. */}
-          <View
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 14,
-              backgroundColor: colour.chalk,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <ClubCrest clubName={clubName} url={crestUrl} size={40} />
-          </View>
-          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <Text numberOfLines={2} style={[type.title, { color: onForest.primary, fontSize: 22, lineHeight: 26 }]}>
-              {title}
-            </Text>
-            {!!subtitle && (
-              <Text numberOfLines={2} style={[type.bodyMedium, { color: onForest.primary, fontSize: 15 }]}>
-                {subtitle}
+        <View style={{ gap: space.md }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            {/* THE CREST ON A PLATE, so it holds its own colours whatever the
+                photograph beneath it is doing. The canonical resolver decides
+                what it is. */}
+            <View
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 14,
+                backgroundColor: colour.chalk,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ClubCrest clubName={clubName} url={crestUrl} size={40} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <Text numberOfLines={2} style={[type.title, { color: onForest.primary, fontSize: 22, lineHeight: 26 }]}>
+                {title}
               </Text>
-            )}
-            {!!teamLine && (
-              <Text numberOfLines={1} style={[type.small, { color: onForest.secondary }]}>
-                {teamLine}
-              </Text>
-            )}
-          </View>
-        </View>
-
-        <View style={{ gap: space.xs }}>
-          <Fact icon={<CalendarDays size={15} color={onForest.secondary} />} text={longDate(page.item.date)} />
-          {/* THE SAME TRUTH, THE RIGHT WORDS. A match KICKS OFF and has a MEET
-              time; a session STARTS and, where a club has set one, has an arrival
-              time. The first version put "KO 18:00 | 18:00" on a training card,
-              which is what happens when two presentations share a label as
-              carelessly as they share a model. */}
-          <Fact icon={<Clock size={15} color={onForest.secondary} />} text={timeLine(page)} />
-          {!!(match?.venue ?? training?.venue) && (
-            <Fact icon={<MapPin size={15} color={onForest.secondary} />} text={(match?.venue ?? training?.venue)!} />
-          )}
-        </View>
-
-        {/* WHOSE RUGBY, where a family has more than one child to tell apart. */}
-        {!!child && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingRight: 96 }}>
-            <ChildMark member={child} size={22} tone="forest" />
-            {/* THE ANSWER, ASKED WHERE THE EVENT IS. "Here is your next training --
-                tell us if Ava can attend" beats an abstract task somewhere else. */}
-            {page.needsAnswer && (
-              <View
-                style={{
-                  paddingHorizontal: space.md,
-                  paddingVertical: 4,
-                  borderRadius: radius.pill,
-                  backgroundColor: accents.highlight,
-                }}
-              >
-                <Text style={[type.caption, { color: accents.onHighlight, fontFamily: "Inter_600SemiBold" }]}>
-                  Availability needed
+              {!!subtitle && (
+                <Text numberOfLines={2} style={[type.bodyMedium, { color: onForest.primary, fontSize: 15 }]}>
+                  {subtitle}
                 </Text>
-              </View>
+              )}
+              {!!teamLine && (
+                <Text numberOfLines={1} style={[type.small, { color: onForest.secondary }]}>
+                  {teamLine}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          <View style={{ gap: space.xs }}>
+            <Fact icon={<CalendarDays size={15} color={onForest.secondary} />} text={longDate(page.item.date)} />
+            {/* THE SAME TRUTH, THE RIGHT WORDS. A match KICKS OFF and has a MEET
+                time; a session STARTS and, where a club has set one, has an
+                arrival time. */}
+            <Fact icon={<Clock size={15} color={onForest.secondary} />} text={timeLine(page)} />
+            {!!(match?.venue ?? training?.venue) && (
+              <Fact icon={<MapPin size={15} color={onForest.secondary} />} text={(match?.venue ?? training?.venue)!} />
             )}
           </View>
-        )}
 
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            alignSelf: "flex-start",
-            gap: 6,
-            minHeight: TOUCH_TARGET - 8,
-            paddingHorizontal: space.lg,
-            borderRadius: radius.pill,
-            backgroundColor: accents.highlight,
-          }}
-        >
-          <Text style={[type.smallMedium, { color: accents.onHighlight }]}>{heroActionLabel(page.kind)}</Text>
-          <ChevronRight size={16} color={accents.onHighlight} strokeWidth={2.4} />
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
+            {/* WHOSE RUGBY, where a family has more than one child to tell
+                apart -- and the answer asked where the event is. */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexShrink: 1 }}>
+              {!!child && <ChildMark member={child} size={22} tone="forest" />}
+              {page.needsAnswer && (
+                <View
+                  style={{
+                    paddingHorizontal: space.md,
+                    paddingVertical: 4,
+                    borderRadius: radius.pill,
+                    backgroundColor: accents.highlight,
+                  }}
+                >
+                  <Text numberOfLines={1} style={[type.caption, { color: accents.onHighlight, fontFamily: "Inter_600SemiBold" }]}>
+                    Availability needed
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* THE CALL TO ACTION, refined: a chalk pill with forest ink, which
+                reads on every club's photograph and every club's tint. The
+                club's colour is spent on the chips above it, not on a large
+                painted button. */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                minHeight: TOUCH_TARGET - 10,
+                paddingLeft: space.lg,
+                paddingRight: space.md,
+                borderRadius: radius.pill,
+                backgroundColor: colour.chalk,
+              }}
+            >
+              <Text numberOfLines={1} style={[type.smallMedium, { color: colour.forest800 }]}>
+                {heroActionLabel(page.kind)}
+              </Text>
+              <ChevronRight size={16} color={colour.forest800} strokeWidth={2.4} />
+            </View>
+          </View>
         </View>
       </View>
     </Pressable>
@@ -345,4 +379,3 @@ function longDate(iso: string): string {
   const at = new Date(Date.UTC(y, m - 1, d, 12))
   return `${DAYS[at.getUTCDay()]} ${d} ${MONTHS[m - 1]} ${y}`
 }
-
