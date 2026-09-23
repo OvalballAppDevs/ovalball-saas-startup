@@ -140,3 +140,79 @@ no chip.
 Fixtures still uses the old row (the expanded match variant is modelled and
 unimplemented). Match Centre keeps its older treatment. The hero's date formatter
 is local to the component and could join the shared presentation module.
+
+---
+
+# Visual correction — why the device looked nothing like the reference
+
+## Root cause of the pale-grey hero (and every grey card)
+
+Two defects compounding:
+
+1. **`mix(a, b, t)` weights `b` by `t`.** I wrote `mix(primary, ground, 0.08)`
+   meaning "8 % club colour over forest". It meant **92 % club colour, 8 % forest**.
+   Every card surface (`wash`) was therefore almost the raw accent.
+2. **This club's canonical primary is `#14532d`** — a dark green almost identical
+   to Ovalball forest. To make it *visible* on forest the projection lifts it toward
+   white, landing on `#ecf1ee`. 92 % of that is a pale grey card.
+
+Then chalk text was written on it → the "disabled / unloaded" look. The announcement,
+news and subscription cards all used the same `wash`, so the whole page went grey.
+
+## Canonical club colours resolved (Ovalball UAT RUFC, `club_kits` variant `primary`)
+
+| Canonical | Value | Projected on forest | Used for |
+|---|---|---|---|
+| primary | `#14532d` (green) | lifted to `#ecf1ee` | ball body, edge tint, crest plate ground |
+| secondary | `#ffffff` | `#ffffff` | ball seam ink |
+| accent | `#f59e0b` (amber) | **`highlight` = `#f59e0b`** | kind chip, action pill, dots, ball hoops, announcement edge, news bars |
+| hero ground | forest + 22 % raw primary, clamped | `#0a281a` → `#082217` | the hero gradient — **chalk reads at 15.0:1** |
+
+The kit is **green / white / amber, not navy / gold** — the mock-up's palette was the
+illustrator's, not the club's. The amber is what personalises the page; a new
+`highlight` picks the more chromatic visible accent so a club whose primary
+disappears into forest still reads as itself.
+
+## Corrections
+
+- **Hero**: dark club-tinted SVG gradient (`heroBase` → `heroDeep`) with an amber glow
+  in the ball's corner; crest on a chalk plate so its own colours survive; text never
+  on a light ground. `darkTint` refuses to lighten the ground past 4.5:1 for chalk — tested
+  for green, white, navy and near-black kits.
+- **Training words**: `timeLine()` — a match says `KO 10:30 · Meet 09:45`; a session
+  says `18:00–19:30`, or `Starts 18:00`. No KO on any training path (tested).
+- **Duplicate U12**: training subtitle removed; each line carries one fact.
+- **Ball**: rewritten in `react-native-svg` — ellipse, shaded lower half, hoops cut to
+  the ball's edge, seam and laces — sitting whole at the card's inner corner.
+- **Carousel**: capped at one match + one training. Four dots were four real events;
+  the extra two were a list, and lists are Fixtures/Calendar.
+- **Announcement / news / subscription**: `surface.forestRaised` (one step up from
+  the page) with chalk text; club amber only as the edge, icon and bars. News
+  fallback is now a designed dark tile with the club's two bars and the category,
+  not a grey block with a megaphone.
+
+## Avatar — traced again, live, as the signed-in guardian
+
+| | Who | `avatar_storage_path` |
+|---|---|---|
+| Top-left header | **Ffion Meredith** (`uat.manyhats`, the guardian) | `…/avatar-1790149260277.jpg` (public `avatars`) |
+| Participant "Ava" | **Ava Whitaker**, a child player, no login | **NULL** |
+| `player-avatars` bucket | | **0 objects** |
+
+**Different people.** The header title says "Ava Whitaker" because a parent context is
+named after its child; the photograph is the adult beside it. Ava has no player
+photo anywhere, so initials are correct on every player surface. Nothing was copied.
+
+## Proof
+
+105 suites, **1132 assertions, 0 failing** (`parent_home_experience` now 36, eight of
+them pinning these corrections). Both typechecks clean; iOS bundle exports. **No SQL,
+no migration**, no authority code touched — no RED re-run needed.
+
+## Screens ready for the physical device
+
+A Training hero (23 Sep) · B Match hero (25 Sep, away; 2 Oct, home) · C swipe between
+them with two dots · D the car-park announcement · E news with image — **none
+published, so not reproducible** · F news fallback — likewise not reproducible until an
+article is published · G subscription — **no programme at this club, card absent** ·
+H full scroll.

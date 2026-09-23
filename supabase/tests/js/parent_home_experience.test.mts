@@ -323,3 +323,80 @@ test("the header still shows the signed-in person, not the selected child", () =
   const home = readFileSync("apps/mobile/app/(tabs)/index.tsx", "utf8")
   assert.ok(!/person\.avatarUrl/.test(home), "Home reaches past the header for an identity")
 })
+
+// -------------------------------------------- the visual correction, pinned
+
+test("the hero ground is dark, and chalk text reads on it for every kit", () => {
+  // The rejected build painted the hero the lifted kit colour -- pale grey -- and
+  // wrote white on it. The ground is now forest tinted toward the club and
+  // clamped dark; the projection measures chalk on it and refuses to lighten past
+  // 4.5:1, whatever the kit is.
+  for (const [p, sec, acc] of [
+    ["#14532d", "#ffffff", "#f59e0b"], // the review club: green / white / amber
+    ["#ffffff", "#ffe600", null],       // a white kit, the case that broke
+    ["#1b2a5e", "#d4af37", null],
+    ["#0a0a0a", "#111111", null],
+  ] as const) {
+    const a = accentsFor(p, sec, acc)
+    assert.ok(a.contrast.chalkOnHero >= 4.5, `${p}: chalk on hero at ${a.contrast.chalkOnHero.toFixed(2)}:1`)
+    assert.ok(a.heroBase !== a.primary, `${p}: the hero ground is the raw accent again`)
+  }
+})
+
+test("a wash is eight per cent club colour over forest, not ninety-two", () => {
+  // `mix(a, b, t)` is t of b. The first build had the arguments reversed.
+  const a = accentsFor("#ffffff", "#ffe600")
+  assert.ok(a.contrast.chalkOnHero >= 4.5)
+  const washLightness = parseInt(a.wash.slice(1, 3), 16)
+  assert.ok(washLightness < 0x40, `a white club's wash is ${a.wash} -- that is a pale card again`)
+})
+
+test("the review club resolves to its canonical kit, and the amber is what personalises it", () => {
+  const a = accentsFor("#14532d", "#ffffff", "#f59e0b")
+  assert.equal(a.source, "home-kit")
+  // Its green primary lifts to near-white on forest, so the chromatic highlight
+  // -- the club's own amber -- is what the chips, the action and the ball use.
+  assert.equal(a.highlight, "#f59e0b")
+  assert.ok(a.contrast.onPrimary >= 4.5)
+})
+
+test("training never kicks off, and a match never merely starts", () => {
+  const hero = readFileSync("apps/mobile/src/components/home/rugby-hero.tsx", "utf8")
+  assert.match(hero, /function timeLine\(page: HeroPage\)/)
+  assert.match(hero, /if \(page\.kind === "match"\) \{\s*\n\s*return \[start \? `KO \$\{start\}`/)
+  assert.match(hero, /return start \? `Starts \$\{start\}` : "Time to be confirmed"/)
+  // No "KO" on any code path that a session can reach.
+  const training = hero.split('if (page.kind === "match")')[1]?.split("}")[1] ?? ""
+  assert.ok(!/KO /.test(training), "a training card can still say KO")
+})
+
+test("the training hero says the team once", () => {
+  const hero = readFileSync("apps/mobile/src/components/home/rugby-hero.tsx", "utf8")
+  assert.match(hero, /const subtitle = match \? `vs \$\{sideLabel\(match\.away\)\}` : null/)
+})
+
+test("the hero is at most one match and one session — never a carousel of filler", () => {
+  assert.equal(MAX_HERO_PAGES, 2)
+  const pages = projectHomeHero(
+    [event({ key: "m1", date: "2026-10-03" }), event({ key: "m2", date: "2026-10-04" }), session({ key: "s", date: "2026-10-06" }), session({ key: "s2", date: "2026-10-08" })],
+    FAMILY, TODAY
+  )
+  assert.deepEqual(pages.map((p) => p.key), ["m1", "s"])
+  assert.equal(projectHomeHero([event({ key: "only", date: "2026-10-03" })], FAMILY, TODAY).length, 1, "one thing coming is one page and no dots")
+})
+
+test("the ball is composed as a vector, whole, inside the card", () => {
+  const ball = readFileSync("apps/mobile/src/components/home/club-ball.tsx", "utf8")
+  assert.match(ball, /from "react-native-svg"/)
+  assert.match(ball, /<Ellipse/)
+  assert.match(ball, /hoopPath\(/, "the hoops are not clipped to the ball's own edge")
+  const hero = readFileSync("apps/mobile/src/components/home/rugby-hero.tsx", "utf8")
+  assert.match(hero, /right: space\.md, bottom: space\.md/, "the ball is pushed off the card's edge again")
+})
+
+test("every dark surface writes chalk, and no card is the raw kit colour", () => {
+  const sections = readFileSync("apps/mobile/src/components/home/sections.tsx", "utf8")
+  assert.ok(!/backgroundColor: accents\.wash/.test(sections), "a section is painted in the wash")
+  assert.ok(!/backgroundColor: accents\.primary,\s*\n\s*alignItems: "center",\s*\n\s*justifyContent: "center" \}\}>\s*\n\s*<Megaphone/.test(sections), "the news fallback is still a flat block with a megaphone")
+  assert.match(sections, /backgroundColor: surface\.forestRaised/)
+})

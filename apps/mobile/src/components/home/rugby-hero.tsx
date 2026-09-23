@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native"
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 
 import {
   heroActionLabel,
@@ -13,7 +14,7 @@ import { ClubBall } from "./club-ball"
 import { ChildMark } from "../child-mark"
 import { ClubCrest } from "../identity"
 import { CalendarDays, ChevronRight, Clock, MapPin, Users } from "../icons"
-import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../../design/tokens"
+import { TOUCH_TARGET, colour, onForest, radius, space, type } from "../../design/tokens"
 
 /**
  * WHAT IS NEXT FOR THIS FAMILY — the strongest thing on Parent Home.
@@ -96,7 +97,7 @@ export function RugbyHero({
                 width: i === index ? 18 : 6,
                 height: 6,
                 borderRadius: 3,
-                backgroundColor: i === index ? accents.primary : onForest.faint,
+                backgroundColor: i === index ? accents.highlight : onForest.faint,
               }}
             />
           ))}
@@ -125,8 +126,14 @@ function HeroCard({
   const training = page.training
   const child = match?.child ?? training?.child ?? null
 
+  /*
+    ONE IDENTITY, SAID ONCE. A match is "home side / vs away side / our team". A
+    session is "Training / our team". The first version put the team on the title
+    line AND on the line beneath it for training, so the card read "Training /
+    Under 12 Boys / Under 12 Boys". Each line now carries a different fact.
+  */
   const title = match ? sideLabel(match.home) : "Training"
-  const subtitle = match ? `vs ${sideLabel(match.away)}` : training?.teamName
+  const subtitle = match ? `vs ${sideLabel(match.away)}` : null
   const teamLine = match ? (match.home?.isOurs ? match.home.teamName : match.away?.teamName) : training?.teamName
 
   return (
@@ -140,16 +147,36 @@ function HeroCard({
         width,
         borderRadius: 22,
         overflow: "hidden",
-        backgroundColor: accents.wash,
+        backgroundColor: accents.heroBase,
         borderWidth: 1,
         borderColor: accents.edge,
         opacity: pressed ? 0.95 : 1,
       })}
     >
-      {/* THE CLUB'S OWN BALL, drawn from their canonical kit colours rather than
-          an image somebody made. It sits behind the facts and never over them. */}
-      <View style={{ position: "absolute", right: -26, bottom: -18 }}>
-        <ClubBall accents={accents} size={168} />
+      {/* THE GROUND: forest pulled toward the club's own kit colour and kept
+          dark, deepening toward the corner the ball sits in. Chalk text reads on
+          every point of it by construction -- the projection clamps the tint
+          before it could ever lighten past 4.5:1. This replaces a pale-grey
+          rectangle that white text could not be read on. */}
+      <Svg style={{ position: "absolute", inset: 0 }} width="100%" height="100%">
+        <Defs>
+          <LinearGradient id="heroGround" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={accents.heroBase} />
+            <Stop offset="1" stopColor={accents.heroDeep} />
+          </LinearGradient>
+          <LinearGradient id="heroGlow" x1="1" y1="1" x2="0" y2="0">
+            <Stop offset="0" stopColor={accents.highlight} stopOpacity="0.22" />
+            <Stop offset="0.55" stopColor={accents.highlight} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroGround)" />
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroGlow)" />
+      </Svg>
+
+      {/* THE CLUB'S OWN BALL, whole and composed into the corner rather than
+          escaping it -- drawn from their canonical kit colours, never an image. */}
+      <View style={{ position: "absolute", right: space.md, bottom: space.md, opacity: 0.92 }}>
+        <ClubBall accents={accents} size={124} />
       </View>
 
       <View style={{ padding: space.lg, gap: space.md }}>
@@ -162,15 +189,15 @@ function HeroCard({
               paddingHorizontal: space.md,
               paddingVertical: 5,
               borderRadius: radius.pill,
-              backgroundColor: accents.primary,
+              backgroundColor: accents.highlight,
             }}
           >
             {page.kind === "training" ? (
-              <Users size={12} color={accents.onPrimary} strokeWidth={2.4} />
+              <Users size={12} color={accents.onHighlight} strokeWidth={2.4} />
             ) : (
-              <CalendarDays size={12} color={accents.onPrimary} strokeWidth={2.4} />
+              <CalendarDays size={12} color={accents.onHighlight} strokeWidth={2.4} />
             )}
-            <Text style={[type.caption, { color: accents.onPrimary, fontSize: 10, letterSpacing: 0.8 }]}>
+            <Text style={[type.caption, { color: accents.onHighlight, fontSize: 10, letterSpacing: 0.8 }]}>
               {heroKindLabel(page.kind)}
             </Text>
           </View>
@@ -194,8 +221,22 @@ function HeroCard({
           )}
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.md }}>
-          {!!crestUrl && <ClubCrest clubName={clubName} url={crestUrl} size={44} />}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, paddingRight: 96 }}>
+          {/* THE CREST ON A PLATE, so it holds its own colours whatever the
+              hero's tint is -- a crest drawn straight onto dark forest loses its
+              dark quarters. The canonical resolver decides what it is. */}
+          <View
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 14,
+              backgroundColor: colour.chalk,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <ClubCrest clubName={clubName} url={crestUrl} size={40} />
+          </View>
           <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
             <Text numberOfLines={2} style={[type.title, { color: onForest.primary, fontSize: 22, lineHeight: 26 }]}>
               {title}
@@ -215,18 +256,12 @@ function HeroCard({
 
         <View style={{ gap: space.xs }}>
           <Fact icon={<CalendarDays size={15} color={onForest.secondary} />} text={longDate(page.item.date)} />
-          <Fact
-            icon={<Clock size={15} color={onForest.secondary} />}
-            text={
-              [
-                page.item.time ? `KO ${page.item.time.slice(0, 5)}` : null,
-                training?.window ?? (training?.start ? training.start : null),
-                page.item.meetTime ? `Meet ${page.item.meetTime.slice(0, 5)}` : null,
-              ]
-                .filter(Boolean)
-                .join("  |  ") || "Time to be confirmed"
-            }
-          />
+          {/* THE SAME TRUTH, THE RIGHT WORDS. A match KICKS OFF and has a MEET
+              time; a session STARTS and, where a club has set one, has an arrival
+              time. The first version put "KO 18:00 | 18:00" on a training card,
+              which is what happens when two presentations share a label as
+              carelessly as they share a model. */}
+          <Fact icon={<Clock size={15} color={onForest.secondary} />} text={timeLine(page)} />
           {!!(match?.venue ?? training?.venue) && (
             <Fact icon={<MapPin size={15} color={onForest.secondary} />} text={(match?.venue ?? training?.venue)!} />
           )}
@@ -234,8 +269,8 @@ function HeroCard({
 
         {/* WHOSE RUGBY, where a family has more than one child to tell apart. */}
         {!!child && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-            <ChildMark member={child} size={22} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingRight: 96 }}>
+            <ChildMark member={child} size={22} tone="forest" />
             {/* THE ANSWER, ASKED WHERE THE EVENT IS. "Here is your next training --
                 tell us if Ava can attend" beats an abstract task somewhere else. */}
             {page.needsAnswer && (
@@ -244,10 +279,10 @@ function HeroCard({
                   paddingHorizontal: space.md,
                   paddingVertical: 4,
                   borderRadius: radius.pill,
-                  backgroundColor: accents.secondary,
+                  backgroundColor: accents.highlight,
                 }}
               >
-                <Text style={[type.caption, { color: accents.onPrimary, fontFamily: "Inter_600SemiBold" }]}>
+                <Text style={[type.caption, { color: accents.onHighlight, fontFamily: "Inter_600SemiBold" }]}>
                   Availability needed
                 </Text>
               </View>
@@ -264,11 +299,11 @@ function HeroCard({
             minHeight: TOUCH_TARGET - 8,
             paddingHorizontal: space.lg,
             borderRadius: radius.pill,
-            backgroundColor: accents.primary,
+            backgroundColor: accents.highlight,
           }}
         >
-          <Text style={[type.smallMedium, { color: accents.onPrimary }]}>{heroActionLabel(page.kind)}</Text>
-          <ChevronRight size={16} color={accents.onPrimary} strokeWidth={2.4} />
+          <Text style={[type.smallMedium, { color: accents.onHighlight }]}>{heroActionLabel(page.kind)}</Text>
+          <ChevronRight size={16} color={accents.onHighlight} strokeWidth={2.4} />
         </View>
       </View>
     </Pressable>
@@ -286,6 +321,21 @@ function Fact({ icon, text }: { icon: React.ReactNode; text: string }) {
   )
 }
 
+/**
+ * KO and Meet for a match; Starts / a window and Arrive for a session. Training
+ * does not kick off, and a card that says it does is describing the wrong thing.
+ */
+function timeLine(page: HeroPage): string {
+  const start = page.item.time ? page.item.time.slice(0, 5) : null
+  if (page.kind === "match") {
+    return [start ? `KO ${start}` : null, page.item.meetTime ? `Meet ${page.item.meetTime.slice(0, 5)}` : null]
+      .filter(Boolean)
+      .join("  ·  ") || "Kick-off to be confirmed"
+  }
+  if (page.training?.window) return page.training.window
+  return start ? `Starts ${start}` : "Time to be confirmed"
+}
+
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"]
 const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
 
@@ -296,6 +346,3 @@ function longDate(iso: string): string {
   return `${DAYS[at.getUTCDay()]} ${d} ${MONTHS[m - 1]} ${y}`
 }
 
-/** Kept beside the hero so the page's own surfaces share its rounding. */
-export const HERO_RADIUS = 22
-export { surface as heroSurface, colour as heroColour }

@@ -48,7 +48,7 @@ export interface HeroPage {
 }
 
 /** How many pages the carousel may hold. Beyond this it stops being a hero. */
-export const MAX_HERO_PAGES = 4
+export const MAX_HERO_PAGES = 2
 
 /**
  * The pages, in the order they actually happen.
@@ -69,14 +69,14 @@ export function projectHomeHero(
   const nextMatch = upcoming.find((item) => item.kind === "fixture") ?? null
   const nextTraining = upcoming.find((item) => item.kind === "training") ?? null
 
+  /*
+    ONE MATCH, ONE SESSION, AND NOTHING ELSE. A hero is the next thing of each
+    kind; a third page is the beginning of a list, and lists are what Fixtures and
+    the Calendar are for. A family with only one kind of rugby coming gets one page
+    and no dots at all -- never a page invented to make the carousel look busy.
+  */
   const chosen: AgendaItem[] = []
   for (const item of [nextMatch, nextTraining]) if (item) chosen.push(item)
-  // Then whatever else is soonest, so a family with two matches this week sees the
-  // second one without opening Fixtures.
-  for (const item of upcoming) {
-    if (chosen.length >= MAX_HERO_PAGES) break
-    if (!chosen.includes(item)) chosen.push(item)
-  }
 
   return sortAgenda(chosen).map((item) => ({
     key: item.key,

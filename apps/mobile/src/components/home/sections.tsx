@@ -4,7 +4,19 @@ import { Image } from "expo-image"
 import type { ClubAccents, ClubNewsCard, ClubNotice, FamilySubscription } from "@ovalball/contracts"
 
 import { ChevronRight, CircleAlert, Megaphone, Receipt } from "../icons"
-import { TOUCH_TARGET, colour, onForest, radius, space, type } from "../../design/tokens"
+import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../../design/tokens"
+
+/** "Today", "Yesterday", "3 days ago" -- the only date a news card needs. */
+function relativeDay(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ""
+  const days = Math.floor((Date.now() - then) / 86_400_000)
+  if (days <= 0) return "Today"
+  if (days === 1) return "Yesterday"
+  if (days < 7) return `${days} days ago`
+  const weeks = Math.floor(days / 7)
+  return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`
+}
 
 /**
  * WHAT THE CLUB HAS SAID, WHAT IS NEW, AND WHETHER THE MEMBERSHIP IS IN ORDER.
@@ -47,15 +59,18 @@ export function AnnouncementPreview({
           borderRadius: radius.lg,
           borderWidth: 1,
           borderColor: onForest.line,
-          backgroundColor: accents.wash,
+          // A DARK ELEVATED SURFACE, one step up from the page, with chalk text.
+          // The first version painted this the lifted kit colour -- pale grey --
+          // and then wrote white on it. The club is present as the edge and the
+          // icon, which is all a notice needs of it.
+          backgroundColor: surface.forestRaised,
           overflow: "hidden",
         }}
       >
-        {/* The club's own colour as an edge, and the priority carried in words. */}
-        <View style={{ width: 4, backgroundColor: notice.priority === "URGENT" ? colour.danger : accents.primary }} />
+        <View style={{ width: 4, backgroundColor: notice.priority === "URGENT" ? colour.danger : accents.highlight }} />
         <View style={{ flex: 1, minWidth: 0, padding: space.lg, gap: 4 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-            <Megaphone size={13} color={accents.primary} strokeWidth={2} />
+            <Megaphone size={13} color={accents.highlight} strokeWidth={2} />
             <Text style={[type.caption, { color: onForest.secondary, letterSpacing: 0.6 }]} numberOfLines={1}>
               {notice.priorityLabel.toUpperCase()}
               {notice.teamName ? ` · ${notice.teamName.toUpperCase()}` : ""}
@@ -123,30 +138,41 @@ function NewsCard({
       accessibilityLabel={`${article.categoryLabel}. ${article.title}`}
       onPress={onPress}
       style={({ pressed }) => ({
-        width: 196,
+        width: 176,
         borderRadius: radius.lg,
         overflow: "hidden",
         borderWidth: 1,
         borderColor: onForest.line,
-        backgroundColor: accents.wash,
+        backgroundColor: surface.forestRaised,
         opacity: pressed ? 0.94 : 1,
       })}
     >
       {article.heroUrl ? (
-        <Image source={{ uri: article.heroUrl }} style={{ width: "100%", height: 104 }} contentFit="cover" transition={140} />
+        <Image source={{ uri: article.heroUrl }} style={{ width: "100%", height: 96 }} contentFit="cover" transition={140} />
       ) : (
-        /* NO STOCK PHOTOGRAPH. A branded surface in the club's own colours is
-           honest; a picture of somebody else's rugby on your club's news is not. */
-        <View style={{ height: 104, backgroundColor: accents.primary, alignItems: "center", justifyContent: "center" }}>
-          <Megaphone size={24} color={accents.onPrimary} strokeWidth={1.8} />
+        /* NO STOCK PHOTOGRAPH, AND NO "IMAGE FAILED TO LOAD" EITHER. The first
+           fallback was a flat grey block with a megaphone in it, which looked like
+           a picture that had not arrived. This is designed: the club's dark tint,
+           two bars of their colours cut across the corner, and the category. */
+        <View style={{ height: 96, backgroundColor: accents.heroDeep, overflow: "hidden", justifyContent: "flex-end", padding: space.md }}>
+          <View style={{ position: "absolute", right: -30, top: -10, width: 22, height: 150, backgroundColor: accents.highlight, transform: [{ rotate: "28deg" }], opacity: 0.9 }} />
+          <View style={{ position: "absolute", right: 6, top: -10, width: 10, height: 150, backgroundColor: accents.primary, transform: [{ rotate: "28deg" }], opacity: 0.55 }} />
+          <Text style={[type.caption, { color: onForest.secondary, letterSpacing: 0.8 }]} numberOfLines={1}>
+            {article.categoryLabel.toUpperCase()}
+          </Text>
         </View>
       )}
       <View style={{ padding: space.md, gap: 4 }}>
-        <Text style={[type.caption, { color: onForest.secondary, letterSpacing: 0.5 }]} numberOfLines={1}>
-          {article.categoryLabel.toUpperCase()}
-        </Text>
+        {!!article.heroUrl && (
+          <Text style={[type.caption, { color: onForest.secondary, letterSpacing: 0.5 }]} numberOfLines={1}>
+            {article.categoryLabel.toUpperCase()}
+          </Text>
+        )}
         <Text style={[type.smallMedium, { color: onForest.primary, fontSize: 14 }]} numberOfLines={2}>
           {article.title}
+        </Text>
+        <Text style={[type.caption, { color: onForest.faint }]} numberOfLines={1}>
+          {relativeDay(article.publishedAt)}
         </Text>
       </View>
     </Pressable>
@@ -197,7 +223,7 @@ export function SubscriptionStatusCard({
           borderRadius: radius.lg,
           borderWidth: 1,
           borderColor: attention ? colour.warning : onForest.line,
-          backgroundColor: accents.wash,
+          backgroundColor: surface.forestRaised,
           opacity: pressed ? 0.94 : 1,
         })}
       >
@@ -209,13 +235,13 @@ export function SubscriptionStatusCard({
             borderRadius: 19,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: attention ? colour.warningSurface : accents.primary,
+            backgroundColor: attention ? colour.warningSurface : accents.highlight,
           }}
         >
           {attention ? (
             <CircleAlert size={18} color={colour.warning} strokeWidth={2.2} />
           ) : (
-            <Receipt size={18} color={accents.onPrimary} strokeWidth={2} />
+            <Receipt size={18} color={accents.onHighlight} strokeWidth={2} />
           )}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -256,7 +282,7 @@ function SectionHeading({
       </Text>
       {!!onAction && (
         <Pressable accessibilityRole="button" accessibilityLabel={`View all ${title.toLowerCase()}`} onPress={onAction} hitSlop={8}>
-          <Text style={[type.smallMedium, { color: accents.primary }]}>View all</Text>
+          <Text style={[type.smallMedium, { color: accents.highlight }]}>View all</Text>
         </Pressable>
       )}
     </View>

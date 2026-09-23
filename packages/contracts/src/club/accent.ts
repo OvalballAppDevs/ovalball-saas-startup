@@ -1,4 +1,4 @@
-import { contrastRatio, lightness, mix } from "./colour"
+import { contrastRatio, lightness, mix, saturation } from "./colour"
 import type { ClubTheme } from "./theme"
 
 /**
@@ -47,12 +47,42 @@ export interface ClubAccents {
   secondary: string
   /** Text that reads on `primary` when it is used as a small filled ground. */
   onPrimary: string
-  /** A barely-there wash of the club's colour, for a card's own surface on forest. */
+  /**
+   * THE ACCENT THAT ACTUALLY LOOKS LIKE THE CLUB.
+   *
+   * A club whose kit primary is a dark green is, on a forest ground, a club whose
+   * "visible primary" has been lifted to near-white -- honest, readable, and
+   * carrying none of their personality. Their amber is what anybody would call
+   * their colour. So the highlight is whichever visible accent is the more
+   * chromatic, and it is what chips, the action pill and the ball's stripes use.
+   */
+  highlight: string
+  onHighlight: string
+  /** A barely-there wash of the club's colour over forest, for a card's own surface. */
   wash: string
   /** A hairline of the club's colour, for an edge or a rule. */
   edge: string
+  /**
+   * A DARK, CLUB-TINTED GROUND FOR THE HERO.
+   *
+   * Not the kit colour and not forest: forest pulled a little toward the club's
+   * own primary, kept dark enough that chalk text always reads on it. The hero is
+   * the one surface allowed to be dimensional, and this is what gives a green club
+   * a slightly greener dark and a navy club a slightly bluer one -- without either
+   * ever becoming a pale rectangle with white text on it.
+   */
+  heroBase: string
+  /** The far edge of the hero's gradient: the same tint, a touch deeper. */
+  heroDeep: string
   /** The measured ratios, so a test can assert them rather than trust them. */
-  contrast: { primaryOnDark: number; secondaryOnDark: number; onPrimary: number; primaryVsSecondary: number }
+  contrast: {
+    primaryOnDark: number
+    secondaryOnDark: number
+    onPrimary: number
+    primaryVsSecondary: number
+    /** Chalk text on the hero ground -- the one that was broken. */
+    chalkOnHero: number
+  }
 }
 
 /** Lighten toward white until the colour stands off the ground, or give up honestly. */
@@ -68,6 +98,19 @@ function liftOnto(colour: string, ground: string, minimum: number): string {
 /** Text on a small filled patch of the club's colour: ink or white, whichever reads. */
 function inkFor(background: string): string {
   return contrastRatio("#101512", background) >= contrastRatio("#ffffff", background) ? "#101512" : "#ffffff"
+}
+
+/**
+ * Forest pulled toward the club's RAW kit colour (not the lifted accent), then
+ * clamped dark: the tint may colour the ground, it may never lighten it past the
+ * point where chalk text stops reading at 4.5:1.
+ */
+function darkTint(ground: string, kitColour: string, t: number): string {
+  let candidate = mix(ground, kitColour, t)
+  for (let step = t; step > 0 && contrastRatio("#f8faf7", candidate) < 4.5; step -= 0.04) {
+    candidate = mix(ground, kitColour, step)
+  }
+  return contrastRatio("#f8faf7", candidate) >= 4.5 ? candidate : ground
 }
 
 export function clubAccentsOnDark(theme: ClubTheme, ground: string): ClubAccents {
@@ -113,20 +156,29 @@ export function clubAccentsOnDark(theme: ClubTheme, ground: string): ClubAccents
   }
 
   const onPrimary = inkFor(primary)
+  const highlight = saturation(secondary) > saturation(primary) ? secondary : primary
   return {
+    highlight,
+    onHighlight: inkFor(highlight),
     source: theme.source,
     primary,
     secondary,
     onPrimary,
-    // A WASH, NOT A PAINT. Eight per cent of the club's colour over the forest --
-    // enough that a card feels theirs, far too little to fight the text on it.
-    wash: mix(primary, ground, 0.08),
-    edge: mix(primary, ground, 0.35),
+    // A WASH, NOT A PAINT. `mix(a, b, t)` is t of b: eight per cent of the club's
+    // colour over the forest -- enough that a card feels theirs, far too little to
+    // fight the text on it. The first version had the arguments the wrong way
+    // round and painted every card 92 per cent kit colour, which for a club whose
+    // lifted primary is pale grey-green produced pale grey cards with white text.
+    wash: mix(ground, primary, 0.08),
+    edge: mix(ground, primary, 0.35),
+    heroBase: darkTint(ground, theme.kit.primary, 0.22),
+    heroDeep: darkTint(ground, theme.kit.primary, 0.10),
     contrast: {
       primaryOnDark: contrastRatio(primary, ground),
       secondaryOnDark: contrastRatio(secondary, ground),
       onPrimary: contrastRatio(onPrimary, primary),
       primaryVsSecondary: contrastRatio(primary, secondary),
+      chalkOnHero: contrastRatio("#f8faf7", darkTint(ground, theme.kit.primary, 0.22)),
     },
   }
 }

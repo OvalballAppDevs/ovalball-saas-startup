@@ -29,17 +29,20 @@ export function ChildMark({
   member,
   size = 22,
   style,
+  tone = "chalk",
 }: {
   member: FamilyMember
   size?: number
   style?: StyleProp<ViewStyle>
+  /** The ground the mark stands on. On forest the name is chalk, or it vanishes. */
+  tone?: "chalk" | "forest"
 }) {
   return (
     // One accessible element, because "Pippa" is one fact. VoiceOver reading a
     // picture and then a name is the same thing said twice.
     <View accessible accessibilityLabel={member.shortLabel} style={[{ flexDirection: "row", alignItems: "center", gap: space.xs }, style]}>
       <PersonAvatar name={member.fullName} url={member.avatarUrl} initials={member.initials} size={size} />
-      <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink, flexShrink: 1 }]}>
+      <Text numberOfLines={1} style={[type.smallMedium, { color: tone === "forest" ? colour.chalk : colour.ink, flexShrink: 1 }]}>
         {member.shortLabel}
       </Text>
     </View>
