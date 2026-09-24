@@ -16,7 +16,8 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { ChevronRight, ClipboardList, ExternalLink, Landmark, Receipt, Settings2, Users, Megaphone } from "../../src/components/icons"
+import { ChevronRight, ClipboardList, ExternalLink, Landmark, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake } from "../../src/components/icons"
+import { isFamilyFacingContext } from "@ovalball/contracts"
 import { useAdminCentreAccess } from "../../src/admin/access"
 import { useTeamAuthority } from "../../src/team/authority"
 import { anyTeamAdministration } from "@ovalball/contracts/team/authority"
@@ -48,6 +49,11 @@ export default function More() {
   // scope; the rows themselves are the recurring work the bar does not hold.
   const team = useTeamAuthority()
   const inTeam = active?.kind === "team"
+  // A FAMILY AND A PLAYER GET THEIR OWN ROWS (CA-M9): Children & Family for a guardian, and the family's
+  // memberships; a player gets their own memberships. Neither is offered a staff or club control from
+  // here -- those belong to the team and club contexts.
+  const inFamily = active !== null && isFamilyFacingContext(active.kind)
+  const isGuardian = active?.kind === "parent" || active?.kind === "family"
 
   async function leave() {
     // EVERYTHING THIS PERSON LEFT ON THE DEVICE GOES WITH THE SESSION. A phone gets handed around a
@@ -111,31 +117,57 @@ export default function More() {
           </Group>
         )}
 
-        <Group title="Your Rugby">
-          <Row
-            icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />}
-            label="News & Announcements"
-            caption="What the club has published"
-            onPress={() => router.push("/news")}
-          />
-          {!inTeam && (
+        {inFamily && (
+          <Group title={isGuardian ? "Your Family" : "Your Rugby"}>
+            {isGuardian && (
+              <Row
+                icon={<HeartHandshake size={19} color={colour.forest800} strokeWidth={1.9} />}
+                label="Children & Family"
+                caption="Who you look after, their sides and what they may do themselves"
+                onPress={() => router.push("/family" as never)}
+              />
+            )}
             <Row
               icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
-              label="Subscriptions"
-              caption="Subscription and payment state, where you are authorised"
+              label="Subscriptions & Payments"
+              caption={isGuardian ? "What each child's membership costs and where it stands" : "Your membership and where it stands"}
               onPress={() => router.push("/subscriptions")}
             />
-          )}
-          {!inTeam && (
             <Row
-              icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
-              label="People"
-              caption="Players, parents and the staff who run the side — on the web for now"
-              onPress={() => (admin.sections.some((s) => s.key === "people") ? router.push("/admin/people") : void Linking.openURL(`${webUrl}/people`))}
-              external
+              icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />}
+              label="News & Announcements"
+              caption="What the club has published"
+              onPress={() => router.push("/news")}
             />
-          )}
-        </Group>
+          </Group>
+        )}
+        {!inFamily && (
+          <Group title="Your Rugby">
+            <Row
+              icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />}
+              label="News & Announcements"
+              caption="What the club has published"
+              onPress={() => router.push("/news")}
+            />
+            {!inTeam && (
+              <Row
+                icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
+                label="Subscriptions"
+                caption="Subscription and payment state, where you are authorised"
+                onPress={() => router.push("/subscriptions")}
+              />
+            )}
+            {!inTeam && (
+              <Row
+                icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
+                label="People"
+                caption="Players, parents and the staff who run the side — on the web for now"
+                onPress={() => (admin.sections.some((s) => s.key === "people") ? router.push("/admin/people") : void Linking.openURL(`${webUrl}/people`))}
+                external
+              />
+            )}
+          </Group>
+        )}
 
         {admin.clubId && admin.sections.length > 0 && (
           <Group title="Club Admin">
@@ -150,11 +182,10 @@ export default function More() {
 
         <Group title="Your Account">
           <Row
-            icon={<ExternalLink size={19} color={colour.forest800} strokeWidth={1.9} />}
+            icon={<UserRound size={19} color={colour.forest800} strokeWidth={1.9} />}
             label="Profile"
-            caption="Your name and your picture — on the web for now"
-            onPress={() => void Linking.openURL(`${webUrl}/account`)}
-            external
+            caption="Your name, your picture and your phone number"
+            onPress={() => router.push("/profile" as never)}
           />
           <Row
             icon={<ExternalLink size={19} color={colour.forest800} strokeWidth={1.9} />}

@@ -99,6 +99,8 @@ export interface MatchCentreView {
   cancellationReason: string | null
   /** A recorded result, or null. Two nulls are not a nil-nil draw. */
   result: { homeScore: number; awayScore: number } | null
+  /** The canonical result_status, so a participant is told a provisional score is provisional. */
+  resultStatus: string | null
   /** The GROUND'S NAME -- what the page shows. Never its postal address. */
   venueName: string | null
   venuePostcode: string | null
@@ -221,6 +223,7 @@ export async function loadMatchCentre(
       f.result_status && f.result_status !== "none" && f.home_score !== null && f.away_score !== null
         ? { homeScore: f.home_score, awayScore: f.away_score }
         : null,
+    resultStatus: f.result_status ?? null,
     venueName: venue?.name ?? null,
     venuePostcode: venue?.postcode ?? null,
     /** The full address, for navigation only. Match Centre shows the NAME. */

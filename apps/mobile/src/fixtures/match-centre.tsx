@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import {
   NO_ANSWER_YET,
+  attendanceConfirmation,
   availabilityEventLabel,
   availabilityQuestion,
   availabilitySubject,
@@ -39,6 +40,7 @@ import {
   CircleAlert,
   CircleDashed,
   Check as CircleCheckIcon,
+  CircleCheck,
   Clock,
   Megaphone,
   MessageSquare,
@@ -117,6 +119,8 @@ export function MatchCentre() {
 
   const [view, setView] = useState<MatchCentreView | null>(null)
   const [weather, setWeather] = useState<WeatherResult>({ state: "PROVIDER_UNAVAILABLE", forecast: null })
+  /** The one sentence shown after an answer lands. Cleared on every re-read of the fixture. */
+  const [confirmation, setConfirmation] = useState<string | null>(null)
   const [audience, setAudience] = useState<AudienceCounts>({ team: null, attending: null, outstanding: null })
   const [missing, setMissing] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -234,6 +238,23 @@ export function MatchCentre() {
       return false
     }
     setProblem(null)
+    /*
+      A STATEMENT ABOUT THE PERSON, from canonical values only (CA-M9, the same sentence the Training
+      Centre says): "Cara can attend the match on Friday 25 September at Ovalball UAT Ground". It says
+      what is now true, in human words -- never the enum -- and it does not claim anybody has been told;
+      the staff notification is the server's own (CA-M8), and the register is where it shows.
+    */
+    setConfirmation(
+      view
+        ? attendanceConfirmation({
+            status,
+            subjectFirstName: entry.isSelf ? null : entry.firstName,
+            kind: "fixture",
+            whenLabel: exactDate(view.date),
+            venueName: view.venueName,
+          })
+        : null
+    )
     /*
       THE SERVER'S ANSWER IS WHAT MOVES THE CONTROL, and the register and the
       counts are re-read rather than adjusted locally. Incrementing "Attending"
@@ -369,12 +390,19 @@ export function MatchCentre() {
             <SideColumn side={home} />
             <View style={{ alignItems: "center", paddingTop: 26, gap: space.xs }}>
               {view.result ? (
-                <Text
-                  accessibilityLabel={`Final score: ${home.clubName} ${homeScore}, ${away.clubName} ${awayScore}`}
-                  style={[type.displaySmall, { color: colour.chalk }]}
-                >
-                  {homeScore}–{awayScore}
-                </Text>
+                <>
+                  <Text
+                    accessibilityLabel={`${resultQualifier(view.resultStatus) ? "Provisional score" : "Final score"}: ${home.clubName} ${homeScore}, ${away.clubName} ${awayScore}${resultQualifier(view.resultStatus) ? `. ${resultQualifier(view.resultStatus)}` : ""}`}
+                    style={[type.displaySmall, { color: colour.chalk }]}
+                  >
+                    {homeScore}–{awayScore}
+                  </Text>
+                  {/* A SCORE THAT IS NOT YET FINAL SAYS SO (CA-M9). The canonical result_status decides; a
+                      participant is never shown a disputed or unconfirmed score as settled. */}
+                  {!!resultQualifier(view.resultStatus) && (
+                    <Text style={[type.caption, { color: colour.onForestMuted, textAlign: "center", fontSize: 10, letterSpacing: 0.6 }]}>{resultQualifier(view.resultStatus)!.toUpperCase()}</Text>
+                  )}
+                </>
               ) : (
                 <Text style={[type.displaySmall, { color: colour.onForestMuted, fontSize: 17, letterSpacing: 2 }]}>VS</Text>
               )}
@@ -446,8 +474,14 @@ export function MatchCentre() {
                         disabled={false}
                         onChoose={(next) => answer(entry, next)}
                       />
-                      {entry.response === null && (
+                      {entry.response === null && !confirmation && (
                         <Text style={[type.small, { color: colour.onForestMuted, marginTop: space.sm }]}>{NO_ANSWER_YET}</Text>
+                      )}
+                      {!!confirmation && entry.response !== null && (
+                        <View accessibilityLiveRegion="polite" style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm, padding: space.sm, borderRadius: radius.md, backgroundColor: "rgba(50,166,101,0.16)" }}>
+                          <CircleCheck size={16} color={colour.chalk} strokeWidth={2.2} />
+                          <Text style={[type.small, { color: colour.chalk, flex: 1 }]}>{confirmation}</Text>
+                        </View>
                       )}
                     </>
                   ) : (
@@ -877,4 +911,20 @@ function Shell({
       {children}
     </View>
   )
+}
+
+/** The words for a result that is not yet final, from the canonical status alone; null when it is. */
+function resultQualifier(status: string | null): string | null {
+  switch (status) {
+    case "awaiting_confirmation":
+      return "Awaiting the other club's confirmation"
+    case "amendment_pending":
+      return "A correction is being agreed"
+    case "disputed":
+      return "Disputed"
+    case "unverified":
+      return "Not yet verified"
+    default:
+      return null
+  }
 }

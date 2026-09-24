@@ -651,6 +651,37 @@ out: the next person's Notifications start empty until their own read returns. T
 person on the website sees the same rows, the same read marks. U. Mark All Read on the phone; the website's
 bell drops to zero; Messenger's badge does not. V. Nothing anywhere offers delete, dismiss or swipe.
 
+## Family & Player on the phone (CA-M9) — physical-iPhone walkthrough, prepared
+
+Not yet performed on a device. Each step names what to look at and what the canonical truth is.
+
+A. Sign in as **uat.guardian.two**. B. Family Home: the header names you; the block beneath says "Showing
+all: Ava, Ben, Martha". C. Tap it: the selector lists All Children and each child with their picture,
+sides and club — no age, no date. D. Choose Ava: the block, Fixtures and the Calendar all narrow to Ava.
+E. Needs Attention lists the answers still owed, urgent first. F. Next Up: the hero names the child, the
+opposition, home or away, the classification, kick-off and meet. G. Fixtures: only your children's
+matches; no Add, Edit, Cancel or Request anywhere. H. Open a match: the participant Match Centre — score
+or VS, date, meet, kick-off, venue, your child's answer; no console. I. "Message Team Staff" opens the
+chooser: only people your club allows; no opposition. J. Open a session: the Training Centre with the
+same answer control. K. Calendar month: dark forest header, green match and blue training accents, one
+card per event with a strip per child. L. Calendar list: the same cards, grouped by day. M. Answer
+Available: the confirmation sentence names the child, the event, the date and the venue. N. Unavailable.
+O. Unsure ("might attend"). P. As **uat.team.manager**, Notifications shows "Cara Bell can make it" once,
+in the team's context; answer again with the same answer and nothing new appears. Q. An announcement
+opens natively with its publisher. R. Subscriptions & Payments: what applies, whom it covers, the amount
+a month, the Direct Debit state, and the one next step; bank details never. S. Children & Family: one row
+per person; open a child: picture (tap to change), sides, permissions with "Waiting for another guardian"
+where true, the login invitation. T. Profile: name, phone and picture change and stay changed on the
+website. U. Notifications: a family type deep-links to the Match Centre, the Training Centre or the
+membership. V. Deep link to another family's child: "Not one of your children". W. Sign out; sign in as
+**uat.adult.player**. X. Player Home: "Marcus's rugby", Needs Attention, Next Up, My Availability, last
+result, Rugby Hub. Y. Fixtures: the Men's 1st side only. Z. Calendar: the same events. AA. Answer
+Available: recorded as the player's own answer. AB. Match Centre: no console, no register. AC. As
+**uat.player.self** (17): the Match Centre says consent is not recorded and offers no control; the chooser
+offers no coach. AD. No screen names an opposition contact. AE. Largest Dynamic Type: the selector rows
+and the membership lines wrap. AF. Reduce Motion: the selector sheet still opens. AG. Airplane mode, pull
+to refresh: the offline error, and an answer says "Couldn't update yet", never success.
+
 ## What is still open
 
 `docs/product/CONVERGENCE_LEDGER.md` holds the programme ledger.

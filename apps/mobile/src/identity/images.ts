@@ -213,3 +213,31 @@ function fail(error: unknown, subject: string): ImageResult {
   logDetail("identity image", problem)
   return { ok: false, message: problem.retryable ? problem.message : `You cannot change ${subject}.` }
 }
+
+/**
+ * A CHILD'S PICTURE (CA-M9): the private `player-avatars` bucket, the path in the child's own folder,
+ * then `set_player_avatar` -- the canonical operation, which verifies the path belongs to that player
+ * and that this caller may edit the player's profile as family. The bucket's own policies re-check the
+ * same authority on the upload. Never the person's bucket, never a team's.
+ */
+export async function replaceChildAvatar(supabase: Client, playerId: string, file: PickedFile): Promise<ImageResult> {
+  const invalid = checkFile(file)
+  if (invalid) return { ok: false, message: invalid }
+  const bytes = await readFileBytes(file.uri)
+  if (!bytes) return { ok: false, message: "That picture couldn't be read. Try choosing it again." }
+  const path = `${playerId}/avatar-${Date.now()}.${EXTENSION[file.mimeType]}`
+  const { error: uploadError } = await supabase.storage.from("player-avatars").upload(path, bytes, { contentType: file.mimeType, upsert: true })
+  if (uploadError) return fail(uploadError, "this picture")
+  const { error } = await supabase.rpc("set_player_avatar", { p_player_id: playerId, p_storage_path: path })
+  if (error) {
+    await supabase.storage.from("player-avatars").remove([path])
+    return fail(error, "this picture")
+  }
+  return { ok: true }
+}
+
+export async function removeChildAvatar(supabase: Client, playerId: string): Promise<ImageResult> {
+  const { error } = await supabase.rpc("set_player_avatar", { p_player_id: playerId, p_storage_path: "" })
+  if (error) return fail(error, "this picture")
+  return { ok: true }
+}

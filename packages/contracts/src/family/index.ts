@@ -1,2 +1,5 @@
 export * from "./avatars"
 export * from "./projection"
+export * from "./events"
+export * from "./relationships"
+export * from "./permissions"

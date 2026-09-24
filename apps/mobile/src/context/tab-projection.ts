@@ -35,6 +35,9 @@ export type TabKey =
   | "admin"
   /** Reached from Home and More in a team context (CA-M7): Availability, People, Requests, Team Settings. A route group, never a cell. */
   | "team"
+  /** Reached from More in a family or player context (CA-M9): Children / Family, and the person's own Profile. Route groups, never cells. */
+  | "family"
+  | "profile"
 
 export interface TabSpec {
   key: TabKey

@@ -241,6 +241,32 @@ export default function Calendar() {
     if (mode === "month") return groupByDay(rows.filter((item) => item.date === openDay))
     return groupByDay(rows.filter((item) => item.date >= today))
   }, [shown, mode, openDay, today])
+  // ONE MATCH, EVERY CHILD IN IT (CA-M9): a family reading all its children sees one card per event with
+  // a strip per child, never the same match twice.
+  const familyReading = active !== null && isFamilyFacingContext(active.kind) && selectedPlayerId === null
+  const siblingsFor = useCallback(
+    (item: AgendaItem, dayItems: AgendaItem[]) =>
+      familyReading
+        ? dayItems
+            .filter((other) => other.kind === item.kind && other.eventId === item.eventId && other.playerId)
+            .map((other) => ({ member: memberFor(projection, other.playerId)!, attendance: other.attendance }))
+            .filter((s) => s.member)
+        : undefined,
+    [familyReading, projection]
+  )
+  const collapse = useCallback(
+    (dayItems: AgendaItem[]) => {
+      if (!familyReading) return dayItems
+      const seen = new Set<string>()
+      return dayItems.filter((item) => {
+        const key = `${item.kind}:${item.eventId}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+    },
+    [familyReading]
+  )
   // The chosen square's own week, Monday to Sunday, cut out of the rows already on screen.
   const weekItems = useMemo(() => {
     if (!openWeek || !shown) return []
@@ -408,12 +434,13 @@ export default function Calendar() {
                 {/* ONE PREMIUM CARD PER EVENT, never a "+2 more" link: a day with a
                     match and two sessions is three things to be at, and each of them
                     names its own child. The sheet scrolls. */}
-                {day.items.map((item) =>
+                {collapse(day.items).map((item) =>
                   item.kind === "training" ? (
                     <ParticipantTrainingCard
                       key={item.key}
                       item={item}
                       family={projection}
+                      siblings={siblingsFor(item, day.items)}
                       onPress={() => openEvent(item)}
                     />
                   ) : (
@@ -422,6 +449,7 @@ export default function Calendar() {
                       item={item}
                       family={projection}
                       density="compact"
+                      siblings={siblingsFor(item, day.items)}
                       onPress={() => openEvent(item)}
                     />
                   )

@@ -832,7 +832,11 @@ TO-E9/E10 comments rather than assertions.
 ## H26 — CA-M7 Team Operations: owed at hardening
 
 - **Availability has no staff override** (`response_source = 'staff'` is permitted and nothing writes
-  it; the register says "Staff can ask, not answer for them"). **The staff notification half of this
+  it; the register says "Staff can ask, not answer for them"). CA-M9 audited the semantics: the domain
+  holds stated availability only, and no observed-attendance store exists; a separate observed record
+  (present / absent / late, recorded by staff after the event, never replacing the stated answer) is the
+  proposed model and needs new data and authority semantics — **STOPPED and reported in
+  `docs/mobile/CA_M9_FAMILY_PLAYER_OPERATIONS_MAP.md` §5**. **The staff notification half of this
   item is CLOSED by CA-M8**: `respond_to_attendance` and `respond_to_training_attendance` now emit
   `fixture_availability_responded` / `training_availability_responded` to the holders of
   `team.attendance.view` by the capability decision, once per change, superseding an unread earlier
@@ -911,3 +915,33 @@ TO-E9/E10 comments rather than assertions.
   and the iOS export only. Dynamic Type on the card's three lines and VoiceOver on the press-and-hold
   sheet are the first things to look at.
 - **H27 unchanged.**
+
+## H29 — CA-M9 Family & Player Operations: owed at hardening
+
+- **Club events are absent from the phone.** `loadAgenda` (the shared reader both clients use) reads
+  fixtures and training only; the web calendar reads `club_events` directly and the web has a
+  participant Event Centre. No mobile Event Centre exists. `get_my_players_for_club_event` raises for
+  an under-16 self-responder instead of returning `can_respond = false`, and `respond_to_event_attendance`
+  emits no staff notification — an event may be club-wide, so the CA-M8 team-recipient rule does not
+  transfer safely; left documented rather than faked.
+- **A non-payer co-guardian reads "Setup required" for a healthy membership.** `gocardless_subscriptions`,
+  `gocardless_billing_requests` and `gocardless_mandates` RLS are payer-scoped while
+  `get_enrolment_eligibility` answers any guardian, so `loadFamilySubscription` falls through to
+  `setup_required` for the second guardian. A finance-domain RLS change (H25/H20-adjacent); not touched.
+- **Direct Debit setup is a web hand-off.** The provider redirect is created server-side by the website
+  (`startSubscriptionEnrolment`) and returns to the web page; no `ovalball://` return exists. The phone
+  explains the task and opens the canonical page. A native return route is release hardening.
+- **The web Match Centre has no "Message Team Staff" entry**; the phone has one (through
+  `my_direct_message_candidates`). The web is behind, not the app.
+- **`direct_coach_communication` (16–17) is recorded but never consulted** by `may_direct_message`; a
+  consented sixteen-year-old still cannot message a coach directly on either client. Messaging domain;
+  left as found.
+- **No adult-transition surface** (`player_adult_transition`, `end_my_guardian_access`) on either client.
+- **Match community (awards, kudos)** has no phone surface.
+- **The CA-M8 audit's working notes took** `get_enrolment_eligibility` **for service-role only**; it is
+  granted to `authenticated` (re-granted at `20270342000000…:1969`). The banked CA-M8 map never said
+  so; the CA-M9 map records the correct grant.
+- **Physical-iPhone walkthrough (A–AG)** prepared, not performed; Expo Web proof and the iOS export
+  only. The child selector sheet under VoiceOver and the picture-change sheet are the first things to
+  look at.
+- **H25/H20, H27, H28 unchanged.**

@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from "react-native"
 
+import type { FamilyMember } from "@ovalball/contracts"
 import {
   projectParticipantMatch,
   projectParticipantTraining,
@@ -10,7 +11,7 @@ import {
   type MatchSide,
   type ParticipantMatch,
 } from "@ovalball/contracts"
-import { attendanceStateShape } from "@ovalball/contracts/availability"
+import { ATTENDANCE_STATE_WORDS, attendanceStateShape } from "@ovalball/contracts/availability"
 
 import { AVAILABILITY_ICONS } from "../../availability/presentation"
 import { ClubCrest, PersonAvatar } from "../identity"
@@ -47,11 +48,14 @@ export function ParticipantMatchCard({
   family,
   density = "compact",
   onPress,
+  siblings,
 }: {
   item: AgendaItem
   family: FamilyProjection
   density?: MatchCardDensity
   onPress: () => void
+  /** Every child in this event, where a family reads it as one event (CA-M9): one strip per child. */
+  siblings?: { member: FamilyMember; attendance: AgendaItem["attendance"] }[]
 }) {
   const match = projectParticipantMatch(item, family)
   const expanded = density === "expanded"
@@ -115,7 +119,9 @@ export function ParticipantMatchCard({
         )}
       </View>
 
-      <ChildStrip child={match.child} attendance={match.attendance} word={match.attendanceWord} />
+      {siblings && siblings.length > 1
+        ? siblings.map((s) => <ChildStrip key={s.member.playerId} child={s.member} attendance={s.attendance} word={attendanceWordFor(s.attendance)} />)
+        : <ChildStrip child={match.child} attendance={match.attendance} word={match.attendanceWord} />}
     </CardFrame>
   )
 }
@@ -133,12 +139,15 @@ export function ParticipantTrainingCard({
   family,
   endTime,
   onPress,
+  siblings,
 }: {
   item: AgendaItem
   family: FamilyProjection
   /** The session's end, where the canonical record has one. */
   endTime?: string | null
   onPress: () => void
+  /** Every child in this event, where a family reads it as one event (CA-M9): one strip per child. */
+  siblings?: { member: FamilyMember; attendance: AgendaItem["attendance"] }[]
 }) {
   const training = projectParticipantTraining(item, family, endTime)
 
@@ -173,9 +182,15 @@ export function ParticipantTrainingCard({
         )}
       </View>
 
-      <ChildStrip child={training.child} attendance={training.attendance} word={training.attendanceWord} />
+      {siblings && siblings.length > 1
+        ? siblings.map((s) => <ChildStrip key={s.member.playerId} child={s.member} attendance={s.attendance} word={attendanceWordFor(s.attendance)} />)
+        : <ChildStrip child={training.child} attendance={training.attendance} word={training.attendanceWord} />}
     </CardFrame>
   )
+}
+
+function attendanceWordFor(attendance: AgendaItem["attendance"]): string {
+  return attendance ? ATTENDANCE_STATE_WORDS[attendance] : "Still to answer"
 }
 
 /**

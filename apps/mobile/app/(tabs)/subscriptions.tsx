@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react"
-import { Text, View } from "react-native"
 import { useFocusEffect } from "expo-router"
 import { SUBSCRIPTION_STATE_LABEL, formatMinor, loadTeamSubscriptions, type SubscriptionState, type TeamSubscriptionSummary } from "@ovalball/contracts/team/subscriptions"
 
@@ -8,6 +7,11 @@ import { useAppContexts } from "../../src/context/contexts"
 import { useTeamAuthority } from "../../src/team/authority"
 import { NotForYou, TeamScreen } from "../../src/team/screen"
 import { DestinationFoundation } from "../../src/components/destination"
+import { FamilySubscriptions } from "../../src/family/subscriptions"
+import { isFamilyFacingContext } from "@ovalball/contracts"
+import { AppHeader } from "../../src/components/app-header"
+import { ScrollView, Text, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { PersonAvatar } from "../../src/components/identity"
 import { Receipt } from "../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../src/components/ui"
@@ -68,6 +72,11 @@ export default function Subscriptions() {
     setRefreshing(false)
   }, [load])
 
+  // A FAMILY'S MEMBERSHIPS (CA-M9): what applies, whom it covers, what it costs and what to do next.
+  if (active && isFamilyFacingContext(active.kind)) {
+    return <FamilySubscriptionsScreen />
+  }
+
   if (!teamContext) {
     return (
       <DestinationFoundation
@@ -122,5 +131,18 @@ export default function Subscriptions() {
         </>
       )}
     </TeamScreen>
+  )
+}
+
+function FamilySubscriptionsScreen() {
+  const insets = useSafeAreaInsets()
+  return (
+    <View style={{ flex: 1, backgroundColor: colour.chalk }}>
+      <AppHeader onOpenContexts={() => undefined} />
+      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.md }}>
+        <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>Subscriptions & Payments</Text>
+        <FamilySubscriptions />
+      </ScrollView>
+    </View>
   )
 }

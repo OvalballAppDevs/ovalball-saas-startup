@@ -14,14 +14,16 @@ import { supabase } from "../../src/auth/supabase"
 import { webUrl } from "../../src/config/environment"
 import { friendly, logDetail } from "../../src/errors/translate"
 import { AppHeader } from "../../src/components/app-header"
-import { ChildFilter } from "../../src/components/child-filter"
 import { useFamily } from "../../src/family/family"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { RugbyHero } from "../../src/components/home/rugby-hero"
 import { TeamHome } from "../../src/team/home"
+import { PlayerHome } from "../../src/player/home"
+import { ChildSelector } from "../../src/family/child-selector"
+import { FamilyIdentityBlock } from "../../src/family/identity-block"
 import { AnnouncementPreview, NewsRail, SubscriptionStatusCard } from "../../src/components/home/sections"
 import { Button, Card, CardSkeleton, EmptyState, ErrorState } from "../../src/components/ui"
-import { ExternalLink, OvalIcon } from "../../src/components/icons"
+import { OvalIcon } from "../../src/components/icons"
 import { colour, space, surface, type } from "../../src/design/tokens"
 
 /**
@@ -64,9 +66,12 @@ export default function Home() {
   // A TEAM CONTEXT HAS ITS OWN HOME (CA-M7). The parent/participant summary below is not loaded for it:
   // the Team Home reads the shared team overview instead, and reading both would be two answers.
   const teamContext = active?.kind === "team"
+  // A PLAYER HAS THEIR OWN HOME (CA-M9): not a parent's screen with the child chips removed.
+  const playerContext = active?.kind === "player"
+  const [childSheetOpen, setChildSheetOpen] = useState(false)
 
   const loadSummary = useCallback(async () => {
-    if (!active || !sessionContext || active.kind === "team") return
+    if (!active || !sessionContext || active.kind === "team" || active.kind === "player") return
     setSummaryError(null)
     try {
       setSummary(await loadHomeSummary(supabase, sessionContext, active, selectedPlayerId, projection))
@@ -129,8 +134,8 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.forest800} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* The family chips, where there is a family to choose between. */}
-        <ChildFilter style={{ paddingHorizontal: space.lg }} />
+        {/* WHOSE RUGBY: the child selector, where there is a family to choose between (CA-M9). */}
+        {!teamContext && !playerContext && <FamilyIdentityBlock onOpen={() => setChildSheetOpen(true)} />}
 
         {error && (
           <View style={{ paddingHorizontal: space.lg }}>
@@ -150,14 +155,15 @@ export default function Home() {
         {/* THE TEAM WORKSPACE. Home becomes the team's operational overview: what needs me, what is
             next, who has answered, who is in the side, what the club has said, what I may change. */}
         {teamContext && <TeamHome />}
+        {playerContext && <PlayerHome />}
 
-        {!teamContext && !!summaryError && (
+        {!teamContext && !playerContext && !!summaryError && (
           <View style={{ paddingHorizontal: space.lg }}>
             <ErrorState message={summaryError.message} offline={summaryError.offline} onRetry={loadSummary} />
           </View>
         )}
 
-        {!teamContext && !summaryError && !!active && summary === null && (
+        {!teamContext && !playerContext && !summaryError && !!active && summary === null && (
           <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
             <CardSkeleton lines={3} />
             <CardSkeleton lines={1} />
@@ -167,9 +173,9 @@ export default function Home() {
         {/* WHAT NEEDS ME, compactly: the shared attention projection for THIS context (CA-M8). Home shows the
             first few and hands the rest to the Notifications screen; the Team Home draws its own from the same
             projection. Absent, not empty, where there is nothing -- Home does not draw furniture for calm. */}
-        {!teamContext && !!active && (active.kind !== "site_admin" && active.kind !== "governing") && <HomeAttention />}
+        {!teamContext && !playerContext && !!active && (active.kind !== "site_admin" && active.kind !== "governing") && <HomeAttention />}
 
-        {!teamContext && !!summary && !!active && (
+        {!teamContext && !playerContext && !!summary && !!active && (
           <>
             {/* ============================================================
                   WHAT IS NEXT. The strongest thing on the screen, swiped rather
@@ -229,27 +235,10 @@ export default function Home() {
                 /* PROVIDER-HOSTED, DELIBERATELY. A GoCardless mandate is entered on
                    GoCardless's own pages and never recreated natively, so this hands
                    off to the canonical parent subscription surface. */
-                onPress={() =>
-                  void Linking.openURL(`${webUrl}/parent/players/${subscription.playerId}/subscription`)
-                }
+                onPress={() => router.push("/subscriptions" as never)}
               />
             ))}
 
-            {/* The club's own colours as a quiet rule, and the honest handoff for
-                what the app does not hold yet. */}
-            <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
-              <Card onPress={() => void Linking.openURL(webUrl)} accessibilityLabel="Open Ovalball on the web">
-                <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-                  <ExternalLink size={20} color={colour.forest800} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[type.smallMedium, { color: colour.ink }]}>Everything else is on the web</Text>
-                    <Text style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>
-                      People, club administration and the rest, until they arrive in the app.
-                    </Text>
-                  </View>
-                </View>
-              </Card>
-            </View>
           </>
         )}
 
@@ -278,6 +267,7 @@ export default function Home() {
       </ScrollView>
 
       <ContextSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+      <ChildSelector visible={childSheetOpen} onClose={() => setChildSheetOpen(false)} />
     </View>
   )
 }

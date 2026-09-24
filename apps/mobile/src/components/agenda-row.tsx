@@ -38,6 +38,12 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
  * IT IS ONE SPOKEN SENTENCE. VoiceOver reads a card as a label, not as eight fragments, so the whole
  * row carries a single sentence containing the same facts in the order a person would say them.
  */
+export interface AgendaSibling {
+  member: FamilyMember
+  attendance: AgendaItem["attendance"]
+  outstanding: boolean
+}
+
 export function AgendaRow({
   item,
   today,
@@ -45,6 +51,7 @@ export function AgendaRow({
   /** Shown in a family or club view, where a row needs to say whose rugby it is. */
   showOwner = false,
   child = null,
+  siblings,
 }: {
   item: AgendaItem
   today: string
@@ -60,6 +67,8 @@ export function AgendaRow({
    * be the quietest thing on the most important row.
    */
   child?: FamilyMember | null
+  /** Every child in this event, where a family reads it as one event (CA-M9). Replaces `child`. */
+  siblings?: AgendaSibling[]
 }) {
   const status = statusTone(item.status)
   const struck = status?.struck ?? false
@@ -71,7 +80,7 @@ export function AgendaRow({
     <Pressable
       accessible
       accessibilityRole="button"
-      accessibilityLabel={spokenAgendaItem(item, today)}
+      accessibilityLabel={siblings && siblings.length > 1 ? `${spokenAgendaItem(item, today)}. ${spokenSiblings(siblings)}` : spokenAgendaItem(item, today)}
       accessibilityHint={onPress ? "Opens the details" : undefined}
       onPress={onPress}
       disabled={!onPress}
@@ -129,7 +138,7 @@ export function AgendaRow({
         {/* WHO, THEN WHAT. A guardian scanning a week is looking for a person
             before a date, and the aggregated view must never make them work it out
             from an age grade. */}
-        {!!child && <ChildMark member={child} style={{ marginBottom: 1 }} />}
+        {siblings && siblings.length > 1 ? <SiblingMarks siblings={siblings} /> : !!child && <ChildMark member={child} style={{ marginBottom: 1 }} />}
         <Text
           numberOfLines={2}
           style={[
@@ -196,6 +205,30 @@ export function AgendaRow({
  * which of our sides is playing -- and a club running seven teams needs that more than it needs the
  * word "v".
  */
+/**
+ * TWO CHILDREN, ONE MATCH. Each child's picture with their own answer beside it, so a parent sees at a
+ * glance that Ava is going and Ben has not said -- one row, because it is one match.
+ */
+function SiblingMarks({ siblings }: { siblings: AgendaSibling[] }) {
+  return (
+    <View accessible={false} style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginBottom: 3 }}>
+      {siblings.map((s) => (
+        <View key={s.member.playerId} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <PersonAvatar name={s.member.fullName} url={s.member.avatarUrl} initials={s.member.initials} size={18} />
+          <Text style={[type.caption, { color: colour.ink, fontFamily: "Inter_500Medium" }]}>{s.member.shortLabel}</Text>
+          <Text style={[type.caption, { color: s.attendance === "ATTENDING" ? colour.forest800 : s.attendance === "CANNOT_ATTEND" ? colour.danger : s.attendance === "UNSURE" ? colour.warning : colour.inkSubtle }]}>
+            {s.attendance ? ATTENDANCE_STATE_WORDS[s.attendance] : s.outstanding ? "to answer" : ""}
+          </Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+
+function spokenSiblings(siblings: AgendaSibling[]): string {
+  return siblings.map((s) => `${s.member.firstName}: ${s.attendance ? ATTENDANCE_STATE_WORDS[s.attendance] : s.outstanding ? "still to answer" : "no answer needed"}`).join(". ")
+}
+
 function ownerLabel(item: AgendaItem, childShownAbove: boolean): string | null {
   if (childShownAbove) return item.us.teamName ?? null
   return item.childFirstName ?? item.us.teamName ?? null

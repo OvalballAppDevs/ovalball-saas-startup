@@ -3,6 +3,8 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { isFamilyFacingContext, memberFor, type AgendaItem } from "@ovalball/contracts"
+import { collapseFamilyEvents, groupFamilyEventsByDay } from "@ovalball/contracts/family/events"
+import { needsAttendanceResponse } from "@ovalball/contracts"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -154,7 +156,22 @@ export default function Fixtures() {
     return [items[index], items.filter((_, i) => i !== index)]
   }, [shown, direction])
 
-  const days = useMemo(() => groupByDay(rest), [rest])
+  // ONE MATCH, EVERY CHILD IN IT (CA-M9). A family reading all its children collapses the agenda's
+  // one-row-per-child onto the event, so two siblings on one side are one row with two answers.
+  const familyReading = active !== null && isFamilyFacingContext(active.kind) && selectedPlayerId === null
+  const days = useMemo(
+    () =>
+      familyReading
+        ? groupFamilyEventsByDay(collapseFamilyEvents(rest)).map((d) => ({
+            date: d.date,
+            items: d.events.map((e) => ({
+              row: { ...e.item, key: e.key },
+              siblings: e.children.map((c) => ({ member: memberFor(projection, c.playerId)!, attendance: c.attendance, outstanding: needsAttendanceResponse(c.item, today) })).filter((c) => c.member),
+            })),
+          }))
+        : groupByDay(rest).map((d) => ({ date: d.date, items: d.items.map((row) => ({ row, siblings: undefined })) })),
+    [rest, familyReading, projection, today]
+  )
   const canAdd = authority?.create ?? false
   const canRequest = authority?.requestCreate ?? false
   // THE REQUESTS WAITING ON THIS TEAM (CA-M7): a row above the list in a team context, for somebody
@@ -301,13 +318,14 @@ export default function Fixtures() {
               <Text style={[type.caption, { color: colour.inkSubtle }]}>{restOfDate(day.date, today)}</Text>
             </View>
             <View style={{ backgroundColor: colour.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colour.line }}>
-              {day.items.map((item, index) => (
+              {day.items.map(({ row: item, siblings }, index) => (
                 <View key={item.key} style={index === 0 ? undefined : { borderTopWidth: 1, borderTopColor: colour.line }}>
                   <AgendaRow
                     item={item}
                     today={today}
                     showOwner={active?.kind !== "team"}
                     child={memberFor(projection, item.playerId)}
+                    siblings={siblings}
                     onPress={() => openEvent(item)}
                   />
                 </View>
