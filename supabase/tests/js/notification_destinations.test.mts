@@ -57,6 +57,8 @@ const matrix: Row[] = [
   ["competition_match_response", { edition_id: ID }, `/fixtures/competitions/${ID}/issue`],
   ["fixture_attendance_invitation", { fixture_id: ID }, `/fixtures/${ID}`],
   ["fixture_attendance_reminder", { fixture_id: ID }, `/fixtures/${ID}`],
+  // CA-M8: a family's answer, told to the side's staff -- the register is on the fixture.
+  ["fixture_availability_responded", { fixture_id: ID, player_id: OTHER, team_id: OTHER }, `/fixtures/${ID}`],
   ["fixture_kickoff_changed", { fixture_id: ID }, `/fixtures/${ID}`],
   ["fixture_kickoff_change_proposed", { fixture_id: ID }, `/fixtures/${ID}`],
   ["fixture_kickoff_change_declined", { fixture_id: ID }, `/fixtures/${ID}`],
@@ -72,6 +74,7 @@ const matrix: Row[] = [
   ["training_staff_message", { training_session_id: ID }, `/training/${ID}`],
   ["training_attendance_reminder", { training_session_id: ID }, `/training/${ID}`],
   ["training_plan_cancelled", { training_session_id: ID }, `/training/${ID}`],
+  ["training_availability_responded", { training_session_id: ID, player_id: OTHER, team_id: OTHER }, `/training/${ID}`],
 
   // ---- Tournament Centre ----------------------------------------------
   ["tournament_invitation_received", { tournament_id: ID }, `/tournaments/${ID}`],

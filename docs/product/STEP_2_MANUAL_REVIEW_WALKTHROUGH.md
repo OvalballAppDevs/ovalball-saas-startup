@@ -624,6 +624,33 @@ changed is put back to its seeded value.
 
 If a later slice needs a persistent addition to this world, it goes in a seed file and is named here.
 
+## Notifications & Action Centre on the phone (CA-M8) — physical-iPhone walkthrough, prepared
+
+Not yet performed on a device. Each step names what to look at and what the canonical truth is.
+
+A. As **uat.guardian.one**, Home shows "Needs Attention" with "Can Cara make it?" — the same rows the
+Notifications screen shows first. B. Tap the bell: the header reads "n unread · m need action" as two
+figures; the badge number equals `my_unread_counts().notifications`. C. Needs Attention lists the
+family's open answers, urgent first; "You're all caught up" when none. D. Recent lists cards: what
+happened, where and when, arrival time, an unread dot AND the word Unread in VoiceOver. E. Press and hold
+a card: Mark as Read / Open. Mark it read; the header recounts; the Needs Attention tab is unchanged.
+F. Answer the match from the Match Centre; return: the item is gone, the invitation card still shows the
+same read state and now says "Answered". G. Filters: All, Unread (from storage), Needs Action (only the
+notifications whose job is still open). H. Scroll to the end: "Show Older" pages on; the last page says
+so. I. Preferences: switches per topic, "Always on" for mandatory topics, no push switch, the honest line.
+J. Sign out, sign in as **uat.team.manager** in the Under 12 Boys context: Recent shows "Cara Bell can
+make it" with the team's name as its chip; Needs Attention shows the register's awaiting count. K. Tap it:
+the fixture opens (console, because this person may manage it); the card is read on every device.
+L. Switch to another context: the previous context's items never flash under the new name. M. As
+**uat.preston.admin**: nothing of Cara anywhere. N. As **uat.siteadmin**: Needs Attention says the work
+lives on the website, and opens it. O. Deep link `/team/availability/fixture/<id>` as the guardian: refused
+on arrival with a sentence, not a blank. P. Airplane mode, pull to refresh: the offline error, never stale
+data dressed as fresh. Q. Dynamic Type at the largest accessibility size: the card's three lines wrap, the
+tabs stay tappable. R. VoiceOver: every card reads as one sentence; the tabs announce selected. S. Sign
+out: the next person's Notifications start empty until their own read returns. T. Web parity: the same
+person on the website sees the same rows, the same read marks. U. Mark All Read on the phone; the website's
+bell drops to zero; Messenger's badge does not. V. Nothing anywhere offers delete, dismiss or swipe.
+
 ## What is still open
 
 `docs/product/CONVERGENCE_LEDGER.md` holds the programme ledger.

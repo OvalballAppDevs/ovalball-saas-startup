@@ -37,7 +37,7 @@ export interface AttentionItem {
   onPress?: () => void
 }
 
-export function NeedsAttention({ items }: { items: AttentionItem[] }) {
+export function NeedsAttention({ items, showHeading = true }: { items: AttentionItem[]; showHeading?: boolean }) {
   if (items.length === 0) return null
 
   // Urgent first, then the order the caller gave -- which is the domain's own sense of priority.
@@ -45,6 +45,7 @@ export function NeedsAttention({ items }: { items: AttentionItem[] }) {
 
   return (
     <View>
+      {showHeading && (
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginBottom: space.sm }}>
         <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
           Needs Attention
@@ -65,6 +66,7 @@ export function NeedsAttention({ items }: { items: AttentionItem[] }) {
           </Text>
         </View>
       </View>
+      )}
 
       <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
         {ordered.map((item, index) => (

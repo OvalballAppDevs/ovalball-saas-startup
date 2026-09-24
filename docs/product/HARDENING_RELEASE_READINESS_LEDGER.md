@@ -831,11 +831,12 @@ TO-E9/E10 comments rather than assertions.
 
 ## H26 — CA-M7 Team Operations: owed at hardening
 
-- **Availability has no staff override and no staff notification.** `player_fixture_attendance`
-  permits `response_source = 'staff'` and nothing writes it; no notification or domain event is emitted
-  to team staff when a player or guardian answers. The mobile register says so plainly ("Staff can ask,
-  not answer for them") and the canonical reminder is the only staff action. Both remain platform debt
-  for the availability domain; neither was faked.
+- **Availability has no staff override** (`response_source = 'staff'` is permitted and nothing writes
+  it; the register says "Staff can ask, not answer for them"). **The staff notification half of this
+  item is CLOSED by CA-M8**: `respond_to_attendance` and `respond_to_training_attendance` now emit
+  `fixture_availability_responded` / `training_availability_responded` to the holders of
+  `team.attendance.view` by the capability decision, once per change, superseding an unread earlier
+  answer (`notifications_action_centre_ca8.sql` AC-1…13). Event attendance still emits nothing (H28).
 - **Team conversations have no client.** `public.team_conversations` carries a complete authority model
   (`messaging.team_conversation.view/send`, the club policy switch) and neither client lists or opens
   one. The Team workspace surfaces the canonical Messages inbox (fixture, request, club, direct,
@@ -869,3 +870,44 @@ TO-E9/E10 comments rather than assertions.
   `unified_fixture_conversation`, `club_lifecycle`, `fixture_results`) fail at their own setup on
   hard-coded ids and ambient data before reaching any authority assertion. Unrelated to the gate change;
   left as found.
+
+## H28 — CA-M8 Notifications, Inbox & Action Centre: owed at hardening
+
+- **PUSH DELIVERY FOUNDATION PENDING.** No device registry, token, APNs/FCM credential, worker,
+  delivery log or permission UX exists, and none was built: a registry with no consumer is a
+  zero-caller hazard. The canonical architecture and its prerequisites are in
+  `docs/mobile/CA_M8_NOTIFICATIONS_ACTION_CENTRE_MAP.md` §6. The app-icon badge follows the same
+  foundation. The phone says plainly that nothing is sent to the device.
+- **Event attendance emits no staff notification.** `respond_to_event_attendance` (club events) was
+  left as found; only fixtures and training sessions tell the staff.
+- **Pending states with no notification type**: `player_team_memberships` PENDING, `player_club_join_requests`
+  pending, `guardian_link_requests` PENDING (either side), `access_invitations` ISSUED,
+  `player_team_dispensation` intermediate states, `privileged_recovery_requests` PENDING_APPROVAL. Each
+  is projected as attention where the phone holds the context, or handed to the web; none is faked.
+- **Club queues not yet projected on the phone**: tournament invitations, competition match
+  verifications, `amendment_pending` / `disputed` results, season handover blockers. Their readers are
+  not yet shared; the website's own surfaces remain canonical.
+- **`club_join_request_submitted` chooses recipients by a role list** (`club_memberships.role =
+  'CLUB_ADMIN'`), unlike the new availability emitter which asks the capability decision. Left as found.
+- **Call-up and dispensation notifications carry no team or club id**, so the phone cannot select a
+  context before opening them; they route to `/club/player-moves` on the web.
+- **The website's inbox has no unread-only filter and no page after fifty**; its read actions now call
+  the shared operations (`mark_all_notifications_read` marks the bell's rows, where before it also
+  marked Messenger's). `directory_request_submitted` routes to `/admin/claims`, where the Site Admin
+  dashboard has no page for directory requests.
+- **Messenger's own read path** (`markConversationRead`, `apps/mobile/src/messages/conversation.ts`)
+  updates `read_at` directly under RLS. Deliberately untouched (CA-M5); the JS suite exempts it by name.
+- **Neighbouring suites erroring at their own seed, unrelated to this slice** (all `UNVERIFIED`
+  disposition): `parent_player_foundation_security.sql` and
+  `training_management_extension_regression.sql` ("VALUES lists must all be the same length"),
+  `player_movement_notification_recipients.sql` (`club_memberships_user_id_fkey`). Observed while
+  running the suites that exercise the re-created response operations; every CANONICAL_GATE neighbour
+  passed (`adult_player_self_registration` 40, `availability_one_product` 38,
+  `definer_rpc_session_contract` 37, `match_centre_core` 22, `participant_route_authority` 40,
+  `step9_family_and_availability` 41, `unread_truth` 16, `notification_catalogue` 18,
+  `notification_mandatory_and_preferences` 19, `team_operations_ca7` 61,
+  `safeguarding_officer_dispensation_notifications` 8, `announcement_unread_surfaces` 8).
+- **Physical-iPhone walkthrough (A–V in the CA-M8 directive)** prepared, not performed; Expo Web proof
+  and the iOS export only. Dynamic Type on the card's three lines and VoiceOver on the press-and-hold
+  sheet are the first things to look at.
+- **H27 unchanged.**

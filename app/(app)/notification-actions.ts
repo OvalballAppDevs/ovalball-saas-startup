@@ -2,12 +2,20 @@
 
 import { revalidatePath } from "next/cache"
 
+import {
+  markAllNotificationsRead as markAllRead,
+  markNotificationRead as markRead,
+} from "@ovalball/contracts/notifications/feed"
+
 import { createClient } from "@/lib/supabase/server"
 
 /**
- * notifications_update_self (self-only, and a trigger restricts a client
- * to changing read_at alone -- see enforce_notification_read_only_update)
- * is the real boundary here; these are thin forwards.
+ * THE SAME READ MUTATION THE APP USES (CA-M8). `mark_notification_read` and
+ * `mark_all_notifications_read` are self-only and touch read_at alone -- the
+ * boundary the table's policy and its read-only trigger already draw -- and
+ * "all" means the bell's own rows: Messenger clears its own unread state
+ * through its conversations, exactly as before. Neither touches the thing a
+ * notification was about. READ IS NOT RESOLVED.
  */
 export async function markNotificationRead(id: string): Promise<void> {
   const supabase = await createClient()
@@ -16,7 +24,7 @@ export async function markNotificationRead(id: string): Promise<void> {
   } = await supabase.auth.getUser()
   if (!user) return
 
-  await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id)
+  await markRead(supabase, id).catch(() => false)
   revalidatePath("/", "layout")
 }
 
@@ -27,10 +35,6 @@ export async function markAllNotificationsRead(): Promise<void> {
   } = await supabase.auth.getUser()
   if (!user) return
 
-  await supabase
-    .from("notifications")
-    .update({ read_at: new Date().toISOString() })
-    .eq("user_id", user.id)
-    .is("read_at", null)
+  await markAllRead(supabase).catch(() => 0)
   revalidatePath("/", "layout")
 }

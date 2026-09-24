@@ -7,6 +7,7 @@ import * as Linking from "expo-linking"
 import { useSession } from "../../src/auth/session"
 import { useAppContexts, forgetSelectedContext } from "../../src/context/contexts"
 import { forgetHubCache } from "../../src/hub/cache"
+import { forgetAttentionCache } from "../../src/attention/cache"
 import { forgetHubTeamPreference } from "../../src/hub/identity"
 import { forgetRecentSearches } from "../../src/hub/recent"
 import { clearAllDrafts } from "../../src/messages/drafts"
@@ -58,6 +59,8 @@ export default function More() {
     await forgetHubTeamPreference()
     await forgetRecentSearches()
     forgetHubCache()
+    // What needed the previous person's attention is theirs, not the next person's.
+    forgetAttentionCache()
     await signOut()
   }
 

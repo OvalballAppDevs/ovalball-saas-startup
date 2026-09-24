@@ -8,6 +8,7 @@ import { isFamilyFacingContext, type HeroPage } from "@ovalball/contracts"
 
 import { useAppContexts } from "../../src/context/contexts"
 import { loadHomeSummary, type HomeSummary } from "../../src/context/home-data"
+import { HomeAttention } from "../../src/attention/home-attention"
 import { routeForAgendaItem } from "../../src/links/destinations"
 import { supabase } from "../../src/auth/supabase"
 import { webUrl } from "../../src/config/environment"
@@ -162,6 +163,11 @@ export default function Home() {
             <CardSkeleton lines={1} />
           </View>
         )}
+
+        {/* WHAT NEEDS ME, compactly: the shared attention projection for THIS context (CA-M8). Home shows the
+            first few and hands the rest to the Notifications screen; the Team Home draws its own from the same
+            projection. Absent, not empty, where there is nothing -- Home does not draw furniture for calm. */}
+        {!teamContext && !!active && (active.kind !== "site_admin" && active.kind !== "governing") && <HomeAttention />}
 
         {!teamContext && !!summary && !!active && (
           <>

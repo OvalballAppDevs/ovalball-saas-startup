@@ -5,6 +5,7 @@ import * as Linking from "expo-linking"
 import type { AgendaItem } from "@ovalball/contracts"
 import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
 import { anyFixtureManagement, anyTeamAdministration } from "@ovalball/contracts/team/authority"
+import { sortAttention, teamAttentionItems } from "@ovalball/contracts/attention"
 
 import { supabase } from "../auth/supabase"
 import { useAppContexts } from "../context/contexts"
@@ -21,7 +22,7 @@ import { Card, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
 import { webUrl } from "../config/environment"
 import { loadTeamHome, type TeamHomeData } from "./data"
-import { routeForAttention } from "./routes"
+import { routeForAttentionItem } from "../attention/routes"
 
 /**
  * TEAM HOME -- what do I need to deal with today (CA-M7).
@@ -99,14 +100,17 @@ export function TeamHome() {
 
   const { overview, theme, accents, identity, relationships, notices, news } = data
   const a = overview.authority
-  const attention: AttentionItem[] = overview.attention.map((item) => ({
-    key: item.key,
-    label: item.label,
-    detail: item.detail,
-    urgent: item.urgent,
+  // THE SHARED ATTENTION MODEL (CA-M8): the team rule's rows, in the one shape the Notifications screen
+  // and Home read, sorted by the one deterministic order and opened through the one route table.
+  const attention: AttentionItem[] = sortAttention(teamAttentionItems(overview, club.clubId)).map((item) => ({
+    key: item.id,
+    label: item.title,
+    detail: item.summary,
+    urgent: item.priority === "urgent",
     onPress: () => {
-      const route = routeForAttention(item)
+      const route = routeForAttentionItem(item, "team")
       if (route) router.push(route as never)
+      else void Linking.openURL(`${webUrl}${item.href}`)
     },
   }))
   const relationship = relationships.map((r) => r.label).filter(Boolean).join(" · ")

@@ -82,6 +82,8 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "fixture_result_disputed":
     case "fixture_result_awaiting_confirmation":
     case "fixture_result_amendment_proposed":
+    // CA-M8: a family's answer, told to the side's staff. The register is on the fixture.
+    case "fixture_availability_responded":
       return fixtureId ? `/fixtures/${fixtureId}` : "/fixtures"
 
     // ---- Training Centre ------------------------------------------------
@@ -90,6 +92,7 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "training_staff_message":
     case "training_attendance_reminder":
     case "training_plan_cancelled":
+    case "training_availability_responded":
       return trainingSessionId ? `/training/${trainingSessionId}` : "/calendar"
 
     // ---- Tournament Centre ----------------------------------------------

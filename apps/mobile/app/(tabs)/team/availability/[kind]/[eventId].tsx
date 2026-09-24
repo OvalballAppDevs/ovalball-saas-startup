@@ -10,6 +10,7 @@ import { loadFixtureDetail, type FixtureDetail } from "../../../../../src/agenda
 import { todayIso } from "../../../../../src/agenda/load"
 import { exactDate, kickoffLabel, relativeDate } from "../../../../../src/agenda/presentation"
 import { useTeamAuthority } from "../../../../../src/team/authority"
+import { routeForIntent } from "../../../../../src/links/destinations"
 import { NotForYou, TeamScreen } from "../../../../../src/team/screen"
 import { AVAILABILITY_GROUPS } from "../../../../../src/availability/presentation"
 import { AnnounceSheet } from "../../../../../src/components/announce-sheet"
@@ -114,8 +115,11 @@ export default function TeamAvailabilityRegister() {
   const dateIso = isTraining ? (session?.date ?? null) : (fixture?.date ?? null)
   const time = isTraining ? (session?.startTime ?? null) : (fixture?.kickoff ?? null)
   const venue = isTraining ? (session?.venueName ?? null) : (fixture?.venue ?? null)
-  const openEvent = () =>
-    router.push((isTraining ? { pathname: "/calendar/training/[sessionId]", params: { sessionId: eventId ?? "" } } : { pathname: "/fixtures/[fixtureId]", params: { fixtureId: eventId ?? "" } }) as never)
+  const openEvent = () => {
+    // THE ONE ROUTE TABLE decides where a fixture or a session opens; this screen only says which.
+    const route = routeForIntent(isTraining ? { kind: "TRAINING", sessionId: eventId ?? "" } : { kind: "FIXTURE", fixtureId: eventId ?? "" })
+    if (route) router.push(route as never)
+  }
 
   return (
     <TeamScreen section="Who's In" refreshing={refreshing} onRefresh={refresh}>

@@ -200,8 +200,8 @@ test("a team link resolves to the team's own screens, and a link can select a he
   assert.equal(teamContextKeyFor("t1", [held, other], other), "team:t1", "a held team is selected")
   assert.equal(teamContextKeyFor("t1", [held, other], held), null, "already there: no switch")
   assert.equal(teamContextKeyFor("t9", [held, other], held), null, "a team the person does not hold is never selected")
-  const notifications = code(join(MOBILE, "app/(tabs)/notifications.tsx"))
-  assert.match(notifications, /teamContextKeyFor\(intent\.teamId, contexts, active\)/, "the bell switches through the canonical rule")
+  const notifications = code(join(MOBILE, "app/(tabs)/notifications/index.tsx"))
+  assert.match(notifications, /teamContextKeyFor\((?:intent|hint)\.teamId, contexts, active\)/, "the bell switches through the canonical rule")
   assert.doesNotMatch(notifications, /select\(`team:\$\{/, "and never builds a context key from a link")
 })
 

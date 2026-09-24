@@ -25292,6 +25292,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      mark_all_notifications_read: { Args: never; Returns: number }
       mark_announcement_read: {
         Args: { p_announcement_id: string }
         Returns: undefined
@@ -25312,6 +25313,8 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
+      mark_notification_read: { Args: { p_id: string }; Returns: boolean }
+      mark_notification_unread: { Args: { p_id: string }; Returns: boolean }
       mark_platform_provider_event_processed: {
         Args: { p_error?: string; p_event_id: string }
         Returns: undefined
@@ -25434,6 +25437,24 @@ export type Database = {
           session_id: string
           target_name: string
           view_only: boolean
+        }[]
+      }
+      my_notifications: {
+        Args: {
+          p_before_created_at?: string
+          p_before_id?: string
+          p_limit?: number
+          p_unread_only?: boolean
+        }
+        Returns: {
+          body: string
+          created_at: string
+          data: Json
+          id: string
+          read_at: string
+          title: string
+          topic_key: string
+          type: string
         }[]
       }
       my_player_age_grade_status: {
