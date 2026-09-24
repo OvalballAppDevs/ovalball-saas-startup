@@ -763,3 +763,23 @@ authenticator and will refuse until they enrol one through `enrolAuthenticator` 
 (`transition_club_membership` over REST with the admin token). `20-planner-persona-matrix.mjs` calls
 the override through `psql` (no session claim) and is unaffected. Owed at hardening, with the
 enrolment done in the suites' own setup and cleaned up in their teardown.
+
+
+## H23 — CA-M6 Rugby Hub: owed at hardening
+
+- **Physical-device review of the visual layer.** The explainers, hotspots, Reduce Motion and image
+  loading were proved on Expo Web and exported for iOS; they have not been run on a physical iPhone in
+  this slice. The owner's review through Expo Go is owed, in particular the 44 pt hotspot targets over
+  a 3:2 image at 390 pt and VoiceOver reading of the "In words" block.
+- **Image caching and first-launch weight.** The 24 approved scenes ship in the bundle (5.4 MB of
+  JPEG). If the app's size budget tightens, move them to remote assets with `expo-image` caching and
+  an app-owned placeholder; the manifest asks for a key, so the change is confined to `assets.ts`.
+- **Deeper offline.** The Hub's in-memory cache is stale-while-revalidate and cleared on sign-out; a
+  persisted read model for offline reading is not built and is not promised by any screen.
+- **Related Rules on a concept.** `hub_regulatory_fact_references` links 82 facts to concepts, but
+  some concepts (for example `the-breakdown-and-ruck`) have none, so the Related Rules block is
+  absent there on both clients. Editorial data, not a defect; recorded so a reviewer does not read the
+  absence as a mobile gap.
+- **Higgsfield billing.** The owner reported an unlimited Nano Banana allowance; the CLI account
+  (`ovalballapp@gmail.com`, plus plan) still debited 2 credits per Nano Banana job on 2026-09-24. Any
+  further regeneration should confirm the allowance against the balance first.

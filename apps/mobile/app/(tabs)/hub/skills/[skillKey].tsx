@@ -3,7 +3,9 @@ import { Text, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { findSkillByKey, relatedSkillsOf, resolveSupersededSkillKey, skillRugbyCodeLabel } from "@ovalball/contracts/rugby-hub/skills-explorer-data"
 import { skillCitedContent, skillCoachingLinks, skillDevelopmentLinks } from "@ovalball/contracts/rugby-hub/skills-explorer-types"
+import { afterExploreNext, exploreNext, relatedEntities } from "@ovalball/contracts/rugby-hub/related"
 
+import { HubExploreNext, HubKeepExploring, useOpenHubEntity } from "../../../../src/hub/experience"
 import { supabase } from "../../../../src/auth/supabase"
 import { ExternalLink } from "../../../../src/components/icons"
 import { oneParam, useSkills } from "../../../../src/hub/bundles"
@@ -44,6 +46,9 @@ export default function SkillScreen() {
   }, [data, key, skill, router])
 
   const cited = data && skill ? skillCitedContent(data.trainingContentBySkill.get(skill.id) ?? []) : []
+  const { openEntity } = useOpenHubEntity()
+  const related = data && skill ? relatedEntities({ domain: "skills", bundle: data }, skill.id) : []
+  const next = exploreNext(related)
   const showSteps = !!skill?.techniqueSteps && skill.techniqueSteps.length > 0 && !skill.contactNotYetPermitted
 
   return (
@@ -77,6 +82,7 @@ export default function SkillScreen() {
           {skill.howToImprove && <HubProse heading="How to improve">{skill.howToImprove}</HubProse>}
           {skill.gameExamples && <HubProse heading="Game examples">{skill.gameExamples}</HubProse>}
 
+          {related.length >= 2 && <HubExploreNext items={next} onOpen={openEntity} />}
           <HubChips
             heading="Positions that use this skill"
             items={(data.positionsBySkill.get(skill.id) ?? []).map((p) => ({
@@ -123,6 +129,7 @@ export default function SkillScreen() {
             </View>
           )}
 
+          <HubKeepExploring items={afterExploreNext(related, next)} onOpen={openEntity} />
           <HubFootnote>Ovalball educational guidance — general coaching convention, not law or regulation.</HubFootnote>
         </>
       )}

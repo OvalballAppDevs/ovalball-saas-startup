@@ -1,6 +1,10 @@
 import { useLocalSearchParams } from "expo-router"
 import { PARENT_AUTHORITY_LINKS, PARENT_FAMILY_LABEL, SOURCE_TIER_LABEL, findParentGuideByKey } from "@ovalball/contracts/rugby-hub/parents-data"
+import { afterExploreNext, exploreNext, relatedEntities } from "@ovalball/contracts/rugby-hub/related"
+import { conceptQuickCheck } from "@ovalball/contracts/rugby-hub/quick-check"
 
+import { HubExploreNext, HubKeepExploring, HubQuickCheck, useHubExplanations, useOpenHubEntity } from "../../../../src/hub/experience"
+import { HubShowMe } from "../../../../src/hub/visuals/show-me"
 import { oneParam, useParents } from "../../../../src/hub/bundles"
 import { HubScreen } from "../../../../src/hub/screen"
 import { HubBadge, HubCallout, HubChips, HubEmpty, HubFactList, HubFailed, HubFootnote, HubHero, HubLoading, HubParagraph, HubProse, HubSources } from "../../../../src/hub/ui"
@@ -20,6 +24,11 @@ export default function ParentGuideScreen() {
   const guide = data && key ? findParentGuideByKey(data, key) : null
   const related = data && guide ? (data.relatedByGuide.get(guide.id) ?? []) : []
   const byKind = (kind: string) => related.filter((r) => r.kindLabel === kind).map((r) => ({ label: r.title, href: r.href }))
+  const { openEntity, openRef } = useOpenHubEntity()
+  const explanations = useHubExplanations()
+  const entities = data && guide ? relatedEntities({ domain: "parents", bundle: data }, guide.id) : []
+  const next = exploreNext(entities)
+  const check = data && guide ? conceptQuickCheck(guide, data.guides.filter((g) => g.family === guide.family), next.slice(0, 3)) : null
 
   return (
     <HubScreen section="Parents & Guardians" onRefresh={refresh} refreshing={refreshing}>
@@ -29,6 +38,7 @@ export default function ParentGuideScreen() {
       {data && guide && (
         <>
           <HubHero title={guide.title} eyebrow="Parents & Guardians" badges={<HubBadge label={PARENT_FAMILY_LABEL[guide.family]} />} />
+          <HubShowMe entity={{ type: "PARENT_GUIDE", key: guide.contentKey }} explanations={explanations} onOpen={openRef} />
           <HubParagraph>{guide.summary}</HubParagraph>
           {guide.whyItMatters && <HubProse heading="Why this matters">{guide.whyItMatters}</HubProse>}
           {guide.body && <HubProse heading="What parents should know">{guide.body}</HubProse>}
@@ -38,6 +48,8 @@ export default function ParentGuideScreen() {
             items={(data.regulatoryFactsByGuide.get(guide.id) ?? []).map((f) => ({ key: f.factKey, text: f.valueText }))}
             footnote="This is the governing body's own wording, not an Ovalball summary. Rules change between age groups and between the codes, so check what applies to your player rather than relying on memory."
           />
+          {entities.length >= 2 && <HubExploreNext items={next} onOpen={openEntity} />}
+          {check && <HubQuickCheck check={check} onOpen={openEntity} />}
           <HubChips heading="Words You Might Not Know" note="Plain-English definitions, in the Glossary." items={(data.glossaryByGuide.get(guide.id) ?? []).map((g) => ({ label: g.displayTerm, href: `/rugby-hub/glossary/${g.termKey}` }))} />
           <HubChips heading="How the Game Works" items={byKind("How the game works")} />
           <HubChips heading="What Your Player Is Learning" note="The player's own side of this, written for them." items={byKind("Player Development")} />
@@ -52,6 +64,7 @@ export default function ParentGuideScreen() {
             </HubCallout>
           )}
           <HubSources items={(data.sourcesByGuide.get(guide.id) ?? []).map((s) => ({ title: s.title, url: s.url, tierLabel: SOURCE_TIER_DISPLAY[s.tier] ?? s.tier, retrievedOn: s.retrievedOn }))} />
+          <HubKeepExploring items={afterExploreNext(entities, next)} onOpen={openEntity} />
           <HubFootnote>
             Ovalball educational guidance for families — not medical advice, not safeguarding policy, not law or regulation, and not a record of any player. Anything involving a player's health belongs with qualified medical people, and any safeguarding concern belongs with your club's welfare officer or the routes in the Safeguarding section.
           </HubFootnote>

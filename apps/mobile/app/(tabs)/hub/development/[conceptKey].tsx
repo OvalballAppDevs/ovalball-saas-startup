@@ -1,6 +1,9 @@
 import { useLocalSearchParams } from "expo-router"
 import { DEVELOPMENT_FAMILY_LABEL, SOURCE_TIER_LABEL, developmentRugbyCodeLabel, findDevelopmentConceptByKey } from "@ovalball/contracts/rugby-hub/development-data"
+import { afterExploreNext, exploreNext, relatedEntities } from "@ovalball/contracts/rugby-hub/related"
+import { conceptQuickCheck } from "@ovalball/contracts/rugby-hub/quick-check"
 
+import { HubExploreNext, HubKeepExploring, HubQuickCheck, useOpenHubEntity } from "../../../../src/hub/experience"
 import { oneParam, useDevelopment } from "../../../../src/hub/bundles"
 import { HubScreen } from "../../../../src/hub/screen"
 import { HubBadges, HubChips, HubEmpty, HubFactList, HubFailed, HubFootnote, HubHero, HubLoading, HubParagraph, HubProse, HubSources } from "../../../../src/hub/ui"
@@ -17,6 +20,10 @@ export default function DevelopmentConceptScreen() {
   const { data, loading, error, refresh, refreshing } = useDevelopment()
   const concept = data && key ? findDevelopmentConceptByKey(data, key) : null
   const codeLabel = concept ? developmentRugbyCodeLabel(concept.rugbyCode) : null
+  const { openEntity } = useOpenHubEntity()
+  const related = data && concept ? relatedEntities({ domain: "development", bundle: data }, concept.id) : []
+  const next = exploreNext(related)
+  const check = data && concept ? conceptQuickCheck(concept, data.concepts.filter((c) => c.family === concept.family), next.slice(0, 3)) : null
 
   return (
     <HubScreen section="Player Development" onRefresh={refresh} refreshing={refreshing}>
@@ -35,6 +42,8 @@ export default function DevelopmentConceptScreen() {
             items={(data.regulatoryFactsByConcept.get(concept.id) ?? []).map((f) => ({ key: f.factKey, text: f.valueText }))}
             footnote="This is the governing body's own wording, not an Ovalball summary. Rules change between age groups and between the codes, so check what applies to you rather than relying on memory."
           />
+          {related.length >= 2 && <HubExploreNext items={next} onOpen={openEntity} />}
+          {check && <HubQuickCheck check={check} onOpen={openEntity} />}
           <HubChips heading="Skills This Applies To" items={(data.skillsByConcept.get(concept.id) ?? []).map((s) => ({ label: s.displayName, href: `/rugby-hub/skills/${s.skillKey}` }))} />
           <HubChips
             heading="Where You See This Most"
@@ -42,6 +51,7 @@ export default function DevelopmentConceptScreen() {
           />
           <HubChips heading="Related Knowledge" items={(data.relatedByConcept.get(concept.id) ?? []).map((r) => ({ label: r.title, trailing: r.kindLabel, href: r.href }))} />
           <HubSources items={(data.sourcesByConcept.get(concept.id) ?? []).map((s) => ({ title: s.title, url: s.url, tierLabel: SOURCE_TIER_LABEL[s.tier] ?? s.tier, retrievedOn: s.retrievedOn }))} />
+          <HubKeepExploring items={afterExploreNext(related, next)} onOpen={openEntity} />
           <HubFootnote>Ovalball educational guidance — general coaching convention, not law, regulation, an assessment of any player, or medical advice.</HubFootnote>
         </>
       )}

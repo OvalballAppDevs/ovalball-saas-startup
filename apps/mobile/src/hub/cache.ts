@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { friendly, logDetail, type FriendlyError } from "../errors/translate"
+import { forgetHubExplanations } from "./experience/explain"
 
 /**
  * ONE SMALL CACHE FOR THE HUB'S BUNDLES.
@@ -37,6 +38,7 @@ const store = new Map<string, Entry>()
 
 /** Drop everything. Called on sign-out so the next person on a shared handset starts cold. */
 export function forgetHubCache(): void {
+  forgetHubExplanations()
   store.clear()
 }
 

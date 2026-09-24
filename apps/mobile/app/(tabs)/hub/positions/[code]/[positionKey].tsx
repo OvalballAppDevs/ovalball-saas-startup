@@ -1,7 +1,9 @@
 import { Text, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { findPositionByKey, relatedPositionsOf } from "@ovalball/contracts/rugby-hub/position-explorer-data"
+import { afterExploreNext, exploreNext, relatedEntities } from "@ovalball/contracts/rugby-hub/related"
 
+import { HubExploreNext, HubKeepExploring, useOpenHubEntity } from "../../../../../src/hub/experience"
 import { CODE_LABEL, codeParam, oneParam, usePositions } from "../../../../../src/hub/bundles"
 import { AgeStageBanner, familySentence } from "../../../../../src/hub/positions"
 import { HubScreen } from "../../../../../src/hub/screen"
@@ -21,6 +23,9 @@ export default function PositionScreen() {
   const key = oneParam(params.positionKey)
   const { data, loading, error, refresh, refreshing } = usePositions(code)
   const position = data && key ? findPositionByKey(data, key) : null
+  const { openEntity } = useOpenHubEntity()
+  const related = data && position ? relatedEntities({ domain: "positions", bundle: data }, position.id) : []
+  const next = exploreNext(related)
 
   return (
     <HubScreen section="Position Explorer" onRefresh={refresh} refreshing={refreshing}>
@@ -52,6 +57,7 @@ export default function PositionScreen() {
           {position.defenceResponsibilities && <HubProse heading="In defence">{position.defenceResponsibilities}</HubProse>}
           {position.setPieceResponsibilities && <HubProse heading="Set piece">{position.setPieceResponsibilities}</HubProse>}
 
+          {related.length >= 2 && <HubExploreNext items={next} onOpen={openEntity} />}
           <HubChips heading="Key skills for this position" items={(data.skillsByPosition.get(position.id) ?? []).map((s) => ({ label: s.displayName, href: `/rugby-hub/skills/${s.skillKey}` }))} />
 
           {position.decisionMaking && <HubProse heading="Decision making">{position.decisionMaking}</HubProse>}
@@ -82,6 +88,7 @@ export default function PositionScreen() {
             </View>
           )}
 
+          <HubKeepExploring items={afterExploreNext(related, next)} onOpen={openEntity} />
           <HubFootnote>Ovalball educational guidance — general coaching convention, not law or regulation.</HubFootnote>
         </>
       )}

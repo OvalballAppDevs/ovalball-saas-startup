@@ -2,7 +2,9 @@ import { useEffect, useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { findAdjacentEntries, findEraRelatives, getHeritageEntrySources, type HeritageSource } from "@ovalball/contracts/rugby-hub/heritage-data"
+import { afterExploreNext, exploreNext, relatedEntities } from "@ovalball/contracts/rugby-hub/related"
 
+import { HubExploreNext, HubKeepExploring, useOpenHubEntity } from "../../../../src/hub/experience"
 import { supabase } from "../../../../src/auth/supabase"
 import { ChevronLeft, ChevronRight } from "../../../../src/components/icons"
 import { oneParam, useHeritage } from "../../../../src/hub/bundles"
@@ -50,6 +52,9 @@ export default function StoryEntryScreen() {
   const adjacent = data && entry ? findAdjacentEntries(data.entries, entry.entryKey) : { previous: null, next: null }
   const relatives = data && entry ? findEraRelatives(data.entries, entry) : []
   const period = entry ? (entry.endsYear && entry.endsYear !== entry.happenedYear ? `${entry.happenedYear}–${entry.endsYear}` : (entry.happenedOn ?? String(entry.happenedYear))) : ""
+  const { openEntity } = useOpenHubEntity()
+  const related = data && entry ? relatedEntities({ domain: "story", bundle: data }, entry.id) : []
+  const next = exploreNext(related)
   const go = (k: string) => router.push({ pathname: "/hub/story/[entryKey]", params: { entryKey: k } })
 
   return (
@@ -116,6 +121,7 @@ export default function StoryEntryScreen() {
             <HubSources heading={`Sources (${sources.length})`} items={sources.map((s) => ({ title: s.sourceTitle, url: s.sourceUrl, tierLabel: TIER_LABEL[s.sourceTier] ?? s.sourceTier, publisher: s.publisher, supports: s.supports, retrievedOn: s.retrievedOn }))} />
           )}
 
+          {related.length >= 2 && <HubExploreNext items={next} onOpen={openEntity} />}
           {relatives.length > 0 && (
             <View style={{ borderTopWidth: 1, borderTopColor: colour.line, paddingTop: space.lg, gap: space.sm }}>
               <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.ink, fontFamily: "Inter_600SemiBold" }]}>
@@ -130,6 +136,7 @@ export default function StoryEntryScreen() {
             </View>
           )}
 
+          <HubKeepExploring items={afterExploreNext(related, next)} onOpen={openEntity} />
           <View accessibilityRole="toolbar" accessibilityLabel="Chronological navigation" style={{ borderTopWidth: 1, borderTopColor: colour.line, paddingTop: space.lg, flexDirection: "row", gap: space.lg }}>
             <View style={{ flex: 1 }}>
               {adjacent.previous && (

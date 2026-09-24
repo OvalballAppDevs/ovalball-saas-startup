@@ -111,3 +111,53 @@ the system browser. No such href exists in the current content.
   decision, not a Hub one.
 - The recommended-content RPC (`get_hub_recommended_content`) is not consumed
   by any web page today and is therefore not consumed by the app either.
+
+
+## CA-M6 — verified against HEAD, and the experience layer
+
+**Verification (2026-09-24).** Every web Rugby Hub page under `app/(app)/rugby-hub/**` (33 pages:
+landing, 16 sections, their details, positions by code, safeguarding contact) has the native
+destination listed above, reading through the same shared reader; no web route was added since the
+map was written and none lacks a native screen (`supabase/tests/js/mobile_rugby_hub.test.mts` pins the
+vocabulary ↔ screen mapping). Canonical content at HEAD: GAME_CONCEPT 13, OFFICIATING_CONCEPT 20,
+COACHING_CONCEPT 27 (+ 2 COACHING_GUIDANCE), PLAYER_DEVELOPMENT_CONCEPT 19, PARENT_GUIDE 25,
+COMPETITION_GUIDE 25, RUGBY_TEAM 25, RUGBY_PERSON 14, glossary 38 terms (18 term relationships, 68
+content links), positions 28, skills 12, team honours 59, person–team 21, person–honour 3, content
+relationships 215 (RELATED_KNOWLEDGE 193, CONCEPT_RELATED 22), sources 133, heritage links 23,
+regulatory facts 167 (82 Hub references). Search is the one `search_hub_content` RPC across content
+items, positions, skills, glossary, verified rules and heritage. **Parity totals: 33 NATIVE PARITY,
+2 SHARED-CONVERGED, 3 INTENTIONAL EXTERNAL HANDOFF, 2 NOT APPLICABLE, 0 BLOCKED.**
+
+**The experience layer (added, both clients' data, one projection).**
+
+| Capability | Where it comes from | Native surface | Visual experience |
+|---|---|---|---|
+| Related content | `packages/contracts/src/rugby-hub/related.ts` — one typed projection over the bundles' own relationship maps; type derived from the canonical href, never the title; deduped by href | `HubExploreNext` rail and `HubKeepExploring` foot on every detail screen | — |
+| Quick Check | `quick-check.ts` — deterministic derivation from canonical fields (definition / summary + same-family siblings, stable hash, no randomness) | game, glossary, coaching, development, parent details | — |
+| What Would You Call? | `quick-check.ts` `officiatingCall` — scenario = the concept's own "what happens", options = same-family concepts, explanation = how it is signalled, the misunderstanding, the referenced laws | officiating DECISIONS_AND_SIGNALS details | TACTICAL / SPATIAL ILLUSTRATION (`scene-offside`, `scene-knock-on`, `scene-cards`) |
+| Show Me / See It | `apps/mobile/src/hub/visuals/manifest.ts` — hotspots and steps that reference canonical entities only; labels and explanations read at render time (`hub_visual_manifest.test.mts`) | game, officiating, coaching, parent details (Show Me); glossary terms (See It) | CONCEPT ILLUSTRATION per `RUGBY_HUB_VISUAL_ASSET_MANIFEST.md` |
+| Step-through | manifest `steps` (tackle → ruck → decision; arrive → meet → warm up → play → after) | the same explainer | INTERACTIVE EXPLAINER BACKDROP |
+| The pitch | `apps/mobile/src/hub/pitch-explainer.tsx` — native vector pitch with standard union markings; tappable areas open canonical glossary terms | `the-pitch-and-direction-of-play` | ATMOSPHERIC SECTION ART behind the vector |
+| Section heroes | `SECTION_HEROES` | landing and the five groups | EDITORIAL HERO / ATMOSPHERIC SECTION ART |
+| From the Story of Rugby | the heritage bundle (a real entry, chosen by day) | landing | — |
+
+**Visual-experience decisions by domain:** Game Knowledge — CONCEPT ILLUSTRATION for the spatial
+concepts (ruck/breakdown, scrum, lineout, play-the-ball, penalties/advantage, scoring, the pitch);
+NO GENERATED VISUAL for the objective, possession/territory, moving the ball, how play restarts,
+tackle count (text and relationships carry them). Officiating — scenario illustrations for offside,
+knock-on/forward pass, cards, the referee; none for the respect, communication and becoming-a-referee
+concepts. Coaching — spatial illustrations for breakdown decisions, space/time/numbers, contact
+safety, tackle-count decisions; none for approach, communication, inclusion and reflection concepts.
+Parents — match day (step-through) and what a new player needs (object visual); none for the other
+guides. Glossary — See It for ruck, maul, scrum, lineout, breakdown only. Rules & Laws, Player
+Development, Welfare & Support, competitions, teams, clubs, people, story — NO GENERATED VISUAL
+(trust, identity and canonical-media surfaces; generated atmosphere never stands in for a real crest,
+portrait or event).
+
+**Visual assets, as banked:** 24 approved Higgsfield generations (Nano Banana Pro) in
+`apps/mobile/assets/hub/`, 40 generated and 16 rejected by eye; hotspot coordinates corrected against
+the approved images and alt text rewritten to describe them. Proof: `hub_visual_manifest.test.mts`,
+the CA-M6 browser walk (landing, search, every domain detail, See It with the picture and its "In
+words" equivalent, What Would You Call?, the vector pitch) on the served web export, and the iOS
+export carrying every image and label. Physical-iPhone review of the explainers is owed
+(`HARDENING_RELEASE_READINESS_LEDGER.md` H23).
