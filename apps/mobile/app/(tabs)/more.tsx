@@ -103,7 +103,7 @@ export default function More() {
             icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
             label="People"
             caption="Players, parents and the staff who run the side — on the web for now"
-            onPress={() => void Linking.openURL(`${webUrl}/people`)}
+            onPress={() => (admin.sections.some((s) => s.key === "people") ? router.push("/admin/people") : void Linking.openURL(`${webUrl}/people`))}
             external
           />
         </Group>

@@ -221,3 +221,130 @@ control asks its own capability; every screen re-reads on focus and after each w
   refused with the server's sentence, Admin Centre drops Venues, revoke → editable; team added on
   mobile from the Directory → web lists it, resolves to `RFU-U9` with 17 Rules of Play; folded
   on mobile → web shows folded; reactivated on web → mobile; proof team folded back.
+
+---
+
+# CA-M3 — People & Memberships, and the venue pin
+
+## The geocoding dependency, and its correction
+
+CA-M2 shipped a venue that was saved on mobile with `geocode_status = 'pending'` and no pin,
+because geocoding lived in the Next.js server action that ran after the web form saved
+(`lib/geocoding/backfill.ts` → `geocodeVenueFromPostcode`, a postcodes.io call from the web
+process). A venue saved from the phone never met that code. Both clients are now equal because
+the platform pins the venue itself:
+
+- `20270544000000` — `pg_net` is enabled; `internal.venue_geocode_requests` records each
+  outstanding lookup; `internal.record_venue_geocode` is the one pin writer (it refuses when the
+  venue's postcode has changed since the lookup was issued, so a stale answer never lands);
+  `internal.request_venue_geocode` issues the postcodes.io lookup; `internal.collect_venue_geocodes`
+  turns 200 → `success`, 404 → `failed`, anything else → retry; `process-venue-geocoding` runs every
+  minute under `pg_cron`. A trigger on `venues` requests a pin after insert and after any postcode
+  change. `public.request_venue_geocoding(venue)` (`venue.venue.manage`) re-asks for one venue;
+  `public.geocode_pending_venues()` (`site.clubs.profile.manage`) re-asks for all.
+- The web no longer geocodes after save; its Site Admin backfill calls `geocode_pending_venues`.
+  `geocodeVenueFromPostcode` is deleted. No client holds a provider secret (postcodes.io needs
+  none) and no client computes or caches a coordinate. A failed lookup keeps the venue and marks
+  it `failed`; the map link falls back to the address text (`venueMapsQuery`). There is no guessed
+  pin.
+- Proof: a venue saved on mobile (SW1A 1AA) was pinned in 51 s and a venue saved on the web (BB10
+  2LS) in 46 s, each shown pinned on the other client; the pin rows carry no actor (the platform
+  wrote them). `supabase/tests/venue_geocoding_platform.sql` (CANONICAL_GATE, 15/15) simulates
+  the HTTP responses.
+
+## The People read model
+
+One paginated, searchable read model — `public.club_people(club, search, filter, limit, offset,
+membership_id)` (`20270545000000`) — behind `people.member.view`. It returns members in ACTIVE,
+SUSPENDED and PENDING with their primary club role, team roles (from `team_permissions`) and
+additional non-seat roles (from `role_assignments`), plus CLUB_STAFF invitations that are ISSUED
+and unexpired as `kind = 'invited'`. Filters are the states the domain already has (`all`,
+`staff`, `members`, `pending`, `suspended`, `invited`); nothing was invented. Email is returned
+only to a holder of `people.member.view_contact` (or Site Support acting in the club) and an
+invitation's address is masked otherwise. It asserts, in its own definition, that it never reads
+`players`, `guardians` or `date_of_birth`. `public.club_assignable_roles(club)` lists the
+additional roles a club may give itself (visible, assignable by CLUB, not a primary seat, not the
+site-confirmed Safeguarding Officer).
+
+**Shared contracts** — `packages/contracts/src/club/people.ts`: `readClubPeople`,
+`readClubPerson`, `readAssignableRoles`, `readPendingJoinRequests`, `readPeopleCapabilities`, and
+one wrapper per operation: `setPrimaryClubRole` (`set_primary_club_role`), `transitionMembership`
+(`transition_club_membership` to SUSPENDED / ACTIVE / REVOKED), `setTeamAccess` /
+`removeTeamAccess`, `assignAdditionalRole` (`assign_role`) / `endRoleAssignment`
+(`transition_role_assignment` → REVOKED), `decideJoinRequest`. `reasonRuleFor(rpc, context)`
+reads `REASON_REQUIRED_OPERATIONS`: "required" when the list says always, and for
+`transition_club_membership` when acting on somebody else (the one condition a client can settle
+for itself); otherwise "optional" and the server still decides.
+
+**Web** — `/people` is gated on `people.member.view` via the shared capabilities (the
+`CLUB_ADMIN`-role gate is gone), lists from `club_people`, and its role change, suspend / restore
+(new, with a reason), remove and team-role removal call the shared wrappers. `/people/[id]` is
+unchanged in shape and already used the same RPCs.
+
+**Mobile** — Admin Centre → People: server search, filter chips, paged list ("Show More"),
+"Waiting On You" join requests with approve / decline; a person screen with Identity (name,
+email where permitted, personal avatar through `resolvePersonalAvatarUrls`), Club Membership
+(Change Club Role), Team Roles (add from the club's active teams with the shared permission
+options; remove), Additional Roles (from `club_assignable_roles`; end), Access (Suspend /
+Restore / Remove From Club). Every write goes through one `ReasonSheet`
+(`apps/mobile/src/admin/reason-sheet.tsx`): it names the change, asks for the reason when the
+shared rule says so (confirm disabled until given), shows the server's own sentence on refusal,
+and re-asks the screen's authority on 42501. Nothing executes on a swipe or a single tap. The
+screen hides every control for the viewer's own membership and re-reads on focus and after each
+write.
+
+## Authority by action
+
+| action | capability (server) |
+|---|---|
+| see People section / list / person | people.member.view |
+| see an email address | people.member.view_contact |
+| change club role, give / end an additional role | people.role.assign_club (`internal.club_people_authority`) |
+| suspend / restore / remove a membership | people.role.assign_club as enforced today; the catalogue names people.membership.suspend / .revoke — recorded in the register, not changed here |
+| add / remove a team role | people.role.assign_team (`set_team_access` / `remove_team_access`) |
+| approve / decline a join request | people.join_request.review |
+| Safeguarding Officer | never through these operations (server refuses) |
+
+What the server already protects, and what these screens rely on rather than re-implement:
+a Club Admin cannot suspend or remove their own membership; the last Club Admin cannot be
+removed or demoted (`assert_club_keeps_an_admin`); any role, including Volunteer, needs an adult
+date of birth on the person's profile (the sheet shows that sentence when it applies).
+
+## Boundaries kept
+
+No permission editor and no capability-override write anywhere in People (test-guarded). No
+Site Admin information, no memberships at other clubs, no safeguarding records, no players or
+guardians, no date of birth (the read model asserts this about itself). Invitations are shown
+in their pending state only; issuing, resending and revoking stay on the web. Messaging is
+untouched.
+
+## Proof
+
+- `supabase/tests/club_people_memberships.sql` (CANONICAL_GATE, 29/29): read model rows,
+  contact gating, filters, search, paging, invited rows, self flag; role change, team role,
+  Volunteer given and ended, Safeguarding Officer refused, suspension needs a reason, suspended
+  filter, restore, self-suspension refused, last-admin refused, removed leaves the list, stranger
+  refused, deny override on `people.role.assign_club` refuses then revoke restores; the read
+  model never touches players / guardians / date of birth.
+- `mobile_admin_centre.test.mts` (14/14): People gated on `people.member.view` on both clients;
+  every mutation through the shared wrappers; no direct table reads or writes; no override
+  writes; the reason rule from the one list; filters; name resolution.
+- Browser proof (`scratchpad/admin/proof-people.mjs`, subject Bethan Price, reversible): list,
+  search, filter, self marked, no date of birth; club role Member → Fixture Secretary on mobile →
+  web select shows it → back on web → mobile shows Member; Volunteer given on mobile → web person
+  page lists it → ended on mobile → gone on web; Under 8 Mixed B Manager given on mobile → web
+  chip → removed on mobile → gone; suspended on mobile (confirm disabled until a reason is given)
+  → web shows Suspended → restored on web → mobile shows Active; **stale authority**: deny on
+  `people.role.assign_club` mid-screen → the server's refusal sentence in the sheet, controls gone
+  on refocus, People stays listed because `people.member.view` is still held, revoke → controls
+  back; the removal sheet needs a reason and was cancelled (removal is terminal; proved in SQL);
+  16 audit rows with the acting Club Admin as actor; the review world ends as it began.
+- The review persona Bethan Price now has a date of birth on file (recorded through
+  `record_own_date_of_birth` as herself), an intentional, persistent enrichment: without one the
+  server refuses her every role, which is the product behaving correctly.
+
+## Mapped, not built: CA-M4
+
+`docs/mobile/ROLES_AND_PERMISSIONS_MAP.md` records the capability read model, club versus team
+scope, bundles, the override operations, protected capabilities, delegation, reasons, `R`,
+self-protection and the suites that guard them, for the Roles & Permissions slice that follows.

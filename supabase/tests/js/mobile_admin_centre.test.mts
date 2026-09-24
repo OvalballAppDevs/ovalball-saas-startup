@@ -65,7 +65,7 @@ test("the app decides nothing from a role label", () => {
 
 test("every Admin Centre section is gated by one canonical capability the website gates the same job on", () => {
   // The website gates the same job on the same key: in its Club Settings navigation, or on the page that owns the job (Teams).
-  const webNav = code("app/(app)/club/settings/resolve-nav-capabilities.ts") + code("app/(app)/teams/page.tsx")
+  const webNav = code("app/(app)/club/settings/resolve-nav-capabilities.ts") + code("app/(app)/teams/page.tsx") + code("packages/contracts/src/club/people.ts")
   const keys = new Set(ADMIN_CENTRE_SECTIONS.map((s) => s.key))
   assert.equal(keys.size, ADMIN_CENTRE_SECTIONS.length, "section keys are unique")
   for (const s of ADMIN_CENTRE_SECTIONS) {
@@ -108,7 +108,8 @@ test("the required-reasons list is one list, and no client keeps another", () =>
   const suspects = [...walk("apps/mobile/src"), ...walk("apps/mobile/app"), ...walk("lib"), ...walk("app")].filter((f) => /\.(ts|tsx)$/.test(f) && !f.includes("required-reasons"))
   for (const f of suspects) {
     const src = code(f)
-    const hits = REASON_REQUIRED_RPCS.filter((rpc) => new RegExp(`(?<!rpc\\()["'\`]${rpc}["'\`]`).test(src))
+    // consulting the shared rule for an operation (reasonRuleFor("...")) is not a list either
+    const hits = REASON_REQUIRED_RPCS.filter((rpc) => new RegExp(`(?<!rpc\\(|reasonRuleFor\\()["'\`]${rpc}["'\`]`).test(src))
     assert.ok(hits.length < 6, `${f} names ${hits.length} reason-requiring operations as bare strings -- a second list`)
   }
 })
@@ -223,4 +224,57 @@ test("the team catalogue and taxonomy live once, in the shared package", () => {
   assert.match(read("lib/teams/catalog.ts"), /export \* from "@ovalball\/contracts\/teams\/catalog"/)
   assert.match(read("lib/teams/directory-taxonomy.ts"), /export \* from "@ovalball\/contracts\/teams\/directory-taxonomy"/)
   assert.doesNotMatch(code("packages/contracts/src/teams/catalog.ts"), /@\/types|@\/lib/, "the shared catalogue imports nothing from the web")
+})
+
+// ------------------------------------------------------------------ CA-M3: people & memberships
+
+import { PEOPLE_FILTERS, personName, reasonRuleFor } from "../../../packages/contracts/src/club/people"
+
+test("people: one read model, one reason list, one avatar resolver, no child data, no permission editor", () => {
+  const contracts = code(join(CONTRACTS_CLUB, "people.ts"))
+  assert.match(contracts, /rpc\("club_people"/, "the People list reads the shared read model")
+  for (const rpc of ["set_primary_club_role", "transition_club_membership", "set_team_access", "remove_team_access", "assign_role", "transition_role_assignment", "decide_club_join_request"]) {
+    assert.match(contracts, new RegExp(`rpc\\("${rpc}"`), `the shared module wraps ${rpc}`)
+  }
+  assert.doesNotMatch(contracts, /set_capability_override|revoke_capability_override|capability_overrides/, "no permission editing lives in People (CA-M4)")
+  assert.doesNotMatch(contracts, /from\("(club_memberships|role_assignments|team_permissions|players|guardians)"\)/, "no direct table reads or writes; the read model and the operations only")
+  assert.match(contracts, /REASON_REQUIRED_OPERATIONS/, "the reason rule comes from the one shared list")
+  assert.equal(reasonRuleFor("transition_club_membership"), "required", "the server requires a reason from anyone acting on another person's membership, so the sheet asks for it up front")
+  assert.equal(reasonRuleFor("transition_club_membership", { actingOnSelf: true }), "optional", "the one exception the shared list names: a person acting on their own membership")
+  assert.equal(reasonRuleFor("revoke_invitation"), "required")
+  assert.equal(reasonRuleFor("set_primary_club_role"), "optional")
+  assert.deepEqual(PEOPLE_FILTERS.map((f) => f.key), ["all", "staff", "members", "pending", "suspended"])
+  assert.equal(personName({ firstName: "Ada", surname: "Admin", invitationEmail: null }), "Ada Admin")
+  assert.equal(personName({ firstName: null, surname: null, invitationEmail: "a…@x.test" }), "a…@x.test")
+
+  const list = code(join(ADMIN_ROUTES, "people/index.tsx"))
+  const detail = code(join(ADMIN_ROUTES, "people/[membershipId].tsx"))
+  for (const f of [list, detail]) {
+    assert.match(f, /resolvePersonalAvatarUrls?\(/, "the person's avatar comes from the canonical personal-avatar resolver")
+    assert.match(f, /<PersonAvatar/, "a person is drawn with PersonAvatar")
+    assert.doesNotMatch(f, /<ClubCrest|<RugbyKit|clubLogoUrlFromPath|crestUrl/, "a club crest or a kit is never a person's picture")
+    assert.doesNotMatch(f, /date_of_birth|dateOfBirth|\bdob\b/i, "no date of birth on a People screen")
+    assert.doesNotMatch(f, /guardian_link|safeguarding_case|players\b.*from\(|player_team_memberships/, "no family, child or safeguarding data")
+    assert.doesNotMatch(src(f), /role\s*===?\s*["']CLUB_ADMIN["']|clubRoleKey/, "no role branching")
+    assert.doesNotMatch(f, /set_capability_override|capability_overrides|Allow|Withhold/, "no permission toggles")
+    assert.doesNotMatch(f, /AsyncStorage|queue|retryLater/i, "no offline queue")
+    assert.match(f, /useFocusEffect/, "re-reads on focus")
+  }
+  assert.match(list, /readClubPeople\(supabase, clubId, \{ search: query, filter, limit: PAGE, offset \}\)/, "search, filter and paging are the server's")
+  assert.match(detail, /ReasonSheet/, "every membership change goes through the confirmed, reasoned sheet")
+  assert.match(detail, /Confirm Suspension|Remove Access/, "destructive actions are confirmed")
+  assert.doesNotMatch(detail, /onSwipe|Swipeable/, "no destructive swipe")
+  function src(s: string) { return s }
+})
+
+test("people on the web: capability gate, shared read model, shared operations with reasons", () => {
+  const page = code("app/(app)/people/page.tsx")
+  assert.match(page, /readPeopleCapabilities\(/, "the page asks the canonical capabilities")
+  assert.match(page, /readClubPeople\(/, "the page lists people from the shared read model")
+  assert.doesNotMatch(page, /isClubAdminAnywhere|clubAdminMembershipAt/, "the role-based gate is gone")
+  const actions = code("app/(app)/people/actions.ts")
+  assert.match(actions, /setPrimaryClubRole\(|transitionMembership\(|removeTeamAccess\(/, "the actions call the shared wrappers")
+  assert.doesNotMatch(actions, /rpc\("set_primary_club_role"|rpc\("remove_team_access"/, "the website no longer calls these operations without the shared reason rule")
+  const row = code("app/(app)/people/person-row.tsx")
+  assert.match(row, /Confirm Suspension/, "suspend and restore reached the web person row")
 })

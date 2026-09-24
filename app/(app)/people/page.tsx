@@ -6,7 +6,8 @@ import { cookies } from "next/headers"
 import { PageIdentity } from "@/components/shell/page-identity"
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { workspaceLabel } from "@/lib/app-context/workspace-label"
-import { clubAdminMembershipAt, getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
+import { getSessionContext } from "@/lib/app-context/session-context"
+import { readClubPeople, readPeopleCapabilities } from "@ovalball/contracts/club/people"
 import { createClient } from "@/lib/supabase/server"
 import { describeIntendedOutcome, invitationExpiryLabel, outcomeLines } from "@/lib/invitations/share"
 import { clubRoleLabel, teamPermissionLabel } from "@/lib/permissions/role-labels"
@@ -53,7 +54,6 @@ export default async function PeoplePage({
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  if (!isClubAdminAnywhere(ctx)) redirect("/dashboard")
 
   const cookieStore = await cookies()
   const activeContext = resolveActiveContext(ctx, cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
@@ -63,18 +63,16 @@ export default async function PeoplePage({
   // to a team context or a club where this session is merely Fixture
   // Secretary never silently falls back to managing a DIFFERENT club's
   // people instead.
-  const activeClubAdminMembership = clubAdminMembershipAt(ctx, activeManageableClubId(ctx, activeContext))
-  // No `?? ctx.clubMemberships.find(...)` fallback here on purpose: a
-  // session that genuinely holds CLUB_ADMIN somewhere but whose ACTIVE
-  // context isn't that club's Club Admin view (e.g. Parent View on a team
-  // in the same club) must never fall through to managing people for
-  // whichever club-admin membership happens to exist first -- that was a
-  // real, live-confirmed leak (Parent View could see/edit/remove every
-  // Burnley member). Redirect instead, matching fixtures/page.tsx's
-  // activeContext.kind === "club" gate.
-  if (!activeClubAdminMembership) redirect("/dashboard")
-  const clubId = activeClubAdminMembership.clubId
-  const clubName = activeClubAdminMembership.clubName
+  // CA-M3 (owner decision 2): the page asks the CANONICAL capabilities, never a role. Seeing the
+  // club's people is people.member.view at the active context's club; each control below asks its
+  // own key, and the operations ask again on the server. The old gate was "holds CLUB_ADMIN here",
+  // which hid the page from a person granted the capability and showed it to one denied it.
+  const activeClubId = activeManageableClubId(ctx, activeContext)
+  if (!activeClubId) redirect("/dashboard")
+  const peopleCaps = await readPeopleCapabilities(supabase, activeClubId)
+  if (!peopleCaps.view) redirect("/dashboard")
+  const clubId = activeClubId
+  const clubName = ctx.clubMemberships.find((m) => m.clubId === clubId)?.clubName ?? activeContext.label
 
   // PENDING INVITATIONS COME FROM THE TABLE INVITATIONS ARE ACTUALLY IN.
   //
@@ -85,9 +83,12 @@ export default async function PeoplePage({
   // inside it was unreachable. `invitations_admin_view` is the canonical
   // secret-free projection of that table (no token hash, no code HMAC), scoped
   // by the same RLS policy that governs the table itself.
-  const [{ data: memberships }, { data: teams }, { data: invitations }, { data: joinRequests }, { count: playerRequestCount }, { data: guardianRequests }] =
+  // CA-M3: the people themselves come from the ONE read model both clients use (club_people):
+  // every live membership including suspended ones, roles and team roles in one paged read, an
+  // email only under people.member.view_contact. The queues beside it keep their own readers.
+  const [directory, { data: teams }, { data: invitations }, { data: joinRequests }, { count: playerRequestCount }, { data: guardianRequests }] =
     await Promise.all([
-      supabase.from("club_memberships").select("id, user_id, role").eq("club_id", clubId).eq("status", "active"),
+      readClubPeople(supabase, clubId, { limit: 200 }),
       supabase.from("teams").select("id, display_name").eq("club_id", clubId).eq("active", true),
       supabase
         .from("invitations_admin_view")
@@ -104,38 +105,17 @@ export default async function PeoplePage({
       supabase.rpc("guardian_link_requests_for_approval"),
     ])
 
-  const membershipIds = (memberships ?? []).map((m) => m.id)
-  const { data: teamPerms } =
-    membershipIds.length > 0
-      ? await supabase.from("team_permissions").select("membership_id, permission, teams(display_name)").in("membership_id", membershipIds)
-      : { data: [] }
-
-  const { data: profiles } = await supabase.rpc("get_club_member_directory", { p_club_id: clubId })
-  const profileById = new Map((profiles ?? []).map((p) => [p.user_id, p]))
-
-  const teamRolesByMembership = new Map<string, { teamName: string; permission: string }[]>()
-  for (const tp of teamPerms ?? []) {
-    if (!tp.membership_id || !tp.permission) continue
-    const list = teamRolesByMembership.get(tp.membership_id) ?? []
-    list.push({ teamName: tp.teams?.display_name ?? "Team", permission: teamPermissionLabel(tp.permission) })
-    teamRolesByMembership.set(tp.membership_id, list)
-  }
-
-  // Every active member appears here, including a bare "Member" with no
-  // elevated role yet -- "who has access to this club" has to include them,
-  // not just the people already assigned something.
-  const people: PersonRowData[] = (memberships ?? [])
-    .map((m) => {
-      const profile = profileById.get(m.user_id)
-      return {
-        membershipId: m.id,
-        userId: m.user_id,
-        name: [profile?.first_name, profile?.surname].filter(Boolean).join(" ") || "Unknown",
-        email: profile?.email ?? "",
-        clubRole: m.role as PersonRowData["clubRole"],
-        teamRoles: teamRolesByMembership.get(m.id) ?? [],
-      }
-    })
+  const people: PersonRowData[] = directory.people
+    .filter((p) => p.kind === "member" && p.membershipId && p.userId)
+    .map((p) => ({
+      membershipId: p.membershipId as string,
+      userId: p.userId as string,
+      name: [p.firstName, p.surname].filter(Boolean).join(" ") || "Unknown",
+      email: p.email ?? "",
+      clubRole: (p.role ?? "BASIC_USER") as PersonRowData["clubRole"],
+      state: p.state,
+      teamRoles: p.teamRoles.map((t) => ({ teamName: t.teamDisplayName, permission: teamPermissionLabel(t.permission) })),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
   // ONE LABEL AUTHORITY FOR THE ROLES AN INVITATION CARRIES.
@@ -154,7 +134,7 @@ export default async function PeoplePage({
   const now = new Date().getTime()
   // Who sent each one, from the club's own authorised directory rather than a
   // second profiles read.
-  const issuerName = new Map((profiles ?? []).map((p) => [p.user_id, [p.first_name, p.surname].filter(Boolean).join(" ")]))
+  const issuerName = new Map<string, string>(directory.people.filter((p) => p.userId).map((p) => [p.userId as string, [p.firstName, p.surname].filter(Boolean).join(" ")]))
 
   const pendingInvitations = (invitations ?? []).map((inv) => {
     // The outcome is described from the invitation's OWN record, through the one
@@ -317,7 +297,7 @@ export default async function PeoplePage({
         ) : (
           <ul className="flex flex-col gap-2">
             {people.map((p) => (
-              <PersonRow key={p.membershipId} person={p} isSelf={p.userId === user.id} />
+              <PersonRow key={p.membershipId} person={p} isSelf={p.userId === user.id} canChangeRole={peopleCaps.assignClub} canSuspend={peopleCaps.assignClub && peopleCaps.suspend} canRemove={peopleCaps.assignClub && peopleCaps.revoke} />
             ))}
           </ul>
         )}

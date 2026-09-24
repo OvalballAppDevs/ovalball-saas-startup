@@ -4467,6 +4467,13 @@
         ]
       },
       {
+        "signature": "club_assignable_roles(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/people.ts"
+        ]
+      },
+      {
         "signature": "club_capability_presets(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4512,6 +4519,13 @@
         "signature": "club_message_reports(uuid)",
         "category": "APPLICATION_RPC",
         "reason": "Slice 4F (J.10 line 520): the club Safeguarding Officer's message-report queue, gated on messaging.moderation.club_review with Ovalball moderation also admitted."
+      },
+      {
+        "signature": "club_people(uuid, text, text, integer, integer, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/people.ts"
+        ]
       },
       {
         "signature": "club_platform_billing_state(uuid)",
@@ -5205,7 +5219,6 @@
         "signature": "get_club_member_directory(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/people/page.tsx",
           "app/(app)/teams/[teamId]/people/page.tsx",
           "app/(app)/club/permissions/page.tsx"
         ]
@@ -6484,7 +6497,7 @@
         "signature": "remove_team_access(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/people/actions.ts",
+          "packages/contracts/src/club/people.ts",
           "app/(app)/teams/[teamId]/actions.ts"
         ]
       },
@@ -8525,10 +8538,12 @@
       "clear_email_template_override(text, integer)",
       "clear_rollover_player_placement(uuid)",
       "clear_team_alias(uuid)",
+      "club_assignable_roles(uuid)",
       "club_credit_balance_pence(uuid)",
       "club_entitlements(uuid)",
       "club_has_entitlement(uuid, text)",
       "club_member_capabilities(uuid, text[])",
+      "club_people(uuid, text, text, integer, integer, uuid)",
       "club_platform_billing_state(uuid)",
       "club_platform_next_collection(uuid)",
       "club_playing_group_recipients(uuid)",

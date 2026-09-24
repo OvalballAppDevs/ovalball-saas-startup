@@ -379,7 +379,7 @@ Beta-first "next collection" rule; plan comparison (`addsNothingYet`),
 error mapping and the image upload contract for news; announcement local-time
 conversion; buffer validation duplicated against the DB CHECKs.
 
-### 2.5 People & Access (`/people`, `/people/[membershipId]`, `/club/permissions`, `/club/join-requests`, `/teams/[teamId]/people`, join codes) — RED
+### 2.5 People & Access (`/people`, `/people/[membershipId]`, `/club/permissions`, `/club/join-requests`, `/teams/[teamId]/people`, join codes) — RED (People & Memberships delivered in CA-M3; `/club/permissions` remains for CA-M4)
 
 **Every mutation in this area goes through a SECURITY DEFINER RPC — zero direct
 table writes** (grep-verified). Reads are RLS/view-scoped
@@ -575,6 +575,12 @@ the web until those four are native (then it can be native too).
 | Admin Centre landing; every section's read state; Finance dashboard reads; Access History; Ovalball Plan state, history, credit, referrals | Club Profile fields; kit; contacts; venues and pitches; team alias; Mini-Rugby groups; training plans; pitch allocation policy; news and announcements; documents; partner requests/responses; messaging and communication settings; season handover **decisions** (pre-apply) | Invitations (issue, resend, revoke); roles and team access; remove from club; permissions overrides and presets; join-request decisions; guardians & players (remove, duplicate resolution, approve/decline); safeguarding officer nomination, deactivation, contact, conversations; subscriptions configuration; GoCardless connect/disconnect; finance actions (waive, retry, cancel membership, export); plan choice / trial / cancel; **fold / reactivate team**; **apply season handover**; hard team delete in setup; crest removal |
 
 ### 3.4 Slice plan (B25 §15) — after CA-M0, nothing before owner approval
+
+> Superseded by the owner's sequence as delivered: CA-M1 Admin Centre entry + Club Profile
+> (`2221540`), CA-M2 Branding + Venues + Teams (`d1493c1`), CA-M3 People & Memberships + venue
+> geocoding convergence (this row's "CA-M6" scope minus invitations, which stay display-only),
+> CA-M4 Roles & Permissions (this row's "CA-M7"; mapped in `ROLES_AND_PERMISSIONS_MAP.md`, not
+> built). The table below is the CA-M0 plan and is kept as written.
 
 | Slice | Scope | Class | Prerequisite |
 |---|---|---|---|

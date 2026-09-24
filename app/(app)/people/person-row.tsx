@@ -17,7 +17,7 @@ import {
 
 import { CLUB_ROLE_LABEL } from "@/lib/permissions/role-labels"
 
-import { revokeMembership, updateMembershipRole } from "./actions"
+import { revokeMembership, setMembershipSuspended, updateMembershipRole } from "./actions"
 
 /*
  * The role wording comes from `lib/permissions/role-labels.ts`. This file used
@@ -32,16 +32,32 @@ export interface PersonRowData {
   name: string
   email: string
   clubRole: "BASIC_USER" | "CLUB_ADMIN" | "FIXTURE_SECRETARY"
+  /** The membership's state from the shared read model (ACTIVE, SUSPENDED, PENDING). */
+  state?: string
   teamRoles: { teamName: string; permission: string }[]
 }
 
-export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: boolean }) {
+export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = false, canRemove = true }: { person: PersonRowData; isSelf: boolean; canChangeRole?: boolean; canSuspend?: boolean; canRemove?: boolean }) {
   const [clubRole, setClubRole] = useState(person.clubRole)
   const [saving, setSaving] = useState(false)
   const [removed, setRemoved] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [removalReason, setRemovalReason] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [suspended, setSuspended] = useState(person.state === "SUSPENDED")
+  const [confirmingSuspend, setConfirmingSuspend] = useState(false)
+  const [suspendReason, setSuspendReason] = useState("")
+
+  async function handleSuspendToggle() {
+    setSaving(true)
+    setError(null)
+    const result = await setMembershipSuspended(person.membershipId, !suspended, suspendReason)
+    setSaving(false)
+    setConfirmingSuspend(false)
+    setSuspendReason("")
+    if (result.ok) setSuspended(!suspended)
+    else setError(result.error)
+  }
 
   async function handleRoleChange(role: PersonRowData["clubRole"]) {
     setSaving(true)
@@ -77,6 +93,7 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
           <p className="truncate text-sm font-medium text-ink">
             {person.name}
             {isSelf && <span className="ml-1.5 text-xs font-normal text-ink-muted">(you)</span>}
+            {suspended && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Suspended</span>}
           </p>
           <p className="truncate text-xs text-ink-muted">{person.email}</p>
         </div>
@@ -85,7 +102,7 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
           <select
             aria-label={`Club-wide role for ${person.name}`}
             value={clubRole}
-            disabled={saving || isSelf}
+            disabled={saving || isSelf || !canChangeRole}
             onChange={(e) => handleRoleChange(e.target.value as PersonRowData["clubRole"])}
             className="h-9 rounded-lg border border-ink/15 bg-white px-2.5 text-sm text-ink outline-none focus-visible:border-pitch-600 disabled:opacity-60"
           >
@@ -96,7 +113,39 @@ export function PersonRow({ person, isSelf }: { person: PersonRowData; isSelf: b
             ))}
           </select>
 
-          {!isSelf && (
+          {!isSelf && canSuspend && (
+            <Dialog open={confirmingSuspend} onOpenChange={setConfirmingSuspend}>
+              <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-9" />}>
+                {suspended ? "Restore" : "Suspend"}
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{suspended ? `Restore ${person.name}?` : `Suspend ${person.name}?`}</DialogTitle>
+                  <DialogDescription>
+                    {suspended ? "Their access returns as it was. The reason is recorded." : "They keep their membership but lose access until it is restored. The reason is recorded."}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`suspend-reason-${person.membershipId}`}>Reason</Label>
+                  <input
+                    id={`suspend-reason-${person.membershipId}`}
+                    value={suspendReason}
+                    onChange={(e) => setSuspendReason(e.target.value)}
+                    maxLength={500}
+                    className="h-9 rounded-lg border border-ink/15 bg-white px-2.5 text-sm text-ink outline-none focus-visible:border-pitch-600"
+                  />
+                  <p className="text-xs text-ink-muted">Kept in the club&apos;s records.</p>
+                </div>
+                <DialogFooter showCloseButton>
+                  <Button className="h-9" disabled={saving || suspendReason.trim().length === 0} onClick={handleSuspendToggle}>
+                    {saving ? "Saving…" : suspended ? "Restore" : "Confirm Suspension"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {!isSelf && canRemove && (
             <Dialog open={confirmingRemove} onOpenChange={setConfirmingRemove}>
               <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-9 text-destructive-text" />}>
                 Remove

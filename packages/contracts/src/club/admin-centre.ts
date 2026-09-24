@@ -32,6 +32,7 @@ export const ADMIN_CENTRE_SECTIONS: AdminCentreSection[] = [
   { key: "branding", label: "Branding", caption: "The club's crest and its home and away kit", capability: "club.profile.edit", native: true, webPath: "/club" },
   { key: "venues", label: "Venues", caption: "Grounds, pitches and the home ground", capability: "venue.venue.manage", native: true, webPath: "/club/venues" },
   { key: "teams", label: "Teams", caption: "The sides the club runs, from the Team Directory", capability: "team.team.manage", native: true, webPath: "/teams" },
+  { key: "people", label: "People", caption: "Members, staff, team roles and who is waiting to join", capability: "people.member.view", native: true, webPath: "/people" },
   { key: "news", label: "News & Announcements", caption: "What the club publishes to its members", capability: "club.news.manage", native: false, webPath: "/club/settings/news" },
   { key: "permissions", label: "Permissions", caption: "Who may do what at the club", capability: "people.capability.manage", native: false, webPath: "/club/permissions" },
   { key: "guardians", label: "Guardians & Players", caption: "Approving who looks after which player", capability: "family.relationship.approve", native: false, webPath: "/club/settings/guardians" },

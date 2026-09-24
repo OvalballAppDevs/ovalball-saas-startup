@@ -16,6 +16,7 @@ import {
 import { clubRoleLabel } from "@/lib/permissions/role-labels"
 import { roleKeyLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
+import { peopleErrorMessage, removeTeamAccess, setPrimaryClubRole, transitionMembership } from "@ovalball/contracts/club/people"
 
 export type InviteResult = { ok: true; share: InvitationShareData } | { ok: false; error: string }
 
@@ -304,11 +305,29 @@ export type MembershipActionResult = { ok: true } | { ok: false; error: string }
  */
 export async function updateMembershipRole(
   membershipId: string,
-  role: "BASIC_USER" | "CLUB_ADMIN" | "FIXTURE_SECRETARY"
+  role: "BASIC_USER" | "CLUB_ADMIN" | "FIXTURE_SECRETARY",
+  reason = ""
 ): Promise<MembershipActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("set_primary_club_role", { p_membership_id: membershipId, p_role: role })
-  if (error) return { ok: false, error: error.message }
+  // CA-M3: the shared wrapper, with the reason the server may record (required only for a site actor
+  // -- the one shared list, REASON_REQUIRED_OPERATIONS, says so for both clients).
+  try {
+    await setPrimaryClubRole(supabase, membershipId, role, reason)
+  } catch (error) {
+    return { ok: false, error: peopleErrorMessage(error, "The role could not be changed. Please try again.") }
+  }
+  revalidatePath("/people")
+  return { ok: true }
+}
+
+/** Suspend or restore a membership (transition_club_membership; a reason is always required). */
+export async function setMembershipSuspended(membershipId: string, suspended: boolean, reason: string): Promise<MembershipActionResult> {
+  const supabase = await createClient()
+  try {
+    await transitionMembership(supabase, membershipId, suspended ? "SUSPENDED" : "ACTIVE", reason)
+  } catch (error) {
+    return { ok: false, error: peopleErrorMessage(error, "The membership could not be changed. Please try again.") }
+  }
   revalidatePath("/people")
   return { ok: true }
 }
@@ -321,12 +340,11 @@ export async function updateMembershipRole(
  */
 export async function revokeMembership(membershipId: string, reason: string): Promise<MembershipActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("transition_club_membership", {
-    p_membership_id: membershipId,
-    p_to_state: "REVOKED",
-    p_reason: reason,
-  })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await transitionMembership(supabase, membershipId, "REVOKED", reason)
+  } catch (error) {
+    return { ok: false, error: peopleErrorMessage(error, "The membership could not be removed. Please try again.") }
+  }
   revalidatePath("/people")
   return { ok: true }
 }
@@ -342,10 +360,13 @@ export async function revokeMembership(membershipId: string, reason: string): Pr
  * a person navigating between the two pages would hit and a test using full page
  * loads would not.
  */
-export async function removeTeamAssignment(teamPermissionId: string, teamId: string): Promise<MembershipActionResult> {
+export async function removeTeamAssignment(teamPermissionId: string, teamId: string, reason = ""): Promise<MembershipActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("remove_team_access", { p_team_permission_id: teamPermissionId })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await removeTeamAccess(supabase, teamPermissionId, reason)
+  } catch (error) {
+    return { ok: false, error: peopleErrorMessage(error, "The team role could not be removed. Please try again.") }
+  }
   revalidatePath("/people", "layout")
   revalidatePath(`/teams/${teamId}`)
   revalidatePath("/teams")

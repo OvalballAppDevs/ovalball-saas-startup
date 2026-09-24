@@ -51,11 +51,19 @@ mobile, prove refusal without a recent authenticator.
 `club.reporting.export`, `messaging.policy.manage`,
 `messaging.moderation.club_review`.
 
-**People and roles (CA-M3 People & Permissions):** `people.capability.manage`,
+**People and roles (CA-M3 People & Memberships consumed; CA-M4 Roles & Permissions turns
+`R` on):** `people.capability.manage`,
 `people.invitation.create`, `people.membership.revoke`,
 `people.membership.suspend`, `people.role.assign_club`,
 `people.role.assign_team`, `player.account.invite`,
-`player.profile.edit_protected`.
+`player.profile.edit_protected`. CA-M3 consumes `people.role.assign_club` and
+`people.role.assign_team` on both clients exactly as the database enforces them today: capability
+yes, recent authenticator no. The membership operations (`transition_club_membership` to
+SUSPENDED / ACTIVE / REVOKED) are enforced on `people.role.assign_club` by
+`internal.club_people_authority`, while the catalogue names `people.membership.suspend` and
+`people.membership.revoke` for them; that mismatch is recorded here and left for CA-M4, which
+owns the enforcement. The web's Roles & Permissions panel was numbered CA-M7 in
+`CLUB_ADMIN_CENTRE_MAP.md`; the owner's sequence is CA-M4.
 
 **Family (family slice):** `family.duplicate.resolve`,
 `family.relationship.approve`, `family.relationship.remove`.

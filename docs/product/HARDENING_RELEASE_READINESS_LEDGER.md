@@ -720,3 +720,15 @@ ordinary unfinished UX — those are finished or say plainly that they are not b
   verification, for this migration as for `20270534000000` onward (see M6 above and H6).
 
 Not to be "fixed" during CA-M2. Hardening debt.
+
+## H20 — `club_admin_authority_matrix.sql` CH-A: `finance.subscription.view` scopes
+
+Observed 2026-09-24 while running the neighbouring suites for CA-M3 (People & Memberships).
+`supabase/tests/club_admin_authority_matrix.sql` reports two CH-A failures: the assertion that
+`finance.subscription.view` is ACTIVE with scopes `{club}`. The catalogue row has scopes
+`{club,team}` since `20270531000000_a_team_manager_can_see_their_own_squads_subscriptions.sql`
+gave a Team Manager the team-scoped view. The test predates that migration and was not updated
+with it; neither file is touched by CA-M3, which adds nothing to the capability catalogue. The
+suite's other 78 assertions pass. Owed: decide whether the assertion should read `{club,team}`
+(the migration's intent) — a one-line test change in the finance slice that owns the key. Left as
+found, per the rule that findings outside the current slice are recorded, not fixed.

@@ -317,6 +317,11 @@
       "owner": "Club and Site Admin",
       "reason": "===================================================================================================== CLUB DOCUMENTS, PARTNERS, REFERRALS AND HANDOVER MATRIX (Identity/Auth Slice 4"
     },
+    "club_people_memberships": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club administration",
+      "reason": "Club People & Memberships (CA-M3): the club_people read model (people.member.view; email under view_contact; paged, searched, filtered; no child data) and the shared membership operations -- role change, team role, additional role, suspend/restore/remove -- with reasons, self-protection, the last-Club-Admin invariant, a deny-override refusal and audit."
+    },
     "club_people_teams": {
       "disposition": "SPECIAL_PURPOSE",
       "owner": "Club and Site Admin",

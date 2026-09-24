@@ -23012,6 +23012,14 @@ export type Database = {
           team_name: string
         }[]
       }
+      club_assignable_roles: {
+        Args: { p_club_id: string }
+        Returns: {
+          label: string
+          role_key: string
+          scope: string
+        }[]
+      }
       club_capability_presets: {
         Args: { p_club_id: string }
         Returns: {
@@ -23088,6 +23096,36 @@ export type Database = {
           reason: string
           reporter_name: string
           status: string
+        }[]
+      }
+      club_people: {
+        Args: {
+          p_club_id: string
+          p_filter?: string
+          p_limit?: number
+          p_membership_id?: string
+          p_offset?: number
+          p_search?: string
+        }
+        Returns: {
+          additional_roles: Json
+          avatar_storage_path: string
+          email: string
+          first_name: string
+          invitation_email: string
+          invitation_expires_at: string
+          invitation_id: string
+          invitation_role: string
+          is_self: boolean
+          kind: string
+          membership_id: string
+          role: string
+          since: string
+          state: string
+          surname: string
+          team_roles: Json
+          total_count: number
+          user_id: string
         }[]
       }
       club_platform_billing_state: {
