@@ -23339,6 +23339,14 @@ export type Database = {
         }
         Returns: string
       }
+      create_club_team: {
+        Args: {
+          p_canonical_team_type_key: string
+          p_club_id: string
+          p_squad_letter?: string
+        }
+        Returns: string
+      }
       create_competition: {
         Args: {
           p_area_ids?: string[]
@@ -26518,6 +26526,22 @@ export type Database = {
           p_start_time?: string
           p_starts_on: string
           p_team_ids?: string[]
+          p_venue_id?: string
+        }
+        Returns: string
+      }
+      save_club_venue: {
+        Args: {
+          p_club_id: string
+          p_country?: string
+          p_county?: string
+          p_directions?: string
+          p_line1?: string
+          p_line2?: string
+          p_name?: string
+          p_postcode?: string
+          p_set_default?: boolean
+          p_town?: string
           p_venue_id?: string
         }
         Returns: string

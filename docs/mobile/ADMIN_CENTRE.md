@@ -1,4 +1,4 @@
-# CA-M1 — Admin Centre foundation and Club Profile
+# CA-M1 / CA-M2 — Admin Centre: Club Profile, Branding, Venues, Teams
 
 One product, two clients. This records what CA-M1 built, the decisions it
 applied from the owner's CA-M0 review, and how it was proved. The forensic map
@@ -119,3 +119,105 @@ clients because it lives in the operation.
 - Client-origin audit metadata: optional, see decision 5.
 - The pre-existing suite debts found while running the gate are listed in the
   CA-M1 report, not fixed here (decision 6).
+
+
+---
+
+# CA-M2 — Club identity, Branding, Venues and Teams
+
+## Preflight findings (re-read from disk, not the CA-M0 inventory)
+
+- **Branding.** The crest is `clubs.logo_storage_path` (own upload in the public `club-logos`
+  bucket under the club's id, policy `club.logo.manage`) with the Club Directory's branding logo
+  as the canonical fallback (`resolveClubLogoPathFrom`); the app already had the same replace /
+  remove flow the website has (`identity/images.ts`, upload → link → delete old, previous crest
+  kept on failure). The kit is `club_kits` (variant `primary` / `alternate`) written only by
+  `upsert_club_kit` (club.profile.edit; CHECK constraints validate pattern and hex). Club
+  colours are DERIVED from the home kit by `resolveClubTheme` / `clubAccents…`; there is no
+  colour table and none was added. The only web-only pieces were the swatch list (now
+  `KIT_SWATCHES` in contracts) and the pre-flight validation (now `kitInputProblem`).
+- **Venues.** Reads are `venues` / `club_pitches` under RLS. Every mutation was already an RPC,
+  but a venue save was Next-only choreography (`create_venue` or `update_venue`, then
+  `set_venue_address`, then a server-side geocode). No delete exists anywhere (no policy, no
+  grant, no RPC, no button); `set_venue_active(false)` is the only removal and keeps every
+  fixture, session and pitch. Web-only rules that stay web-only and are recorded: the first-run
+  wizard's "postcode required / line 1 or town / home ground needs a pitch"; the address lookup
+  (getAddress.io, server key); `lib/geocoding/backfill.ts` writing `venues` directly (the one
+  direct table write in the domain, relying on `authenticated`'s column UPDATE grant on
+  `venues`) — documented, not fixed (decision 6).
+- **Teams.** A team is a canonical Team Directory identity (`canonical_team_types` projected by
+  code through `canonical_team_types_by_code`); name and slug are trigger-derived; identity is
+  immutable after creation on the web (Season Handover moves it). The website CREATED a team with
+  the one direct INSERT into `teams` in the application, resolving fields from a LABEL. Fold /
+  reactivate (`fold_team`, `reactivate_team`) already authorise on `team.lifecycle.manage` in the
+  database; the role check CA-M0 flagged was on the web page (`canManage` from
+  `club_memberships.role`) and on the Add Team gate (`club.profile.edit`).
+
+## What CA-M2 built
+
+**Migrations (forward-only):** `20270542000000` `save_club_venue(club, venue?, name,
+directions, line1, line2, town, county, postcode, country, set_default)` — one transaction over
+`create_venue` / `update_venue`, `set_venue_address` (still the one address writer) and
+`set_default_venue`; `internal.session_ok` then `internal.can_manage_venue`. `20270543000000`
+`create_club_team(club, canonical_team_type_key, squad_letter?)` — `team.team.manage` or
+`site.team_roles.manage`; the club's code from the Club Directory; the identity must be offered
+for it; B/C only where the catalogue allows squads; the triggers derive everything else; pins
+that `fold_team` / `reactivate_team` authorise on `team.lifecycle.manage`.
+
+**Shared contracts:** `club/branding.ts` (read crest + kits + derived theme, `saveClubKit`,
+capabilities, one error rule), `club/venues.ts` (reads, `saveClubVenue`, active / default /
+pitch operations, capabilities, `venueAddressLine`, `venueMapsQuery` — coordinates only when
+`geocode_status = 'success'`), `club/teams.ts` (directory read grouped by the shared taxonomy,
+catalogue + availability, `createClubTeam`, fold / reactivate, alias for B/C squads only,
+capabilities), and `teams/catalog.ts` + `teams/directory-taxonomy.ts` moved from `lib/teams`
+(web shims left).
+
+**Web:** venue create / update actions call `save_club_venue`; team creation calls
+`create_club_team` by key (the direct insert is gone); `/teams/[teamId]` gates the alias editor on
+`team.team.manage` and fold / reactivate on `team.lifecycle.manage` (the role check is gone);
+`/teams` gates Add Team on `team.team.manage`; the kit editor uses the shared swatches.
+
+**Mobile:** Admin Centre → Branding (crest via the existing picture sheet; Home / Away kit with
+pattern, colours, live shirt, per-variant save; derived club colours shown), Venues (list with
+home ground and pitch counts; create / edit; Make Home Ground; Deactivate with confirmation;
+Reactivate; Open in Maps; pitches add / rename / deactivate), Teams (grouped by the shared
+taxonomy; Add Team from the Directory by key with the website's availability rules; team
+identity read-only; squad name for B/C; Fold with reason and confirmation; Reactivate). Every
+control asks its own capability; every screen re-reads on focus and after each write.
+
+## Authority by action
+
+| action | capability (server) |
+|---|---|
+| see Branding section | club.profile.edit (section gate) |
+| replace / remove crest | club.logo.manage (storage policy + clubs row) |
+| save a kit | club.profile.edit (`upsert_club_kit`) |
+| see Venues section / list | venue.venue.manage (section gate); rows under venue.venue.view |
+| create / edit venue, home ground, deactivate | venue.venue.manage |
+| add / rename / deactivate pitch | venue.pitch.manage |
+| see Teams section / list | team.team.manage (section gate); rows under team.team.view |
+| add team, squad name | team.team.manage |
+| fold / reactivate | team.lifecycle.manage (catalogue `R`, not enforced today — see register) |
+
+## Proof
+
+- `supabase/tests/club_identity_venues_teams_operations.sql` (CANONICAL_GATE, 29/29): venue
+  create / edit / default / duplicate / nameless; stranger refused; Fixtures Secretary admitted
+  by bundle, ordinary member refused; deny override refuses then revoke restores; deactivate
+  keeps venue and pitch; audit with actor. Team by key with derived name and regulatory
+  identity; B squad; duplicate; not-offered identity (Girls U13, union); D squad; unknown key;
+  Fixtures Secretary refused. Fold: Fixtures Secretary refused; a holder by capability GRANT
+  folds and reactivates; a Club Admin with the capability DENIED is refused; reason required;
+  audit. Kit on club.profile.edit; anon grants.
+- `mobile_admin_centre.test.mts` (12/12): person / crest / kit regression (crest from the logo
+  columns, shirt from the kit, no avatar; header crest never a kit); protected Ovalball logos
+  untracked and present; one swatch list; venues never written directly, no delete, no typed
+  pin; teams via the operation, no name parsing, no age grade hard-coded, fold gated on the
+  capability on the web; catalogue and taxonomy shared.
+- Browser proof (`scratchpad/admin/proof-ca2.mjs`): landing lists Club Profile, Branding,
+  Venues, Teams; kit mobile → web → mobile with audit; crest tile drawn from `club-logos`, shirt
+  as SVG, no avatar; venue created on mobile → web; edited on web → mobile; deactivated on mobile
+  → web (row kept, audited); **stale authority**: deny on `venue.venue.manage` mid-edit → save
+  refused with the server's sentence, Admin Centre drops Venues, revoke → editable; team added on
+  mobile from the Directory → web lists it, resolves to `RFU-U9` with 17 Rules of Play; folded
+  on mobile → web shows folded; reactivated on web → mobile; proof team folded back.

@@ -207,6 +207,7 @@ function VenuesTab({
     setFormError(null)
     const result = await updateVenue({
       id: editingId,
+      clubId,
       name,
       directions,
       address: { line1, line2, town, county, postcode, country },

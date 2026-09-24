@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache"
 
 import { geocodeVenueFromPostcode } from "@/lib/geocoding/backfill"
 import { createClient } from "@/lib/supabase/server"
-import { toPublicSubmissionError } from "@/lib/errors/public-error"
 import { searchUkAddresses, type AddressLookupResult } from "@/lib/address-lookup/lookup"
 import { clubProfileErrorMessage, deleteClubContact as deleteContactOperation, saveClubContact as saveContactOperation, updateClubProfile } from "@ovalball/contracts/club/profile"
+import { saveClubVenue as saveVenueOperation, venueErrorMessage } from "@ovalball/contracts/club/venues"
 
 /**
  * Venue address lookup: any authenticated user, unlike Site Admin's own
@@ -317,70 +317,41 @@ export async function createVenue(input: {
   setDefault: boolean
   address: VenueAddressInput
 }): Promise<SaveClubProfileResult> {
-  if (!input.name.trim()) return { ok: false, error: "A venue name is required." }
   const supabase = await createClient()
-  // STEP 6: create names the venue, set_venue_address owns the address. The two
-  // used to be one call that wrote only the derived display line, so a venue
-  // created here had no structured address at all and the first-run wizard --
-  // which did it properly -- produced better data than club administration did.
-  const { data: venueId, error } = await supabase.rpc("create_venue", {
-    p_club_id: input.clubId,
-    p_name: input.name.trim(),
-    p_directions: input.directions.trim(),
-    p_set_default: input.setDefault,
-  })
-  if (error) return { ok: false, error: error.message }
-  if (!venueId) return { ok: false, error: toPublicSubmissionError() }
-
-  const addressResult = await writeVenueAddress(supabase, venueId as string, input.address)
-  if (!addressResult.ok) return addressResult
+  // CA-M2: one domain operation names AND addresses the venue in one transaction
+  // (save_club_venue: create_venue, then set_venue_address -- still the one writer
+  // of the address columns). The app calls the same operation through the same
+  // shared wrapper, so there is no choreography left to copy.
+  let venueId: string
+  try {
+    venueId = await saveVenueOperation(supabase, input.clubId, null, { ...input.address, name: input.name, directions: input.directions, setDefault: input.setDefault })
+  } catch (error) {
+    return { ok: false, error: venueErrorMessage(error, "The venue could not be saved. Please try again.") }
+  }
 
   // The pin is derived from the postcode the club just gave us, here, rather
   // than waiting for a Site Admin to run a backfill. A venue with no
   // coordinates shows no map -- and a missing map is silent, so nobody would
   // ever know to go and press that button. Never throws and never blocks the
   // save: see geocodeVenueFromPostcode.
-  await geocodeVenueFromPostcode(supabase, venueId as string)
+  await geocodeVenueFromPostcode(supabase, venueId)
   revalidatePath("/club/venues")
-  return { ok: true }
-}
-
-/** The one place the application calls set_venue_address, so both surfaces send the same shape. */
-async function writeVenueAddress(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  venueId: string,
-  address: VenueAddressInput
-): Promise<SaveClubProfileResult> {
-  const { error } = await supabase.rpc("set_venue_address", {
-    p_venue_id: venueId,
-    p_line1: address.line1.trim(),
-    p_line2: address.line2.trim(),
-    p_town: address.town.trim(),
-    p_county: address.county.trim(),
-    p_postcode: address.postcode.trim(),
-    p_country: address.country.trim() || "United Kingdom",
-  })
-  if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
 
 export async function updateVenue(input: {
   id: string
+  clubId: string
   name: string
   directions: string
   address: VenueAddressInput
 }): Promise<SaveClubProfileResult> {
-  if (!input.name.trim()) return { ok: false, error: "A venue name is required." }
   const supabase = await createClient()
-  const { error } = await supabase.rpc("update_venue", {
-    p_id: input.id,
-    p_name: input.name.trim(),
-    p_directions: input.directions.trim(),
-  })
-  if (error) return { ok: false, error: error.message }
-
-  const addressResult = await writeVenueAddress(supabase, input.id, input.address)
-  if (!addressResult.ok) return addressResult
+  try {
+    await saveVenueOperation(supabase, input.clubId, input.id, { ...input.address, name: input.name, directions: input.directions, setDefault: false })
+  } catch (error) {
+    return { ok: false, error: venueErrorMessage(error, "The venue could not be saved. Please try again.") }
+  }
 
   // A postcode edit resets the row to 'pending' via the trigger on venues, so
   // this re-derives the pin for the NEW postcode. Without it, editing a

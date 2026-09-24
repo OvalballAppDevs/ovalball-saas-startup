@@ -294,6 +294,11 @@
         "permission_matrix"
       ]
     },
+    "club_identity_venues_teams_operations": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club administration",
+      "reason": "Club identity, venues and teams are domain operations (CA-M2): save_club_venue and create_club_team carry authority, validation and audit for both clients; fold/reactivate authorise on team.lifecycle.manage (capability, never role) with grant and deny proofs; the kit stays on club.profile.edit."
+    },
     "club_kits": {
       "disposition": "CANONICAL_GATE",
       "owner": "Club and Site Admin",

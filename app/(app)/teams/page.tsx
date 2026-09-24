@@ -10,6 +10,7 @@ import { compactTeamLabel, fullTeamLabel } from "@/lib/teams/compact-label"
 import { buildDirectory, type DirectoryIdentityRow } from "@/lib/teams/directory-taxonomy"
 import { resolveDefaultSeason, type SeasonRow } from "@/lib/calendar/season-window"
 import { createClient } from "@/lib/supabase/server"
+import { hasCapability } from "@/lib/permissions/has-capability"
 
 import type { SchedulingGroup, SchedulingGroupMember } from "../club/actions"
 import { ClubSettingsNav } from "../club/settings/club-settings-nav"
@@ -46,8 +47,10 @@ export default async function TeamsPage() {
   // specific person now correctly changes what this page shows (Section
   // 21: propagation) without this page needing its own re-derivation.
   const navCaps = await resolveClubSettingsNavCapabilities(supabase, clubId)
-  const isClubAdmin = navCaps.canProfile
   if (!navCaps.canTeams) redirect("/dashboard")
+  // CA-M2: adding a team is team.team.manage -- the capability create_club_team asks -- not the
+  // club-profile capability this page used to borrow. The app's Admin Centre asks the same key.
+  const isClubAdmin = clubId ? await hasCapability(supabase, "team.team.manage", "club", { clubId }) : false
 
   const { data: teams } = clubId
     ? await supabase

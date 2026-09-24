@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 
-import { findCategoryOption, loadTeamCategoryGroups, resolveStructuredFields } from "@/lib/teams/catalog"
+import { findCategoryOption, loadTeamCategoryGroups } from "@/lib/teams/catalog"
+import { createClubTeam, teamErrorMessage } from "@ovalball/contracts/club/teams"
 import { createClient } from "@/lib/supabase/server"
 
 export type CreateTeamResult = { ok: true } | { ok: false; error: string }
@@ -66,32 +67,21 @@ export async function createTeam(input: CreateTeamInput): Promise<CreateTeamResu
   if (!option) {
     return { ok: false, error: "Unrecognised team. Pick one from the list." }
   }
-  const fields = resolveStructuredFields(option, option.allowAdditionalSquads ? input.squadLetter : null)
 
-  const { data: created, error } = await supabase
-    .from("teams")
-    .insert({
-      club_id: input.clubId,
-      rugby_code: rugbyCode,
-      category: fields.category,
-      age_group: fields.ageGroup,
-      squad_designation: fields.squadDesignation,
-      gender: fields.gender,
-      display_name: "pending",
-      slug: "pending",
-    })
-    .select("id")
-    .maybeSingle()
-
-  if (error) {
-    if (error.code === "23505") {
-      return {
-        ok: false,
-        error: `${input.categoryLabel} already exists for this club. Refreshing the page will show its current status.`,
-      }
+  // CA-M2: the ONE domain operation creates the team, by the catalogue entry's stable KEY. The
+  // server resolves every structured field from the Team Directory itself and the triggers derive
+  // the name -- nothing about the identity is decided in TypeScript any more, on either client.
+  let createdId: string
+  try {
+    createdId = await createClubTeam(supabase, input.clubId, option.key, option.allowAdditionalSquads ? input.squadLetter : null)
+  } catch (error) {
+    const e = error as { code?: string; message?: string }
+    if (e.code === "23505") {
+      return { ok: false, error: `${input.categoryLabel} already exists for this club. Refreshing the page will show its current status.` }
     }
-    return { ok: false, error: error.message }
+    return { ok: false, error: teamErrorMessage(error, "The team could not be added. Please try again.") }
   }
+  const created = { id: createdId }
 
   // The alias is a separate, authorised write (set_team_alias), never a column
   // on this insert -- the canonical identity stays exactly what the catalogue

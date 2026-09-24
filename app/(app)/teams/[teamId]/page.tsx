@@ -6,7 +6,7 @@ import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import { cookies } from "next/headers"
 import { ChevronLeft, ChevronRight, Newspaper, UserPlus, Users } from "lucide-react"
 
-import { ACTIVE_CONTEXT_COOKIE, activeClubId, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
+import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
@@ -60,7 +60,6 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   // team's record merely because it also happens to be Club Admin
   // somewhere. See app/(app)/people/page.tsx for the identical leak class
   // found and fixed earlier in this pass.
-  const activeClub = activeClubId(ctx, activeContext)
 
   // Entry is now a capability on THIS team, not a club-wide role held
   // somewhere. A coach assigned to this side sees its people; that is the
@@ -90,7 +89,14 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
     (await hasCapability(supabase, "team.team.view", "team", { clubId: team.club_id, teamId: team.id }))
   if (!canView) redirect("/teams")
 
-  const canManage = ctx.isSiteAdmin || activeManageableClubId(ctx, activeContext) === team.club_id
+  // CA-M2 (owner decision 2): the club-wide controls ask the CANONICAL capabilities the operations
+  // themselves ask -- team.team.manage for the alias, team.lifecycle.manage for fold/reactivate --
+  // never a role. A Fixtures Secretary no longer sees a Fold control the database refuses; a person
+  // holding the capability by grant sees it. The app's Admin Centre asks the same two keys.
+  const [canManage, canFold] = await Promise.all([
+    hasCapability(supabase, "team.team.manage", "club", { clubId: team.club_id }),
+    hasCapability(supabase, "team.lifecycle.manage", "club", { clubId: team.club_id }),
+  ])
 
   // Deliberately NOT the same flag as canManage. Team settings and folding are
   // club-wide decisions; keeping a team's own roster straight is the team's,
@@ -330,7 +336,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         </Link>
       )}
 
-      {canManage && (
+      {canFold && (
         <TeamLifecycleSection
           team={{
             teamId: team.id,

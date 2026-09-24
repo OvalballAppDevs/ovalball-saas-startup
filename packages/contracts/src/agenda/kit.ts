@@ -103,6 +103,32 @@ export const KIT_PATTERNS: { key: KitPattern; label: string; description: string
   { key: "CONTRAST_SLEEVES", label: "Contrast sleeves", description: "Sleeves in the second colour" },
 ]
 
+/**
+ * THE SWATCHES A CLUB PICKS FROM, on both clients. Presentation only: the server accepts any
+ * six-digit hex, and a club that wants an exact shade types it. One list so the web's Club
+ * Settings and the app's Branding screen offer the same colours in the same order.
+ */
+export const KIT_SWATCHES: string[] = [
+  "#7a1f3d", "#9b1b30", "#c8102e", "#e35205",
+  "#f2a900", "#046a38", "#00594c", "#0b3d91",
+  "#5aa9e6", "#4b2e83", "#111111", "#ffffff",
+]
+
+/**
+ * What the server will refuse, said before the round trip. The CHECK constraints on `club_kits`
+ * (pattern in the catalogue, six-digit hex colours, a two-tone pattern needs a second colour) are the
+ * authority; this is the same rule, shared so neither client keeps a copy of its own.
+ */
+export function kitInputProblem(kit: { pattern: string; primaryColour: string; secondaryColour: string | null; accentColour: string | null }): string | null {
+  const hex = /^#[0-9a-f]{6}$/i
+  if (!KIT_PATTERNS.some((p) => p.key === kit.pattern)) return "Choose a pattern."
+  if (!hex.test(kit.primaryColour)) return "The first colour needs to be a six-digit colour code."
+  if (kit.secondaryColour != null && kit.secondaryColour !== "" && !hex.test(kit.secondaryColour)) return "The second colour needs to be a six-digit colour code."
+  if (kit.accentColour != null && kit.accentColour !== "" && !hex.test(kit.accentColour)) return "The trim colour needs to be a six-digit colour code."
+  if (kit.pattern !== "SOLID" && !kit.secondaryColour) return "That pattern needs a second colour."
+  return null
+}
+
 /** Patterns defined by two colours. SOLID is the only one that is not. */
 export function patternNeedsSecondary(pattern: KitPattern): boolean {
   return pattern !== "SOLID"

@@ -4682,6 +4682,13 @@
         ]
       },
       {
+        "signature": "create_club_team(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/teams.ts"
+        ]
+      },
+      {
         "signature": "create_competition(text, text, text, boolean, uuid[])",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6912,6 +6919,13 @@
         ]
       },
       {
+        "signature": "save_club_venue(uuid, uuid, text, text, text, text, text, text, text, text, boolean)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/venues.ts"
+        ]
+      },
+      {
         "signature": "save_competition_participants(uuid, jsonb)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -8523,6 +8537,7 @@
       "create_canonical_team_type(text, text, text, text, boolean, text)",
       "create_club_competition(text, text, uuid, uuid)",
       "create_club_pitch(uuid, text, text, uuid)",
+      "create_club_team(uuid, text, text)",
       "create_competition(text, text, text, boolean, uuid[])",
       "create_competition_edition(uuid, uuid)",
       "create_fixture_message_with_attachment(uuid, uuid, text, text, text, text, integer)",
@@ -8824,6 +8839,7 @@
       "save_club_article(uuid, uuid, uuid, text, text, text, text, text, text, text)",
       "save_club_contact(uuid, uuid, text, text, text, text, boolean)",
       "save_club_event(uuid, text, date, date, uuid, text, time without time zone, time without time zone, boolean, uuid[], uuid[], uuid, text, text, text, text, text, text, text, numeric, numeric, text, uuid)",
+      "save_club_venue(uuid, uuid, text, text, text, text, text, text, text, text, boolean)",
       "save_competition_participants(uuid, jsonb)",
       "save_competition_rounds(uuid, jsonb)",
       "save_competition_stage(uuid, uuid, text, text, integer, jsonb, jsonb)",

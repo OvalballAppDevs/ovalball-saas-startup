@@ -696,3 +696,27 @@ ordinary unfinished UX — those are finished or say plainly that they are not b
 - The Supabase **migration history table** stops at `20270533000000` while `20270534000000` (M4) and
   `20270535000000` (M6) are applied to the live local database. Left unrepaired per standing
   instruction. Clean-boot proof of the chain from empty is therefore still outstanding for both.
+
+---
+
+## H19 — CA-M1 migration divergence: `20270540000000`
+
+**OPEN. Recorded before CA-M2 began. Facts only.**
+
+- Migration `20270540000000_the_club_profile_is_a_domain_operation.sql` was applied to the
+  persistent local database by `npx supabase migration up --local` during CA-M1.
+- Its file was subsequently amended in the working tree: `save_club_contact` gained defaulted
+  parameters (`p_contact_id uuid default null`, `p_role`, `p_name`, `p_phone`, `p_email` default
+  null, `p_is_public` default false) so the generated TypeScript type makes the contact id optional.
+- That one function definition (`create or replace function public.save_club_contact(...)`, same
+  identity signature `(uuid, uuid, text, text, text, text, boolean)`) was re-executed locally by
+  `psql`; grants were unchanged and re-verified.
+- The persistent local migration ledger (`supabase_migrations.schema_migrations`, version
+  `20270540000000`) therefore holds the statements as first applied, which do not exactly match the
+  repository file that was banked in `2221540`.
+- No persistent database reset is permitted.
+- No migration-history repair is authorised.
+- A disposable clean-boot / full-migration-chain proof from empty remains required before release
+  verification, for this migration as for `20270534000000` onward (see M6 above and H6).
+
+Not to be "fixed" during CA-M2. Hardening debt.

@@ -70,7 +70,9 @@ mobile, prove refusal without a recent authenticator.
 `fixture.import.run`, `competition.edition.issue`.
 
 **Teams and season (team/season slice):** `team.handover.apply`,
-`team.lifecycle.manage`.
+`team.lifecycle.manage` — CA-M2 consumes `team.lifecycle.manage` on both clients (fold /
+reactivate) exactly as the database enforces it today: capability yes, recent authenticator no.
+Enforcement is added with the re-authentication step in the slice that turns it on.
 
 **Finance (finance slice, web-only by design for connection and export):**
 `finance.gocardless.connect`, `finance.payment.act`,
@@ -99,8 +101,14 @@ mobile, prove refusal without a recent authenticator.
 Recorded from CA-M0 §1.1 for convergence when their slices ship — not changed
 in CA-M1, and access is not broadened meanwhile:
 
-- `fold_team` (team lifecycle) and `apply_season_handover` (season handover)
-  authorise on role rather than the capability their catalogue row names.
+- `fold_team` / `reactivate_team` — **closed by CA-M2.** The database already
+  authorised on `team.lifecycle.manage`; the role check lived on the web team
+  page (`canManage` from `club_memberships.role`) and on the Add Team gate
+  (`club.profile.edit`). Both now ask the capabilities the operations ask
+  (`team.lifecycle.manage`, `team.team.manage`); the mobile Admin Centre asks
+  the same two; migration `20270543000000` pins the server side.
+- `apply_season_handover` (season handover) authorises on role rather than the
+  capability its catalogue row names — its slice.
 - Role and membership operations (`assign_role`, `set_primary_club_role`,
   `set_team_access`, `remove_team_access`, `transition_*`) check
   role-level authority inside the RPC; the capability engine is the target.

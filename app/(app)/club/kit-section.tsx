@@ -11,6 +11,7 @@ import {
   type KitConfig,
   type KitPattern,
 } from "@/components/club/rugby-kit"
+import { KIT_SWATCHES } from "@ovalball/contracts/agenda/kit"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -40,11 +41,8 @@ const VARIANTS: { key: Variant; label: string; sub: string }[] = [
   { key: "alternate", label: "Away", sub: "Worn when colours clash" },
 ]
 
-const SWATCHES = [
-  "#7a1f3d", "#9b1b30", "#c8102e", "#e35205",
-  "#f2a900", "#046a38", "#00594c", "#0b3d91",
-  "#5aa9e6", "#4b2e83", "#111111", "#ffffff",
-]
+// One swatch list for both clients (contracts/agenda/kit).
+const SWATCHES = KIT_SWATCHES
 
 const DEFAULT_KIT: KitConfig = {
   pattern: "SOLID",
