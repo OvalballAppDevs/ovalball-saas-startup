@@ -605,6 +605,25 @@ switcher. The navigation should become Overview · Clubs · Competitions · Peop
 club's Fixtures, Teams and People should be **gone**, and the sidebar should still say their own
 name with the organisation beside the role. Switching back should restore the club exactly.
 
+## Review-world provenance: what is seeded, and what a proof may leave behind
+
+The people and places in this world come from `supabase/seeds/local_uat_*.sql` and nothing else. In
+particular the **Under 12 Boys** side of Ovalball UAT RUFC is, as seeded: players **Cara Bell**, **Ava
+Whitaker** and **Priya Rao** (`local_uat_parent_player.sql`, `local_uat_team_staff_and_adult_player.sql`);
+staff **Jordan Hale** (`uat.team.manager`, Manager), **Bethan Price** (`uat.team.admin`, Coach) and
+**Ffion Meredith** (`uat.manyhats`, Coach); no pending place requests.
+
+A proof run may add rows to make a journey observable, and every such row is **proof-only**: it must be
+removed, or reversed through the canonical operation, before the slice banks, and the completion report
+must say so. CA-M7 inserted a player "Tobias Wren" with a pending place on Under 12 Boys and approved
+him through the app; he appeared in no seed and no document, so CA-M7.1 removed the membership and the
+player row (no account, no guardians, no attendance, nothing referenced him). He was never a persistent
+identity. Capability decisions made by a proof are revoked afterwards and remain in
+`capability_overrides` as `revoked` audit rows; a proof fixture is deleted; a fixture field a proof
+changed is put back to its seeded value.
+
+If a later slice needs a persistent addition to this world, it goes in a seed file and is named here.
+
 ## What is still open
 
 `docs/product/CONVERGENCE_LEDGER.md` holds the programme ledger.

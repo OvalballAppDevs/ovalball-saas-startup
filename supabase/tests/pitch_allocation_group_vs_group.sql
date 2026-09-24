@@ -193,7 +193,7 @@ begin
   );
   raise notice 'FAIL 4: an unrelated authenticated user was able to reschedule Club A''s fixture';
 exception when others then
-  raise notice 'PASS 4: unrelated user correctly denied by update_fixture_schedule''s own internal.can_submit_fixture_result() check -- %', sqlerrm;
+  raise notice 'PASS 4: unrelated user correctly denied by update_fixture_schedule''s own internal.can_edit_fixture_schedule() check -- %', sqlerrm;
 end $$;
 
 rollback;

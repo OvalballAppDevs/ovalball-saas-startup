@@ -122,6 +122,18 @@ export function DateField({ value, onChange, label }: { value: string; onChange:
     )
   }
 
+  /*
+    THE WEB EXPORT IS THE PROOF SURFACE, AND THE NATIVE PICKER DOES NOT RENDER THERE (CA-M7.1).
+
+    `@react-native-community/datetimepicker` has no web implementation, so on Expo Web the trigger
+    below opened nothing and a schedule could never be changed through the interface -- which is how a
+    browser proof of the kick-off path could not be run. On web the field is typed instead, in the one
+    shape the database stores; the native pickers above and below are untouched.
+  */
+  if (Platform.OS === "web") {
+    return <TypedField icon={<CalendarDays size={18} color={colour.forest800} strokeWidth={1.9} />} label={label} value={value} placeholder="YYYY-MM-DD" pattern={/^\d{4}-\d{2}-\d{2}$/} onChange={(next) => next && onChange(next)} />
+  }
+
   return (
     <>
       <Trigger
@@ -171,6 +183,14 @@ export function TimeField({
           <DateTimePicker value={base} mode="time" display="compact" onChange={handle} accessibilityLabel={label} />
           {!!value && <Clear onPress={() => onChange(null)} label={`Clear ${label}`} />}
         </View>
+      ) : Platform.OS === "web" ? (
+        /* Typed on web (see DateField): the native picker has no web implementation. */
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          <View style={{ flex: 1 }}>
+            <TypedField icon={<Clock size={18} color={colour.forest800} strokeWidth={1.9} />} label={label} value={value ?? ""} placeholder="HH:MM" pattern={/^([01]\d|2[0-3]):[0-5]\d$/} onChange={(next) => onChange(next)} />
+          </View>
+          {!!value && <Clear onPress={() => onChange(null)} label={`Clear ${label}`} />}
+        </View>
       ) : (
         <>
           <Trigger
@@ -182,6 +202,35 @@ export function TimeField({
           {open && <DateTimePicker value={base} mode="time" onChange={handle} />}
         </>
       )}
+    </View>
+  )
+}
+
+/**
+ * A date or a time typed rather than picked -- web only. The value reaches the caller only once it is
+ * in the stored shape, so a half-typed "10:" never becomes a kick-off; clearing the field hands back
+ * null so a time can be un-set the same way the native control allows.
+ */
+function TypedField({ icon, label, value, placeholder, pattern, onChange }: { icon: React.ReactNode; label: string; value: string; placeholder: string; pattern: RegExp; onChange: (next: string | null) => void }) {
+  const [draft, setDraft] = useState(value)
+  return (
+    <View style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.surface }}>
+      {icon}
+      <TextInput
+        accessibilityLabel={label}
+        value={draft}
+        placeholder={placeholder}
+        placeholderTextColor={colour.inkSubtle}
+        autoCapitalize="none"
+        autoCorrect={false}
+        onChangeText={(text) => {
+          const trimmed = text.trim()
+          setDraft(text)
+          if (trimmed.length === 0) onChange(null)
+          else if (pattern.test(trimmed)) onChange(trimmed)
+        }}
+        style={[type.body, { color: colour.ink, flex: 1, minHeight: TOUCH_TARGET }]}
+      />
     </View>
   )
 }

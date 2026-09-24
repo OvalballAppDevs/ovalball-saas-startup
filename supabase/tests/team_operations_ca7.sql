@@ -223,10 +223,11 @@ begin
     format('TO-B5 STALE AUTHORITY: the same role, the same open fixture, the save is refused and nothing changed (%s)', v_state));
   perform pg_temp.check(exists (select 1 from public.role_assignments where user_id = v_tm and team_id = v_t12 and role_key = 'TEAM_MANAGER' and state = 'ACTIVE'),
     'TO-B6 and they are still a Team Manager: a decision never changes the role');
-  -- TO-B7 IS DELIBERATELY NOT AN ASSERTION. `update_fixture_kickoff` asks `internal.can_submit_fixture_result`
-  -- (fixture.result.record), not fixture.fixture.edit, so a withheld edit does not reach it. Recorded as
-  -- ledger H24 rather than asserted either way: asserting the gap would bless it, and asserting the fix
-  -- would be a fixture-authority change this slice does not make.
+  -- TO-B7 was left out of CA-M7 because `update_fixture_kickoff` asked the result key (ledger H24);
+  -- CA-M7.1 pointed every scheduling change at fixture.fixture.edit, and the assertion is now made.
+  v_state := pg_temp.try(format('select public.update_fixture_kickoff(%L, %L, ''11:00'')', v_fixture, current_date + 14));
+  perform pg_temp.check(v_state = '42501' and (select kickoff_time from public.fixtures where id = v_fixture) = '10:30',
+    format('TO-B7 the focused kick-off mutation asks the same key and refuses the same way, and the kick-off did not move (%s)', v_state));
   perform pg_temp.act('authenticated', v_ca);
   select override_id into v_override from public.club_person_permissions(v_club, v_tm, 'team', v_t12) where capability_key = 'fixture.fixture.edit';
   v_state := pg_temp.try(format('select public.revoke_capability_override(%L, ''CA-M7: restored'')', v_override));

@@ -784,21 +784,39 @@ enrolment done in the suites' own setup and cleaned up in their teardown.
   (`ovalballapp@gmail.com`, plus plan) still debited 2 credits per Nano Banana job on 2026-09-24. Any
   further regeneration should confirm the allowance against the balance first.
 
-## H24 — `update_fixture_kickoff` is gated on `fixture.result.record`, not `fixture.fixture.edit`
+## H24 — CLOSED by CA-M7.1: a kick-off change is a fixture edit
 
-Observed 2026-09-24 by `supabase/tests/team_operations_ca7.sql` while proving stale authority for a
-Team Manager. `public.update_fixture_kickoff` (the focused kick-off mutation the mobile Fixture Console
-and the web editor both call) asks `internal.can_submit_fixture_result` — the result-recording key —
-rather than `internal.can_edit_fixture_details`. A Club Admin who withholds `fixture.fixture.edit` from a
-Team Manager at team scope therefore stops `update_fixture_details` and `update_fixture_kickoff` is
-still accepted; the mobile console hides its kick-off editor behind `authority.edit`, so the gap is in
-the server gate, not the interface. `update_fixture_schedule`, `_venue`, `_pitch` and `_meet_time`
-were not exercised. Owed to the fixture domain: point the kick-off mutation at the edit resolver (one
-line) and add the TO-B7 assertion the CA-M7 suite deliberately leaves out. Not changed here — a change
-to which key a fixture mutation asks is a fixture-authority change, which the CA-M7 directive says to
-report before making.
+**Status: CLOSED** (CA-M7.1, migration `20270549000000_a_kick_off_change_is_a_fixture_edit.sql`;
+checkpoint recorded in the banking commit that follows `067befb`).
+
+**Cause.** Every mutation that changes when or where a fixture is played -- `update_fixture_kickoff`,
+`update_fixture_schedule`, `update_fixture_meet_time`, `update_fixture_pitch`, `update_fixture_venue`,
+`reject_fixture_kickoff_change` and the free-text ground branch of `update_fixture_details` -- asked
+`internal.can_submit_fixture_result` (`fixture.result.record`), and the read model
+`fixture_editable_fields.schedule` reported editability from the same key. The CA-M7 forensic pass
+found the kick-off case; the CA-M7.1 pass found the rest were the same defect.
+
+**Fix.** One helper, `internal.can_edit_fixture_schedule(fixture)` = `internal.caller_fixture_club_id`
+is not null (the existing either-side `fixture.fixture.edit` answer) or site fixture support. The eight
+functions are re-created from their live definitions with exactly the gate line swapped; the
+either-side shape, the negotiation cycle, mirrors, notifications and validation are unchanged. No
+capability, scope, bundle or policy changed. The mobile date and time fields gained a typed fallback on
+web only, because the native picker has no web implementation and the proof surface could not change
+a kick-off through the interface.
+
+**Permanent proof.** `supabase/tests/fixture_schedule_edit_authority.sql` (40 assertions, canonical
+gate): edit-only lands every scheduling change and is refused a result; result-only is refused every
+scheduling change and lands a result; a Team Manager's role default, a Club Admin's withhold refusing
+the save mid-edit with the kick-off unchanged while the role, the view and result recording remain,
+restore returning it, the read model agreeing at each step; sibling-team and other-club refusal; the
+opponent's staff proposing and answering with their own edit key. `team_operations_ca7.sql` TO-B7 is
+now asserted. Browser proof on the served web export as `uat.team.manager`: kick-off moved through the
+console, a stale save refused with the sheet saying so and the kick-off unchanged, the fixture still
+fully visible as the Match Centre with no edit offered, restore returning the row, the original put back.
 
 ## H25 — a Team Manager's team-scoped `finance.subscription.view` cannot be withheld
+
+**Status: OPEN — H25 UNCHANGED, DEFERRED BY DESIGN (CA-M7.1 did not touch finance inheritance, decision ceilings, subscription policies or GoCardless). Owed with H20 to the finance/subscription authority slice.**
 
 Observed 2026-09-24 by the same suite. Migration `20270531000000` gave `finance.subscription.view` a
 team scope and put it in the Team Manager bundle, but left `inherits_to_team = false` and the decision
@@ -840,3 +858,14 @@ TO-E9/E10 comments rather than assertions.
   (`canManageClubFixturesAnywhere`) rather than capabilities; the planner and import pages ask the
   deprecated `fixture.import` alias; `lib/fixtures/fixture-type.ts` defaults an unset type to
   "Friendly" against the taxonomy's own rule. Recorded from the CA-M7 forensic audit, unchanged.
+
+## H27 — Observed while running the neighbouring suites for CA-M7.1 (2026-09-24)
+
+- `authority_helper_retirement.sql` HR1 reports `can_organise_competition` referenced from 3 function
+  bodies against a ceiling of 2 (`update_competition_metadata`, `internal.can_organise_edition`,
+  `governing_body_competitions`). None of the three is touched by CA-M7.1; the count predates it and
+  belongs to the competition domain. Left as found.
+- Four SPECIAL_PURPOSE manual-verification scripts (`chat_fixture_operations`,
+  `unified_fixture_conversation`, `club_lifecycle`, `fixture_results`) fail at their own setup on
+  hard-coded ids and ambient data before reaching any authority assertion. Unrelated to the gate change;
+  left as found.
