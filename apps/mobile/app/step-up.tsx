@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { supabase } from "../src/auth/supabase"
 import { useSession } from "../src/auth/session"
+import { discardIntents } from "../src/admin/pending-intent"
 import { friendly, logDetail } from "../src/errors/translate"
 import { Button } from "../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../src/design/tokens"
@@ -129,7 +130,7 @@ export default function StepUp() {
       )}
 
       <View style={{ marginTop: space.lg }}>
-        <Button label="Cancel" variant="quiet" onPress={back} disabled={busy} />
+        <Button label="Cancel" variant="quiet" onPress={() => { discardIntents(); back() }} disabled={busy} />
       </View>
     </ScrollView>
   )

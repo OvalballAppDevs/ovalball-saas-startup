@@ -231,7 +231,8 @@ export function isRecentAuthRefusal(error: unknown): boolean {
 export function permissionErrorMessage(error: unknown, fallback: string): string {
   const e = (error ?? {}) as { code?: string; message?: string }
   if (isRecentAuthRefusal(error)) return "Recent verification is required before changing this permission."
-  if (e.code === "42501" && /not authorised to (change|see)|not authorized/i.test(e.message ?? "")) return "You no longer have permission to change access for this club."
+  if (e.code === "42501" && /not authorised to see/i.test(e.message ?? "")) return "You do not have access to this person's permissions."
+  if (e.code === "42501" && /not authorised to change|not authorized/i.test(e.message ?? "")) return "You no longer have permission to change access for this club."
   if (e.code === "42501" || e.code === "22023" || e.code === "23514" || e.code === "P0001" || e.code === "P0002") return e.message || fallback
   return fallback
 }

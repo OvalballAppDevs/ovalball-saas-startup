@@ -129,8 +129,11 @@ export default function PersonPermissionsScreen() {
       void loadRows()
       // Back from a step-up: the same decision sheet, the choice and reason put back, the server
       // asked again on Confirm.
-      const p = takeIntent<{ row: PermissionRow; scope: PermissionScope; choice: PermissionState; reason: string; label: string; description: string }>(`permissions:${membershipId}`)
-      if (p) openDecision(p.row, p.scope, p.label, p.description, p.choice, p.reason)
+      const p = takeIntent<{ row: PermissionRow; scope: PermissionScope; choice: PermissionState; reason: string; label: string; description: string; userId: string; clubId: string }>(`permissions:${membershipId}`)
+      if (p) {
+        setScope(p.scope)
+        openDecision(p.row, p.scope, p.label, p.description, p.choice, p.reason, { userId: p.userId, clubId: p.clubId })
+      }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loadPerson, loadRows, membershipId])
   )
@@ -144,7 +147,10 @@ export default function PersonPermissionsScreen() {
     setScope(o.kind === "team" && o.teamId ? { kind: "team", teamId: o.teamId, teamName: o.teamName ?? "this team" } : { kind: "club" })
   }
 
-  function openDecision(row: PermissionRow, at: PermissionScope, label: string, description: string, initialChoice?: PermissionState, initialReason?: string) {
+  function openDecision(row: PermissionRow, at: PermissionScope, label: string, description: string, initialChoice?: PermissionState, initialReason?: string, ids?: { userId: string; clubId: string }) {
+    // The subject and club are fixed when the sheet opens (and carried through a step-up), so a
+    // confirmation after a re-mount never depends on the screen having finished loading again.
+    const subject = ids ?? (person?.userId && clubId ? { userId: person.userId, clubId } : null)
     setAsk({
       row,
       scope: at,
@@ -154,12 +160,12 @@ export default function PersonPermissionsScreen() {
       initialReason,
       note: initialChoice !== undefined ? "Verified. Confirm to continue." : undefined,
       onConfirm: async (choice, reason) => {
-        if (!person?.userId || !clubId) return
+        if (!subject) throw new Error("This person is still loading. Try again in a moment.")
         if (choice === "inherit") {
           // RESTORE DEFAULT removes the decision; the role answers again. Never an opposite decision.
           if (row.decision) await restoreDefault(supabase, row.decision.id, reason)
         } else {
-          await decidePermission(supabase, { userId: person.userId, key: row.key, clubId, scope: at, effect: choice === "allow" ? "grant" : "deny", reason })
+          await decidePermission(supabase, { userId: subject.userId, key: row.key, clubId: subject.clubId, scope: at, effect: choice === "allow" ? "grant" : "deny", reason })
         }
         setNotice(choice === "inherit" ? `${label}: back to the role default.` : choice === "allow" ? `${label}: allowed${at.kind === "team" ? ` for ${at.teamName}` : ""}.` : `${label}: withheld${at.kind === "team" ? ` for ${at.teamName}` : ""}.`)
         await Promise.all([loadRows(), loadPerson()])
@@ -212,8 +218,8 @@ export default function PersonPermissionsScreen() {
           {caps && !viewerMayDecide && !person.isSelf && <Text style={[type.caption, { color: colour.inkMuted }]}>You can see these permissions but not change them.</Text>}
           {person.isSelf && <Text style={[type.caption, { color: colour.inkMuted }]}>Your own permissions are decided by another Club Admin.</Text>}
 
-          {rows === null && !rowsError && <CardSkeleton lines={3} />}
-          {rowsError && <ErrorState message={rowsError} onRetry={() => void loadRows()} />}
+          {rows === null && !rowsError && !loadError && <CardSkeleton lines={3} />}
+          {rowsError && !loadError && <ErrorState message={rowsError} onRetry={() => void loadRows()} />}
 
           {rows &&
             groups.map((group) => {
@@ -264,7 +270,7 @@ export default function PersonPermissionsScreen() {
           void loadRows()
         }}
         onStepUp={(choice, reason) => {
-          if (ask) holdIntent(`permissions:${membershipId}`, { row: ask.row, scope: ask.scope, choice, reason, label: ask.label ?? ask.row.label, description: ask.description ?? ask.row.description })
+          if (ask && person?.userId && clubId) holdIntent(`permissions:${membershipId}`, { row: ask.row, scope: ask.scope, choice, reason, label: ask.label ?? ask.row.label, description: ask.description ?? ask.row.description, userId: person.userId, clubId })
           setAsk(null)
           router.push({ pathname: "/step-up", params: { returnTo: `/admin/people/${membershipId}/permissions` } } as never)
         }}

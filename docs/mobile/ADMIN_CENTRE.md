@@ -503,4 +503,25 @@ and calls the same contract.
   `role_assignment_*`, `age_eligibility_matrix` — all green. JS: override / authority / membership
   races, navigation architecture, bottom bar projection, fixture return context, perimeter manifest,
   shared contracts — green.
-- Browser proofs: see the CA-M4 completion report and `scratchpad/ca4/`.
+- Browser proof (`scratchpad/ca4/proof-ca4.mjs`, subject Bethan Price, decider Priya Nair with an
+  authenticator enrolled for the run and removed afterwards; every decision restored and the seeded
+  Under 12 decision put back): web withhold at Under 12 → mobile shows "Withheld", the role default and
+  the effective result; Coach kept, view kept, `create_fixture` refused, control read unchanged for the
+  decider; mobile restore default → web shows "From their Coach role" with no decision row and no
+  opposite decision; mobile allow at Under 8 Mixed B (Volunteer, no role default) → web shows "Allowed
+  explicitly", creation there yes, elsewhere no, Planner / import / bulk / club-wide all false; web
+  restore → mobile "Not allowed". R on mobile: stale claim → step-up screen with nothing written →
+  code → return to the exact editor → sheet re-opened with choice, reason and note → nothing written
+  until the explicit confirm → then written. Step-up cancelled → nothing written, no sheet then or on a
+  later visit. R on the web (membership suspend): refusal sentence + "Verify Now" → verify → back at
+  People with the member still active → deliberate confirm → suspended → restored. Stale admin: server
+  sentence in the sheet, no controls on refocus, section gone from the Admin Centre, People stays,
+  controls back on revoke. Stale subject: the server's "holds no role on that team" sentence, scope gone
+  on refocus. Read-only persona (Fixture Secretary): People yes, Roles & Permissions absent, the editor
+  says "You do not have access to this person's permissions.", crafted write and read both 403.
+  Audit: `override.granted` / `override.revoked` / `membership.*` events with actor, subject,
+  capability, effect, scope, team, level and reason; the club timeline shows the same with human
+  labels; a restore is `override.revoked` and leaves no opposite decision.
+- iOS export on the final source (`scratchpad/hub-ios-ca4`, 15 MB): the editor, the step-up and the
+  read model are in the bundle. Physical iPhone review is pending; it needs an authenticator enrolled
+  on the website for the Club Admin persona first.

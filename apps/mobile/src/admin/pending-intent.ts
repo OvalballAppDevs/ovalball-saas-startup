@@ -18,6 +18,11 @@ export function holdIntent<T>(key: string, intent: T): void {
   store.set(key, intent)
 }
 
+/** A cancelled step-up drops whatever was held: nothing verified, nothing to resume. */
+export function discardIntents(): void {
+  store.clear()
+}
+
 export function takeIntent<T>(key: string): T | null {
   const v = (store.get(key) as T | undefined) ?? null
   store.delete(key)
