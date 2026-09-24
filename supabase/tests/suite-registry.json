@@ -1200,6 +1200,11 @@
       "owner": "Team directory and roster",
       "reason": "LOCAL PLAYGROUND ONLY -- deliberately NOT part of run_regression.sh's FILES array (adding these teams alongside the other 55 test files' own Burnley/Rossendale team fixtures is exa"
     },
+    "price_preview_containment": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Payments and GoCardless",
+      "reason": "A price preview answers only who may see the price: preview_first_payment_illustrative is gated inside on the programme's own scoped read predicate (CA-M1 price-oracle containment)."
+    },
     "production_hygiene_scaffold_and_finance": {
       "disposition": "CANONICAL_GATE",
       "owner": "Identity/Auth and platform security",
