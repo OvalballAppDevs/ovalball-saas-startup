@@ -945,3 +945,21 @@ TO-E9/E10 comments rather than assertions.
   only. The child selector sheet under VoiceOver and the picture-change sheet are the first things to
   look at.
 - **H25/H20, H27, H28 unchanged.**
+
+## H30 — CA-M10 Club Operations: owed at hardening
+
+- **Web club pages gate on role names.** `canManageClubFixturesAnywhere` (`packages/contracts/src/session-context.ts`),
+  `activeManageableClubId`, `isClubAdminAnywhere`, `clubRoleKey === 'CLUB_ADMIN'` in the navigation, and
+  the planner's `actingBulkAuthority` decide web access to `/fixtures/management`, `/people`, `/club`,
+  `/club/venues`, `/club/player-moves`, `/club/finance`. The phone asks canonical keys
+  (`CLUB_AUTHORITY_KEYS`); the web is behind, recorded, unchanged.
+- **Legacy capability aliases still asked by web club surfaces**: `fixture.import`, `fixture.edit`,
+  `fixture.create`, `manage_fixture_callups`, `manage_player_dispensations`, `club.subscription.*`.
+- **No mobile result recording** exists; `fixture.result.record` is read and never used on the phone.
+- **Player join requests, player moves, club event management, pitch allocation, the planner, imports,
+  competitions, finance and safeguarding** are web-first or hand-offs by design.
+- **A club-wide event's attendance and recipients (H29)** remain open; CA-M10 reads events only.
+- **The review world has no `VOLUNTEER` or `FIXTURES_SECRETARY` club persona**; both are proved
+  self-seeded in `club_operations_ca10.sql` and not in the browser.
+- **Physical-iPhone walkthrough** prepared, not performed; Expo Web proof and iOS export only.
+- **H20/H25, H26, H27, H28, H29 unchanged.**

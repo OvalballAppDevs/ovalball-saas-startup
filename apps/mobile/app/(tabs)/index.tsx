@@ -19,6 +19,7 @@ import { ContextSheet } from "../../src/components/context-sheet"
 import { RugbyHero } from "../../src/components/home/rugby-hero"
 import { TeamHome } from "../../src/team/home"
 import { PlayerHome } from "../../src/player/home"
+import { ClubHome } from "../../src/club/home"
 import { ChildSelector } from "../../src/family/child-selector"
 import { FamilyIdentityBlock } from "../../src/family/identity-block"
 import { AnnouncementPreview, NewsRail, SubscriptionStatusCard } from "../../src/components/home/sections"
@@ -68,10 +69,12 @@ export default function Home() {
   const teamContext = active?.kind === "team"
   // A PLAYER HAS THEIR OWN HOME (CA-M9): not a parent's screen with the child chips removed.
   const playerContext = active?.kind === "player"
+  // A CLUB HAS ITS OWN HOME (CA-M10): what the club needs from me today, never an admin icon grid.
+  const clubContext = active?.kind === "club"
   const [childSheetOpen, setChildSheetOpen] = useState(false)
 
   const loadSummary = useCallback(async () => {
-    if (!active || !sessionContext || active.kind === "team" || active.kind === "player") return
+    if (!active || !sessionContext || active.kind === "team" || active.kind === "player" || active.kind === "club") return
     setSummaryError(null)
     try {
       setSummary(await loadHomeSummary(supabase, sessionContext, active, selectedPlayerId, projection))
@@ -135,7 +138,7 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
       >
         {/* WHOSE RUGBY: the child selector, where there is a family to choose between (CA-M9). */}
-        {!teamContext && !playerContext && <FamilyIdentityBlock onOpen={() => setChildSheetOpen(true)} />}
+        {!teamContext && !playerContext && !clubContext && <FamilyIdentityBlock onOpen={() => setChildSheetOpen(true)} />}
 
         {error && (
           <View style={{ paddingHorizontal: space.lg }}>
@@ -156,14 +159,15 @@ export default function Home() {
             next, who has answered, who is in the side, what the club has said, what I may change. */}
         {teamContext && <TeamHome />}
         {playerContext && <PlayerHome />}
+        {clubContext && <ClubHome />}
 
-        {!teamContext && !playerContext && !!summaryError && (
+        {!teamContext && !playerContext && !clubContext && !!summaryError && (
           <View style={{ paddingHorizontal: space.lg }}>
             <ErrorState message={summaryError.message} offline={summaryError.offline} onRetry={loadSummary} />
           </View>
         )}
 
-        {!teamContext && !playerContext && !summaryError && !!active && summary === null && (
+        {!teamContext && !playerContext && !clubContext && !summaryError && !!active && summary === null && (
           <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
             <CardSkeleton lines={3} />
             <CardSkeleton lines={1} />
@@ -173,9 +177,9 @@ export default function Home() {
         {/* WHAT NEEDS ME, compactly: the shared attention projection for THIS context (CA-M8). Home shows the
             first few and hands the rest to the Notifications screen; the Team Home draws its own from the same
             projection. Absent, not empty, where there is nothing -- Home does not draw furniture for calm. */}
-        {!teamContext && !playerContext && !!active && (active.kind !== "site_admin" && active.kind !== "governing") && <HomeAttention />}
+        {!teamContext && !playerContext && !clubContext && !!active && (active.kind !== "site_admin" && active.kind !== "governing") && <HomeAttention />}
 
-        {!teamContext && !playerContext && !!summary && !!active && (
+        {!teamContext && !playerContext && !clubContext && !!summary && !!active && (
           <>
             {/* ============================================================
                   WHAT IS NEXT. The strongest thing on the screen, swiped rather

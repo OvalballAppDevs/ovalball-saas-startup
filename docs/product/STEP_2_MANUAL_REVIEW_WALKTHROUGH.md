@@ -682,6 +682,26 @@ offers no coach. AD. No screen names an opposition contact. AE. Largest Dynamic 
 and the membership lines wrap. AF. Reduce Motion: the selector sheet still opens. AG. Airplane mode, pull
 to refresh: the offline error, and an answer says "Couldn't update yet", never success.
 
+## Club Operations on the phone (CA-M10) — physical-iPhone walkthrough, prepared
+
+Not yet performed on a device. A. Sign in as **uat.coach**, switch to the Ovalball UAT RUFC club context.
+B. Club Home: the crest and the club's name, "n sides · n fixtures in the next fortnight"; the header
+still names you. C. Needs Attention: only the queues you hold. D. Today / Next Up: what is on, with team,
+opponent, kick-off, meet and venue; a club event with its amber rule where one exists. E. Fixtures
+snapshot: Today, Next 14 days, Need action, Requests — each a real count. F. Teams: five sides with next
+fixture and counts; All Teams lists every side. G. Tap Under 12 Boys: identity, Next Up, the side, and
+"Enter Team Context" only because you also coach it; tap it and the Team workspace opens. H. Back in the
+club context, tap a side you do not run: no Enter Team Context, club inspection only. I. Fixtures tab:
+every side, the team chips, Add Fixture asks "Which side?" first, the Fixture Requests row, and the
+Fixture Control Centre hand-off. J. Add a fixture for a side against an external opponent; it lands.
+K. Open a fixture: the console, because you may manage it. L. Calendar: fixtures, training and a club
+event card; open the event: the canonical card, attendance on the website. M. More: Teams, People,
+Fixture Requests, Grounds & Pitches, News & Announcements, Publish, then the Admin Centre. N. People:
+Invite Staff (a step-up if your authentication is not recent), Resend / Revoke on an invited row.
+O. Grounds & Pitches: the Pitch Allocation hand-off, present only with that authority. P. Switch to the
+Under 12 Boys team context: no Control Centre anywhere. Q. As **uat.preston.admin**: nothing of Ovalball
+UAT RUFC. R. Large text, VoiceOver, Reduce Motion, airplane mode as before.
+
 ## What is still open
 
 `docs/product/CONVERGENCE_LEDGER.md` holds the programme ledger.

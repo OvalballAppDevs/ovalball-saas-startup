@@ -10,6 +10,10 @@ import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import { readAgenda, todayIso } from "../../../src/agenda/load"
 import { anyManagement, loadFixtureAuthority, type FixtureAuthority } from "../../../src/agenda/authority"
+import { readClubTeams } from "@ovalball/contracts/club/teams"
+import { anyDeskFixtureTool, readClubAuthority, type ClubAuthority } from "@ovalball/contracts/club/overview"
+import * as Linking from "expo-linking"
+import { webUrl } from "../../../src/config/environment"
 import { groupByDay, relativeDate, restOfDate } from "../../../src/agenda/presentation"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { AppHeader } from "../../../src/components/app-header"
@@ -177,18 +181,39 @@ export default function Fixtures() {
   // THE REQUESTS WAITING ON THIS TEAM (CA-M7): a row above the list in a team context, for somebody
   // the server says may answer. Counted from the same RLS-scoped rows the requests screen reads.
   const [waitingRequests, setWaitingRequests] = useState<number>(0)
+  const [clubAuthority, setClubAuthority] = useState<ClubAuthority | null>(null)
   useEffect(() => {
     let live = true
     setWaitingRequests(0)
-    if (active?.kind !== "team" || !active.id || !authority?.requestRespond) return
-    void supabase
-      .from("fixture_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("target_team_id", active.id)
-      .eq("status", "sent")
-      .then(({ count }) => {
+    setClubAuthority(null)
+    if (!authority?.requestRespond) return
+    if (active?.kind === "team" && active.id) {
+      void supabase
+        .from("fixture_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("target_team_id", active.id)
+        .eq("status", "sent")
+        .then(({ count }) => {
+          if (live) setWaitingRequests(count ?? 0)
+        })
+    }
+    // A CLUB'S REQUESTS (CA-M10): every side's, counted from the same RLS-scoped rows the requests
+    // screen reads; and the desk tools offered as a hand-off only where the club-scope probe says yes.
+    if (active?.kind === "club" && (active.clubId ?? active.id)) {
+      const clubId = (active.clubId ?? active.id) as string
+      void (async () => {
+        const d = await readClubTeams(supabase, clubId)
+        const ids = d.teams.filter((t) => t.active).map((t) => t.id)
+        if (!ids.length) return
+        const { count } = await supabase.from("fixture_requests").select("id", { count: "exact", head: true }).in("target_team_id", ids).eq("status", "sent")
         if (live) setWaitingRequests(count ?? 0)
-      })
+      })().catch(() => undefined)
+      void readClubAuthority(supabase, clubId)
+        .then((a) => {
+          if (live) setClubAuthority(a)
+        })
+        .catch(() => undefined)
+    }
     return () => {
       live = false
     }
@@ -257,18 +282,39 @@ export default function Fixtures() {
           </View>
         )}
 
-        {active?.kind === "team" && (authority?.requestRespond || authority?.requestCreate) && direction === "upcoming" && (
+        {(active?.kind === "team" || active?.kind === "club") && (authority?.requestRespond || authority?.requestCreate) && direction === "upcoming" && (
           <View style={{ paddingHorizontal: space.lg }}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={waitingRequests > 0 ? `${waitingRequests} fixture ${waitingRequests === 1 ? "request is" : "requests are"} waiting for your answer. Opens Fixture Requests.` : "Fixture Requests"}
-              onPress={() => router.push("/team/requests" as never)}
+              onPress={() => router.push((active.kind === "club" ? "/club/requests" : "/team/requests") as never)}
               style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: waitingRequests > 0 ? colour.warning : colour.line, backgroundColor: waitingRequests > 0 ? colour.warningSurface : colour.surface, opacity: pressed ? 0.92 : 1 })}
             >
               <Megaphone size={17} color={waitingRequests > 0 ? colour.warning : colour.forest800} strokeWidth={2} />
               <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>
                 {waitingRequests > 0 ? `${waitingRequests} fixture ${waitingRequests === 1 ? "request" : "requests"} waiting for your answer` : "Fixture Requests"}
               </Text>
+              <ChevronRight size={17} color={colour.inkSubtle} />
+            </Pressable>
+          </View>
+        )}
+
+        {/* THE DESK TOOLS ARE DESK TOOLS (CA-M10): season planning, imports, bulk edits and the Competition
+            Creator stay on the website, offered from the club context only where the club-scope probe
+            says this person holds them. Never from a team context; never rebuilt smaller here. */}
+        {active?.kind === "club" && clubAuthority && anyDeskFixtureTool(clubAuthority) && direction === "upcoming" && (
+          <View style={{ paddingHorizontal: space.lg }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Fixture Control Centre. Season planning, imports and bulk changes. Opens the Ovalball website"
+              onPress={() => void Linking.openURL(`${webUrl}/fixtures/management`)}
+              style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, opacity: pressed ? 0.92 : 1 })}
+            >
+              <SlidersHorizontal size={17} color={colour.forest800} strokeWidth={2} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[type.smallMedium, { color: colour.ink }]}>Fixture Control Centre</Text>
+                <Text style={[type.caption, { color: colour.inkMuted }]}>Season planning, imports and bulk changes — on the website</Text>
+              </View>
               <ChevronRight size={17} color={colour.inkSubtle} />
             </Pressable>
           </View>

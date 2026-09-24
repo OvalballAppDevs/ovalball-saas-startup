@@ -53,7 +53,7 @@ export default function VenueScreen() {
   const [pitches, setPitches] = useState<ClubPitch[]>([])
   const [draft, setDraft] = useState<VenueInput>(EMPTY_VENUE_INPUT)
   const [dirty, setDirty] = useState(false)
-  const [caps, setCaps] = useState<VenueCapabilities>({ view: false, manageVenues: false, managePitches: false })
+  const [caps, setCaps] = useState<VenueCapabilities>({ view: false, manageVenues: false, managePitches: false, allocate: false })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<FriendlyError | null>(null)
   const [busy, setBusy] = useState(false)

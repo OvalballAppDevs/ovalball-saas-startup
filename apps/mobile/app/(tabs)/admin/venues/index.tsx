@@ -6,7 +6,9 @@ import { readClubVenues, readVenueCapabilities, venueAddressLine, type ClubVenue
 import { AdminScreen } from "../../../../src/admin/screen"
 import { useAdminCentreAccess } from "../../../../src/admin/access"
 import { supabase } from "../../../../src/auth/supabase"
-import { ChevronRight } from "../../../../src/components/icons"
+import { ChevronRight, ExternalLink } from "../../../../src/components/icons"
+import * as Linking from "expo-linking"
+import { webUrl } from "../../../../src/config/environment"
 import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../../src/components/ui"
 import { friendly, logDetail, type FriendlyError } from "../../../../src/errors/translate"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
@@ -21,7 +23,7 @@ export default function VenuesScreen() {
   const router = useRouter()
   const { clubId } = useAdminCentreAccess()
   const [data, setData] = useState<ClubVenues | null>(null)
-  const [caps, setCaps] = useState<VenueCapabilities>({ view: false, manageVenues: false, managePitches: false })
+  const [caps, setCaps] = useState<VenueCapabilities>({ view: false, manageVenues: false, managePitches: false, allocate: false })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<FriendlyError | null>(null)
 
@@ -80,6 +82,23 @@ export default function VenuesScreen() {
       {data && (
         <>
           {caps.manageVenues && <Button label="Add Venue" variant="secondary" onPress={() => router.push("/admin/venues/new")} />}
+          {/* PITCH ALLOCATION IS ITS OWN AUTHORITY (CA-M4, CA-M10): the board is offered behind
+              venue.pitch_allocation.manage alone -- never fixture edit -- and stays on the website, where a
+              day's pitches, buffers and proposals are laid out at desk width. */}
+          {caps.allocate && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Pitch allocation. Which side is on which pitch, day by day. Opens the Ovalball website"
+              onPress={() => void Linking.openURL(`${webUrl}/calendar/pitch-allocation`)}
+              style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, opacity: pressed ? 0.92 : 1 })}
+            >
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[type.smallMedium, { color: colour.ink }]}>Pitch Allocation</Text>
+                <Text style={[type.caption, { color: colour.inkMuted }]}>Which side is on which pitch, day by day — on the website</Text>
+              </View>
+              <ExternalLink size={15} color={colour.inkSubtle} />
+            </Pressable>
+          )}
           {active.length === 0 && <EmptyState title="No venues yet" body={caps.manageVenues ? "Add the club's home ground to give fixtures and training somewhere to be." : "The club has not recorded a ground yet."} />}
           {active.length > 0 && (
             <Group title="Grounds">

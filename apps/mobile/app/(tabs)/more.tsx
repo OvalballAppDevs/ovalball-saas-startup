@@ -16,7 +16,7 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { ChevronRight, ClipboardList, ExternalLink, Landmark, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake } from "../../src/components/icons"
+import { ChevronRight, ClipboardList, ExternalLink, Landmark, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake, IdCard, MapPin, Newspaper } from "../../src/components/icons"
 import { isFamilyFacingContext } from "@ovalball/contracts"
 import { useAdminCentreAccess } from "../../src/admin/access"
 import { useTeamAuthority } from "../../src/team/authority"
@@ -53,6 +53,7 @@ export default function More() {
   // memberships; a player gets their own memberships. Neither is offered a staff or club control from
   // here -- those belong to the team and club contexts.
   const inFamily = active !== null && isFamilyFacingContext(active.kind)
+  const inClub = active?.kind === "club"
   const isGuardian = active?.kind === "parent" || active?.kind === "family"
 
   async function leave() {
@@ -141,7 +142,19 @@ export default function More() {
             />
           </Group>
         )}
-        {!inFamily && (
+        {/* THE CLUB'S JOBS (CA-M10): what a person away from a desk needs of the club, each row the
+            server's to give -- the Admin Centre stays the place for configuration. */}
+        {inClub && (
+          <Group title={active?.label ?? "Your Club"}>
+            <Row icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />} label="Teams" caption="Every side, what it has next and who is in it" onPress={() => router.push("/club/teams" as never)} />
+            {admin.sections.some((s) => s.key === "people") && <Row icon={<IdCard size={19} color={colour.forest800} strokeWidth={1.9} />} label="People" caption="Members, staff, and who is waiting to join" onPress={() => router.push("/admin/people")} />}
+            <Row icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />} label="Fixture Requests" caption="What other clubs have asked, and what we have asked" onPress={() => router.push("/club/requests" as never)} />
+            {admin.sections.some((s) => s.key === "venues") && <Row icon={<MapPin size={19} color={colour.forest800} strokeWidth={1.9} />} label="Grounds & Pitches" caption="Where the club plays" onPress={() => router.push("/admin/venues" as never)} />}
+            <Row icon={<Newspaper size={19} color={colour.forest800} strokeWidth={1.9} />} label="News & Announcements" caption="What the club has published" onPress={() => router.push("/news")} />
+            {admin.sections.some((s) => s.key === "news") && <Row icon={<ClipboardList size={19} color={colour.forest800} strokeWidth={1.9} />} label="Publish" caption="Write and manage news and announcements" onPress={() => router.push("/admin/news" as never)} />}
+          </Group>
+        )}
+        {!inFamily && !inClub && (
           <Group title="Your Rugby">
             <Row
               icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />}

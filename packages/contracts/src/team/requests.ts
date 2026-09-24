@@ -34,10 +34,10 @@ export interface TeamFixtureRequest {
   decidedAt: string | null
 }
 
-const REQUEST_FIELDS =
+export const REQUEST_FIELDS =
   "id, status, venue_preference, preferred_kickoff_time, note, created_at, decided_at, requesting_team_id, target_team_id, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), target:teams!fixture_requests_target_team_id_fkey(display_name, clubs(club_directory(name))), fixture_request_groups(proposed_date, raw_opponent_text, game_type)"
 
-type RequestRow = {
+export type RequestRow = {
   id: string
   status: string
   venue_preference: string | null
@@ -52,7 +52,7 @@ type RequestRow = {
   fixture_request_groups: { proposed_date: string | null; raw_opponent_text: string | null; game_type: string | null } | null
 }
 
-function projectRequest(r: RequestRow, teamId: string): TeamFixtureRequest {
+export function projectRequest(r: RequestRow, teamId: string): TeamFixtureRequest {
   const incoming = r.target_team_id === teamId
   const other = incoming ? r.requester : r.target
   return {

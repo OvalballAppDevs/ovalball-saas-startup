@@ -38,6 +38,8 @@ export type TabKey =
   /** Reached from More in a family or player context (CA-M9): Children / Family, and the person's own Profile. Route groups, never cells. */
   | "family"
   | "profile"
+  /** Reached from Home and More in a club context (CA-M10): Teams, a team from the club's side, Fixture Requests. A route group, never a cell. */
+  | "club"
 
 export interface TabSpec {
   key: TabKey

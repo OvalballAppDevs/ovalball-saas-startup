@@ -20,6 +20,7 @@ import {
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import { readAgenda, todayIso } from "../../../src/agenda/load"
+import { eventAudienceLabel, eventDays, loadClubEvents, type ClubEventItem } from "@ovalball/contracts/agenda/events"
 import { mondayOf } from "@ovalball/contracts"
 import { clubRugbyCode, loadSeasons, resolveSeason, seasonLabel, type SeasonPhase, type SeasonRow } from "../../../src/agenda/seasons"
 import { daysBetween, exactDate, groupByDay, relativeDate, restOfDate } from "../../../src/agenda/presentation"
@@ -100,6 +101,9 @@ export default function Calendar() {
   const [mode, setMode] = useState<"month" | "list" | "season">("month")
   const [anchor, setAnchor] = useState(today)
   const [items, setItems] = useState<AgendaItem[] | null>(null)
+  // CLUB EVENTS (CA-M10): the club's own calendar entries beside fixtures and training, in a club context,
+  // read under their own row rule. A separate shape, never a fake fixture.
+  const [events, setEvents] = useState<ClubEventItem[]>([])
   const [label, setLabel] = useState("")
   const [problem, setProblem] = useState<{ message: string; offline: boolean } | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -175,6 +179,12 @@ export default function Calendar() {
               today,
             })
       setItems(result.items)
+      if (active.kind === "club" && (active.clubId ?? active.id)) {
+        const range = mode === "season" && season.range ? season.range : { start: grid[0].iso, end: grid[grid.length - 1].iso }
+        setEvents(await loadClubEvents(supabase, [(active.clubId ?? active.id) as string], { startIso: range.start, endIso: range.end }).catch(() => []))
+      } else {
+        setEvents([])
+      }
       setLabel(
         mode === "season"
           ? `${seasonLabel(season.selected)}${season.phase === "pre" ? " · Pre-season" : ""}`
@@ -238,9 +248,14 @@ export default function Calendar() {
       same rows either way, which is what makes the toggle presentation rather than
       a second product. Season keeps its own grid.
     */
-    if (mode === "month") return groupByDay(rows.filter((item) => item.date === openDay))
-    return groupByDay(rows.filter((item) => item.date >= today))
-  }, [shown, mode, openDay, today])
+    const grouped = mode === "month" ? groupByDay(rows.filter((item) => item.date === openDay)) : groupByDay(rows.filter((item) => item.date >= today))
+    // A day with only a club event on it is still a day with something on it.
+    const eventDayKeys = new Set(events.flatMap((e) => eventDays(e, "0000-01-01", "9999-12-31")))
+    const wanted = mode === "month" ? [openDay].filter((d) => eventDayKeys.has(d)) : [...eventDayKeys].filter((d) => d >= today)
+    for (const date of wanted) if (!grouped.some((d) => d.date === date)) grouped.push({ date, items: [] })
+    return grouped.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+  }, [shown, mode, openDay, today, events])
+  const eventsOn = useCallback((date: string) => events.filter((e) => e.startsOn <= date && e.endsOn >= date), [events])
   // ONE MATCH, EVERY CHILD IN IT (CA-M9): a family reading all its children sees one card per event with
   // a strip per child, never the same match twice.
   const familyReading = active !== null && isFamilyFacingContext(active.kind) && selectedPlayerId === null
@@ -434,6 +449,9 @@ export default function Calendar() {
                 {/* ONE PREMIUM CARD PER EVENT, never a "+2 more" link: a day with a
                     match and two sessions is three things to be at, and each of them
                     names its own child. The sheet scrolls. */}
+                {eventsOn(day.date).map((event) => (
+                  <ClubEventCard key={event.key} event={event} onPress={() => router.push({ pathname: "/calendar/event/[eventId]", params: { eventId: event.eventId } } as never)} />
+                ))}
                 {collapse(day.items).map((item) =>
                   item.kind === "training" ? (
                     <ParticipantTrainingCard
@@ -798,4 +816,26 @@ function clamp(iso: string, range: { start: string; end: string } | null): strin
 
 function format(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+}
+
+/**
+ * A CLUB EVENT CARD: the third kind of thing on a club's calendar, with its own amber accent -- neither a
+ * match's green nor training's blue -- naming what it is, whom it is for and where.
+ */
+function ClubEventCard({ event, onPress }: { event: ClubEventItem; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Club event: ${event.name}, ${eventAudienceLabel(event)}${event.startTime ? `, ${event.startTime}` : ", all day"}${event.where ? `, ${event.where}` : ""}${event.cancelled ? ". Cancelled" : ""}`}
+      onPress={onPress}
+      style={({ pressed }) => ({ flexDirection: "row", borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden", opacity: pressed ? 0.94 : event.cancelled ? 0.62 : 1 })}
+    >
+      <View style={{ width: 4, backgroundColor: colour.warning }} />
+      <View style={{ flex: 1, padding: space.lg, gap: 4 }}>
+        <Text style={[type.caption, { color: colour.warning, letterSpacing: 0.8, fontFamily: "Inter_600SemiBold" }]}>CLUB EVENT</Text>
+        <Text numberOfLines={2} style={[type.bodyMedium, { color: colour.ink, fontSize: 15, textDecorationLine: event.cancelled ? "line-through" : "none" }]}>{event.name}</Text>
+        <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>{[event.startTime ? `${event.startTime}${event.endTime ? `–${event.endTime}` : ""}` : "All day", eventAudienceLabel(event), event.where].filter(Boolean).join(" · ")}</Text>
+      </View>
+    </Pressable>
+  )
 }

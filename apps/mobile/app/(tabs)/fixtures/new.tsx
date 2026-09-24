@@ -14,6 +14,7 @@ import {
   type CompatibleOpponent,
 } from "../../../src/agenda/mutations"
 import { searchDirectoryClubs, teamRugbyCode, type DirectoryClub } from "../../../src/agenda/opponent-search"
+import { readClubTeams } from "@ovalball/contracts/club/teams"
 import { todayIso } from "../../../src/agenda/load"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { ChoiceField, DateField, Field, SubmitButton, TextField, TimeField } from "../../../src/components/form"
@@ -53,9 +54,35 @@ export default function AddFixture() {
   const params = useLocalSearchParams<{ teamId?: string }>()
   const today = todayIso()
 
-  const teamId = String(params.teamId ?? (active?.kind === "team" ? active.id : "") ?? "")
-  const teamName = active?.kind === "team" ? active.label : null
   const clubId = active?.clubId ?? null
+  /*
+    WHICH OF OUR SIDES (CA-M10). In a team context the side is the context. In a club context the person
+    chooses one of the club's active sides first -- the Add Fixture flow, the compatibility rule and the
+    canonical operation are then exactly the team's, with the side's id rather than the club's.
+  */
+  const clubContext = active?.kind === "club"
+  const paramTeam = String(params.teamId ?? "")
+  const [chosenTeam, setChosenTeam] = useState<{ id: string; name: string } | null>(null)
+  const [sides, setSides] = useState<{ id: string; name: string }[] | null>(null)
+  const teamId = clubContext
+    ? (chosenTeam?.id ?? (paramTeam && paramTeam !== (active?.clubId ?? active?.id) ? paramTeam : ""))
+    : String(paramTeam || (active?.kind === "team" ? active.id : "") || "")
+  const teamName = clubContext ? (chosenTeam?.name ?? sides?.find((t) => t.id === teamId)?.name ?? null) : active?.kind === "team" ? active.label : null
+
+  useEffect(() => {
+    if (!clubContext || !clubId) return
+    let live = true
+    void readClubTeams(supabase, clubId)
+      .then((d) => {
+        if (live) setSides(d.teams.filter((t) => t.active).map((t) => ({ id: t.id, name: t.displayName })))
+      })
+      .catch(() => {
+        if (live) setSides([])
+      })
+    return () => {
+      live = false
+    }
+  }, [clubContext, clubId])
 
   const [rugbyCode, setRugbyCode] = useState<string | null>(null)
   const [search, setSearch] = useState("")
@@ -183,9 +210,25 @@ export default function AddFixture() {
         showsVerticalScrollIndicator={false}
       >
         {problem && <ErrorState message={problem} />}
-        {!teamId && <ErrorState message="Switch into the team you are arranging a fixture for, then try again." />}
+        {!teamId && !clubContext && <ErrorState message="Switch into the team you are arranging a fixture for, then try again." />}
+        {!teamId && clubContext && (
+          <Field label="Which Side?" hint="The fixture belongs to one of the club's sides. Choose it first.">
+            {sides === null && <CardSkeleton lines={2} />}
+            {sides?.length === 0 && <EmptyState title="No sides yet" body="Add a side from the Team Directory first." />}
+            {!!sides?.length && (
+              <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+                {sides.map((side, index) => (
+                  <Pressable key={side.id} accessibilityRole="button" accessibilityLabel={side.name} onPress={() => setChosenTeam(side)} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: colour.line, backgroundColor: pressed ? colour.chalk : "transparent" })}>
+                    <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>{side.name}</Text>
+                    <ChevronRight size={16} color={colour.inkSubtle} />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </Field>
+        )}
 
-        {!club ? (
+        {!teamId ? null : !club ? (
           <>
             <Field label="Who Are You Playing?" hint="Every club in the rugby directory. Search by name.">
               <TextField label="Search clubs" value={search} onChange={setSearch} placeholder="Search" autoCapitalize="words" />
