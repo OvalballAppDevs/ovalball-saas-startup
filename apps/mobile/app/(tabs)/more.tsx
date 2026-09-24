@@ -15,7 +15,7 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { ChevronRight, ExternalLink, Landmark, Receipt, Users } from "../../src/components/icons"
+import { ChevronRight, ExternalLink, Landmark, Receipt, Users, Megaphone } from "../../src/components/icons"
 import { useAdminCentreAccess } from "../../src/admin/access"
 import { Button, Card } from "../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
@@ -89,6 +89,12 @@ export default function More() {
           make one destination look like two.
         */}
         <Group title="Your Rugby">
+          <Row
+            icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="News & Announcements"
+            caption="What the club has published"
+            onPress={() => router.push("/news")}
+          />
           <Row
             icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
             label="Subscriptions"

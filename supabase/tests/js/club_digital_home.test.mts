@@ -213,7 +213,7 @@ import { deskManageHref, distinctClubIds, splitDeskNotices } from "@/lib/club-pu
 import type { ClubAnnouncement } from "@/lib/club-public/announcements"
 
 const notice = (id: string, priority: ClubAnnouncement["priority"]): ClubAnnouncement => ({
-  id, title: id, body: null, priority, priorityLabel: priority, teamName: null, expiresAt: null, link: null, membersOnly: false,
+  id, clubName: "Club", title: id, body: null, priority, priorityLabel: priority, teamName: null, expiresAt: null, link: null, membersOnly: false,
 })
 
 test("desk: urgent notices are pinned above the viewer's work, and every notice appears exactly once", () => {

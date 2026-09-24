@@ -71,6 +71,17 @@ export type LinkIntent =
    * authority: every Hub screen re-derives what this viewer may see from the server.
    */
   | { kind: "RUGBY_HUB"; destination: HubDestination }
+  /**
+   * NEWS & ANNOUNCEMENTS (CA-M5). `/news` opens the list; `/news/<id>` a story by id;
+   * `/announcements/<id>` a notice. The website addresses a published story by the club's slug and
+   * the article's slug (`/club/<clubSlug>/news/<articleSlug>`) and that resolves natively too. None of
+   * this is authority: every read goes through the shared contract and row-level security, and a story
+   * this person may not read comes back as "no longer available".
+   */
+  | { kind: "NEWS" }
+  | { kind: "CLUB_ARTICLE"; articleId: string }
+  | { kind: "CLUB_ARTICLE_BY_SLUG"; clubSlug: string; articleSlug: string }
+  | { kind: "CLUB_ANNOUNCEMENT"; announcementId: string }
   /** A link Ovalball issued but this build does not handle yet -- named so it can be reported honestly. */
   | { kind: "NOT_YET_SUPPORTED"; path: string }
   | { kind: "UNKNOWN" }
@@ -174,6 +185,21 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
     // A section of a fixture this build does not have a screen for -- the result, the team sheet --
     // opens the fixture itself, which is where all of them live.
     return { kind: "FIXTURE", fixtureId }
+  }
+
+  // NEWS & ANNOUNCEMENTS: the app's own list and items, and the website's public story address.
+  if (path === "/news") return { kind: "NEWS" }
+  if (path.startsWith("/news/")) {
+    const articleId = path.slice("/news/".length).split("/").filter(Boolean)[0]
+    return articleId ? { kind: "CLUB_ARTICLE", articleId } : { kind: "NEWS" }
+  }
+  if (path.startsWith("/announcements/")) {
+    const announcementId = path.slice("/announcements/".length).split("/").filter(Boolean)[0]
+    return announcementId ? { kind: "CLUB_ANNOUNCEMENT", announcementId } : { kind: "NEWS" }
+  }
+  if (path.startsWith("/club/")) {
+    const parts = path.slice("/club/".length).split("/").filter(Boolean)
+    if (parts.length === 3 && parts[1] === "news") return { kind: "CLUB_ARTICLE_BY_SLUG", clubSlug: parts[0], articleSlug: parts[2] }
   }
 
   // TRAINING: /training/<id>, the same address the website uses.

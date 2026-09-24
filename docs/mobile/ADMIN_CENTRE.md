@@ -525,3 +525,114 @@ and calls the same contract.
 - iOS export on the final source (`scratchpad/hub-ios-ca4`, 15 MB): the editor, the step-up and the
   read model are in the bundle. Physical iPhone review is pending; it needs an authenticator enrolled
   on the website for the Club Admin persona first.
+
+---
+
+# CA-M5 — News & Announcements: one publishing domain, two clients
+
+## What the domain already was
+
+The club's publishing has one home since the Club Digital Home landed: `club_articles` (news: slug,
+title, excerpt, body in the club's own small markup, category, visibility, lead-story flag, hero image,
+first/last published) and `club_announcements` (short dated notices: title, plain body ≤ 500, priority
+NORMAL / IMPORTANT / URGENT, visibility, a `starts_at` … `expires_at` window, an optional link). Status is
+DRAFT → PUBLISHED → ARCHIVED and back to DRAFT; there is no hard delete. The operations are the website's
+own — `save_club_article`, `save_club_announcement`, `set_club_article_status`,
+`set_club_announcement_status`, `set_club_article_featured` — and CA-M5 added no others.
+
+**NEWS versus ANNOUNCEMENTS** is a real distinction in the canonical model: an article is editorial
+content people browse (a slug, a hero, a lead story, reading time); an announcement is operational
+information for a window of time (priority, from/until, a link). The messenger's broadcast
+"announcements" (`messenger_announcements`, deliveries, replies, `announcement_received`
+notifications) are the MESSAGING domain and stay separate: they are sent to recipients and answered;
+a club notice is read when a person comes and looks.
+
+## Publishing authority
+
+`internal.may_edit_club_content(club, team)` = `club.news.manage` at the club, or `team.news.manage`
+on that team (a team is only ever a scope inside its own club); `internal.may_publish_club_content` is
+its publishing twin. Capability-based, never role-based: Coach and Team Manager hold
+`team.news.manage` by bundle, Club Admin holds both. Editing a PUBLISHED item is a publishing decision.
+The lead story is the club's decision even for a team's article. CA-M4's model applies unchanged:
+role = default bundle, decision = scoped exception, server = effective authority — a withhold of
+`club.news.manage` removes the club-wide scope and leaves the same person's team scopes (RP-F1 of the
+CA-M5 suite).
+
+**Where a person may publish** is now one server answer: `club_publishing_scopes(club)` (migration
+`20270547000000`) returns the club and each team the caller may publish to, decided with the write's
+own rule. Both clients build the audience picker from it and from nothing else; the writes decide again.
+
+## Audience — the server's, row by row
+
+Visibility is row-level security on the two tables: a PUBLISHED, PUBLIC item of an active club is
+readable by anyone, signed in or not; a MEMBERS item by `internal.may_view_club_member_content`
+(`club.profile.view` at the club, or `team.team.view` on the team — which is how a guardian reads
+their child's team's notices without any membership, and why they do not read the club's members-only
+notices); editors see their own scope's drafts and archive. An announcement is live only inside its
+window, evaluated against `now()` at query time — no cron, no client timer. Every reader in the shared
+contract asks for `status = 'PUBLISHED'` explicitly and leaves PUBLIC-versus-MEMBERS to the database.
+
+## The shared contract, and the web converged
+
+`packages/contracts/src/club/content.ts`: readers (`listLiveAnnouncements`, `listPublishedArticles`
+with the lead story first, `readPublishedArticle`, `readPublishedArticleBySlug`,
+`readLiveAnnouncement`), management (`readPublishingScopes`, `listManagedContent`,
+`loadEditableArticle`, `loadEditableAnnouncement`), the five operations, media helpers over the public
+`club-news-media` bucket (`articleImageUrl`, `articleImagePath`, `isArticleImageInUse`), and one
+refusal vocabulary (`contentErrorMessage`). The website's `lib/club-content/manage.ts` and
+`actions.ts` now read and write through it (its own `hasCapability` question stays for drawing buttons).
+
+## Reading — the client decides WHERE TO ASK, the server WHAT MAY BE SEEN
+
+`readingScopeFor(active, sessionContext)` names, per context kind, the clubs to ask and the team to
+narrow to for presentation: **club** → the club; **team** → the owning club, team-targeted plus
+club-wide; **parent** → the child's club, the child's team plus club-wide; **player** → their club,
+their team plus club-wide; **family** → every club a child (or the person's own player record) plays
+at, not narrowed — the family hears each of its clubs and the server keeps sibling-team content
+private; **site admin / governing** → nothing, because no canonical all-content feed exists.
+`readFeed(scope)` is the one projection: Home asks it with small limits, the index with pages; answers
+from several clubs are joined by publication id (never by title or time) and ordered by the domain's
+own semantics (priority then newest; the lead story then newest). A family relationship creates no
+authority: it only says which clubs to ask (`news_reading_scope.test.mts`, `club_news_announcements_ca5.sql`
+NA-D2, D8, D9).
+
+## Mobile
+
+- **Reader**: `/news` (All | Announcements | News, paged, pull-to-refresh, "Write" only when the server
+  names a publishing scope), `/news/[articleId]` (also by club slug + article slug for web links),
+  `/announcements/[announcementId]`; Home's announcement preview and news rail open natively and
+  "See all" goes to the index; More has one "News & Announcements" row. Each item carries its own club
+  (name, slug, crest path through the canonical crest rule), so a family or a deep link never depends on
+  the selected context to know the publisher, and the app never switches context to read.
+- **Body**: the shared parser (`parseArticleBody`) → one native renderer; no HTML anywhere; links are
+  deliberate (external → browser; in-app → the app's own destination, else the website).
+- **Publisher**: Admin Centre → News & Announcements (`/admin/news`: the editor's own scope in every
+  state, with Live / Scheduled / Expired said from the window) and two native composers
+  (`/admin/news/announcement/[id]`, `/admin/news/article/[id]`, `new` creates): audience chips from the
+  server's scopes, the domain's fields and limits, a markup toolbar with preview, hero image through the
+  canonical bucket and path with required alt text, Save Draft / Publish / Save Changes / Unpublish /
+  Archive (confirmed) / Restore, Make Lead Story for club authority. A refusal keeps the form and the
+  sentence on screen and re-asks the scopes (a stale editor reconciles without vanishing mid-sentence).
+
+## What is deliberately absent
+
+No publication notifications and no read receipts: neither exists in the canonical domain and neither
+was invented (NA-G3 pins the first). No WebView. No mobile publishing store. No messenger merge. No
+comments, replies or contact routes from readership.
+
+## Proof
+
+`club_news_announcements_ca5.sql` (CANONICAL_GATE, 42/42): scopes read model; cross-scope and
+cross-club refusal; drafts, windows, lifecycle; reader isolation for member, guardian, unrelated, other
+club, opposition and anonymous; multi-club family and same-team siblings; lead story; stale authority;
+audit; no notifications. `news_reading_scope.test.mts` (3/3): per-context scope and the deduplicating
+merge. `mobile_admin_centre.test.mts` (21/21). Browser proof (`scratchpad/ca5/proof-ca5.mjs`): web
+publish → mobile index, detail and Home; mobile publish → web management and public page (markup
+rendered on both); web unpublish → mobile index drops it and the deep link says unavailable; mobile
+edit → web; stale authority refused with the product sentence and nothing mutated; Coach audience picker
+offers Under 12 only and crafted club-wide, other-team and lead-story writes refused; a family in its
+family context, with no club switch, sees its two children's team notices and public news, not a
+sibling team's, a draft, a future notice or the club's members-only notice, each row naming the club,
+and opens a legitimate deep link while a sibling-team deep link says unavailable; another club's admin
+and an unrelated person see nothing of it; audit rows with actor for every create, publish, unpublish
+and archive; zero notifications. Every proof row removed afterwards.

@@ -68,9 +68,9 @@ type Row = {
   teams: { display_name: string } | null
 }
 
-export function articleImageUrl(supabase: SupabaseClient<Database>, path: string | null): string | null {
-  return path ? supabase.storage.from("club-news-media").getPublicUrl(path).data.publicUrl : null
-}
+import { articleImageUrl } from "@ovalball/contracts/club/content"
+
+export { articleImageUrl }
 
 function toArticle(supabase: SupabaseClient<Database>, row: Row, clubName: string): Article {
   const teamName = row.teams?.display_name ?? null

@@ -109,6 +109,16 @@ export function routeForIntent(intent: LinkIntent): Route | null {
       return { pathname: "/calendar/training/[sessionId]", params: { sessionId: intent.sessionId } }
     case "CALENDAR":
       return { pathname: "/calendar" }
+    // NEWS & ANNOUNCEMENTS. A story linked by the website's slugs opens the same native screen, which
+    // resolves the slugs through the shared contract; nothing is decided from the address itself.
+    case "NEWS":
+      return { pathname: "/news" }
+    case "CLUB_ARTICLE":
+      return { pathname: "/news/[articleId]", params: { articleId: intent.articleId } }
+    case "CLUB_ARTICLE_BY_SLUG":
+      return { pathname: "/news/[articleId]", params: { articleId: "slug", clubSlug: intent.clubSlug, articleSlug: intent.articleSlug } }
+    case "CLUB_ANNOUNCEMENT":
+      return { pathname: "/announcements/[announcementId]", params: { announcementId: intent.announcementId } }
     // THE RUGBY HUB'S OWN TABLE decides, so a Hub screen that moves is a change in one
     // place -- and a destination the vocabulary knows but this build has no screen for
     // resolves to nothing here rather than to somewhere plausible.

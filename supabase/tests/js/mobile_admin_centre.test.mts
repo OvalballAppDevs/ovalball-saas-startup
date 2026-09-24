@@ -357,3 +357,62 @@ test("permissions: Site Admin authority and safeguarding are never in the club p
   const sections = ADMIN_CENTRE_SECTIONS.find((s) => s.key === "permissions")
   assert.equal(sections?.native, true), assert.equal(sections?.capability, "people.capability.manage")
 })
+
+// ---------------------------------------------------------------------------------------------------
+// CA-M5 -- News & Announcements
+// ---------------------------------------------------------------------------------------------------
+
+const walkIfExists = (dir: string) => (existsSync(dir) ? walk(dir).filter((f) => /\.tsx?$/.test(f)) : [])
+const READER = [...walkIfExists(join(MOBILE, "app/(tabs)/news")), ...walkIfExists(join(MOBILE, "app/(tabs)/announcements")), ...walkIfExists(join(MOBILE, "src/content"))]
+const PUBLISHER = [...walkIfExists(join(MOBILE, "app/(tabs)/admin/news")), ...walkIfExists(join(MOBILE, "src/admin/content"))]
+
+test("news: one publishing domain -- both clients read the tables through the shared contract and write through the website's own operations", () => {
+  const contracts = code(join(CONTRACTS_CLUB, "content.ts"))
+  for (const rpc of ["save_club_article", "save_club_announcement", "set_club_article_status", "set_club_announcement_status", "set_club_article_featured", "club_publishing_scopes"]) {
+    assert.match(contracts, new RegExp(`rpc\\("${rpc}"`), `the shared contract wraps ${rpc}`)
+  }
+  assert.match(contracts, /\.eq\("status", "PUBLISHED"\)/, "every reader asks for PUBLISHED explicitly; PUBLIC vs MEMBERS is left to RLS")
+  assert.doesNotMatch(contracts, /visibility\.eq|\.eq\("visibility"/, "no client narrows the audience itself")
+  assert.ok(READER.length >= 5, "the native reader exists")
+  assert.ok(PUBLISHER.length >= 3, "the native publisher exists")
+  const all = [...READER, ...PUBLISHER].map(code).join("\n")
+  assert.doesNotMatch(all, /rpc\("save_club_article"|rpc\("save_club_announcement"|rpc\("set_club_|from\("club_articles"\)|from\("club_announcements"\)/, "the app never writes or reads the tables directly")
+  assert.doesNotMatch(all, /WebView|dangerouslySetInnerHTML|innerHTML/, "no WebView and no HTML for Ovalball-owned content")
+  assert.doesNotMatch(all, /AsyncStorage|SecureStore|MMKV/, "no mobile-only publishing store, no offline queue")
+  assert.doesNotMatch(all, /service_role|SUPABASE_SERVICE/, "no service-role credential")
+  // the web reads and writes through the same contract
+  const webManage = code("lib/club-content/manage.ts") + code("lib/club-content/actions.ts")
+  assert.match(webManage, /@ovalball\/contracts\/club\/content/)
+  assert.doesNotMatch(code("lib/club-content/actions.ts"), /rpc\("save_club_article"|rpc\("save_club_announcement"|rpc\("set_club_/, "the web actions go through the contract too")
+})
+
+test("news: the audience picker is built from the server's scopes and nothing else; the renderer is the shared markup tree", () => {
+  const publisher = PUBLISHER.map(code).join("\n")
+  assert.match(publisher, /readPublishingScopes/, "the composer asks the server where this person may publish")
+  assert.doesNotMatch(publisher, /role\s*===?\s*["']CLUB_ADMIN["']|role_key|clubRoleKey|isClubAdmin/, "no role label decides an audience")
+  assert.doesNotMatch(publisher, /setTimeout\([^)]*publish|setInterval/, "no client timer publishes anything; the window is the server's")
+  const reader = READER.map(code).join("\n")
+  assert.match(reader, /parseArticleBody/, "the body is rendered from the shared parser")
+  assert.match(reader, /readPublishedArticle\(|readPublishedArticleBySlug\(/), assert.match(reader, /readLiveAnnouncement\(/)
+  assert.doesNotMatch(reader, /mark_announcement_read|read_receipt|readAt/, "no read receipts were invented")
+  assert.doesNotMatch(reader, /reply|Reply Privately|Message Author|Contact Coach/, "reading creates no communication route")
+  const sections = ADMIN_CENTRE_SECTIONS.find((s) => s.key === "news")
+  assert.equal(sections?.native, true), assert.equal(sections?.capability, "club.news.manage")
+  const home = code(join(MOBILE, "app/(tabs)/index.tsx"))
+  assert.doesNotMatch(home, /\/news\/\$\{[^}]*slug\}|club\/\$\{summary\.clubSlug[^}]*\}\/news/, "Home no longer hands club content to the browser")
+})
+
+test("news: one reading projection -- Home and the index ask readFeed with the context's scope; the client decides where to ask, the server what may be seen", () => {
+  const homeData = code(join(MOBILE, "src/context/home-data.ts"))
+  const index = code(join(MOBILE, "app/(tabs)/news/index.tsx"))
+  for (const [name, src] of [["Home", homeData], ["the index", index]] as const) {
+    assert.match(src, /readingScopeFor\(/, `${name} resolves where to ask through the shared rule`)
+    assert.match(src, /readFeed\(/, `${name} reads through the one projection`)
+    assert.doesNotMatch(src, /guardianRelationships\.map|guardianRelationships\)\.filter/, `${name} does not derive clubs on its own`)
+  }
+  const contracts = code(join(CONTRACTS_CLUB, "content.ts"))
+  assert.match(contracts, /case "family":[\s\S]*?guardianRelationships[\s\S]*?linkedPlayerTeams/, "a family asks the clubs its children and the person's own player record play at")
+  assert.match(contracts, /case "site_admin"|default:\s*\n\s*return \{ kind: active\.kind, clubs: \[\]/, "site admin and governing ask nothing: no all-content feed")
+  assert.match(contracts, /seenA\.has\(a\.id\)|!seenA\.has/, "the merge deduplicates by publication id")
+  assert.doesNotMatch(contracts, /\.eq\("visibility"|visibility\.eq/, "no client narrows the audience")
+})

@@ -1,8 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
-import { articlePlainText, readingMinutes, summarise } from "./markup"
-import { articleCategoryLabel, priorityLabel } from "./vocabulary"
+import { listLiveAnnouncements, listPublishedArticles, type AnnouncementCard, type ArticleCard } from "./content"
 
 /**
  * WHAT THE CLUB IS SAYING -- notices and news, for whichever client is asking.
@@ -42,6 +41,8 @@ type Client = SupabaseClient<Database>
 
 export interface ClubNotice {
   id: string
+  /** Who published it, so a family reading across clubs knows whose notice this is. */
+  clubName: string
   title: string
   body: string | null
   priority: "NORMAL" | "IMPORTANT" | "URGENT"
@@ -55,6 +56,7 @@ export interface ClubNotice {
 
 export interface ClubNewsCard {
   id: string
+  clubName: string
   slug: string
   title: string
   excerpt: string
@@ -68,95 +70,26 @@ export interface ClubNewsCard {
   readingMinutes: number
 }
 
-/** Most urgent first, then most recent -- a club that has said something important should not have it third. */
-const PRIORITY_RANK = { URGENT: 0, IMPORTANT: 1, NORMAL: 2 } as const
+/** A notice for the Home screen: the same row, the same window, from the shared reader. */
+export function noticeFromAnnouncement(a: AnnouncementCard): ClubNotice {
+  return { id: a.id, clubName: a.clubName, title: a.title, body: a.body, priority: a.priority, priorityLabel: a.priorityLabel, teamName: a.teamName, expiresAt: a.expiresAt, link: a.link, membersOnly: a.membersOnly }
+}
 
+/** A news card for the Home screen: the same row from the shared reader. */
+export function newsCardFromArticle(a: ArticleCard): ClubNewsCard {
+  return { id: a.id, clubName: a.clubName, slug: a.slug, title: a.title, excerpt: a.excerpt, categoryLabel: a.categoryLabel, publishedAt: a.publishedAt, byline: a.byline, teamName: a.teamName, heroUrl: a.heroUrl, membersOnly: a.membersOnly, readingMinutes: a.readingMinutes }
+}
+
+/** Live notices for one club -- delegates to the shared reader so Home and the index cannot drift. */
 export async function listLiveClubNotices(supabase: Client, clubId: string, limit = 6): Promise<ClubNotice[]> {
-  const nowIso = new Date().toISOString()
-  const { data } = await supabase
-    .from("club_announcements")
-    .select("id, title, body, priority, visibility, expires_at, link_label, link_url, teams(display_name)")
-    .eq("club_id", clubId)
-    .eq("status", "PUBLISHED")
-    .lte("starts_at", nowIso)
-    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
-    .order("starts_at", { ascending: false })
-    .limit(limit)
-
-  return (data ?? [])
-    .map((a) => ({
-      id: a.id,
-      title: a.title,
-      body: a.body,
-      priority: a.priority as ClubNotice["priority"],
-      priorityLabel: priorityLabel(a.priority),
-      teamName: (a.teams as { display_name: string } | null)?.display_name ?? null,
-      expiresAt: a.expires_at,
-      link:
-        a.link_label && a.link_url
-          ? { label: a.link_label, href: a.link_url, external: /^https:\/\//.test(a.link_url) }
-          : null,
-      membersOnly: a.visibility === "MEMBERS",
-    }))
-    .sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority])
+  const page = await listLiveAnnouncements(supabase, clubId, { limit })
+  return page.items.map(noticeFromAnnouncement)
 }
 
-const NEWS_COLUMNS =
-  "id, team_id, slug, title, excerpt, body, category, visibility, featured, hero_image_path, system_key, published_at, updated_at, teams(display_name)"
-
-/**
- * The club's latest news, with its chosen lead story first where it has one.
- *
- * The lead is asked for separately rather than sorted for, because "featured" is
- * a club's editorial decision and not a date -- a story the club has chosen to
- * lead with should lead even when something newer exists.
- */
+/** The club's latest news with its lead story first -- delegates to the shared reader. */
 export async function listClubNews(supabase: Client, clubId: string, clubName: string, limit = 4): Promise<ClubNewsCard[]> {
-  const [{ data: leadRows }, { data: latestRows }] = await Promise.all([
-    supabase
-      .from("club_articles")
-      .select(NEWS_COLUMNS)
-      .eq("club_id", clubId)
-      .eq("status", "PUBLISHED")
-      .eq("featured", true)
-      .order("published_at", { ascending: false })
-      .limit(1),
-    supabase
-      .from("club_articles")
-      .select(NEWS_COLUMNS)
-      .eq("club_id", clubId)
-      .eq("status", "PUBLISHED")
-      .order("published_at", { ascending: false })
-      .limit(limit),
-  ])
-
-  const lead = (leadRows ?? [])[0] ?? null
-  const rest = (latestRows ?? []).filter((r) => r.id !== lead?.id)
-  return [...(lead ? [lead] : []), ...rest].slice(0, limit).map((r) => toCard(supabase, r, clubName))
-}
-
-function toCard(supabase: Client, row: Record<string, unknown>, clubName: string): ClubNewsCard {
-  const body = (row.body as string) ?? ""
-  const teamName = (row.teams as { display_name: string } | null)?.display_name ?? null
-  const heroPath = (row.hero_image_path as string | null) ?? null
-  return {
-    id: row.id as string,
-    slug: row.slug as string,
-    title: row.title as string,
-    excerpt: ((row.excerpt as string | null) ?? "").trim() || summarise(articlePlainText(body), 180),
-    categoryLabel: articleCategoryLabel(row.category as string),
-    publishedAt: (row.published_at as string | null) ?? (row.updated_at as string),
-    // Ovalball's own system articles say so; everything else is the team's
-    // voice where it has one, and the club's otherwise. Never a person's name:
-    // a club speaks, not an individual volunteer.
-    byline: row.system_key ? "Ovalball" : (teamName ?? clubName),
-    teamName,
-    // `club-news-media` is a PUBLIC bucket -- the same public URL the website
-    // renders, so an image needs no signing and no second policy.
-    heroUrl: heroPath ? supabase.storage.from("club-news-media").getPublicUrl(heroPath).data.publicUrl : null,
-    membersOnly: row.visibility === "MEMBERS",
-    readingMinutes: readingMinutes(body),
-  }
+  const page = await listPublishedArticles(supabase, clubId, clubName, { limit, leadFirst: true })
+  return page.items.map(newsCardFromArticle)
 }
 
 /**

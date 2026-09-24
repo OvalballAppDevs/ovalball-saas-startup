@@ -4567,6 +4567,13 @@
         "consumers": []
       },
       {
+        "signature": "club_publishing_scopes(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/content.ts"
+        ]
+      },
+      {
         "signature": "club_referral_summary(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6936,14 +6943,14 @@
         "signature": "save_club_announcement(uuid, uuid, uuid, text, text, text, text, timestamp with time zone, timestamp with time zone, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/club-content/actions.ts"
+          "packages/contracts/src/club/content.ts"
         ]
       },
       {
         "signature": "save_club_article(uuid, uuid, uuid, text, text, text, text, text, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/club-content/actions.ts"
+          "packages/contracts/src/club/content.ts"
         ]
       },
       {
@@ -7110,21 +7117,21 @@
         "signature": "set_club_announcement_status(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/club-content/actions.ts"
+          "packages/contracts/src/club/content.ts"
         ]
       },
       {
         "signature": "set_club_article_featured(uuid, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/club-content/actions.ts"
+          "packages/contracts/src/club/content.ts"
         ]
       },
       {
         "signature": "set_club_article_status(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/club-content/actions.ts"
+          "packages/contracts/src/club/content.ts"
         ]
       },
       {
@@ -8568,6 +8575,7 @@
       "club_platform_next_collection(uuid)",
       "club_playing_group_recipients(uuid)",
       "club_playing_group_summary(uuid)",
+      "club_publishing_scopes(uuid)",
       "club_referral_summary(uuid)",
       "club_setup_requirements(uuid)",
       "club_team_capabilities(uuid, uuid, text[])",

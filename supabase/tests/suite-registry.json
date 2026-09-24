@@ -1734,6 +1734,11 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Club administration",
       "reason": "CA-M4 Roles & Permissions: role defaults, decisions, restore, scope isolation, the fixture case, ceilings, subject/scope validity, stale authority, R, membership keys, cancel and pitch allocation keys, cross-club isolation, audit."
+    },
+    "club_news_announcements_ca5": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club administration",
+      "reason": "CA-M5 News & Announcements: the publishing-scopes read model, cross-scope and cross-club refusal, drafts and windows, reader isolation (member, guardian, unrelated, other club, opposition, anonymous), the lead story, stale authority, audit, and the absence of notifications."
     }
   },
   "prerequisite_defect": {

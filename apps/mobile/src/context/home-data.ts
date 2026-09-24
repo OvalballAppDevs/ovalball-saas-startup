@@ -3,8 +3,8 @@ import {
   FAMILY_HORIZON_DAYS,
   clubLogoUrlFromPath,
   isFamilyFacingContext,
-  listClubNews,
-  listLiveClubNotices,
+  newsCardFromArticle,
+  noticeFromAnnouncement,
   loadClubKitTheme,
   EMPTY_FAMILY,
   clubAccentsOnDark,
@@ -29,6 +29,8 @@ import {
   type SessionContext,
   type SwitchableContext,
 } from "@ovalball/contracts"
+
+import { readFeed, readingScopeFor } from "@ovalball/contracts/club/content"
 
 import { readAgenda, todayIso } from "../agenda/load"
 
@@ -116,6 +118,8 @@ export interface HomeSummary {
    */
   notices: ClubNotice[]
   news: ClubNewsCard[]
+  /** How many clubs the notices and news were heard from (a family may hear several). */
+  voiceClubs: number
   /**
    * THE CLUB'S OWN COLOURS, from its home kit.
    *
@@ -182,12 +186,12 @@ export async function loadHomeSummary(
     resolve to an empty list, which is also what a club with nothing to say
     returns, so the screen has one case to render rather than three.
   */
-  const [notices, news] = context.clubId
-    ? await Promise.all([
-        listLiveClubNotices(supabase, context.clubId, 4).catch(() => []),
-        listClubNews(supabase, context.clubId, club.clubName ?? "Club", 3).catch(() => []),
-      ])
-    : [[], []]
+  // WHERE TO ASK is the context's rule (`readingScopeFor`); WHAT MAY BE SEEN is the server's, row by row.
+  // Home asks the same projection the index reads, with smaller limits.
+  const readingScope = readingScopeFor(context, ctx)
+  const feed = await readFeed(supabase, readingScope, { announcements: 4, news: 3 }).catch(() => ({ announcements: [], news: [], moreAnnouncements: false, moreNews: false }))
+  const notices = feed.announcements.map(noticeFromAnnouncement)
+  const news = feed.news.map(newsCardFromArticle)
 
   const all = agenda?.items ?? []
   // The canonical narrowing, shared so that Home and the projection's own tests
@@ -247,6 +251,7 @@ export async function loadHomeSummary(
       !familyFacing && home.next?.kind === "fixture" ? await loadAvailability(supabase, home.next.eventId) : null,
     notices,
     news,
+    voiceClubs: readingScope.clubs.length,
     theme: resolveClubTheme(kit),
   }
 }

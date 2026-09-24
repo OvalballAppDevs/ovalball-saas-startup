@@ -25,10 +25,16 @@ import { TOUCH_TARGET, colour, radius, space, surface, type } from "../../design
 export function AnnouncementPreview({
   notices,
   accents,
+  onOpen,
   onViewAll,
+  showClub = false,
 }: {
   notices: ClubNotice[]
   accents: ClubAccents
+  /** True when the notices were heard from more than one club (a family), so each says whose it is. */
+  showClub?: boolean
+  /** Opens the notice natively. The preview is a button, not a summary you have to go elsewhere to read. */
+  onOpen?: (notice: ClubNotice) => void
   onViewAll?: () => void
 }) {
   const notice = notices[0]
@@ -38,7 +44,12 @@ export function AnnouncementPreview({
   return (
     <View style={{ gap: space.sm }}>
       <SectionHeading title="Announcements" onAction={notices.length > 1 ? onViewAll : undefined} />
-      <View style={[card, { flexDirection: "row", overflow: "hidden" }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${notice.priorityLabel} announcement${notice.teamName ? ` for ${notice.teamName}` : ""}. ${notice.title}`}
+        onPress={onOpen ? () => onOpen(notice) : undefined}
+        style={({ pressed }) => [card, { flexDirection: "row", overflow: "hidden", opacity: pressed ? 0.94 : 1 }]}
+      >
         {/* The club's own colour as a narrow rule; the priority carried in words. */}
         <View style={{ width: 4, backgroundColor: rule }} />
         <View style={{ flex: 1, minWidth: 0, padding: space.lg, gap: 4 }}>
@@ -46,6 +57,7 @@ export function AnnouncementPreview({
             <Megaphone size={13} color={rule} strokeWidth={2} />
             <Text style={[type.caption, { color: colour.inkMuted, letterSpacing: 0.6 }]} numberOfLines={1}>
               {notice.priorityLabel.toUpperCase()}
+              {showClub ? ` · ${notice.clubName.toUpperCase()}` : ""}
               {notice.teamName ? ` · ${notice.teamName.toUpperCase()}` : ""}
             </Text>
           </View>
@@ -56,7 +68,7 @@ export function AnnouncementPreview({
             {notice.body}
           </Text>
         </View>
-      </View>
+      </Pressable>
     </View>
   )
 }

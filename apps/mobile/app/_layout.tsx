@@ -114,7 +114,11 @@ function useIncomingLinks() {
         intent.kind === "MATCH_CENTRE" ||
         intent.kind === "TRAINING" ||
         intent.kind === "CALENDAR" ||
-        intent.kind === "RUGBY_HUB"
+        intent.kind === "RUGBY_HUB" ||
+        intent.kind === "NEWS" ||
+        intent.kind === "CLUB_ARTICLE" ||
+        intent.kind === "CLUB_ARTICLE_BY_SLUG" ||
+        intent.kind === "CLUB_ANNOUNCEMENT"
       ) {
         if (status === "signed-in") deliver(intent)
         else pending.current = intent

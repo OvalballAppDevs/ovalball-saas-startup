@@ -23217,6 +23217,14 @@ export type Database = {
           source_player_count: number
         }[]
       }
+      club_publishing_scopes: {
+        Args: { p_club_id: string }
+        Returns: {
+          scope_type: string
+          team_display_name: string
+          team_id: string
+        }[]
+      }
       club_referral_summary: {
         Args: { p_club_id: string }
         Returns: {

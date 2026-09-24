@@ -6,6 +6,14 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 
 import type { AnnouncementPriority, ArticleCategory, ContentStatus, ContentVisibility } from "./vocabulary"
+import {
+  contentErrorMessage,
+  saveAnnouncement as saveAnnouncementOp,
+  saveArticle as saveArticleOp,
+  setAnnouncementStatus as setAnnouncementStatusOp,
+  setArticleFeatured as setArticleFeaturedOp,
+  setArticleStatus as setArticleStatusOp,
+} from "@ovalball/contracts/club/content"
 
 /**
  * THE ONE PUBLISHING ACTION LAYER for club and team news and announcements.
@@ -24,27 +32,8 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 // The extension comes from the verified type, never from the uploaded name.
 const IMAGE_EXTENSION: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }
 
-const CONSTRAINT_MESSAGES: [RegExp, string][] = [
-  [/title_length/, "Give it a headline between 3 and 140 characters."],
-  [/excerpt_length/, "Keep the summary to 300 characters or fewer."],
-  [/body_length/, "The article is too long. Keep it under 20,000 characters."],
-  [/hero_needs_alt/, "Describe the image in a few words, so people who cannot see it know what it shows."],
-  [/hero_in_club_folder/, "That image does not belong to this club. Upload it again."],
-  [/announcements_title_length/, "Give the announcement a title between 3 and 100 characters."],
-  [/announcements_body_length/, "Keep the announcement to 500 characters or fewer."],
-  [/announcements_window/, "The end date must be after the start date."],
-  [/link_together|link_label_length/, "A link needs both a label and an address."],
-  [/link_safe/, "Links must start with https:// or be a page on Ovalball, such as /calendar."],
-]
-
 function explain(error: { code?: string; message: string }, fallback: string): string {
-  if (error.code === "42501") return "You don't have permission to do that for this club or team."
-  if (error.code === "P0002") return "That item no longer exists. Refresh the page."
-  if (error.code === "23505") return "Something with that link already exists. Try saving again."
-  for (const [pattern, sentence] of CONSTRAINT_MESSAGES) if (pattern.test(error.message)) return sentence
-  // Our own functions raise complete sentences for business rules.
-  if (error.code === "23514" || error.code === "22023") return error.message
-  return fallback
+  return contentErrorMessage(error, fallback)
 }
 
 async function signedIn() {
@@ -88,22 +77,13 @@ export async function saveArticle(input: ArticleInput): Promise<Result<{ id: str
     ? (await supabase.from("club_articles").select("hero_image_path").eq("id", input.articleId).maybeSingle()).data?.hero_image_path ?? null
     : null
 
-  const { data, error } = await supabase.rpc("save_club_article", {
-    p_article_id: input.articleId ?? undefined,
-    p_club_id: input.clubId,
-    p_team_id: input.teamId ?? undefined,
-    p_title: input.title,
-    p_excerpt: input.excerpt,
-    p_body: input.body,
-    p_category: input.category,
-    p_visibility: input.visibility,
-    p_hero_image_path: input.heroImagePath ?? undefined,
-    p_hero_image_alt: input.heroImageAlt,
-  })
-  const row = Array.isArray(data) ? data[0] : null
-  if (error || !row) {
-    if (error) console.error("save_club_article failed:", error.code, error.message)
-    return { ok: false, error: error ? explain(error, "The article could not be saved. Try again.") : "The article could not be saved. Try again." }
+  let row: { id: string; slug: string }
+  try {
+    row = await saveArticleOp(supabase, input)
+  } catch (error) {
+    const e = error as { code?: string; message: string }
+    console.error("save_club_article failed:", e.code, e.message)
+    return { ok: false, error: explain(e, "The article could not be saved. Try again.") }
   }
 
   if (previous && previous !== input.heroImagePath) {
@@ -112,15 +92,18 @@ export async function saveArticle(input: ArticleInput): Promise<Result<{ id: str
   }
 
   await refreshPublicPages(supabase, input.clubId, input.teamId)
-  return { ok: true, data: { id: row.article_id, slug: row.article_slug } }
+  return { ok: true, data: { id: row.id, slug: row.slug } }
 }
 
 export async function setArticleStatus(articleId: string, status: ContentStatus): Promise<Result> {
   const supabase = await signedIn()
   if (!supabase) return { ok: false, error: "Sign in to publish club news." }
   const { data: article } = await supabase.from("club_articles").select("club_id, team_id").eq("id", articleId).maybeSingle()
-  const { error } = await supabase.rpc("set_club_article_status", { p_article_id: articleId, p_status: status })
-  if (error) return { ok: false, error: explain(error, "That change could not be made. Try again.") }
+  try {
+    await setArticleStatusOp(supabase, articleId, status)
+  } catch (error) {
+    return { ok: false, error: explain(error as { code?: string; message: string }, "That change could not be made. Try again.") }
+  }
   if (article) await refreshPublicPages(supabase, article.club_id, article.team_id)
   return { ok: true, data: null }
 }
@@ -129,8 +112,11 @@ export async function setArticleFeatured(articleId: string, featured: boolean): 
   const supabase = await signedIn()
   if (!supabase) return { ok: false, error: "Sign in to change the lead story." }
   const { data: article } = await supabase.from("club_articles").select("club_id, team_id").eq("id", articleId).maybeSingle()
-  const { error } = await supabase.rpc("set_club_article_featured", { p_article_id: articleId, p_featured: featured })
-  if (error) return { ok: false, error: explain(error, "The lead story could not be changed. Try again.") }
+  try {
+    await setArticleFeaturedOp(supabase, articleId, featured)
+  } catch (error) {
+    return { ok: false, error: explain(error as { code?: string; message: string }, "The lead story could not be changed. Try again.") }
+  }
   if (article) await refreshPublicPages(supabase, article.club_id, article.team_id)
   return { ok: true, data: null }
 }
@@ -194,33 +180,27 @@ export interface AnnouncementInput {
 export async function saveAnnouncement(input: AnnouncementInput): Promise<Result<{ id: string }>> {
   const supabase = await signedIn()
   if (!supabase) return { ok: false, error: "Sign in to write announcements." }
-  const { data, error } = await supabase.rpc("save_club_announcement", {
-    p_announcement_id: input.announcementId ?? undefined,
-    p_club_id: input.clubId,
-    p_team_id: input.teamId ?? undefined,
-    p_title: input.title,
-    p_body: input.body,
-    p_priority: input.priority,
-    p_visibility: input.visibility,
-    p_starts_at: input.startsAt ?? undefined,
-    p_expires_at: input.expiresAt ?? undefined,
-    p_link_label: input.linkLabel,
-    p_link_url: input.linkUrl,
-  })
-  if (error || !data) {
-    if (error) console.error("save_club_announcement failed:", error.code, error.message)
-    return { ok: false, error: error ? explain(error, "The announcement could not be saved. Try again.") : "The announcement could not be saved. Try again." }
+  let saved: { id: string }
+  try {
+    saved = await saveAnnouncementOp(supabase, input)
+  } catch (error) {
+    const e = error as { code?: string; message: string }
+    console.error("save_club_announcement failed:", e.code, e.message)
+    return { ok: false, error: explain(e, "The announcement could not be saved. Try again.") }
   }
   await refreshPublicPages(supabase, input.clubId, input.teamId)
-  return { ok: true, data: { id: data } }
+  return { ok: true, data: { id: saved.id } }
 }
 
 export async function setAnnouncementStatus(announcementId: string, status: ContentStatus): Promise<Result> {
   const supabase = await signedIn()
   if (!supabase) return { ok: false, error: "Sign in to publish announcements." }
   const { data: row } = await supabase.from("club_announcements").select("club_id, team_id").eq("id", announcementId).maybeSingle()
-  const { error } = await supabase.rpc("set_club_announcement_status", { p_announcement_id: announcementId, p_status: status })
-  if (error) return { ok: false, error: explain(error, "That change could not be made. Try again.") }
+  try {
+    await setAnnouncementStatusOp(supabase, announcementId, status)
+  } catch (error) {
+    return { ok: false, error: explain(error as { code?: string; message: string }, "That change could not be made. Try again.") }
+  }
   if (row) await refreshPublicPages(supabase, row.club_id, row.team_id)
   return { ok: true, data: null }
 }

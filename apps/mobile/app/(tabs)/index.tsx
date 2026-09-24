@@ -194,16 +194,16 @@ export default function Home() {
             <AnnouncementPreview
               notices={summary.notices}
               accents={summary.accents}
-              onViewAll={summary.clubSlug ? () => void Linking.openURL(`${webUrl}/club/${summary.clubSlug}`) : undefined}
+              showClub={summary.voiceClubs > 1}
+              onOpen={(notice) => router.push({ pathname: "/announcements/[announcementId]", params: { announcementId: notice.id } } as never)}
+              onViewAll={() => router.push({ pathname: "/news", params: { tab: "announcements" } } as never)}
             />
 
             <NewsRail
               news={summary.news}
               accents={summary.accents}
-              onOpen={(article) =>
-                void Linking.openURL(`${webUrl}/club/${summary.clubSlug ?? ""}/news/${article.slug}`)
-              }
-              onViewAll={summary.clubSlug ? () => void Linking.openURL(`${webUrl}/club/${summary.clubSlug}`) : undefined}
+              onOpen={(article) => router.push({ pathname: "/news/[articleId]", params: { articleId: article.id } } as never)}
+              onViewAll={() => router.push({ pathname: "/news", params: { tab: "news" } } as never)}
             />
 
             {summary.subscriptions.map((subscription) => (
