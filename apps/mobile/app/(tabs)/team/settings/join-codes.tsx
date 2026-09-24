@@ -3,6 +3,9 @@ import { Text, View } from "react-native"
 import { useFocusEffect } from "expo-router"
 import { issueTeamJoinCode, readTeamJoinCodes, revokeTeamJoinCode, type TeamJoinCode } from "@ovalball/contracts/team/requests"
 import { teamPeopleErrorMessage } from "@ovalball/contracts/team/people"
+import { invitationExpiryLabel, invitationJoinUrl, type InvitationShareData } from "@ovalball/contracts/invitations"
+import { InvitationSharePanel } from "../../../../src/invitations/share-panel"
+import { webUrl } from "../../../../src/config/environment"
 
 import { supabase } from "../../../../src/auth/supabase"
 import { useTeamAuthority } from "../../../../src/team/authority"
@@ -24,7 +27,7 @@ import { colour, radius, space, type } from "../../../../src/design/tokens"
 export default function TeamJoinCodes() {
   const { authority, loading: authorityLoading, teamId } = useTeamAuthority()
   const [codes, setCodes] = useState<TeamJoinCode[] | null>(null)
-  const [fresh, setFresh] = useState<{ code: string; expiresAt: string | null } | null>(null)
+  const [fresh, setFresh] = useState<InvitationShareData | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [ask, setAsk] = useState<ReasonAsk | null>(null)
@@ -55,7 +58,8 @@ export default function TeamJoinCodes() {
     setProblem(null)
     try {
       const result = await issueTeamJoinCode(supabase, teamId)
-      if (result.code) setFresh({ code: result.code, expiresAt: result.expiresAt })
+      // THE SAME TRIPLE THE WEBSITE SHOWS: the link, the code and (in the panel) a QR of the link.
+      if (result.token) setFresh({ url: invitationJoinUrl(result.token, webUrl), code: result.code, outcome: ["A request to join this side, for the club to decide"], expiresLabel: invitationExpiryLabel(result.expiresAt), sentTo: null })
       await load()
     } catch (caught) {
       setProblem(teamPeopleErrorMessage(caught, "Couldn't issue a code."))
@@ -69,14 +73,11 @@ export default function TeamJoinCodes() {
       {!authorityLoading && !authority.joinCodeManage && <NotForYou title="Join codes are not part of your job here" body="Codes for this side are issued by the people the club has given that job to." />}
       {authority.joinCodeManage && (
         <>
-          <Text style={[type.small, { color: colour.inkMuted }]}>Give a code to a family who want to join this side. Using it asks to join; the club decides. Codes last thirty days.</Text>
+          <Text style={[type.small, { color: colour.inkMuted }]}>Give a code to a family who want to join this side. Using it asks to join; the club decides.</Text>
           {fresh && (
             <Card style={{ backgroundColor: colour.successSurface, borderColor: colour.pitch600 }}>
-              <Text style={[type.caption, { color: colour.forest800 }]}>NEW CODE — shown once</Text>
-              <Text selectable accessibilityLabel={`Join code ${fresh.code.split("").join(" ")}`} style={[type.display, { color: colour.ink, marginTop: space.xs }]}>
-                {fresh.code}
-              </Text>
-              <Text style={[type.caption, { color: colour.inkMuted, marginTop: space.xs }]}>{fresh.expiresAt ? `Expires ${exactDate(fresh.expiresAt.slice(0, 10))}.` : ""} Write it down or share it now; it cannot be shown again.</Text>
+              <Text style={[type.caption, { color: colour.forest800, marginBottom: space.sm }]}>NEW CODE — shown once</Text>
+              <InvitationSharePanel share={fresh} onDone={() => setFresh(null)} />
             </Card>
           )}
           <Button label="Issue a New Code" onPress={() => void issue()} busy={busy} />

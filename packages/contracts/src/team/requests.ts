@@ -221,11 +221,12 @@ export async function readTeamJoinCodes(supabase: Client, teamId: string): Promi
 }
 
 /** The plain code is returned ONCE, at issue; afterwards only its hint is ever readable. */
-export async function issueTeamJoinCode(supabase: Client, teamId: string): Promise<{ code: string | null; expiresAt: string | null }> {
+export async function issueTeamJoinCode(supabase: Client, teamId: string): Promise<{ code: string | null; token: string | null; expiresAt: string | null }> {
   const { data, error } = await supabase.rpc("issue_invitation", { p_kind: "TEAM_JOIN_CODE", p_team_id: teamId })
   if (error) throw error
-  const row = (Array.isArray(data) ? data[0] : data) as { code?: string | null; plain_code?: string | null; expires_at?: string | null } | null
-  return { code: row?.code ?? row?.plain_code ?? null, expiresAt: row?.expires_at ?? null }
+  const row = (Array.isArray(data) ? data[0] : data) as { code?: string | null; token?: string | null; expires_at?: string | null } | null
+  // CA-M11.1: the TOKEN is what the link and the QR carry (the website shows all three); returned once, never stored.
+  return { code: row?.code ?? null, token: row?.token ?? null, expiresAt: row?.expires_at ?? null }
 }
 
 export async function revokeTeamJoinCode(supabase: Client, invitationId: string, reason: string): Promise<void> {

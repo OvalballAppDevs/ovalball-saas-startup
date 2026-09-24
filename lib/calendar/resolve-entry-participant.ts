@@ -3,6 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { miniRugbyGroupLabel } from "@/lib/mini-rugby/group-label"
+import { loadOpponentGroupLabels as loadOpponentGroupLabelsShared } from "@ovalball/contracts/mini-rugby/group-labels"
 import type { Database } from "@/types/database.types"
 
 import type { Lane } from "@/app/(app)/calendar/week-board"
@@ -81,9 +82,5 @@ export async function extendLanesWithReferencedGroups(
  * creates a lane -- it is read-only display text for a side that is never
  * mine to filter/manage.
  */
-export async function loadOpponentGroupLabels(supabase: SupabaseClient<Database>, groupIds: (string | null)[]): Promise<Map<string, string>> {
-  const ids = Array.from(new Set(groupIds.filter((id): id is string => Boolean(id))))
-  if (ids.length === 0) return new Map()
-  const { data } = await supabase.from("scheduling_groups").select("id, display_tag, alias").in("id", ids)
-  return new Map((data ?? []).map((g) => [g.id, miniRugbyGroupLabel({ displayTag: g.display_tag, alias: g.alias })]))
-}
+/** CA-M11.1: one implementation, in the shared package; the website keeps this export. */
+export const loadOpponentGroupLabels = loadOpponentGroupLabelsShared

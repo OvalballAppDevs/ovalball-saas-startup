@@ -9,6 +9,7 @@ import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 
 import { getPitchAllocationBoard } from "./data"
+import { nextHomeFixtureDate } from "@ovalball/contracts/pitch-allocation/operations"
 import { PitchAllocationBoard } from "./pitch-allocation-board"
 
 /**
@@ -96,22 +97,7 @@ export default async function PitchAllocationPage({ searchParams }: { searchPara
   // overridden). Falls back to today when there's no upcoming home
   // fixture at all, matching the previous default exactly.
   let dateIso = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayIso
-  if (!date) {
-    const { data: teamRows } = await supabase.from("teams").select("id").eq("club_id", clubId)
-    const teamIds = (teamRows ?? []).map((t) => t.id)
-    if (teamIds.length > 0) {
-      const { data: nextFixture } = await supabase
-        .from("fixtures")
-        .select("kickoff_date")
-        .in("home_team_id", teamIds)
-        .gte("kickoff_date", todayIso)
-        .neq("status", "Cancelled")
-        .order("kickoff_date", { ascending: true })
-        .limit(1)
-        .maybeSingle()
-      if (nextFixture?.kickoff_date) dateIso = nextFixture.kickoff_date
-    }
-  }
+  if (!date) dateIso = await nextHomeFixtureDate(supabase, clubId, todayIso)
 
   const board = await getPitchAllocationBoard(supabase, clubId, dateIso)
 

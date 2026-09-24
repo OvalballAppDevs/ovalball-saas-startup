@@ -668,9 +668,9 @@
         "insert": "all",
         "update": "all",
         "write_consumers": [
-          "app/(app)/club/settings/pitch-allocation/actions.ts"
+          "packages/contracts/src/pitch-allocation/operations.ts"
         ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
+        "write_reason": "Direct application write from the shared pitch-allocation operations (both clients); RLS write policies decide which rows.",
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
@@ -2299,9 +2299,9 @@
         "select": "all",
         "insert": "all",
         "write_consumers": [
-          "app/(app)/calendar/pitch-allocation/actions.ts"
+          "packages/contracts/src/pitch-allocation/operations.ts"
         ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
+        "write_reason": "Direct application write from the shared pitch-allocation operations (both clients); RLS write policies decide which rows.",
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
@@ -2315,9 +2315,9 @@
         "insert": "all",
         "update": "all",
         "write_consumers": [
-          "app/(app)/calendar/pitch-allocation/actions.ts"
+          "packages/contracts/src/pitch-allocation/operations.ts"
         ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
+        "write_reason": "Direct application write from the shared pitch-allocation operations (both clients); RLS write policies decide which rows.",
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },

@@ -3,23 +3,57 @@
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
+import {
+  applySeasonHandover as applySeasonHandoverShared,
+  askGuardianForPlayingInformation as askGuardianShared,
+  clearPlayerPlacement as clearPlayerPlacementShared,
+  createNextSeasonGroup,
+  decideMixedBoundary,
+  decideTeamProposal,
+  markGraduatingPlayerLeft as markGraduatingPlayerLeftShared,
+  placeGraduatingPlayer as placeGraduatingPlayerShared,
+  planMissingPlacementTeam as planMissingPlacementTeamShared,
+  prepareHandover,
+  readPlacementOptions,
+  resolveGroupFlag,
+  setPlayerPlacement as setPlayerPlacementShared,
+  setPlayerPlannedPlacement as setPlayerPlannedPlacementShared,
+  undoTeamDecision,
+  unplanHandoverTeam as unplanHandoverTeamShared,
+  type PlacementOption,
+  type PlacementVerdict,
+  type TeamDecisionAction,
+} from "@ovalball/contracts/club/handover"
 
+/**
+ * THE SEASON HANDOVER'S SERVER ACTIONS, ON THE WEB (CA-M11.1).
+ *
+ * Every action is a thin caller of the shared contract (`@ovalball/contracts/club/handover`), which
+ * wraps the one canonical RPC each operation has -- the same wrapper the phone calls. Nothing here
+ * decides anything: the SECURITY DEFINER functions judge the authority, the destination, the movement
+ * rules and the revision, and an action adds no permission of its own and cannot become a way around
+ * one. What is left on this side is Next.js's own concern: revalidating the paths a decision touches.
+ */
 export type RolloverActionResult = { ok: true } | { ok: false; error: string }
+export type RolloverProposalAction = TeamDecisionAction
+export type { PlacementOption, PlacementVerdict }
+
+function messageOf(cause: unknown, fallback: string): string {
+  const m = (cause as { message?: string } | null)?.message
+  return m && m.trim() ? m : fallback
+}
 
 /** generate_rollover_proposal is read-only against real teams -- it only ever writes to the two proposal tables, never mutates a team. */
 export async function generateRolloverProposal(clubId: string, rugbyCode: "union" | "league", toSeasonId: string): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("generate_rollover_proposal", {
-    p_club_id: clubId,
-    p_rugby_code: rugbyCode,
-    p_to_season_id: toSeasonId,
-  })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await prepareHandover(supabase, clubId, rugbyCode, toSeasonId)
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not prepare the handover.") }
+  }
   revalidatePath("/club/rollover")
   return { ok: true }
 }
-
-export type RolloverProposalAction = "confirm" | "adjust" | "fold" | "defer" | "graduate"
 
 /**
  * Records what should happen to a team next season. Since the staged commit
@@ -36,15 +70,11 @@ export async function confirmRolloverTeamProposal(
   gender: "boys" | "girls" | null = null
 ): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("confirm_rollover_team_proposal", {
-    p_proposal_id: proposalId,
-    p_action: action,
-    p_age_group: ageGroup ?? undefined,
-    p_squad_designation: squadDesignation ?? undefined,
-    p_fold_reason: foldReason ?? undefined,
-    p_gender: gender ?? undefined,
-  })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await decideTeamProposal(supabase, { proposalId, action, ageGroup, squadDesignation, foldReason, gender })
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not record this decision.") }
+  }
   revalidatePath("/club/rollover")
   revalidatePath("/teams")
   return { ok: true }
@@ -65,23 +95,22 @@ export async function confirmMixedBoundaryRollover(
   girlsSquadDesignation: string | null
 ): Promise<ConfirmMixedBoundaryResult> {
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .rpc("confirm_mixed_boundary_rollover", {
-      p_proposal_id: proposalId,
-      p_create_girls_team: createGirlsTeam,
-      p_boys_squad_designation: boysSquadDesignation ?? undefined,
-      p_girls_squad_designation: girlsSquadDesignation ?? undefined,
-    })
-    .single()
-  if (error || !data) return { ok: false, error: error?.message ?? "Could not record this decision." }
-  revalidatePath("/club/rollover")
-  return { ok: true, boysTeamId: data.boys_team_id, girlsTeamId: data.girls_team_id }
+  try {
+    const result = await decideMixedBoundary(supabase, { proposalId, createGirlsTeam, boysSquadDesignation, girlsSquadDesignation })
+    revalidatePath("/club/rollover")
+    return { ok: true, boysTeamId: result.boysTeamId, girlsTeamId: result.girlsTeamId }
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not record this decision.") }
+  }
 }
 
 export async function resolveRolloverGroupFlag(flagId: string): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("resolve_rollover_group_flag", { p_flag_id: flagId })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await resolveGroupFlag(supabase, flagId)
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not mark this flag resolved.") }
+  }
   revalidatePath("/club/rollover")
   return { ok: true }
 }
@@ -97,16 +126,22 @@ export type GraduationActionResult = { ok: true } | { ok: false; error: string }
  */
 export async function placeGraduatingPlayer(queueId: string, targetTeamId: string): Promise<GraduationActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("place_graduating_player", { p_queue_id: queueId, p_target_team_id: targetTeamId })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await placeGraduatingPlayerShared(supabase, queueId, targetTeamId)
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not place this player.") }
+  }
   revalidatePath("/club/rollover")
   return { ok: true }
 }
 
 export async function markGraduatingPlayerLeft(queueId: string): Promise<GraduationActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("mark_graduating_player_left", { p_queue_id: queueId })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await markGraduatingPlayerLeftShared(supabase, queueId)
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not record that this player has left.") }
+  }
   revalidatePath("/club/rollover")
   return { ok: true }
 }
@@ -127,15 +162,13 @@ export async function createNextSeasonSchedulingGroup(
   alias: string | null
 ): Promise<CreateNextSeasonGroupResult> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc("create_next_season_scheduling_group", {
-    p_source_group_id: sourceGroupId,
-    p_to_season_id: toSeasonId,
-    p_team_ids: teamIds,
-    p_alias: alias ?? undefined,
-  })
-  if (error || !data) return { ok: false, error: error?.message ?? "Could not create the next-season Mini-Rugby Group." }
-  revalidatePath("/club/rollover")
-  return { ok: true, newGroupId: data }
+  try {
+    const newGroupId = await createNextSeasonGroup(supabase, { sourceGroupId, toSeasonId, teamIds, alias })
+    revalidatePath("/club/rollover")
+    return { ok: true, newGroupId }
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not create the next-season Mini-Rugby Group.") }
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -148,41 +181,14 @@ export async function createNextSeasonSchedulingGroup(
  * movement resolver for the latter, and refuses anything it will not allow.
  * ------------------------------------------------------------------------ */
 
-export interface PlacementOption {
-  /** Null for a team the club has decided to run but which does not exist yet. */
-  teamId: string | null
-  plannedId: string | null
-  /** The team as it will be in the season being decided, not as it is called today. */
-  displayName: string
-  ageGroup: string | null
-  squadDesignation: string | null
-  isNormal: boolean
-  isSelected: boolean
-  isPlanned: boolean
-}
-
 /** Real canonical teams for this club, code and target season. Never free text. */
 export async function loadPlacementOptions(proposalId: string): Promise<PlacementOption[]> {
   const supabase = await createClient()
-  const { data } = await supabase.rpc("rollover_placement_options", { p_proposal_id: proposalId })
-  return (data ?? []).map((o) => ({
-    teamId: o.team_id,
-    plannedId: o.planned_id,
-    displayName: o.display_name,
-    ageGroup: o.age_group,
-    squadDesignation: o.squad_designation,
-    isNormal: o.is_normal,
-    isSelected: o.is_selected,
-    isPlanned: o.is_planned,
-  }))
-}
-
-export interface PlacementVerdict {
-  overrideKind: "SAME_AGE_SQUAD" | "AGE_GRADE_CHANGE" | null
-  movementRequirement: "permitted" | "team_approval_only" | "external_approval_required" | "not_permitted" | null
-  reviewState: "READY" | "NEEDS_ATTENTION" | "BLOCKED"
-  reason: string | null
-  dispensationRequired: boolean
+  try {
+    return await readPlacementOptions(supabase, proposalId)
+  } catch {
+    return []
+  }
 }
 
 export type PlacementResult = { ok: true; verdict: PlacementVerdict } | { ok: false; error: string }
@@ -193,31 +199,23 @@ export type PlacementResult = { ok: true; verdict: PlacementVerdict } | { ok: fa
  */
 export async function setPlayerPlacement(proposalId: string, targetTeamId: string): Promise<PlacementResult> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc("set_rollover_player_placement", {
-    p_proposal_id: proposalId,
-    p_target_team_id: targetTeamId,
-  })
-  if (error) return { ok: false, error: error.message }
-  const row = (data ?? [])[0]
-  if (!row) return { ok: false, error: "The placement could not be recorded." }
-  revalidatePath("/club/rollover")
-  return {
-    ok: true,
-    verdict: {
-      overrideKind: row.override_kind as PlacementVerdict["overrideKind"],
-      movementRequirement: row.movement_requirement as PlacementVerdict["movementRequirement"],
-      reviewState: row.review_state as PlacementVerdict["reviewState"],
-      reason: row.reason,
-      dispensationRequired: row.dispensation_required,
-    },
+  try {
+    const verdict = await setPlayerPlacementShared(supabase, proposalId, targetTeamId)
+    revalidatePath("/club/rollover")
+    return { ok: true, verdict }
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "The placement could not be recorded.") }
   }
 }
 
 /** Puts a player's placement back to whatever the club's decisions say it should be. */
 export async function clearPlayerPlacement(proposalId: string): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("clear_rollover_player_placement", { p_proposal_id: proposalId })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await clearPlayerPlacementShared(supabase, proposalId)
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not undo this placement.") }
+  }
   revalidatePath("/club/rollover")
   return { ok: true }
 }
@@ -225,11 +223,11 @@ export async function clearPlayerPlacement(proposalId: string): Promise<Rollover
 /** Chooses a team the club has decided to run but which does not exist yet. */
 export async function setPlayerPlannedPlacement(proposalId: string, plannedId: string): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("set_rollover_player_planned_placement", {
-    p_proposal_id: proposalId,
-    p_planned_id: plannedId,
-  })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await setPlayerPlannedPlacementShared(supabase, proposalId, plannedId)
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "The placement could not be recorded.") }
+  }
   revalidatePath("/club/rollover")
   return { ok: true }
 }
@@ -242,8 +240,11 @@ export async function setPlayerPlannedPlacement(proposalId: string, plannedId: s
  */
 export async function planMissingPlacementTeam(proposalId: string): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("plan_missing_placement_team", { p_proposal_id: proposalId })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await planMissingPlacementTeamShared(supabase, proposalId)
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not plan this team.") }
+  }
   revalidatePath("/club/rollover")
   return { ok: true }
 }
@@ -251,8 +252,11 @@ export async function planMissingPlacementTeam(proposalId: string): Promise<Roll
 /** Withdraws a team the club had decided to run. Only possible before Apply. */
 export async function unplanHandoverTeam(plannedId: string): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("unplan_handover_team", { p_planned_id: plannedId })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await unplanHandoverTeamShared(supabase, plannedId)
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not withdraw this team.") }
+  }
   revalidatePath("/club/rollover")
   return { ok: true }
 }
@@ -260,8 +264,11 @@ export async function unplanHandoverTeam(plannedId: string): Promise<RolloverAct
 /** Returns a team decision to undecided. Possible because deciding mutates nothing. */
 export async function undoRolloverTeamDecision(proposalId: string): Promise<RolloverActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("undo_rollover_team_decision", { p_proposal_id: proposalId })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await undoTeamDecision(supabase, proposalId)
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not undo this decision.") }
+  }
   revalidatePath("/club/rollover")
   revalidatePath("/teams")
   return { ok: true }
@@ -282,26 +289,14 @@ export type ApplyHandoverResult =
  */
 export async function applySeasonHandover(rolloverId: string, expectedRevision: number | null): Promise<ApplyHandoverResult> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc("apply_season_handover", {
-    p_rollover_id: rolloverId,
-    p_expected_revision: expectedRevision ?? undefined,
-  })
-  if (error) return { ok: false, error: error.message }
-  const row = (data ?? [])[0]
-  if (!row) return { ok: false, error: "The handover did not report a result." }
-  revalidatePath("/club/rollover")
-  revalidatePath("/teams")
-  revalidatePath("/dashboard")
-  return {
-    ok: true,
-    alreadyApplied: row.already_applied,
-    teamsProgressed: row.teams_progressed,
-    teamsFolded: row.teams_folded,
-    teamsGraduated: row.teams_graduated,
-    teamsCreated: row.teams_created,
-    teamsReactivated: row.teams_reactivated,
-    playersMoved: row.players_moved,
-    playersHeld: row.players_held,
+  try {
+    const outcome = await applySeasonHandoverShared(supabase, rolloverId, expectedRevision)
+    revalidatePath("/club/rollover")
+    revalidatePath("/teams")
+    revalidatePath("/dashboard")
+    return { ok: true, ...outcome }
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "The handover did not report a result.") }
   }
 }
 
@@ -316,7 +311,9 @@ export type AskGuardianResult = { ok: true; sent: number } | { ok: false; error:
  */
 export async function askGuardianForPlayingInformation(playerId: string): Promise<AskGuardianResult> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc("request_player_playing_pathway", { p_player_id: playerId })
-  if (error) return { ok: false, error: error.message }
-  return { ok: true, sent: data ?? 0 }
+  try {
+    return { ok: true, sent: await askGuardianShared(supabase, playerId) }
+  } catch (cause) {
+    return { ok: false, error: messageOf(cause, "Could not send the request.") }
+  }
 }

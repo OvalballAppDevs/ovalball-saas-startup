@@ -64,6 +64,8 @@ import {
   HeartHandshake,
   Info,
   Landmark,
+  ScanLine,
+  QrCode,
   LifeBuoy,
   Layers,
   ListOrdered,
@@ -86,6 +88,18 @@ import {
   Newspaper,
   Settings2,
   UserPlus,
+  // Club finance (CA-M11.1).
+  CreditCard,
+  PoundSterling,
+  Share2,
+  Wallet,
+  // Guardians & Players (CA-M11.1).
+  Copy,
+  UserRoundX,
+  // Season Handover (CA-M11.1).
+  CalendarSync,
+  ListChecks,
+  Undo2,
 } from "lucide-react-native"
 import Svg, { Ellipse } from "react-native-svg"
 
@@ -168,6 +182,8 @@ export {
   HeartHandshake,
   Info,
   Landmark,
+  ScanLine,
+  QrCode,
   LifeBuoy,
   Layers,
   ListOrdered,
@@ -189,6 +205,15 @@ export {
   Newspaper,
   Settings2,
   UserPlus,
+  CreditCard,
+  PoundSterling,
+  Share2,
+  Wallet,
+  Copy,
+  UserRoundX,
+  CalendarSync,
+  ListChecks,
+  Undo2,
 }
 
 /** The rugby ball, as an icon, in the brand's own geometry. Matches Lucide's 24-unit grid and weight. */

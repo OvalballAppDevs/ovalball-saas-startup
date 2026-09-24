@@ -22,7 +22,7 @@ export const ENTRY_PATHS: readonly EntryPath[] = [
   {
     key: "INVITATION",
     title: "I have an invitation",
-    body: "Somebody at your club sent you a link or a code.",
+    body: "Somebody at your club sent you a link, a QR code or a code.",
     surface: "NATIVE",
     webPath: "/join",
   },

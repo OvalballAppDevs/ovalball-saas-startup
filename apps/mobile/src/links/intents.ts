@@ -91,11 +91,26 @@ export type LinkIntent =
    */
   | { kind: "TEAM"; teamId: string; section: "home" | "people" | "player-requests" | "subscriptions" | "news" }
   /**
+   * SAFEGUARDING (CA-M11.1). The website addresses the club's safeguarding page at
+   * `/club/settings/safeguarding` and a safeguarding conversation beneath it, and the officer-facing
+   * notifications carry those addresses with nothing but ids in their payloads. Natively they land on
+   * the safeguarding screen, which shows each person only what the server lets them read.
+   */
+  | { kind: "SAFEGUARDING" }
+  | { kind: "SAFEGUARDING_THREAD"; conversationId: string }
+  /**
    * An invitation: `/join?t=<token>` from an email, `/join?c=<code>` from a typed code, or bare `/join`
    * for the code-entry screen. The secret is carried in the intent for the length of one journey and
    * is never persisted -- see `src/onboarding/join-secret.ts`.
    */
   | { kind: "JOIN"; token: string | null; code: string | null }
+  /**
+   * GUARDIANS & PLAYERS (CA-M11.1). The website's own addresses for the club's player and guardian
+   * administration -- /club/settings/guardians, /guardian-requests, /club/join-requests and
+   * /club/player-moves -- land on the Admin Centre's native screens. Nothing in the address is
+   * authority: each screen asks `my_capabilities` and every decision is refused again by the server.
+   */
+  | { kind: "CLUB_GUARDIANS"; section: "overview" | "link-requests" | "join-requests" | "moves" }
   /** A link Ovalball issued but this build does not handle yet -- named so it can be reported honestly. */
   | { kind: "NOT_YET_SUPPORTED"; path: string }
   | { kind: "UNKNOWN" }
@@ -109,6 +124,9 @@ const PLANNED = ["/invitation", "/notifications", "/subscriptions"]
 
 /** The invitation path. Named here beside the resolver so a test can see "/join" is owned, not planned. */
 export const JOIN_PATH = "/join"
+
+/** The app's own schemes (development, staging, production), the only non-web origins a scanned invitation may carry. */
+export const APP_SCHEMES = ["ovalball", "ovalball-dev", "ovalball-staging"] as const
 
 /** A calendar anchor is a civil date and nothing else. Anything other shape is ignored rather than guessed at. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -222,10 +240,23 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
     const announcementId = path.slice("/announcements/".length).split("/").filter(Boolean)[0]
     return announcementId ? { kind: "CLUB_ANNOUNCEMENT", announcementId } : { kind: "NEWS" }
   }
+  // SAFEGUARDING (CA-M11.1): the website's club safeguarding page and a conversation beneath it --
+  // the addresses the officer-facing notifications carry. Only these two exact shapes; anything
+  // else under /club/settings stays unrecognised rather than guessed at.
+  if (path === "/club/settings/safeguarding") return { kind: "SAFEGUARDING" }
+  if (path.startsWith("/club/settings/safeguarding/messages/")) {
+    const conversationId = path.slice("/club/settings/safeguarding/messages/".length).split("/").filter(Boolean)[0]
+    return conversationId ? { kind: "SAFEGUARDING_THREAD", conversationId } : { kind: "SAFEGUARDING" }
+  }
   if (path.startsWith("/club/")) {
     const parts = path.slice("/club/".length).split("/").filter(Boolean)
     if (parts.length === 3 && parts[1] === "news") return { kind: "CLUB_ARTICLE_BY_SLUG", clubSlug: parts[0], articleSlug: parts[2] }
+    // The club's player and guardian administration, at the website's own addresses.
+    if (parts.length === 2 && parts[0] === "settings" && parts[1] === "guardians") return { kind: "CLUB_GUARDIANS", section: "overview" }
+    if (parts.length === 1 && parts[0] === "join-requests") return { kind: "CLUB_GUARDIANS", section: "join-requests" }
+    if (parts.length === 1 && parts[0] === "player-moves") return { kind: "CLUB_GUARDIANS", section: "moves" }
   }
+  if (path === "/guardian-requests") return { kind: "CLUB_GUARDIANS", section: "link-requests" }
 
   // A TEAM: /teams/<id> and its sections, the same addresses the website uses.
   if (path.startsWith("/teams/")) {

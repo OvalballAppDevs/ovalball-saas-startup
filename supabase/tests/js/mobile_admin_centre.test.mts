@@ -79,7 +79,8 @@ test("every Admin Centre section is gated by one canonical capability the websit
 test("no admin mutation is queued, cached as authority, or kept in a mobile-only store", () => {
   for (const f of adminFiles) {
     const src = code(f)
-    assert.doesNotMatch(src, /AsyncStorage|SecureStore|mobile_club_settings|queue|retryLater|pendingWrites/i, `${f} keeps no local store of admin state`)
+    // `\bqueue\b`: a local queue of mutations is the smell; a canonical read model named `graduationQueue` is not.
+    assert.doesNotMatch(src, /AsyncStorage|SecureStore|mobile_club_settings|\bqueue\b|retryLater|pendingWrites/i, `${f} keeps no local store of admin state`)
   }
   const screen = code(join(ADMIN_ROUTES, "club-profile.tsx"))
   assert.match(screen, /useFocusEffect/, "the screen re-reads when it comes back into focus")

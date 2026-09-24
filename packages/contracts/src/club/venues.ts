@@ -161,14 +161,16 @@ export interface VenueCapabilities {
   managePitches: boolean
   /** venue.pitch_allocation.manage -- the allocation board's own authority, never fixture edit (CA-M4). */
   allocate: boolean
+  /** venue.pitch_allocation.view -- may open the board read-only (CA-M11.1). */
+  viewAllocation: boolean
 }
 
 /** Asked of the server in one round trip; each action still asks its own key. */
 export async function readVenueCapabilities(supabase: Client, clubId: string): Promise<VenueCapabilities> {
   const { data, error } = await supabase.rpc("my_capabilities", { p_scope_type: "club", p_club_id: clubId })
-  if (error) return { view: false, manageVenues: false, managePitches: false, allocate: false }
+  if (error) return { view: false, manageVenues: false, managePitches: false, allocate: false, viewAllocation: false }
   const allowed = new Set((data ?? []).filter((r) => r.allowed === true).map((r) => r.capability_key))
-  return { view: allowed.has("venue.venue.view"), manageVenues: allowed.has("venue.venue.manage"), managePitches: allowed.has("venue.pitch.manage"), allocate: allowed.has("venue.pitch_allocation.manage") }
+  return { view: allowed.has("venue.venue.view"), manageVenues: allowed.has("venue.venue.manage"), managePitches: allowed.has("venue.pitch.manage"), allocate: allowed.has("venue.pitch_allocation.manage"), viewAllocation: allowed.has("venue.pitch_allocation.view") }
 }
 
 /** One display line for both clients: the structured parts, then the postcode. */

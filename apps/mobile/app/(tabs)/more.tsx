@@ -12,9 +12,11 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { ChevronRight, ClipboardList, ExternalLink, Landmark, Lock, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake, IdCard, MapPin, Newspaper } from "../../src/components/icons"
+import { ArrowRightLeft, CalendarDays, ChevronRight, ClipboardList, ExternalLink, KeyRound, Landmark, Lock, Shield, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake, IdCard, MapPin, Newspaper } from "../../src/components/icons"
 import { isFamilyFacingContext } from "@ovalball/contracts"
 import { useAdminCentreAccess } from "../../src/admin/access"
+import { useVenueAllocationAccess } from "../../src/pitch-allocation/access"
+import { useSafeguardingOfficerAccess } from "../../src/safeguarding/access"
 import { useTeamAuthority } from "../../src/team/authority"
 import { anyTeamAdministration } from "@ovalball/contracts/team/authority"
 import { Button, Card } from "../../src/components/ui"
@@ -41,6 +43,8 @@ export default function More() {
   // `my_capabilities` says this person holds at least one administrative capability at that club --
   // never because the context is labelled Club Admin. Re-asked on every context change and focus.
   const admin = useAdminCentreAccess()
+  const venueCaps = useVenueAllocationAccess()
+  const officer = useSafeguardingOfficerAccess().isOfficer
   // THE TEAM'S OWN JOBS, for a team context (CA-M7). Which rows appear is the server's answer at team
   // scope; the rows themselves are the recurring work the bar does not hold.
   const team = useTeamAuthority()
@@ -139,6 +143,16 @@ export default function More() {
             {admin.sections.some((s) => s.key === "venues") && <Row icon={<MapPin size={19} color={colour.forest800} strokeWidth={1.9} />} label="Grounds & Pitches" caption="Where the club plays" onPress={() => router.push("/admin/venues" as never)} />}
             <Row icon={<Newspaper size={19} color={colour.forest800} strokeWidth={1.9} />} label="News & Announcements" caption="What the club has published" onPress={() => router.push("/news")} />
             {admin.sections.some((s) => s.key === "news") && <Row icon={<ClipboardList size={19} color={colour.forest800} strokeWidth={1.9} />} label="Publish" caption="Write and manage news and announcements" onPress={() => router.push("/admin/news" as never)} />}
+            {/* THE CLUB'S JOBS THAT WERE MISSING FROM THE PHONE (CA-M11.1). Each row is the server's to
+                give: the Admin Centre's own capability probe decides Guardians & Players, Subscriptions &
+                Payments, Season Handover, Roles & Permissions and the safeguarding nomination; the
+                board's own two keys decide Pitch Allocation. Nothing here is inferred from a role. */}
+            {admin.sections.some((s) => s.key === "guardians") && <Row icon={<HeartHandshake size={19} color={colour.forest800} strokeWidth={1.9} />} label="Guardians & Players" caption="Players, who looks after them, and who is asking to join" onPress={() => router.push("/admin/guardians" as never)} />}
+            {admin.sections.some((s) => s.key === "subscriptions") && <Row icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />} label="Subscriptions & Payments" caption="What members pay, and where every payment stands" onPress={() => router.push("/admin/subscriptions" as never)} />}
+            {admin.sections.some((s) => s.key === "rollover") && <Row icon={<ArrowRightLeft size={19} color={colour.forest800} strokeWidth={1.9} />} label="Season Handover" caption="Moving every side and player up at the end of the season" onPress={() => router.push("/admin/rollover" as never)} />}
+            {(venueCaps.allocate || venueCaps.viewAllocation) && <Row icon={<CalendarDays size={19} color={colour.forest800} strokeWidth={1.9} />} label="Pitch Allocation" caption="Which side is on which pitch, day by day" onPress={() => router.push("/admin/pitch-allocation" as never)} />}
+            {admin.sections.some((s) => s.key === "permissions") && <Row icon={<KeyRound size={19} color={colour.forest800} strokeWidth={1.9} />} label="Roles & Permissions" caption="Who may do what, and where" onPress={() => router.push("/admin/permissions" as never)} />}
+            {(admin.sections.some((s) => s.key === "safeguarding") || officer) && <Row icon={<Shield size={19} color={colour.forest800} strokeWidth={1.9} />} label="Safeguarding" caption={officer ? "Your safeguarding work at this club" : "The club's safeguarding contact"} onPress={() => router.push("/admin/safeguarding" as never)} />}
           </Group>
         )}
         {!inFamily && !inClub && (

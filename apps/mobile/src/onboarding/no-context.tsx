@@ -24,8 +24,8 @@ export function NoContextOnboarding() {
         <Text style={[type.small, { color: colour.inkMuted }]}>{AUTH_WORDING.noAccess} If you have asked to join a club, you will see it here once somebody there has approved it.</Text>
       </Card>
 
-      <Card onPress={() => { holdJoinSecret({ token: null, code: null }); router.push("/join" as never) }} accessibilityLabel="Enter an invitation or team code">
-        <Row icon={<KeyRound size={19} color={colour.forest800} />} title="Enter an invitation or team code" body="A code from your club or team, or a link you were sent." />
+      <Card onPress={() => { holdJoinSecret({ token: null, code: null }); router.push("/join" as never) }} accessibilityLabel="Enter or scan an invitation">
+        <Row icon={<KeyRound size={19} color={colour.forest800} />} title="Enter or scan an invitation" body="A code or QR code from your club or team, or a link you were sent." />
       </Card>
 
       <Card onPress={() => { if (webUrl) void Linking.openURL(`${webUrl}/signup`) }} accessibilityLabel="Find or set up your club. Opens the Ovalball website">

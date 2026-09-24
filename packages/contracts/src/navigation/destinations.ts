@@ -33,6 +33,8 @@ export type Destination =
   | { kind: "club_article"; articleId: string }
   | { kind: "news" }
   | { kind: "notifications" }
+  /** The club's queue of players asking to join: the website's /club/join-requests, native since CA-M11.1. */
+  | { kind: "club_player_join_requests" }
   /** A canonical web page the app has no native screen for. The honest hand-off, never a guess. */
   | { kind: "web"; href: string }
 
@@ -65,6 +67,8 @@ export function destinationHref(d: Destination): string {
       return "/news"
     case "notifications":
       return "/notifications"
+    case "club_player_join_requests":
+      return "/club/join-requests"
     case "web":
       return d.href
   }
@@ -95,6 +99,7 @@ export function destinationForHref(href: string): Destination {
   if (head === "news" && parts.length === 1) return { kind: "news" }
   if (head === "news" && id && UUID.test(id) && parts.length === 2) return { kind: "club_article", articleId: id }
   if (head === "notifications" && parts.length === 1) return { kind: "notifications" }
+  if (head === "club" && id === "join-requests" && parts.length === 2) return { kind: "club_player_join_requests" }
   return { kind: "web", href }
 }
 

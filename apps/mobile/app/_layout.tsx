@@ -196,7 +196,7 @@ function Gate() {
     // AN INVITATION SCREEN IS REACHABLE SIGNED OUT AND SIGNED IN. It previews for anybody holding the
     // link, asks for a sign-in when one is needed and accepts only for a signed-in person -- so it is
     // neither a place to be moved to Welcome from nor a place to be moved into the tabs from.
-    const onJoin = group === "join"
+    const onJoin = group === "join" || group === "scan-invitation"
     // Welcome, Get Started, sign in and forgot password are all part of being signed out, not places to
     // be moved away from. Welcome is where a signed-out session LANDS; a signed-in one never sees it.
     const onEntrance = group === "welcome" || group === "get-started" || group === "sign-in" || group === "forgot-password" || onJoin

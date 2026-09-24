@@ -194,6 +194,7 @@ export default function Join() {
         </View>
         <EntranceProblem message={null} />
         <Button label="Check Code" onPress={useCode} disabled={normaliseInvitationCode(typed).length < 6} />
+        <Button label="Scan a QR Code" variant="secondary" style={{ marginTop: space.sm }} onPress={() => router.push("/scan-invitation" as never)} accessibilityHint="Reads the QR code on an invitation with the camera" />
       </EntranceScreen>
     )
   }

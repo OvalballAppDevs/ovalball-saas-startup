@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { HANDOVER_SECTIONS, HANDOVER_SECTION_LABELS, resolveHandoverSection, type HandoverSection } from "@ovalball/contracts/club/handover"
 
 /**
  * The board's five sections are ROUTES, not tab widgets.
@@ -9,21 +10,11 @@ import Link from "next/link"
  * than the previous section, Refresh returns to the first tab, and a copied URL
  * takes a colleague somewhere else entirely. These are links with
  * aria-current="page", which is what they actually are.
+ *
+ * The sections, their order and their names come from the shared contract, so
+ * the phone's screens are the same five, called the same things.
  */
-export const HANDOVER_SECTIONS = ["overview", "teams", "players", "attention", "apply"] as const
-export type HandoverSection = (typeof HANDOVER_SECTIONS)[number]
-
-export function resolveHandoverSection(value: string | undefined): HandoverSection {
-  return (HANDOVER_SECTIONS as readonly string[]).includes(value ?? "") ? (value as HandoverSection) : "overview"
-}
-
-const LABELS: Record<HandoverSection, string> = {
-  overview: "Overview",
-  teams: "Teams",
-  players: "Players",
-  attention: "Needs Attention",
-  apply: "Apply & Audit",
-}
+export { HANDOVER_SECTIONS, resolveHandoverSection, type HandoverSection }
 
 export function HandoverNav({ active, attentionCount }: { active: HandoverSection; attentionCount: number }) {
   return (
@@ -41,7 +32,7 @@ export function HandoverNav({ active, attentionCount }: { active: HandoverSectio
                 : "border-b-2 border-transparent text-ink-muted hover:text-ink/80"
             }`}
           >
-            {LABELS[section]}
+            {HANDOVER_SECTION_LABELS[section]}
             {section === "attention" && attentionCount > 0 && (
               <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">
                 {attentionCount}

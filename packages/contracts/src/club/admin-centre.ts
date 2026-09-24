@@ -35,10 +35,10 @@ export const ADMIN_CENTRE_SECTIONS: AdminCentreSection[] = [
   { key: "people", label: "People", caption: "Members, staff, team roles and who is waiting to join", capability: "people.member.view", native: true, webPath: "/people" },
   { key: "news", label: "News & Announcements", caption: "What the club publishes to its members and the public", capability: "club.news.manage", native: true, webPath: "/club/settings/news" },
   { key: "permissions", label: "Roles & Permissions", caption: "Who may do what, and where", capability: "people.capability.manage", native: true, webPath: "/club/permissions" },
-  { key: "guardians", label: "Guardians & Players", caption: "Approving who looks after which player", capability: "family.relationship.approve", native: false, webPath: "/club/settings/guardians" },
-  { key: "safeguarding", label: "Safeguarding Officer", caption: "Who the club's safeguarding contact is", capability: "safeguarding.officer.nominate", native: false, webPath: "/club/settings/safeguarding" },
-  { key: "rollover", label: "Season Handover", caption: "Moving every side up at the end of the season", capability: "team.handover.prepare", native: false, webPath: "/club/rollover" },
-  { key: "subscriptions", label: "Subscriptions & Payments", caption: "What members pay and how", capability: "finance.subscription.configure", native: false, webPath: "/club/settings/subscriptions" },
+  { key: "guardians", label: "Guardians & Players", caption: "Approving who looks after which player", capability: "family.relationship.approve", native: true, webPath: "/club/settings/guardians" },
+  { key: "safeguarding", label: "Safeguarding Officer", caption: "Who the club's safeguarding contact is", capability: "safeguarding.officer.nominate", native: true, webPath: "/club/settings/safeguarding" },
+  { key: "rollover", label: "Season Handover", caption: "Moving every side up at the end of the season", capability: "team.handover.prepare", native: true, webPath: "/club/rollover" },
+  { key: "subscriptions", label: "Subscriptions & Payments", caption: "What members pay and how", capability: "finance.subscription.configure", native: true, webPath: "/club/settings/subscriptions" },
 ]
 
 export interface AdminCentreAccess {

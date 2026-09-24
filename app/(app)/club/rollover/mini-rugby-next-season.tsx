@@ -4,23 +4,11 @@ import { useState } from "react"
 import { CheckCircle2, Users } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { nextSeasonGroupTag, type MiniRugbyGroupRow, type MiniRugbyGroupTeamOption } from "@ovalball/contracts/club/handover"
 
 import { createNextSeasonSchedulingGroup } from "./actions"
 
-export interface MiniRugbyGroupTeamOption {
-  teamId: string
-  displayName: string
-  projectedAgeGroup: string | null
-}
-
-export interface MiniRugbyGroupRow {
-  id: string
-  displayTag: string
-  alias: string | null
-  teams: MiniRugbyGroupTeamOption[]
-  /** Set once a next-season group already exists for this group's teams -- the wizard shows its result instead of offering the actions again. */
-  alreadyCreatedTag: string | null
-}
+export type { MiniRugbyGroupRow, MiniRugbyGroupTeamOption }
 
 /**
  * Season Handover Section 7-10: for each of this club's active
@@ -96,12 +84,7 @@ function MiniRugbyGroupCard({ group, toSeasonId, toSeasonName }: { group: MiniRu
       setError(res.error)
       return
     }
-    const chosenTag = group.teams
-      .filter((t) => selected.has(t.teamId))
-      .map((t) => t.projectedAgeGroup)
-      .filter(Boolean)
-      .join("/")
-    setResult(chosenTag || "the new group")
+    setResult(nextSeasonGroupTag(group, selected))
   }
 
   function toggleTeam(teamId: string) {

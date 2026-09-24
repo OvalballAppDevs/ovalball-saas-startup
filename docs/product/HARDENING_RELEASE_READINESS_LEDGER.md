@@ -1003,3 +1003,47 @@ TO-E9/E10 comments rather than assertions.
   untouched by it.
 - **H20/H25, H26, H27, H28, H29, H30 unchanged.**
 
+## H32 — CA-M11.1 Club Admin functional parity recovery: owed at hardening
+
+- **Pitch allocation's placement write asks fixture edit, not the allocation key.** `update_fixture_schedule`
+  authorises through `internal.can_edit_fixture_schedule` (`fixture.fixture.edit` at either side of the
+  fixture), while the board's UI, the Calendar tab and the proposal/policy RLS ask
+  `venue.pitch_allocation.view/manage`. Consequences, identical on both clients and pinned by
+  `pitch_allocation_ca11_1.sql` PA-C: a fixture-edit holder whose `.manage` is withheld can still land a
+  placement (only proposals stop); a `.manage` holder without fixture edit can build a proposal but cannot
+  save it. The website's own server actions additionally gate on the legacy `fixture.edit` key, and the
+  policy table's RLS names `fixture.edit`. Aligning the RPC (or adding a pitch-allocation-specific write)
+  is an authority change: reported here, not made.
+- **R-class family and movement decisions are not enforced by the database.** `approve_guardian_link_request`,
+  `reject_guardian_link_request`, `remove_guardian_relationship`, `resolve_player_duplicate_review_*`,
+  `decide_player_call_up` and `decide_player_dispensation` carry `aal = 'R'` in the catalogue but never call
+  `internal.require_recent_aal2`, and the capability resolver does not check assurance — a Club Admin at
+  aal1 is accepted on both clients (probed; pinned as a documented gap in `guardians_players_ca11_1.sql`).
+  The same is true of `apply_season_handover` / `team.lifecycle.manage` and of the finance mutations. The
+  phone's step-up paths are wired for all of them. The fix is a migration adding the recent-auth guard
+  after each authority decision (as `20270546` did for membership operations): an authority change,
+  reported, not made.
+- **`update_safeguarding_officer_contact` has a null-comparison hole**: while a contact card's `user_id` is
+  null (nobody has accepted yet) the self-check `v_officer.user_id = auth.uid()` is null and never raises,
+  so any holder of `safeguarding.officer.contact_edit` at any club could edit an unaccepted card. Fix:
+  `coalesce(v_officer.user_id = auth.uid(), false)`. Found by the safeguarding builder; the phone offers
+  the self edit only for a card naming the signed-in person; the boundary that holds is pinned.
+- **The web's safeguarding "Revoke Invite" is unreachable**: `get_club_safeguarding_officers.pending_invitation_id`
+  joins the legacy invitation table the canonical issuer never writes, so the button never appears. The
+  phone withdraws through the canonical `access_invitations` row.
+- **The phone sends no invitation email.** The website emails the join link from a server-only mail
+  module on issue and on resend; the phone shows the link, code and QR and says no email went. A
+  server-side send on issue (a trigger or an edge function) would give both clients the same behaviour;
+  owner decision.
+- **No invitation-aware signup on either client**: a recipient with no account is sent from `/join` to
+  `/login`, whose "create an account" link drops the invitation.
+- **`update_fixture_pitch` (the website's pitch-clear path) does not run the status lifecycle**; a Booked
+  fixture stays Booked after its pitch is cleared on either client (PA-D3). Recorded.
+- **Web client-side tournament conflict recompute drops training and event occupants** (the phone's does
+  not); the server read model has them. Recorded.
+- **expo-camera, expo-clipboard and qrcode were added to the mobile app** for the QR scanner, copy and the
+  QR renderer; the iOS development client must be rebuilt before the physical-iPhone walkthrough (the
+  scanner is a native module). Expo Web proof runs with the camera unavailable and the code-entry path.
+- **H31 unchanged** (the website's password reset for a factor holder); **H20/H25** unchanged — see the
+  finance section of `docs/mobile/CA_M11_1_CLUB_ADMIN_PARITY_MAP.md` for the distinction.
+

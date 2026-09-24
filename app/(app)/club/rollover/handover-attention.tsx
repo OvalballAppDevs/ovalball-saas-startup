@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { CheckCircle2 } from "lucide-react"
+import { blockerDestination, type HandoverBlocker } from "@ovalball/contracts/club/handover"
 
 import { AskGuardianButton } from "./ask-guardian-button"
 
@@ -14,23 +15,12 @@ import { AskGuardianButton } from "./ask-guardian-button"
  * from anyone who did not think to look here.
  */
 
-export interface HandoverBlocker {
-  kind: "season" | "team" | "collision" | "player" | "dispensation" | "stale"
-  subject: string
-  detail: string
-  /** The stable id of whoever or whatever needs the decision. Never a display string. */
-  subjectId: string | null
-  /** True when the item is waiting on protected player information only a guardian can supply. */
-  needsPlayerInformation: boolean
-}
+export type { HandoverBlocker }
 
-const DESTINATION: Record<HandoverBlocker["kind"], { href: string; label: string }> = {
-  season: { href: "/admin/seasons", label: "Open Seasons" },
-  team: { href: "/club/rollover?section=teams", label: "Decide in Teams" },
-  collision: { href: "/club/rollover?section=teams", label: "Resolve in Teams" },
-  player: { href: "/club/rollover?section=players", label: "Review in Players" },
-  dispensation: { href: "/club/rollover?section=players", label: "Review in Players" },
-  stale: { href: "/club/rollover?section=players", label: "Review in Players" },
+/** The shared contract names the section that owns each decision; this is the web's route for it. */
+function destinationHref(kind: HandoverBlocker["kind"]): { href: string; label: string } {
+  const d = blockerDestination(kind)
+  return { href: d.section === "seasons" ? "/admin/seasons" : `/club/rollover?section=${d.section}`, label: d.label }
 }
 
 export function HandoverNeedsAttention({ blockers, planned }: { blockers: HandoverBlocker[]; planned: { label: string; note: string }[] }) {
@@ -76,10 +66,10 @@ export function HandoverNeedsAttention({ blockers, planned }: { blockers: Handov
                   <AskGuardianButton playerId={b.subjectId} playerName={b.subject} />
                 ) : (
                   <Link
-                    href={DESTINATION[b.kind].href}
+                    href={destinationHref(b.kind).href}
                     className="shrink-0 rounded-lg border border-ink/15 px-3 py-1.5 text-sm text-ink outline-none hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-pitch-400"
                   >
-                    {DESTINATION[b.kind].label}
+                    {destinationHref(b.kind).label}
                   </Link>
                 )}
               </li>

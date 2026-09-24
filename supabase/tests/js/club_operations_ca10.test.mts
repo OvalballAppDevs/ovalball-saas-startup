@@ -104,7 +104,11 @@ test("club requests use the team's two operations across every side, and the clu
   assert.match(more, /\{inClub && \(/)
   assert.match(more, /router\.push\("\/club\/teams" as never\)/)
   assert.match(more, /router\.push\("\/club\/requests" as never\)/)
-  assert.doesNotMatch(more, /Permissions|Safeguarding|Finance|Rollover/, "configuration stays in the Admin Centre")
+  // CA-M11.1: the club's jobs that were missing from the phone are offered from More, each behind the
+  // Admin Centre's own capability probe -- never a role. Configuration screens themselves stay in the Admin Centre.
+  assert.match(more, /s\.key === "rollover"\) && <Row/, "Season Handover is offered behind its section")
+  assert.match(more, /s\.key === "permissions"\) && <Row/, "Roles & Permissions is offered behind its section")
+  assert.doesNotMatch(more, /role === "CLUB_ADMIN"|isClubAdmin/, "no role label decides a row")
 })
 
 test("invitations are the canonical architecture and the read model carries no secret", () => {
@@ -112,18 +116,25 @@ test("invitations are the canonical architecture and the read model carries no s
   assert.match(inv, /rpc\("issue_invitation", \{\s*p_kind: "CLUB_STAFF"/)
   assert.match(inv, /rpc\("resend_invitation"/)
   assert.match(inv, /rpc\("revoke_invitation"/)
-  assert.doesNotMatch(inv, /token|code_hmac|token_sha256/, "no secret handled")
+  // CA-M11.1: the plaintext token and code are RETURNED ONCE to be shown (link, code, QR) as the website shows them;
+  // the hashes are never read and nothing is stored or logged.
+  assert.doesNotMatch(inv, /code_hmac|token_sha256|AsyncStorage|SecureStore|console\./, "no secret stored, hashed column read, or logged")
+  assert.match(inv, /token: row\?\.token \?\? null/, "the token is returned once, to be shown")
+  // CA-M11.1: the form lives in its own sheet with the website's inputs; an R refusal holds the form and steps up.
+  const sheet = code(join(MOBILE, "src/invitations/invite-staff-sheet.tsx"))
+  assert.match(sheet, /inviteClubStaff\(supabase/)
+  assert.match(sheet, /isRecentAuthRefusal\(cause\)/, "an R-gated invitation steps up rather than failing")
   const people = code(join(MOBILE, "app/(tabs)/admin/people/index.tsx"))
-  assert.match(people, /inviteClubStaff\(supabase/)
-  assert.match(people, /onStepUp=/, "an R-gated invitation steps up rather than failing")
+  assert.match(people, /pathname: "\/step-up", params: \{ returnTo: "\/admin\/people" \}/)
+  assert.match(people, /onStepUp=/, "the decision sheet still steps up")
 })
 
-test("pitch allocation is its own authority on the phone: a hand-off behind venue.pitch_allocation.manage, never fixture edit", () => {
+test("pitch allocation is its own authority on the phone: a native board behind venue.pitch_allocation.view/manage, never fixture edit", () => {
   const venues = code("packages/contracts/src/club/venues.ts")
   assert.match(venues, /allocate: allowed\.has\("venue\.pitch_allocation\.manage"\)/)
   const screen = code(join(MOBILE, "app/(tabs)/admin/venues/index.tsx"))
   assert.match(screen, /caps\.allocate/)
-  assert.match(screen, /calendar\/pitch-allocation/)
+  assert.match(screen, /\/admin\/pitch-allocation/, "CA-M11.1: the board is native")
   assert.doesNotMatch(screen, /fixture\.fixture\.edit|fixtureEdit/, "allocation is not inferred from fixture edit")
 })
 

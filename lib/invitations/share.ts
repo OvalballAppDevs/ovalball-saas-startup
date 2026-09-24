@@ -1,6 +1,7 @@
 import QRCode from "qrcode"
 
 import { getSiteUrl } from "@/lib/site-url"
+import { invitationJoinUrl as sharedJoinUrl } from "@ovalball/contracts/invitations/share"
 
 /**
  * SHARING AN INVITATION, WITHOUT INVENTING A SECOND WAY IN.
@@ -25,7 +26,8 @@ import { getSiteUrl } from "@/lib/site-url"
 
 /** The canonical redemption route. Every link, every QR, every share. */
 export function invitationJoinUrl(token: string): string {
-  return `${getSiteUrl()}/join?t=${encodeURIComponent(token)}`
+  // CA-M11.1: one URL shape for both clients, from the shared package.
+  return sharedJoinUrl(token, getSiteUrl())
 }
 
 /**
@@ -41,12 +43,6 @@ export async function invitationQrSvg(url: string): Promise<string> {
   return QRCode.toString(url, { type: "svg", margin: 1, errorCorrectionLevel: "M", width: 220 })
 }
 
-export interface InvitationOutcome {
-  /** Club-wide roles, already in product wording. */
-  clubRoles: string[]
-  /** One line per team: "Under 12 Boys: Coach". */
-  teamLines: string[]
-}
 
 /**
  * WHAT AN INVITATION WILL DO, FROM THE INVITATION'S OWN RECORD.
@@ -57,32 +53,9 @@ export interface InvitationOutcome {
  * invitation from the one that was sent. The shape is
  * `{ roles: string[], teams: [{ id, roles: string[] }] }`.
  */
-export function describeIntendedOutcome(
-  intendedOutcome: unknown,
-  teamName: (teamId: string) => string,
-  roleLabel: (roleKey: string) => string
-): InvitationOutcome {
-  const outcome = (intendedOutcome ?? {}) as { roles?: string[]; teams?: { id: string; roles?: string[] }[] }
-  const teams = outcome.teams ?? []
-  // A role that appears against a team is not ALSO a club-wide role -- the
-  // issuer's `roles` array carries both, and printing "Coach" beside "Under 12
-  // Boys: Coach" reads as two different grants.
-  const clubRoles = (outcome.roles ?? []).filter((r) => !teams.some((t) => (t.roles ?? []).includes(r)))
-  return {
-    clubRoles: clubRoles.map(roleLabel),
-    teamLines: teams.map((t) => `${teamName(t.id)}: ${(t.roles ?? []).map(roleLabel).join(", ")}`),
-  }
-}
 
 /** The outcome as the flat list a row or a share panel prints. */
-export function outcomeLines(outcome: InvitationOutcome): string[] {
-  return [...outcome.clubRoles, ...outcome.teamLines]
-}
 
 /** "25 September 2026", in the one format invitations use. */
-export function invitationExpiryLabel(expiresAt: string | Date | null): string | null {
-  if (!expiresAt) return null
-  const date = expiresAt instanceof Date ? expiresAt : new Date(expiresAt)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
-}
+
+export { describeIntendedOutcome, invitationExpiryLabel, outcomeLines, type InvitationOutcome } from "@ovalball/contracts/invitations/share"

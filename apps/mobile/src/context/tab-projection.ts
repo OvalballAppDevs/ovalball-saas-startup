@@ -41,6 +41,8 @@ export type TabKey =
   /** Reached from Home and More in a club context (CA-M10): Teams, a team from the club's side, Fixture Requests. A route group, never a cell. */
   | "club"
   | "security"
+  | "news"
+  | "announcements"
 
 export interface TabSpec {
   key: TabKey

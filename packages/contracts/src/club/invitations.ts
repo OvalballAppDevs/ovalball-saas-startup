@@ -39,26 +39,56 @@ export async function readInvitationCapabilities(supabase: Client, clubId: strin
   return { create: allowed.has("people.invitation.create"), revoke: allowed.has("people.invitation.revoke") }
 }
 
+/**
+ * THE CREDENTIAL, ONCE. `issue_invitation` returns the plaintext link token and the human code exactly
+ * once; the website shows them as a link, a code and a QR of the link (CA-M11.1: so does the phone).
+ * Neither client stores them: they are held in component state while the share panel is open and are
+ * gone when it closes. An already-open invitation returns no secret at all.
+ */
+export interface IssuedInvitation {
+  invitationId: string | null
+  alreadyExisted: boolean
+  token: string | null
+  code: string | null
+  expiresAt: string | null
+}
+
 export async function inviteClubStaff(
   supabase: Client,
-  input: { clubId: string; email: string; clubRoles: string[]; teamRoles?: { id: string; roles: string[] }[] }
-): Promise<{ invitationId: string | null; alreadyExisted: boolean }> {
+  input: { clubId: string; email: string; clubRoles: string[]; declaredRole?: string | null; teamRoles?: { id: string; roles: string[] }[] }
+): Promise<IssuedInvitation> {
   if (input.clubRoles.length === 0 && !(input.teamRoles && input.teamRoles.length > 0)) throw new Error("Choose a club role, a team role, or both.")
   const { data, error } = await supabase.rpc("issue_invitation", {
     p_kind: "CLUB_STAFF",
     p_club_id: input.clubId,
-    p_email: input.email.trim(),
-    p_intended_outcome: { roles: input.clubRoles, declared_role: null },
+    p_email: input.email.trim().toLowerCase(),
+    p_intended_outcome: { roles: input.clubRoles, declared_role: input.declaredRole?.trim() || null },
     p_team_roles: input.teamRoles && input.teamRoles.length > 0 ? input.teamRoles : undefined,
   })
   if (error) throw error
   const row = Array.isArray(data) ? data[0] : data
-  return { invitationId: row?.invitation_id ?? null, alreadyExisted: row?.already_existed === true }
+  return {
+    invitationId: row?.invitation_id ?? null,
+    alreadyExisted: row?.already_existed === true,
+    token: row?.token ?? null,
+    code: row?.code ?? null,
+    expiresAt: row?.expires_at ?? null,
+  }
 }
 
-export async function resendInvitation(supabase: Client, invitationId: string): Promise<void> {
-  const { error } = await supabase.rpc("resend_invitation", { p_invitation_id: invitationId })
+/** A resend is a REGENERATE: the server rotates the link and the code and resets the expiry. The previous ones stop working. */
+export async function resendInvitation(supabase: Client, invitationId: string): Promise<{ token: string | null; code: string | null; expiresAt: string | null }> {
+  const { data, error } = await supabase.rpc("resend_invitation", { p_invitation_id: invitationId })
   if (error) throw error
+  const row = Array.isArray(data) ? data[0] : data
+  return { token: row?.token ?? null, code: row?.code ?? null, expiresAt: row?.expires_at ?? null }
+}
+
+/** The club's teams, for the per-team role rows of the invitation form (the website offers one row per team). */
+export async function readInvitableTeams(supabase: Client, clubId: string): Promise<{ id: string; displayName: string }[]> {
+  const { data, error } = await supabase.from("teams").select("id, display_name").eq("club_id", clubId).eq("active", true).order("display_name")
+  if (error) throw error
+  return (data ?? []).map((t) => ({ id: t.id, displayName: t.display_name }))
 }
 
 export async function revokeInvitation(supabase: Client, invitationId: string, reason: string): Promise<void> {

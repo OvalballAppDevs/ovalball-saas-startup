@@ -21,8 +21,13 @@ import { AdminScreen } from "../../../../src/admin/screen"
 import { useAdminCentreAccess } from "../../../../src/admin/access"
 import { ReasonSheet, type ReasonAsk } from "../../../../src/admin/reason-sheet"
 import { resumedAsk, usePendingIntent } from "../../../../src/admin/pending-intent"
-import { inviteClubStaff, readInvitationCapabilities, readStaffRoleOptions, resendInvitation, revokeInvitation, type InvitationCapabilities, type StaffRoleOption } from "@ovalball/contracts/club/invitations"
+import { readInvitationCapabilities, resendInvitation, revokeInvitation, type InvitationCapabilities } from "@ovalball/contracts/club/invitations"
+import { invitationExpiryLabel, invitationJoinUrl, type InvitationShareData } from "@ovalball/contracts/invitations"
 import { Modal } from "react-native"
+import { InviteStaffSheet, type InviteStaffForm } from "../../../../src/invitations/invite-staff-sheet"
+import { holdIntent, takeIntent } from "../../../../src/admin/pending-intent"
+import { InvitationSharePanel } from "../../../../src/invitations/share-panel"
+import { webUrl } from "../../../../src/config/environment"
 import { supabase } from "../../../../src/auth/supabase"
 import { Search } from "../../../../src/components/icons"
 import { PersonRow } from "../../../../src/admin/person-row"
@@ -64,10 +69,10 @@ export default function PeopleScreen() {
   // INVITATIONS (CA-M10): the canonical architecture -- issue, resend, revoke -- offered only where the
   // club-scope probe says so. Issuing needs recent authentication, so a refusal steps up and returns.
   const [inviteCaps, setInviteCaps] = useState<InvitationCapabilities>({ create: false, revoke: false })
-  const [roleOptions, setRoleOptions] = useState<StaffRoleOption[]>([])
   const [inviteOpen, setInviteOpen] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState("")
-  const [inviteRole, setInviteRole] = useState<string | null>(null)
+  const [inviteInitial, setInviteInitial] = useState<InviteStaffForm | null>(null)
+  // A RESEND ROTATES THE SECRET: the new link and code are shown once, as the website shows them.
+  const [reissued, setReissued] = useState<InvitationShareData | null>(null)
   const pending = usePendingIntent("people:invitations")
   const [ask, setAsk] = useState<ReasonAsk | null>(null)
   const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null)
@@ -126,42 +131,27 @@ export default function PeopleScreen() {
       void load(0)
       const resume = pending.take()
       if (resume) setAsk(resumedAsk(resume))
+      // The invitation form held across a step-up comes back filled, for the person to confirm again.
+      const heldForm = takeIntent<InviteStaffForm>("people:invite-form")
+      if (heldForm) {
+        setInviteInitial(heldForm)
+        setInviteOpen(true)
+      }
     }, [load, pending])
   )
   useEffect(() => {
     if (!clubId) return
     let live = true
     void readInvitationCapabilities(supabase, clubId).then((c) => { if (live) setInviteCaps(c) }).catch(() => undefined)
-    void readStaffRoleOptions(supabase).then((o) => { if (live) setRoleOptions(o.filter((r) => !r.heldAtTeam)) }).catch(() => undefined)
     return () => { live = false }
   }, [clubId])
-
-  function invite() {
-    if (!clubId || !inviteEmail.trim() || !inviteRole) return
-    const email = inviteEmail.trim()
-    const role = inviteRole
-    setInviteOpen(false)
-    setAsk({
-      title: `Invite ${email}?`,
-      body: `They receive an email and join the club as ${roleOptions.find((r) => r.roleKey === role)?.label ?? role} when they accept.`,
-      confirmLabel: "Send Invitation",
-      reason: "none",
-      onConfirm: async () => {
-        const result = await inviteClubStaff(supabase, { clubId, email, clubRoles: [role] })
-        setNotice({ tone: "ok", text: result.alreadyExisted ? "An invitation to that address is already open." : `Invitation sent to ${email}.` })
-        setInviteEmail("")
-        setInviteRole(null)
-        await load(0)
-      },
-    })
-  }
 
   function invitationAction(p: ClubPerson, action: "resend" | "revoke") {
     if (!p.invitationId) return
     const who = p.invitationEmail ?? "this invitation"
     setAsk(
       action === "resend"
-        ? { title: `Resend to ${who}?`, body: "The same invitation goes again; nothing else changes.", confirmLabel: "Resend", reason: "none", onConfirm: async () => { await resendInvitation(supabase, p.invitationId!); setNotice({ tone: "ok", text: "Resent." }); await load(0) } }
+        ? { title: `Reissue the invitation to ${who}?`, body: "A new link and a new code are created; the ones they were sent before stop working.", confirmLabel: "Reissue", reason: "none", onConfirm: async () => { const next = await resendInvitation(supabase, p.invitationId!); if (next.token) setReissued({ url: invitationJoinUrl(next.token, webUrl), code: next.code, outcome: [], expiresLabel: invitationExpiryLabel(next.expiresAt), sentTo: null, replacesPrevious: true }); setNotice({ tone: "ok", text: "Reissued." }); await load(0) } }
         : { title: `Revoke the invitation to ${who}?`, body: "The link stops working. The reason is recorded.", confirmLabel: "Revoke", destructive: true, reason: "required", onConfirm: async (reason) => { await revokeInvitation(supabase, p.invitationId!, reason); setNotice({ tone: "ok", text: "Revoked." }); await load(0) } }
     )
   }
@@ -253,7 +243,7 @@ export default function PeopleScreen() {
                 <PersonRow person={p} avatarUrl={p.avatarStoragePath ? (avatars.get(p.avatarStoragePath) ?? null) : null} first={i === 0} onPress={p.membershipId ? () => router.push(`/admin/people/${p.membershipId}` as never) : undefined} />
                 {p.kind === "invited" && !!p.invitationId && (inviteCaps.create || inviteCaps.revoke) && (
                   <View style={{ flexDirection: "row", gap: space.sm, paddingHorizontal: space.lg, paddingBottom: space.md }}>
-                    {inviteCaps.create && <Button label="Resend" variant="quiet" onPress={() => invitationAction(p, "resend")} />}
+                    {inviteCaps.create && <Button label="Reissue" variant="quiet" onPress={() => invitationAction(p, "resend")} />}
                     {inviteCaps.revoke && <Button label="Revoke" variant="quiet" onPress={() => invitationAction(p, "revoke")} />}
                   </View>
                 )}
@@ -266,23 +256,26 @@ export default function PeopleScreen() {
 
       {inviteCaps.create && <Button label="Invite Staff" variant="secondary" onPress={() => setInviteOpen(true)} />}
 
-      <Modal visible={inviteOpen} transparent animationType="fade" onRequestClose={() => setInviteOpen(false)}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setInviteOpen(false)} style={{ flex: 1, backgroundColor: "rgba(7,28,20,0.45)", justifyContent: "flex-end" }}>
+      {clubId && (
+        <InviteStaffSheet
+          clubId={clubId}
+          visible={inviteOpen}
+          initial={inviteInitial}
+          onClose={() => { setInviteOpen(false); setInviteInitial(null) }}
+          onIssued={() => void load(0)}
+          onRecentAuthRequired={(form) => {
+            holdIntent<InviteStaffForm>("people:invite-form", form)
+            setInviteOpen(false)
+            router.push({ pathname: "/step-up", params: { returnTo: "/admin/people" } } as never)
+          }}
+        />
+      )}
+
+      <Modal visible={reissued !== null} transparent animationType="fade" onRequestClose={() => setReissued(null)}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setReissued(null)} style={{ flex: 1, backgroundColor: "rgba(7,28,20,0.45)", justifyContent: "flex-end" }}>
           <Pressable onPress={() => undefined} style={{ backgroundColor: colour.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: space.lg, paddingBottom: space.xxl, gap: space.md }}>
-            <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>Invite Staff</Text>
-            <Text style={[type.caption, { color: colour.inkMuted }]}>An email invitation to join the club with a role. The server decides which roles you may give.</Text>
-            <TextInput accessibilityLabel="Email address" value={inviteEmail} onChangeText={setInviteEmail} placeholder="Their email address" placeholderTextColor={colour.inkSubtle} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" style={[type.body, { minHeight: TOUCH_TARGET, borderWidth: 1, borderColor: colour.lineStrong, borderRadius: radius.md, paddingHorizontal: space.md, color: colour.ink }]} />
-            <View accessibilityRole="radiogroup" accessibilityLabel="Role" style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-              {roleOptions.map((r) => {
-                const on = inviteRole === r.roleKey
-                return (
-                  <Pressable key={r.roleKey} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={r.label} onPress={() => setInviteRole(r.roleKey)} style={{ minHeight: 40, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.forest800 : colour.lineStrong, backgroundColor: on ? colour.forest800 : colour.surface, justifyContent: "center" }}>
-                    <Text style={[type.small, { color: on ? colour.onForest : colour.ink }]}>{r.label}</Text>
-                  </Pressable>
-                )
-              })}
-            </View>
-            <Button label="Continue" onPress={invite} disabled={!inviteEmail.trim() || !inviteRole} />
+            <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>Invitation reissued</Text>
+            {reissued && <InvitationSharePanel share={reissued} onDone={() => setReissued(null)} />}
           </Pressable>
         </Pressable>
       </Modal>

@@ -5,6 +5,17 @@ import { ChevronRight, UserRound } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  PLAYER_FILTERS,
+  matchesPlayerFilter,
+  plannedPlacementVerdict,
+  playerStatusLabel,
+  playerStatusTone,
+  type PlayerFilter,
+  type PlayerProposalRow,
+  type PlayerReviewState,
+  type PlayerStatusTone,
+} from "@ovalball/contracts/club/handover"
 
 import {
   clearPlayerPlacement,
@@ -37,81 +48,26 @@ import {
  * placement can be changed back right up to that point.
  */
 
-export type PlayerReviewState = "READY" | "NEEDS_ATTENTION" | "BLOCKED"
-
-export interface PlayerProposalRow {
-  proposalId: string
-  playerId: string
-  playerName: string
-  /** As the team stands now -- where the player is today. */
-  currentTeamName: string
-  /** The operational squad they normally land in next season, e.g. "U16 B". */
-  normalPlacementName: string | null
-  /** What the club chose, when that differs from normal. */
-  selectedPlacementName: string | null
-  /** Their age grade next season. Supporting information, not the placement. */
-  regulatoryAgeLabel: string | null
-  reviewState: PlayerReviewState
-  allocationStatus: string | null
-  movementRequirement: string | null
-  dispensationRequired: boolean
-  reason: string | null
-  placementApplied: boolean
-  /** True when the club runs no team at the player's normal age grade. */
-  normalTeamMissing: boolean
-  /** The club has decided to run the team this player needs. */
-  plannedTeamName: string | null
-  /** False once Apply has created it -- the board must stop saying "will be created". */
-  plannedTeamPending: boolean
-  /** A human chose this placement, so it can be put back to the normal one. */
-  placementChosen: boolean
-}
-
-type Filter = "all" | "attention" | "approval" | "holding" | "ready"
-
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "attention", label: "Needs attention" },
-  { key: "approval", label: "Awaiting approval" },
-  { key: "holding", label: "Club holding" },
-  { key: "ready", label: "Ready" },
-]
+export type { PlayerProposalRow, PlayerReviewState }
 
 /**
- * Domain states become rugby language. A club administrator should never meet
- * NORMAL_PLACEMENT or a canonical type id.
+ * The status word, its precedence and the filters are the shared contract's
+ * (`playerStatusLabel`, `matchesPlayerFilter`), so the phone says the same
+ * thing about the same row. Only the tint is the web's own: a semantic tone
+ * from the contract, rendered here as Tailwind classes.
  */
-function statusLabel(row: PlayerProposalRow): string {
-  if (row.placementApplied) return "Placed"
-  if (row.plannedTeamName && row.plannedTeamPending) return "Team planned"
-  if (row.allocationStatus === "DOB_REQUIRED") return "Date of birth needed"
-  if (row.allocationStatus === "CLUB_HOLDING") return "Club holding"
-  if (row.reviewState === "BLOCKED") return "Not permitted"
-  if (row.dispensationRequired || row.movementRequirement === "external_approval_required") return "Governing approval"
-  if (row.reviewState === "NEEDS_ATTENTION") return "Needs attention"
-  return "Ready"
+const TONE_CLASSES: Record<PlayerStatusTone, string> = {
+  positive: "bg-mint-100 text-forest-950",
+  neutral: "bg-ink/5 text-ink/80",
+  negative: "bg-destructive/10 text-destructive-text",
+  caution: "bg-amber-50 text-amber-900",
 }
 
-/**
- * Status is carried by the word. The tint is a third signal after the label and
- * the row's own explanation, never the only one.
- */
-function statusTone(row: PlayerProposalRow): string {
-  const label = statusLabel(row)
-  if (label === "Ready" || label === "Placed" || label === "Team planned") return "bg-mint-100 text-forest-950"
-  if (label === "Club holding") return "bg-ink/5 text-ink/80"
-  if (label === "Not permitted") return "bg-destructive/10 text-destructive-text"
-  return "bg-amber-50 text-amber-900"
-}
-
-function matchesFilter(row: PlayerProposalRow, filter: Filter): boolean {
-  if (filter === "all") return true
-  if (filter === "ready") return row.reviewState === "READY"
-  if (filter === "holding") return row.allocationStatus === "CLUB_HOLDING"
-  if (filter === "approval")
-    return row.dispensationRequired || row.movementRequirement === "external_approval_required"
-  return row.reviewState !== "READY"
-}
+const statusLabel = playerStatusLabel
+const statusTone = (row: PlayerProposalRow): string => TONE_CLASSES[playerStatusTone(row)]
+const matchesFilter = matchesPlayerFilter
+const FILTERS = PLAYER_FILTERS
+type Filter = PlayerFilter
 
 export function PlayerHandoverProposals({ rows, toSeasonName }: { rows: PlayerProposalRow[]; toSeasonName: string | null }) {
   const [filter, setFilter] = useState<Filter>("all")
@@ -485,13 +441,7 @@ function ChangePlacementDialog({
                       setError(res.error)
                       setVerdict(null)
                     } else {
-                      setVerdict({
-                        overrideKind: null,
-                        movementRequirement: null,
-                        reviewState: "READY",
-                        reason: `${o.displayName} will be created when this handover is applied, and ${row.playerName.split(" ")[0]} joins it then.`,
-                        dispensationRequired: false,
-                      })
+                      setVerdict(plannedPlacementVerdict(o.displayName, row.playerName))
                       onAnnounce(`${o.displayName} will be created when this handover is applied.`)
                     }
                     return

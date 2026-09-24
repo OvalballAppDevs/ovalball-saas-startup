@@ -140,6 +140,24 @@ export function routeForIntent(intent: LinkIntent): Route | null {
         default:
           return { pathname: "/", params: { teamId: intent.teamId } }
       }
+    // SAFEGUARDING (CA-M11.1): one screen, which shows each person only what the server lets them read.
+    case "SAFEGUARDING":
+      return { pathname: "/admin/safeguarding" }
+    case "SAFEGUARDING_THREAD":
+      return { pathname: "/admin/safeguarding/threads/[conversationId]", params: { conversationId: intent.conversationId } }
+    // GUARDIANS & PLAYERS (CA-M11.1): the Admin Centre's own screens. Each asks the server what this
+    // person may do the moment it loads; the address only says which queue was meant.
+    case "CLUB_GUARDIANS":
+      switch (intent.section) {
+        case "link-requests":
+          return { pathname: "/admin/guardians/link-requests" }
+        case "join-requests":
+          return { pathname: "/admin/guardians/join-requests" }
+        case "moves":
+          return { pathname: "/admin/guardians/moves" }
+        default:
+          return { pathname: "/admin/guardians" }
+      }
     // A recovery code, an unbuilt destination and an unrecognised link are all
     // handled by the people who understand them, not by a route table.
     case "JOIN":

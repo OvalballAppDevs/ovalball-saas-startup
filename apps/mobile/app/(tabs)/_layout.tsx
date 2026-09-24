@@ -115,6 +115,12 @@ const ALL: { key: TabKey; title: string }[] = [
   { key: "profile", title: "Profile" },
   { key: "club", title: "Club" },
   { key: "security", title: "Security" },
+  // EVERY ROUTE GROUP UNDER THE TAB FOLDER MUST BE DECLARED HERE, hidden or not. An undeclared group is
+  // auto-registered by the router with the library's "missing icon" glyph -- which is exactly the two
+  // stray arrow cells the owner saw beside More (CA-M11.1). News and Announcements are reached from
+  // Home and More, never from the bar.
+  { key: "news", title: "News" },
+  { key: "announcements", title: "Announcements" },
   { key: "more", title: "More" },
 ]
 

@@ -5,7 +5,19 @@ import { useRouter } from "next/navigation"
 import { AlertTriangle, CheckCircle2, Undo2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { YOUTH_AGE_GROUPS as AGE_GROUPS } from "@/lib/teams/age-groups"
+import {
+  YOUTH_AGE_GROUPS as AGE_GROUPS,
+  bulkConfirmCandidates,
+  decisionAfter,
+  groupProposalsByAgeGrade,
+  mixedBoundaryLabel,
+  noAutomaticSuccessor,
+  teamDecisionLabel,
+  type RolloverBatch,
+  type RolloverGroupFlagRow,
+  type RolloverTeamProposalRow,
+  type SeasonOption,
+} from "@ovalball/contracts/club/handover"
 
 import {
   confirmMixedBoundaryRollover,
@@ -29,46 +41,7 @@ import {
  * club may progress the primary and fold the B squad in the same handover.
  */
 
-export interface RolloverTeamProposalRow {
-  id: string
-  teamId: string
-  teamDisplayName: string
-  teamGender: "boys" | "girls" | "mixed" | "mens" | "womens" | null
-  teamSquadDesignation: string | null
-  currentAgeGroup: string
-  proposedAgeGroup: string | null
-  requiresManualChoice: boolean
-  isMixedBoundary: boolean
-  decision: "pending" | "confirmed" | "folded" | "deferred" | "graduated"
-  decidedAgeGroup: string | null
-  girlsTeamCreated: boolean | null
-  createGirlsTeam: boolean | null
-  foldReason: string | null
-  /** Once the handover has run, its decisions are history and cannot be changed here. */
-  applied: boolean
-}
-
-export interface RolloverGroupFlagRow {
-  id: string
-  displayTag: string
-  reason: string
-  resolved: boolean
-}
-
-export interface RolloverBatch {
-  id: string
-  fromSeasonName: string | null
-  toSeasonName: string
-  createdAt: string
-  isApplied: boolean
-  proposals: RolloverTeamProposalRow[]
-  groupFlags: RolloverGroupFlagRow[]
-}
-
-export interface SeasonOption {
-  id: string
-  name: string
-}
+export type { RolloverBatch, RolloverGroupFlagRow, RolloverTeamProposalRow, SeasonOption }
 
 export function RolloverReview({
   clubId,
@@ -150,27 +123,13 @@ function BatchCard({ batch }: { batch: RolloverBatch }) {
 
   // Grouped by the age grade they are at TODAY, which is how a club reads its
   // own structure. Squads sit under their primary and are decided separately.
-  const groups = useMemo(() => {
-    const byAge = new Map<string, RolloverTeamProposalRow[]>()
-    for (const p of batch.proposals) {
-      const list = byAge.get(p.currentAgeGroup) ?? []
-      list.push(p)
-      byAge.set(p.currentAgeGroup, list)
-    }
-    return [...byAge.entries()]
-      .map(([age, rows]) => ({
-        age,
-        rows: rows.sort((a, b) => (a.teamSquadDesignation ?? "").localeCompare(b.teamSquadDesignation ?? "")),
-      }))
-      .sort((a, b) => a.age.localeCompare(b.age, undefined, { numeric: true }))
-  }, [batch.proposals])
+  // The grouping and the "straightforward" rule are the shared contract's.
+  const groups = useMemo(() => groupProposalsByAgeGrade(batch.proposals), [batch.proposals])
 
   // Bulk confirm records decisions and nothing else. Anything exceptional --
   // a Mixed split, a cohort with no automatic successor -- is deliberately
   // left out: those are the cases a human is here to answer.
-  const bulkCandidates = batch.proposals.filter(
-    (p) => p.decision === "pending" && !p.requiresManualChoice && !p.isMixedBoundary && p.proposedAgeGroup
-  )
+  const bulkCandidates = bulkConfirmCandidates(batch.proposals)
 
   async function handleBulkConfirm() {
     setBulkWorking(true)
@@ -348,14 +307,7 @@ function MixedBoundaryProposalRow({ proposal }: { proposal: RolloverTeamProposal
       <li className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
         <span className="text-sm font-medium text-ink">{proposal.teamDisplayName}</span>
         <span className="flex flex-wrap items-center gap-3 text-sm text-forest-800">
-          <span>
-            {proposal.currentAgeGroup} Mixed &rarr; {proposal.proposedAgeGroup} Boys
-            {girlsPlanned
-              ? proposal.applied
-                ? ` · ${proposal.proposedAgeGroup} Girls created`
-                : ` · ${proposal.proposedAgeGroup} Girls will be created`
-              : " · no Girls team"}
-          </span>
+          <span>{mixedBoundaryLabel(proposal, girlsPlanned)}</span>
           {!proposal.applied && <UndoDecision proposalId={proposal.id} onDone={() => setDecision("pending")} />}
         </span>
       </li>
@@ -505,35 +457,14 @@ function TeamProposalRow({ proposal }: { proposal: RolloverTeamProposalRow }) {
       setError(result.error)
       return
     }
-    setDecision(
-      action === "confirm" || action === "adjust"
-        ? "confirmed"
-        : action === "fold"
-          ? "folded"
-          : action === "graduate"
-            ? "graduated"
-            : "deferred"
-    )
+    setDecision(decisionAfter(action))
     setDecidedAgeGroup(ageGroup)
     setAdjusting(false)
     setFolding(false)
   }
 
   if (decision !== "pending") {
-    const label =
-      decision === "confirmed"
-        ? proposal.applied
-          ? `Became ${decidedAgeGroup}`
-          : `Decided: becomes ${decidedAgeGroup}`
-        : decision === "folded"
-          ? proposal.applied
-            ? "Not continuing"
-            : "Decided: will not continue"
-          : decision === "graduated"
-            ? proposal.applied
-              ? "Youth pathway complete"
-              : "Decided: youth pathway complete"
-            : "Deferred — still needs a decision"
+    const label = teamDecisionLabel(decision, decidedAgeGroup, proposal.applied)
     return (
       <li className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
         <div className="text-sm">
@@ -553,7 +484,7 @@ function TeamProposalRow({ proposal }: { proposal: RolloverTeamProposalRow }) {
     )
   }
 
-  const noSuccessor = proposal.requiresManualChoice && !proposal.proposedAgeGroup
+  const noSuccessor = noAutomaticSuccessor(proposal)
 
   return (
     <li className="px-5 py-3.5">

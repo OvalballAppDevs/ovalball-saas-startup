@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { consequenceSentence, splitConsequences, type HandoverConsequence } from "@ovalball/contracts/club/handover"
 
 /**
  * The transition ledger.
@@ -8,16 +9,12 @@ import Link from "next/link"
  * and every one of those statements is in the FUTURE tense until the handover
  * runs -- "will become", "will be created", "will not continue". The tense is
  * decided by the server (handover_consequences), so this cannot drift into
- * telling somebody a team was added when it has not been.
+ * telling somebody a team was added when it has not been. The words themselves
+ * come from the shared contract (`consequenceSentence`), so the phone reads
+ * the same ledger.
  */
 
-export interface HandoverConsequence {
-  kind: "progress" | "graduate" | "fold" | "plan" | "created" | "reactivated" | "undecided"
-  fromLabel: string | null
-  toLabel: string | null
-  note: string | null
-  isApplied: boolean
-}
+export type { HandoverConsequence }
 
 export interface OverviewCounts {
   teamsTotal: number
@@ -29,63 +26,15 @@ export interface OverviewCounts {
 }
 
 function ConsequenceLine({ c }: { c: HandoverConsequence }) {
-  const applied = c.isApplied
-  let sentence: React.ReactNode
-  switch (c.kind) {
-    case "undecided":
-      sentence = (
-        <>
-          <span className="font-medium text-ink">{c.fromLabel}</span>
-          <span className="text-ink-muted"> {c.toLabel ? `would normally become ${c.toLabel}` : "has no proposed destination"} </span>
-          <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-900">Needs a decision</span>
-        </>
-      )
-      break
-    case "progress":
-      sentence = (
-        <>
-          <span className="font-medium text-ink">{c.fromLabel}</span>
-          <span className="text-ink-muted"> {applied ? "became" : "will become"} </span>
-          <span className="font-medium text-ink">{c.toLabel}</span>
-        </>
-      )
-      break
-    case "graduate":
-      sentence = (
-        <>
-          <span className="font-medium text-ink">{c.fromLabel}</span>
-          <span className="text-ink-muted"> {applied ? "completed" : "completes"} the youth pathway</span>
-        </>
-      )
-      break
-    case "fold":
-      sentence = (
-        <>
-          <span className="font-medium text-ink">{c.fromLabel}</span>
-          <span className="text-ink-muted"> {applied ? "did not continue" : "will not continue"}</span>
-        </>
-      )
-      break
-    case "reactivated":
-      sentence = (
-        <>
-          <span className="font-medium text-ink">{c.toLabel}</span>
-          <span className="text-ink-muted"> {applied ? "was reactivated" : "will be reactivated"}</span>
-        </>
-      )
-      break
-    default:
-      sentence = (
-        <>
-          <span className="font-medium text-ink">{c.toLabel}</span>
-          <span className="text-ink-muted"> {applied ? "was created" : "will be created"}</span>
-        </>
-      )
-  }
-
+  const s = consequenceSentence(c)
   return (
     <li className="px-5 py-3.5">
-      <p className="text-sm">{sentence}</p>
+      <p className="text-sm">
+        <span className="font-medium text-ink">{s.subject}</span>
+        <span className="text-ink-muted"> {s.verb} </span>
+        {s.object && <span className="font-medium text-ink">{s.object}</span>}
+        {s.needsDecision && <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-900">Needs a decision</span>}
+      </p>
       {c.note && <p className="mt-0.5 text-sm text-ink-muted">{c.note}</p>}
     </li>
   )
@@ -118,9 +67,8 @@ export function HandoverOverview({
     )
   }
 
-  const teamLines = consequences.filter((c) => c.kind !== "plan" && c.kind !== "created" && c.kind !== "reactivated")
+  const { teamLines, newLines } = splitConsequences(consequences)
   const undecided = teamLines.filter((c) => c.kind === "undecided").length
-  const newLines = consequences.filter((c) => c.kind === "plan" || c.kind === "created" || c.kind === "reactivated")
 
   return (
     <div className="space-y-6">

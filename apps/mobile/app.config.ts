@@ -67,6 +67,8 @@ const config: ExpoConfig = {
   plugins: [
     ["expo-router", {}],
     ["expo-secure-store", {}],
+    // The camera reads an invitation's QR code (CA-M11.1) and nothing else; the sentence is the one iOS shows.
+    ["expo-camera", { cameraPermission: "Ovalball uses the camera to read an invitation's QR code." }],
     // The launch screen is the brand ground, so the first rendered frame is the same colour and
     // the app never flashes white on the way in.
     [

@@ -4,19 +4,11 @@ import { useState } from "react"
 import { GraduationCap } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import type { GraduationQueueRow, GraduationTargetTeamOption } from "@ovalball/contracts/club/handover"
 
 import { markGraduatingPlayerLeft, placeGraduatingPlayer } from "./actions"
 
-export interface GraduationTargetTeamOption {
-  id: string
-  displayName: string
-}
-
-export interface GraduationQueueRow {
-  id: string
-  playerName: string
-  previousTeamName: string
-}
+export type { GraduationQueueRow, GraduationTargetTeamOption }
 
 /**
  * RESUME SEASON HANDOVER Section 21-22: a real review surface for

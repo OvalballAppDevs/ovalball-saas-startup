@@ -16,8 +16,9 @@ type Client = SupabaseClient<Database>
  *
  * WHAT IS NOT HERE, deliberately: tournament invitations and competition verifications (their
  * readers are not yet shared), season handover blockers (a desk job the app hands to the web), and
- * anything safeguarding -- guardian link approvals and dispensations stay on the website's own
- * surfaces (docs/mobile/CA_M8_NOTIFICATIONS_ACTION_CENTRE_MAP.md records each).
+ * anything safeguarding -- guardian link approvals and dispensations are read on the Guardians &
+ * Players screens themselves (CA-M11.1) rather than counted here
+ * (docs/mobile/CA_M8_NOTIFICATIONS_ACTION_CENTRE_MAP.md records each).
  */
 export const CLUB_ATTENTION_KEYS = {
   joinRequests: "people.member.view",
@@ -102,7 +103,7 @@ export async function loadClubAttention(supabase: Client, clubId: string, todayI
         priority: "needs_action",
         title: playerJoins === 1 ? "1 player has asked to join the club" : `${playerJoins} players have asked to join the club`,
         summary: "Decide which side each one joins",
-        destination: { kind: "web", href: "/club/join-requests" },
+        destination: { kind: "club_player_join_requests" },
         createdAt: null,
         dueAt: null,
         count: playerJoins,

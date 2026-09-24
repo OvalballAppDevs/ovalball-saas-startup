@@ -7,9 +7,17 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  APPLY_AUTHORITY_SENTENCE,
+  APPLY_IRREVERSIBLE_SENTENCE,
+  applyConfirmationLines,
+  applyOutcomeSentence,
+  consequenceCounts,
+  handoverEventWord,
+  type HandoverConsequence,
+} from "@ovalball/contracts/club/handover"
 
 import { applySeasonHandover } from "./actions"
-import type { HandoverConsequence } from "./handover-overview"
 
 /**
  * The Apply surface.
@@ -29,29 +37,6 @@ export interface AuditEntry {
   at: string
   event: string
   actorName: string
-}
-
-const EVENT_WORDS: Record<string, string> = {
-  HANDOVER_TEAM_DECISION_RECORDED: "Team decision recorded",
-  HANDOVER_TEAM_DECISION_WITHDRAWN: "Team decision withdrawn",
-  HANDOVER_MIXED_SPLIT_DECIDED: "Mixed age-grade split decided",
-  HANDOVER_TEAM_PLANNED: "Team added to next season's plan",
-  HANDOVER_PLACEMENT_DECIDED: "Player placement chosen",
-  HANDOVER_PLACEMENT_DECIDED_PLANNED: "Player placed into a planned team",
-  HANDOVER_PLACEMENT_WITHDRAWN: "Player placement withdrawn",
-  HANDOVER_PLACEMENT_APPLIED: "Player moved",
-  HANDOVER_TEAM_PROGRESSED: "Team progressed",
-  HANDOVER_TEAM_CREATED: "Team created",
-  HANDOVER_TEAM_REACTIVATED: "Team reactivated",
-  SEASON_HANDOVER_APPLIED: "Season Handover applied",
-  // Recorded by the pre-staged model, which created the team during review.
-  SUCCESSOR_TEAM_CREATED_AT_HANDOVER: "Team created (before the staged model)",
-  U6_INTAKE_TEAM_CREATED: "U6 intake team created",
-  U6_INTAKE_TEAM_REACTIVATED: "U6 intake team reactivated",
-  GRADUATED_AT_HANDOVER: "Cohort graduated",
-  mixed_boundary_boys_continuation: "Mixed cohort continued as Boys",
-  mixed_boundary_girls_team_created: "Girls team created",
-  folded: "Team folded",
 }
 
 export function HandoverApply({
@@ -83,13 +68,10 @@ export function HandoverApply({
   const [outcome, setOutcome] = useState<string | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
-  const progressing = consequences.filter((c) => c.kind === "progress").length
-  const folding = consequences.filter((c) => c.kind === "fold").length
-  const graduating = consequences.filter((c) => c.kind === "graduate").length
-  // After Apply the same rows come back as "created"/"reactivated" rather than
-  // "plan", so counting only planned ones would report a completed handover as
-  // having created nothing.
-  const creating = consequences.filter((c) => c.kind === "plan" || c.kind === "created" || c.kind === "reactivated").length
+  // The counts, including the rule that "plan", "created" and "reactivated" all count as created or
+  // reactivated, come from the shared contract so an applied handover is never reported as creating nothing.
+  const counts = consequenceCounts(consequences)
+  const { progressing, folding, graduating, creating } = counts
 
   async function handleApply() {
     if (!rolloverId) return
@@ -102,11 +84,7 @@ export function HandoverApply({
       return
     }
     setConfirming(false)
-    setOutcome(
-      result.alreadyApplied
-        ? "This handover had already been applied, so nothing was changed again."
-        : `${result.teamsProgressed} team${result.teamsProgressed === 1 ? "" : "s"} progressed, ${result.teamsCreated + result.teamsReactivated} created or reactivated, ${result.playersMoved} player${result.playersMoved === 1 ? "" : "s"} moved.`
-    )
+    setOutcome(applyOutcomeSentence(result))
     router.refresh()
   }
 
@@ -192,9 +170,7 @@ export function HandoverApply({
                 Apply handover to {toSeasonName ?? "next season"}
               </Button>
             ) : (
-              <p className="text-sm text-ink/60">
-                Reviewing a handover and running it are different authorities. Only a Club Admin can apply it.
-              </p>
+              <p className="text-sm text-ink/60">{APPLY_AUTHORITY_SENTENCE}</p>
             )}
             {blockerCount > 0 && (
               <p id="apply-blocked-reason" className="mt-2 text-sm text-ink/60">
@@ -231,7 +207,7 @@ export function HandoverApply({
           <ul className="divide-y divide-ink/8">
             {audit.map((a, i) => (
               <li key={`${a.at}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3">
-                <span className="text-sm text-ink">{EVENT_WORDS[a.event] ?? a.event}</span>
+                <span className="text-sm text-ink">{handoverEventWord(a.event)}</span>
                 <span className="text-sm text-ink-muted">
                   {a.actorName} ·{" "}
                   {new Date(a.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
@@ -255,18 +231,11 @@ export function HandoverApply({
             <DialogDescription>These reviewed decisions will now update the club for the new season.</DialogDescription>
           </DialogHeader>
           <ul className="space-y-1.5 text-sm text-ink/70">
-            <li>{progressing} team{progressing === 1 ? "" : "s"} move up an age grade, keeping their history.</li>
-            {creating > 0 && <li>{creating} team{creating === 1 ? "" : "s"} will be created.</li>}
-            {graduating > 0 && (
-              <li>
-                {graduating} cohort{graduating === 1 ? "" : "s"} complete the youth pathway. Their players move to the club&apos;s
-                holding list — no senior team is assigned automatically.
-              </li>
-            )}
-            {folding > 0 && <li>{folding} team{folding === 1 ? "" : "s"} will not continue. Their fixtures and results stay available.</li>}
-            <li>Players move to the teams recorded against them.</li>
+            {applyConfirmationLines(counts).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
           </ul>
-          <p className="text-sm text-ink-muted">This cannot be undone from the handover board.</p>
+          <p className="text-sm text-ink-muted">{APPLY_IRREVERSIBLE_SENTENCE}</p>
           {error && (
             <p role="alert" className="text-sm text-destructive-text">
               {error}
