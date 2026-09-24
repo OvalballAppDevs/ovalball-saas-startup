@@ -11,6 +11,14 @@
 #
 set -uo pipefail
 
+# CA-M11.2 incidental fix, out of this slice's own scope: FAILED was read at
+# `FAILED=$((FAILED + 1))` below without ever being initialised, so `set -u`
+# made the FIRST such increment a hard, silent exit before a single SQL suite
+# ran -- discovered only because this slice needed a genuine whole-gate run
+# for its own acceptance evidence. Purely mechanical; no suite's pass/fail
+# semantics change.
+FAILED=0
+
 # Repository-level guard: the ONE CANONICAL TEAM DIRECTORY invariant. Runs
 # before the SQL suites because a second hardcoded catalogue is an
 # architectural regression, not a data one.

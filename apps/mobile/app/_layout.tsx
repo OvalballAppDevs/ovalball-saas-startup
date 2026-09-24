@@ -7,6 +7,7 @@ import { useFonts } from "expo-font"
 import { BebasNeue_400Regular } from "@expo-google-fonts/bebas-neue"
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { View } from "react-native"
 
 import { SessionProvider, useSession } from "../src/auth/session"
@@ -248,6 +249,9 @@ export default function RootLayout() {
   // this is normally a frame; but if loading fails on some platform, Ovalball must still be usable in
   // the system face. React Native ignores an unknown fontFamily and falls back, so the layout holds.
   return (
+    // THE GESTURE ROOT (CA-M11.2): the pitch allocation board's press-and-hold drags are native gestures,
+    // and react-native-gesture-handler needs one root view above every screen that uses them.
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <StatusBar style="auto" />
       <SessionProvider>
@@ -263,5 +267,6 @@ export default function RootLayout() {
         </ContextProvider>
       </SessionProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   )
 }

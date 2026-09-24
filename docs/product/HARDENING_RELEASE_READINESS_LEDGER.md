@@ -1013,7 +1013,18 @@ TO-E9/E10 comments rather than assertions.
   placement (only proposals stop); a `.manage` holder without fixture edit can build a proposal but cannot
   save it. The website's own server actions additionally gate on the legacy `fixture.edit` key, and the
   policy table's RLS names `fixture.edit`. Aligning the RPC (or adding a pitch-allocation-specific write)
-  is an authority change: reported here, not made.
+  is an authority change: reported here, not made. **CA-M11.2 deep-dived this fully** (root-cause
+  archaeology across every migration, catalogue row, RLS policy, bundle, preset and test that touches
+  either key) and produced a recommendation, still unapplied:
+  `docs/mobile/CA_M11_2_H32_PITCH_AUTHORITY_PROPOSAL.md`. The recommendation is a dedicated
+  `allocate_fixture_pitch` RPC gated on `venue.pitch_allocation.manage` (Option B in that document),
+  reserving `fixture.fixture.edit` for the ordinary fixture editor's pitch/venue/kickoff writes, plus two
+  independent low-risk cleanups (re-point `club_scheduling_policy`'s RLS off the legacy key; stop the
+  website's `requirePitchAllocationAccess` and `resolve-nav-capabilities.ts` aliasing pitch allocation onto
+  fixture edit). Rejected: making the RPC's unvalidated `p_source` parameter authority-bearing (a client
+  could simply choose the looser gate); relabelling the catalogue instead of fixing the RPC (leaves the
+  `volunteer_pitch_allocation` preset unable to do the job its own description promises without also
+  widening a Volunteer's authority to club-scope fixture edit).
 - **R-class family and movement decisions are not enforced by the database.** `approve_guardian_link_request`,
   `reject_guardian_link_request`, `remove_guardian_relationship`, `resolve_player_duplicate_review_*`,
   `decide_player_call_up` and `decide_player_dispensation` carry `aal = 'R'` in the catalogue but never call
