@@ -1,13 +1,12 @@
 import { notFound, redirect } from "next/navigation"
-import { cookies } from "next/headers"
 
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { getRugbyHubIdentityContext, getRugbyHubTeamOptions, resolveActiveRugbyHubTeamId } from "@/lib/app-context/rugby-hub-data"
+import { getRugbyHubIdentityContext, getRugbyHubTeamOptions } from "@/lib/app-context/rugby-hub-data"
 import { getPositionExplorerBundle } from "@/lib/app-context/position-explorer-data"
 import { createClient } from "@/lib/supabase/server"
 import { PositionExplorerClient, type ContextLabel } from "@/components/rugby-hub/positions/position-explorer-client"
 
-import { RUGBY_HUB_TEAM_COOKIE } from "../../constants"
+import { resolveHubTeamForRequest } from "../../active-team"
 
 /**
  * Fetches the Explorer bundle ONCE per code and stays mounted across
@@ -33,8 +32,7 @@ export default async function PositionExplorerLayout({ children, params }: { chi
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const store = await cookies()
-  const teamId = await resolveActiveRugbyHubTeamId(supabase, ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
+  const teamId = await (await resolveHubTeamForRequest(supabase, ctx)).teamId
   const teamOptions = await getRugbyHubTeamOptions(supabase, ctx)
   const team = teamOptions.find((t) => t.teamId === teamId)
 

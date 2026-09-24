@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "../database"
 import type { Certainty } from "./heritage-data"
 import { CERTAINTY_LABEL } from "./heritage-data"
-import { RULES_SECTION_LABELS, SAFEGUARDING_SECTION_LABELS, WELFARE_SECTION_LABELS } from "./rugby-hub-format"
+import { RULES_OF_PLAY_LABELS, RULES_SECTION_LABELS, SAFEGUARDING_SECTION_LABELS, WELFARE_SECTION_LABELS } from "./rugby-hub-format"
 import type { PersonRole } from "./people-types"
 import { personSearchLabel } from "./people-types"
 import type { DevelopmentFamily } from "./development-types"
@@ -68,7 +68,8 @@ const TEAM_TYPE_SEARCH_LABEL: Record<string, string> = {
 }
 
 const TOPIC_SECTION_LABELS: Record<string, Record<string, string>> = {
-  RULES: RULES_SECTION_LABELS,
+  // A Rules-page destination is either a General Law section or a Rules-of-Play category (RH-M0.2).
+  RULES: { ...RULES_OF_PLAY_LABELS, ...RULES_SECTION_LABELS },
   SAFEGUARDING: SAFEGUARDING_SECTION_LABELS,
   PLAYER_WELFARE: WELFARE_SECTION_LABELS,
 }
@@ -211,7 +212,9 @@ export async function searchRugbyHub(supabase: SupabaseClient<Database>, query: 
     contentItemIds.length > 0
       ? supabase.from("hub_content_items").select("id, content_type, content_key, rugby_code, team_type, roles, development_family, coaching_family, parent_family").in("id", contentItemIds)
       : Promise.resolve({ data: [] as { id: string; content_type: string; content_key: string; rugby_code: string | null; team_type: string | null; roles: string[] | null; development_family: string | null; coaching_family: string | null; parent_family: string | null }[] }),
-    ruleIds.length > 0 ? supabase.rpc("get_regulatory_fact_search_context", { p_fact_ids: ruleIds }) : Promise.resolve({ data: [] as RegulatoryFactContext[] }),
+    // The viewer's own identity is passed so a Rule of Play that applies to several age grades
+    // resolves to THEIR Rules page (RH-M0.2). Presentation only: it never filters what search returns.
+    ruleIds.length > 0 ? supabase.rpc("get_regulatory_fact_search_context", { p_fact_ids: ruleIds, p_viewer_identity_id: viewerRegulatoryIdentityId ?? undefined }) : Promise.resolve({ data: [] as RegulatoryFactContext[] }),
     storyIds.length > 0
       ? supabase.from("heritage_entries").select("id, entry_key, certainty, code_scope").in("id", storyIds)
       : Promise.resolve({ data: [] as { id: string; entry_key: string; certainty: string; code_scope: string }[] }),

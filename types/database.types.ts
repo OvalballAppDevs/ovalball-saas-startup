@@ -24334,7 +24334,7 @@ export type Database = {
         }[]
       }
       get_regulatory_fact_search_context: {
-        Args: { p_fact_ids: string[] }
+        Args: { p_fact_ids: string[]; p_viewer_identity_id?: string }
         Returns: {
           destination_kind: string
           fact_id: string
@@ -24397,6 +24397,66 @@ export type Database = {
           identity_rugby_code: string
           is_overlay: boolean
           is_tier1_variation: boolean
+          primary_source_key: string
+          primary_source_locator: string
+          section_key: string
+          value_boolean: boolean
+          value_decimal: number
+          value_distance_metres: number
+          value_duration_minutes: number
+          value_enum: string
+          value_integer: number
+          value_range_max: number
+          value_range_min: number
+          value_text: string
+          value_type: string
+          value_unit: string
+        }[]
+      }
+      get_rugby_hub_rules_of_play: {
+        Args: { p_as_of_date?: string; p_team_id: string }
+        Returns: {
+          applies_to_count: number
+          body: string
+          display_title: string
+          effective_from: string
+          fact_id: string
+          fact_key: string
+          fact_type: string
+          identity_key: string
+          identity_label: string
+          identity_rugby_code: string
+          obligation_level: string
+          primary_source_key: string
+          primary_source_locator: string
+          section_key: string
+          value_boolean: boolean
+          value_decimal: number
+          value_distance_metres: number
+          value_duration_minutes: number
+          value_enum: string
+          value_integer: number
+          value_range_max: number
+          value_range_min: number
+          value_text: string
+          value_type: string
+          value_unit: string
+        }[]
+      }
+      get_rugby_hub_rules_of_play_by_identity: {
+        Args: { p_identity_key: string }
+        Returns: {
+          applies_to_count: number
+          body: string
+          display_title: string
+          effective_from: string
+          fact_id: string
+          fact_key: string
+          fact_type: string
+          identity_key: string
+          identity_label: string
+          identity_rugby_code: string
+          obligation_level: string
           primary_source_key: string
           primary_source_locator: string
           section_key: string

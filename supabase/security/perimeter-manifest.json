@@ -5279,7 +5279,7 @@
         "signature": "get_hub_glossary_term_regulatory_facts(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/glossary-data.ts"
+          "packages/contracts/src/rugby-hub/glossary-data.ts"
         ]
       },
       {
@@ -5291,22 +5291,22 @@
         "signature": "get_hub_regulatory_fact_applies(text, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/skills-explorer-data.ts"
+          "packages/contracts/src/rugby-hub/skills-explorer-data.ts"
         ]
       },
       {
         "signature": "get_hub_skill_content_regulatory_facts(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/coaching-data.ts",
-          "lib/app-context/development-data.ts"
+          "packages/contracts/src/rugby-hub/coaching-data.ts",
+          "packages/contracts/src/rugby-hub/development-data.ts"
         ]
       },
       {
         "signature": "get_hub_superseded_skill_redirect(text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/skills-explorer-data.ts"
+          "packages/contracts/src/rugby-hub/skills-explorer-data.ts"
         ]
       },
       {
@@ -5418,66 +5418,80 @@
         ]
       },
       {
-        "signature": "get_regulatory_fact_search_context(uuid[])",
+        "signature": "get_regulatory_fact_search_context(uuid[], uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-search.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-search.ts"
         ]
       },
       {
         "signature": "get_rugby_hub_identity_context(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-data.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
         ]
       },
       {
         "signature": "get_rugby_hub_rules(uuid, date, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-data.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
         ]
       },
       {
         "signature": "get_rugby_hub_rules_by_identity(text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-data.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
+        ]
+      },
+      {
+        "signature": "get_rugby_hub_rules_of_play(uuid, date)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
+        ]
+      },
+      {
+        "signature": "get_rugby_hub_rules_of_play_by_identity(text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
         ]
       },
       {
         "signature": "get_rugby_hub_safeguarding_by_identity(text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-data.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
         ]
       },
       {
         "signature": "get_rugby_hub_safeguarding_content(uuid, date, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-data.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
         ]
       },
       {
         "signature": "get_rugby_hub_safeguarding_routes(uuid, date)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-data.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
         ]
       },
       {
         "signature": "get_rugby_hub_welfare(uuid, date, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-data.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
         ]
       },
       {
         "signature": "get_rugby_hub_welfare_by_identity(text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-data.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
         ]
       },
       {
@@ -6678,7 +6692,7 @@
         "signature": "resolve_public_source_metadata(text[])",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-data.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-data.ts"
         ]
       },
       {
@@ -6936,7 +6950,7 @@
         "signature": "search_hub_content(text, integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/rugby-hub-search.ts"
+          "packages/contracts/src/rugby-hub/rugby-hub-search.ts"
         ]
       },
       {
@@ -8594,10 +8608,12 @@
       "get_partner_team_availability(uuid, date, date)",
       "get_player_account_invitation_preview(text)",
       "get_player_permission_summary(uuid)",
-      "get_regulatory_fact_search_context(uuid[])",
+      "get_regulatory_fact_search_context(uuid[], uuid)",
       "get_rugby_hub_identity_context(uuid)",
       "get_rugby_hub_rules(uuid, date, uuid)",
       "get_rugby_hub_rules_by_identity(text)",
+      "get_rugby_hub_rules_of_play(uuid, date)",
+      "get_rugby_hub_rules_of_play_by_identity(text)",
       "get_rugby_hub_safeguarding_by_identity(text, text)",
       "get_rugby_hub_safeguarding_content(uuid, date, text)",
       "get_rugby_hub_safeguarding_routes(uuid, date)",

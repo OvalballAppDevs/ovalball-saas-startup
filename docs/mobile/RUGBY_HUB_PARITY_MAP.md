@@ -25,7 +25,8 @@ implementation again.
 
 | Module | Holds |
 |---|---|
-| `rugby-hub-data` | team options, active-team resolution, audience, identity context, Rules / Safeguarding / Welfare readers (own-team and by-identity), source metadata, officer projections |
+| `rugby-hub-data` | team options, audience, identity context, Rules / Rules-of-Play / Safeguarding / Welfare readers (own-team and by-identity), source metadata, officer projections |
+| `team-choice` | whose Rugby Hub: the one context-aware team rule both clients apply, and the website's per-context cookie shape (RH-M0.2) |
 | `rugby-hub-format` | section labels, value formatting, obligation labels, pitch grouping |
 | `rugby-hub-search` | `searchRugbyHub` over the one `search_hub_content` RPC, with type labels and canonical hrefs |
 | `ia` | `HUB_GROUPS`, `HUB_START_HERE`, `findActiveDestination` — the five-group product IA |
@@ -45,7 +46,7 @@ shared reader named; RLS and the SECURITY DEFINER RPCs decide what comes back.
 | `/rugby-hub?q=` + header `HubSearch` | `search_hub_content` via `searchRugbyHub`, viewer identity as grouping signal | `rugby-hub-search` | `/hub/search?q=` | NATIVE PARITY | Same RPC, same limit semantics (20 on mobile for thumb scanning), results grouped by type label in rank order; recent searches kept locally, cleared on sign-out. Every result opens through `parseHubHref` → route table. |
 | `/rugby-hub/game` | GAME_CONCEPT (13); beginner journey + families; default code from identity | `game-knowledge-data` | `/hub/game` | NATIVE PARITY | Code switch seeded from own code, else Union. |
 | `/rugby-hub/game/[conceptKey]` | concept + positions/skills/related/regulatory facts | `game-knowledge-data` | `/hub/game/[conceptKey]` | NATIVE PARITY | Same sections; `how-a-game-flows` carries the native `GameFlow` (same seven nodes, vertical). |
-| `/rugby-hub/rules` (+ `?identity=`, `#section-`) | `get_rugby_hub_rules` / `_by_identity`, `resolve_public_source_metadata` | `rugby-hub-data`, `rugby-hub-format` | `/hub/rules` (+ `identity`, `section` params) | NATIVE PARITY | Own-team and browse modes, three notice tones, tier badge, competition overlay, Pitch merge, official source link, section scroll. |
+| `/rugby-hub/rules` (+ `?identity=`, `#section-`) | `get_rugby_hub_rules` / `_by_identity`, `get_rugby_hub_rules_of_play` / `_by_identity`, `resolve_public_source_metadata` | `rugby-hub-data`, `rugby-hub-format`, `team-choice` | `/hub/rules` (+ `identity`, `section` params) | NATIVE PARITY | Two layers (General Laws, then the age grade's Rules of Play grouped by the register's categories), own-team and browse modes, three notice tones, tier badge, competition overlay, Pitch merge, obligation badge, official source link, section/category scroll. RH-M0.2. |
 | `/rugby-hub/officiating` | OFFICIATING_CONCEPT (20) by family | `officiating-data` | `/hub/officiating` | NATIVE PARITY | |
 | `/rugby-hub/officiating/[contentKey]` | concept + signalled / misunderstanding callouts | `officiating-data` | `/hub/officiating/[contentKey]` | NATIVE PARITY | |
 | `/rugby-hub/positions` → `[code]` | redirect to own code | `rugby-hub-data` | `/hub/positions` (+ `code`) | NATIVE PARITY | Own code, else Union; "Based on … / You're exploring …" line. |

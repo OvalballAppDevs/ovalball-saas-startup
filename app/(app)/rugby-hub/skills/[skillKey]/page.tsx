@@ -1,15 +1,14 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
-import { cookies } from "next/headers"
 
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { getRugbyHubIdentityContext, resolveActiveRugbyHubTeamId } from "@/lib/app-context/rugby-hub-data"
+import { getRugbyHubIdentityContext } from "@/lib/app-context/rugby-hub-data"
 import { getSkillsExplorerBundle, findSkillByKey, resolveSupersededSkillKey } from "@/lib/app-context/skills-explorer-data"
 import { createClient } from "@/lib/supabase/server"
 import { SkillDetail } from "@/components/rugby-hub/skills/skill-detail"
 
-import { RUGBY_HUB_TEAM_COOKIE } from "../../constants"
+import { resolveHubTeamForRequest } from "../../active-team"
 
 export async function generateMetadata({ params }: { params: Promise<{ skillKey: string }> }): Promise<Metadata> {
   const { skillKey } = await params
@@ -30,8 +29,7 @@ export default async function SkillDetailPage({ params }: { params: Promise<{ sk
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const store = await cookies()
-  const teamId = await resolveActiveRugbyHubTeamId(supabase, ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
+  const teamId = await (await resolveHubTeamForRequest(supabase, ctx)).teamId
 
   let regulatoryIdentityId: string | null = null
   if (teamId) {

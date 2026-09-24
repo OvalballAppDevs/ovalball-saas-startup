@@ -3,7 +3,10 @@
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
+import { ACTIVE_CONTEXT_COOKIE, resolveActiveContext } from "@/lib/app-context/active-context"
+import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
+import { encodeHubTeamCookie } from "@ovalball/contracts/rugby-hub/team-choice"
 
 import { RUGBY_HUB_TEAM_COOKIE, type SendSafeguardingContactResult } from "./constants"
 
@@ -18,12 +21,24 @@ import { RUGBY_HUB_TEAM_COOKIE, type SendSafeguardingContactResult } from "./con
  * server-side authorization check in get_rugby_hub_identity_context, the
  * same house convention every other "viewing as" cookie in this codebase
  * already follows.
+ *
+ * RH-M0.2: the choice is remembered FOR THE SELECTED CONTEXT it was made in
+ * (the cookie value names that context), so a team chosen while viewing one
+ * child is never applied while viewing another -- the Hub follows the
+ * app-wide context, on the website as on the phone.
  */
 export async function setRugbyHubTeam(formData: FormData): Promise<void> {
   const teamId = formData.get("teamId")
   if (typeof teamId === "string" && teamId) {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+    const ctx = await getSessionContext(supabase, user)
     const store = await cookies()
-    store.set(RUGBY_HUB_TEAM_COOKIE, teamId, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 30 })
+    const active = resolveActiveContext(ctx, store.get(ACTIVE_CONTEXT_COOKIE)?.value ?? null)
+    store.set(RUGBY_HUB_TEAM_COOKIE, encodeHubTeamCookie(active.key, teamId), { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 30 })
   }
   revalidatePath("/rugby-hub", "layout")
 }

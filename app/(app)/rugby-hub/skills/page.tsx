@@ -1,14 +1,13 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { getRugbyHubIdentityContext, resolveActiveRugbyHubTeamId } from "@/lib/app-context/rugby-hub-data"
+import { getRugbyHubIdentityContext } from "@/lib/app-context/rugby-hub-data"
 import { getSkillsExplorerBundle } from "@/lib/app-context/skills-explorer-data"
 import { createClient } from "@/lib/supabase/server"
 import { SkillsLanding } from "@/components/rugby-hub/skills/skills-landing"
 
-import { RUGBY_HUB_TEAM_COOKIE } from "../constants"
+import { resolveHubTeamForRequest } from "../active-team"
 
 export const metadata: Metadata = {
   title: "Skills | Rugby Hub",
@@ -35,8 +34,7 @@ export default async function SkillsLandingPage() {
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const store = await cookies()
-  const teamId = await resolveActiveRugbyHubTeamId(supabase, ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
+  const teamId = await (await resolveHubTeamForRequest(supabase, ctx)).teamId
 
   let regulatoryIdentityId: string | null = null
   if (teamId) {

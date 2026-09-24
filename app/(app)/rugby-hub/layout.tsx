@@ -1,15 +1,13 @@
 import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { cookies } from "next/headers"
 
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { getRugbyHubTeamOptions } from "@/lib/app-context/rugby-hub-data"
 import { createClient } from "@/lib/supabase/server"
 import { HubNav } from "@/components/rugby-hub/nav/hub-nav"
 import { HubSearch } from "@/components/rugby-hub/search/hub-search"
 
-import { RUGBY_HUB_TEAM_COOKIE } from "./constants"
+import { resolveHubTeamForRequest } from "./active-team"
 import { TeamSwitcher } from "./team-switcher"
 
 export default async function RugbyHubLayout({ children }: { children: React.ReactNode }) {
@@ -20,10 +18,7 @@ export default async function RugbyHubLayout({ children }: { children: React.Rea
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const teamOptions = await getRugbyHubTeamOptions(supabase, ctx)
-  const store = await cookies()
-  const cookieTeamId = store.get(RUGBY_HUB_TEAM_COOKIE)?.value
-  const activeTeamId = teamOptions.find((t) => t.teamId === cookieTeamId)?.teamId ?? teamOptions[0]?.teamId ?? null
+  const { options: teamOptions, teamId: activeTeamId } = await resolveHubTeamForRequest(supabase, ctx)
 
   // A <div>, not a <main>. The app shell at app/(app)/layout.tsx already owns
   // the page's one main landmark, and this layout renders INSIDE it -- so a

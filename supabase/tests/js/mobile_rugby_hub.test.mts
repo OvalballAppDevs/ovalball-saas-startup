@@ -313,3 +313,111 @@ test("the contextual screens drop the previous team's rows the moment the team c
     assert.ok(!/HubContextLine/.test(code(join(HUB_ROUTES, screen))), `${screen} labels universal content with a team`)
   }
 })
+
+// ------------------------------------------------------------------ RH-M0.2: the Rules of Play reach the platform
+
+import { encodeHubTeamCookie, rememberedHubTeamFromCookie, resolveHubTeam as resolveSharedHubTeam } from "../../../packages/contracts/src/rugby-hub/team-choice"
+import { groupRulesOfPlay, presentPitch, presentRuleOfPlay, RULES_OF_PLAY_CATEGORIES, rulesOfPlayCategoryLabel } from "../../../packages/contracts/src/rugby-hub/rugby-hub-format"
+import type { RulesOfPlayRow } from "../../../packages/contracts/src/rugby-hub/rugby-hub-data"
+
+const WEB_RULES_PAGE = "app/(app)/rugby-hub/rules/page.tsx"
+const MOBILE_RULES_SCREEN = join(HUB_ROUTES, "rules.tsx")
+const WEB_HUB_DIR = "app/(app)/rugby-hub"
+
+test("the rule for whose Rugby Hub this is lives in the shared package and the app imports it from there", () => {
+  const shim = read(join(HUB_SRC, "team-resolution.ts"))
+  assert.match(shim, /from "@ovalball\/contracts\/rugby-hub\/team-choice"/)
+  assert.doesNotMatch(code(join(HUB_SRC, "team-resolution.ts")), /export function/, "the app must not carry its own copy of the rule")
+  const web = read(join(WEB_HUB_DIR, "active-team.ts"))
+  assert.match(web, /from "@ovalball\/contracts\/rugby-hub\/team-choice"/)
+  assert.match(web, /resolveActiveContext\(/, "the website resolves the Hub team from the app-wide selected context")
+})
+
+test("the website's remembered Hub choice is bound to the context it was made in", () => {
+  const value = encodeHubTeamCookie("parent:ava:t-u12", "t-u12")
+  assert.equal(rememberedHubTeamFromCookie(value, "parent:ava:t-u12"), "t-u12")
+  assert.equal(rememberedHubTeamFromCookie(value, "parent:ben:t-u8"), null, "a choice made while viewing Ava is never applied while viewing Ben")
+  assert.equal(rememberedHubTeamFromCookie("t-u12", "parent:ava:t-u12"), null, "the old bare-team-id cookie is not honoured across contexts")
+  assert.equal(rememberedHubTeamFromCookie(undefined, "parent:ava:t-u12"), null)
+  // a club context resolves to the club's own team, whichever field carries the club
+  const options = [
+    { teamId: "t-a", clubId: "c1", teamDisplayName: "Under 8 Mixed", clubName: "A" },
+    { teamId: "t-b", clubId: "c2", teamDisplayName: "Under 12 Boys", clubName: "B" },
+  ]
+  assert.deepEqual(resolveSharedHubTeam(options, { kind: "club", id: "c2", clubId: "c2" }, null), { teamId: "t-b", source: "context" })
+  assert.deepEqual(resolveSharedHubTeam(options, { kind: "club", id: "c2:CLUB_ADMIN", clubId: "c2" }, null), { teamId: "t-b", source: "context" })
+})
+
+test("every Rugby Hub page on the website resolves the team through the one context-aware helper", () => {
+  const pages = walk(WEB_HUB_DIR).filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith("active-team.ts") && !f.endsWith("constants.ts"))
+  const resolvers = pages.filter((f) => /resolveHubTeamForRequest\(/.test(code(f)))
+  assert.ok(resolvers.length >= 11, `expected the layout, the search action and every team-aware page to use it; found ${resolvers.length}`)
+  for (const f of pages) {
+    assert.doesNotMatch(code(f), /resolveActiveRugbyHubTeamId|store\.get\(RUGBY_HUB_TEAM_COOKIE\)/, `${f} still resolves the team its own way`)
+  }
+  assert.doesNotMatch(code("packages/contracts/src/rugby-hub/rugby-hub-data.ts"), /export async function resolveActiveRugbyHubTeamId/, "the cookie-only resolver is retired, not left for somebody to find first")
+})
+
+test("both clients render the Rules of Play from the same shared readers and the same category list", () => {
+  for (const f of [WEB_RULES_PAGE, MOBILE_RULES_SCREEN]) {
+    const src = code(f)
+    for (const name of ["getRulesOfPlayBundle", "getRulesOfPlayBundleByIdentity", "groupRulesOfPlay", "presentRuleOfPlay", "presentPitch"]) {
+      assert.match(src, new RegExp(`\\b${name}\\b`), `${f} must use ${name} from the shared package`)
+    }
+    assert.match(src, /General Laws/, `${f} names the General Laws layer`)
+    assert.match(src, /Rules of Play for /, `${f} names whose Rules of Play these are`)
+  }
+  const contractsData = read("packages/contracts/src/rugby-hub/rugby-hub-data.ts")
+  assert.match(contractsData, /rpc\("get_rugby_hub_rules_of_play"/)
+  assert.match(contractsData, /rpc\("get_rugby_hub_rules_of_play_by_identity"/)
+})
+
+test("no client carries its own rules list, and no client names an age grade to decide anything", () => {
+  for (const f of [WEB_RULES_PAGE, MOBILE_RULES_SCREEN, join(HUB_SRC, "identity.tsx"), "packages/contracts/src/rugby-hub/rugby-hub-format.ts", "packages/contracts/src/rugby-hub/team-choice.ts"]) {
+    const src = code(f)
+    assert.doesNotMatch(src, /\b(U6|U7|U8|U9|U1[0-9])\b/, `${f} must not hard-code an age grade`)
+    assert.doesNotMatch(src, /RFU-|RFL-/, `${f} must not hard-code a regulatory identity`)
+    assert.doesNotMatch(src, /Maximum \d+-a-side|Ball size \d|metres long/, `${f} must not carry rule text of its own`)
+  }
+})
+
+test("the Rules-of-Play categories are the register's own, in one order, with one label each", () => {
+  const keys = RULES_OF_PLAY_CATEGORIES.map((c) => c.key)
+  assert.equal(new Set(keys).size, keys.length)
+  assert.ok(keys.includes("PLAYER_COUNT") && keys.includes("PITCH") && keys.includes("BALL_SIZE") && keys.includes("MATCH_DURATION") && keys.includes("CONTACT_RULE"))
+  assert.equal(rulesOfPlayCategoryLabel("PLAYER_COUNT"), "Players")
+  assert.equal(rulesOfPlayCategoryLabel("SOMETHING_NEW"), "Something New", "an unknown category still reads as words rather than a key")
+
+  const row = (over: Partial<RulesOfPlayRow>): RulesOfPlayRow =>
+    ({
+      fact_id: "f", fact_key: "k", fact_type: "PLAYER_COUNT", section_key: "PLAYER_COUNT", display_title: null, value_type: "INTEGER",
+      value_integer: null, value_decimal: null, value_boolean: null, value_duration_minutes: null, value_distance_metres: null, value_range_min: null, value_range_max: null,
+      value_enum: null, value_text: null, value_unit: null, obligation_level: "MANDATORY", body: null, effective_from: null,
+      primary_source_key: "SRC", primary_source_locator: null, applies_to_count: 1, identity_key: "X", identity_label: "X", identity_rugby_code: "union",
+      ...over,
+    }) as RulesOfPlayRow
+
+  const rows = [
+    row({ fact_id: "a", fact_type: "SUBSTITUTION", section_key: "SUBSTITUTION", value_type: "TEXT", value_text: "Rolling substitutions.", body: "Coaches stay off the pitch." }),
+    row({ fact_id: "b", fact_type: "PITCH_WIDTH", section_key: "PITCH", value_type: "DISTANCE", value_distance_metres: 22, body: "Maximum width." }),
+    row({ fact_id: "c", fact_type: "PLAYER_COUNT", value_integer: 6, body: "Teams must be equal." }),
+    row({ fact_id: "d", fact_type: "PITCH_LENGTH", section_key: "PITCH", value_type: "DISTANCE", value_distance_metres: 45, body: "Maximum length." }),
+    row({ fact_id: "e", fact_type: "MATCH_DURATION", section_key: "MATCH_DURATION", value_type: "DURATION", value_duration_minutes: 10, body: "Two halves." }),
+  ]
+  const groups = groupRulesOfPlay(rows)
+  assert.deepEqual(groups.map((g) => g.key), ["PLAYER_COUNT", "PITCH", "MATCH_DURATION", "SUBSTITUTION"], "canonical order, whatever order the rows arrived in")
+  assert.equal(groups[1].rows.length, 2)
+
+  assert.deepEqual(presentRuleOfPlay(rows[2]), { title: "Players", headline: "6", body: "Teams must be equal." })
+  assert.deepEqual(presentRuleOfPlay(rows[0]), { title: "Substitutions", headline: null, body: "Rolling substitutions. Coaches stay off the pitch." }, "a rule stated in words is the body, not a headline")
+  assert.equal(presentRuleOfPlay(rows[4]).headline, "10 minutes", "the unit is the register's; 'per half' is never appended by a client")
+  const pitch = presentPitch(groups[1].rows)
+  assert.equal(pitch.headline, "Length: 45 metres · Width: 22 metres")
+  assert.equal(pitch.rest.length, 0)
+})
+
+test("a Rules search result lands on a section that exists: the search context asks for the viewer's identity", () => {
+  const search = code("packages/contracts/src/rugby-hub/rugby-hub-search.ts")
+  assert.match(search, /p_viewer_identity_id: viewerRegulatoryIdentityId/)
+  assert.match(search, /RULES_OF_PLAY_LABELS/, "a Rules-of-Play category is a titled destination, not a bare key")
+})

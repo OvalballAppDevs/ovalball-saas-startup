@@ -1,13 +1,12 @@
 "use server"
 
-import { cookies } from "next/headers"
 
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { getRugbyHubIdentityContext, resolveActiveRugbyHubTeamId } from "@/lib/app-context/rugby-hub-data"
+import { getRugbyHubIdentityContext } from "@/lib/app-context/rugby-hub-data"
 import { createClient } from "@/lib/supabase/server"
 import { searchRugbyHub, type HubSearchResult } from "@/lib/app-context/rugby-hub-search"
 
-import { RUGBY_HUB_TEAM_COOKIE } from "./constants"
+import { resolveHubTeamForRequest } from "./active-team"
 
 /**
  * The one Rugby Hub search entry point a client component calls. Identity
@@ -27,8 +26,7 @@ export async function searchRugbyHubAction(query: string): Promise<HubSearchResu
   if (!user) return []
 
   const ctx = await getSessionContext(supabase, user)
-  const store = await cookies()
-  const teamId = await resolveActiveRugbyHubTeamId(supabase, ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
+  const teamId = await (await resolveHubTeamForRequest(supabase, ctx)).teamId
 
   let regulatoryIdentityId: string | null = null
   if (teamId) {

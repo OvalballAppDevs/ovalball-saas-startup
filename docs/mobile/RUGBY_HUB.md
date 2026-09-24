@@ -44,16 +44,29 @@ destination and `route-table.ts` makes that a screen. `?identity=`, `?code=`
 and `#section-` are browsing state and travel as params; nothing in a link is
 authority, and every screen re-derives what the viewer may see.
 
-**One identity rule** (`src/hub/team-resolution.ts`, corrected in RH-M0.1).
-`HubIdentityProvider` resolves "whose Rugby Hub" from the viewer's real team
-options (the web's `getRugbyHubTeamOptions`): a choice remembered for THIS
-selected context if it is still an option, else the team the selected context
-is (parent / player / team, or the first of a club's teams), else the first
-option — the web's fallback, and the "All Children" case. The remembered
-choice is keyed per context, so switching child or team in the header always
-moves the Hub with it. `get_rugby_hub_identity_context` then gives the code
-and regulatory identity; no screen reads an age grade from a name. Choosing a
-team grants nothing.
+**One identity rule, shared by both clients** (`packages/contracts/src/rugby-hub/team-choice.ts`;
+corrected in RH-M0.1, moved into the shared package and adopted by the web in
+RH-M0.2). `HubIdentityProvider` (app) and `app/(app)/rugby-hub/active-team.ts`
+(web) resolve "whose Rugby Hub" from the viewer's real team options (the shared
+`getRugbyHubTeamOptions`) and the app-wide selected context: a choice
+remembered for THIS selected context if it is still an option, else the team
+the selected context is (parent / player / team, or the first of a club's
+teams), else the first option — the "All Children" case. The remembered choice
+is keyed per context (an AsyncStorage key per context on the phone; one cookie
+whose value names the context on the web), so switching child or team in the
+header — or the website's context switcher — always moves the Hub with it.
+`get_rugby_hub_identity_context` then gives the code and regulatory identity;
+no screen reads an age grade from a name. Choosing a team grants nothing.
+
+**Rules are two layers from one register** (RH-M0.2). The Rules screen shows
+the General Laws every age grade shares (`get_rugby_hub_rules`, a published
+content set) and then the governing body's own Rules of Play for this age grade
+(`get_rugby_hub_rules_of_play`, the VERIFIED facts attached to the team's
+regulatory identity through `regulatory_fact_applicability`), grouped by the
+register's categories in the one shared order (`RULES_OF_PLAY_CATEGORIES`).
+The website renders the same two layers from the same readers; neither client
+carries a rules list, a category list of its own, or an age number. See
+`RUGBY_HUB_RULES_OF_PLAY.md`.
 
 **What varies, canonically.** Rules, Safeguarding and Player Welfare are read
 per team (code + regulatory identity + audience) and are never cached; the

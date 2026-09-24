@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 
 import { RegulatoryFactCard } from "@/components/rugby-hub/regulatory-fact-card"
 import { ReviewStatusNotice } from "@/components/rugby-hub/review-status-notice"
@@ -10,7 +9,6 @@ import {
   getSourceMetadata,
   getWelfareBundle,
   getWelfareBundleByIdentity,
-  resolveActiveRugbyHubTeamId,
   resolveRugbyHubAudience,
   type RugbyCode,
   type RugbyHubAudience,
@@ -20,7 +18,7 @@ import {
 import { formatWelfareValue, labelForObligation, WELFARE_SECTION_LABELS } from "@/lib/app-context/rugby-hub-format"
 import { createClient } from "@/lib/supabase/server"
 
-import { RUGBY_HUB_TEAM_COOKIE } from "../constants"
+import { resolveHubTeamForRequest } from "../active-team"
 
 export const metadata: Metadata = {
   title: "Player Welfare | Rugby Hub",
@@ -40,8 +38,7 @@ export default async function PlayerWelfarePage({ searchParams }: { searchParams
   }
 
   const ctx = await getSessionContext(supabase, user)
-  const store = await cookies()
-  const teamId = await resolveActiveRugbyHubTeamId(supabase, ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
+  const teamId = await (await resolveHubTeamForRequest(supabase, ctx)).teamId
   const teamOptions = await getRugbyHubTeamOptions(supabase, ctx)
   const team = teamOptions.find((t) => t.teamId === teamId)
 

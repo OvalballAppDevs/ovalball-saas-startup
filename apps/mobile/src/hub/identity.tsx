@@ -107,7 +107,7 @@ export function HubIdentityProvider({ children }: { children: React.ReactNode })
 
   const choice = useMemo<HubTeamChoice | null>(() => {
     if (!options || remembered === undefined || remembered.forContext !== activeKey) return null
-    return resolveHubTeam(options, active ? { kind: active.kind, id: active.id } : null, remembered.teamId)
+    return resolveHubTeam(options, active ? { kind: active.kind, id: active.id, clubId: active.clubId } : null, remembered.teamId)
   }, [options, remembered, activeKey, active])
   const teamId = choice?.teamId ?? null
 

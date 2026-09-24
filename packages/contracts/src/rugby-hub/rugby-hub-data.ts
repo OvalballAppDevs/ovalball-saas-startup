@@ -41,11 +41,10 @@ export interface RugbyHubTeamOption {
   childName?: string | null
 }
 
-/** Shared by every Rugby Hub page: the cookie-selected team if it's still one of the viewer's real options, else their first real option, else null (no real relationship at all). */
-export async function resolveActiveRugbyHubTeamId(supabase: SupabaseClient<Database>, ctx: SessionContext, cookieTeamId: string | undefined): Promise<string | null> {
-  const options = await getRugbyHubTeamOptions(supabase, ctx)
-  return options.find((t) => t.teamId === cookieTeamId)?.teamId ?? options[0]?.teamId ?? null
-}
+// WHOSE RUGBY HUB is decided by the shared rule in `./team-choice` (`resolveHubTeam`): the
+// app-wide selected context leads on both clients, and a Hub choice is remembered per context.
+// The website resolves it in app/(app)/rugby-hub/active-team.ts, the app in src/hub/identity.tsx.
+// There is deliberately no second, cookie-only resolver here (RH-M0.2 retired it).
 
 /**
  * Derives the real RugbyHubAudience for THIS viewer on THIS specific team,
@@ -144,6 +143,8 @@ export type SafeguardingRouteRow = Database["public"]["Functions"]["get_rugby_hu
 export type WelfareRow = Database["public"]["Functions"]["get_rugby_hub_welfare"]["Returns"][number]
 
 export type RulesByIdentityRow = Database["public"]["Functions"]["get_rugby_hub_rules_by_identity"]["Returns"][number]
+/** One age-grade Rule of Play (RH-M0.2): a VERIFIED governing-body fact attached to the identity, with its category as section_key. Same shape for the own-team and browse-by-identity reads. */
+export type RulesOfPlayRow = Database["public"]["Functions"]["get_rugby_hub_rules_of_play"]["Returns"][number]
 export type SafeguardingByIdentityRow = Database["public"]["Functions"]["get_rugby_hub_safeguarding_by_identity"]["Returns"][number]
 export type WelfareByIdentityRow = Database["public"]["Functions"]["get_rugby_hub_welfare_by_identity"]["Returns"][number]
 
@@ -202,9 +203,32 @@ export async function getWelfareBundle(supabase: SupabaseClient<Database>, teamI
 // non-identity-scoped general content). A read/browse capability only:
 // grants no membership, no write authority, no personalised status for
 // whichever identity is being viewed. Never used to derive the viewer's
-// own active context -- resolveActiveRugbyHubTeamId/getRugbyHubIdentity
+// own active context -- resolveHubTeam (team-choice)/getRugbyHubIdentity
 // Context remain the only source of "my own" identity.
 // ---------------------------------------------------------------------
+
+/**
+ * THE AGE-GRADE RULES OF PLAY (RH-M0.2). The governing body's own variations for this age grade --
+ * pitch, ball, players, contact, kicking, scrum, restarts, substitutions, eligibility -- resolved
+ * server-side from the regulatory identity the team's canonical type maps to
+ * (`internal.resolve_age_grade_rules_of_play`). Never from a team name; never a client-side list.
+ * A General Law already in `getRulesBundle` is never repeated here.
+ */
+export async function getRulesOfPlayBundle(supabase: SupabaseClient<Database>, teamId: string, identity: RugbyHubIdentityContext): Promise<DomainResult<RulesOfPlayRow>> {
+  if (identity.mappingType === "NO_DIRECT_MAPPING") return { status: "no-mapping" }
+  if (!identity.rugbyCode) return { status: "error" }
+  const { data, error } = await supabase.rpc("get_rugby_hub_rules_of_play", { p_team_id: teamId })
+  if (error) return { status: "error" }
+  if (!data || data.length === 0) return { status: "empty" }
+  return { status: "content", rows: data }
+}
+
+export async function getRulesOfPlayBundleByIdentity(supabase: SupabaseClient<Database>, identityKey: string): Promise<DomainResult<RulesOfPlayRow>> {
+  const { data, error } = await supabase.rpc("get_rugby_hub_rules_of_play_by_identity", { p_identity_key: identityKey })
+  if (error) return { status: "error" }
+  if (!data || data.length === 0) return { status: "empty" }
+  return { status: "content", rows: data }
+}
 
 export async function getRulesBundleByIdentity(supabase: SupabaseClient<Database>, identityKey: string): Promise<DomainResult<RulesByIdentityRow>> {
   const { data, error } = await supabase.rpc("get_rugby_hub_rules_by_identity", { p_identity_key: identityKey })

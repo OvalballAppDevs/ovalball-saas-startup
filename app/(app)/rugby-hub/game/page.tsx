@@ -1,14 +1,13 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 
 import { getGameKnowledgeBundle } from "@/lib/app-context/game-knowledge-data"
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { getRugbyHubIdentityContext, resolveActiveRugbyHubTeamId } from "@/lib/app-context/rugby-hub-data"
+import { getRugbyHubIdentityContext } from "@/lib/app-context/rugby-hub-data"
 import { createClient } from "@/lib/supabase/server"
 import { GameKnowledgeLanding } from "@/components/rugby-hub/game/game-knowledge-landing"
 
-import { RUGBY_HUB_TEAM_COOKIE } from "../constants"
+import { resolveHubTeamForRequest } from "../active-team"
 
 export const metadata: Metadata = {
   title: "Game Knowledge | Rugby Hub",
@@ -23,8 +22,7 @@ export default async function GameKnowledgePage() {
   if (!user) redirect("/login")
 
   const ctx = await getSessionContext(supabase, user)
-  const store = await cookies()
-  const teamId = await resolveActiveRugbyHubTeamId(supabase, ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
+  const teamId = await (await resolveHubTeamForRequest(supabase, ctx)).teamId
 
   let defaultCode: "union" | "league" = "union"
   if (teamId) {

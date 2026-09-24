@@ -864,6 +864,11 @@
       "owner": "Rugby Hub / regulatory content",
       "reason": "Rugby Hub Rules & Laws Deepening -- permanent regression."
     },
+    "hub_rules_of_play": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Rugby Hub and regulatory content",
+      "reason": "The Rules of Play reach the platform (RH-M0.2): age-grade Rules of Play resolve from regulatory_fact_applicability per identity, differ by age grade, never duplicate a General Law, are authorised like the existing Rules read, and every applicable RULES fact has a search destination."
+    },
     "hub_search_and_recommendations": {
       "disposition": "CANONICAL_GATE",
       "owner": "Rugby Hub / regulatory content",

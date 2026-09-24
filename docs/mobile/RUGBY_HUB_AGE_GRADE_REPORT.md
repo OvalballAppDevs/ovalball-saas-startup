@@ -91,7 +91,10 @@ code so a shape that exists in both registers resolves to the right one.
 
 ## 9. Did the web have a defect?
 
-Two findings, reported for owner decision and not changed in this pass:
+Two findings, reported for owner decision and not changed in this pass.
+**Both were closed by RH-M0.2** (see `RUGBY_HUB_RULES_OF_PLAY.md`): the web now
+resolves the Hub team from the app-wide selected context through the shared
+rule, and every applicable Rules-of-Play fact has a page and a section.
 
 - **W1 — the web Hub does not follow the app-wide selected context.** The Hub
   team comes only from its own `rugby_hub_team_id` cookie, else the first real
@@ -187,6 +190,12 @@ the review world's coach persona holds a club-wide context only.
 - iOS export succeeded.
 
 ## 16. Remaining domain-content gap (platform work required)
+
+**Closed by RH-M0.2**, which took option 1 below: `internal.resolve_age_grade_rules_of_play`
+with `get_rugby_hub_rules_of_play` / `_by_identity`, an applicability path in
+`regulatory_fact_primary_occurrence`, and a search vector that indexes a
+measured fact. The two adult teams remain unmapped (a Team Directory matter,
+not a Hub one) and union still has no published SAFEGUARDING set.
 
 **Age-grade Rules of Play are not presented.** Two honest options, both platform
 work (a migration), neither started here:

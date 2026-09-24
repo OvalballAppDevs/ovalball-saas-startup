@@ -1,18 +1,17 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import { ChevronRight } from "lucide-react"
 
 import type { User, SupabaseClient } from "@supabase/supabase-js"
 
 import { getSessionContext } from "@/lib/app-context/session-context"
-import { getRugbyHubIdentityContext, getRugbyHubTeamOptions, resolveActiveRugbyHubTeamId } from "@/lib/app-context/rugby-hub-data"
+import { getRugbyHubIdentityContext, getRugbyHubTeamOptions } from "@/lib/app-context/rugby-hub-data"
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/types/database.types"
 import { HUB_GROUPS, HUB_START_HERE } from "@/components/rugby-hub/nav/hub-nav-groups"
 
-import { RUGBY_HUB_TEAM_COOKIE } from "./constants"
+import { resolveHubTeamForRequest } from "./active-team"
 
 export const metadata: Metadata = {
   title: "Rugby Hub",
@@ -53,8 +52,7 @@ function DestinationRow({ href, label, description }: { href: string; label: str
  */
 async function PersonalStrip({ supabase, user }: { supabase: SupabaseClient<Database>; user: User }) {
   const ctx = await getSessionContext(supabase, user)
-  const store = await cookies()
-  const teamId = await resolveActiveRugbyHubTeamId(supabase, ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
+  const teamId = await (await resolveHubTeamForRequest(supabase, ctx)).teamId
   if (!teamId) return null
 
   const teamOptions = await getRugbyHubTeamOptions(supabase, ctx)

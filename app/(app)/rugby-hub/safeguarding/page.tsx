@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import { MessageCircleWarning, Shield } from "lucide-react"
 
 import { OfficialSourceLink } from "@/components/rugby-hub/official-source-link"
@@ -17,7 +16,6 @@ import {
   getSafeguardingOfficerProjections,
   getSafeguardingRoutes,
   getSourceMetadata,
-  resolveActiveRugbyHubTeamId,
   resolveRugbyHubAudience,
   type RugbyCode,
   type SafeguardingByIdentityRow,
@@ -26,7 +24,7 @@ import {
 import { SAFEGUARDING_SECTION_LABELS } from "@/lib/app-context/rugby-hub-format"
 import { createClient } from "@/lib/supabase/server"
 
-import { RUGBY_HUB_TEAM_COOKIE } from "../constants"
+import { resolveHubTeamForRequest } from "../active-team"
 
 export const metadata: Metadata = {
   title: "Safeguarding | Rugby Hub",
@@ -46,8 +44,7 @@ export default async function SafeguardingPage({ searchParams }: { searchParams:
   }
 
   const ctx = await getSessionContext(supabase, user)
-  const store = await cookies()
-  const teamId = await resolveActiveRugbyHubTeamId(supabase, ctx, store.get(RUGBY_HUB_TEAM_COOKIE)?.value)
+  const teamId = await (await resolveHubTeamForRequest(supabase, ctx)).teamId
   const teamOptions = await getRugbyHubTeamOptions(supabase, ctx)
   const team = teamOptions.find((t) => t.teamId === teamId)
 
