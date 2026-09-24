@@ -1,15 +1,17 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Text, TextInput, View } from "react-native"
 import { useRouter } from "expo-router"
-import { checkPasswordComposition, PASSWORD_REQUIREMENTS } from "@ovalball/contracts"
+import { checkPasswordComposition } from "@ovalball/contracts"
+import { isCompleteTotpCode, normaliseTotpCode, pickChallengeFactor } from "@ovalball/contracts/auth"
 
 import { supabase } from "../../src/auth/supabase"
 import { useSession } from "../../src/auth/session"
 import { friendly, logDetail } from "../../src/errors/translate"
 import { EntranceLink, EntranceProblem, EntranceScreen, Field } from "../../src/components/entrance"
 import { Button, Card } from "../../src/components/ui"
-import { Check, Lock } from "../../src/components/icons"
-import { colour, space, type } from "../../src/design/tokens"
+import { CircleCheck, Lock } from "../../src/components/icons"
+import { PasswordRequirements } from "../../src/components/password-requirements"
+import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
 
 /**
  * SET A NEW PASSWORD.
@@ -35,6 +37,60 @@ import { colour, space, type } from "../../src/design/tokens"
 export default function Recovery() {
   const router = useRouter()
   const { endRecovery, signOut } = useSession()
+
+  /*
+    A FACTOR HOLDER PROVES THE FACTOR BEFORE SETTING A PASSWORD. GoTrue refuses `updateUser({password})`
+    from an AAL1 session when the account holds a verified factor ("AAL2 session is required to update
+    email or password when MFA is enabled"), and a recovery session is AAL1 by definition. So the
+    recovery screen asks for the six-digit code FIRST for such an account -- the same challenge the
+    sign-in makes -- and only then shows the password form. Somebody who has lost both their password
+    and their authenticator uses a recovery code on the website, which removes the factors.
+  */
+  const [assurance, setAssurance] = useState<"checking" | "challenge" | "ready">("checking")
+  const [factorId, setFactorId] = useState<string | null>(null)
+  const [code, setCode] = useState("")
+  const [codeProblem, setCodeProblem] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    void (async () => {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      const needs = Boolean(data && data.nextLevel === "aal2" && data.nextLevel !== data.currentLevel)
+      if (!live) return
+      if (!needs) {
+        setAssurance("ready")
+        return
+      }
+      const { data: factors } = await supabase.auth.mfa.listFactors()
+      if (!live) return
+      setFactorId(pickChallengeFactor(factors?.totp ?? [])?.id ?? null)
+      setAssurance("challenge")
+    })()
+    return () => {
+      live = false
+    }
+  }, [])
+
+  async function proveFactor() {
+    if (!factorId || !isCompleteTotpCode(code)) return
+    setVerifying(true)
+    setCodeProblem(null)
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
+    if (challengeError || !challenge) {
+      setVerifying(false)
+      setCodeProblem(friendly(challengeError, "your security check").message)
+      return
+    }
+    const { error: verifyError } = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.id, code })
+    setVerifying(false)
+    if (verifyError) {
+      setCodeProblem(friendly(verifyError, "your code").message)
+      setCode("")
+      return
+    }
+    setAssurance("ready")
+  }
   const confirmRef = useRef<TextInput>(null)
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
@@ -103,7 +159,7 @@ export default function Recovery() {
       >
         <Card style={{ marginTop: space.xl }}>
           <View style={{ flexDirection: "row", gap: space.md, alignItems: "flex-start" }}>
-            <Check size={20} color={colour.forest800} />
+            <CircleCheck size={20} color={colour.forest800} />
             <Text style={[type.small, { color: colour.ink, flex: 1 }]}>
               If your account uses an authenticator app, you&rsquo;ll still be asked for a code. A
               password reset never changes your two-factor security.
@@ -122,6 +178,53 @@ export default function Recovery() {
             }}
           />
         </View>
+      </EntranceScreen>
+    )
+  }
+
+  if (assurance !== "ready") {
+    return (
+      <EntranceScreen
+        title="Confirm it's you"
+        subtitle={assurance === "checking" ? "One moment." : "This account has an authenticator. Enter the six-digit code from your app, then choose a new password."}
+        footer={
+          <EntranceLink
+            label="Cancel and Sign In"
+            onPress={async () => {
+              await signOut()
+              await endRecovery()
+              router.replace("/sign-in")
+            }}
+          />
+        }
+      >
+        {assurance === "challenge" && (
+          <View style={{ marginTop: space.xl, gap: space.md }}>
+            {factorId ? (
+              <>
+                <Text style={[type.smallMedium, { color: colour.ink }]}>Authentication Code</Text>
+                <TextInput
+                  accessibilityLabel="Authentication code"
+                  value={code}
+                  onChangeText={(next) => setCode(normaliseTotpCode(next))}
+                  keyboardType="number-pad"
+                  textContentType="oneTimeCode"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  returnKeyType="done"
+                  onSubmitEditing={() => void proveFactor()}
+                  style={{ minHeight: TOUCH_TARGET + 8, borderWidth: 1, borderColor: colour.lineStrong, borderRadius: radius.md, paddingHorizontal: space.md, color: colour.ink, fontFamily: "Inter_500Medium", fontSize: 24, letterSpacing: 8, textAlign: "center", backgroundColor: colour.surface }}
+                />
+                <EntranceProblem message={codeProblem} />
+                <Button label="Verify" onPress={() => void proveFactor()} busy={verifying} disabled={!isCompleteTotpCode(code)} />
+              </>
+            ) : (
+              <Text style={[type.small, { color: colour.inkMuted }]}>
+                This account needs a second factor and none is usable. Use a recovery code on the Ovalball website, then try again.
+              </Text>
+            )}
+          </View>
+        )}
       </EntranceScreen>
     )
   }
@@ -176,65 +279,11 @@ export default function Recovery() {
         />
       </View>
 
-      <Requirements password={password} />
+      <PasswordRequirements password={password} />
 
       <EntranceProblem message={problem} />
 
       <Button label="Save New Password" onPress={submit} busy={busy} disabled={!ready} />
     </EntranceScreen>
-  )
-}
-
-/**
- * The rules, shown while typing rather than after a rejection.
- *
- * Derived from `PASSWORD_REQUIREMENTS` in the shared package, so the list cannot describe a rule the
- * validator has stopped applying. Each row carries a TICK or a ring as well as a colour, and is
- * announced with its own state, so it is readable without separating the greens.
- */
-function Requirements({ password }: { password: string }) {
-  return (
-    <View style={{ marginTop: space.lg, gap: 6 }}>
-      <Text style={[type.caption, { color: colour.inkSubtle }]}>Your password needs</Text>
-      {PASSWORD_REQUIREMENTS.map((requirement) => {
-        const met = password.length > 0 && requirement.met(password)
-        return (
-          <View
-            key={requirement.key}
-            accessible
-            accessibilityLabel={`${requirement.label}: ${met ? "met" : "not yet met"}`}
-            style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
-          >
-            <View
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: 8,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: met ? colour.forest800 : "transparent",
-                borderWidth: met ? 0 : 1.5,
-                borderColor: colour.lineStrong,
-              }}
-            >
-              {met && <Check size={10} color={colour.onForest} strokeWidth={3.5} />}
-            </View>
-            <Text style={[type.caption, { color: met ? colour.ink : colour.inkMuted, flex: 1 }]}>
-              {requirement.label}
-            </Text>
-          </View>
-        )
-      })}
-      {/*
-        THE BREACH CHECK IS NOT CLAIMED HERE, and that is deliberate.
-
-        Ovalball's Have I Been Pwned check lives in `lib/auth/password-policy.ts`, which is
-        `server-only` and runs inside the website's reset action. This client sets the password through
-        GoTrue directly, so that check does not run on this path -- and telling somebody it did would
-        be a security claim this build cannot keep. The right fix is project-level leaked-password
-        protection, which would cover both clients at the auth server; it is an owner decision and is
-        reported as one rather than papered over with a reassuring sentence.
-      */}
-    </View>
   )
 }

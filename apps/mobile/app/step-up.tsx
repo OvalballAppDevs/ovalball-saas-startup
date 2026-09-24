@@ -3,6 +3,8 @@ import { ScrollView, Text, TextInput, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { pickChallengeFactor } from "@ovalball/contracts/auth"
+
 import { supabase } from "../src/auth/supabase"
 import { useSession } from "../src/auth/session"
 import { discardIntents } from "../src/admin/pending-intent"
@@ -45,7 +47,8 @@ export default function StepUp() {
         logDetail("step-up: list factors", failure)
         setProblem(failure.message)
       }
-      const totp = data?.totp?.find((f) => f.status === "verified") ?? null
+      // ONE RULE FOR BOTH CHALLENGES: a challenge is only ever issued against a verified factor.
+      const totp = pickChallengeFactor(data?.totp ?? [])
       setFactorId(totp?.id ?? null)
       setLoading(false)
     })()

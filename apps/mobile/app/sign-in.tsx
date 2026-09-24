@@ -15,6 +15,7 @@ import { StatusBar } from "expo-status-bar"
 import { useRouter } from "expo-router"
 
 import { useSession } from "../src/auth/session"
+import { takeEntranceNotice } from "../src/auth/entrance-notice"
 import { configurationProblem } from "../src/config/environment"
 import { Button } from "../src/components/ui"
 import { EntranceLink } from "../src/components/entrance"
@@ -47,7 +48,8 @@ export default function SignIn() {
   const [password, setPassword] = useState("")
   const [reveal, setReveal] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
+  // A sentence handed on from a failed link (a lapsed recovery, say) is read here, once.
+  const [problem, setProblem] = useState<string | null>(() => takeEntranceNotice())
 
   // DEVELOPER DIAGNOSTICS, ONLY WHEN THERE IS A PROBLEM AND ONLY IN DEVELOPMENT. The localhost warning
   // earned its place during setup and would be noise now that the phone is talking to the Mac. It is
@@ -208,10 +210,10 @@ export default function SignIn() {
               accessibilityHint="Signs you in to Ovalball"
             />
 
-            <Text style={[type.caption, { color: colour.inkSubtle, textAlign: "center", marginTop: space.lg }]}>
-              Creating an account, resetting a password and joining a club are on the Ovalball website
-              for now.
-            </Text>
+            <View style={{ alignItems: "center", marginTop: space.lg }}>
+              <Text style={[type.caption, { color: colour.inkSubtle, textAlign: "center" }]}>New to Ovalball?</Text>
+              <EntranceLink label="Get Started" onPress={() => router.push("/get-started")} />
+            </View>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>

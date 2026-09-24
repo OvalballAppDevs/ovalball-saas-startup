@@ -133,7 +133,9 @@ test("the request tells nobody whether an account exists", () => {
 
 test("a password reset is never an MFA reset", () => {
   const recovery = strip(read("app/auth/recovery.tsx"))
-  assert.ok(!/unenroll|mfa\.unenroll|removeFactor|factors/i.test(recovery), "the recovery screen touches a factor")
+  // CA-M11: the screen may now PROVE a factor (GoTrue demands AAL2 to set a password when one exists);
+  // it must never remove or replace one.
+  assert.ok(!/unenroll|mfa\.unenroll|removeFactor|mfa\.enroll|deleteFactor|factors_reset/i.test(recovery), "the recovery screen touches a factor")
   const session = strip(read("src/auth/session.tsx"))
   // Ending a recovery re-reads the assurance level, so an account holding a factor goes to the
   // challenge rather than into the product.

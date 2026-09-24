@@ -10,6 +10,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 import { View } from "react-native"
 
 import { SessionProvider, useSession } from "../src/auth/session"
+import { setEntranceNotice } from "../src/auth/entrance-notice"
+import { hasJoinSecret, holdJoinSecret } from "../src/onboarding/join-secret"
 import { narrowIntentForContext, routeForIntent } from "../src/links/destinations"
 import { resolveIntent, type LinkIntent } from "../src/links/intents"
 import { ContextProvider, useAppContexts } from "../src/context/contexts"
@@ -67,6 +69,7 @@ function useIncomingLinks() {
   */
   const { active } = useAppContexts()
   const router = useRouter()
+  const segments = useSegments()
   const handled = useRef(new Set<string>())
   const [linkProblem, setLinkProblem] = useState<string | null>(null)
   // AN INTENT THAT ARRIVES BEFORE THE SESSION IS READY IS HELD, NOT DROPPED. A message link tapped by
@@ -100,9 +103,24 @@ function useIncomingLinks() {
       if (intent.kind === "AUTH_RECOVERY") {
         const failure = await beginRecovery(intent.code)
         if (failure) {
+          // THE SENTENCE TRAVELS WITH THE PERSON. The sign-in screen is where they land, so the sign-in
+          // screen is where the reason is read -- not a state here that nothing renders.
           setLinkProblem(failure.message)
+          setEntranceNotice(failure.message)
           router.replace("/sign-in")
         }
+        return
+      }
+
+      // AN INVITATION IS ITS OWN WAY IN. The secret is held in memory for one journey (never stored),
+      // and the invitation screen is opened whether or not anybody is signed in: it previews first,
+      // asks for a sign-in if one is needed, and only then offers to accept. The gate keeps that
+      // screen reachable in both states, and re-opens it after a sign-in while a secret is held.
+      if (intent.kind === "JOIN") {
+        holdJoinSecret({ token: intent.token, code: intent.code })
+        // Already on the invitation screen (the link itself opened it, as on the web): the screen
+        // re-reads the held secret; pushing a second copy would only stack the same screen twice.
+        if (segments[0] !== "join") router.push("/join")
         return
       }
 
@@ -118,13 +136,14 @@ function useIncomingLinks() {
         intent.kind === "NEWS" ||
         intent.kind === "CLUB_ARTICLE" ||
         intent.kind === "CLUB_ARTICLE_BY_SLUG" ||
-        intent.kind === "CLUB_ANNOUNCEMENT"
+        intent.kind === "CLUB_ANNOUNCEMENT" ||
+        intent.kind === "TEAM"
       ) {
         if (status === "signed-in") deliver(intent)
         else pending.current = intent
       }
     },
-    [beginRecovery, router, status, deliver]
+    [beginRecovery, router, status, deliver, segments]
   )
 
   // The held intent is delivered once the session is real -- and cleared either way, so it cannot
@@ -174,16 +193,22 @@ function Gate() {
     // sensitive change); it is not a place to be moved on from.
     const onStepUp = group === "step-up"
     const onRecovery = group === "auth"
-    // Welcome, sign in and forgot password are all part of being signed out, not places to be
-    // moved away from. Welcome is where a signed-out session LANDS; a signed-in one never sees it.
-    const onEntrance = group === "welcome" || group === "sign-in" || group === "forgot-password"
+    // AN INVITATION SCREEN IS REACHABLE SIGNED OUT AND SIGNED IN. It previews for anybody holding the
+    // link, asks for a sign-in when one is needed and accepts only for a signed-in person -- so it is
+    // neither a place to be moved to Welcome from nor a place to be moved into the tabs from.
+    const onJoin = group === "join"
+    // Welcome, Get Started, sign in and forgot password are all part of being signed out, not places to
+    // be moved away from. Welcome is where a signed-out session LANDS; a signed-in one never sees it.
+    const onEntrance = group === "welcome" || group === "get-started" || group === "sign-in" || group === "forgot-password" || onJoin
 
     // RECOVERY OUTRANKS EVERYTHING. A validated recovery link produces a real session at AAL1, and
     // without this rule the next two branches would read that as "signed in" and drop somebody into
     // the product with a password they do not know -- or, for an account holding a factor, send them
     // to a TOTP challenge before they have set the password they came to set.
     if (status === "recovering" && !onRecovery) router.replace("/auth/recovery")
-    else if (status === "signed-in" && !inApp && !onStepUp) router.replace("/(tabs)")
+    // A HELD INVITATION OUTRANKS HOME: somebody who signed in to accept it is taken back to it.
+    else if (status === "signed-in" && hasJoinSecret() && !onJoin && !onStepUp) router.replace("/join")
+    else if (status === "signed-in" && !inApp && !onStepUp && !onJoin) router.replace("/(tabs)")
     else if (status === "needs-mfa" && !onVerify) router.replace("/verify")
     else if (status === "signed-out" && !onEntrance) router.replace("/welcome")
   }, [status, segments, router])

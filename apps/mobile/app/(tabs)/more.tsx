@@ -5,18 +5,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Linking from "expo-linking"
 
 import { useSession } from "../../src/auth/session"
-import { useAppContexts, forgetSelectedContext } from "../../src/context/contexts"
-import { forgetHubCache } from "../../src/hub/cache"
-import { forgetAttentionCache } from "../../src/attention/cache"
-import { forgetHubTeamPreference } from "../../src/hub/identity"
-import { forgetRecentSearches } from "../../src/hub/recent"
-import { clearAllDrafts } from "../../src/messages/drafts"
+import { useAppContexts } from "../../src/context/contexts"
+import { leaveSession } from "../../src/auth/leave"
 import { environment, webUrl } from "../../src/config/environment"
 import { isSecure, sessionStorageDescription } from "../../src/auth/session-store"
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { ChevronRight, ClipboardList, ExternalLink, Landmark, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake, IdCard, MapPin, Newspaper } from "../../src/components/icons"
+import { ChevronRight, ClipboardList, ExternalLink, Landmark, Lock, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake, IdCard, MapPin, Newspaper } from "../../src/components/icons"
 import { isFamilyFacingContext } from "@ovalball/contracts"
 import { useAdminCentreAccess } from "../../src/admin/access"
 import { useTeamAuthority } from "../../src/team/authority"
@@ -57,18 +53,9 @@ export default function More() {
   const isGuardian = active?.kind === "parent" || active?.kind === "family"
 
   async function leave() {
-    // EVERYTHING THIS PERSON LEFT ON THE DEVICE GOES WITH THE SESSION. A phone gets handed around a
-    // clubhouse: the next person to sign in must not land in the previous person's team, and must not
-    // find their half-typed message waiting in a composer.
-    await forgetSelectedContext()
-    await clearAllDrafts()
-    // The Rugby Hub's team choice, recent searches and in-memory bundles go too.
-    await forgetHubTeamPreference()
-    await forgetRecentSearches()
-    forgetHubCache()
-    // What needed the previous person's attention is theirs, not the next person's.
-    forgetAttentionCache()
-    await signOut()
+    // ONE LIST, KEPT IN `src/auth/leave.ts`: the context, the child, drafts, caches, pending intents and a
+    // held invitation all go before the session does. The next person on this handset starts clean.
+    await leaveSession(signOut)
   }
 
   return (
@@ -201,11 +188,10 @@ export default function More() {
             onPress={() => router.push("/profile" as never)}
           />
           <Row
-            icon={<ExternalLink size={19} color={colour.forest800} strokeWidth={1.9} />}
+            icon={<Lock size={19} color={colour.forest800} strokeWidth={1.9} />}
             label="Security"
             caption="Password, authenticator and your signed-in devices"
-            onPress={() => void Linking.openURL(`${webUrl}/account/security`)}
-            external
+            onPress={() => router.push("/security" as never)}
           />
           <Row
             icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}

@@ -16,6 +16,8 @@ import { AppState } from "react-native"
 import { supabase } from "../auth/supabase"
 import { useSession } from "../auth/session"
 import { getUnreadCounts, type UnreadCounts } from "@ovalball/contracts"
+import { reconcileSelectedKey, resolveOnboardingState, type OnboardingDecision } from "@ovalball/contracts/onboarding"
+import { hasJoinSecret } from "../onboarding/join-secret"
 import { canManageClubCrest } from "../identity/images"
 import { friendly, logDetail, type FriendlyError } from "../errors/translate"
 
@@ -51,6 +53,11 @@ interface ContextState {
   error: FriendlyError | null
   /** The signed-in person, never the context they are viewing. */
   person: { firstName: string | null; avatarUrl: string | null; email: string | null }
+  /** Where this journey stands: no context, one, many restored, many to choose (CA-M11). */
+  onboarding: OnboardingDecision
+  /** True once, after a remembered context stopped being held. Acknowledged by the screen that says so. */
+  contextRemoved: boolean
+  acknowledgeContextRemoved: () => void
   /** The canonical session context, for readers that take it (the inbox assembler does). */
   sessionContext: OvalballSessionContext | null
   contexts: SwitchableContext[]
@@ -140,7 +147,12 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
     setLoading(true)
     setError(null)
     try {
+      // THE REMEMBERED CONTEXT IS READ BEFORE THE LIST IS PUBLISHED. Publishing the list first left a
+      // moment with many contexts and no memory, and the onboarding decision read that moment as
+      // "ask" -- so a person who had chosen a team was asked again on every launch (CA-M11 proof).
+      const stored = await AsyncStorage.getItem(SELECTED_CONTEXT_KEY)
       const loaded = await getSessionContext(supabase, session.user)
+      setSelectedKey(stored)
       setCtx(loaded)
       // THE PERSON'S OWN PICTURE, through the canonical resolver -- the private `avatars` bucket and a
       // short-lived signed URL, exactly as the web does. Never a club logo, and never a kit.
@@ -150,8 +162,6 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
         .eq("id", session.user.id)
         .maybeSingle()
       setAvatarUrl(await resolvePersonalAvatarUrl(supabase, profile?.avatar_storage_path ?? null))
-      const stored = await AsyncStorage.getItem(SELECTED_CONTEXT_KEY)
-      setSelectedKey(stored)
     } catch (caught) {
       const problem = friendly(caught, "your teams")
       logDetail("session context", problem)
@@ -166,9 +176,31 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
   }, [load])
 
   const contexts = useMemo(() => (ctx ? listSwitchableContexts(ctx) : []), [ctx])
+
+  // A REMOVED CONTEXT RECONCILES (CA-M11). After every re-read, a remembered key the live list no longer
+  // contains is dropped -- from state and from the store -- and the person is told once. The key was
+  // only ever a view preference, so nothing else needs undoing: every read and write was already
+  // refused by the server the moment the role went.
+  const [contextRemoved, setContextRemoved] = useState(false)
+  useEffect(() => {
+    if (!ctx || loading) return
+    const kept = reconcileSelectedKey(contexts, selectedKey)
+    if (selectedKey && kept === null) {
+      setContextRemoved(true)
+      setSelectedKey(null)
+      void AsyncStorage.removeItem(SELECTED_CONTEXT_KEY).catch(() => {})
+    }
+  }, [ctx, loading, contexts, selectedKey])
+
   const active = useMemo(
     () => (ctx ? resolveActiveContext(ctx, selectedKey) : null),
     [ctx, selectedKey]
+  )
+
+  // THE ONBOARDING DECISION, made in one place: none / one / many-with-a-memory / many-without.
+  const onboarding = useMemo(
+    () => resolveOnboardingState({ phase: status, contexts, storedKey: selectedKey, pendingInvitation: hasJoinSecret() }),
+    [status, contexts, selectedKey]
   )
 
   const EMPTY_CLUB = { name: null, crestUrl: null, clubId: null, hasOwnCrest: false, canManageCrest: false }
@@ -301,8 +333,11 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
       club,
       select,
       reload: load,
+      onboarding,
+      contextRemoved,
+      acknowledgeContextRemoved: () => setContextRemoved(false),
     }),
-    [loading, error, ctx, avatarUrl, email, contexts, active, canSeeTeamSubscriptions, unread, refreshUnread, refreshIdentityImages, club, select, load]
+    [loading, error, ctx, avatarUrl, email, contexts, active, canSeeTeamSubscriptions, unread, refreshUnread, refreshIdentityImages, club, select, load, onboarding, contextRemoved]
   )
 
   return <AppContexts.Provider value={value}>{children}</AppContexts.Provider>

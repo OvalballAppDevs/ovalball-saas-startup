@@ -149,14 +149,14 @@ export default function ProfileScreen() {
               {!!saved && <Text accessibilityLiveRegion="polite" style={[type.caption, { color: colour.forest800 }]}>{saved}</Text>}
             </Card>
 
-            <Card onPress={() => void Linking.openURL(`${webUrl}/account/security`)} accessibilityLabel="Password, authenticator and signed-in devices. Opens the Ovalball website">
+            <Card onPress={() => router.push("/security" as never)} accessibilityLabel="Security. Password, authenticator and your signed-in devices">
               <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
                 <Lock size={18} color={colour.forest800} />
                 <View style={{ flex: 1 }}>
                   <Text style={[type.smallMedium, { color: colour.ink }]}>Security</Text>
                   <Text style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>Password, authenticator and your signed-in devices</Text>
                 </View>
-                <ExternalLink size={16} color={colour.inkSubtle} />
+                <ChevronRight size={16} color={colour.inkSubtle} />
               </View>
             </Card>
             <Card onPress={() => void Linking.openURL(`${webUrl}/account`)} accessibilityLabel="Email address and postal address. Opens the Ovalball website">

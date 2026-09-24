@@ -19,8 +19,11 @@ import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 
 const ROOT = process.cwd()
-const CHOKEPOINT = "lib/invitations/redeem.ts"
-const SEARCH_ROOTS = ["app", "lib", "components"]
+// CA-M11: the interpretation is shared. The contract file is the chokepoint; the website's module is a
+// re-export of it and may name the RPC in prose only. Both clients' source trees are searched.
+const CHOKEPOINT = "packages/contracts/src/invitations/redeem.ts"
+const WEB_SHIM = "lib/invitations/redeem.ts"
+const SEARCH_ROOTS = ["app", "lib", "components", "apps/mobile/app", "apps/mobile/src", "packages/contracts/src"]
 const failures = []
 
 function walk(dir, out = []) {
@@ -46,6 +49,7 @@ for (const file of files) {
   const source = readFileSync(file, "utf8")
   if (!source.includes("redeem_invitation")) continue
   if (rel === CHOKEPOINT) continue
+  if (rel === WEB_SHIM && !/rpc\(\s*["']redeem_invitation/.test(source)) continue
   failures.push(
     `${rel} names redeem_invitation directly. Import redeemInvitation from ${CHOKEPOINT} instead: ` +
       `redemption refuses by returning, so a direct caller that ignores the outcome grants authority ` +
@@ -85,7 +89,7 @@ if (chokepoint) {
 
 const callers = files.filter((f) => {
   const rel = relative(ROOT, f)
-  return rel !== CHOKEPOINT && readFileSync(f, "utf8").includes("redeemInvitation")
+  return rel !== CHOKEPOINT && rel !== WEB_SHIM && readFileSync(f, "utf8").includes("redeemInvitation")
 })
 
 if (failures.length > 0) {

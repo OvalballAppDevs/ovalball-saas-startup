@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react"
-import { ScrollView, Text, TextInput, View } from "react-native"
+import { Linking, ScrollView, Text, TextInput, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { pickChallengeFactor } from "@ovalball/contracts/auth"
+
 import { supabase } from "../src/auth/supabase"
+import { webUrl } from "../src/config/environment"
 import { useSession } from "../src/auth/session"
 import { friendly, logDetail } from "../src/errors/translate"
 import { Button } from "../src/components/ui"
@@ -40,7 +43,8 @@ export default function Verify() {
         logDetail("list factors", failure)
         setProblem(failure.message)
       }
-      const totp = data?.totp?.find((f) => f.status === "verified") ?? data?.totp?.[0] ?? null
+      // ONE RULE FOR BOTH CHALLENGES: a challenge is only ever issued against a verified factor.
+      const totp = pickChallengeFactor(data?.totp ?? [])
       setFactorId(totp?.id ?? null)
       setLoading(false)
     })()
@@ -143,7 +147,15 @@ export default function Verify() {
         </>
       )}
 
-      <View style={{ marginTop: space.lg }}>
+      <View style={{ marginTop: space.lg, gap: space.xs }}>
+        {/* LOST THE AUTHENTICATOR? A recovery code signs in on the website (`/security/recovery`): it
+            removes every factor and leaves the session at AAL1, which is a desk decision, not a tap. */}
+        <Button
+          label="Use a Recovery Code on the Website"
+          variant="quiet"
+          onPress={() => { if (webUrl) void Linking.openURL(`${webUrl}/security/recovery`) }}
+          accessibilityHint="Opens the Ovalball website, where a recovery code signs you in"
+        />
         <Button label="Sign Out" variant="quiet" onPress={() => void signOut()} />
       </View>
     </ScrollView>

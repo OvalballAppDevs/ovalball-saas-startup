@@ -21,13 +21,14 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").split("\n")
 
 test("a signed-out session lands on Welcome, and a signed-in one is never shown it", () => {
   const gate = code("apps/mobile/app/_layout.tsx")
-  assert.match(gate, /const onEntrance = group === "welcome" \|\| group === "sign-in" \|\| group === "forgot-password"/)
+  // CA-M11: Get Started and the invitation screen joined the entrance group; the rule is unchanged.
+  assert.match(gate, /const onEntrance = group === "welcome" \|\| group === "get-started" \|\| group === "sign-in" \|\| group === "forgot-password" \|\| onJoin/)
   assert.match(gate, /status === "signed-out" && !onEntrance\) router\.replace\("\/welcome"\)/)
   // The signed-in branch comes FIRST and sends anyone not in the app into it -- including
   // somebody sitting on /welcome. Recovery still outranks it.
   const order = [gate.indexOf('status === "recovering"'), gate.indexOf('status === "signed-in" && !inApp'), gate.indexOf('status === "signed-out"')]
   assert.ok(order[0] < order[1] && order[1] < order[2], "the gate's branches are out of order")
-  assert.match(gate, /status === "signed-in" && !inApp\) router\.replace\("\/\(tabs\)"\)/)
+  assert.match(gate, /status === "signed-in" && !inApp && !onStepUp && !onJoin\) router\.replace\("\/\(tabs\)"\)/)
 })
 
 test("Welcome is a route with one job and no authority", () => {
@@ -37,7 +38,11 @@ test("Welcome is a route with one job and no authority", () => {
   for (const forbidden of ["supabase", "signUp", "signInWith", "role", "club_id", "player", "guardian", "SecureStore", "AsyncStorage"]) {
     assert.ok(!screen.includes(forbidden), `the Welcome screen reaches for ${forbidden}`)
   }
-  assert.match(screen, /Linking\.openURL\(`\$\{webUrl\}\/signup`\)/, "Get Started does not open the canonical web signup")
+  // CA-M11: Get Started enters the app's own decision screen, whose CLUB path is the canonical web signup.
+  assert.match(route, /router\.push\("\/get-started"\)/, "Get Started does not enter the native decision screen")
+  assert.ok(!screen.includes("/signup"), "the Welcome screen still opens the website blind")
+  const decision = code("apps/mobile/app/get-started.tsx")
+  assert.match(decision, /Linking\.openURL\(`\$\{webUrl\}\$\{path\.webPath\}`\)/, "the club path does not open the canonical web signup")
   assert.ok(!/TextInput/.test(screen), "Welcome collects input")
 })
 

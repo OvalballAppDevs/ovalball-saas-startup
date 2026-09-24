@@ -13,6 +13,8 @@
  * only, so a report of "Couldn't load your teams" is still traceable.
  */
 
+import { AUTH_WORDING } from "@ovalball/contracts/auth"
+
 export interface FriendlyError {
   /** What the person reads. Sentence case, UK English, says what to do next where there is something to do. */
   message: string
@@ -34,21 +36,21 @@ export function friendly(error: unknown, subject = "that"): FriendlyError {
   const text = detail ?? ""
 
   if (OFFLINE.test(text)) {
-    return { message: "No connection. Check your signal and try again.", detail, retryable: true }
+    return { message: AUTH_WORDING.network, detail, retryable: true }
   }
   if (CREDENTIALS.test(text)) {
     // Deliberately undifferentiated, exactly as the website's own login is: telling somebody the
     // address exists but the password is wrong tells an attacker the same thing.
-    return { message: "Email or password is incorrect.", detail, retryable: false }
+    return { message: AUTH_WORDING.invalidCredentials, detail, retryable: false }
   }
   if (MFA.test(text)) {
-    return { message: "That code was not accepted. Codes change every 30 seconds — try the current one.", detail, retryable: false }
+    return { message: AUTH_WORDING.wrongCode, detail, retryable: false }
   }
   if (RATE_LIMIT.test(text)) {
-    return { message: "Too many attempts. Wait a minute and try again.", detail, retryable: true }
+    return { message: AUTH_WORDING.tooManyAttempts, detail, retryable: true }
   }
   if (EXPIRED.test(text)) {
-    return { message: "Your session has ended. Sign in again.", detail, retryable: false }
+    return { message: AUTH_WORDING.sessionEnded, detail, retryable: false }
   }
   if (FORBIDDEN.test(text)) {
     return { message: `You do not have access to ${subject}.`, detail, retryable: false }

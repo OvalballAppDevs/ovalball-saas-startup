@@ -55,7 +55,7 @@ import { useAppContexts } from "../context/contexts"
  * them. There is no query here for a selection to widen.
  */
 
-const SELECTED_CHILD_KEY = "ovalball.selected-child"
+import { SELECTED_CHILD_KEY } from "./selection"
 
 interface FamilyState {
   loading: boolean

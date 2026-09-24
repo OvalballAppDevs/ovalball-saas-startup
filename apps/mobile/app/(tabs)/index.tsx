@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -7,6 +7,8 @@ import * as Linking from "expo-linking"
 import { isFamilyFacingContext, type HeroPage } from "@ovalball/contracts"
 
 import { useAppContexts } from "../../src/context/contexts"
+import { NoContextOnboarding } from "../../src/onboarding/no-context"
+import { AUTH_WORDING } from "@ovalball/contracts/auth"
 import { loadHomeSummary, type HomeSummary } from "../../src/context/home-data"
 import { HomeAttention } from "../../src/attention/home-attention"
 import { routeForAgendaItem } from "../../src/links/destinations"
@@ -57,24 +59,37 @@ import { colour, space, surface, type } from "../../src/design/tokens"
 export default function Home() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { loading, error, active, sessionContext, reload } = useAppContexts()
+  const { loading, error, active, sessionContext, reload, onboarding, contextRemoved, acknowledgeContextRemoved } = useAppContexts()
   const { selectedPlayerId, projection } = useFamily()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [summary, setSummary] = useState<HomeSummary | null>(null)
   const [summaryError, setSummaryError] = useState<{ message: string; offline: boolean } | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
+  // SIGNED IN, HOLDING NOTHING (CA-M11). The fallback context is a label-only placeholder; it must
+  // not be drawn as a club. The person sees the honest state and the real ways forward instead.
+  const noContext = onboarding.state === "NO_CONTEXT"
+  // MANY CONTEXTS, NOTHING REMEMBERED: ask, once per launch, rather than handing over the broadest role.
+  const askedRef = useRef(false)
+  useEffect(() => {
+    if (loading) return
+    if (onboarding.askToChoose && !askedRef.current) {
+      askedRef.current = true
+      setSheetOpen(true)
+    }
+  }, [onboarding.askToChoose, loading])
+
   // A TEAM CONTEXT HAS ITS OWN HOME (CA-M7). The parent/participant summary below is not loaded for it:
   // the Team Home reads the shared team overview instead, and reading both would be two answers.
-  const teamContext = active?.kind === "team"
+  const teamContext = !noContext && active?.kind === "team"
   // A PLAYER HAS THEIR OWN HOME (CA-M9): not a parent's screen with the child chips removed.
-  const playerContext = active?.kind === "player"
+  const playerContext = !noContext && active?.kind === "player"
   // A CLUB HAS ITS OWN HOME (CA-M10): what the club needs from me today, never an admin icon grid.
-  const clubContext = active?.kind === "club"
+  const clubContext = !noContext && active?.kind === "club"
   const [childSheetOpen, setChildSheetOpen] = useState(false)
 
   const loadSummary = useCallback(async () => {
-    if (!active || !sessionContext || active.kind === "team" || active.kind === "player" || active.kind === "club") return
+    if (!active || !sessionContext || noContext || active.kind === "team" || active.kind === "player" || active.kind === "club" || active.kind === "site_admin" || active.kind === "governing") return
     setSummaryError(null)
     try {
       setSummary(await loadHomeSummary(supabase, sessionContext, active, selectedPlayerId, projection))
@@ -86,7 +101,7 @@ export default function Home() {
       setSummary(null)
       setSummaryError({ message: problem.message, offline: problem.retryable && /connection/i.test(problem.message) })
     }
-  }, [active, sessionContext, selectedPlayerId, projection])
+  }, [active, sessionContext, selectedPlayerId, projection, noContext])
 
   // CLEARED BEFORE EVERY RE-READ. One child's rugby must never sit under another
   // child's name for the moment the next read is in flight.
@@ -138,7 +153,7 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
       >
         {/* WHOSE RUGBY: the child selector, where there is a family to choose between (CA-M9). */}
-        {!teamContext && !playerContext && !clubContext && <FamilyIdentityBlock onOpen={() => setChildSheetOpen(true)} />}
+        {!noContext && !teamContext && !playerContext && !clubContext && <FamilyIdentityBlock onOpen={() => setChildSheetOpen(true)} />}
 
         {error && (
           <View style={{ paddingHorizontal: space.lg }}>
@@ -146,14 +161,16 @@ export default function Home() {
           </View>
         )}
 
-        {!loading && !error && !active && (
+        {contextRemoved && (
           <View style={{ paddingHorizontal: space.lg }}>
-            <EmptyState
-              title="No rugby here yet"
-              body="Your account is not connected to a club or team. Ask your club to add you, or join one on the Ovalball website."
-            />
+            <Card style={{ gap: space.sm, borderColor: colour.warning }}>
+              <Text accessibilityLiveRegion="polite" style={[type.small, { color: colour.ink }]}>{AUTH_WORDING.contextRemoved}</Text>
+              <Button label="OK" variant="secondary" onPress={acknowledgeContextRemoved} />
+            </Card>
           </View>
         )}
+
+        {!loading && !error && (noContext || !active) && <NoContextOnboarding />}
 
         {/* THE TEAM WORKSPACE. Home becomes the team's operational overview: what needs me, what is
             next, who has answered, who is in the side, what the club has said, what I may change. */}
@@ -161,13 +178,13 @@ export default function Home() {
         {playerContext && <PlayerHome />}
         {clubContext && <ClubHome />}
 
-        {!teamContext && !playerContext && !clubContext && !!summaryError && (
+        {!noContext && !teamContext && !playerContext && !clubContext && !!summaryError && (
           <View style={{ paddingHorizontal: space.lg }}>
             <ErrorState message={summaryError.message} offline={summaryError.offline} onRetry={loadSummary} />
           </View>
         )}
 
-        {!teamContext && !playerContext && !clubContext && !summaryError && !!active && summary === null && (
+        {!noContext && !teamContext && !playerContext && !clubContext && !summaryError && !!active && summary === null && (
           <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
             <CardSkeleton lines={3} />
             <CardSkeleton lines={1} />
@@ -177,9 +194,9 @@ export default function Home() {
         {/* WHAT NEEDS ME, compactly: the shared attention projection for THIS context (CA-M8). Home shows the
             first few and hands the rest to the Notifications screen; the Team Home draws its own from the same
             projection. Absent, not empty, where there is nothing -- Home does not draw furniture for calm. */}
-        {!teamContext && !playerContext && !clubContext && !!active && (active.kind !== "site_admin" && active.kind !== "governing") && <HomeAttention />}
+        {!noContext && !teamContext && !playerContext && !clubContext && !!active && (active.kind !== "site_admin" && active.kind !== "governing") && <HomeAttention />}
 
-        {!teamContext && !playerContext && !clubContext && !!summary && !!active && (
+        {!noContext && !teamContext && !playerContext && !clubContext && !!summary && !!active && active.kind !== "site_admin" && active.kind !== "governing" && (
           <>
             {/* ============================================================
                   WHAT IS NEXT. The strongest thing on the screen, swiped rather
@@ -248,7 +265,7 @@ export default function Home() {
 
         {/* A site admin or a governing body is not a parent, and Home says so
             rather than drawing a family's hero with nothing in it. */}
-        {!!active && (active.kind === "site_admin" || active.kind === "governing") && (
+        {!noContext && !!active && (active.kind === "site_admin" || active.kind === "governing") && (
           <View style={{ paddingHorizontal: space.lg }}>
             <Card>
               <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>

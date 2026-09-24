@@ -90,6 +90,12 @@ export type LinkIntent =
    * team; whether the person may see it is decided again by every read the screen makes.
    */
   | { kind: "TEAM"; teamId: string; section: "home" | "people" | "player-requests" | "subscriptions" | "news" }
+  /**
+   * An invitation: `/join?t=<token>` from an email, `/join?c=<code>` from a typed code, or bare `/join`
+   * for the code-entry screen. The secret is carried in the intent for the length of one journey and
+   * is never persisted -- see `src/onboarding/join-secret.ts`.
+   */
+  | { kind: "JOIN"; token: string | null; code: string | null }
   /** A link Ovalball issued but this build does not handle yet -- named so it can be reported honestly. */
   | { kind: "NOT_YET_SUPPORTED"; path: string }
   | { kind: "UNKNOWN" }
@@ -99,7 +105,10 @@ export type LinkIntent =
  * than guessed so that "we know what this is and it is not built" can be told apart from "this is not
  * one of ours" -- two different things to say to somebody who just tapped a link.
  */
-const PLANNED = ["/join", "/invitation", "/notifications", "/subscriptions"]
+const PLANNED = ["/invitation", "/notifications", "/subscriptions"]
+
+/** The invitation path. Named here beside the resolver so a test can see "/join" is owned, not planned. */
+export const JOIN_PATH = "/join"
 
 /** A calendar anchor is a civil date and nothing else. Anything other shape is ignored rather than guessed at. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -153,6 +162,14 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
     // treating it as one would take somebody to a Set Password screen that cannot possibly work.
     if (!code) return { kind: "NOT_YET_SUPPORTED", path }
     return { kind: "AUTH_RECOVERY", code }
+  }
+
+  // AN INVITATION: the link an email carries, or the code a person types. Only the exact path: a
+  // sub-path is nothing this build issues, and is left unrecognised rather than guessed at.
+  if (path === JOIN_PATH) {
+    const token = parsed.searchParams.get("t")?.trim() || null
+    const code = parsed.searchParams.get("c")?.trim() || null
+    return { kind: "JOIN", token, code }
   }
 
   // MESSAGES: /messages, and /messages/<kind>/<id> for one conversation.
@@ -246,7 +263,7 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
     if (destination) return { kind: "RUGBY_HUB", destination }
   }
 
-  if (PLANNED.some((planned) => path === planned || path.startsWith(`${planned}/`))) {
+  if (PLANNED.some((planned) => path === planned || path.startsWith(`${planned}/`)) || path.startsWith(`${JOIN_PATH}/`)) {
     return { kind: "NOT_YET_SUPPORTED", path }
   }
 

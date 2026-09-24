@@ -127,8 +127,9 @@ test("the assurance level comes from the auth server and fails closed", () => {
   const verify = strip(read("app/verify.tsx"))
   assert.match(verify, /mfa\.challenge/, "the verification screen does not open a canonical challenge")
   assert.match(verify, /mfa\.verify/, "the verification screen does not verify canonically")
-  // Nothing secret is displayed: enrolment is a web job, and recovery codes are not shown "just in case".
-  assert.ok(!/recovery|secret|qr/i.test(verify), "the verification screen shows enrolment material")
+  // Nothing secret is displayed: recovery codes are not shown "just in case", no secret, no QR. (CA-M11:
+  // the screen may NAME the website's recovery-code route as a hand-off; it never shows a code.)
+  assert.ok(!/secret|qr|recoveryCodes|issue_my_first_recovery_codes|regenerate_my_recovery_codes/i.test(verify), "the verification screen shows enrolment material")
 })
 
 test("a person's picture and a club's crest cannot be substituted for one another", () => {

@@ -177,7 +177,9 @@ test("More offers a family and a player their own destinations and no club or st
   const profile = code(join(MOBILE, "app/(tabs)/profile/index.tsx"))
   assert.match(profile, /updateMyName\(supabase|updateMyPhone\(supabase/, "profile writes go through the shared contract")
   assert.doesNotMatch(profile, /date_of_birth|dateOfBirth|club_memberships|team_permissions|role_assignments/, "no date of birth, no membership or role change from Profile")
-  assert.match(profile, /account\/security/, "security is the website's")
+  // CA-M11: Security is native; the email/address change stays the website's (confirmed by email).
+  assert.match(profile, /router\.push\("\/security" as never\)/, "Security is native")
+  assert.match(profile, /\$\{webUrl\}\/account`/, "email and postal address stay the website's")
 })
 
 test("the phone has no second family, player, attendance or payment store", () => {

@@ -219,10 +219,13 @@ test("every Hub screen reads through a shared reader with the app's own client, 
 test("the Hub cache is memory only and is emptied on sign-out", () => {
   const cache = code(join(HUB_SRC, "cache.ts"))
   assert.ok(!/AsyncStorage|FileSystem|SQLite/.test(cache), "the Hub cache persists content to the device")
+  // CA-M11 moved the sign-out list to one place; More leaves through it and the list empties the Hub.
   const more = code(join(MOBILE, "app/(tabs)/more.tsx"))
-  assert.match(more, /forgetHubCache\(\)/)
-  assert.match(more, /forgetHubTeamPreference\(\)/)
-  assert.match(more, /forgetRecentSearches\(\)/)
+  assert.match(more, /leaveSession\(signOut\)/)
+  const leave = code(join(MOBILE, "src/auth/leave.ts"))
+  assert.match(leave, /forgetHubCache\(\)/)
+  assert.match(leave, /forgetHubTeamPreference\(\)/)
+  assert.match(leave, /forgetRecentSearches\(\)/)
 })
 
 test("the tab bar is unchanged: Rugby Hub is still the fourth everyday cell", () => {

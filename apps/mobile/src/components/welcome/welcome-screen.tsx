@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { AccessibilityInfo, Animated, Easing, Linking, Pressable, Text, View, useWindowDimensions } from "react-native"
+import { AccessibilityInfo, Animated, Easing, Pressable, Text, View, useWindowDimensions } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { Image } from "expo-image"
@@ -7,7 +7,6 @@ import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg"
 
 import { BRAND_GREEN, OvalballMark, OvalballWordmark } from "../brand"
 import { welcomeStill } from "./still"
-import { webUrl } from "../../config/environment"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../design/tokens"
 
 /**
@@ -26,9 +25,10 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../design/tokens"
  * ALIVE, BARELY. The still pushes in by six per cent over twelve seconds, once. Nothing loops,
  * spins or bounces. With Reduce Motion on, it simply holds.
  *
- * NO AUTHORITY. Get Started opens the website's own signup; Log In goes to the app's one sign-in.
+ * NO AUTHORITY. Get Started opens the app's own decision screen -- the real ways in, each on its
+ * canonical surface; Log In goes to the app's one sign-in. Neither creates anything.
  */
-export function WelcomeScreen({ onLogIn }: { onLogIn: () => void }) {
+export function WelcomeScreen({ onGetStarted, onLogIn }: { onGetStarted: () => void; onLogIn: () => void }) {
   const insets = useSafeAreaInsets()
   const { width, height } = useWindowDimensions()
   const reduceMotion = useReduceMotion()
@@ -105,7 +105,7 @@ export function WelcomeScreen({ onLogIn }: { onLogIn: () => void }) {
         </View>
 
         <View style={{ gap: space.md, marginTop: short ? space.lg : space.xl }}>
-          <PrimaryAction label="Get Started" onPress={openSignup} hint="Opens the Ovalball website to create your account" reduceMotion={reduceMotion} />
+          <PrimaryAction label="Get Started" onPress={onGetStarted} hint="Shows the ways to join Ovalball" reduceMotion={reduceMotion} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Log In"
@@ -127,22 +127,6 @@ export function WelcomeScreen({ onLogIn }: { onLogIn: () => void }) {
       </View>
     </View>
   )
-}
-
-/**
- * THE CANONICAL WAY IN. Creating an account and joining a club live on the website, where the
- * invitation, claim and verification architecture already is. The app opens it in the system browser
- * -- never a webview pretending to be the app -- and creates no signup path of its own.
- */
-function openSignup() {
-  if (webUrl) {
-    void Linking.openURL(`${webUrl}/signup`)
-    return
-  }
-  if (__DEV__) {
-    // eslint-disable-next-line no-console
-    console.warn("[ovalball] EXPO_PUBLIC_OVALBALL_WEB_URL is not set; Get Started has nowhere to go")
-  }
 }
 
 /** The one loud control: a green pill with an arrow that settles under the thumb. */

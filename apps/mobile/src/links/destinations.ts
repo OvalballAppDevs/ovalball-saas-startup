@@ -142,6 +142,9 @@ export function routeForIntent(intent: LinkIntent): Route | null {
       }
     // A recovery code, an unbuilt destination and an unrecognised link are all
     // handled by the people who understand them, not by a route table.
+    case "JOIN":
+      // The secret rides in the navigation params for one screen and is never written anywhere else.
+      return { pathname: "/join", params: { ...(intent.token ? { t: intent.token } : {}), ...(intent.code ? { c: intent.code } : {}) } } as Route
     case "AUTH_RECOVERY":
     case "NOT_YET_SUPPORTED":
     case "UNKNOWN":

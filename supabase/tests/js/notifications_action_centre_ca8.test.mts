@@ -325,8 +325,11 @@ test("Home and the Team workspace read the one projection and the sign-out forge
   const teamHome = code(join(MOBILE, "src/team/home.tsx"))
   assert.match(teamHome, /teamAttentionItems\(overview/, "the Team Home draws its rows through the shared model")
   assert.match(teamHome, /routeForAttentionItem\(/, "and opens them through the shared route table")
+  // CA-M11 moved the sign-out list to one place; More still leaves through it.
   const more = code(join(MOBILE, "app/(tabs)/more.tsx"))
-  assert.match(more, /forgetAttentionCache\(\)/, "sign-out forgets what needed the previous person")
+  assert.match(more, /leaveSession\(signOut\)/, "More does not sign out through the one list")
+  const leave = code(join(MOBILE, "src/auth/leave.ts"))
+  assert.match(leave, /forgetAttentionCache\(\)/, "sign-out forgets what needed the previous person")
   const hook = code(join(MOBILE, "src/attention/use-attention.ts"))
   assert.match(hook, /setRead\(null\)\s*\n\s*void load\(false\)/, "the previous context's answer is cleared before the next is asked for")
   const cache = code(join(MOBILE, "src/attention/cache.ts"))

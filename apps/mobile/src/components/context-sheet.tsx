@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react"
 import { Animated, Easing, Modal, PanResponder, Pressable, ScrollView, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { SwitchableContext } from "@ovalball/contracts"
+import { CONTEXT_KIND_LABEL } from "@ovalball/contracts/onboarding"
 
 import { useAppContexts } from "../context/contexts"
 import { ClubCrest, PersonAvatar } from "./identity"
@@ -144,9 +145,12 @@ function ContextRow({
   selected: boolean
   onPress: () => void
 }) {
+  // WHAT KIND OF PLACE THIS IS, IN WORDS, then who or what: "Club · Club Admin", "Team · Coach",
+  // "Parent / Guardian · Ovalball UAT RUFC · Under 12 Boys". Never an enum, never an id.
+  const kind = CONTEXT_KIND_LABEL[context.kind]
   const caption = context.subjectName
-    ? [context.subjectClubName, context.label].filter(Boolean).join(" · ")
-    : context.roleLabel
+    ? [kind, context.subjectClubName, context.label].filter(Boolean).join(" · ")
+    : [kind, context.roleLabel].filter(Boolean).join(" · ")
 
   return (
     <Pressable

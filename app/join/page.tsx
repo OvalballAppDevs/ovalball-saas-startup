@@ -3,6 +3,7 @@ import Link from "next/link"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { createClient } from "@/lib/supabase/server"
+import { FALLBACK_PURPOSE, INVITATION_PURPOSE } from "@ovalball/contracts/invitations"
 
 import { JoinPanel } from "./join-panel"
 
@@ -23,20 +24,8 @@ export const metadata: Metadata = { title: "Accept an Invitation" }
  * meets. Verbs, and the organisation stays in the heading where it is already the biggest thing on the
  * page rather than being repeated in the sentence underneath it.
  */
-const KIND_PURPOSE: Record<string, string> = {
-  CLUB_STAFF: "take on a role at this club",
-  GOVERNING_BODY_OFFICER: "help run this organisation",
-  GUARDIAN: "set up a parent or guardian account",
-  PLAYER_ACCOUNT: "set up a player account",
-  TEAM_JOIN_CODE: "join this team",
-  SAFEGUARDING_OFFICER: "take on the Safeguarding Officer role",
-  SITE_ADMIN: "help administer Ovalball",
-  ACCOUNT_SETUP: "set up your Ovalball account",
-  CLUB_REFERRAL: "bring your club onto Ovalball",
-}
-
-/** The fallback says less rather than something wrong: an unknown kind is still a real invitation. */
-const FALLBACK_PURPOSE = "join them on Ovalball"
+// The words are the shared package's (CA-M11), so the phone and the website describe an invitation the same way.
+const KIND_PURPOSE: Record<string, string> = INVITATION_PURPOSE
 
 /**
  * THE ONE PLACE AN INVITATION IS ACCEPTED.

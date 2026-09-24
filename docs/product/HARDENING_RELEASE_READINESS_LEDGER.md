@@ -963,3 +963,43 @@ TO-E9/E10 comments rather than assertions.
   self-seeded in `club_operations_ca10.sql` and not in the browser.
 - **Physical-iPhone walkthrough** prepared, not performed; Expo Web proof and iOS export only.
 - **H20/H25, H26, H27, H28, H29 unchanged.**
+
+## H31 — CA-M11 Identity, Profile, Security & Onboarding: owed at hardening
+
+- **FOUND BY THE CA-M11 PROOF — the website's password reset cannot complete for an account holding an
+  authenticator.** GoTrue refuses `updateUser({ password })` from an AAL1 session when a verified factor
+  exists ("AAL2 session is required to update email or password when MFA is enabled"), and a recovery
+  session is AAL1 by definition. `app/account/reset-password/actions.ts` calls `updateUser` BEFORE its
+  TOTP challenge (its own comment describes "set new password -> TOTP challenge"), so a factor holder who
+  forgets their password is refused on the web. The phone's recovery screen now challenges the factor
+  first (`app/auth/recovery.tsx`); the website needs the same reordering. Recorded, not fixed here:
+  the web reset action belongs to the identity/auth web slice.
+- **No Turnstile and no Have I Been Pwned check on the native reset path.** The phone calls
+  `resetPasswordForEmail` and `updateUser` directly; GoTrue's per-address limit and its minimum length
+  are the only server-side controls. Project-level leaked-password protection at the auth server would
+  cover both clients and is an owner decision.
+- **Neither client asks for the current password when setting a new one** (`secure_password_change =
+  false`; `setAccountPassword` and the native Change Password both rely on the live session). Turning
+  the GoTrue setting on, or adding a step-up for holders of a factor, is an owner decision.
+- **No suspended-account screen on the phone.** The website's middleware signs a suspended account
+  out; the phone's reads are refused by `session_ok()` and surface as "you do not have access".
+  `my_session_assurance.account_usable` is the canonical signal to land on a dedicated screen.
+- **Session versioning (`AUTH_SESSION_VERSION`) is a web cookie mechanism** not consulted by the phone.
+- **The web falls back club-first for a stale context cookie**; the phone asks. The web `/welcome`
+  page names a pending claim's state (`claim-pending`, `join-pending`, `directory-pending`); the
+  phone's zero-context screen does not yet read `getPendingStatus`.
+- **Web hazards recorded, not copied**: the claim path inserts `club_claims` directly instead of calling
+  `submit_club_claim`; `requestEmailChange` has no `guardAction`; magic-link login is still offered
+  with `block_magic_link_login` unconsulted; four legacy plaintext-token entrances remain live.
+- **Universal links / associated domains, physical-iPhone auth review, production email delivery for
+  recovery and invitations, push and the device lifecycle, and a full recovery rehearsal** are release
+  hardening. The proof used the scheme/`?code=` shape on Expo Web and the local mail catcher.
+- **Proof residue is audit history only.** `security_events` and `audit_log` are append-only by design, so
+  the CA-M11 proof's rows on `uat.unrelated` (password set/reset, enrolment, recovery codes, sessions
+  revoked, invitation redeemed) and on the coach role row (revoke/restore) remain; every mutable row was
+  put back to its recorded baseline.
+- **`mobile_foundation.test.mts` carries three pre-existing failures** (`pieces.tsx` role/context
+  heuristic, `team/home.tsx` kit, `decision-sheet.tsx` cause translation) that predate CA-M11 and are
+  untouched by it.
+- **H20/H25, H26, H27, H28, H29, H30 unchanged.**
+
