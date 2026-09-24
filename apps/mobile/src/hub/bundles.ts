@@ -16,6 +16,7 @@ import { getSkillsExplorerBundle, type SkillsExplorerBundle } from "@ovalball/co
 
 import { supabase } from "../auth/supabase"
 import { useHubData, type HubData } from "./cache"
+import { positionsCacheKey, skillsCacheKey } from "./cache-keys"
 import { useHubIdentity } from "./identity"
 
 /**
@@ -83,7 +84,7 @@ export function usePositions(code: "union" | "league"): HubData<PositionExplorer
   const { identity, loading } = useHubIdentity()
   const own = !!identity && identity.rugbyCode === code && (identity.mappingType === "DIRECT" || identity.mappingType === "DERIVED_COMPOSITE")
   const regulatoryIdentityId = own ? identity.regulatoryIdentityId : null
-  const key = loading ? null : `positions:${code}:${regulatoryIdentityId ?? "none"}`
+  const key = loading ? null : positionsCacheKey(code, regulatoryIdentityId)
   const data = useHubData(
     key,
     useCallback(() => getPositionExplorerBundle(supabase, code, regulatoryIdentityId), [code, regulatoryIdentityId])
@@ -95,7 +96,7 @@ export function usePositions(code: "union" | "league"): HubData<PositionExplorer
 export function useSkills(): HubData<SkillsExplorerBundle> {
   const { identity, loading } = useHubIdentity()
   const regulatoryIdentityId = identity?.regulatoryIdentityId ?? null
-  const key = loading ? null : `skills:${regulatoryIdentityId ?? "none"}`
+  const key = loading ? null : skillsCacheKey(regulatoryIdentityId)
   return useHubData(
     key,
     useCallback(() => getSkillsExplorerBundle(supabase, regulatoryIdentityId), [regulatoryIdentityId])

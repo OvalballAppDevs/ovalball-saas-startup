@@ -44,12 +44,27 @@ destination and `route-table.ts` makes that a screen. `?identity=`, `?code=`
 and `#section-` are browsing state and travel as params; nothing in a link is
 authority, and every screen re-derives what the viewer may see.
 
-**One identity rule.** `HubIdentityProvider` resolves "whose Rugby Hub" the
-way the web does — the viewer's real team options from the session, the
-stored preference if it is still one of them, else the first — and asks
-`get_rugby_hub_identity_context` for the code and regulatory identity. The
-app's active context seeds the first preference (a parent standing in Ava's
-context sees Ava's rules by default). Choosing a team grants nothing.
+**One identity rule** (`src/hub/team-resolution.ts`, corrected in RH-M0.1).
+`HubIdentityProvider` resolves "whose Rugby Hub" from the viewer's real team
+options (the web's `getRugbyHubTeamOptions`): a choice remembered for THIS
+selected context if it is still an option, else the team the selected context
+is (parent / player / team, or the first of a club's teams), else the first
+option — the web's fallback, and the "All Children" case. The remembered
+choice is keyed per context, so switching child or team in the header always
+moves the Hub with it. `get_rugby_hub_identity_context` then gives the code
+and regulatory identity; no screen reads an age grade from a name. Choosing a
+team grants nothing.
+
+**What varies, canonically.** Rules, Safeguarding and Player Welfare are read
+per team (code + regulatory identity + audience) and are never cached; the
+Position Explorer's age stage and the Skills Explorer's contact gate are per
+regulatory identity and their cache keys name it (`src/hub/cache-keys.ts`).
+Everything else — Game Knowledge, Glossary, Officiating, Development,
+Coaching, Parents, Story, Competitions, International, Clubs, People — is one
+bundle for everybody because its shared reader takes no identity, exactly as
+on the web. Contextual screens carry a "for Under 8 Mixed · Rugby Union"
+line; universal screens carry none. See `RUGBY_HUB_AGE_GRADE_REPORT.md` for
+the forensic result, including the platform gap this pass found.
 
 **Same UI, different payload.** Rules, Safeguarding and Player Welfare answer
 for the chosen team and the viewer's audience (a guardian reads the parent

@@ -78,7 +78,7 @@ shared reader named; RLS and the SECURITY DEFINER RPCs decide what comes back.
 | Official source links (`canonical_url`), editorial sources, heritage sources | registered source metadata | `rugby-hub-data` | system browser | INTENTIONAL EXTERNAL HANDOFF | Never an embedded browser. |
 | `/legal/safeguarding` footer link | website legal page | — | system browser | INTENTIONAL EXTERNAL HANDOFF | Website-owned page. |
 | `HubNav` (web secondary navigation) | — | `ia` | — | NOT APPLICABLE | The phone has the tab bar and the landing; a Hub screen's bar carries Back, its section and Search. |
-| `RUGBY_HUB_TEAM_COOKIE` / `setRugbyHubTeam` server action | team preference | `rugby-hub-data` | AsyncStorage preference, `HubIdentityProvider` | SHARED-CONVERGED | Same resolution rule (`resolveActiveRugbyHubTeamId`'s), same options, same server validation; cleared on sign-out. |
+| `RUGBY_HUB_TEAM_COOKIE` / `setRugbyHubTeam` server action | team preference | `rugby-hub-data` | per-context AsyncStorage preference, `src/hub/team-resolution.ts`, `HubIdentityProvider` | SHARED-CONVERGED | Same options and server validation; the app adds "the selected context leads" and keys the remembered choice per context (RH-M0.1). Cleared on sign-out. |
 | `generateMetadata` / `<title>` | page metadata | — | — | NOT APPLICABLE | |
 
 ## Deep links

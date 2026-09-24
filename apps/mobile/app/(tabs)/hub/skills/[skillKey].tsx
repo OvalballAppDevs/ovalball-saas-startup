@@ -8,6 +8,7 @@ import { supabase } from "../../../../src/auth/supabase"
 import { ExternalLink } from "../../../../src/components/icons"
 import { oneParam, useSkills } from "../../../../src/hub/bundles"
 import { HubScreen } from "../../../../src/hub/screen"
+import { HubContextLine } from "../../../../src/hub/team"
 import { HubBadge, HubCallout, HubChips, HubEmpty, HubFailed, HubFootnote, HubHero, HubLoading, HubOverline, HubProse, HubSteps } from "../../../../src/hub/ui"
 import { colour, radius, space, type } from "../../../../src/design/tokens"
 
@@ -58,11 +59,12 @@ export default function SkillScreen() {
           {skill.whenYouUseIt && <HubProse heading="When you use it">{skill.whenYouUseIt}</HubProse>}
 
           {skill.contactNotYetPermitted && cited.length > 0 && (
-            <HubCallout heading="Contact rugby isn't introduced at your stage yet">
+            <HubCallout heading="Contact rugby isn't introduced at your stage yet" footnote={undefined}>
               Tackling is taught progressively. Full contact isn't part of the game at your age grade yet, and is introduced from Under 9 — this is the governing body's own rule, not an Ovalball estimate.
             </HubCallout>
           )}
 
+          {(skill.contactNotYetPermitted || showSteps) && <HubContextLine subject="Contact guidance checked" />}
           {showSteps && skill.techniqueSteps && (
             <View style={{ gap: space.md }}>
               <HubOverline>How to do it</HubOverline>

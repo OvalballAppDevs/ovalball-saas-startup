@@ -231,3 +231,85 @@ test("the tab bar is unchanged: Rugby Hub is still the fourth everyday cell", ()
   assert.ok(existsSync(join(HUB_ROUTES, "_layout.tsx")) && !existsSync(join(MOBILE, "app/(tabs)/hub.tsx")), "the placeholder tab file must be gone and the Hub must be a stack")
   assert.match(code(join(HUB_ROUTES, "_layout.tsx")), /initialRouteName: "index"/)
 })
+
+// ------------------------------------------------------------------ RH-M0.1: whose rugby, and what varies
+
+import { resolveHubTeam, hubTeamPreferenceKey } from "../../../apps/mobile/src/hub/team-resolution"
+import { positionsCacheKey, skillsCacheKey, UNIVERSAL_BUNDLES } from "../../../apps/mobile/src/hub/cache-keys"
+
+const OPTIONS = [
+  { teamId: "t-u8", clubId: "c1", teamDisplayName: "Under 8 Mixed", clubName: "UAT RUFC", childName: "Ben Whitaker" },
+  { teamId: "t-u12", clubId: "c1", teamDisplayName: "Under 12 Boys", clubName: "UAT RUFC", childName: "Ava Whitaker" },
+  { teamId: "t-u16", clubId: "c2", teamDisplayName: "Under 16 Boys", clubName: "Other RFC" },
+]
+
+test("the selected context leads: a parent standing in a child's context gets that child's team", () => {
+  assert.deepEqual(resolveHubTeam(OPTIONS, { kind: "parent", id: "t-u12" }, null), { teamId: "t-u12", source: "context" })
+  assert.deepEqual(resolveHubTeam(OPTIONS, { kind: "parent", id: "t-u8" }, null), { teamId: "t-u8", source: "context" })
+  assert.deepEqual(resolveHubTeam(OPTIONS, { kind: "player", id: "t-u16" }, null), { teamId: "t-u16", source: "context" })
+  assert.deepEqual(resolveHubTeam(OPTIONS, { kind: "team", id: "t-u16" }, null), { teamId: "t-u16", source: "context" })
+})
+
+test("a coach of several sides gets the side they are standing in, never an arbitrary first", () => {
+  assert.equal(resolveHubTeam(OPTIONS, { kind: "team", id: "t-u12" }, null).teamId, "t-u12")
+  assert.equal(resolveHubTeam(OPTIONS, { kind: "team", id: "t-u16" }, null).teamId, "t-u16")
+})
+
+test("a club context gets the first of THAT club's teams, and says it was not the viewer's own choice", () => {
+  assert.deepEqual(resolveHubTeam(OPTIONS, { kind: "club", id: "c2" }, null), { teamId: "t-u16", source: "context" })
+  // All Children, or a context that is not a team at all: the website's fallback, named as such.
+  assert.deepEqual(resolveHubTeam(OPTIONS, { kind: "family", id: null }, null), { teamId: "t-u8", source: "first" })
+  assert.deepEqual(resolveHubTeam([], { kind: "parent", id: "t-u8" }, null), { teamId: null, source: "none" })
+})
+
+test("a choice remembered inside the Hub wins only while it is a real option, and is keyed per context so it cannot outlive a context switch", () => {
+  assert.deepEqual(resolveHubTeam(OPTIONS, { kind: "parent", id: "t-u12" }, "t-u8"), { teamId: "t-u8", source: "remembered" })
+  // A remembered id that is no longer one of the viewer's teams falls through to the context.
+  assert.deepEqual(resolveHubTeam(OPTIONS, { kind: "parent", id: "t-u12" }, "t-gone"), { teamId: "t-u12", source: "context" })
+  assert.notEqual(hubTeamPreferenceKey("parent:ava:t-u12"), hubTeamPreferenceKey("parent:ben:t-u8"))
+  // The provider reads the preference under the ACTIVE context's key: the defect the owner saw was one global key.
+  const provider = code(join(HUB_SRC, "identity.tsx"))
+  assert.match(provider, /hubTeamPreferenceKey\(activeKey\)/)
+  assert.ok(!/"ovalball\.rugby-hub\.team"\)/.test(provider), "a single global team preference is back")
+})
+
+test("no Hub file reads an age grade out of a team's name", () => {
+  for (const file of hubFiles) {
+    const src = code(file)
+    // Code shapes only -- `includes("U12")`, `.match(/U(\d+)/)`, `/Under (\d+)/` -- never prose that happens to say "Under 9".
+    assert.ok(!/includes\("U\d|\.match\(\/U|\.test\(\/U|\/Under \\?d|\/\^?U\\d/.test(src), `${file} parses an age grade from a name`)
+  }
+  const contracts = code("packages/contracts/src/rugby-hub/rugby-hub-data.ts")
+  assert.ok(!/includes\("U\d|\.match\(\/U|\/Under \\?d/.test(contracts), "the shared resolver parses an age grade from a name")
+})
+
+test("the cache key names every dimension the canonical answer varies on", () => {
+  assert.notEqual(positionsCacheKey("union", "id-u8"), positionsCacheKey("union", "id-u12"))
+  assert.notEqual(positionsCacheKey("union", "id-u8"), positionsCacheKey("league", "id-u8"))
+  assert.notEqual(skillsCacheKey("id-u8"), skillsCacheKey("id-u12"))
+  assert.notEqual(skillsCacheKey("id-u8"), skillsCacheKey(null))
+  // The universal bundles are universal on the WEB: their shared readers take no identity at all.
+  const readerFor: Record<string, string> = { game: "game-knowledge-data", glossary: "glossary-data", officiating: "officiating-data", competitions: "teams-competitions-data", international: "international-data", clubs: "clubs-data", people: "people-data", development: "development-data", coaching: "coaching-data", parents: "parents-data", story: "heritage-data" }
+  for (const bundle of UNIVERSAL_BUNDLES) {
+    const src = code(`packages/contracts/src/rugby-hub/${readerFor[bundle]}.ts`)
+    const signature = src.match(/export async function get\w+\(([^)]*)\)/)?.[1] ?? ""
+    assert.ok(!/identity|teamId/i.test(signature), `${bundle}'s shared reader takes an identity (${signature}) -- it is not universal and must be keyed`)
+  }
+  // The identity-aware readers do, and the app passes it.
+  assert.match(code("packages/contracts/src/rugby-hub/position-explorer-data.ts"), /regulatoryIdentityId: string \| null/)
+  assert.match(code("packages/contracts/src/rugby-hub/skills-explorer-data.ts"), /regulatoryIdentityId: string \| null/)
+})
+
+test("the contextual screens drop the previous team's rows the moment the team changes", () => {
+  for (const screen of ["rules.tsx", "player-welfare.tsx", "safeguarding/index.tsx"]) {
+    const src = code(join(HUB_ROUTES, screen))
+    assert.match(src, /const scope = `/, `${screen} has no scope`)
+    assert.match(src, /useEffect\(\(\) => \{\s*(setResult|setContent)\(null\)/, `${screen} does not reset on a scope change`)
+    assert.match(src, /<HubContextLine /, `${screen} does not say whose rugby it is answering for`)
+  }
+  assert.match(code(join(HUB_ROUTES, "skills/index.tsx")), /<HubContextLine /)
+  // And universal screens carry no such line.
+  for (const screen of ["glossary/index.tsx", "story/index.tsx", "people/index.tsx", "game/index.tsx"]) {
+    assert.ok(!/HubContextLine/.test(code(join(HUB_ROUTES, screen))), `${screen} labels universal content with a team`)
+  }
+})

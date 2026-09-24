@@ -18,7 +18,7 @@ import { friendly, logDetail, type FriendlyError } from "../../../src/errors/tra
 import { oneParam } from "../../../src/hub/bundles"
 import { useHubIdentity } from "../../../src/hub/identity"
 import { HubScreen } from "../../../src/hub/screen"
-import { hubTeamPossessive, HubTeamSwitch } from "../../../src/hub/team"
+import { HubContextLine, hubTeamPossessive, HubTeamSwitch } from "../../../src/hub/team"
 import { HubContextStrip, HubFactCard, HubFailed, HubHero, HubLoading, HubNotice, HubOverline, Strong } from "../../../src/hub/ui"
 import { space } from "../../../src/design/tokens"
 
@@ -86,6 +86,16 @@ export default function RulesScreen() {
     }
   }, [browseIdentity, teamId, identity])
 
+  // A NEW TEAM MEANS A BLANK PAGE, NOT THE OLD TEAM'S ROWS WHILE THE NEW ONES LOAD.
+  // The scope names every dimension the answer depends on; when it changes the
+  // previous result is dropped before the next read starts, so nothing from Ava's
+  // team can be on screen under Ben's name for even a moment.
+  const scope = `${browseIdentity ?? ""}|${teamId ?? ""}`
+  useEffect(() => {
+    setResult(null)
+    setSources(new Map())
+  }, [scope])
+
   useEffect(() => {
     if (identityLoading) return
     void load()
@@ -112,7 +122,12 @@ export default function RulesScreen() {
         intro={`Playing rules for ${browseIdentity ? "the age group you chose" : hubTeamPossessive(team)}. This reflects the currently published rules for this age group and rugby code — it is not necessarily the complete official regulation. Check with your club or the governing body directly for anything not covered here.`}
       />
 
-      {!browseIdentity && <HubTeamSwitch />}
+      {!browseIdentity && (
+        <View style={{ gap: space.sm }}>
+          <HubContextLine subject="Rules" />
+          <HubTeamSwitch />
+        </View>
+      )}
 
       {browseIdentity && rows.length > 0 && (
         <HubContextStrip>

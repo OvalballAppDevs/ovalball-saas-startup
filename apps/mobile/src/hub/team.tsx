@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Check, ChevronDown, X } from "../components/icons"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
+import { CODE_LABEL } from "./bundles"
 import { hubTeamLabel, useHubIdentity } from "./identity"
 
 /**
@@ -106,4 +107,28 @@ export function HubTeamSwitch() {
 /** "Playing rules for Ovalball UAT RUFC's Under 12 Boys." -- the possessive the web pages use. */
 export function hubTeamPossessive(team: { clubName: string; teamDisplayName: string } | null): string {
   return team ? `${team.clubName}'s ${team.teamDisplayName}` : "your team"
+}
+
+/**
+ * "FOR UNDER 8 MIXED · RUGBY UNION" -- the one line that says which rugby a
+ * contextual screen is answering for, drawn only on screens whose content
+ * genuinely varies by team (Rules, Safeguarding, Player Welfare, Skills) and
+ * never over universal material. The team's canonical display name carries the
+ * age grade; the code comes from the identity RPC. Nothing is parsed from a
+ * name. When the team was not the viewer's own choice (a club admin's first
+ * team, or "All Children"), the line says so and points at the switch.
+ */
+export function HubContextLine({ subject }: { subject: string }) {
+  const { team, identity, source, options, loading } = useHubIdentity()
+  if (loading || !team) return null
+  const code = identity?.rugbyCode ? CODE_LABEL[identity.rugbyCode] : null
+  const who = team.childName ? `${team.childName}'s ${team.teamDisplayName}` : team.teamDisplayName
+  const qualifier = source === "first" && options.length > 1 ? " — your first team; change it under Viewing" : ""
+  return (
+    <Text accessibilityLiveRegion="polite" style={[type.small, { color: colour.forest900 }]}>
+      {subject} for <Text style={{ fontFamily: "Inter_600SemiBold" }}>{who}</Text>
+      {code ? ` · ${code}` : ""}
+      {qualifier}
+    </Text>
+  )
 }

@@ -4,6 +4,7 @@ import { SKILL_FAMILY_LABEL, groupSkillsByFamily, skillRugbyCodeLabel } from "@o
 
 import { useSkills } from "../../../../src/hub/bundles"
 import { HubScreen } from "../../../../src/hub/screen"
+import { HubContextLine, HubTeamSwitch } from "../../../../src/hub/team"
 import { HubFailed, HubHero, HubList, HubLoading, HubOverline, HubRow } from "../../../../src/hub/ui"
 import { space } from "../../../../src/design/tokens"
 
@@ -19,6 +20,10 @@ export default function SkillsLanding() {
   return (
     <HubScreen section="Play & Develop" onRefresh={refresh} refreshing={refreshing}>
       <HubHero title="Skills" intro="What each skill is, why it matters, when you use it, and how to actually get better at it — connected to the positions that rely on it." />
+      <View style={{ gap: space.sm }}>
+        <HubContextLine subject="Contact guidance checked" />
+        <HubTeamSwitch />
+      </View>
       {loading && <HubLoading />}
       {error && !data && <HubFailed error={error} onRetry={() => void refresh()} />}
       {data &&
