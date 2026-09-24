@@ -110,6 +110,7 @@ const ALL: { key: TabKey; title: string }[] = [
   { key: "support", title: "Support" },
   { key: "subscriptions", title: "Subscriptions" },
   { key: "admin", title: "Admin Centre" },
+  { key: "team", title: "Team" },
   { key: "more", title: "More" },
 ]
 

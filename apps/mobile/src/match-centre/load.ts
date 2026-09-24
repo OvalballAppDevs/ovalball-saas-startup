@@ -11,6 +11,8 @@ import {
   type MatchCentreStatus,
 } from "@ovalball/contracts"
 import type { AvailabilityStatus } from "@ovalball/contracts/availability"
+import { matchTypeLabel } from "@ovalball/contracts/fixtures/game-type"
+import { loadStaffPlayers } from "@ovalball/contracts/team/players"
 
 import type { RegisterEntry } from "../components/availability-register"
 
@@ -105,6 +107,8 @@ export interface MatchCentreView {
   venueAddressLines: string[]
   pitchName: string | null
   competitionName: string | null
+  /** The canonical match type (`fixtures.game_type`), verbatim; null where nothing is recorded. */
+  matchType: string | null
   mine: MyAvailability[]
   /** Empty for a viewer without staff attendance authority. The section is then not rendered at all. */
   register: RegisterEntry[]
@@ -114,7 +118,7 @@ export interface MatchCentreView {
 }
 
 const FIXTURE_FIELDS =
-  "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, venue_address, pitch_id, competition_edition_id, raw_opposition_text, home_score, away_score, result_status"
+  "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, venue_address, pitch_id, competition_edition_id, raw_opposition_text, home_score, away_score, result_status, game_type"
 
 export async function loadMatchCentre(
   supabase: Client,
@@ -226,6 +230,7 @@ export async function loadMatchCentre(
     venueAddressLines: venue?.address ? venue.address.split(",").map((l) => l.trim()).filter(Boolean) : [],
     pitchName: pitch?.display_name ?? null,
     competitionName: (competition?.competitions as { name: string } | null)?.name ?? null,
+    matchType: matchTypeLabel((f as { game_type?: string | null }).game_type ?? null),
     mine: (mineRows ?? []).map((r) => ({
       playerId: r.player_id,
       firstName: r.first_name ?? "",
@@ -257,7 +262,7 @@ export async function loadMatchCentre(
  * INITIALS ONLY, so no avatar is fetched at all. A register is not a gallery of
  * other people's children, and the web's registers made the same choice.
  */
-async function loadRegister(supabase: Client, fixtureId: string): Promise<RegisterEntry[]> {
+export async function loadRegister(supabase: Client, fixtureId: string): Promise<RegisterEntry[]> {
   const { data: teamRows } = await supabase.rpc("fixture_availability_summary", { p_fixture_ids: [fixtureId] })
   // The summary is asked for first as the authority probe: NO ROW means "you are
   // not entitled to know", and in that case the register is not attempted either.
@@ -284,23 +289,35 @@ async function loadRegister(supabase: Client, fixtureId: string): Promise<Regist
 
   const { data: roster } = await supabase
     .from("player_team_memberships")
-    .select("player_id, players(id, first_name, surname)")
+    .select("player_id")
     .in("team_id", teamIds)
     .eq("status", "active")
 
-  const playerIds = (roster ?? []).map((r) => r.player_id)
-  const { data: answers } = playerIds.length
-    ? await supabase.from("player_fixture_attendance").select("player_id, status").eq("fixture_id", fixtureId).in("player_id", playerIds)
-    : { data: [] as { player_id: string; status: string }[] }
+  const playerIds = Array.from(new Set((roster ?? []).map((r) => r.player_id)))
+  /*
+    NAMES THROUGH THE STAFF PROJECTION, NOT THE PLAYERS TABLE (CA-M7).
+
+    `players` answers only the player, their active guardians and Ovalball; a coach or team manager
+    reading it through a join gets NULL, and the first version of this loader silently dropped every
+    row whose join came back empty -- so a Team Manager holding `team.attendance.view` opened Who's In
+    and was told "Nobody to ask yet" about a squad of three. `player_staff_view` is the canonical
+    projection for exactly this reader: the players this person may see at their club or team, names
+    and an age grade, no date of birth. A Club Admin was never affected, which is how it went unseen.
+  */
+  const [names, { data: answers }] = await Promise.all([
+    loadStaffPlayers(supabase, playerIds),
+    playerIds.length
+      ? supabase.from("player_fixture_attendance").select("player_id, status").eq("fixture_id", fixtureId).in("player_id", playerIds)
+      : Promise.resolve({ data: [] as { player_id: string; status: string }[] }),
+  ])
   const byPlayer = new Map((answers ?? []).map((a) => [a.player_id, a.status as AvailabilityStatus]))
 
-  const seen = new Set<string>()
   const entries: RegisterEntry[] = []
-  for (const r of roster ?? []) {
-    const p = r.players as { id: string; first_name: string; surname: string } | null
-    if (!p || seen.has(p.id)) continue
-    seen.add(p.id)
-    entries.push({ playerId: p.id, firstName: p.first_name ?? "", surname: p.surname ?? "", status: byPlayer.get(p.id) ?? null })
+  for (const id of playerIds) {
+    const p = names.get(id)
+    // A player the staff projection does not return is one this viewer may not see; the row is not drawn.
+    if (!p) continue
+    entries.push({ playerId: id, firstName: p.firstName, surname: p.surname, status: byPlayer.get(id) ?? null })
   }
   // Surname then forename, exactly as public.get_training_register orders its own
   // register, so the two read the same way.

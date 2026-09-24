@@ -17,6 +17,7 @@ import { ChildFilter } from "../../src/components/child-filter"
 import { useFamily } from "../../src/family/family"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { RugbyHero } from "../../src/components/home/rugby-hero"
+import { TeamHome } from "../../src/team/home"
 import { AnnouncementPreview, NewsRail, SubscriptionStatusCard } from "../../src/components/home/sections"
 import { Button, Card, CardSkeleton, EmptyState, ErrorState } from "../../src/components/ui"
 import { ExternalLink, OvalIcon } from "../../src/components/icons"
@@ -59,8 +60,12 @@ export default function Home() {
   const [summaryError, setSummaryError] = useState<{ message: string; offline: boolean } | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
+  // A TEAM CONTEXT HAS ITS OWN HOME (CA-M7). The parent/participant summary below is not loaded for it:
+  // the Team Home reads the shared team overview instead, and reading both would be two answers.
+  const teamContext = active?.kind === "team"
+
   const loadSummary = useCallback(async () => {
-    if (!active || !sessionContext) return
+    if (!active || !sessionContext || active.kind === "team") return
     setSummaryError(null)
     try {
       setSummary(await loadHomeSummary(supabase, sessionContext, active, selectedPlayerId, projection))
@@ -141,20 +146,24 @@ export default function Home() {
           </View>
         )}
 
-        {!!summaryError && (
+        {/* THE TEAM WORKSPACE. Home becomes the team's operational overview: what needs me, what is
+            next, who has answered, who is in the side, what the club has said, what I may change. */}
+        {teamContext && <TeamHome />}
+
+        {!teamContext && !!summaryError && (
           <View style={{ paddingHorizontal: space.lg }}>
             <ErrorState message={summaryError.message} offline={summaryError.offline} onRetry={loadSummary} />
           </View>
         )}
 
-        {!summaryError && !!active && summary === null && (
+        {!teamContext && !summaryError && !!active && summary === null && (
           <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
             <CardSkeleton lines={3} />
             <CardSkeleton lines={1} />
           </View>
         )}
 
-        {!!summary && !!active && (
+        {!teamContext && !!summary && !!active && (
           <>
             {/* ============================================================
                   WHAT IS NEXT. The strongest thing on the screen, swiped rather

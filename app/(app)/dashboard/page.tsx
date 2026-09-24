@@ -147,7 +147,7 @@ export default async function DashboardPage() {
   // THE TEAM'S OWN OPERATIONAL READ, for a context whose whole job is one team. Loaded here rather
   // than inside the panel so the page keeps its single round of server work, and only for a team
   // context -- a club admin's dashboard is a different question and already has its own answer.
-  const teamOverview = deskTeamId ? await loadTeamOverview(supabase, deskTeamId) : null
+  const teamOverview = deskTeamId && dashboardContext.clubId ? await loadTeamOverview(supabase, dashboardContext.clubId, deskTeamId) : null
   // A plain club membership has no "operate as" context (active-context-rules),
   // so such a member lands on the context-less fallback. The club home is
   // ambient -- reading, not operating -- so a member of exactly one club still

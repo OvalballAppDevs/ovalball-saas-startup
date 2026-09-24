@@ -23,7 +23,7 @@ import {
   countActive,
   type AgendaFilter,
 } from "../../../src/components/agenda-filter"
-import { OvalIcon, Plus, SlidersHorizontal } from "../../../src/components/icons"
+import { ChevronRight, Megaphone, OvalIcon, Plus, SlidersHorizontal } from "../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
 
@@ -157,6 +157,25 @@ export default function Fixtures() {
   const days = useMemo(() => groupByDay(rest), [rest])
   const canAdd = authority?.create ?? false
   const canRequest = authority?.requestCreate ?? false
+  // THE REQUESTS WAITING ON THIS TEAM (CA-M7): a row above the list in a team context, for somebody
+  // the server says may answer. Counted from the same RLS-scoped rows the requests screen reads.
+  const [waitingRequests, setWaitingRequests] = useState<number>(0)
+  useEffect(() => {
+    let live = true
+    setWaitingRequests(0)
+    if (active?.kind !== "team" || !active.id || !authority?.requestRespond) return
+    void supabase
+      .from("fixture_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("target_team_id", active.id)
+      .eq("status", "sent")
+      .then(({ count }) => {
+        if (live) setWaitingRequests(count ?? 0)
+      })
+    return () => {
+      live = false
+    }
+  }, [active, authority])
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
@@ -218,6 +237,23 @@ export default function Fixtures() {
             <CardSkeleton lines={2} />
             <CardSkeleton lines={1} />
             <CardSkeleton lines={1} />
+          </View>
+        )}
+
+        {active?.kind === "team" && (authority?.requestRespond || authority?.requestCreate) && direction === "upcoming" && (
+          <View style={{ paddingHorizontal: space.lg }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={waitingRequests > 0 ? `${waitingRequests} fixture ${waitingRequests === 1 ? "request is" : "requests are"} waiting for your answer. Opens Fixture Requests.` : "Fixture Requests"}
+              onPress={() => router.push("/team/requests" as never)}
+              style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: waitingRequests > 0 ? colour.warning : colour.line, backgroundColor: waitingRequests > 0 ? colour.warningSurface : colour.surface, opacity: pressed ? 0.92 : 1 })}
+            >
+              <Megaphone size={17} color={waitingRequests > 0 ? colour.warning : colour.forest800} strokeWidth={2} />
+              <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>
+                {waitingRequests > 0 ? `${waitingRequests} fixture ${waitingRequests === 1 ? "request" : "requests"} waiting for your answer` : "Fixture Requests"}
+              </Text>
+              <ChevronRight size={17} color={colour.inkSubtle} />
+            </Pressable>
           </View>
         )}
 

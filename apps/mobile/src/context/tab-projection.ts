@@ -33,6 +33,8 @@ export type TabKey =
   | "support"
   /** Reached from More in a club context (CA-M1). A route in this group, never a cell. */
   | "admin"
+  /** Reached from Home and More in a team context (CA-M7): Availability, People, Requests, Team Settings. A route group, never a cell. */
+  | "team"
 
 export interface TabSpec {
   key: TabKey

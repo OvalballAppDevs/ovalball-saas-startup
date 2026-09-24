@@ -15,8 +15,10 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { ChevronRight, ExternalLink, Landmark, Receipt, Users, Megaphone } from "../../src/components/icons"
+import { ChevronRight, ClipboardList, ExternalLink, Landmark, Receipt, Settings2, Users, Megaphone } from "../../src/components/icons"
 import { useAdminCentreAccess } from "../../src/admin/access"
+import { useTeamAuthority } from "../../src/team/authority"
+import { anyTeamAdministration } from "@ovalball/contracts/team/authority"
 import { Button, Card } from "../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
 
@@ -41,6 +43,10 @@ export default function More() {
   // `my_capabilities` says this person holds at least one administrative capability at that club --
   // never because the context is labelled Club Admin. Re-asked on every context change and focus.
   const admin = useAdminCentreAccess()
+  // THE TEAM'S OWN JOBS, for a team context (CA-M7). Which rows appear is the server's answer at team
+  // scope; the rows themselves are the recurring work the bar does not hold.
+  const team = useTeamAuthority()
+  const inTeam = active?.kind === "team"
 
   async function leave() {
     // EVERYTHING THIS PERSON LEFT ON THE DEVICE GOES WITH THE SESSION. A phone gets handed around a
@@ -88,6 +94,20 @@ export default function More() {
           simply reachable from somewhere better, and listing them twice would
           make one destination look like two.
         */}
+        {inTeam && (
+          <Group title={active?.label ?? "Your Team"}>
+            <Row icon={<ClipboardList size={19} color={colour.forest800} strokeWidth={1.9} />} label="Availability" caption="Who has answered, who has not" onPress={() => router.push("/team/availability" as never)} />
+            <Row icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />} label="People" caption="Players, parents and the staff who run the side" onPress={() => router.push("/team/people" as never)} />
+            {(team.authority.requestRespond || team.authority.requestCreate) && (
+              <Row icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />} label="Fixture Requests" caption="Other clubs asking, and what you have asked" onPress={() => router.push("/team/requests" as never)} />
+            )}
+            {canSeeTeamSubscriptions && <Row icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />} label="Subscriptions" caption="Who in your squad is set up to pay" onPress={() => router.push("/subscriptions")} />}
+            {anyTeamAdministration(team.authority) && (
+              <Row icon={<Settings2 size={19} color={colour.forest800} strokeWidth={1.9} />} label="Team Settings" caption="Requests, codes, staff and publishing" onPress={() => router.push("/team/settings" as never)} />
+            )}
+          </Group>
+        )}
+
         <Group title="Your Rugby">
           <Row
             icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />}
@@ -95,23 +115,23 @@ export default function More() {
             caption="What the club has published"
             onPress={() => router.push("/news")}
           />
-          <Row
-            icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
-            label="Subscriptions"
-            caption={
-              canSeeTeamSubscriptions
-                ? "Who in your squad is set up to pay"
-                : "Subscription and payment state, where you are authorised"
-            }
-            onPress={() => router.push("/subscriptions")}
-          />
-          <Row
-            icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
-            label="People"
-            caption="Players, parents and the staff who run the side — on the web for now"
-            onPress={() => (admin.sections.some((s) => s.key === "people") ? router.push("/admin/people") : void Linking.openURL(`${webUrl}/people`))}
-            external
-          />
+          {!inTeam && (
+            <Row
+              icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />}
+              label="Subscriptions"
+              caption="Subscription and payment state, where you are authorised"
+              onPress={() => router.push("/subscriptions")}
+            />
+          )}
+          {!inTeam && (
+            <Row
+              icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
+              label="People"
+              caption="Players, parents and the staff who run the side — on the web for now"
+              onPress={() => (admin.sections.some((s) => s.key === "people") ? router.push("/admin/people") : void Linking.openURL(`${webUrl}/people`))}
+              external
+            />
+          )}
         </Group>
 
         {admin.clubId && admin.sections.length > 0 && (

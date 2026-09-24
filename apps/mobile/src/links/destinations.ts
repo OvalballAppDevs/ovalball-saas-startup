@@ -124,6 +124,22 @@ export function routeForIntent(intent: LinkIntent): Route | null {
     // resolves to nothing here rather than to somewhere plausible.
     case "RUGBY_HUB":
       return routeForHubDestination(intent.destination)
+    // A TEAM'S WORKSPACE. The team's Home is the Home tab in that team's context; its sections are the
+    // team route group. The caller switches context first where it may (`ensureTeamContext`); the
+    // route itself carries the id only so the screen can say whose team it is asking about.
+    case "TEAM":
+      switch (intent.section) {
+        case "people":
+          return { pathname: "/team/people", params: { teamId: intent.teamId } }
+        case "player-requests":
+          return { pathname: "/team/settings/player-requests", params: { teamId: intent.teamId } }
+        case "subscriptions":
+          return { pathname: "/subscriptions", params: { teamId: intent.teamId } }
+        case "news":
+          return { pathname: "/admin/news", params: { teamId: intent.teamId } }
+        default:
+          return { pathname: "/", params: { teamId: intent.teamId } }
+      }
     // A recovery code, an unbuilt destination and an unrecognised link are all
     // handled by the people who understand them, not by a route table.
     case "AUTH_RECOVERY":

@@ -343,7 +343,13 @@ export function MatchCentre() {
                 <StatusIcon size={13} color={paint.text} strokeWidth={2.4} />
                 <Text style={[type.caption, { color: paint.text, fontFamily: "Inter_500Medium" }]}>{status.label}</Text>
               </View>
-              {view.competitionName && <Text style={[type.caption, { color: colour.onForestMuted }]}>{view.competitionName}</Text>}
+              {/* THE CLASSIFICATION, THE SAME WORD EVERYWHERE. `fixtures.game_type` verbatim, as the Fixtures list,
+                  the Calendar card and the Team Home show it; the competition name follows where there is one. */}
+              {(view.matchType || view.competitionName) && (
+                <Text numberOfLines={1} style={[type.caption, { color: colour.onForestMuted, flexShrink: 1 }]}>
+                  {[view.matchType, view.competitionName].filter(Boolean).join(" · ")}
+                </Text>
+              )}
             </View>
           </View>
 

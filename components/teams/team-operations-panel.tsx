@@ -75,8 +75,8 @@ export function TeamOperationsPanel({ overview, teamHref }: { overview: TeamOver
               <p className="mt-3 text-sm text-ink">
                 <span className="font-medium">{availability.attending}</span> available
                 {availability.unavailable > 0 && <> · <span className="font-medium">{availability.unavailable}</span> cannot play</>}
-                {availability.outstanding > 0 && (
-                  <> · <span className="font-medium text-amber-700">{availability.outstanding}</span> not replied</>
+                {availability.awaiting > 0 && (
+                  <> · <span className="font-medium text-amber-700">{availability.awaiting}</span> not replied</>
                 )}
               </p>
             )}

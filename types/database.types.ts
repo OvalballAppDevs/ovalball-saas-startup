@@ -27599,6 +27599,20 @@ export type Database = {
           source_player_count: number
         }[]
       }
+      team_subscription_status: {
+        Args: { p_team_id: string }
+        Returns: {
+          amount_due_minor: number
+          billing_period: string
+          currency: string
+          first_name: string
+          has_payer: boolean
+          obligation_status: string
+          player_id: string
+          programme_exists: boolean
+          surname: string
+        }[]
+      }
       touch_last_active: { Args: never; Returns: undefined }
       training_communication_counts: {
         Args: { p_training_session_id: string }

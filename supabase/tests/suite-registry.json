@@ -1739,6 +1739,11 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Club administration",
       "reason": "CA-M5 News & Announcements: the publishing-scopes read model, cross-scope and cross-club refusal, drafts and windows, reader isolation (member, guardian, unrelated, other club, opposition, anonymous), the lead story, stale authority, audit, and the absence of notifications."
+    },
+    "team_operations_ca7": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Ovalball mobile client and team authority",
+      "reason": "CA-M7 Team Operations: the authority the team workspace consumes and cannot widen. Proves the one team-scope capability probe (a Team Manager's role default, a Coach's narrower one, and that the Planner, Import, bulk edit, delete and the Competition Creator are never offered at team scope even to a Club Admin); fixture create, edit and cancel by a non-protected Team Manager on THEIR team, a Club Admin's withhold refusing the same role mid-edit and a restore returning it, cancellation needing a reason and never deleting; cross-team and cross-club refusal of create, edit and cancel with no capability at the wrong scope; no club-wide escalation to the Planner, membership administration or the club ledger; the team-scoped subscription operation answering only the holder for only their team, refusing the sibling team, an unauthorised Coach and another club, keeping the underlying rows refused, carrying no provider or payer-identity column, refusing under a withhold and returning on restore, with no other finance key holding team scope; the roster reader refusing the wrong team and the wrong club, carrying no contact column, a Coach reading but not deciding and a Team Manager deciding; a fixture request seen by the target team and answerable only by a holder of fixture.request.respond; the messaging boundaries the team workspace adds no route around (parent and player to the opposition, minor and coach either way, and the one legitimate staff route); and availability with no staff override and a summary absent, not zero, where the viewer has no attendance authority. Self-seeding and rolled back."
     }
   },
   "prerequisite_defect": {

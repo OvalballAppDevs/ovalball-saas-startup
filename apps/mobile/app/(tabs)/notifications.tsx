@@ -10,6 +10,7 @@ import { webUrl } from "../../src/config/environment"
 import { useAppContexts } from "../../src/context/contexts"
 import { narrowIntentForContext, routeForIntent } from "../../src/links/destinations"
 import { resolveIntent } from "../../src/links/intents"
+import { teamContextKeyFor } from "../../src/team/context"
 import { Bell, ChevronRight } from "../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../src/components/ui"
 import { friendly, logDetail } from "../../src/errors/translate"
@@ -44,7 +45,7 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/toke
 export default function Notifications() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { refreshUnread, active } = useAppContexts()
+  const { refreshUnread, active, contexts, select } = useAppContexts()
 
   const [items, setItems] = useState<NotificationItem[] | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -92,6 +93,16 @@ export default function Notifications() {
     const intent = narrowIntentForContext(resolveIntent(`ovalball://${item.href.replace(/^\//, "")}`), active?.kind ?? null)
     const route = routeForIntent(intent)
     if (route) {
+      /*
+        A TEAM LINK OPENS IN THAT TEAM (CA-M7). If the notification names a team the person holds as a
+        context and is not standing in, the app selects it first -- the same switch the header offers,
+        over the same list the website computes. A team that is not one of their contexts is left
+        alone: a link can select a context that was on offer, never grant one.
+      */
+      if (intent.kind === "TEAM") {
+        const key = teamContextKeyFor(intent.teamId, contexts, active)
+        if (key) void select(key)
+      }
       router.push(route as never)
       return
     }

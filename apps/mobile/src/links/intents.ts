@@ -82,6 +82,14 @@ export type LinkIntent =
   | { kind: "CLUB_ARTICLE"; articleId: string }
   | { kind: "CLUB_ARTICLE_BY_SLUG"; clubSlug: string; articleSlug: string }
   | { kind: "CLUB_ANNOUNCEMENT"; announcementId: string }
+  /**
+   * A TEAM'S OWN WORKSPACE (CA-M7). The website addresses a team at `/teams/<id>` and its people,
+   * player requests and subscriptions beneath it; Needs Attention items and notifications carry those
+   * addresses. Natively they land on the Team Home and its screens -- in THAT team's context, which the
+   * app switches to only where the person already holds it (`ensureTeamContext`). The id says which
+   * team; whether the person may see it is decided again by every read the screen makes.
+   */
+  | { kind: "TEAM"; teamId: string; section: "home" | "people" | "player-requests" | "subscriptions" | "news" }
   /** A link Ovalball issued but this build does not handle yet -- named so it can be reported honestly. */
   | { kind: "NOT_YET_SUPPORTED"; path: string }
   | { kind: "UNKNOWN" }
@@ -200,6 +208,17 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
   if (path.startsWith("/club/")) {
     const parts = path.slice("/club/".length).split("/").filter(Boolean)
     if (parts.length === 3 && parts[1] === "news") return { kind: "CLUB_ARTICLE_BY_SLUG", clubSlug: parts[0], articleSlug: parts[2] }
+  }
+
+  // A TEAM: /teams/<id> and its sections, the same addresses the website uses.
+  if (path.startsWith("/teams/")) {
+    const parts = path.slice("/teams/".length).split("/").filter(Boolean)
+    const [teamId, section] = parts
+    if (teamId) {
+      const known = ["people", "player-requests", "subscriptions", "news"] as const
+      const chosen = (known as readonly string[]).includes(section ?? "") ? (section as (typeof known)[number]) : "home"
+      return { kind: "TEAM", teamId, section: chosen }
+    }
   }
 
   // TRAINING: /training/<id>, the same address the website uses.

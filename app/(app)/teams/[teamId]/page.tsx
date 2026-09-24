@@ -187,11 +187,12 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
 
   // SUBSCRIPTIONS, ONLY FOR SOMEBODY WHO MAY SEE THEM.
   //
-  // finance.subscription.view is CLUB-scoped -- every finance capability in this product is -- so a
-  // team manager who is not also club finance staff gets nothing here and the section does not render.
-  // That is the existing authority model, preserved rather than widened: giving team staff a
-  // team-level finance capability would be new authority, and new authority is an owner decision.
-  const canSeeFinance = await hasCapability(supabase, "finance.subscription.view", "club", { clubId: team.club_id })
+  // finance.subscription.view held at TEAM scope is the bounded authority migration 20270531 gave a
+  // Team Manager -- operational state for this team's players, nothing else -- and a club holder is let in
+  // too. The same pair the subscriptions page itself asks (CA-M7), so the card and the page cannot disagree.
+  const canSeeFinance =
+    (await hasCapability(supabase, "finance.subscription.view", "team", { clubId: team.club_id, teamId: team.id })) ||
+    (await hasCapability(supabase, "finance.subscription.view", "club", { clubId: team.club_id }))
   const teamSubscriptions = canSeeFinance ? await loadTeamSubscriptions(supabase, team.id) : null
 
   const [upcomingRead, recentRead] = await Promise.all([

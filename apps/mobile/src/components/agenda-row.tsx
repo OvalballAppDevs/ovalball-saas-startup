@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native"
 import type { ClubTheme, AgendaItem, FamilyMember } from "@ovalball/contracts"
 import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
 import { needsAttendanceResponse } from "@ovalball/contracts"
+import { matchTypeLabel } from "@ovalball/contracts/fixtures/game-type"
 
 import {
   homeAwayLabel,
@@ -16,7 +17,7 @@ import {
 } from "../agenda/presentation"
 import { ChildMark } from "./child-mark"
 import { ClubCrest, PersonAvatar } from "./identity"
-import { Clock, MapPin, OvalIcon, Users } from "./icons"
+import { Clock, Flag, MapPin, OvalIcon, Users } from "./icons"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
 
 /**
@@ -151,6 +152,10 @@ export function AgendaRow({
             <Meta icon={<OvalIcon size={12} color={colour.inkMuted} />} text={ownerLabel(item, child !== null)!} />
           )}
           {!!shortVenue(item.venue) && <Meta icon={<MapPin size={12} color={colour.inkMuted} />} text={shortVenue(item.venue)!} />}
+          {/* THE CLASSIFICATION, from the one taxonomy (`fixtures.game_type`), in the same words as the
+              Calendar card, the Match Centre and the Team Home. Absent where nothing is recorded -- a
+              fixture with no type is not "Friendly". */}
+          {!training && !!matchTypeLabel(item.gameType) && <Meta icon={<Flag size={12} color={colour.inkMuted} />} text={matchTypeLabel(item.gameType)!} />}
         </View>
       </View>
 
@@ -439,6 +444,9 @@ export function NextFixtureCard({
         />
         {!!shortVenue(item.venue) && (
           <Fact icon={<MapPin size={14} color={inkMuted} />} tint={ink} text={shortVenue(item.venue)!} />
+        )}
+        {item.kind === "fixture" && !!matchTypeLabel(item.gameType) && (
+          <Fact icon={<Flag size={14} color={inkMuted} />} tint={ink} text={matchTypeLabel(item.gameType)!} />
         )}
       </View>
 

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { routeForIntent } from "../../../src/links/destinations"
+import { GAME_TYPE_OPTIONS, type GameType } from "@ovalball/contracts/fixtures/game-type"
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import {
@@ -66,7 +67,7 @@ export default function AddFixture() {
   const [date, setDate] = useState(today)
   const [time, setTime] = useState<string | null>("10:30")
   const [homeAway, setHomeAway] = useState<"Home" | "Away" | "TBD">("Home")
-  const [gameType, setGameType] = useState<"Friendly" | "League Fixture" | "Cup Fixture">("Friendly")
+  const [gameType, setGameType] = useState<GameType>("Friendly")
   const [note, setNote] = useState("")
   const [problem, setProblem] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -354,11 +355,9 @@ export default function AddFixture() {
                   label="Fixture type"
                   value={gameType}
                   onChange={setGameType}
-                  options={[
-                    { value: "Friendly", label: "Friendly" },
-                    { value: "League Fixture", label: "League" },
-                    { value: "Cup Fixture", label: "Cup" },
-                  ]}
+                  /* THE SAME FOUR WORDS THE WEB OFFERS -- `GAME_TYPE_OPTIONS` is the check constraint
+                     on `fixtures.game_type`, not a mobile list. A value outside it cannot be written. */
+                  options={GAME_TYPE_OPTIONS.map((value) => ({ value, label: value }))}
                 />
               </Field>
             )}

@@ -75,6 +75,14 @@ import {
   TriangleAlert,
   Trophy,
   UserRound,
+  // Team Operations (CA-M7).
+  ArrowRightLeft,
+  CircleCheck,
+  CircleX,
+  KeyRound,
+  Newspaper,
+  Settings2,
+  UserPlus,
 } from "lucide-react-native"
 import Svg, { Ellipse } from "react-native-svg"
 
@@ -168,6 +176,13 @@ export {
   TriangleAlert,
   Trophy,
   UserRound,
+  ArrowRightLeft,
+  CircleCheck,
+  CircleX,
+  KeyRound,
+  Newspaper,
+  Settings2,
+  UserPlus,
 }
 
 /** The rugby ball, as an icon, in the brand's own geometry. Matches Lucide's 24-unit grid and weight. */

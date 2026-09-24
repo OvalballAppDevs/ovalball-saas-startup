@@ -45,6 +45,40 @@ function destinationMap(): string {
   assert.fail(`no notification destination map found in ${candidates.join(" or ")}`)
 }
 
+
+/**
+ * WHERE THE TEAM'S READ LIVES NOW (CA-M7). It moved into `packages/contracts/src/team/` so the app's
+ * Team Home and the website's dashboard render the same function; `lib/teams/team-overview.ts` is a
+ * re-export. The query lives in `overview.ts`, the destinations in `attention.ts`; both are read so a
+ * move of either is loud rather than a silent pass over a shim.
+ */
+function teamOverviewSource(): string {
+  const candidates = ["packages/contracts/src/team/overview.ts", "lib/teams/team-overview.ts"]
+  for (const candidate of candidates) {
+    let body: string
+    try {
+      body = read(candidate)
+    } catch {
+      continue
+    }
+    if (/from\("fixture_requests"\)/.test(body)) return body
+  }
+  assert.fail(`no team overview read found in ${candidates.join(" or ")}`)
+}
+function teamAttentionSource(): string {
+  const candidates = ["packages/contracts/src/team/attention.ts", "lib/teams/team-overview.ts"]
+  for (const candidate of candidates) {
+    let body: string
+    try {
+      body = read(candidate)
+    } catch {
+      continue
+    }
+    if (/\/messages\/request\//.test(body)) return body
+  }
+  assert.fail(`no team attention destinations found in ${candidates.join(" or ")}`)
+}
+
 /** The domain, from the migration that owns the column rather than from a copy of it here. */
 function fixtureRequestStatuses(): string[] {
   const migration = read("supabase/migrations/20260831092000_fixture_requests.sql")
@@ -60,7 +94,7 @@ test("the status domain is readable from the migration that owns it", () => {
 })
 
 test("every fixture-request status the team's panel filters on is a real status", () => {
-  const source = read("lib/teams/team-overview.ts")
+  const source = teamOverviewSource()
   const statuses = fixtureRequestStatuses()
   // Scoped to the fixture_requests query itself. The file reads several tables and `active` is a real
   // status on another of them, so a file-wide sweep would have to exempt values rather than check them.
@@ -82,7 +116,7 @@ test("a single incoming request leads to that request, not to the register", () 
   // Section 18: a notification, and Needs Attention, must land on the exact request where accepting and
   // declining happen -- never a generic negotiation list when a precise destination is resolvable. Both
   // routes into this job now resolve the same way.
-  const source = read("lib/teams/team-overview.ts")
+  const source = teamAttentionSource()
   assert.match(source, /\/messages\/request\/\$\{/, "a single incoming request does not deep-link to itself")
   const destinations = destinationMap()
   assert.match(
@@ -93,7 +127,7 @@ test("a single incoming request leads to that request, not to the register", () 
 })
 
 test("a request this team SENT is not something this team must answer", () => {
-  const source = read("lib/teams/team-overview.ts")
+  const source = teamOverviewSource()
   assert.match(source, /\.eq\("target_team_id", teamId\)/, "the panel counts requests in both directions")
   assert.ok(
     !/requesting_team_id[\s\S]*attention|attention[\s\S]*requesting_team_id/.test(source.slice(0, source.indexOf("availability"))),

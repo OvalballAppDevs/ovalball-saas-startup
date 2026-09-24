@@ -783,3 +783,60 @@ enrolment done in the suites' own setup and cleaned up in their teardown.
 - **Higgsfield billing.** The owner reported an unlimited Nano Banana allowance; the CLI account
   (`ovalballapp@gmail.com`, plus plan) still debited 2 credits per Nano Banana job on 2026-09-24. Any
   further regeneration should confirm the allowance against the balance first.
+
+## H24 — `update_fixture_kickoff` is gated on `fixture.result.record`, not `fixture.fixture.edit`
+
+Observed 2026-09-24 by `supabase/tests/team_operations_ca7.sql` while proving stale authority for a
+Team Manager. `public.update_fixture_kickoff` (the focused kick-off mutation the mobile Fixture Console
+and the web editor both call) asks `internal.can_submit_fixture_result` — the result-recording key —
+rather than `internal.can_edit_fixture_details`. A Club Admin who withholds `fixture.fixture.edit` from a
+Team Manager at team scope therefore stops `update_fixture_details` and `update_fixture_kickoff` is
+still accepted; the mobile console hides its kick-off editor behind `authority.edit`, so the gap is in
+the server gate, not the interface. `update_fixture_schedule`, `_venue`, `_pitch` and `_meet_time`
+were not exercised. Owed to the fixture domain: point the kick-off mutation at the edit resolver (one
+line) and add the TO-B7 assertion the CA-M7 suite deliberately leaves out. Not changed here — a change
+to which key a fixture mutation asks is a fixture-authority change, which the CA-M7 directive says to
+report before making.
+
+## H25 — a Team Manager's team-scoped `finance.subscription.view` cannot be withheld
+
+Observed 2026-09-24 by the same suite. Migration `20270531000000` gave `finance.subscription.view` a
+team scope and put it in the Team Manager bundle, but left `inherits_to_team = false` and the decision
+ceiling at club level (grant level `C`). So a Club Admin's team-level withhold is refused ("You are not
+authorised to change that permission"; the CA-M4 read model shows the row as not editable), and a
+club-level withhold is recorded but does not reach the team-scope evaluation. The Team Manager keeps
+the view whatever the club decides. Owed to the finance slice that owns the key: either
+`inherits_to_team = true` (so the club decision reaches the team, as it does for every other
+`club,team` key) or a team-level decision ceiling. `club_admin_authority_matrix.sql` CH-A (H20) is the
+same key's stale assertion and should be settled in the same pass. The CA-M7 suite records this as
+TO-E9/E10 comments rather than assertions.
+
+## H26 — CA-M7 Team Operations: owed at hardening
+
+- **Availability has no staff override and no staff notification.** `player_fixture_attendance`
+  permits `response_source = 'staff'` and nothing writes it; no notification or domain event is emitted
+  to team staff when a player or guardian answers. The mobile register says so plainly ("Staff can ask,
+  not answer for them") and the canonical reminder is the only staff action. Both remain platform debt
+  for the availability domain; neither was faked.
+- **Team conversations have no client.** `public.team_conversations` carries a complete authority model
+  (`messaging.team_conversation.view/send`, the club policy switch) and neither client lists or opens
+  one. The Team workspace surfaces the canonical Messages inbox (fixture, request, club, direct,
+  announcements) and the fixture-audience announce; a team-wide standing thread is an owner decision.
+- **Raising a call-up is a website flow.** Deciding a call-up is native (`decide_player_call_up`);
+  raising one needs the club's other sides, their players and `preview_player_movement_eligibility`, and
+  hands off to `/teams/<id>/player-requests` on the website.
+- **Assigning team staff is a club job.** Removing an assignment is native (`remove_team_access` behind
+  `people.role.assign_team`); assigning needs the club member directory (`people.member.view`), which
+  team staff do not hold, so it stays with the club's People on the web and in the Admin Centre.
+- **Team Details opens the Admin Centre's team screen**, whose shell names the club and whose Back
+  returns to the Admin Centre; acceptable for the club-level `team.team.manage` holder it is gated on.
+- **Physical-iPhone walkthrough (A–Y in the CA-M7 directive)** not performed; Expo Web proof and the
+  iOS export only. Dynamic Type and VoiceOver on the register tiles and the Needs Attention rows are the
+  first things to look at.
+- **Notifications for team events still open the web page where no native route exists** (call-up and
+  dispensation notifications resolve to `/club/player-moves`, a club page); the Needs Attention item
+  for a call-up routes natively.
+- **Web parity gaps found and left**: the Fixture Control Centre and the nav gate on role names
+  (`canManageClubFixturesAnywhere`) rather than capabilities; the planner and import pages ask the
+  deprecated `fixture.import` alias; `lib/fixtures/fixture-type.ts` defaults an unset type to
+  "Friendly" against the taxonomy's own rule. Recorded from the CA-M7 forensic audit, unchanged.
