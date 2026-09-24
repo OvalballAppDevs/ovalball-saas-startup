@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import { accessEventSentence } from "@/lib/permissions/access-event-sentence"
+import { accessEventSentence } from "@ovalball/contracts/club/access-history"
 
 /**
  * THE CLUB TIMELINE'S WORDS.

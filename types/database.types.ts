@@ -23075,11 +23075,21 @@ export type Database = {
         Returns: {
           capability_key: string
           decisive_rule: string
+          description: string
+          domain: string
           editable: boolean
           effective: boolean
+          label: string
+          override_effect: string
+          override_expires_at: string
+          override_granted_at: string
+          override_granted_by: string
           override_id: string
           override_level: string
+          override_reason: string
           reason_code: string
+          role_default: boolean
+          role_default_role: string
           source: string
           user_id: string
         }[]
@@ -23126,6 +23136,43 @@ export type Database = {
           team_roles: Json
           total_count: number
           user_id: string
+        }[]
+      }
+      club_person_permission_scopes: {
+        Args: { p_club_id: string; p_user_id: string }
+        Returns: {
+          scope_type: string
+          team_display_name: string
+          team_id: string
+        }[]
+      }
+      club_person_permissions: {
+        Args: {
+          p_capability_keys?: string[]
+          p_club_id: string
+          p_scope_type: string
+          p_team_id?: string
+          p_user_id: string
+        }
+        Returns: {
+          capability_key: string
+          decisive_rule: string
+          description: string
+          domain: string
+          editable: boolean
+          effective: boolean
+          label: string
+          override_effect: string
+          override_expires_at: string
+          override_granted_at: string
+          override_granted_by: string
+          override_id: string
+          override_level: string
+          override_reason: string
+          reason_code: string
+          role_default: boolean
+          role_default_role: string
+          source: string
         }[]
       }
       club_platform_billing_state: {
@@ -23213,11 +23260,21 @@ export type Database = {
         Returns: {
           capability_key: string
           decisive_rule: string
+          description: string
+          domain: string
           editable: boolean
           effective: boolean
+          label: string
+          override_effect: string
+          override_expires_at: string
+          override_granted_at: string
+          override_granted_by: string
           override_id: string
           override_level: string
+          override_reason: string
           reason_code: string
+          role_default: boolean
+          role_default_role: string
           source: string
           user_id: string
         }[]

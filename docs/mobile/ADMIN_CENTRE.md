@@ -348,3 +348,159 @@ untouched.
 `docs/mobile/ROLES_AND_PERMISSIONS_MAP.md` records the capability read model, club versus team
 scope, bundles, the override operations, protected capabilities, delegation, reasons, `R`,
 self-protection and the suites that guard them, for the Roles & Permissions slice that follows.
+
+---
+
+# CA-M4 — Roles & Permissions: canonical capability authority, scoped decisions, recent authentication
+
+## The model, in the product's words
+
+**ROLE = default bundle.** Coach, Team Manager, Fixture Secretary, Club Admin: each is a bundle of
+capabilities (`role_definitions` → `capability_bundles` → `bundle_capabilities`). **DECISION = scoped
+exception.** ALLOW or WITHHOLD one capability for one person at the club or at one team
+(`capability_overrides`, written only by `set_capability_override`). A decision never changes the role,
+never rewrites the bundle, never reaches another scope. **INHERIT = no decision**: the role answers.
+**RESTORE DEFAULT = the decision is removed** (`revoke_capability_override`), never an opposite decision.
+**The SERVER computes the effective answer** (`internal.capability_decision`, rules 0–8, unchanged in
+precedence) and **both clients consume the same row** from one computation.
+
+## Authority mismatches found and corrected first (migration `20270546000000`)
+
+Before a switch was offered, every operation behind it was checked against the key the switch names.
+
+| switch / operation | enforced before | enforced now |
+|---|---|---|
+| Suspend / Restore Membership | `people.role.assign_club` via `internal.club_people_authority` | `people.membership.suspend` via `internal.club_membership_authority` |
+| Remove From Club | `people.role.assign_club` | `people.membership.revoke` |
+| Cancel Fixtures (`cancel_fixture`) | `fixture.result.record` via `can_submit_fixture_result` | `fixture.fixture.cancel` via `internal.can_cancel_fixture` (same shape: either side's team or club, or Ovalball support) |
+| Pitch Allocation (`pitch_allocation_proposals*` policies) | legacy `fixture.edit` | `venue.pitch_allocation.manage` (writes) / `.view` (reads) |
+
+No broadening: `people.membership.suspend` / `.revoke` are `grant_level = 'N'` and only the Club Admin
+bundle holds them — the same holder set as before. What is new is that a Site Admin withhold of either
+now bites (RP-G2). The other editor keys were audited and already enforced where they are named
+(`create_fixture` → `can_create_team_fixture`, `update_fixture_*` → `can_edit_fixture_details`,
+`accept_fixture_request`, `can_submit_fixture_result`, `can_manage_training`, `can_manage_club_event`,
+`fixture_requests_insert_scoped`, `can_bulk_plan_fixtures`, `bulk_update_fixtures`). The editor exposes
+**only the audited keys** (`EDITOR_KEYS` in `packages/contracts/src/club/permission-groups.ts`); a
+capability without a proven server check is not offered.
+
+## The canonical read model
+
+`internal.person_capability_rows(subject, scope, club, team, keys)` answers, per delegable capability at
+the scope: `label`, `description`, `domain`; `effective`, `decisive_rule`, `reason_code`, `source`
+(`role` / `granted` / `denied` / `restricted` / `none`); **`role_default`** and **`role_default_role`**
+(what the person's bundles supply with every decision ignored — `internal.bundle_source`); the explicit
+decision (`override_id`, `override_effect`, `override_level`, `override_reason`, `override_granted_at`,
+`override_granted_by`, `override_expires_at`); and `editable` (`internal.override_authority_level` for
+the caller, never for self). Three public readers share it: `club_person_permissions(club, user, scope,
+team?, keys?)` (one person, one scope; gated on `people.capability.manage` or `people.access.explain`
+or `site.users.view`), and the website's grids `club_member_capabilities` / `club_team_capabilities`
+(re-expressed over it, same columns plus `user_id`). `club_person_permission_scopes(club, user)` lists
+the scopes a decision about a person can name: the club, and each team they hold a role on.
+
+Neither client computes an effective answer. `stateOf(row)` in the contract only *reads* whether a
+decision exists and which effect it has; `effective` is always the server's column.
+
+## Scope
+
+Scope is first-class on both clients. The native editor has a segmented control — **Club** and one
+chip per team the person holds a role on — with one sentence under it saying where the decision
+applies. The website keeps its scope switcher in the URL. A team decision is never promoted to club
+scope: the write carries `p_scope_type` and `p_team_id` exactly as chosen, and the server refuses a
+team scope for a person with no role on that team (RP-D1). Club-wide powers (Planner, import, bulk
+edit, delete) have no team scope in the catalogue and cannot be named at one (RP-B8).
+
+## The three-state control
+
+Every editable row offers **Use role default / Allow / Withhold**, never a boolean. When a decision
+exists the row shows all three truths — `Role default: Allowed by Coach`, the decision badge
+(`Allowed explicitly` / `Withheld` / `Expired decision`), and the effective result — so a Club Admin
+never has to remember what they changed six months ago. Allow appears only where the server says the
+caller may decide (`editable`), which already folds in delegability, `grant_level`,
+safeguarding-sensitivity, the caller holding the key by bundle, and self. A withhold needs a reason
+(the server's own rule, `permissionReasonRule("withhold") === "required"`); an allow and a restore take
+one when offered. The boilerplate reason the website used to send is gone; the reason is the person's.
+
+## Recent authenticator (R) — first enforcement
+
+`people.capability.manage`, `people.membership.suspend` and `people.membership.revoke` are `R` in the
+catalogue. `set_capability_override`, `revoke_capability_override` (and through it
+`apply_capability_preset`) and `transition_club_membership` (suspend / restore / remove of another
+person) now call `internal.require_recent_aal2(interval '10 minutes')` **after** the authority
+decision. Definition (existing architecture, `internal.recent_aal2`): a TOTP verification recorded in
+`auth.mfa_amr_claims` for the **current session** within the last ten minutes; a session without a
+`session_id` claim (service key, SQL harness) is not a browser session and passes. Failure raises 42501
+"Enter a code from your authenticator to continue." Both clients inherit it from the one place.
+
+- **Web:** the actions call `guardAction({ recentMinutes: 10 })` first (a boolean gate on
+  `my_session_assurance().recent_aal2`) and, on either refusal, return `href: /security/verify`; the
+  panel and the People rows render "Verify Now" → `/security/verify?next=<current path>`, and the
+  existing verify flow returns through `safeNextPath`.
+- **Mobile:** `apps/mobile/app/step-up.tsx` is the canonical TOTP challenge on the current session with
+  a Cancel (the person is already signed in). The `ReasonSheet` / decision sheet recognise the
+  refusal (`isRecentAuthRefusal`), hand the pending intent to `usePendingIntent` (memory only), and
+  the screen navigates to the step-up. On return the sheet re-opens with the same ask and reason
+  ("Verified. Confirm to continue.") and the person confirms again — **the server authorises again**;
+  the mutation never runs because a code was accepted.
+
+Proved (RP-F1–F7): AAL2 with no code → refused; code two minutes old → accepted; four hours old →
+refused (decision, restore and suspension alike); fresh code but capability withheld meanwhile →
+refused as unauthorised, not asked for a code. Authentication is not authorisation.
+
+## Subject and scope validity
+
+A decision names an active member (23514 otherwise) and, at team scope, somebody with an active role
+on that team. The engine's rule 5 now ignores a TEAM allow once that role has gone
+(`TEAM_ROLE_LAPSED` in the trail): no grant outlives the relationship it was made for (RP-D4–D6). Two
+existing suites granted team keys to people with no team role; their fixtures now give the person a
+team role first (`capability_override_ceilings.sql` OC5, `team_fixture_authority.sql` H7).
+
+## Ceilings, self, last admin
+
+Non-delegable keys (`grant_level` N/S) and safeguarding-sensitive keys are neither listed nor
+decidable by a club; `site.*` keys are refused by name; a crafted site-scope decision by a Club Admin
+is refused. A person's own rows are never editable and the server refuses self. Because no club-level
+decision can touch `people.capability.manage` (N, not delegable), **no override path can leave a club
+without a permission administrator** — the last-admin invariant lives in role-land
+(`assert_club_keeps_an_admin`) and needs no twin here (RP-C2).
+
+## Role change with a decision in place
+
+A decision persists across a role change and still decides: a Coach withheld fixture creation at
+Under 12 who becomes Team Manager there is still withheld, and the read model shows the new role
+default (RP-I5). Both clients read the same row, so both say the same thing.
+
+## Audit and history
+
+Every decision emits `override.granted` (actor, subject, capability, effect, level, scope, reason)
+and every restore `override.revoked`; a replacement emits both. `audit_log` holds the row change.
+`club_access_history` (gated on `people.access.explain`) is the club-readable timeline with human
+labels; the native person permissions screen shows its last ten entries. There is no second history
+table.
+
+## Native IA
+
+Admin Centre → **Roles & Permissions** (people picker) → person → editor; and Admin Centre → People →
+person → **Roles & Permissions**. The editor: name and role line; scope control; grouped rows from the
+shared `groupsForScope`; a decision sheet with the three radios and the reason field; History. The
+website's Permissions page keeps its grid but now shows the role default, badges, and reason prompts,
+and calls the same contract.
+
+## Proof
+
+- `supabase/tests/roles_and_permissions_ca4.sql` (CANONICAL_GATE, 60/60): RP-A role defaults and
+  decisions; RP-B the fixture case and no Planner escalation; RP-C ceilings, site, safeguarding, self,
+  last admin; RP-D subject and scope, TEAM_ROLE_LAPSED; RP-E admin stale authority; RP-F R; RP-G
+  membership keys; RP-H cancel and pitch allocation keys; RP-I cross-club, read-only persona, no title
+  authority, role change with a decision; RP-J audit.
+- Neighbouring suites after the migration: `capability_override_ceilings` 37/37,
+  `capability_precedence_truth_table` 50/50, `team_fixture_authority` 51/51,
+  `fixture_management_authority` 100/100, `mobile_fixture_authority` 27/27, `capability_attack_matrix`,
+  `capability_scope_isolation`, `capability_defaults_architecture`, `explain_access_matches_enforcement`,
+  `capability_adapters`, `club_people_memberships` 29/29, `membership_state_machine`,
+  `cross_club_isolation_matrix` 87/87, `aal_enforcement`, `audit_immutability`,
+  `security_events_no_secrets`, `site_admin_users_access_closure`, `site_master_control`,
+  `role_assignment_*`, `age_eligibility_matrix` — all green. JS: override / authority / membership
+  races, navigation architecture, bottom bar projection, fixture return context, perimeter manifest,
+  shared contracts — green.
+- Browser proofs: see the CA-M4 completion report and `scratchpad/ca4/`.

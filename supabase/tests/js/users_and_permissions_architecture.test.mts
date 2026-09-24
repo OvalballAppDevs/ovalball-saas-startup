@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 
-import { explainDecision, decisionRemedy, type AccessDecision } from "@/lib/permissions/access-explanation"
+import { explainDecision, decisionRemedy, type AccessDecision } from "@ovalball/contracts/club/access-explanation"
 import { roleAssignmentLabel, roleKeyLabel, PENDING_CONFIRMATION_EXPLANATION } from "@/lib/permissions/role-presentation"
 import { CLUB_ROLE_LABEL, TEAM_PERMISSION_LABEL, TEAM_STAFF_PERMISSION_OPTIONS } from "@/lib/permissions/role-labels"
 
@@ -54,7 +54,9 @@ test("revoking an invitation goes through the authority, not a table write", () 
 test("giving and removing a team role both call the canonical RPCs", () => {
   const src = code(PEOPLE_ACTIONS)
   assert.match(src, /rpc\("set_team_access"/, "giving a team role is set_team_access's job")
-  assert.match(src, /rpc\("remove_team_access"/, "removing one is remove_team_access's job")
+  // CA-M3 moved the removal into the shared People contract; the action calls the wrapper, the wrapper the RPC.
+  assert.match(src, /removeTeamAccess\(supabase/, "removing one is remove_team_access's job (through the shared wrapper)")
+  assert.match(code("packages/contracts/src/club/people.ts"), /rpc\("remove_team_access"/, "and the wrapper is the one that calls remove_team_access")
   assert.doesNotMatch(src, /from\("team_permissions"\)[\s\S]{0,160}(insert|update|delete)/,
     "team roles are never written directly around the authority that audits them")
 })
@@ -62,7 +64,7 @@ test("giving and removing a team role both call the canonical RPCs", () => {
 test("the person access page explains from server authority and never re-derives a decision", () => {
   const src = code("app/(app)/people/[membershipId]/page.tsx")
   assert.match(src, /rpc\("explain_access"/, "the WHY comes from explain_access")
-  assert.match(src, /from "\.\.\/\.\.\/club\/permissions\/groups"/,
+  assert.match(src, /from "@ovalball\/contracts\/club\/permission-groups"/,
     "the permissions explained are the club permissions catalogue, imported rather than restated")
   assert.doesNotMatch(src, /rpc\("(has_capability|my_capabilities)"/,
     "asking a second question about the same person would let the two answers disagree")

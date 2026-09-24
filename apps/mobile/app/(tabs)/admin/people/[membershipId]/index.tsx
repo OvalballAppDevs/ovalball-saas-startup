@@ -24,16 +24,19 @@ import {
   type ClubPerson,
   type PeopleCapabilities,
 } from "@ovalball/contracts/club/people"
+import { readPermissionCapabilities, type PermissionCapabilities } from "@ovalball/contracts/club/permissions"
 
-import { AdminScreen } from "../../../../src/admin/screen"
-import { useAdminCentreAccess } from "../../../../src/admin/access"
-import { ReasonSheet, type ReasonAsk } from "../../../../src/admin/reason-sheet"
-import { supabase } from "../../../../src/auth/supabase"
-import { PersonAvatar } from "../../../../src/components/identity"
-import { Button, Card, CardSkeleton, ErrorState, StatusPill } from "../../../../src/components/ui"
-import { friendly, logDetail, type FriendlyError } from "../../../../src/errors/translate"
-import { formatDate } from "../../../../src/hub/ui"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
+import { AdminScreen } from "../../../../../src/admin/screen"
+import { useAdminCentreAccess } from "../../../../../src/admin/access"
+import { ReasonSheet, type ReasonAsk } from "../../../../../src/admin/reason-sheet"
+import { resumedAsk, usePendingIntent } from "../../../../../src/admin/pending-intent"
+import { ChevronRight } from "../../../../../src/components/icons"
+import { supabase } from "../../../../../src/auth/supabase"
+import { PersonAvatar } from "../../../../../src/components/identity"
+import { Button, Card, CardSkeleton, ErrorState, StatusPill } from "../../../../../src/components/ui"
+import { friendly, logDetail, type FriendlyError } from "../../../../../src/errors/translate"
+import { formatDate } from "../../../../../src/hub/ui"
+import { TOUCH_TARGET, colour, radius, space, type } from "../../../../../src/design/tokens"
 
 /**
  * ONE PERSON'S RELATIONSHIP WITH THIS CLUB, natively (CA-M3).
@@ -53,6 +56,10 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/desig
  * SELF: the server lets a Club Admin change their own seat and remove themselves, refuses
  * self-suspension, and refuses any change that would leave the club without a Club Admin. The
  * screen mirrors the website: it does not offer a person their own role change or removal.
+ *
+ * CA-M4: suspend, restore and remove ask their own keys (people.membership.suspend / .revoke) and,
+ * like every permission decision, a recent authenticator -- the sheet hands a "code first" answer to
+ * the step-up flow and re-asks on return. Roles & Permissions is its own screen, linked from here.
  */
 export default function PersonScreen() {
   const router = useRouter()
@@ -61,6 +68,7 @@ export default function PersonScreen() {
   const [person, setPerson] = useState<ClubPerson | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [caps, setCaps] = useState<PeopleCapabilities | null>(null)
+  const [permCaps, setPermCaps] = useState<PermissionCapabilities | null>(null)
   const [teams, setTeams] = useState<ClubTeam[]>([])
   const [assignable, setAssignable] = useState<AssignableRole[]>([])
   const [loading, setLoading] = useState(true)
@@ -71,6 +79,7 @@ export default function PersonScreen() {
   const [pickedTeam, setPickedTeam] = useState<string | null>(null)
   const [pickedPermission, setPickedPermission] = useState<TeamStaffPermission>("coach")
   const [gone, setGone] = useState(false)
+  const pending = usePendingIntent(`person:${membershipId}`)
 
   const load = useCallback(async () => {
     if (!clubId || !membershipId) {
@@ -79,9 +88,10 @@ export default function PersonScreen() {
     }
     setLoadError(null)
     try {
-      const [p, allowed, dir, roles] = await Promise.all([readClubPerson(supabase, clubId, membershipId), readPeopleCapabilities(supabase, clubId), readClubTeams(supabase, clubId), readAssignableRoles(supabase, clubId)])
+      const [p, allowed, dir, roles, perm] = await Promise.all([readClubPerson(supabase, clubId, membershipId), readPeopleCapabilities(supabase, clubId), readClubTeams(supabase, clubId), readAssignableRoles(supabase, clubId), readPermissionCapabilities(supabase, clubId)])
       setPerson(p)
       setCaps(allowed)
+      setPermCaps(perm)
       setTeams(dir.teams.filter((t) => t.active))
       setAssignable(roles)
       setAvatarUrl(p?.avatarStoragePath ? await resolvePersonalAvatarUrl(supabase, p.avatarStoragePath) : null)
@@ -101,13 +111,18 @@ export default function PersonScreen() {
   useFocusEffect(
     useCallback(() => {
       void load()
-    }, [load])
+      // Back from a step-up: the same question, the reason put back, and the server asked again.
+      const resume = pending.take()
+      if (resume) setAsk(resumedAsk(resume))
+    }, [load, pending])
   )
 
   const name = person ? personName(person) : "Person"
   const canManageMembership = !!caps?.assignClub
-  const canSuspend = canManageMembership && !!caps?.suspend
-  const canRevoke = canManageMembership && !!caps?.revoke
+  // CA-M4: the server asks people.membership.suspend / .revoke alone for these.
+  const canSuspend = !!caps?.suspend
+  const canRevoke = !!caps?.revoke
+  const canSeePermissions = !!permCaps && (permCaps.manage || permCaps.explain)
   const canTeams = !!caps?.assignTeam
 
   function confirmThen(ask: Omit<ReasonAsk, "onConfirm">, op: (reason: string) => Promise<void>, done: string) {
@@ -289,11 +304,38 @@ export default function PersonScreen() {
             </Section>
           )}
 
+          {canSeePermissions && person.membershipId && (
+            <Section title="Roles & Permissions">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Roles & Permissions. What ${name} may do, by role and by decision`}
+                onPress={() => router.push(`/admin/people/${person.membershipId}/permissions` as never)}
+                style={({ pressed }) => ({ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: space.md, backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent", borderRadius: radius.md })}
+              >
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[type.smallMedium, { color: colour.ink }]}>Roles & Permissions</Text>
+                  <Text style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>{person.isSelf ? "What you may do, by role and by decision" : `What ${name} may do, by role and by decision`}</Text>
+                </View>
+                <ChevronRight size={17} color={colour.inkSubtle} />
+              </Pressable>
+            </Section>
+          )}
+
           {!canManageMembership && <Text style={[type.caption, { color: colour.inkMuted }]}>You can see this person's membership but not change it: that needs the club's people permission.</Text>}
         </>
       )}
 
-      <ReasonSheet ask={ask} onClose={() => setAsk(null)} onRefused={() => { void refreshAccess(); void load() }} errorMessage={(cause) => peopleErrorMessage(cause, friendly(cause, "this change").message)} />
+      <ReasonSheet
+        ask={ask}
+        onClose={() => setAsk(null)}
+        onRefused={() => { void refreshAccess(); void load() }}
+        onStepUp={(reason) => {
+          if (ask) pending.hold(ask, reason)
+          setAsk(null)
+          router.push({ pathname: "/step-up", params: { returnTo: `/admin/people/${membershipId}` } } as never)
+        }}
+        errorMessage={(cause) => peopleErrorMessage(cause, friendly(cause, "this change").message)}
+      />
     </AdminScreen>
   )
 }

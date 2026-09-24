@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 
-import { GROUPS, TEAM_GROUPS } from "@/app/(app)/club/permissions/groups"
+import { GROUPS, TEAM_GROUPS } from "@ovalball/contracts/club/permission-groups"
 
 /**
  * DELEGATING FIXTURE AUTHORITY FOR ONE TEAM.
@@ -71,9 +71,12 @@ test("the club list keeps the club-wide powers, because club context is unchange
 })
 
 test("a team decision goes through the canonical override RPC, never a second authority", () => {
+  // CA-M4: the write moved into the shared contract, which both clients call; the web action names the team scope.
   const actions = code("app/(app)/club/permissions/actions.ts")
-  assert.match(actions, /p_scope_type: "team"/, "the team action does not record a team-scope decision")
-  assert.match(actions, /set_capability_override/, "the team action does not use the canonical RPC")
+  const contract = code("packages/contracts/src/club/permissions.ts")
+  assert.match(actions, /scope: \{ kind: "team", teamId/, "the team action does not record a team-scope decision")
+  assert.match(contract, /p_scope_type: input\.scope\.kind/, "the contract does not pass the scope to the canonical RPC")
+  assert.match(contract, /set_capability_override/, "the contract does not use the canonical RPC")
   // A parallel permission system is the failure mode the owner named: no boolean on a membership, no
   // team-specific grant table, no second RPC.
   assert.ok(
@@ -84,7 +87,8 @@ test("a team decision goes through the canonical override RPC, never a second au
 
 test("the screen reads team answers from the one resolver, not by assembling its own", () => {
   const page = code("app/(app)/club/permissions/page.tsx")
-  assert.match(page, /club_team_capabilities/, "the team scope does not use the team-scope reader")
+  assert.match(page, /readPermissionGrid\(supabase, clubId, activeTeam\.id/, "the team scope does not use the team-scope reader")
+  assert.match(code("packages/contracts/src/club/permissions.ts"), /club_team_capabilities/, "the contract does not read club_team_capabilities for a team")
   // The reader is the club reader's twin, so the page must not decide effectiveness itself.
   assert.ok(
     !/capability_overrides|bundle_capabilities/.test(page),

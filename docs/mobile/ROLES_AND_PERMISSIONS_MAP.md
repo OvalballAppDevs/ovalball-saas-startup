@@ -1,6 +1,6 @@
 # CA-M4 — Roles & Permissions: implementation map
 
-Mapped during CA-M3 (read-only forensic pass, verified against the local database on 2026-09-24). CA-M3 built none of it. This is the starting point for CA-M4 so it needs no second forensic phase.
+Mapped during CA-M3 (read-only forensic pass, verified against the local database on 2026-09-24). **Delivered by CA-M4** — see `ADMIN_CENTRE.md` (CA-M4 section) for what was built and what changed: the three authority mismatches closed, `internal.person_capability_rows` as the one read model, R enforced on the decision and membership operations, and the team-relationship rule (`TEAM_ROLE_LAPSED`). The gaps listed at the end were all taken: `groups.ts` and the explanation sentences moved to `packages/contracts/src/club/`, a reason field exists on both clients, R is enforced with a step-up on both, expiry is derived client-side from `expires_at`, override messages are shown verbatim, and the slice numbering is reconciled.
 
 
 All DB facts verified live against `supabase_db_ovalball-saas-startup`. Nothing was changed.

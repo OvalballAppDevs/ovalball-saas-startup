@@ -166,6 +166,9 @@ function Gate() {
     const group = segments[0]
     const inApp = group === "(tabs)"
     const onVerify = group === "verify"
+    // A step-up is a place a signed-in person deliberately goes (to confirm it is them before a
+    // sensitive change); it is not a place to be moved on from.
+    const onStepUp = group === "step-up"
     const onRecovery = group === "auth"
     // Welcome, sign in and forgot password are all part of being signed out, not places to be
     // moved away from. Welcome is where a signed-out session LANDS; a signed-in one never sees it.
@@ -176,7 +179,7 @@ function Gate() {
     // the product with a password they do not know -- or, for an account holding a factor, send them
     // to a TOTP challenge before they have set the password they came to set.
     if (status === "recovering" && !onRecovery) router.replace("/auth/recovery")
-    else if (status === "signed-in" && !inApp) router.replace("/(tabs)")
+    else if (status === "signed-in" && !inApp && !onStepUp) router.replace("/(tabs)")
     else if (status === "needs-mfa" && !onVerify) router.replace("/verify")
     else if (status === "signed-out" && !onEntrance) router.replace("/welcome")
   }, [status, segments, router])

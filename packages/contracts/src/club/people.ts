@@ -228,15 +228,13 @@ export interface PeopleCapabilities {
   /** people.member.view_contact */
   viewContact: boolean
   /**
-   * people.role.assign_club -- the key the membership operations actually evaluate (through
-   * internal.club_people_authority) for a role change, a suspension, a restore, a removal and a
-   * join-request decision. The catalogue's finer keys below are shown as well, and a control is
-   * offered only when both say yes.
+   * people.role.assign_club -- the key a role change, an additional role and a join-request decision
+   * evaluate (through internal.club_people_authority).
    */
   assignClub: boolean
-  /** people.membership.suspend */
+  /** people.membership.suspend -- what a suspension and a restore ask (CA-M4 converged the server onto it). */
   suspend: boolean
-  /** people.membership.revoke */
+  /** people.membership.revoke -- what a removal asks (CA-M4). */
   revoke: boolean
   /** people.role.assign_team */
   assignTeam: boolean

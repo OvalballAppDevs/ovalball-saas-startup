@@ -188,6 +188,9 @@ begin
   perform pg_temp.check(v_state = '42501', 'OC4: nor a safeguarding-sensitive key (' || v_state || ')');
 
   -- OC5-OC8: Team Administration
+  -- CA-M4: a team decision is about somebody who works with the team, so the member first gets a role on it
+  -- (Volunteer: read-only by default, so the allow below is still the thing that grants the key).
+  perform pg_temp.try_as(v_ca, format('select public.assign_role(%L, ''VOLUNTEER'', %L, null)', v_member_ms, v_team));
   v_state := pg_temp.try_as(v_ta, format('select public.set_capability_override(%L, ''training.communication.send'', ''team'', %L, %L, ''grant'', null)', v_member, v_club, v_team));
   perform pg_temp.check(v_state = 'OK' and (select granted_level from public.capability_overrides where user_id = v_member and capability_key = 'training.communication.send' and status = 'active') = 'TEAM'
                         and pg_temp.can_as(v_member, 'training.communication.send', 'team', v_club, v_team)

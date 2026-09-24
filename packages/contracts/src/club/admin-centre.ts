@@ -34,7 +34,7 @@ export const ADMIN_CENTRE_SECTIONS: AdminCentreSection[] = [
   { key: "teams", label: "Teams", caption: "The sides the club runs, from the Team Directory", capability: "team.team.manage", native: true, webPath: "/teams" },
   { key: "people", label: "People", caption: "Members, staff, team roles and who is waiting to join", capability: "people.member.view", native: true, webPath: "/people" },
   { key: "news", label: "News & Announcements", caption: "What the club publishes to its members", capability: "club.news.manage", native: false, webPath: "/club/settings/news" },
-  { key: "permissions", label: "Permissions", caption: "Who may do what at the club", capability: "people.capability.manage", native: false, webPath: "/club/permissions" },
+  { key: "permissions", label: "Roles & Permissions", caption: "Who may do what, and where", capability: "people.capability.manage", native: true, webPath: "/club/permissions" },
   { key: "guardians", label: "Guardians & Players", caption: "Approving who looks after which player", capability: "family.relationship.approve", native: false, webPath: "/club/settings/guardians" },
   { key: "safeguarding", label: "Safeguarding Officer", caption: "Who the club's safeguarding contact is", capability: "safeguarding.officer.nominate", native: false, webPath: "/club/settings/safeguarding" },
   { key: "rollover", label: "Season Handover", caption: "Moving every side up at the end of the season", capability: "team.handover.prepare", native: false, webPath: "/club/rollover" },

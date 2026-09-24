@@ -43,7 +43,7 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
   const [removed, setRemoved] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [removalReason, setRemovalReason] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; href?: string } | null>(null)
   const [suspended, setSuspended] = useState(person.state === "SUSPENDED")
   const [confirmingSuspend, setConfirmingSuspend] = useState(false)
   const [suspendReason, setSuspendReason] = useState("")
@@ -56,7 +56,7 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
     setConfirmingSuspend(false)
     setSuspendReason("")
     if (result.ok) setSuspended(!suspended)
-    else setError(result.error)
+    else setError({ message: result.error, href: result.href })
   }
 
   async function handleRoleChange(role: PersonRowData["clubRole"]) {
@@ -65,7 +65,7 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
     const result = await updateMembershipRole(person.membershipId, role)
     setSaving(false)
     if (result.ok) setClubRole(role)
-    else setError(result.error)
+    else setError({ message: result.error })
   }
 
   async function handleRemove() {
@@ -75,7 +75,7 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
     setSaving(false)
     setConfirmingRemove(false)
     if (result.ok) setRemoved(true)
-    else setError(result.error)
+    else setError({ message: result.error, href: result.href })
   }
 
   if (removed) {
@@ -201,7 +201,22 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
         Access &amp; Teams<span className="sr-only"> for {person.name}</span>
       </Link>
 
-      {error && <p className="mt-2 text-xs text-destructive-text">{error}</p>}
+      {error && (
+        <p className="mt-2 text-xs text-destructive-text">
+          {error.message}
+          {error.href && (
+            <>
+              {" "}
+              <Link
+                href={`${error.href}?next=${encodeURIComponent("/people")}`}
+                className="font-medium underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
+              >
+                Verify Now
+              </Link>
+            </>
+          )}
+        </p>
+      )}
     </li>
   )
 }

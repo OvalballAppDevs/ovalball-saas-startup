@@ -291,6 +291,9 @@ begin
   perform pg_temp.act_postgres();
   insert into public.teams (club_id, display_name, category, age_group, rugby_code, gender, canonical_team_type_id, active)
   values (v_club, 'Under 14 Girls', 'youth', 'U14', 'union', 'girls', v_type_girls, true) returning id into v_girls;
+  -- CA-M4: a team allow answers only while the person holds a role on that team, so the probe person is
+  -- attached to the girls side first (the grant, not the title, is still what carries the authority).
+  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_staff, v_girls, 'manager');
   insert into public.capability_overrides (user_id, capability_key, scope_type, team_id, club_id, effect, reason, granted_by, granted_level)
   values (v_staff, 'fixture.request.create', 'team', v_girls, v_club, 'grant', 'girls side probe', v_clubadmin, 'CLUB');
   perform pg_temp.act('authenticated', v_staff);

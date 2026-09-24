@@ -4142,7 +4142,7 @@
         "signature": "apply_capability_preset(uuid, text, uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/permissions/actions.ts"
+          "packages/contracts/src/club/permissions.ts"
         ]
       },
       {
@@ -4463,7 +4463,8 @@
         "signature": "club_access_history(uuid, uuid, integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/people/[membershipId]/page.tsx"
+          "app/(app)/people/[membershipId]/page.tsx",
+          "packages/contracts/src/club/permissions.ts"
         ]
       },
       {
@@ -4512,7 +4513,7 @@
         "signature": "club_member_capabilities(uuid, text[])",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/permissions/page.tsx"
+          "packages/contracts/src/club/permissions.ts"
         ]
       },
       {
@@ -4525,6 +4526,20 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "packages/contracts/src/club/people.ts"
+        ]
+      },
+      {
+        "signature": "club_person_permission_scopes(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/permissions.ts"
+        ]
+      },
+      {
+        "signature": "club_person_permissions(uuid, uuid, text, uuid, text[])",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/permissions.ts"
         ]
       },
       {
@@ -4574,7 +4589,7 @@
         "signature": "club_team_capabilities(uuid, uuid, text[])",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/permissions/page.tsx"
+          "packages/contracts/src/club/permissions.ts"
         ]
       },
       {
@@ -6837,7 +6852,7 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/admin/safeguarding/actions.ts",
-          "app/(app)/club/permissions/actions.ts"
+          "packages/contracts/src/club/permissions.ts"
         ]
       },
       {
@@ -7088,7 +7103,7 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/admin/safeguarding/actions.ts",
-          "app/(app)/club/permissions/actions.ts"
+          "packages/contracts/src/club/permissions.ts"
         ]
       },
       {
@@ -8523,6 +8538,7 @@
       "cancel_guardian_link_request(uuid)",
       "cancel_tournament(uuid, text)",
       "cancel_training_session(uuid, text)",
+      "cast_match_award_vote(uuid, uuid)",
       "change_membership_access_profile(uuid, uuid, jsonb, text)",
       "check_incoming_request_target(uuid)",
       "check_tournament_participant_target(uuid)",
@@ -8538,19 +8554,26 @@
       "clear_email_template_override(text, integer)",
       "clear_rollover_player_placement(uuid)",
       "clear_team_alias(uuid)",
+      "close_match_award(uuid)",
       "club_assignable_roles(uuid)",
+      "club_competition_entries(uuid)",
       "club_credit_balance_pence(uuid)",
       "club_entitlements(uuid)",
       "club_has_entitlement(uuid, text)",
       "club_member_capabilities(uuid, text[])",
       "club_people(uuid, text, text, integer, integer, uuid)",
+      "club_person_permission_scopes(uuid, uuid)",
+      "club_person_permissions(uuid, uuid, text, uuid, text[])",
       "club_platform_billing_state(uuid)",
       "club_platform_next_collection(uuid)",
       "club_playing_group_recipients(uuid)",
       "club_playing_group_summary(uuid)",
       "club_referral_summary(uuid)",
       "club_setup_requirements(uuid)",
+      "club_team_capabilities(uuid, uuid, text[])",
       "club_trial_state(uuid)",
+      "compatible_opponent_identities(uuid)",
+      "compatible_opponent_teams(uuid, uuid)",
       "complete_club_setup(uuid)",
       "configure_sibling_discount_rule(uuid, integer, text, integer, date)",
       "configure_subscription_programme(uuid, boolean, integer, text, text)",
@@ -8570,6 +8593,7 @@
       "create_competition(text, text, text, boolean, uuid[])",
       "create_competition_edition(uuid, uuid)",
       "create_fixture_message_with_attachment(uuid, uuid, text, text, text, text, integer)",
+      "create_governing_body_competition(text, uuid, uuid)",
       "create_membership_obligations_for_period(uuid, date)",
       "create_missing_target_team(uuid)",
       "create_missing_tournament_team(uuid)",
@@ -8587,6 +8611,7 @@
       "create_tournament(uuid, date, time without time zone, uuid, uuid, text, text, uuid)",
       "create_training_session(uuid, uuid, uuid, date, time without time zone, time without time zone, uuid, text, uuid)",
       "create_venue(uuid, text, text, text, text, boolean)",
+      "current_competition_season(text)",
       "current_platform_mode()",
       "current_subscription_price(uuid, date)",
       "deactivate_canonical_team_type(uuid)",
@@ -8616,6 +8641,7 @@
       "email_opted_out_user_ids(text, uuid[])",
       "email_recent_deliveries(text, integer)",
       "email_usage_summary(timestamp with time zone, timestamp with time zone)",
+      "end_impersonation(text)",
       "end_membership_subscription(uuid, text, uuid)",
       "enforce_competition_edition_rugby_code()",
       "enforce_edition_team_rugby_code()",
@@ -8638,9 +8664,6 @@
       "generate_rollover_player_proposals(uuid)",
       "generate_rollover_proposal(uuid, text, uuid)",
       "generate_training_plan_sessions(uuid)",
-      "club_team_capabilities(uuid, uuid, text[])",
-      "compatible_opponent_identities(uuid)",
-      "compatible_opponent_teams(uuid, uuid)",
       "geocode_pending_venues()",
       "get_active_subscription_impact(uuid)",
       "get_canonical_team_type_impact(uuid)",
@@ -8660,6 +8683,7 @@
       "get_gocardless_connection_status(uuid)",
       "get_gocardless_token_for_club_admin_action(uuid, uuid)",
       "get_gocardless_token_for_payer_subscription(uuid, uuid)",
+      "get_governing_body(uuid)",
       "get_guardian_invitation_preview(text)",
       "get_hub_glossary_term_regulatory_facts(uuid)",
       "get_hub_recommended_content(uuid, integer)",
@@ -8668,6 +8692,10 @@
       "get_hub_superseded_skill_redirect(text)",
       "get_invitation_preview(text)",
       "get_match_centre_capabilities(uuid)",
+      "get_match_community(uuid)",
+      "get_match_community_admin(uuid)",
+      "get_match_kudos(uuid)",
+      "get_match_recognition_squad(uuid, uuid)",
       "get_membership_operational_detail(uuid)",
       "get_my_attendance_authority(uuid)",
       "get_my_players_for_club_event(uuid)",
@@ -8698,6 +8726,12 @@
       "get_training_plan_deletion_impact(uuid)",
       "get_training_register(uuid)",
       "get_training_session_card(uuid)",
+      "give_match_kudos(uuid, uuid, uuid, text)",
+      "governing_body_clubs(uuid)",
+      "governing_body_competition_matches(uuid)",
+      "governing_body_competitions(uuid)",
+      "governing_body_invitations(uuid)",
+      "governing_body_people(uuid)",
       "graduate_team(uuid)",
       "grant_club_membership(uuid, uuid, text)",
       "guardian_link_requests_for_approval(uuid)",
@@ -8708,6 +8742,7 @@
       "handover_team_labels(uuid)",
       "has_capability(text, text, uuid, uuid)",
       "heritage_content_integrity()",
+      "invite_governing_body_officer(uuid, text, text)",
       "invite_player_account(uuid, text)",
       "invite_safeguarding_officer(uuid)",
       "invite_tournament_participant(uuid, uuid, uuid)",
@@ -8737,7 +8772,10 @@
       "my_capabilities(text, uuid, uuid, uuid)",
       "my_direct_conversations(integer)",
       "my_direct_message_candidates()",
+      "my_governing_bodies()",
       "my_guardian_link_requests()",
+      "my_impersonation()",
+      "my_player_age_grade_status(uuid, date)",
       "my_player_context()",
       "my_sender_identities()",
       "my_site_capabilities()",
@@ -8745,6 +8783,7 @@
       "my_unread_message_counts()",
       "nominate_safeguarding_officer(uuid, text, text, text)",
       "open_direct_conversation(uuid)",
+      "open_match_award(uuid, uuid, text)",
       "open_platform_billing_cycle(uuid, date, text)",
       "override_training_session(uuid, date, time without time zone, integer, uuid, uuid, boolean, text, text, text)",
       "pause_club_trial(uuid, text)",
@@ -8808,6 +8847,7 @@
       "release_tournament_pitch(uuid)",
       "remove_fixture_conversation_participant(uuid, uuid, uuid)",
       "remove_guardian_relationship(uuid, text)",
+      "remove_match_kudos(uuid, uuid, uuid, text)",
       "remove_setup_team(uuid, text)",
       "remove_team_access(uuid, text)",
       "remove_tournament_opponent(uuid)",
@@ -8857,6 +8897,7 @@
       "resume_club_trial(uuid)",
       "revoke_capability_override(uuid, text)",
       "revoke_club_partnership(uuid)",
+      "revoke_governing_body_role(uuid, uuid, text)",
       "revoke_player_dispensation(uuid, text)",
       "revoke_safeguarding_officer_invitation(uuid)",
       "revoke_site_admin_invitation(uuid)",
@@ -8901,6 +8942,7 @@
       "set_email_brand_logo(text, integer)",
       "set_email_event_active(text, boolean, integer)",
       "set_fixture_conversation_mute(uuid, uuid, boolean)",
+      "set_governing_body_role(uuid, uuid, text, text)",
       "set_guardian_player_permission(uuid, text, boolean)",
       "set_membership_governance_title(uuid, text)",
       "set_notification_preference(text, boolean, boolean)",
@@ -8930,6 +8972,7 @@
       "set_subscription_price(uuid, integer, date)",
       "set_team_access(uuid, uuid, text, text)",
       "set_team_alias(uuid, text)",
+      "set_team_award_category(uuid, text, boolean, text)",
       "set_team_conversation_active(uuid, boolean)",
       "set_updated_at()",
       "set_venue_active(uuid, boolean)",
@@ -8945,6 +8988,7 @@
       "soft_delete_own_message(uuid)",
       "start_club_trial(uuid)",
       "start_directory_verification_run(text, uuid, jsonb)",
+      "start_impersonation(uuid, text)",
       "start_or_get_club_conversation(uuid, uuid, text)",
       "start_or_get_safeguarding_officer_conversation(uuid, uuid, text)",
       "store_gocardless_connection(uuid, text, text, text, text)",
@@ -8953,6 +8997,7 @@
       "supersede_regulatory_content_set(uuid, uuid)",
       "supersede_regulatory_source(uuid, uuid)",
       "swap_fixture_home_away(uuid)",
+      "team_age_grade_attention(uuid, date)",
       "team_conversation_state(uuid)",
       "team_delete_fixture_message(uuid)",
       "team_people(uuid)",
@@ -8995,37 +9040,9 @@
       "verify_regulatory_fact(uuid)",
       "verify_regulatory_reporting_route(uuid)",
       "withdraw_announcement(uuid)",
-      "withdraw_player_club_join_request(uuid)",
-      "cast_match_award_vote(uuid, uuid)",
-      "close_match_award(uuid)",
-      "get_match_community(uuid)",
-      "get_match_community_admin(uuid)",
-      "get_match_kudos(uuid)",
-      "get_match_recognition_squad(uuid, uuid)",
-      "give_match_kudos(uuid, uuid, uuid, text)",
-      "open_match_award(uuid, uuid, text)",
-      "remove_match_kudos(uuid, uuid, uuid, text)",
-      "set_team_award_category(uuid, text, boolean, text)",
       "withdraw_match_award_vote(uuid)",
       "withdraw_match_kudos(uuid, uuid)",
-      "my_player_age_grade_status(uuid, date)",
-      "team_age_grade_attention(uuid, date)",
-      "end_impersonation(text)",
-      "my_impersonation()",
-      "start_impersonation(uuid, text)",
-      "get_governing_body(uuid)",
-      "governing_body_clubs(uuid)",
-      "my_governing_bodies()",
-      "set_governing_body_role(uuid, uuid, text, text)",
-      "governing_body_people(uuid)",
-      "governing_body_competitions(uuid)",
-      "revoke_governing_body_role(uuid, uuid, text)",
-      "create_governing_body_competition(text, uuid, uuid)",
-      "invite_governing_body_officer(uuid, text, text)",
-      "governing_body_invitations(uuid)",
-      "governing_body_competition_matches(uuid)",
-      "club_competition_entries(uuid)",
-      "current_competition_season(text)"
+      "withdraw_player_club_join_request(uuid)"
     ],
     "service_role_internal": [
       "advance_competition_knockout(uuid)",

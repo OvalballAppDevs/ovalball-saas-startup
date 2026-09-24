@@ -732,3 +732,34 @@ with it; neither file is touched by CA-M3, which adds nothing to the capability 
 suite's other 78 assertions pass. Owed: decide whether the assertion should read `{club,team}`
 (the migration's intent) — a one-line test change in the finance slice that owns the key. Left as
 found, per the rule that findings outside the current slice are recorded, not fixed.
+
+## H21 — Observed while running the neighbouring suites for CA-M4 (2026-09-24)
+
+Facts only; none is caused by CA-M4 (its migration touches no catalogue row and none of these files)
+and none was fixed, per the rule that findings outside the slice are recorded.
+
+- `capability_catalogue_integrity.sql` CI1 / CI4a / CI4b: `governing.access.manage` (from the
+  governing-body slice, `20270527000000`) is counted as a 182nd active key, lacks full metadata and sits
+  in no bundle. Owed to the governing slice.
+- `authority_helper_retirement.sql` HR1: `can_organise_competition` is referenced from three function
+  bodies against a ceiling of two; the third is `public.governing_body_competitions`
+  (`20270527000000`, banked 2026-09-21 after the ledger's ceiling was set). Owed to the governing slice.
+- `session_boundary.sql` SB-11 expects exactly one RLS table (invitations) to accept a browser-role
+  INSERT without a RESTRICTIVE gate and now finds zero — stricter than asserted, not weaker. Owed a
+  one-line assertion update in the session slice.
+- `capability_engine.sql` and `club_settings_capability_security.sql` (both UNVERIFIED) and
+  `fixture_management.sql` (SPECIAL_PURPOSE) fail on environment shape (`on conflict` without a
+  matching constraint; `permission denied for table` under `set role`). Not part of the canonical gate.
+- `club_admin_authority_matrix.sql` CH-A `finance.subscription.view`: H20, unchanged.
+
+## H22 — CA-M4 turned `R` on: permanent browser suites that now need an authenticator
+
+`set_capability_override`, `revoke_capability_override` and `transition_club_membership` (suspend /
+restore / remove of another person) require a code entered within ten minutes on the current session.
+Two permanent browser suites drive those operations with a magic-link session and no enrolled
+authenticator and will refuse until they enrol one through `enrolAuthenticator` in the harness:
+`scripts/browser-verification/90-team-fixture-authority.mjs` (Withhold / Reset on
+`/club/permissions`) and `scripts/browser-verification/44-canonical-memberships.mjs`
+(`transition_club_membership` over REST with the admin token). `20-planner-persona-matrix.mjs` calls
+the override through `psql` (no session claim) and is unaffected. Owed at hardening, with the
+enrolment done in the suites' own setup and cleaned up in their teardown.

@@ -8,8 +8,10 @@ import { hasCapability } from "@/lib/permissions/has-capability"
 import { roleAssignmentLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
 
+import { GROUPS, TEAM_GROUPS } from "@ovalball/contracts/club/permission-groups"
+import { readPermissionGrid, type PermissionRow } from "@ovalball/contracts/club/permissions"
+
 import { ScopeSwitcher } from "./scope-switcher"
-import { GROUPS, TEAM_GROUPS } from "./groups"
 import { ClubPermissionsPanel, type CapabilityPreset, type ClubMember } from "./permissions-panel"
 
 export const metadata = { title: "Club Permissions" }
@@ -70,12 +72,10 @@ export default async function ClubPermissionsPage({
     // ONE TEAM. The same screen, the same rows, the same resolver -- club_team_capabilities is
     // club_member_capabilities asked at team scope, and the panel writes through the team action.
     // A club-wide job preset is deliberately not offered here: a preset is a club job.
-    const { data: teamCapRows } = await supabase.rpc("club_team_capabilities", {
-      p_club_id: clubId,
-      p_team_id: activeTeam.id,
-      p_capability_keys: TEAM_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-    })
-    const teamStaffIds = [...new Set(((teamCapRows ?? []) as { user_id: string }[]).map((r) => r.user_id))]
+    // ONE TEAM. The same rows and the same resolver through the shared contract (readPermissionGrid over
+    // club_team_capabilities), and the panel writes through the team action.
+    const teamCapRows = await readPermissionGrid(supabase, clubId, activeTeam.id, TEAM_GROUPS.flatMap((g) => g.items.map((i) => i.key)))
+    const teamStaffIds = [...new Set(teamCapRows.map((r) => r.userId))]
     const { data: teamDirectory } = teamStaffIds.length
       ? await supabase.rpc("get_club_member_directory", { p_club_id: clubId })
       : { data: [] as { user_id: string; first_name: string | null; surname: string | null; email: string | null }[] }
@@ -91,18 +91,11 @@ export default async function ClubPermissionsPage({
       teamRoleByUser.set(r.user_id, roleAssignmentLabel(r.role_key, r.role_definitions?.label, r.confirmation_state))
     }
 
-    const byTeamUser = new Map<string, ClubMember["capabilities"]>()
-    for (const r of teamCapRows ?? []) {
-      const list = byTeamUser.get(r.user_id) ?? []
-      list.push({
-        capabilityKey: r.capability_key,
-        effective: r.effective,
-        source: r.source,
-        overrideId: r.override_id,
-        overrideLevel: r.override_level,
-        editable: r.editable === true,
-      })
-      byTeamUser.set(r.user_id, list)
+    const byTeamUser = new Map<string, PermissionRow[]>()
+    for (const { userId, ...row } of teamCapRows) {
+      const list = byTeamUser.get(userId) ?? []
+      list.push(row)
+      byTeamUser.set(userId, list)
     }
 
     const teamStaff: ClubMember[] = teamStaffIds
@@ -136,6 +129,7 @@ export default async function ClubPermissionsPage({
         <ClubPermissionsPanel
           clubId={clubId}
           teamId={activeTeam.id}
+          teamName={activeTeam.name}
           members={teamStaff}
           presets={[]}
           groups={TEAM_GROUPS}
@@ -150,12 +144,9 @@ export default async function ClubPermissionsPage({
   // generated type inference outright ("type instantiation is excessively
   // deep"). Three small sequential reads on an administrative screen is the
   // cheaper trade.
-  // Every answer, with the rule and level it came from, from the one resolver -- only for the
-  // capabilities this screen offers.
-  const { data: rows } = await supabase.rpc("club_member_capabilities", {
-    p_club_id: clubId,
-    p_capability_keys: GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-  })
+  // Every answer, with the rule, the level and the role default it came from, from the one resolver
+  // (readPermissionGrid over club_member_capabilities) -- only for the capabilities this screen offers.
+  const rows = await readPermissionGrid(supabase, clubId, null, GROUPS.flatMap((g) => g.items.map((i) => i.key)))
   // Club roles from the canonical role assignments (club_memberships.role is compatibility only).
   //
   // `confirmation_state` is selected because it is PART of the role, not a detail
@@ -178,7 +169,7 @@ export default async function ClubPermissionsPage({
     if (!existing || existing === "Member") roleLabelByUser.set(r.user_id, label)
   }
 
-  const memberIds = [...new Set(((rows ?? []) as { user_id: string }[]).map((r) => r.user_id))]
+  const memberIds = [...new Set(rows.map((r) => r.userId))]
   // Names through the club's member directory, which a Club Admin may read; a direct profiles read only
   // returns the viewer's own row, so every other person would show as "Club member".
   const { data: directoryRows } = memberIds.length
@@ -204,18 +195,11 @@ export default async function ClubPermissionsPage({
     mayApply: p.may_apply === true,
   }))
 
-  const byUser = new Map<string, ClubMember["capabilities"]>()
-  for (const r of rows ?? []) {
-    const list = byUser.get(r.user_id) ?? []
-    list.push({
-      capabilityKey: r.capability_key,
-      effective: r.effective,
-      source: r.source,
-      overrideId: r.override_id,
-      overrideLevel: r.override_level,
-      editable: r.editable === true,
-    })
-    byUser.set(r.user_id, list)
+  const byUser = new Map<string, PermissionRow[]>()
+  for (const { userId, ...row } of rows) {
+    const list = byUser.get(userId) ?? []
+    list.push(row)
+    byUser.set(userId, list)
   }
 
   const members: ClubMember[] = memberIds

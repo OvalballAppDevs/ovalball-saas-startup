@@ -297,7 +297,7 @@ export default async function PeoplePage({
         ) : (
           <ul className="flex flex-col gap-2">
             {people.map((p) => (
-              <PersonRow key={p.membershipId} person={p} isSelf={p.userId === user.id} canChangeRole={peopleCaps.assignClub} canSuspend={peopleCaps.assignClub && peopleCaps.suspend} canRemove={peopleCaps.assignClub && peopleCaps.revoke} />
+              <PersonRow key={p.membershipId} person={p} isSelf={p.userId === user.id} canChangeRole={peopleCaps.assignClub} canSuspend={peopleCaps.suspend} canRemove={peopleCaps.revoke} />
             ))}
           </ul>
         )}

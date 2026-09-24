@@ -166,17 +166,18 @@ begin
     if v_state = '42501' then raise notice 'PASS O6: a stranger is refused (42501)'; else raise notice 'FAIL O6: %', v_state; end if;
   end;
   perform set_config('request.jwt.claims', json_build_object('sub', v_site, 'role', 'authenticated')::text, true);
-  v_override := public.set_capability_override(v_admin, 'people.role.assign_club', 'club', v_club, null, 'deny', 'CA-M3 stale-authority regression', null);
+  -- CA-M4: a suspension asks people.membership.suspend (grant_level N: only Ovalball can withhold it, and it bites).
+  v_override := public.set_capability_override(v_admin, 'people.membership.suspend', 'club', v_club, null, 'deny', 'CA-M3 stale-authority regression', null);
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   begin
     perform public.transition_club_membership(v_m_member, 'SUSPENDED', 'After the deny', false);
     raise notice 'FAIL O6b: a denied Club Admin still suspended a member';
   exception when others then
     get stacked diagnostics v_state = RETURNED_SQLSTATE;
-    if v_state = '42501' then raise notice 'PASS O6b: a Club Admin with people.role.assign_club withheld is refused (42501) -- the role does not decide';
+    if v_state = '42501' then raise notice 'PASS O6b: a Club Admin with people.membership.suspend withheld is refused (42501) -- the role does not decide';
     else raise notice 'FAIL O6b: %', v_state; end if;
   end;
-  select count(*) into v_n from public.my_capabilities('club', v_club) m where m.capability_key = 'people.role.assign_club' and m.allowed;
+  select count(*) into v_n from public.my_capabilities('club', v_club) m where m.capability_key = 'people.membership.suspend' and m.allowed;
   if v_n = 0 then raise notice 'PASS O6c: the capability read the client redraws from says no'; else raise notice 'FAIL O6c: still yes'; end if;
   perform set_config('request.jwt.claims', json_build_object('sub', v_site, 'role', 'authenticated')::text, true);
   perform public.revoke_capability_override(v_override, 'CA-M3 stale-authority regression restored');

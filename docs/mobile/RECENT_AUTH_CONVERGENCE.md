@@ -36,7 +36,25 @@ clients updated, then proved fail-closed. This file is the tracked list.
 No CA-M1 mutation carries `R`. Nothing was broadened and nothing was declared
 enforced that is not.
 
-## The 73 `R` declarations, by the slice that will own them
+## Enforced — CA-M4 (the first `R` convergence)
+
+| operation | capability | enforced by | clients |
+|---|---|---|---|
+| `set_capability_override` | `people.capability.manage` (club/team), `site.capabilities.override` (site) | `internal.require_recent_aal2('10 minutes')` after the authority decision | web `guardAction({recentMinutes: 10})` + "Verify Now"; mobile `step-up` + pending intent |
+| `revoke_capability_override` | same | same | same |
+| `apply_capability_preset` | same (through `set_capability_override`) | inherited | web |
+| `transition_club_membership` SUSPENDED / ACTIVE | `people.membership.suspend` | same, when acting on another person | web People rows; mobile People `ReasonSheet` |
+| `transition_club_membership` REVOKED | `people.membership.revoke` | same, when acting on another person | same |
+
+Definition of "recent": a TOTP verification on the **current session** (`auth.mfa_amr_claims`,
+`authentication_method = 'totp'`, `session_id = auth.jwt()->>'session_id'`) within the last ten
+minutes (`internal.recent_aal2(10)`). A session with no `session_id` claim (service key, SQL harness)
+is not a browser session and passes. Proof: `roles_and_permissions_ca4.sql` RP-F1–F7.
+
+Consequence for the review world: a Club Admin persona must hold a verified authenticator to decide
+permissions or suspend / remove a member on either client; a persona without one is sent to enrol.
+
+## The remaining `R` declarations, by the slice that will own them
 
 Keys as in `public.capabilities` where `aal = 'R'` and `status = 'ACTIVE'`
 (2026-09-24). Each converges in the named slice: enforce at the RPC with
@@ -51,19 +69,16 @@ mobile, prove refusal without a recent authenticator.
 `club.reporting.export`, `messaging.policy.manage`,
 `messaging.moderation.club_review`.
 
-**People and roles (CA-M3 People & Memberships consumed; CA-M4 Roles & Permissions turns
-`R` on):** `people.capability.manage`,
+**People and roles (CA-M4 turned `R` on for `people.capability.manage`,
+`people.membership.suspend`, `people.membership.revoke` — see above; the rest stay declared):**
 `people.invitation.create`, `people.membership.revoke`,
 `people.membership.suspend`, `people.role.assign_club`,
 `people.role.assign_team`, `player.account.invite`,
-`player.profile.edit_protected`. CA-M3 consumes `people.role.assign_club` and
-`people.role.assign_team` on both clients exactly as the database enforces them today: capability
-yes, recent authenticator no. The membership operations (`transition_club_membership` to
-SUSPENDED / ACTIVE / REVOKED) are enforced on `people.role.assign_club` by
-`internal.club_people_authority`, while the catalogue names `people.membership.suspend` and
-`people.membership.revoke` for them; that mismatch is recorded here and left for CA-M4, which
-owns the enforcement. The web's Roles & Permissions panel was numbered CA-M7 in
-`CLUB_ADMIN_CENTRE_MAP.md`; the owner's sequence is CA-M4.
+`player.profile.edit_protected`. `people.role.assign_club` and `people.role.assign_team` are
+consumed on both clients exactly as the database enforces them today: capability yes, recent
+authenticator no (next in line — they share the People screens' `ReasonSheet`, which already carries
+the step-up). The membership-key mismatch recorded by CA-M3 was closed by CA-M4
+(`internal.club_membership_authority`).
 
 **Family (family slice):** `family.duplicate.resolve`,
 `family.relationship.approve`, `family.relationship.remove`.

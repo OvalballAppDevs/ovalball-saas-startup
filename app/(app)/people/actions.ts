@@ -17,6 +17,8 @@ import { clubRoleLabel } from "@/lib/permissions/role-labels"
 import { roleKeyLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
 import { peopleErrorMessage, removeTeamAccess, setPrimaryClubRole, transitionMembership } from "@ovalball/contracts/club/people"
+import { isRecentAuthRefusal } from "@ovalball/contracts/club/permissions"
+import { guardAction } from "@/lib/auth/action-boundary"
 
 export type InviteResult = { ok: true; share: InvitationShareData } | { ok: false; error: string }
 
@@ -296,7 +298,8 @@ export async function grantTeamAccess(
   return { ok: true }
 }
 
-export type MembershipActionResult = { ok: true } | { ok: false; error: string }
+/** `href` names where to go when the refusal is a recent-authenticator one (`/security/verify`). */
+export type MembershipActionResult = { ok: true } | { ok: false; error: string; href?: string }
 
 /**
  * set_primary_club_role is the boundary: it checks the caller is this club's
@@ -323,10 +326,19 @@ export async function updateMembershipRole(
 /** Suspend or restore a membership (transition_club_membership; a reason is always required). */
 export async function setMembershipSuspended(membershipId: string, suspended: boolean, reason: string): Promise<MembershipActionResult> {
   const supabase = await createClient()
+  // people.membership.suspend is `R`: the database asks for a code entered within the last ten minutes
+  // after it has checked the capability; this boundary asks the same question first so the person is
+  // sent somewhere useful. The database remains the boundary of record.
+  const gate = await guardAction({ recentMinutes: 10 }, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error, href: gate.href }
   try {
     await transitionMembership(supabase, membershipId, suspended ? "SUSPENDED" : "ACTIVE", reason)
   } catch (error) {
-    return { ok: false, error: peopleErrorMessage(error, "The membership could not be changed. Please try again.") }
+    return {
+      ok: false,
+      error: peopleErrorMessage(error, "The membership could not be changed. Please try again."),
+      href: isRecentAuthRefusal(error) ? "/security/verify" : undefined,
+    }
   }
   revalidatePath("/people")
   return { ok: true }
@@ -340,10 +352,17 @@ export async function setMembershipSuspended(membershipId: string, suspended: bo
  */
 export async function revokeMembership(membershipId: string, reason: string): Promise<MembershipActionResult> {
   const supabase = await createClient()
+  // people.membership.revoke is `R` -- the same recent-authenticator rule as a suspension.
+  const gate = await guardAction({ recentMinutes: 10 }, supabase)
+  if (!gate.ok) return { ok: false, error: gate.error, href: gate.href }
   try {
     await transitionMembership(supabase, membershipId, "REVOKED", reason)
   } catch (error) {
-    return { ok: false, error: peopleErrorMessage(error, "The membership could not be removed. Please try again.") }
+    return {
+      ok: false,
+      error: peopleErrorMessage(error, "The membership could not be removed. Please try again."),
+      href: isRecentAuthRefusal(error) ? "/security/verify" : undefined,
+    }
   }
   revalidatePath("/people")
   return { ok: true }

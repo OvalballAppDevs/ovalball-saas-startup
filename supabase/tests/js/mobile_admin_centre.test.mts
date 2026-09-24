@@ -247,8 +247,9 @@ test("people: one read model, one reason list, one avatar resolver, no child dat
   assert.equal(personName({ firstName: "Ada", surname: "Admin", invitationEmail: null }), "Ada Admin")
   assert.equal(personName({ firstName: null, surname: null, invitationEmail: "a…@x.test" }), "a…@x.test")
 
-  const list = code(join(ADMIN_ROUTES, "people/index.tsx"))
-  const detail = code(join(ADMIN_ROUTES, "people/[membershipId].tsx"))
+  // CA-M4 extracted the list row into src/admin/person-row.tsx; the list and its row are read together.
+  const list = code(join(ADMIN_ROUTES, "people/index.tsx")) + code(join(ADMIN_SRC, "person-row.tsx"))
+  const detail = code(join(ADMIN_ROUTES, "people/[membershipId]/index.tsx"))
   for (const f of [list, detail]) {
     assert.match(f, /resolvePersonalAvatarUrls?\(/, "the person's avatar comes from the canonical personal-avatar resolver")
     assert.match(f, /<PersonAvatar/, "a person is drawn with PersonAvatar")
@@ -277,4 +278,82 @@ test("people on the web: capability gate, shared read model, shared operations w
   assert.doesNotMatch(actions, /rpc\("set_primary_club_role"|rpc\("remove_team_access"/, "the website no longer calls these operations without the shared reason rule")
   const row = code("app/(app)/people/person-row.tsx")
   assert.match(row, /Confirm Suspension/, "suspend and restore reached the web person row")
+})
+
+// ---------------------------------------------------------------------------------------------------
+// CA-M4 -- Roles & Permissions
+// ---------------------------------------------------------------------------------------------------
+
+test("permissions: ROLE is a bundle, a DECISION is a scoped exception, and neither client computes the effective answer", () => {
+  const contracts = code(join(CONTRACTS_CLUB, "permissions.ts"))
+  // the two canonical operations, and nothing else, write a decision
+  assert.match(contracts, /rpc\("set_capability_override"/)
+  assert.match(contracts, /rpc\("revoke_capability_override"/)
+  assert.match(contracts, /rpc\("apply_capability_preset"/)
+  assert.doesNotMatch(contracts, /from\("capability_overrides"\)|from\("bundle_capabilities"\)|from\("role_assignments"\)/, "no direct table reads or writes")
+  // the read model is the server's; the contract only reads `effective`
+  assert.match(contracts, /rpc\("club_person_permissions"/)
+  assert.match(contracts, /rpc\("club_person_permission_scopes"/)
+  assert.match(contracts, /rpc\("club_member_capabilities"|rpc\("club_team_capabilities"/)
+  assert.doesNotMatch(contracts, /decisiveRule\s*===|reasonCode\s*===\s*"ROLE_BUNDLE"\s*&&/, "no client-side precedence")
+  // restore default is a revoke, never an opposite decision
+  assert.match(contracts, /export async function restoreDefault[\s\S]*?revoke_capability_override/)
+  const screens = adminFiles.filter((f) => /permissions/.test(f)).map(code).join("\n")
+  assert.ok(screens.length > 0, "the native permissions screens exist")
+  assert.doesNotMatch(screens, /rpc\("set_capability_override"|rpc\("revoke_capability_override"|from\("capability_overrides"\)/, "the app writes only through the shared contract")
+  assert.doesNotMatch(screens, /effective\s*=\s*(row\.)?(decision|roleDefault)|effective:\s*!?row\.decision/, "the app never derives `effective` from the decision or the role default")
+  assert.match(screens, /readPersonPermissionScopes/, "scope is first-class: the screen asks the server which scopes a decision can name")
+  assert.match(screens, /"Use Role Default"|inherit/, "the control has three states")
+  assert.match(screens, /roleDefaultSentence|role_default/, "the role default is shown")
+})
+
+test("permissions: the editor exposes only the audited keys, shared by both clients, with no raw key in the UI", () => {
+  const groups = code(join(CONTRACTS_CLUB, "permission-groups.ts"))
+  assert.match(groups, /export const EDITOR_KEYS/)
+  for (const key of ["fixture.fixture.create", "fixture.fixture.cancel", "venue.pitch_allocation.manage", "training.plan.manage", "calendar.event.manage"]) {
+    assert.match(groups, new RegExp(key.replace(/\./g, "\\.")), `${key} is in the shared groups`)
+  }
+  for (const key of ["fixture.planner.use", "fixture.fixture.delete", "people.capability.manage", "people.role.assign_club", "people.member.view_contact", "site."]) {
+    assert.doesNotMatch(groups, new RegExp(`key: "${key.replace(/\./g, "\\.")}`), `${key} is never offered`)
+  }
+  assert.ok(!existsSync("app/(app)/club/permissions/groups.ts"), "the web keeps no second copy of the groups")
+  assert.ok(!existsSync("lib/permissions/access-explanation.ts"), "the web keeps no second copy of the explanation sentences")
+  const web = code("app/(app)/club/permissions/permissions-panel.tsx") + code("app/(app)/club/permissions/page.tsx")
+  assert.match(web, /@ovalball\/contracts\/club\/permission/, "the web reads the shared groups and contract")
+  assert.doesNotMatch(web, /rpc\("club_member_capabilities"|rpc\("club_team_capabilities"|rpc\("set_capability_override"/, "the web goes through the contract too")
+})
+
+test("permissions: R is the server's; both clients carry the same step-up and never perform the intent themselves", () => {
+  const webActions = code("app/(app)/club/permissions/actions.ts")
+  assert.match(webActions, /guardAction\(\{ recentMinutes: 10 \}/, "the web action asks for a recent authenticator before every decision")
+  const peopleActions = code("app/(app)/people/actions.ts")
+  assert.match(peopleActions, /export async function setMembershipSuspended[\s\S]*?guardAction\(\{ recentMinutes: 10 \}/)
+  assert.match(peopleActions, /export async function revokeMembership[\s\S]*?guardAction\(\{ recentMinutes: 10 \}/)
+  const stepUp = code(join(MOBILE, "app/step-up.tsx"))
+  assert.match(stepUp, /mfa\.challenge/), assert.match(stepUp, /mfa\.verify/)
+  assert.doesNotMatch(stepUp, /set_capability_override|transition_club_membership|decidePermission|restoreDefault/, "the step-up screen performs no pending action")
+  const pending = code(join(ADMIN_SRC, "pending-intent.ts"))
+  assert.doesNotMatch(pending, /AsyncStorage|localStorage|SecureStore|MMKV/, "the pending intent is memory only")
+  const sheets = code(join(ADMIN_SRC, "reason-sheet.tsx")) + code(join(ADMIN_SRC, "decision-sheet.tsx"))
+  assert.match(sheets, /isRecentAuthRefusal/, "the sheets recognise the server's refusal rather than a client timestamp")
+  assert.doesNotMatch([...adminFiles, join(MOBILE, "app/step-up.tsx")].map(code).join("\n"), /lastMfaAt|mfaVerifiedAt|Date\.now\(\)\s*-\s*\w*(mfa|verified)/i, "no client timestamp stands in for the server's recency")
+  const contracts = code(join(CONTRACTS_CLUB, "permissions.ts"))
+  assert.equal(/RECENT_AUTH_SENTENCE = "Enter a code from your authenticator to continue\."/.test(contracts), true)
+})
+
+test("permissions: Site Admin authority and safeguarding are never in the club product; membership keys are the catalogue's", () => {
+  const all = [...adminFiles.map(code), code(join(CONTRACTS_CLUB, "permissions.ts")), code(join(CONTRACTS_CLUB, "people.ts"))].join("\n")
+  assert.doesNotMatch(all, /site_set_capability_override|site\.capabilities\.override|site_admins|site_capability_grants/, "no Site Admin authority reaches the Admin Centre")
+  assert.doesNotMatch(all, /safeguarding_cases|safeguarding\.welfare|safeguarding_officer_nominate/, "no safeguarding case content")
+  const people = code(join(CONTRACTS_CLUB, "people.ts"))
+  assert.match(people, /people\.membership\.suspend/), assert.match(people, /people\.membership\.revoke/)
+  const person = code(join(ADMIN_ROUTES, "people/[membershipId]/index.tsx"))
+  assert.match(person, /canSuspend = !!caps\?\.suspend/), assert.match(person, /canRevoke = !!caps\?\.revoke/)
+  const migration = read("supabase/migrations/20270546000000_a_permission_says_what_the_server_enforces.sql")
+  assert.match(migration, /club_membership_authority\(v_club, 'people\.membership\.suspend'\)/)
+  assert.match(migration, /club_membership_authority\(v_club, 'people\.membership\.revoke'\)/)
+  assert.match(migration, /internal\.can\('fixture\.fixture\.cancel'/)
+  assert.match(migration, /require_recent_aal2\(interval '10 minutes'\)/)
+  const sections = ADMIN_CENTRE_SECTIONS.find((s) => s.key === "permissions")
+  assert.equal(sections?.native, true), assert.equal(sections?.capability, "people.capability.manage")
 })

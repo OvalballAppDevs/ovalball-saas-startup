@@ -70,3 +70,11 @@ export const TEAM_GROUPS: typeof GROUPS = [
     ],
   },
 ]
+
+/** Every capability the permission screens decide, at either scope -- the audited set, and no other. */
+export const EDITOR_KEYS: string[] = [...new Set([...GROUPS, ...TEAM_GROUPS].flatMap((g) => g.items.map((i) => i.key)))]
+
+/** The groups a screen renders for a scope: the club's jobs, or one team's. */
+export function groupsForScope(scope: "club" | "team"): typeof GROUPS {
+  return scope === "team" ? TEAM_GROUPS : GROUPS
+}
