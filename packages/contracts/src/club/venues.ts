@@ -195,3 +195,12 @@ export function venueErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback
 }
+
+/**
+ * Ask the platform to pin this venue again (CA-M3). The pin is never derived by a client: the
+ * platform looks the postcode up through its own worker and records the answer; this only asks.
+ */
+export async function requestVenueGeocoding(supabase: Client, venueId: string): Promise<void> {
+  const { error } = await supabase.rpc("request_venue_geocoding", { p_venue_id: venueId })
+  if (error) throw error
+}

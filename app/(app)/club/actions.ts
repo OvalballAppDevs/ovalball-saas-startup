@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache"
 
-import { geocodeVenueFromPostcode } from "@/lib/geocoding/backfill"
 import { createClient } from "@/lib/supabase/server"
 import { searchUkAddresses, type AddressLookupResult } from "@/lib/address-lookup/lookup"
 import { clubProfileErrorMessage, deleteClubContact as deleteContactOperation, saveClubContact as saveContactOperation, updateClubProfile } from "@ovalball/contracts/club/profile"
@@ -329,12 +328,10 @@ export async function createVenue(input: {
     return { ok: false, error: venueErrorMessage(error, "The venue could not be saved. Please try again.") }
   }
 
-  // The pin is derived from the postcode the club just gave us, here, rather
-  // than waiting for a Site Admin to run a backfill. A venue with no
-  // coordinates shows no map -- and a missing map is silent, so nobody would
-  // ever know to go and press that button. Never throws and never blocks the
-  // save: see geocodeVenueFromPostcode.
-  await geocodeVenueFromPostcode(supabase, venueId)
+  // CA-M3: the pin is the PLATFORM's to derive. Recording the postcode enqueues a postcodes.io lookup
+  // through pg_net (venues_request_geocode) and the scheduled pass records the answer -- the same
+  // for a venue saved from the app. Nothing here, on either client, calls a geocoder.
+  void venueId
   revalidatePath("/club/venues")
   return { ok: true }
 }
@@ -353,10 +350,8 @@ export async function updateVenue(input: {
     return { ok: false, error: venueErrorMessage(error, "The venue could not be saved. Please try again.") }
   }
 
-  // A postcode edit resets the row to 'pending' via the trigger on venues, so
-  // this re-derives the pin for the NEW postcode. Without it, editing a
-  // postcode would leave a venue permanently unpinned.
-  await geocodeVenueFromPostcode(supabase, input.id)
+  // A postcode edit resets the row to 'pending' (reset trigger) and the platform asks the provider
+  // again (venues_request_geocode); no client-side geocode step remains.
   revalidatePath("/club/venues")
   return { ok: true }
 }

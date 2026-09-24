@@ -5167,6 +5167,13 @@
         "consumers": []
       },
       {
+        "signature": "geocode_pending_venues()",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/geocoding/backfill.ts"
+        ]
+      },
+      {
         "signature": "get_active_subscription_impact(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6607,6 +6614,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/player/join/actions.ts"
+        ]
+      },
+      {
+        "signature": "request_venue_geocoding(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/venues.ts"
         ]
       },
       {
@@ -8612,6 +8626,7 @@
       "club_team_capabilities(uuid, uuid, text[])",
       "compatible_opponent_identities(uuid)",
       "compatible_opponent_teams(uuid, uuid)",
+      "geocode_pending_venues()",
       "get_active_subscription_impact(uuid)",
       "get_canonical_team_type_impact(uuid)",
       "get_club_event_card(uuid)",
@@ -8795,6 +8810,7 @@
       "request_player_dispensation(uuid, uuid, uuid, uuid, text)",
       "request_player_playing_pathway(uuid)",
       "request_to_join_club(uuid, uuid)",
+      "request_venue_geocoding(uuid)",
       "resend_safeguarding_officer_invitation(uuid)",
       "reserve_tournament_pitch(uuid, uuid, date, time without time zone, time without time zone)",
       "resolve_adult_category(text, text)",

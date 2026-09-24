@@ -23901,6 +23901,7 @@ export type Database = {
           skipped_existing_count: number
         }[]
       }
+      geocode_pending_venues: { Args: never; Returns: number }
       get_active_subscription_impact: {
         Args: { p_club_id: string }
         Returns: {
@@ -26179,6 +26180,10 @@ export type Database = {
       request_to_join_club: {
         Args: { p_club_id: string; p_player_id: string }
         Returns: string
+      }
+      request_venue_geocoding: {
+        Args: { p_venue_id: string }
+        Returns: undefined
       }
       resend_invitation: {
         Args: { p_invitation_id: string }

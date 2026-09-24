@@ -1655,6 +1655,11 @@
       "owner": "Identity/Auth — capability engine",
       "reason": "===================================================================================================== USERS & PERMISSIONS -- THE AUTHORITIES THE CENTRE CONSUMES (Convergence Step 2"
     },
+    "venue_geocoding_platform": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club administration",
+      "reason": "The platform pins a venue (CA-M3): a recorded postcode issues a pg_net lookup, the scheduled pass records success/failed/no_postcode through the one pin writer, a stale answer is refused, a timeout leaves the venue pending, and no client can record a coordinate."
+    },
     "venue_pitch_team_integrity": {
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",
