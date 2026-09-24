@@ -31,6 +31,8 @@ export type TabKey =
   /** Header utilities. Routes in this group, never cells in the bar. */
   | "notifications"
   | "support"
+  /** Reached from More in a club context (CA-M1). A route in this group, never a cell. */
+  | "admin"
 
 export interface TabSpec {
   key: TabKey

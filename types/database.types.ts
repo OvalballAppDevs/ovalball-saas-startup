@@ -23681,6 +23681,10 @@ export type Database = {
         Args: { p_confirm_name: string; p_directory_id: string }
         Returns: undefined
       }
+      delete_club_contact: {
+        Args: { p_contact_id: string }
+        Returns: undefined
+      }
       delete_club_document: {
         Args: { p_document_id: string }
         Returns: undefined
@@ -26478,6 +26482,18 @@ export type Database = {
           article_slug: string
         }[]
       }
+      save_club_contact: {
+        Args: {
+          p_club_id: string
+          p_contact_id?: string
+          p_email?: string
+          p_is_public?: boolean
+          p_name?: string
+          p_phone?: string
+          p_role?: string
+        }
+        Returns: string
+      }
       save_club_event: {
         Args: {
           p_club_id: string
@@ -27512,6 +27528,16 @@ export type Database = {
           p_use_default_document_library_sharing: boolean
           p_use_default_image_uploads: boolean
           p_use_default_participant_management: boolean
+        }
+        Returns: undefined
+      }
+      update_club_profile: {
+        Args: {
+          p_address_display: string
+          p_bio: string
+          p_club_id: string
+          p_facebook_url: string
+          p_website: string
         }
         Returns: undefined
       }

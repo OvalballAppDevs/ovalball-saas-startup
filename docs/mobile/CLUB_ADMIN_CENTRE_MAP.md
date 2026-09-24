@@ -1,6 +1,9 @@
 # CA-M0 — Club Admin Centre: forensic map of the web product
 
-**Status: MAP ONLY. No implementation, no migration, no push, no deploy, no release.**
+**Status: MAP, then CA-M1 delivered on it** — the Admin Centre foundation and the Club Profile
+(`ADMIN_CENTRE.md`), the `R` register (`RECENT_AUTH_CONVERGENCE.md`) and the price-oracle
+containment (migrations `20270537000000`, `20270541000000`). Everything else here is still a map:
+no push, no deploy, no release.**
 
 This is the complete boundary of the website's Club Admin Settings/Admin product,
 read from the routes, server actions, RPC bodies, RLS policies, triggers and the

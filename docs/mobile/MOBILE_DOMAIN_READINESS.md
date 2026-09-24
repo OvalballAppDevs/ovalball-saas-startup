@@ -27,6 +27,7 @@ actually checked in.
 | notifications | **LATER** | `public.notifications` + `lib/notifications/destinations.ts` resolve a destination from `type` + `data`, with no client-authored href | M7. The resolver is nearly neutral — it needs the web route table replaced by a mobile one |
 | subscriptions | **NEEDS REUSABLE CONTRACT** | `lib/teams/team-subscriptions.ts`, bounded to operational state | M8. GoCardless itself stays server-side, always |
 | Rugby Hub | **NOW** | the whole web Hub natively: shared readers in `packages/contracts/src/rugby-hub`, 34 native screens, one search, deep links — see `RUGBY_HUB.md` and `RUGBY_HUB_PARITY_MAP.md` | Rugby Hub convergence |
+| Club Admin — Admin Centre and Club Profile | **NOW** | `packages/contracts/src/club/{profile,admin-centre}.ts`; domain operations `update_club_profile` / `save_club_contact` / `delete_club_contact`; native `/admin` and `/admin/club-profile` — see `ADMIN_CENTRE.md` | CA-M2+ take the "On the Web Today" sections one slice at a time |
 | Site Admin | **WEB-ONLY BY DESIGN** | wide, destructive platform authority | Mobile shows what it is and opens the web |
 | Club Admin permission configuration | **WEB-ONLY BY DESIGN** | the scope switcher and per-team grants just built | Stays a desk job |
 | Competition Creator, Season Planner, Import | **WEB-ONLY BY DESIGN** | spreadsheet-shaped work | Stays a desk job |

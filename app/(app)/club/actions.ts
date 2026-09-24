@@ -6,6 +6,7 @@ import { geocodeVenueFromPostcode } from "@/lib/geocoding/backfill"
 import { createClient } from "@/lib/supabase/server"
 import { toPublicSubmissionError } from "@/lib/errors/public-error"
 import { searchUkAddresses, type AddressLookupResult } from "@/lib/address-lookup/lookup"
+import { clubProfileErrorMessage, deleteClubContact as deleteContactOperation, saveClubContact as saveContactOperation, updateClubProfile } from "@ovalball/contracts/club/profile"
 
 /**
  * Venue address lookup: any authenticated user, unlike Site Admin's own
@@ -36,24 +37,20 @@ export interface ClubProfileInput {
 }
 
 /**
- * Only ever touches `clubs` columns -- never club_directory (the canonical,
- * governing-body-sourced record). RLS (clubs_update_admin: is_site_admin()
- * or is_club_admin(id)) is the real boundary; this action doesn't check
- * authorization itself.
+ * CA-M1: the profile is a DOMAIN OPERATION. `update_club_profile` carries the
+ * authority (club.profile.edit at this club, through the canonical engine),
+ * the validation (trim, empty -> null, a web address given its scheme) and
+ * the audit for every client -- the app calls the same operation through the
+ * same shared wrapper. This action no longer writes `clubs` directly and
+ * never touches club_directory (the canonical, governing-body-sourced record).
  */
 export async function saveClubProfile(input: ClubProfileInput): Promise<SaveClubProfileResult> {
   const supabase = await createClient()
-  const { error } = await supabase
-    .from("clubs")
-    .update({
-      bio: input.bio || null,
-      website: input.website || null,
-      facebook_url: input.facebookUrl || null,
-      address_display: input.addressDisplay || null,
-    })
-    .eq("id", input.clubId)
-
-  if (error) return { ok: false, error: error.message }
+  try {
+    await updateClubProfile(supabase, input.clubId, { bio: input.bio, website: input.website, facebookUrl: input.facebookUrl, addressDisplay: input.addressDisplay })
+  } catch (error) {
+    return { ok: false, error: clubProfileErrorMessage(error, "Couldn't save the club profile. Please try again.") }
+  }
   revalidatePath("/club")
   return { ok: true }
 }
@@ -153,40 +150,31 @@ export interface SaveContactInput {
 }
 
 /**
- * One upsert action for both create and edit -- club_contacts_write_admin /
- * club_contacts_update_admin (both is_club_admin(club_id)) are the real
- * boundary. Used for the club's public-facing phone/email presence rather
- * than adding raw phone/email columns to `clubs` -- club_contacts already
- * models exactly this (named contact + role + is_public) and already has
- * full CRUD RLS, so reusing it avoids a second, parallel profile-contact
- * system.
+ * One action for both create and edit, on top of the `save_club_contact`
+ * domain operation (CA-M1): club.profile.edit at this club, "a name is
+ * required", a real-looking email, and a contact that must belong to the
+ * club named -- decided once, on the server, for every client. Used for the
+ * club's public-facing phone/email presence rather than adding raw
+ * phone/email columns to `clubs`.
  */
 export async function saveClubContact(input: SaveContactInput): Promise<SaveClubProfileResult> {
-  if (!input.name.trim()) return { ok: false, error: "Name is required." }
-
   const supabase = await createClient()
-  const row = {
-    club_id: input.clubId,
-    role: input.role,
-    name: input.name.trim(),
-    phone: input.phone.trim() || null,
-    email: input.email.trim() || null,
-    is_public: input.isPublic,
+  try {
+    await saveContactOperation(supabase, input.clubId, input.id ?? null, { role: input.role, name: input.name, phone: input.phone, email: input.email, isPublic: input.isPublic })
+  } catch (error) {
+    return { ok: false, error: clubProfileErrorMessage(error, "Couldn't save the contact. Please try again.") }
   }
-
-  const { error } = input.id
-    ? await supabase.from("club_contacts").update(row).eq("id", input.id)
-    : await supabase.from("club_contacts").insert(row)
-
-  if (error) return { ok: false, error: error.message }
   revalidatePath("/club")
   return { ok: true }
 }
 
 export async function deleteClubContact(contactId: string): Promise<SaveClubProfileResult> {
   const supabase = await createClient()
-  const { error } = await supabase.from("club_contacts").delete().eq("id", contactId)
-  if (error) return { ok: false, error: error.message }
+  try {
+    await deleteContactOperation(supabase, contactId)
+  } catch (error) {
+    return { ok: false, error: clubProfileErrorMessage(error, "Couldn't remove the contact. Please try again.") }
+  }
   revalidatePath("/club")
   return { ok: true }
 }

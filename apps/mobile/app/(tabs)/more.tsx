@@ -15,7 +15,8 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { ChevronRight, ExternalLink, Receipt, Users } from "../../src/components/icons"
+import { ChevronRight, ExternalLink, Landmark, Receipt, Users } from "../../src/components/icons"
+import { useAdminCentreAccess } from "../../src/admin/access"
 import { Button, Card } from "../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
 
@@ -36,6 +37,10 @@ export default function More() {
   const { signOut, email } = useSession()
   const { person, active, canSeeTeamSubscriptions } = useAppContexts()
   const [sheetOpen, setSheetOpen] = useState(false)
+  // THE ADMIN CENTRE ROW IS THE SERVER'S TO GIVE. It appears in a club context only, and only when
+  // `my_capabilities` says this person holds at least one administrative capability at that club --
+  // never because the context is labelled Club Admin. Re-asked on every context change and focus.
+  const admin = useAdminCentreAccess()
 
   async function leave() {
     // EVERYTHING THIS PERSON LEFT ON THE DEVICE GOES WITH THE SESSION. A phone gets handed around a
@@ -102,6 +107,17 @@ export default function More() {
             external
           />
         </Group>
+
+        {admin.clubId && admin.sections.length > 0 && (
+          <Group title="Club Admin">
+            <Row
+              icon={<Landmark size={20} color={colour.forest800} strokeWidth={1.9} />}
+              label="Admin Centre"
+              caption="Running the club: profile, contacts and more"
+              onPress={() => router.push("/admin")}
+            />
+          </Group>
+        )}
 
         <Group title="Your Account">
           <Row

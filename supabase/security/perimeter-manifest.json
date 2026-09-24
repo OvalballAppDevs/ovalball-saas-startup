@@ -4927,6 +4927,13 @@
         ]
       },
       {
+        "signature": "delete_club_contact(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/profile.ts"
+        ]
+      },
+      {
         "signature": "delete_club_document(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6891,6 +6898,13 @@
         ]
       },
       {
+        "signature": "save_club_contact(uuid, uuid, text, text, text, text, boolean)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/profile.ts"
+        ]
+      },
+      {
         "signature": "save_club_event(uuid, text, date, date, uuid, text, time without time zone, time without time zone, boolean, uuid[], uuid[], uuid, text, text, text, text, text, text, text, numeric, numeric, text, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7805,6 +7819,13 @@
         ]
       },
       {
+        "signature": "update_club_profile(uuid, text, text, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/profile.ts"
+        ]
+      },
+      {
         "signature": "update_competition(uuid, text, text, boolean, uuid[])",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -8535,6 +8556,7 @@
       "decide_player_dispensation(uuid, text, boolean, text, text)",
       "decline_player_club_join_request(uuid, text)",
       "delete_canonical_club(uuid, text)",
+      "delete_club_contact(uuid)",
       "delete_club_document(uuid)",
       "delete_competition_draft_match(uuid)",
       "delete_fixture(uuid)",
@@ -8800,6 +8822,7 @@
       "run_trial_expiry_check()",
       "save_club_announcement(uuid, uuid, uuid, text, text, text, text, timestamp with time zone, timestamp with time zone, text, text)",
       "save_club_article(uuid, uuid, uuid, text, text, text, text, text, text, text)",
+      "save_club_contact(uuid, uuid, text, text, text, text, boolean)",
       "save_club_event(uuid, text, date, date, uuid, text, time without time zone, time without time zone, boolean, uuid[], uuid[], uuid, text, text, text, text, text, text, text, numeric, numeric, text, uuid)",
       "save_competition_participants(uuid, jsonb)",
       "save_competition_rounds(uuid, jsonb)",
@@ -8898,6 +8921,7 @@
       "undo_rollover_team_decision(uuid)",
       "unplan_handover_team(uuid)",
       "update_club_message_policy(uuid, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean)",
+      "update_club_profile(uuid, text, text, text, text)",
       "update_competition(uuid, text, text, boolean, uuid[])",
       "update_competition_match(uuid, jsonb)",
       "update_competition_matches(uuid, jsonb)",

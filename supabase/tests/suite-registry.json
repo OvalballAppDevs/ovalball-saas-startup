@@ -330,6 +330,11 @@
         "site_admin_management"
       ]
     },
+    "club_profile_domain_operation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club administration",
+      "reason": "The Club Profile is a domain operation (CA-M1): update_club_profile / save_club_contact / delete_club_contact carry authority (club.profile.edit via the canonical engine, session_ok), validation and audit for both clients; a deny override refuses a stale client; the required-reasons list equals the server's."
+    },
     "club_settings_capability_security": {
       "disposition": "UNVERIFIED",
       "owner": "Club and Site Admin",
