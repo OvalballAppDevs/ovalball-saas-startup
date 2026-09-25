@@ -98,11 +98,13 @@ test("auto-scroll only near an edge, faster the closer the finger", () => {
 
 test("the block a finger drags is the whole reserved window: warm-up, match and pack-up from the shared occupancy", () => {
   const w = fixtureOccupiedWindow(fixture("a", "p1", "14:00:00", 60), { warmUpMinutes: 20, packUpMinutes: 10 })
+  assert.ok(w, "a fixture with a kick-off has an occupied window")
   assert.equal(w.start, 13 * 60 + 40)
   assert.equal(w.playStart, 14 * 60)
   assert.equal(w.playEnd, 15 * 60)
   assert.equal(w.end, 15 * 60 + 10)
   const noDuration = fixtureOccupiedWindow(fixture("b", "p1", "14:00:00", null as unknown as number), { warmUpMinutes: 0, packUpMinutes: 0 })
+  assert.ok(noDuration, "an unknown duration still has an occupied window")
   assert.equal(noDuration.playEnd - noDuration.playStart, 60, "an unknown duration reserves the website's default hour")
   for (const f of ["src/pitch-allocation/board.tsx", "src/pitch-allocation/sheets.tsx", "src/pitch-allocation/staging.ts", "src/pitch-allocation/model.ts", "app/(tabs)/admin/pitch-allocation/index.tsx"]) {
     assert.doesNotMatch(code(join(MOBILE, f)), /[-+]\s*(?:\w+\.)*(warmUpMinutes|packUpMinutes)\b/, `${f} recomputes the occupied window itself`)
@@ -215,6 +217,17 @@ test("the board is a native gesture surface, read-only without the manage key, a
   assert.match(haptics, /Platform\.OS === "ios" || Platform\.OS === "android"/, "haptics are a no-op off native")
   const appLayout = code(join(MOBILE, "app/_layout.tsx"))
   assert.match(appLayout, /GestureHandlerRootView/, "the gesture root wraps the app")
+})
+
+test("a kick-off change on a shared fixture may be a proposal, not an application, and the sheet says so honestly", () => {
+  const ops = code("packages/contracts/src/pitch-allocation/operations.ts")
+  assert.match(ops, /kickoffProposed: result\?\.kickoff_proposed/, "the shared operation reads the server's own kickoff_proposed flag")
+  const screen = code(join(MOBILE, "app/(tabs)/admin/pitch-allocation/index.tsx"))
+  assert.match(screen, /nowAwaiting\.add\(fixtureId\)/, "a fixture whose kickoff came back proposed, not applied, is tracked")
+  assert.match(screen, /awaitingConfirmation=\{detail \? awaitingConfirmation\.has\(detail\.fixtureId\) : false\}/, "the detail sheet is told, per fixture")
+  const sheets = code(join(MOBILE, "src/pitch-allocation/sheets.tsx"))
+  assert.match(sheets, /awaitingConfirmation && \(/, "the sheet renders it")
+  assert.match(sheets, /still the last confirmed kick-off/i, "and says the shown time is the true one, never a false confirmed time")
 })
 
 test("a change on one client is what the other client reads: both project the same board from the same package", () => {

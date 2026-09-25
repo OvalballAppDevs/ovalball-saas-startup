@@ -131,6 +131,23 @@ the draft, before the drop."
 mobile, and nothing mobile shows as clear that the shared engine would
 actually reject).
 
+**A hard conflict is advisory, not enforced, on both clients — confirmed by
+reading the website's own `hitTest` and by `update_fixture_schedule` itself.**
+The website's `hitTest` only refuses a drop when no row matched at all;
+`conflict.severity === "hard"` only changes colour and icon, never blocks the
+drop. The server RPC performs no occupancy check whatsoever — it authorises,
+validates the pitch belongs to the home club, and writes. A club may
+legitimately want to stage a double-booking temporarily while it sorts out
+logistics, and the shared `laneCount`/`assignBookingLanes` model exists
+precisely because some pitches genuinely host more than one fixture at once.
+Mobile matches this exactly: the ghost preview and `previewFor` show the
+conflict and its reason before the drop, and the Move sheet's "Stage This
+Move" is not disabled by a conflict — the same as web. Verified live this
+session against a genuine second fixture inserted for the purpose: dragging
+the target fixture onto the exact overlapping window showed "Overlaps with
+Men's 1st Team v …" before staging, and the database was confirmed unchanged
+because the change was reviewed and closed rather than saved.
+
 ## 7. Drop stages only; never writes on the gesture
 
 **WEB.** Drop inserts into `pendingChanges: Map<fixtureId, {pitchId,
@@ -224,6 +241,57 @@ bar `{caps.manage && (…)}`). Pinned: "read-only without the manage key" (the
 Pan gate) and no dead controls render.
 
 **PARITY.**
+
+## 13b. Kick-off change semantics: a save is not always an application
+
+**WEB and SERVER, audited this session.** `update_fixture_schedule`
+(`supabase/migrations/20270549000000…`) treats PITCH and VENUE as ordinary
+writes — they apply immediately and unconditionally once authority is
+checked, with no negotiation. **KICKOFF is different, and only when the
+fixture has a real, active opponent club on Ovalball** (`v_is_external` is
+false): the first kickoff change on a shared fixture writes
+`kickoff_amendment_proposed_date/time/by/by_club_id`, not `kickoff_time`
+itself, and returns `kickoff_proposed = true`; the opposing club confirms by
+proposing the identical value back, which then applies it and clears the
+proposal; a different value is a counter-proposal, still pending. An
+external-opponent (or no-opponent) fixture, or a caller with
+`site.fixtures.support`, always applies the kickoff immediately. Diagonal
+drags are therefore not always one atomic write from the fixture's point of
+view: dragging Pitch 2/10:30 to Pitch 3/11:30 on a shared fixture applies the
+pitch change immediately and stages a *kickoff proposal* that is not yet the
+canonical `kickoff_time` — both dimensions are represented in the one staged
+change and the one `allocateFixtureOnPitch` call, but the server may apply
+one and merely propose the other. Neither client invents a second save path
+for this: it is exactly what one call to the one RPC already does.
+
+**What the website shows for this, audited from its own source:** only a
+save-time count — `"${proposedCount} kick-off change(s) sent to the opposing
+club for confirmation"` (`pitch-allocation-board.tsx`) — never an on-card
+"awaiting confirmation" badge; the board simply re-renders from the
+refreshed canonical `fixtures` row afterwards, which is the true last-agreed
+value, so it never shows a *false* confirmed time, only the *last confirmed*
+one. **Mobile matches this exactly**, and adds one honest, purely additive,
+session-local strengthening beyond a mirrored toast: `saveChanges()` records
+which staged fixtures came back with `kickoffProposed: true`, and
+`FixtureDetailSheet` shows an explicit line — "Kick-off change awaiting
+confirmation. The time above is still the last confirmed kick-off…" — if that
+exact fixture is reopened before the next full reload. This required no
+change to the shared package or to any web file: `AllocationFixture` does not
+carry the amendment columns at all today, so neither client can reconstruct
+this state from a board read alone once the app is closed and reopened — that
+is a shared-package gap, not a mobile-only one, and extending
+`getPitchAllocationBoard`'s query and `AllocationFixture` to carry
+`kickoff_amendment_proposed_*` (so *both* clients could show a durable
+"awaiting confirmation" state on reload, not just for the remainder of the
+save's own session) is recorded here as a real, worthwhile follow-up and was
+not done in this pass, since it touches the shared type every board consumer
+reads and is exactly the kind of change this slice's own rule reserves for a
+deliberate, reviewed follow-up rather than a side effect of a mobile
+interaction pass.
+
+**PARITY**, plus one additive, reviewed strengthening; a durable
+(reload-surviving) version of the same state is a recorded shared-package
+follow-up, not silently done and not silently skipped.
 
 ## 14. Save: re-authorise, then write, sequentially, honestly
 

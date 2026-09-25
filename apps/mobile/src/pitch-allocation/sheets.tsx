@@ -44,13 +44,17 @@ function Line({ label, value }: { label: string; value: string }) {
  * THE FIXTURE, IN FULL: what a card cannot say. Every field the board knows, the complete reserved
  * interval, any clash with its reason, and whether this position is saved or staged.
  */
-export function FixtureDetailSheet({ fixture, board, conflict, pitchName, staged, savedPosition, canManage, onClose, onMove, onRemove, onUndo, onOpenFixture }: {
+export function FixtureDetailSheet({ fixture, board, conflict, pitchName, staged, savedPosition, awaitingConfirmation, canManage, onClose, onMove, onRemove, onUndo, onOpenFixture }: {
   fixture: AllocationFixture | null
   board: PitchAllocationBoard
   conflict: AllocationConflict | null
   pitchName: string | null
   staged: boolean
   savedPosition: { pitchName: string | null; kickoffTime: string | null } | null
+  /** True only for the fixtures this session just saved a kick-off change for, where the server
+   * reported kickoffProposed=true -- the canonical kick-off shown below is the true one (the change
+   * was NOT applied), and this line says so rather than leaving that silent. */
+  awaitingConfirmation: boolean
   canManage: boolean
   onClose: () => void
   onMove: () => void
@@ -78,9 +82,15 @@ export function FixtureDetailSheet({ fixture, board, conflict, pitchName, staged
                 <Line label="Pitch reserved" value={`${minutesToTime(w.start)} – ${minutesToTime(w.end)}`} />
               </>
             )}
-            {fixture.requiresOpponentAgreement && <Line label="Kick-off changes" value="Proposed to the other club for confirmation when saved" />}
+            {fixture.requiresOpponentAgreement && !awaitingConfirmation && <Line label="Kick-off changes" value="Proposed to the other club for confirmation when saved" />}
             <Line label="This position" value={staged ? `Staged, not yet saved${savedPosition ? ` (saved: ${savedPosition.pitchName ?? "no pitch"}${savedPosition.kickoffTime ? ` at ${savedPosition.kickoffTime.slice(0, 5)}` : ""})` : ""}` : "Saved"} />
           </View>
+          {awaitingConfirmation && (
+            <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-start", backgroundColor: colour.warningSurface, borderRadius: radius.md, padding: space.md }}>
+              <TriangleAlert size={16} color={colour.warning} />
+              <Text style={[type.small, { color: colour.ink, flex: 1 }]}>Kick-off change awaiting confirmation. The time above is still the last confirmed kick-off; your proposed time has been sent to the other club and applies once they agree.</Text>
+            </View>
+          )}
           {conflict && (
             <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-start", backgroundColor: conflict.severity === "hard" ? colour.dangerSurface : colour.warningSurface, borderRadius: radius.md, padding: space.md }}>
               <TriangleAlert size={16} color={conflict.severity === "hard" ? colour.danger : colour.warning} />

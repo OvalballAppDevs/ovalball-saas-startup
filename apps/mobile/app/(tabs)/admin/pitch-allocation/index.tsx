@@ -72,6 +72,12 @@ export default function PitchAllocationScreen() {
   const [leave, setLeave] = useState<(() => void) | null>(null)
   const [datePicker, setDatePicker] = useState(false)
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null)
+  // A KICK-OFF CHANGE ON A SHARED FIXTURE MAY BE A PROPOSAL, NOT A FACT (the server's own either-side
+  // negotiation, unchanged by CA-M11.2): update_fixture_schedule can return kickoffProposed=true, meaning
+  // the fixture's canonical kickoff_time was NOT moved -- only kickoff_amendment_proposed_* was. The board
+  // always redraws from the refreshed canonical row, so it never shows a false confirmed time; this set
+  // only adds the honest, session-local "still awaiting the other club" line to that same true state.
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<Set<string>>(new Set())
   const autoTriggeredFor = useRef<string | null>(null)
 
   const load = useCallback(async (date: string | null) => {
@@ -132,7 +138,7 @@ export default function PitchAllocationScreen() {
   }, [board, dateIso, caps.manage])
 
   function navigateTo(day: string) {
-    const go = () => { setPending(new Map()); setProposal(null); setNotice(null); setBoard(null); void load(day) }
+    const go = () => { setPending(new Map()); setProposal(null); setNotice(null); setAwaitingConfirmation(new Set()); setBoard(null); void load(day) }
     if (isDirty) setLeave(() => go)
     else go()
   }
@@ -154,19 +160,21 @@ export default function PitchAllocationScreen() {
     let saved = 0, proposed = 0
     const failures: string[] = []
     const remaining = new Map(pending)
+    const nowAwaiting = new Set<string>()
     for (const item of savePayload(pending)) {
       const { fixtureId } = item
       // ONE CANONICAL OPERATION PER FIXTURE: place through update_fixture_schedule, clear through update_fixture_pitch.
       const result = item.op === "place" ? await allocateFixtureOnPitch(supabase, clubId, fixtureId, { pitchId: item.pitchId, kickoffTime: item.kickoffTime }) : await clearFixturePitch(supabase, fixtureId)
       if (result.ok) {
         saved += 1
-        if ("kickoffProposed" in result && result.kickoffProposed) proposed += 1
+        if ("kickoffProposed" in result && result.kickoffProposed) { proposed += 1; nowAwaiting.add(fixtureId) }
         remaining.delete(fixtureId)
       } else {
         failures.push(friendly(new Error(result.error), "this fixture").message)
       }
     }
     setPending(remaining)
+    setAwaitingConfirmation(nowAwaiting)
     setBusy(null)
     await load(dateIso)
     if (failures.length > 0) setNotice({ text: `${saved} change${saved === 1 ? "" : "s"} saved. ${failures.length} could not be saved and ${failures.length === 1 ? "stays" : "stay"} staged: ${failures[0]}`, tone: "warn" })
@@ -323,6 +331,7 @@ export default function PitchAllocationScreen() {
         pitchName={detail ? pitchName(detail.pitchId) : null}
         staged={detail ? stagedIds.has(detail.fixtureId) : false}
         savedPosition={detailSaved ? { pitchName: pitchName(detailSaved.pitchId), kickoffTime: detailSaved.kickoffTime } : null}
+        awaitingConfirmation={detail ? awaitingConfirmation.has(detail.fixtureId) : false}
         canManage={caps.manage}
         onClose={() => setDetail(null)}
         onMove={() => { setMoving(detail); setDetail(null) }}
