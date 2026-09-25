@@ -22,8 +22,19 @@ const RUGBY_CODE_LABEL: Record<string, string> = { union: "Union", league: "Leag
  * separate, later phase of this same brief), so a partner club
  * deliberately gets no "Message" action here rather than one that would
  * silently fail or fake success.
+ *
+ * CLUBHOUSE PROGRAMME SECTION 5: `canManagePartnerships` gates Request
+ * Partnership/Accept/Decline/Revoke -- this card is now reachable by a
+ * legitimate team-context viewer too (the Section 2 nav entry always
+ * promised it; the page-level redirect that used to block them away was
+ * closed this section), and a team-scoped Coach or Team Manager never
+ * holds `club.partners.manage`. The underlying RPCs already refuse the
+ * call server-side regardless, but offering a button that can only ever
+ * fail is exactly what "READ != MANAGE" says not to do -- so the caller
+ * passes real, capability-derived authority in, never a default assumed
+ * here.
  */
-export function ClubMapCard({ club, dense = false }: { club: MapClub; dense?: boolean }) {
+export function ClubMapCard({ club, dense = false, canManagePartnerships }: { club: MapClub; dense?: boolean; canManagePartnerships: boolean }) {
   const [requesting, setRequesting] = useState(false)
   const [responding, setResponding] = useState<"accept" | "decline" | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -72,17 +83,17 @@ export function ClubMapCard({ club, dense = false }: { club: MapClub; dense?: bo
 
       {!club.isOwnClub && club.clubId && (
         <div className="flex flex-wrap items-center gap-2">
-          {localStatus === "none" && (
+          {canManagePartnerships && localStatus === "none" && (
             <Button type="button" size="sm" className="h-9" disabled={requesting} onClick={handleRequest}>
               {requesting ? "Sending…" : "Request Partnership"}
             </Button>
           )}
-          {localStatus === "pending_outgoing" && (
+          {canManagePartnerships && localStatus === "pending_outgoing" && (
             <Button type="button" size="sm" variant="outline" className="h-9" disabled>
               Request Sent
             </Button>
           )}
-          {localStatus === "pending_incoming" && (
+          {canManagePartnerships && localStatus === "pending_incoming" && (
             <>
               <Button type="button" size="sm" className="h-9" disabled={responding !== null} onClick={() => handleRespond(true)}>
                 {responding === "accept" ? "Accepting…" : "Accept"}
@@ -92,6 +103,9 @@ export function ClubMapCard({ club, dense = false }: { club: MapClub; dense?: bo
               </Button>
             </>
           )}
+          {/* Not gated on canManagePartnerships -- this navigates to an already independently-
+              authority-checked destination (app/(app)/clubhouse/[clubId]/page.tsx redirects an
+              unauthorised viewer away itself) rather than mutating anything here. */}
           {localStatus === "active" && (
             <Button size="sm" className="h-9" nativeButton={false} render={<Link href={`/clubhouse/${club.clubId}`} />}>
               <CalendarRange className="size-3.5" />
@@ -107,7 +121,7 @@ export function ClubMapCard({ club, dense = false }: { club: MapClub; dense?: bo
         </div>
       )}
 
-      {!club.isOwnClub && !club.clubId && (
+      {canManagePartnerships && !club.isOwnClub && !club.clubId && (
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" className="h-9 bg-pitch-600 text-white hover:bg-pitch-600/90" onClick={() => setInviteOpen(true)}>
             Invite

@@ -375,6 +375,11 @@
       "owner": "Club and Site Admin",
       "reason": "===================================================================================================== A PITCH IS AT A GROUND (Convergence Step 6; command \u00a725, \u00a745) Deterministic and self-seeding."
     },
+    "clubhouse_team_partnership_read": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Clubhouse programme",
+      "reason": "Clubhouse Programme Section 5 (20270555000000): get_team_club_partnerships closes the Section 1/2 team-context partnership read gap. Proves a legitimate team-scoped Coach reads real ACTIVE partnership state without holding club.partners.manage, can never accept/decline/revoke, a crafted call naming a team the caller has no fixture authority at is refused (own club or another club's), and the return shape is exactly id/requesting_club_id/partner_club_id/status. Deterministic and self-seeding."
+    },
     "communication_policy_authority": {
       "disposition": "CANONICAL_GATE",
       "owner": "Unassigned \u2014 Batch A follow-up",

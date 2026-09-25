@@ -79,12 +79,12 @@ export default function Clubhouse() {
   const load = useCallback(async () => {
     setError(null)
     try {
-      const rows = await readClubhouseMarkers(supabase, viewerClubId)
+      const rows = await readClubhouseMarkers(supabase, viewerClubId, viewerTeamId)
       setMarkers(rows)
     } catch {
       setError("Couldn't load the club network. Check your connection and try again.")
     }
-  }, [viewerClubId])
+  }, [viewerClubId, viewerTeamId])
 
   useEffect(() => {
     // Cleared FIRST: the previous context's markers (partnership/own-club state is context-specific)

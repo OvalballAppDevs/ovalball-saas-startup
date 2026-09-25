@@ -76,6 +76,19 @@ async function readCapabilities(supabase: Client, clubId: string, keys: string[]
   return allowed
 }
 
+/**
+ * Section 5: the TEAM-scope equivalent, asked only when the viewer's active context is a team.
+ * `club.partners.manage`'s own `valid_scopes` is `{club}` -- it cannot be granted or even asked about at
+ * team scope, so this can only ever surface `fixture.request.create`/`.respond`, never partnership
+ * management. That is what makes merging its result into `canFindFixture` below safe: it can never
+ * contribute a partner-management action.
+ */
+async function readTeamCapabilities(supabase: Client, teamId: string, keys: string[]): Promise<Set<string>> {
+  const { data, error } = await supabase.rpc("my_capabilities", { p_scope_type: "team", p_team_id: teamId })
+  if (error) return new Set()
+  return new Set((data ?? []).filter((row) => row.allowed === true && keys.includes(row.capability_key)).map((row) => row.capability_key))
+}
+
 export async function readClubDetail(
   supabase: Client,
   marker: Pick<
@@ -100,14 +113,27 @@ export async function readClubDetail(
   viewerClubId: string | null,
   viewerTeamId: string | null
 ): Promise<ClubDetail> {
-  const [compatibleTeams, fixturesTogetherThisSeason, capabilities, website] = await Promise.all([
+  const [compatibleTeams, fixturesTogetherThisSeason, capabilities, teamCapabilities, website] = await Promise.all([
     marker.clubId && viewerTeamId ? readCompatibleTeams(supabase, viewerTeamId, marker.clubId) : Promise.resolve(null),
     marker.clubId && viewerClubId ? countFixturesTogetherThisSeason(supabase, viewerClubId, marker.clubId) : Promise.resolve(null),
     viewerClubId
       ? readCapabilities(supabase, viewerClubId, ["club.partners.manage", "fixture.request.create", "fixture.request.respond"])
       : Promise.resolve(new Set<string>()),
+    viewerTeamId ? readTeamCapabilities(supabase, viewerTeamId, ["fixture.request.create", "fixture.request.respond"]) : Promise.resolve(new Set<string>()),
     readClubWebsite(supabase, marker.directoryId),
   ])
+
+  const clubActions = deriveClubNetworkActions(marker, viewerClubId, capabilities)
+  const isOtherClub = marker.clubId !== null && marker.clubId !== viewerClubId
+  const holdsTeamFixtureAuthority = teamCapabilities.has("fixture.request.create") || teamCapabilities.has("fixture.request.respond")
+  // Section 5: a team-context viewer's OWN fixture authority unlocks Find a Fixture even with no
+  // club-scope grant at all -- deriveClubNetworkActions itself stays untouched and club-scope-only
+  // (every one of its existing tests is unaffected), because Compare Calendars must NOT widen the same
+  // way: get_partner_team_availability checks fixture.fixture.view at CLUB scope specifically, which a
+  // team-scoped grant never satisfies, so blindly merging team capabilities into the whole action set
+  // would show a button whose server call then fails with a confusing "no active calendar-sharing
+  // agreement" error for what is really an authority gap. Only canFindFixture is widened here.
+  const actions = { ...clubActions, canFindFixture: clubActions.canFindFixture || (isOtherClub && holdsTeamFixtureAuthority) }
 
   return {
     directoryId: marker.directoryId,
@@ -129,7 +155,7 @@ export async function readClubDetail(
     website,
     compatibleTeams,
     fixturesTogetherThisSeason,
-    actions: deriveClubNetworkActions(marker, viewerClubId, capabilities),
+    actions,
   }
 }
 

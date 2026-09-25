@@ -47,7 +47,7 @@ const NOT_ON_OVALBALL_ICON = pinIcon("not-on-ovalball")
  * via createRoot on open and unmounted on close, so the "Request
  * partnership"/"Accept"/"Decline" buttons stay fully interactive.
  */
-export const ClubMap = forwardRef<ClubMapHandle, { clubs: MapClub[] }>(function ClubMap({ clubs }, ref) {
+export const ClubMap = forwardRef<ClubMapHandle, { clubs: MapClub[]; canManagePartnerships: boolean }>(function ClubMap({ clubs, canManagePartnerships }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const popupRootRef = useRef<Root | null>(null)
@@ -103,7 +103,7 @@ export const ClubMap = forwardRef<ClubMapHandle, { clubs: MapClub[] }>(function 
         popupRootRef.current?.unmount()
         const root = createRoot(popupNode)
         popupRootRef.current = root
-        root.render(<ClubMapCard club={club} />)
+        root.render(<ClubMapCard club={club} canManagePartnerships={canManagePartnerships} />)
       })
 
       clusterGroup.addLayer(marker)
@@ -113,7 +113,7 @@ export const ClubMap = forwardRef<ClubMapHandle, { clubs: MapClub[] }>(function 
     return () => {
       map.removeLayer(clusterGroup)
     }
-  }, [clubs])
+  }, [clubs, canManagePartnerships])
 
   // role="region" (a landmark), not role="application" -- application
   // mode forces assistive tech into a separate navigation mode that's

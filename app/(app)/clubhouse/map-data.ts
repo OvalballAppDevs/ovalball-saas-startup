@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server"
 export type MapClubPartnershipStatus = ClubPartnershipStatus
 export type MapClub = ClubMapMarker
 
-export async function getPartnerClubsMapData(callerClubId: string): Promise<MapClub[]> {
+export async function getPartnerClubsMapData(callerClubId: string | null, callerTeamId: string | null = null): Promise<MapClub[]> {
   const supabase = await createClient()
-  return readClubhouseMarkers(supabase, callerClubId)
+  return readClubhouseMarkers(supabase, callerClubId, callerTeamId)
 }

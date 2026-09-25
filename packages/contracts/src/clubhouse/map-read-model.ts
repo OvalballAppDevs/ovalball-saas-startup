@@ -35,17 +35,22 @@ type Client = SupabaseClient<Database>
 export type ClubNetworkState = "on_ovalball" | "not_on_ovalball"
 
 /**
- * "unknown" (Clubhouse Programme Section 2, closing a Section 1 finding): `club_partnerships_select_
- * scoped` RLS only returns rows to a caller holding `club.partners.manage` at CLUB scope. A team-scoped
- * Coach/Team Manager -- or a club-scoped viewer whose permissions were narrowed below the default --
- * never holds that capability, so the partnership query below returns an EMPTY result for them even
- * where a real partnership exists. Reading that emptiness as "none" would be reporting RLS's silence as
- * a fact this codebase does not actually know. "unknown" is a distinct state from "none" for exactly
- * this reason, and every partner-specific action (`deriveClubNetworkActions` in `club-detail.ts`) is
- * written so that only an exact `=== "active"`/`"pending_outgoing"`/`"pending_incoming"`/`"none"` match
- * unlocks anything -- "unknown" matches none of them, so it can never render "Partner with Club" or any
- * other partner action. Section 5 (Partners) owns building a real authority-safe read model for a
- * team-scoped viewer; until then, "unknown" is the honest answer, not a workaround.
+ * "unknown" (Clubhouse Programme Section 2, closing a Section 1 finding; Section 5 closed the team-
+ * context half of it): `club_partnerships_select_scoped` RLS only returns rows to a caller holding
+ * `club.partners.manage` at CLUB scope. A club-scoped viewer whose permissions were narrowed below the
+ * default (or any caller with no club context at all) never holds that capability, so the direct-table
+ * partnership query below returns an EMPTY result for them even where a real partnership exists.
+ * Reading that emptiness as "none" would be reporting RLS's silence as a fact this codebase does not
+ * actually know -- "unknown" is a distinct state from "none" for exactly this reason. A team-scoped
+ * Coach/Team Manager is NO LONGER included in this gap: `get_team_club_partnerships` (Section 5) is a
+ * narrow, SECURITY DEFINER read that authorises on real team-scoped fixture authority
+ * (`fixture.request.create`/`.respond`) rather than `club.partners.manage`, and returns the exact same
+ * row shape the direct table read does -- so a legitimate team-context viewer now gets a real, trusted
+ * answer, never "unknown", while still holding zero partnership MANAGEMENT authority. Every
+ * partner-specific action (`deriveClubNetworkActions` in `club-detail.ts`) is written so that only an
+ * exact `=== "active"`/`"pending_outgoing"`/`"pending_incoming"`/`"none"` match unlocks anything --
+ * "unknown" matches none of them, so it can never render "Partner with Club" or any other partner
+ * action.
  */
 export type ClubPartnershipStatus = "none" | "pending_outgoing" | "pending_incoming" | "active" | "unknown"
 
@@ -176,29 +181,33 @@ async function fetchAllDirectoryRows(supabase: Client): Promise<DirectoryRow[]> 
  * Every recognised club, with network/partnership state layered on top for the caller's own club.
  * `viewerClubId` is null for a caller with no club context (e.g. browsing Clubhouse before a context
  * is selected) -- markers still render, just with partnershipStatus always "unknown" and isOwnClub
- * always false, since there is no "own club" to compare against.
+ * always false, since there is no "own club" to compare against. `viewerTeamId` is the caller's active
+ * team, if their current context is a team rather than a club -- Section 5's own real read path.
  *
- * PARTNERSHIP STATE IS ONLY EVER TRUSTED WHEN THE CALLER HOLDS `club.partners.manage` AT CLUB SCOPE.
- * That capability is checked FIRST, via the same canonical `my_capabilities` RPC every other authority
- * decision in this codebase goes through -- never inferred from whether the partnerships query happens
- * to come back empty, which is exactly what `club_partnerships_select_scoped` RLS does for a caller
- * without that capability (team-scoped staff, or a club-scoped viewer whose permissions were narrowed).
- * Without the capability, the query is not even run: every marker's `partnershipStatus` is `"unknown"`,
+ * PARTNERSHIP STATE IS ONLY EVER TRUSTED FROM TWO SOURCES, EACH AUTHORITY-CHECKED FIRST. A club-scope
+ * viewer holding `club.partners.manage` reads the table directly (`club_partnerships_select_scoped`
+ * RLS already enforces this). A team-scope viewer with no such club-level grant instead calls
+ * `get_team_club_partnerships` (Section 5), which independently authorises on real team-scoped fixture
+ * authority and returns the identical row shape -- never inferred from whichever query happens to come
+ * back empty, which is exactly what direct-table RLS silently does for a caller with neither. Without
+ * either authority, no partnership query runs at all: every marker's `partnershipStatus` is `"unknown"`,
  * and `deriveClubNetworkActions` (club-detail.ts) is written so "unknown" unlocks no partner action.
  */
-export async function readClubhouseMarkers(supabase: Client, viewerClubId: string | null): Promise<ClubMapMarker[]> {
-  const holdsPartnerAuthority = viewerClubId ? await readsClubPartnerships(supabase, viewerClubId) : false
+export async function readClubhouseMarkers(supabase: Client, viewerClubId: string | null, viewerTeamId: string | null = null): Promise<ClubMapMarker[]> {
+  const holdsClubPartnerAuthority = viewerClubId ? await readsClubPartnerships(supabase, viewerClubId) : false
+  const teamPartnershipRows = !holdsClubPartnerAuthority && viewerTeamId ? await readTeamClubPartnerships(supabase, viewerTeamId) : null
+  const holdsPartnerAuthority = holdsClubPartnerAuthority || teamPartnershipRows !== null
 
   const [directoryRows, { data: activatedClubs }, partnershipsResult, { data: defaultVenues }] = await Promise.all([
     fetchAllDirectoryRows(supabase),
     supabase.from("clubs").select("id, directory_id, slug").eq("status", "active"),
-    viewerClubId && holdsPartnerAuthority
+    holdsClubPartnerAuthority && viewerClubId
       ? supabase
           .from("club_partnerships")
           .select("id, requesting_club_id, partner_club_id, status")
           .or(`requesting_club_id.eq.${viewerClubId},partner_club_id.eq.${viewerClubId}`)
           .neq("status", "revoked")
-      : Promise.resolve({ data: [] as { id: string; requesting_club_id: string; partner_club_id: string; status: string }[] }),
+      : Promise.resolve({ data: (teamPartnershipRows ?? []) as { id: string; requesting_club_id: string; partner_club_id: string; status: string }[] }),
     // Section 3: a club's own default-home venue, entered by the club itself during setup, is
     // preferred over the directory's postcode-centroid geocode whenever it is itself trustworthy --
     // see resolveClubLocation. Scoped to is_default_home so a club with several venues never produces
@@ -265,6 +274,21 @@ async function readsClubPartnerships(supabase: Client, viewerClubId: string): Pr
 }
 
 type PartnershipRow = { id: string; requesting_club_id: string; partner_club_id: string; status: string }
+
+/**
+ * Section 5: the team-scoped equivalent of the direct-table read above -- `get_team_club_partnerships`
+ * is a SECURITY DEFINER RPC that derives the caller's club from `p_team_id` itself (never trusting a
+ * client-supplied club id as proof of anything) and independently checks real team-scoped fixture
+ * authority (`fixture.request.create`/`.respond`) before returning a row. Returns `null`, not `[]`, on
+ * any error -- including the RPC's own authority refusal -- so the caller can tell "genuinely no
+ * partnerships" (`[]`) apart from "could not be asked" (`null`), exactly the same distinction
+ * `holdsPartnerAuthority` already makes for the club-scope path.
+ */
+async function readTeamClubPartnerships(supabase: Client, viewerTeamId: string): Promise<PartnershipRow[] | null> {
+  const { data, error } = await supabase.rpc("get_team_club_partnerships", { p_team_id: viewerTeamId })
+  if (error) return null
+  return data ?? []
+}
 
 /**
  * The I/O-free half of the partnership computation, pinned directly by `clubhouse.test.mts` without

@@ -389,6 +389,7 @@
           "postcode",
           "region",
           "rugby_code",
+          "source",
           "town",
           "verification_status",
           "website"
@@ -399,7 +400,7 @@
           "app/(app)/admin/clubs/actions.ts"
         ],
         "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Convergence Step 6, ledger L17. `authenticated` used to hold a TABLE-level SELECT here, which silently overrode the 17-column grant that was also present, so any signed-in account could read `notes` and `official_email` for all 1,395 clubs. The table grant is revoked; this column list is the 17 public directory facts plus latitude/longitude/geocode_status, which Ovie opponent search, the competitions workspace and the Partner Clubs map legitimately read. notes, official_email, address, the research provenance (source, source_url, source_updated_at, external_id), normalized_key, geocoding audit columns and admin_verification_status are Site Admin only, reached through admin_club_overview and site_club_directory_record. INSERT/UPDATE stay table-level because RLS already gates every write on site.directory.manage."
+        "select_reason": "Convergence Step 6, ledger L17. `authenticated` used to hold a TABLE-level SELECT here, which silently overrode the 17-column grant that was also present, so any signed-in account could read `notes` and `official_email` for all 1,395 clubs. The table grant is revoked; this column list is the 17 public directory facts plus latitude/longitude/geocode_status, which Ovie opponent search, the competitions workspace and the Partner Clubs map legitimately read. notes, official_email, address, the remaining research provenance (source_url, source_updated_at, external_id), normalized_key, geocoding audit columns and admin_verification_status are Site Admin only, reached through admin_club_overview and site_club_directory_record. `source` (20270556000000) was added to this list in Clubhouse Programme Section 5, closing a real live regression: `isKnownTestFixture` (packages/contracts/src/clubhouse/map-read-model.ts, Section 3) has needed it since Section 3 shipped, and the missing grant broke the whole Clubhouse map/list for every signed-in viewer until a live browser check caught it -- same public sensitivity as verification_status, never notes/official_email. INSERT/UPDATE stay table-level because RLS already gates every write on site.directory.manage."
       }
     },
     "club_directory_research_proposals": {
@@ -5594,6 +5595,13 @@
         ]
       },
       {
+        "signature": "get_team_club_partnerships(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/clubhouse/map-read-model.ts"
+        ]
+      },
+      {
         "signature": "get_team_guardian_directory(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -8761,6 +8769,7 @@
       "get_scheduling_group_availability(uuid, date, date)",
       "get_sibling_discount_rules(uuid)",
       "get_site_admin_invitation_preview(text)",
+      "get_team_club_partnerships(uuid)",
       "get_team_guardian_directory(uuid)",
       "get_team_identities_for_season_batch(jsonb)",
       "get_team_identity_for_season(uuid, uuid)",

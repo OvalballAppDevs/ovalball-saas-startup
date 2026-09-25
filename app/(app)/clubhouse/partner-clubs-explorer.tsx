@@ -49,7 +49,7 @@ function matchesQuery(club: MapClub, query: string): boolean {
  * pin, and the row makes that explicit rather than pretending a location
  * exists.
  */
-export function PartnerClubsExplorer({ clubs }: { clubs: MapClub[] }) {
+export function PartnerClubsExplorer({ clubs, canManagePartnerships }: { clubs: MapClub[]; canManagePartnerships: boolean }) {
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [codeFilter, setCodeFilter] = useState<CodeFilter>("all")
@@ -151,7 +151,7 @@ export function PartnerClubsExplorer({ clubs }: { clubs: MapClub[] }) {
                     </button>
                     {expanded && (
                       <div className="border-t border-ink/8 px-3 py-3">
-                        <ClubMapCard club={club} dense />
+                        <ClubMapCard club={club} dense canManagePartnerships={canManagePartnerships} />
                         {!club.hasLocation && <p className="mt-2 text-xs text-ink-muted">Location unavailable &mdash; no pin on the map for this club yet.</p>}
                       </div>
                     )}
@@ -164,7 +164,7 @@ export function PartnerClubsExplorer({ clubs }: { clubs: MapClub[] }) {
         </div>
 
         <div className="order-1 h-[320px] overflow-hidden rounded-lg border border-ink/10 md:order-2 md:h-[560px]">
-          <ClubMap ref={mapRef} clubs={filtered} />
+          <ClubMap ref={mapRef} clubs={filtered} canManagePartnerships={canManagePartnerships} />
         </div>
       </div>
     </div>

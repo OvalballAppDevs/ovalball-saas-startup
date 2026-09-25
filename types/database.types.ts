@@ -24804,6 +24804,15 @@ export type Database = {
           status: string
         }[]
       }
+      get_team_club_partnerships: {
+        Args: { p_team_id: string }
+        Returns: {
+          id: string
+          partner_club_id: string
+          requesting_club_id: string
+          status: string
+        }[]
+      }
       get_team_guardian_directory: {
         Args: { p_team_id: string }
         Returns: {
