@@ -92,6 +92,23 @@ test("with no canonical decisions at all, no capability-gated destination appear
   }
 })
 
+// ---------------------------------------------------------------- Clubhouse Programme Section 1
+
+test("Clubhouse is a first-class destination: ungrouped and top-level, never buried inside a collapsible section", () => {
+  const { primary } = buildNavItems(clubAdminSession(), clubCtx(), caps(), false)
+  const { top, sections } = buildClubSections(primary, null)
+  assert.ok(
+    top.some((i) => i.href === "/clubhouse"),
+    "Clubhouse is not in the ungrouped top tier"
+  )
+  for (const section of sections) {
+    assert.ok(
+      !section.items.some((i) => i.href === "/clubhouse"),
+      `Clubhouse is buried inside the "${section.label}" collapsible section as well as being in top`
+    )
+  }
+})
+
 // ---------------------------------------------------------------- the orphans
 
 test("the orphaned club join requests page is reachable from navigation", () => {

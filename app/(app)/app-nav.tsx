@@ -27,9 +27,9 @@ export interface NavItem {
 
 interface AppNavProps {
   primaryItems: NavItem[]
-  /** Site Admin only: ungrouped top-level items. Empty elsewhere. */
+  /** Ungrouped, always-visible top-level items -- Dashboard for Site Admin, Dashboard and Clubhouse for a club. */
   top: NavItem[]
-  /** Site Admin only: the grouped taxonomy, identical to the mobile drawer's. */
+  /** The grouped taxonomy, identical to the mobile drawer's. */
   sections: NavSection[]
   contexts: SwitchableContext[]
   activeKey: string

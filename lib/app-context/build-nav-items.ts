@@ -112,7 +112,7 @@ const CLUB_SECTIONS: { key: string; label: string; icon: string; hrefs: string[]
     key: "rugby",
     label: "Fixtures & Calendar",
     icon: "CalendarDays",
-    hrefs: ["/agenda", "/calendar", "/fixtures/management", "/fixtures", "/clubhouse", "/club/player-moves"],
+    hrefs: ["/agenda", "/calendar", "/fixtures/management", "/fixtures", "/club/player-moves"],
   },
   {
     key: "comms",
@@ -282,6 +282,16 @@ function groupNavItems(
   if (dashboard) {
     top.push(dashboard)
     claimed.add("/dashboard")
+  }
+
+  // CLUBHOUSE PROGRAMME SECTION 1: a clear first-class destination, not one more row inside a
+  // collapsible "Fixtures & Calendar" disclosure panel a Club Admin has to open to find it. The same
+  // top-billing treatment Dashboard already gets, for the same reason -- this is the canonical
+  // Ovalball surface for inter-club networking now, not a feature nested inside another one.
+  const clubhouse = byHref.get("/clubhouse")
+  if (clubhouse) {
+    top.push(clubhouse)
+    claimed.add("/clubhouse")
   }
 
   const sections: NavSection[] = []

@@ -1,0 +1,29 @@
+# Clubhouse Programme Ledger
+
+Tracks actual delivery status against `CLUBHOUSE_MASTER_PROJECT_PLAN.md`. Updated at the end of every section. Never advanced past what has genuinely been done and verified.
+
+| # | Section | Status | Start HEAD | End HEAD | Migration | Tests | Device Proof | Owner Review | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| — | Clubhouse V1 (pre-programme foundation) | COMPLETE | `bf6d87c` | `130b284` | None applied | 10 new (`clubhouse.test.mts`) + 8 updated | None (no Xcode/EAS/device access) | PENDING | Native map/list/sheet, partner actions, web consolidation. See `CLUBHOUSE_V1_COMPLETION_REPORT.md`. |
+| 1 | Shell & Navigation | **COMPLETE** | `130b284` | *(pending this commit)* | None applied | 1 new (`navigation_architecture.test.mts`) | None | PENDING | Clubhouse promoted to top-level (ungrouped) web nav for Club Admin, matching Dashboard's own treatment. Mobile nav already correct from V1. See `docs/product/clubhouse/SECTION_01_SHELL_AND_NAVIGATION.md`. |
+| 2 | Map & Club Discovery | NOT STARTED | — | — | — | — | — | — | — |
+| 3 | Club Directory & Geo Coverage | NOT STARTED | — | — | — | — | — | — | — |
+| 4 | Club Profile / Club Card | NOT STARTED | — | — | — | — | — | — | — |
+| 5 | Partners | NOT STARTED | — | — | — | — | — | — | Must close the team-scope RLS accuracy gap found during Section 1's verification pass (see master plan §0). |
+| 6 | Find a Fixture | NOT STARTED | — | — | — | — | — | — | Backend substantially pre-built (CA-M11.4 availability domain). |
+| 7 | Find Clubs Free on Certain Days | NOT STARTED | — | — | — | — | — | — | Needs new multi-date/radius query composition over the existing per-team availability function. |
+| 8 | Arrange a Fixture | NOT STARTED | — | — | — | — | — | — | |
+| 9 | Fixture Negotiation | NOT STARTED | — | — | — | — | — | — | Domain already shipped (CA-M11.5 counter-proposal) — this section is UI assembly. |
+| 10 | Club Messaging | NOT STARTED | — | — | — | — | — | — | RED. Audit `club_conversations` before any UI. |
+| 11 | Clubhouse Activity | NOT STARTED | — | — | — | — | — | — | |
+| 12 | Referral Programme | NOT STARTED | — | — | — | — | — | — | |
+| 13 | Referral Tracking | NOT STARTED | — | — | — | — | — | — | Incentive design needs explicit owner approval before any schema. |
+| 14 | Club Claiming & Verification | NOT STARTED | — | — | — | — | — | — | RED. Currently 100% reputational; do not make claiming a casual one-tap action. |
+| 15 | Looking for Opposition | NOT STARTED | — | — | — | — | — | — | Re-audit `20270554000000_looking_for_opposition.sql` from scratch before use — do not assume the parked draft is correct. |
+| 16 | Opportunity Matching | NOT STARTED | — | — | — | — | — | — | |
+| 17 | Recent Opponents & Network Memory | NOT STARTED | — | — | — | — | — | — | `countFixturesTogetherThisSeason`/`countCompatibleTeams` already exist in `club-detail.ts` — generalise, don't restart. |
+| 18 | Clubhouse Polish | NOT STARTED | — | — | — | — | — | — | |
+| 19 | Cross-Client Convergence | NOT STARTED | — | — | — | — | — | — | |
+| 20 | Release Hardening | NOT STARTED | — | — | — | — | — | — | |
+
+**Parked, not a section:** `supabase/migrations/20270554000000_looking_for_opposition.sql` — present, unapplied, uncommitted, untouched since it was drafted. Belongs to Section 15, to be re-audited from scratch when that section begins.
