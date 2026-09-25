@@ -104,6 +104,8 @@ import {
   CalendarSync,
   ListChecks,
   Undo2,
+  Shirt,
+  GripVertical,
 } from "lucide-react-native"
 import Svg, { Ellipse } from "react-native-svg"
 
@@ -222,6 +224,8 @@ export {
   CalendarSync,
   ListChecks,
   Undo2,
+  Shirt,
+  GripVertical,
 }
 
 /** The rugby ball, as an icon, in the brand's own geometry. Matches Lucide's 24-unit grid and weight. */

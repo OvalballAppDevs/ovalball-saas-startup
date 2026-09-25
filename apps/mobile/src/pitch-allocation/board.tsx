@@ -7,7 +7,7 @@ import { assignBookingLanes, fixtureOccupiedWindow, laneRowCount, timeToMinutes,
 
 import { haptic } from "./haptics"
 import { HEADER_HEIGHT, LABEL_COLUMN_WIDTH, LANE_GAP, LANE_HEIGHT, PX_PER_SLOT, START_MINUTES, SLOT_COUNT, autoScrollVelocity, boardHeight, hourMarks, kickoffMinutes, laneRows, minutesToTime, minutesToX, timelineWidth, widthForMinutes, xToSnappedMinutes, yToLaneRow, type BoardScale, type LaneRow } from "./geometry"
-import { TriangleAlert, Trophy } from "../components/icons"
+import { CalendarDays, ChevronDown, ChevronRight, ChevronUp, Clock, Shirt, TriangleAlert, Trophy } from "../components/icons"
 import { colour, radius, space, type } from "../design/tokens"
 
 /**
@@ -64,6 +64,15 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
   const vRef = useRef<Animated.ScrollView>(null)
   const timelineOrigin = useRef({ x: 0, y: 0, width: 0, height: 0 })
   const timelineRef = useRef<View>(null)
+  // THE VIEWPORT, separate from the CONTENT: `timelineOrigin`'s width/height (below) used to come from
+  // measuring the full scrollable content view -- which on a device is either the whole day's width
+  // (thousands of pixels, so "near the edge" almost never matched) or, worse, still {0,0} if that
+  // measurement had not resolved yet, and autoScrollVelocity degenerates for extent<=0 into "always
+  // scroll at full speed" (fixed in geometry.ts, but the ROOT cause is measuring the wrong rectangle).
+  // These two are the actual VISIBLE window -- set synchronously from onLayout, never from a scrolled
+  // content view -- and are what auto-scroll edge-detection is measured against.
+  const hViewportRef = useRef<View>(null)
+  const vViewportRef = useRef<View>(null)
   const [preview, setPreview] = useState<DragPreview | null>(null)
 
   // ROWS: a pitch with N lanes, or N bookings stacked where only one should be, is N rows.
@@ -103,8 +112,12 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
   const headerStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -scrollX.value }] }))
 
   const measureTimeline = useCallback(() => {
-    timelineRef.current?.measureInWindow((x, y, w, h) => { timelineOrigin.current = { x, y, width: w, height: h } })
+    // x/y only: WHERE the content's origin sits on screen right now (moves as the user scrolls) --
+    // width/height for the auto-scroll extent come from the viewport measurements below instead.
+    timelineRef.current?.measureInWindow((x, y) => { timelineOrigin.current.x = x; timelineOrigin.current.y = y })
   }, [])
+  const measureHViewport = useCallback((e: LayoutChangeEvent) => { timelineOrigin.current.width = e.nativeEvent.layout.width }, [])
+  const measureVViewport = useCallback((e: LayoutChangeEvent) => { timelineOrigin.current.height = e.nativeEvent.layout.height }, [])
 
   // AUTO-SCROLL while a drag sits near an edge: the content moves, the finger need not.
   const autoScroll = useRef<{ timer: ReturnType<typeof setInterval> | null; vx: number; vy: number }>({ timer: null, vx: 0, vy: 0 })
@@ -182,6 +195,7 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
         </View>
       </View>
 
+      <View ref={vViewportRef} style={{ flex: 1 }} onLayout={measureVViewport}>
       <Animated.ScrollView ref={vRef} onScroll={onV} scrollEventThrottle={16} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: space.md }}>
         <View style={{ flexDirection: "row" }}>
           {/* THE FROZEN PITCH COLUMN */}
@@ -205,7 +219,8 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
           </View>
 
           {/* THE TIMELINE */}
-          <Animated.ScrollView ref={hRef} horizontal onScroll={onH} scrollEventThrottle={16} showsHorizontalScrollIndicator={false} onLayout={measureTimeline} onContentSizeChange={measureTimeline}>
+          <View ref={hViewportRef} style={{ flex: 1, overflow: "hidden" }} onLayout={(e) => { measureHViewport(e); measureTimeline() }}>
+          <Animated.ScrollView ref={hRef} horizontal onScroll={onH} scrollEventThrottle={16} showsHorizontalScrollIndicator={false} onContentSizeChange={measureTimeline}>
             <View ref={timelineRef} style={{ width, height }} onLayout={measureTimeline}>
               {/* the slot lattice */}
               {Array.from({ length: SLOT_COUNT }, (_, i) => (
@@ -283,8 +298,10 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
               )}
             </View>
           </Animated.ScrollView>
+          </View>
         </View>
       </Animated.ScrollView>
+      </View>
 
       {board.unallocated.length > 0 && (
         <UnallocatedTray
@@ -377,16 +394,24 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
 
   const a11y = `${f.homeTeamLabel} versus ${f.opponentLabel}, kick-off ${minutesToTime(playStart)}, on this pitch from ${minutesToTime(start)} to ${minutesToTime(end)} including warm-up and pack-up${isStaged ? ", staged, not yet saved" : ""}${reason ? `. ${reason}` : ""}${canManage ? ". Double tap to open, press and hold to move" : ". Double tap to open"}`
 
+  // ONE CONNECTED CARD, not three bordered boxes: a single outer border and radius (coloured by
+  // severity/staged state) carries the whole reserved window; warm-up and pack-up are tinted flanks
+  // inside it, not separate cards, matching the reference design.
+  const cardBorderColor = severity === "hard" ? colour.danger : severity === "warning" ? colour.warning : isStaged ? colour.pitch600 : "rgba(18,61,44,0.22)"
+  const cardBorderWidth = isStaged || severity ? 2 : 1
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View style={[{ position: "absolute", left, top: row.top + 4, width: total, height: LANE_HEIGHT - 8, flexDirection: "row", shadowColor: "#071c14", shadowOffset: { width: 0, height: 4 }, opacity: isDragging ? 0.92 : 1 }, style]}>
-        <Pressable accessible accessibilityRole="button" accessibilityLabel={a11y} onPress={() => onOpen(f)} style={{ flex: 1, flexDirection: "row" }}>
+      <Animated.View style={[{ position: "absolute", left, top: row.top + 4, width: total, height: LANE_HEIGHT - 8, shadowColor: "#071c14", shadowOffset: { width: 0, height: 4 }, opacity: isDragging ? 0.92 : 1 }, style]}>
+        <Pressable
+          accessible accessibilityRole="button" accessibilityLabel={a11y} onPress={() => onOpen(f)}
+          style={{ flex: 1, flexDirection: "row", borderRadius: radius.md, borderWidth: cardBorderWidth, borderColor: cardBorderColor, overflow: "hidden", backgroundColor: colour.surface }}
+        >
           {warmW > 0 && (
-            <View style={{ width: warmW, borderTopLeftRadius: radius.md, borderBottomLeftRadius: radius.md, backgroundColor: "rgba(16,21,18,0.06)", borderWidth: 1, borderRightWidth: 0, borderColor: "rgba(16,21,18,0.10)", justifyContent: "flex-end", padding: 3 }}>
+            <View style={{ width: warmW, backgroundColor: "rgba(16,21,18,0.05)", justifyContent: "flex-end", padding: 3 }}>
               {labelRoom && <Text style={[type.caption, { fontSize: 10, color: colour.inkMuted }]} numberOfLines={1}>Warm-up</Text>}
             </View>
           )}
-          <View style={{ width: matchW, borderRadius: warmW > 0 || packW > 0 ? 0 : radius.md, borderTopLeftRadius: warmW > 0 ? 0 : radius.md, borderBottomLeftRadius: warmW > 0 ? 0 : radius.md, borderTopRightRadius: packW > 0 ? 0 : radius.md, borderBottomRightRadius: packW > 0 ? 0 : radius.md, backgroundColor: severity === "hard" ? colour.dangerSurface : severity === "warning" ? colour.warningSurface : colour.mint100, borderWidth: isStaged ? 2 : 1, borderColor: severity === "hard" ? colour.danger : severity === "warning" ? colour.warning : isStaged ? colour.pitch600 : "rgba(18,61,44,0.25)", paddingHorizontal: 8, paddingVertical: 5, justifyContent: "center", overflow: "hidden" }}>
+          <View style={{ width: matchW, backgroundColor: severity === "hard" ? colour.dangerSurface : severity === "warning" ? colour.warningSurface : colour.mint100, paddingHorizontal: 8, paddingVertical: 5, justifyContent: "center" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               {severity && <TriangleAlert size={12} color={severity === "hard" ? colour.danger : colour.warning} />}
               <Text style={[type.smallMedium, { color: colour.forest950, fontSize: roomy ? 13 : 12 }]} numberOfLines={roomy ? 2 : 1}>{f.homeTeamLabel}</Text>
@@ -395,7 +420,7 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
             <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{minutesToTime(playStart)}{isStaged ? " · staged" : ""}</Text>
           </View>
           {packW > 0 && (
-            <View style={{ width: packW, borderTopRightRadius: radius.md, borderBottomRightRadius: radius.md, backgroundColor: "rgba(16,21,18,0.06)", borderWidth: 1, borderLeftWidth: 0, borderColor: "rgba(16,21,18,0.10)", justifyContent: "flex-end", padding: 3 }}>
+            <View style={{ width: packW, backgroundColor: "rgba(16,21,18,0.05)", justifyContent: "flex-end", padding: 3 }}>
               {packW >= 44 && <Text style={[type.caption, { fontSize: 10, color: colour.inkMuted }]} numberOfLines={1}>Pack-up</Text>}
             </View>
           )}
@@ -409,6 +434,27 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
  * THE TRAY: fixtures that still need a pitch. Each is a draggable chip -- press and hold, drag it up
  * onto a lane, let go -- and a tappable one for the accessible Move flow.
  */
+// A ROTATING, PURELY DECORATIVE PALETTE for the tray's team-shirt avatars -- not a status colour (those
+// are reserved for conflict/staged/read-only meaning elsewhere on the board), just visual variety so a
+// list of several unallocated fixtures is easy to tell apart at a glance, the way the reference design
+// varies its jersey-icon tints.
+const TRAY_TINTS = [
+  { bg: "#fde7ea", fg: "#c1221b" },
+  { bg: "#ece5fb", fg: "#6d3b9e" },
+  { bg: "#e2f2ea", fg: "#12703f" },
+  { bg: "#e6eefb", fg: "#1d4f91" },
+]
+function trayTint(fixtureId: string) {
+  let h = 0
+  for (let i = 0; i < fixtureId.length; i += 1) h = (h * 31 + fixtureId.charCodeAt(i)) >>> 0
+  return TRAY_TINTS[h % TRAY_TINTS.length]
+}
+
+/**
+ * THE UNALLOCATED SHEET -- a bottom sheet that floats OVER the board (never squeezes it into a sliver),
+ * with its own drag handle, a collapse toggle so a Fixture Secretary can put it away once the morning's
+ * placements are done, and a full-width card per fixture -- exactly what the reference design asked for.
+ */
 function UnallocatedTray({ fixtures, canManage, reduceMotion, onOpen, onDragUpdate, onDragEnd, reasonFor }: {
   fixtures: AllocationFixture[]
   canManage: boolean
@@ -418,19 +464,36 @@ function UnallocatedTray({ fixtures, canManage, reduceMotion, onOpen, onDragUpda
   onDragEnd: (fixtureId: string, dropped: boolean) => void
   reasonFor: (fixture: AllocationFixture) => string
 }) {
+  const [expanded, setExpanded] = useState(true)
   return (
-    <View style={{ borderTopWidth: 1, borderTopColor: colour.line, backgroundColor: colour.chalk, paddingVertical: space.sm }}>
-      <Text style={[type.overline, { color: colour.inkSubtle, paddingHorizontal: space.md, marginBottom: 6 }]}>NEEDS A PITCH ({fixtures.length})</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.md, gap: space.sm }}>
-        {fixtures.map((f) => (
-          <TrayChip key={f.fixtureId} fixture={f} reason={reasonFor(f)} canManage={canManage} reduceMotion={reduceMotion} onOpen={onOpen} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd} />
-        ))}
-      </ScrollView>
+    <View
+      style={{
+        position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "48%",
+        backgroundColor: colour.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+        borderWidth: 1, borderColor: colour.line, borderBottomWidth: 0,
+        shadowColor: "#071c14", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12,
+      }}
+    >
+      <Pressable accessibilityRole="button" accessibilityLabel={expanded ? "Collapse unallocated fixtures" : "Expand unallocated fixtures"} onPress={() => setExpanded((v) => !v)} style={{ paddingTop: 10, paddingBottom: space.sm, paddingHorizontal: space.md }}>
+        <View style={{ alignSelf: "center", width: 36, height: 4, borderRadius: 2, backgroundColor: colour.line, marginBottom: space.sm }} />
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Text style={[type.smallMedium, { color: colour.ink, flex: 1, fontFamily: "Inter_600SemiBold" }]}>Unallocated Fixtures ({fixtures.length})</Text>
+          {expanded ? <ChevronDown size={18} color={colour.inkMuted} /> : <ChevronUp size={18} color={colour.inkMuted} />}
+        </View>
+        {expanded && <Text style={[type.caption, { color: colour.inkMuted, marginTop: 2 }]}>Drag a fixture onto a pitch and time, or tap to allocate.</Text>}
+      </Pressable>
+      {expanded && (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.md, paddingBottom: space.md, gap: space.sm }}>
+          {fixtures.map((f) => (
+            <TrayCard key={f.fixtureId} fixture={f} tint={trayTint(f.fixtureId)} reason={reasonFor(f)} canManage={canManage} reduceMotion={reduceMotion} onOpen={onOpen} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd} />
+          ))}
+        </ScrollView>
+      )}
     </View>
   )
 }
 
-const TrayChip = memo(function TrayChip({ fixture: f, reason, canManage, reduceMotion, onOpen, onDragUpdate, onDragEnd }: { fixture: AllocationFixture; reason: string; canManage: boolean; reduceMotion: boolean; onOpen: (f: AllocationFixture) => void; onDragUpdate: (id: string, ax: number, ay: number, gx: number) => void; onDragEnd: (id: string, dropped: boolean) => void }) {
+const TrayCard = memo(function TrayCard({ fixture: f, tint, reason, canManage, reduceMotion, onOpen, onDragUpdate, onDragEnd }: { fixture: AllocationFixture; tint: { bg: string; fg: string }; reason: string; canManage: boolean; reduceMotion: boolean; onOpen: (f: AllocationFixture) => void; onDragUpdate: (id: string, ax: number, ay: number, gx: number) => void; onDragEnd: (id: string, dropped: boolean) => void }) {
   const tx = useSharedValue(0)
   const ty = useSharedValue(0)
   const lifted = useSharedValue(0)
@@ -454,13 +517,47 @@ const TrayChip = memo(function TrayChip({ fixture: f, reason, canManage, reduceM
       tx.value = reduceMotion ? 0 : withTiming(0, { duration: 160 })
       ty.value = reduceMotion ? 0 : withTiming(0, { duration: 160 })
     }), [canManage, reduceMotion, f.fixtureId, onDragUpdate, onDragEnd, lifted, tx, ty])
-  const style = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: 1 + lifted.value * 0.04 }], zIndex: lifted.value > 0 ? 60 : 1, shadowOpacity: 0.06 + lifted.value * 0.22, elevation: 2 + lifted.value * 10 }))
+  const style = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: 1 + lifted.value * 0.03 }], zIndex: lifted.value > 0 ? 60 : 1, shadowOpacity: 0.05 + lifted.value * 0.2, elevation: 1 + lifted.value * 8 }))
+  const kickoff = f.kickoffTime ? f.kickoffTime.slice(0, 5) : null
+  const durationLabel = f.durationMinutes ? `${f.durationMinutes} mins${f.durationConfidence === "unresolved" ? " (est.)" : ""}` : null
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View style={[{ shadowColor: "#071c14", shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }, style]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${f.homeTeamLabel} versus ${f.opponentLabel}, needs a pitch. ${reason}${canManage ? ". Double tap to choose a pitch, press and hold to drag it onto one" : ""}`} onPress={() => onOpen(f)} style={{ minWidth: 168, maxWidth: 240, minHeight: 56, borderRadius: radius.md, borderWidth: 1, borderColor: colour.warning, backgroundColor: colour.warningSurface, paddingHorizontal: space.md, paddingVertical: space.sm, justifyContent: "center" }}>
-          <Text style={[type.smallMedium, { color: colour.ink }]} numberOfLines={1}>{f.homeTeamLabel}</Text>
-          <Text style={[type.caption, { color: colour.inkMuted }]} numberOfLines={1}>v {f.opponentLabel}{f.kickoffTime ? ` · ${f.kickoffTime.slice(0, 5)}` : ""}</Text>
+      <Animated.View style={[{ shadowColor: "#071c14", shadowRadius: 8, shadowOffset: { width: 0, height: 2 } }, style]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${f.homeTeamLabel} versus ${f.opponentLabel}, needs a pitch. ${reason}${canManage ? ". Double tap to choose a pitch, press and hold to drag it onto one" : ""}`}
+          onPress={() => onOpen(f)}
+          style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: 64, borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: pressed ? colour.chalk : colour.surface, paddingHorizontal: space.sm, paddingVertical: space.sm })}
+        >
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: tint.bg, alignItems: "center", justifyContent: "center" }}>
+            <Shirt size={18} color={tint.fg} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[type.smallMedium, { color: colour.ink }]} numberOfLines={1}>{f.homeTeamLabel}</Text>
+            <Text style={[type.caption, { color: colour.inkMuted }]} numberOfLines={1}>v {f.opponentLabel}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: 2 }}>
+              {kickoff && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                  <CalendarDays size={12} color={colour.inkSubtle} />
+                  <Text style={[type.caption, { color: colour.inkSubtle }]}>{kickoff}</Text>
+                </View>
+              )}
+              {durationLabel && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                  <Clock size={12} color={colour.inkSubtle} />
+                  <Text style={[type.caption, { color: colour.inkSubtle }]}>{durationLabel}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+          {canManage && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <View style={{ paddingHorizontal: space.sm, paddingVertical: 6, borderRadius: radius.md, backgroundColor: colour.chalk, borderWidth: 1, borderColor: colour.lineStrong }}>
+                <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_600SemiBold" }]}>Allocate</Text>
+              </View>
+              <ChevronRight size={16} color={colour.inkSubtle} />
+            </View>
+          )}
         </Pressable>
       </Animated.View>
     </GestureDetector>

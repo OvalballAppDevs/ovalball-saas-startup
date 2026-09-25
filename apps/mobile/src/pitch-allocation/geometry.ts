@@ -22,8 +22,11 @@ export type BoardScale = "compact" | "comfortable"
 /** Pixels per 15-minute slot. Comfortable makes a 50-minute match about 160pt wide -- room for two lines of words. */
 export const PX_PER_SLOT: Record<BoardScale, number> = { compact: 22, comfortable: 48 }
 
-export const LANE_HEIGHT = 84
-export const LANE_GAP = 8
+// Taller than a first pass: a typical club (2-4 pitches) should fill the screen's real estate rather
+// than leave a dead gap above the unallocated sheet -- found live, on device, alongside the auto-scroll
+// bug, and worth fixing in the same pass since both are "the board wastes the screen" complaints.
+export const LANE_HEIGHT = 116
+export const LANE_GAP = 12
 export const LABEL_COLUMN_WIDTH = 92
 export const HEADER_HEIGHT = 28
 
@@ -110,6 +113,11 @@ export const AUTO_SCROLL_EDGE = 48
 export const AUTO_SCROLL_STEP = 14
 
 export function autoScrollVelocity(position: number, extent: number): number {
+  // BUG FOUND LIVE ON DEVICE: an unmeasured or not-yet-ready viewport reports extent<=0, and the "near
+  // the trailing edge" branch below is unconditionally true for any position once extent<=0 -- which
+  // reads as "scroll right (or down) at full speed, forever" the instant a drag begins. Fail safe to
+  // no auto-scroll rather than a runaway one.
+  if (!(extent > 0)) return 0
   if (position < AUTO_SCROLL_EDGE) return -AUTO_SCROLL_STEP * (1 - Math.max(0, position) / AUTO_SCROLL_EDGE)
   if (position > extent - AUTO_SCROLL_EDGE) return AUTO_SCROLL_STEP * (1 - Math.max(0, extent - position) / AUTO_SCROLL_EDGE)
   return 0
