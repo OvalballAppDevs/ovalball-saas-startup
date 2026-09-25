@@ -1058,3 +1058,34 @@ TO-E9/E10 comments rather than assertions.
 - **H31 unchanged** (the website's password reset for a factor holder); **H20/H25** unchanged — see the
   finance section of `docs/mobile/CA_M11_1_CLUB_ADMIN_PARITY_MAP.md` for the distinction.
 
+
+## H33 — CA-M11.3 Social authentication (Google/Apple/Facebook): owed at hardening
+
+- **No account-linking / email-collision design exists.** `auth_flow_states.kind` already reserves a
+  `LINK_IDENTITY` value and a migration comment lists it among purposes the design enumerates, but
+  `internal.auth_flow_kind_is_active()` refuses every kind except `SIGNUP` — nothing implements it. What
+  happens today when `person@example.com` has a password account and later taps "Continue with Google"
+  with the same address is entirely Supabase Auth's own default `enable_manual_linking = false` behaviour,
+  unreviewed at the application layer on either client. `docs/SOCIAL_AUTH_PROVIDER_SETUP.md` already names
+  this as a manual production verification step for the owner rather than something the code enforces.
+  Per this slice's own instruction, this is reported and stopped, not designed around.
+- **Apple's native Sign in with Apple button (`expo-apple-authentication`) requires a development build
+  to actually reach a device** — Expo Go does not carry the `com.apple.developer.applesignin`
+  entitlement its config plugin sets. This is new: before CA-M11.3, `docs/mobile/DEVELOPMENT.md` stated
+  push notifications (M7) would be the first thing to force that migration. The browser-OAuth fallback
+  (the same path Google and Facebook use) needs no development build and is not affected.
+- **`scripts/verify-auth-security.mjs` has 5 pre-existing failures**, all stemming from the same stale
+  "Ovalball is passwordless" assumption the CA-M11.3 audit found baked into `docs/SOCIAL_AUTH_PROVIDER_SETUP.md`
+  and `lib/auth/oauth-providers.ts` (both corrected in passing this slice; the guard itself was not
+  touched): `no signInWithPassword anywhere`, `no password input field`, `no forgotten-password route`,
+  `acting user comes from the session, never the client`, `repeat submission is idempotent`. Predates
+  CA-M11.3, unrelated to it, and reconciling a security guard's own stale assumption with Slice 6's
+  deliberate password reintroduction is a decision for whoever owns that guard.
+- **No live provider round trip was proved for any of the three providers.** No real Google, Apple or
+  Facebook credentials exist in this environment, and this session did not create or use any personal
+  provider account. Structural/domain proof (registry, redirect construction, PKCE, cancellation vs
+  error, cold-start callback parsing, one-attempt-at-a-time, MFA/invitation/context convergence) is
+  pinned in `supabase/tests/js/social_auth_ca11_3.test.mts`; the sign-in screen with all three provider
+  buttons enabled was proved live via a temporary local flag flip (reverted) against an Expo Web export,
+  confirming correct rendering, official marks, and the click → loading → sibling-buttons-disabled
+  interaction chain. See `docs/mobile/CA_M11_3_SOCIAL_AUTH_MAP.md` for the full per-provider breakdown.

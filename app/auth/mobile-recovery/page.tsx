@@ -1,4 +1,4 @@
-import { OvalballLogo } from "@/components/brand/ovalball-logo"
+import { MobileHandoffShell as Shell } from "@/components/auth/mobile-handoff-shell"
 
 export const metadata = { title: "Open in Ovalball" }
 
@@ -77,12 +77,3 @@ export default async function MobileRecoveryHandoff({
   )
 }
 
-function Shell({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <main className="brand-light-scope flex min-h-dvh flex-col items-center justify-center bg-chalk px-6 text-center">
-      <OvalballLogo variant="dark" className="h-10 w-auto" />
-      <h1 className="mt-8 font-display text-display-m text-ink">{title}</h1>
-      {children}
-    </main>
-  )
-}

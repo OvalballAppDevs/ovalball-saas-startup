@@ -69,6 +69,12 @@ const config: ExpoConfig = {
     ["expo-secure-store", {}],
     // The camera reads an invitation's QR code (CA-M11.1) and nothing else; the sentence is the one iOS shows.
     ["expo-camera", { cameraPermission: "Ovalball uses the camera to read an invitation's QR code." }],
+    // CA-M11.3 -- social authentication. `expo-web-browser` opens the SAME Supabase OAuth URL the
+    // website redirects to, in a real system browser session (ASWebAuthenticationSession on iOS), never
+    // an embedded WebView; `expo-apple-authentication` is the native Sign in with Apple button and sets
+    // the `com.apple.developer.applesignin` entitlement this plugin needs to be present at all.
+    "expo-web-browser",
+    "expo-apple-authentication",
     // The launch screen is the brand ground, so the first rendered frame is the same colour and
     // the app never flashes white on the way in.
     [
@@ -92,6 +98,12 @@ const config: ExpoConfig = {
     supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
     /** The website, for the handful of jobs that are deliberately web-only (Site Admin, the Planner). */
     webUrl: process.env.EXPO_PUBLIC_OVALBALL_WEB_URL ?? "http://localhost:3000",
+    // CA-M11.3 -- the SAME three flags the website reads (NEXT_PUBLIC_AUTH_*_ENABLED), carried through
+    // build-time `extra` the way a native bundle has to: still a UI flag, never a secret, still "false"
+    // until the owner sets it AND configures the provider in Supabase.
+    authGoogleEnabled: process.env.EXPO_PUBLIC_AUTH_GOOGLE_ENABLED ?? "",
+    authAppleEnabled: process.env.EXPO_PUBLIC_AUTH_APPLE_ENABLED ?? "",
+    authFacebookEnabled: process.env.EXPO_PUBLIC_AUTH_FACEBOOK_ENABLED ?? "",
   },
 }
 

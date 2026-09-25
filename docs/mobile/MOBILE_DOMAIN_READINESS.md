@@ -38,16 +38,18 @@ actually checked in.
 | Competition Creator, Season Planner, Import | **WEB-ONLY BY DESIGN** | spreadsheet-shaped work | Stays a desk job |
 | governing-body administration | **WEB-ONLY BY DESIGN** (for now) | `my_governing_bodies` already surfaces the context | The context appears and says honestly that the work is on the web |
 
-## Social sign-in
+## Social sign-in (CA-M11.3)
 
 | provider | status | why |
 |---|---|---|
-| Google | **PARTIAL** | Configured in `lib/auth/oauth-providers.ts`, gated by `NEXT_PUBLIC_AUTH_GOOGLE_ENABLED`, **off**. Native needs the provider's own iOS/Android client IDs and the app's redirect registered in Supabase |
-| Apple | **PARTIAL** | Same, plus Apple requires Sign in with Apple on iOS once any other social provider ships — and that needs a paid Apple Developer account, which this session deliberately does not require |
-| Facebook | **PARTIAL** | Same, flag **off** |
+| Google | **IMPLEMENTED, BLOCKED ON PROVIDER CREDENTIALS** | `src/auth/oauth.ts` — Supabase `signInWithOAuth` + `expo-web-browser`'s real system browser session (never a WebView), converging on the identical `exchangeCodeForSession` call the website's callback and mobile's own password recovery already use. Gated by `EXPO_PUBLIC_AUTH_GOOGLE_ENABLED`, still **off**. Needs the provider registered in Supabase (production: owner reports already done; local dev stack: not yet — `supabase/config.toml` now carries the structural `[auth.external.google]` block, disabled, ready for real values) |
+| Apple | **IMPLEMENTED, BLOCKED ON PROVIDER CREDENTIALS** | Same browser path, PLUS a preferred native path via `expo-apple-authentication` (`signInWithAppleNative`, feature-detected, falls through automatically where unavailable). **Requires a paid Apple Developer account** and, to exercise the native path on a device, a development build — Expo Go does not carry the entitlement `expo-apple-authentication`'s config plugin sets. The browser-OAuth fallback needs no development build |
+| Facebook | **IMPLEMENTED, BLOCKED ON PROVIDER CREDENTIALS** | Same browser path as Google — no native Facebook SDK was added (a deliberate choice: it would force a development-client rebuild for no security or UX gain over the browser-session path; see `docs/mobile/CA_M11_3_SOCIAL_AUTH_MAP.md`). Needs a Meta app + Facebook Login product configured |
 
-No provider button is drawn. All three are switched off in the platform, and a button shown before its
-provider is configured sends a real person into a provider error page.
+All three still render nothing until their own flag is on — a button shown before its provider is
+configured in Supabase sends a real person into a provider error page. See
+`docs/mobile/CA_M11_3_SOCIAL_AUTH_MAP.md` for the full audit and
+`docs/SOCIAL_AUTH_PROVIDER_SETUP.md` for the owner's own setup checklist (both providers and platforms).
 
 ## What is deliberately not cached on the device
 

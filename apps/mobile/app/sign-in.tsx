@@ -18,6 +18,8 @@ import { useSession } from "../src/auth/session"
 import { takeEntranceNotice } from "../src/auth/entrance-notice"
 import { configurationProblem } from "../src/config/environment"
 import { Button } from "../src/components/ui"
+import { AuthDivider, SocialAuthButtons } from "../src/components/social-auth-buttons"
+import { enabledSocialProviders } from "../src/auth/oauth"
 import { EntranceLink } from "../src/components/entrance"
 import { OvalballMark, OvalballWordmark } from "../src/components/brand"
 import { ChevronLeft, CircleAlert, Eye, EyeOff, Lock, Mail } from "../src/components/icons"
@@ -35,9 +37,11 @@ import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../src/des
  * like Ovalball rather than like a login. On a short handset the sheet takes more of the height and
  * the mark shrinks with it, because a form you cannot see is a worse trade than a smaller logo.
  *
- * SOCIAL SIGN-IN IS STILL NOT DRAWN. Google, Apple and Facebook are configured in the platform and all
- * three are switched OFF (`lib/auth/oauth-providers.ts`). A button shown before its provider is
- * configured sends a real person into a provider error page.
+ * SOCIAL SIGN-IN (CA-M11.3). Google, Apple and Facebook render above the email form, in that order --
+ * identical to the website's own login and Get Started -- but only for a provider whose own flag is on
+ * (`src/auth/oauth.ts`, the same registry shape as the website's `lib/auth/oauth-providers.ts`). All
+ * three default to off: a button shown before its provider is configured in Supabase sends a real
+ * person into a provider error page, so nothing here renders until the owner enables one.
  */
 export default function SignIn() {
   const { signIn } = useSession()
@@ -140,7 +144,14 @@ export default function SignIn() {
 
             {misconfigured && <DeveloperNotice message={misconfigured} />}
 
-            <View style={{ marginTop: space.xl, gap: space.md }}>
+            {enabledSocialProviders().length > 0 && (
+              <View style={{ marginTop: space.xl, gap: space.md }}>
+                <SocialAuthButtons onError={(message) => setProblem(message || null)} />
+                <AuthDivider />
+              </View>
+            )}
+
+            <View style={{ marginTop: enabledSocialProviders().length > 0 ? space.md : space.xl, gap: space.md }}>
               <Field
                 label="Email Address"
                 icon={<Mail size={18} color={colour.inkSubtle} />}

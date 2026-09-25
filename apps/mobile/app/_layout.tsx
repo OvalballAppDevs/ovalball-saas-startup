@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { View } from "react-native"
 
 import { SessionProvider, useSession } from "../src/auth/session"
+import { supabase } from "../src/auth/supabase"
 import { setEntranceNotice } from "../src/auth/entrance-notice"
 import { hasJoinSecret, holdJoinSecret } from "../src/onboarding/join-secret"
 import { narrowIntentForContext, routeForIntent } from "../src/links/destinations"
@@ -56,7 +57,7 @@ void SplashScreen.preventAutoHideAsync()
  * and a replayed PKCE code would fail at the auth server anyway -- this just stops the app asking.
  */
 function useIncomingLinks() {
-  const { beginRecovery, status } = useSession()
+  const { beginRecovery, refreshAssurance, status } = useSession()
   /*
     THE VIEWER'S OWN CONTEXT, so an incoming link can be narrowed before it is
     routed. A fixture link is canonical -- `/fixtures/<id>` is what the website,
@@ -113,6 +114,32 @@ function useIncomingLinks() {
         return
       }
 
+      // CA-M11.3 -- COLD-START ONLY. The ordinary, warm round trip never reaches this: the provider
+      // button's own `openAuthSessionAsync` call already resolved with this same URL and has already
+      // exchanged the code by the time this listener would fire again (the `handled` de-duplication
+      // above stops it being processed twice regardless). This branch exists for the one case that
+      // matters and is easy to get wrong: the app was killed while the provider's own UI was in front
+      // of the person, so nothing was there to resolve that promise, and the callback arrives instead
+      // as an ordinary cold-start URL. Session establishment then goes through the exact same
+      // `exchangeCodeForSession` → `refreshAssurance` path the button uses, so MFA, a held invitation
+      // and a held team code all resolve identically to the warm case -- neither is a special path.
+      if (intent.kind === "AUTH_OAUTH") {
+        if (intent.error || !intent.code) {
+          // A provider decline or an explicit cancellation: nothing to exchange, nothing signed in.
+          // Silence is correct here specifically because the person is not looking at Ovalball right
+          // now to read a message -- the app was not running -- so there is nobody to show it to.
+          return
+        }
+        const { error } = await supabase.auth.exchangeCodeForSession(intent.code)
+        if (error) {
+          setEntranceNotice("That sign-in link is no longer valid. Please try again.")
+          router.replace("/sign-in")
+          return
+        }
+        await refreshAssurance()
+        return
+      }
+
       // AN INVITATION IS ITS OWN WAY IN. The secret is held in memory for one journey (never stored),
       // and the invitation screen is opened whether or not anybody is signed in: it previews first,
       // asks for a sign-in if one is needed, and only then offers to accept. The gate keeps that
@@ -144,7 +171,7 @@ function useIncomingLinks() {
         else pending.current = intent
       }
     },
-    [beginRecovery, router, status, deliver, segments]
+    [beginRecovery, refreshAssurance, router, status, deliver, segments]
   )
 
   // The held intent is delivered once the session is real -- and cleared either way, so it cannot

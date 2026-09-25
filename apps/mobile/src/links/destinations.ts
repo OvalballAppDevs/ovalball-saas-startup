@@ -164,6 +164,7 @@ export function routeForIntent(intent: LinkIntent): Route | null {
       // The secret rides in the navigation params for one screen and is never written anywhere else.
       return { pathname: "/join", params: { ...(intent.token ? { t: intent.token } : {}), ...(intent.code ? { c: intent.code } : {}) } } as Route
     case "AUTH_RECOVERY":
+    case "AUTH_OAUTH":
     case "NOT_YET_SUPPORTED":
     case "UNKNOWN":
       return null

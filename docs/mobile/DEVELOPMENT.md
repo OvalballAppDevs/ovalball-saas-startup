@@ -172,6 +172,35 @@ is accepted, which a phone cannot use. A custom scheme IS honoured — `ovalball
 works today — and Expo Go has no custom scheme. **So the hop disappears the moment you move to a
 development build**, which is also when push notifications become possible (M7).
 
+## Testing social sign-in on your iPhone (CA-M11.3)
+
+The identical hop, for the identical reason, one path over: `/auth/callback` rather than
+`/auth/recovery`, `oauthRedirectFor()` rather than `recoveryRedirectFor()`.
+
+**One-time setup**, alongside the recovery values above:
+
+```bash
+# repository root, in .env
+EXPO_OAUTH_REDIRECT=exp://<that-address>:8081/--/auth/callback
+EXPO_OAUTH_WEB_REDIRECT=exp://<that-address>:8081/--/auth/callback
+MOBILE_OAUTH_APP_URL=exp://<that-address>:8081/--/auth/callback
+```
+
+`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_OVALBALL_WEB_URL` are the same two values already set for
+recovery testing above — nothing extra there.
+
+**This alone does not make a real Google/Apple/Facebook sign-in possible.** That also needs the
+provider actually configured in Supabase (`docs/SOCIAL_AUTH_PROVIDER_SETUP.md`) and the matching
+`EXPO_PUBLIC_AUTH_<PROVIDER>_ENABLED=true` in `apps/mobile/.env.local` — this section only gets the
+LOCAL redirect plumbing in place so that, once a provider is enabled, the round trip actually lands
+back in the app instead of stranding on the website. Until then, no provider button renders at all
+(by design — see `src/auth/oauth.ts`).
+
+Once a provider is enabled: **Continue with &lt;Provider&gt;** on Sign In opens the system browser,
+authenticates, and returns through the same one-hop handoff page as recovery. A held invitation or team
+code, and an account's own authenticator requirement, both resolve exactly as they do for a password
+sign-in — neither is a separate code path (see `docs/mobile/CA_M11_3_SOCIAL_AUTH_MAP.md`).
+
 ## Reviewing on the phone
 
 What to actually look at, in order, when the app is in your hand:

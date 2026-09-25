@@ -22,6 +22,19 @@ import { parseHubHref, type HubDestination } from "@ovalball/contracts/rugby-hub
 
 export type LinkIntent =
   | { kind: "AUTH_RECOVERY"; code: string }
+  /**
+   * CA-M11.3 -- a social-provider (or any future passwordless) round trip returning to
+   * `/auth/callback`, the sibling of `/auth/recovery` above and named to match the website's own
+   * callback route. `code` is the PKCE code to exchange; `error` carries a provider's own refusal
+   * (declined consent, provider outage) or an explicit cancellation, read from the SAME query shape
+   * Supabase's `signInWithOAuth` redirect uses on either outcome. The two are never the same intent:
+   * a recovery produces the `recovering` session status and lands on Set Password; this produces an
+   * ordinary session and is classified exactly like a password sign-in (`SessionProvider.classify`),
+   * so an account requiring a second factor still meets it, and a held invitation or team code still
+   * resumes -- both already keyed off session STATUS and module-level held state, not off how the
+   * session came to exist.
+   */
+  | { kind: "AUTH_OAUTH"; code: string | null; error: string | null }
   /** Open the inbox. What is in it is the server's answer, as always. */
   | { kind: "MESSAGES" }
   /**
@@ -180,6 +193,16 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
     // treating it as one would take somebody to a Set Password screen that cannot possibly work.
     if (!code) return { kind: "NOT_YET_SUPPORTED", path }
     return { kind: "AUTH_RECOVERY", code }
+  }
+
+  // CA-M11.3: the cold-start fallback for a social sign-in whose warm round trip (the button's own
+  // `openAuthSessionAsync` promise) never got the chance to resolve because the app was killed while
+  // the provider's UI was in front of the person. Neither field is required to be present together --
+  // an outright cancel/provider-error has neither, a genuine callback has exactly one.
+  if (path === "/auth/callback") {
+    const code = parsed.searchParams.get("code")
+    const error = parsed.searchParams.get("error") ?? parsed.searchParams.get("error_description")
+    return { kind: "AUTH_OAUTH", code, error }
   }
 
   // AN INVITATION: the link an email carries, or the code a person types. Only the exact path: a

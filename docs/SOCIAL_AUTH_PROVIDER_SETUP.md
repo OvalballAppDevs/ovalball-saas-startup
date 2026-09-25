@@ -93,6 +93,27 @@ to its own Site URL when generating links. See `docs/PRODUCTION_AUTH.md`.
 
 ---
 
+## Mobile app — additional owner steps (CA-M11.3)
+
+The native app uses the SAME provider console setup above (same OAuth client, same Supabase provider
+row) — no separate mobile registration exists for Google or Facebook. Two things are mobile-specific:
+
+- **Google and Facebook on the native app need no extra console step beyond the above** — they sign in
+  through a real system browser session (`ASWebAuthenticationSession` on iOS), which uses the identical
+  web OAuth client already configured for the website. Do not create a second, "iOS", OAuth client for
+  either provider; there is nothing in this app that reads one.
+- **Apple's native button needs one more thing beyond the web setup**: the app's own bundle identifier
+  registered against the Apple Developer App ID with **Sign in with Apple** enabled, for **each**
+  environment Ovalball ships separately —
+  `uk.co.ovalball.app` (production), `uk.co.ovalball.app.staging`, `uk.co.ovalball.app.dev`
+  (`apps/mobile/app.config.ts`'s own `IDENTITY` map). Until this is done, the app still offers Apple
+  sign-in through the same browser-session path Google and Facebook use — nothing is broken, the native
+  Apple button simply is not reachable yet.
+- **Exercising the native Apple button on a device (not the browser fallback) requires a development
+  build**, not Expo Go — `expo-apple-authentication`'s entitlement is not present in Expo Go's own
+  binary. This did not exist as a requirement before CA-M11.3; see
+  `docs/mobile/CA_M11_3_SOCIAL_AUTH_MAP.md` for exactly what that changes and what it does not.
+
 ## After enabling any provider
 
 Update these in the same change, or the published notices become inaccurate:
@@ -107,24 +128,39 @@ administrative authority by itself.
 
 ---
 
-# Implementation status (updated 2026-09-06)
+# Implementation status (updated CA-M11.3)
 
-The application code for passwordless social sign-in is **complete and
-deployed**. No provider is switched on. Ovalball remains passwordless:
-there is no password field, no `signInWithPassword`, no `signUp({password})`
-and no forgotten-password flow anywhere in the auth surface, and a permanent
-test (`scripts/verify-auth-security.mjs`) fails the build if one appears.
+The application code for social sign-in is **complete on both the website and
+the native app**, converging on the same canonical Supabase/Ovalball session
+either way. No provider is switched on yet. (An earlier version of this
+section said Ovalball was "passwordless" with no `signInWithPassword`
+anywhere — that was true when written and is not true today: Slice 6 made
+password sign-in the primary web entrance, and the mobile app has only ever
+had passwords. `scripts/verify-auth-security.mjs` still asserts the older
+claim and was not touched by CA-M11.3 — reconciling it is a separate decision
+for whoever owns that guard, not a social-auth task.)
 
 ## What ships in code
 
 | Piece | Where |
 |---|---|
-| Provider registry + per-provider flags | `lib/auth/oauth-providers.ts` |
-| Server-side OAuth initiation | `app/auth/oauth-actions.ts` |
-| Shared open-redirect guard | `lib/auth/safe-next.ts` |
-| Canonical callback (unchanged, already OAuth-capable) | `app/auth/callback/route.ts` |
-| Onboarding for a first-time OAuth user | `app/signup/complete-authenticated-signup.ts` |
-| Provider buttons | `components/auth/social-sign-in.tsx` |
+| Provider registry + per-provider flags (web) | `lib/auth/oauth-providers.ts` |
+| Provider registry + per-provider flags (native app) | `apps/mobile/src/auth/oauth.ts` |
+| Server-side OAuth initiation (web) | `app/auth/oauth-actions.ts` |
+| Native OAuth flow — real system browser session, PKCE | `apps/mobile/src/auth/oauth.ts` (`signInWithProvider`) |
+| Native Sign in with Apple (preferred path, feature-detected) | `apps/mobile/src/auth/oauth.ts` (`signInWithAppleNative`) |
+| Shared open-redirect guard (web) | `lib/auth/safe-next.ts` |
+| Canonical callback (web, unchanged, already OAuth-capable) | `app/auth/callback/route.ts` |
+| Cold-start callback / intent parsing (native app) | `apps/mobile/src/links/intents.ts` (`AUTH_OAUTH`), `apps/mobile/app/_layout.tsx` |
+| Expo-Go-only redirect hop (native app development only) | `app/auth/mobile-oauth-callback/page.tsx` |
+| Onboarding for a first-time OAuth user (web) | `lib/signup/complete-signup.ts` (`completeSignupIfNeeded`) |
+| Provider buttons (web) | `components/auth/social-auth-buttons.tsx` |
+| Provider buttons (native app) | `apps/mobile/src/components/social-auth-buttons.tsx` |
+| Provider marks (web) | `components/auth/provider-marks.tsx` |
+| Provider marks (native app) | `apps/mobile/src/components/provider-marks.tsx` |
+
+Full audit and per-provider convergence detail:
+`docs/mobile/CA_M11_3_SOCIAL_AUTH_MAP.md`.
 
 ## Activation order — one provider at a time
 
@@ -156,13 +192,10 @@ Do **not** enable all three at once. For each provider, in this order:
 - **Apple Developer** — Services ID, domain verification, private key (`.p8`),
   Key ID and Team ID. The private key is a secret: it belongs in Supabase's
   provider configuration only, never in this repository.
-- **Official provider brand assets** — the buttons currently render as
-  correctly-worded text (`Continue with Google`, `Continue with Facebook`,
-  `Sign in with Apple`). Each provider requires its own official mark, and
-  approximating one from memory would produce a misleading near-copy, so no
-  logo is drawn. Download the official SVGs from each provider's brand
-  guidelines into `public/brand/` and reference them from
-  `components/auth/social-sign-in.tsx`.
+- ~~Official provider brand assets~~ — **done.** Each provider's own mark is drawn as inline SVG,
+  correctly worded and never recoloured or combined with Ovalball's own mark: web in
+  `components/auth/provider-marks.tsx`, the native app in
+  `apps/mobile/src/components/provider-marks.tsx`.
 
 ---
 

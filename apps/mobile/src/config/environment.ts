@@ -17,6 +17,9 @@ type Extra = {
   supabaseUrl?: string
   supabasePublishableKey?: string
   webUrl?: string
+  authGoogleEnabled?: string
+  authAppleEnabled?: string
+  authFacebookEnabled?: string
 }
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra
@@ -31,6 +34,36 @@ export const environment: OvalballEnvironment =
 export const supabaseUrl = extra.supabaseUrl ?? ""
 export const supabasePublishableKey = extra.supabasePublishableKey ?? ""
 export const webUrl = extra.webUrl ?? ""
+
+/**
+ * CA-M11.3 -- SOCIAL PROVIDER FEATURE FLAGS, THE SAME SHAPE AS THE WEBSITE'S.
+ *
+ * The website reads `NEXT_PUBLIC_AUTH_<PROVIDER>_ENABLED` at build time (`lib/auth/oauth-providers.ts`);
+ * a native bundle has no equivalent build-time env substitution, so the identical env var is read at
+ * `app.config.ts` build time instead and carried through `extra`, exactly like `supabaseUrl` above --
+ * still a UI feature flag, never a secret, and still off (`false`) until the owner sets it AND
+ * configures the provider in Supabase, matching the website's own activation order exactly.
+ */
+export const authGoogleEnabled = extra.authGoogleEnabled === "true"
+export const authAppleEnabled = extra.authAppleEnabled === "true"
+export const authFacebookEnabled = extra.authFacebookEnabled === "true"
+
+/**
+ * WHERE AN OAUTH REDIRECT SHOULD ACTUALLY LAND.
+ *
+ * MEASURED for password recovery (see `recoveryRedirectFor` below) and true for exactly the same reason
+ * here: Supabase's own redirect allow-list will not honour `exp://<lan-ip>:8081/...`, only a loopback
+ * `exp://127.0.0.1` (which a phone cannot reach) or a custom scheme (`ovalball://`, `ovalball-dev://`).
+ * Expo Go has no custom scheme; a development or production build does and needs no hop at all.
+ *
+ * The Expo-Go-only hop lands on `/auth/mobile-oauth-callback` -- a sibling of the existing
+ * `/auth/mobile-recovery` page, forwarding the same way, to the app's `/auth/callback` path rather than
+ * `/auth/recovery` (the two are handled by different session methods, never conflated).
+ */
+export function oauthRedirectFor(appUrl: string): string {
+  if (!appUrl.startsWith("exp://")) return appUrl
+  return `${webUrl}/auth/mobile-oauth-callback`
+}
 
 /**
  * WHERE A RECOVERY EMAIL SHOULD POINT.
@@ -66,6 +99,13 @@ export function configurationProblem(): string | null {
   const isLoopback = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(supabaseUrl)
   if (isLoopback && environment === "development" && Platform.OS !== "web") {
     return "This build points at localhost, which a phone cannot reach. Set EXPO_PUBLIC_SUPABASE_URL to your Mac's LAN address (see docs/mobile/DEVELOPMENT.md)."
+  }
+  // CA-M11.3: a provider flag turned on with no web URL configured means the Expo-Go OAuth hop
+  // (`oauthRedirectFor`) has nowhere to send anybody -- a silent, hard-to-diagnose dead end. This
+  // build has no provider client ID or secret of its own to validate (Supabase holds those), so this
+  // is the one thing left for the app itself to check.
+  if ((authGoogleEnabled || authAppleEnabled || authFacebookEnabled) && !webUrl) {
+    return "A social sign-in provider is enabled but EXPO_PUBLIC_OVALBALL_WEB_URL is not set, so the Expo Go callback has nowhere to hand the code back to. Set it in .env.local."
   }
   return null
 }

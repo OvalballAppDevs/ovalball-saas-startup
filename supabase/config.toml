@@ -219,6 +219,11 @@ additional_redirect_urls = [
   # Measured on a real handset; the web-only proof missed it because Expo Web's own URL is a loopback,
   # which GoTrue allows without any allow-list entry at all.
   "env(EXPO_RECOVERY_WEB_REDIRECT)",
+  # CA-M11.3 -- the identical pair, for a social sign-in's own Expo Go hop (`/auth/mobile-oauth-callback`,
+  # `oauthRedirectFor()`) rather than password recovery's. Same measured reason, same "not committed,
+  # set from .env" rule -- see docs/mobile/DEVELOPMENT.md.
+  "env(EXPO_OAUTH_REDIRECT)",
+  "env(EXPO_OAUTH_WEB_REDIRECT)",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
@@ -410,6 +415,30 @@ url = ""
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
+email_optional = false
+
+# CA-M11.3 -- scaffolded alongside Apple, structurally ready for the owner's own credentials, still
+# `enabled = false` by default: shipping this file changes nothing observable until client_id/secret are
+# supplied and enabled is flipped, exactly as the existing Apple block above already does. Google is
+# configured for PRODUCTION directly in the Supabase project dashboard (not this local file, and not
+# mirrored here for that reason) -- this block exists so `supabase start` can also exercise Google
+# locally once the owner adds their own local/test OAuth client, without inventing one.
+[auth.external.google]
+enabled = false
+client_id = ""
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = ""
+url = ""
+skip_nonce_check = false
+email_optional = false
+
+[auth.external.facebook]
+enabled = false
+client_id = ""
+secret = "env(SUPABASE_AUTH_EXTERNAL_FACEBOOK_SECRET)"
+redirect_uri = ""
+url = ""
+skip_nonce_check = false
 email_optional = false
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.

@@ -3,9 +3,9 @@ import type { Provider } from "@supabase/supabase-js"
 /**
  * The OAuth providers Ovalball supports, and whether each is switched on.
  *
- * Ovalball remains PASSWORDLESS. These are additional passwordless methods
- * alongside the existing email magic link -- there is no password path
- * anywhere in this file or anything it touches.
+ * These sit alongside password sign-in (canonical since Slice 6) and the legacy email magic
+ * link. (An earlier version of this comment called Ovalball "passwordless"; that predates
+ * Slice 6's password entrance and was never updated -- corrected in passing, CA-M11.3.)
  *
  * Each provider is gated by its own flag so activation is genuinely
  * sequential: shipping this code changes nothing visible until the owner
