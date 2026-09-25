@@ -112,7 +112,7 @@ const CLUB_SECTIONS: { key: string; label: string; icon: string; hrefs: string[]
     key: "rugby",
     label: "Fixtures & Calendar",
     icon: "CalendarDays",
-    hrefs: ["/agenda", "/calendar", "/fixtures/management", "/fixtures", "/partner-clubs", "/club/player-moves"],
+    hrefs: ["/agenda", "/calendar", "/fixtures/management", "/fixtures", "/clubhouse", "/club/player-moves"],
   },
   {
     key: "comms",
@@ -582,7 +582,7 @@ export function buildNavItems(
     // Profile/Teams/Lookup Administration -- see app/(app)/club/settings/page.tsx.
     if (!inTeamContext) {
       if (hasClubFixtureAuthority) {
-        items.push({ href: "/partner-clubs", label: "Partner Clubs" })
+        items.push({ href: "/clubhouse", label: "Clubhouse" })
       }
       if (ctx.clubMemberships.length > 0) {
         items.push({ href: "/documents", label: "Documents" })

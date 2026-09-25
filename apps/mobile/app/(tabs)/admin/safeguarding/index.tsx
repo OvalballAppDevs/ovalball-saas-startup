@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Modal, Pressable, Share, Text, TextInput, View } from "react-native"
+import { Pressable, Share, Text, TextInput, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import * as Clipboard from "expo-clipboard"
 import * as Linking from "expo-linking"
@@ -32,9 +32,10 @@ import { useSession } from "../../../../src/auth/session"
 import { webUrl } from "../../../../src/config/environment"
 import { ArrowRightLeft, ChevronRight, Copy, HeartHandshake, MessageCircleWarning, MessageSquare, Share2 } from "../../../../src/components/icons"
 import { Button, Card, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../../src/components/ui"
+import { BottomSheet } from "../../../../src/components/bottom-sheet"
 import { friendly, logDetail, type FriendlyError } from "../../../../src/errors/translate"
 import { useSafeguardingOfficerAccess } from "../../../../src/safeguarding/access"
-import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../../../../src/design/tokens"
+import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
 
 const RETURN_TO = "/admin/safeguarding"
 
@@ -535,17 +536,3 @@ function SectionLink({ icon, label, caption, onPress, first = false }: { icon: R
   )
 }
 
-function BottomSheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(7,28,20,0.45)" }} />
-      <View style={[{ backgroundColor: colour.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: space.lg, paddingBottom: space.xxl, gap: space.md }, elevation.sheet]}>
-        <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
-          {title}
-        </Text>
-        {children}
-        <Button label="Cancel" variant="quiet" onPress={onClose} />
-      </View>
-    </Modal>
-  )
-}

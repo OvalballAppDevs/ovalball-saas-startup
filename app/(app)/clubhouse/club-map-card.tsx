@@ -93,7 +93,7 @@ export function ClubMapCard({ club, dense = false }: { club: MapClub; dense?: bo
             </>
           )}
           {localStatus === "active" && (
-            <Button size="sm" className="h-9" nativeButton={false} render={<Link href={`/partner-clubs/${club.clubId}`} />}>
+            <Button size="sm" className="h-9" nativeButton={false} render={<Link href={`/clubhouse/${club.clubId}`} />}>
               <CalendarRange className="size-3.5" />
               Shared calendar
             </Button>

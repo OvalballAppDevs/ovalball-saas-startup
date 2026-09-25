@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useAppContexts } from "../../src/context/contexts"
 import { projectTabs, type TabKey } from "../../src/context/tab-projection"
-import { BookOpen, CalendarDays, Ellipsis, House, MessageSquare, OvalIcon, Receipt } from "../../src/components/icons"
+import { BookOpen, CalendarDays, Ellipsis, House, MapPin, MessageSquare, OvalIcon, Receipt } from "../../src/components/icons"
 import { colour, type } from "../../src/design/tokens"
 
 /**
@@ -106,6 +106,7 @@ const ALL: { key: TabKey; title: string }[] = [
   { key: "calendar", title: "Calendar" },
   { key: "messages", title: "Messages" },
   { key: "hub", title: "Rugby Hub" },
+  { key: "clubhouse", title: "Clubhouse" },
   { key: "notifications", title: "Notifications" },
   { key: "support", title: "Support" },
   { key: "subscriptions", title: "Subscriptions" },
@@ -142,6 +143,7 @@ function TabCell({ tab, label, color, focused, badge = 0 }: { tab: TabKey; label
     tab === "calendar" ? <CalendarDays size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
     tab === "messages" ? <MessageSquare size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
     tab === "hub" ? <BookOpen size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
+    tab === "clubhouse" ? <MapPin size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
     tab === "subscriptions" ? <Receipt size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} /> :
     <Ellipsis size={size} color={tint} strokeWidth={focused ? 2.4 : 1.9} />
 

@@ -228,11 +228,19 @@ test("the Hub cache is memory only and is emptied on sign-out", () => {
   assert.match(leave, /forgetRecentSearches\(\)/)
 })
 
-test("the tab bar is unchanged: Rugby Hub is still the fourth everyday cell", () => {
+test("Rugby Hub's route survives Clubhouse V1 taking its bar cell: still a declared, addressable stack, reachable from More", () => {
+  // Clubhouse V1 (owner product decision) supersedes the earlier "Rugby Hub is the fourth cell"
+  // arrangement -- Clubhouse holds it now (see mobile_tab_projection.test.mts). What must NOT have
+  // happened is Rugby Hub's route disappearing: only its bar cell moved.
   const projection = code(join(MOBILE, "src/context/tab-projection.ts"))
-  assert.match(projection, /\{ key: "hub", label: "Rugby Hub" \}/)
+  assert.match(projection, /\{ key: "clubhouse", label: "Clubhouse" \}/, "Clubhouse did not take the fourth cell")
+  assert.match(projection, /"hub"/, "the hub route key was removed from the declared tab set rather than just losing its cell")
   assert.ok(existsSync(join(HUB_ROUTES, "_layout.tsx")) && !existsSync(join(MOBILE, "app/(tabs)/hub.tsx")), "the placeholder tab file must be gone and the Hub must be a stack")
   assert.match(code(join(HUB_ROUTES, "_layout.tsx")), /initialRouteName: "index"/)
+  // And it must be reachable some other way now that it has no cell -- More is that way (Section 50:
+  // do not delete Rugby Hub content).
+  const more = code(join(MOBILE, "app/(tabs)/more.tsx"))
+  assert.match(more, /label="Rugby Hub"/, "Rugby Hub lost its bar cell without gaining a row in More")
 })
 
 // ------------------------------------------------------------------ RH-M0.1: whose rugby, and what varies

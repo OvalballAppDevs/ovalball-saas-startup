@@ -26,9 +26,11 @@ function walk(dir: string): string[] {
 
 // ------------------------------------------------------------------ bottom navigation
 
-test("the bottom bar is exactly Home / Fixtures / Calendar / Rugby Hub / More in every context, with no stray cells", () => {
+test("the bottom bar is exactly Home / Fixtures / Calendar / Clubhouse / More in every context, with no stray cells", () => {
+  // Clubhouse V1 (owner product decision) amends the earlier Rugby Hub lock: Rugby Hub's route,
+  // content and safeguarding reach are unchanged -- only its bar cell moved, to More.
   for (const kind of ["club", "team", "family", "parent", "player", "site_admin", "governing", null] as const) {
-    assert.deepEqual(projectTabs({ kind }).map((t) => t.label), ["Home", "Fixtures", "Calendar", "Rugby Hub", "More"], `context ${kind}`)
+    assert.deepEqual(projectTabs({ kind }).map((t) => t.label), ["Home", "Fixtures", "Calendar", "Clubhouse", "More"], `context ${kind}`)
   }
   assert.ok(!ALL_TABS.some((t) => HEADER_UTILITIES.includes(t) && projectTabs({ kind: "club" }).some((v) => v.key === t)))
   // THE TWO ARROWS: every route group under the tab folder must be declared as a screen, hidden or not.

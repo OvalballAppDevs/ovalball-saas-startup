@@ -370,7 +370,7 @@ export const FINANCE_WEB_PATHS = {
   /** Retry a failed payment and Cancel Membership live here: both need the club's merchant token, held only by the web server. */
   membership: (payerSubscriptionId: string) => `/club/finance/${payerSubscriptionId}`,
   ovalballBilling: "/club/settings/ovalball-billing",
-  partnerClubs: "/partner-clubs",
+  partnerClubs: "/clubhouse",
   referralTerms: "/legal/referral-terms",
 } as const
 

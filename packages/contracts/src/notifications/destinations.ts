@@ -144,7 +144,7 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "partner_request_received":
     case "calendar_share_approved":
     case "calendar_share_declined":
-      return "/partner-clubs"
+      return "/clubhouse"
 
     // ---- Getting in, and being told about it ----------------------------
     // A CLAIM, and a DIRECTORY REQUEST, are both somebody asking Ovalball itself for something, and

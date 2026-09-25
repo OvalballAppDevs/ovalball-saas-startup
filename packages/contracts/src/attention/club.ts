@@ -175,7 +175,7 @@ export async function loadClubAttention(supabase: Client, clubId: string, todayI
         priority: "needs_action",
         title: partners.length === 1 ? "A club has asked to partner with you" : `${partners.length} clubs have asked to partner with you`,
         summary: "Partner clubs share calendars",
-        destination: { kind: "web", href: "/partner-clubs" },
+        destination: { kind: "web", href: "/clubhouse" },
         createdAt: partners.map((p) => p.created_at).sort()[0] ?? null,
         dueAt: null,
         count: partners.length,

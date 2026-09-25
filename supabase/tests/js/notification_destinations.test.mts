@@ -99,9 +99,9 @@ const matrix: Row[] = [
   ["safeguarding_dispensation_revoked", {}, "/club/player-moves"],
 
   // ---- Partner clubs ---------------------------------------------------
-  ["partner_request_received", {}, "/partner-clubs"],
-  ["calendar_share_approved", {}, "/partner-clubs"],
-  ["calendar_share_declined", {}, "/partner-clubs"],
+  ["partner_request_received", {}, "/clubhouse"],
+  ["calendar_share_approved", {}, "/clubhouse"],
+  ["calendar_share_declined", {}, "/clubhouse"],
 
   // ---- Getting in, and being told about it -----------------------------
   ["club_claim_submitted", {}, "/admin/claims"],

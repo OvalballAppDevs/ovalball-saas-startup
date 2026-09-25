@@ -47,7 +47,7 @@ export async function runGeocodingBackfillAction(): Promise<GeocodingBackfillRes
   const venueSummary = await runVenueGeocodingBackfill(auth.supabase)
 
   revalidatePath("/admin/clubs")
-  revalidatePath("/partner-clubs")
+  revalidatePath("/clubhouse")
   return {
     ok: true,
     summary: {

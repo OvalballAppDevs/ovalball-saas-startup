@@ -48,7 +48,7 @@ export async function requestPartnership(partnerClubId: string): Promise<Partner
     }
     return { ok: false, error: error.message }
   }
-  revalidatePath("/partner-clubs")
+  revalidatePath("/clubhouse")
   return { ok: true }
 }
 
@@ -64,7 +64,7 @@ export async function respondToPartnership(partnershipId: string, approve: boole
     p_approve: approve,
   })
   if (error) return { ok: false, error: error.message }
-  revalidatePath("/partner-clubs")
+  revalidatePath("/clubhouse")
   return { ok: true }
 }
 
@@ -77,7 +77,7 @@ export async function revokePartnership(partnershipId: string): Promise<Partners
   const supabase = await createClient()
   const { error } = await supabase.rpc("revoke_club_partnership", { p_partnership_id: partnershipId })
   if (error) return { ok: false, error: error.message }
-  revalidatePath("/partner-clubs")
+  revalidatePath("/clubhouse")
   return { ok: true }
 }
 

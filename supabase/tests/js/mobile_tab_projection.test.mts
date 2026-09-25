@@ -25,13 +25,16 @@ test("every context gets exactly five destinations", () => {
 
 test("the four everyday destinations are in the same place for everybody", () => {
   // The owner's rule: switching context must not feel like opening a different app. Muscle memory for
-  // Home, Fixtures, Calendar and Rugby Hub is worth more than a perfectly tailored bar.
+  // Home, Fixtures, Calendar and (now) Clubhouse is worth more than a perfectly tailored bar.
   //
   // MESSAGES LEFT THE BAR AT P1, an owner decision (O-1) that reverses M3's. Messaging, alerts and help
   // are UTILITIES -- wanted from wherever somebody already is -- so all three now sit in the global
   // header on every screen, which is more available than a single cell, not less. Rugby Hub took the
-  // fourth cell back. Messages' ROUTE is untouched: see below.
-  const expected = ["index", "fixtures", "calendar", "hub"]
+  // fourth cell after that, and Clubhouse V1 (a later, explicit owner product decision) supersedes THAT
+  // in turn: "connecting one rugby club/team with another" earns the permanent cell now; Rugby Hub's
+  // route, content and safeguarding reach are unchanged -- only its bar cell moved, to More (see below),
+  // exactly as Messages' did before it. Messages' ROUTE is untouched: see below.
+  const expected = ["index", "fixtures", "calendar", "clubhouse"]
   for (const kind of ["site_admin", "club", "team", "parent", "player", "family", "governing", null] as const) {
     const keys = projectTabs({ kind, canSeeTeamSubscriptions: false }).map((t) => t.key)
     assert.deepEqual(keys.slice(0, 4), expected, `${kind} reordered the everyday destinations`)
@@ -63,13 +66,19 @@ test("More holds what has no other home, and does not repeat what has", () => {
   // The shortcut moved; the destination did not. A route removed is a deep link that stops working,
   // which is a different and worse thing than a cell that moved.
   assert.ok(ALL_TABS.includes("hub"), "the Rugby Hub route was removed rather than moved")
+  assert.ok(ALL_TABS.includes("clubhouse"), "the Clubhouse route is not declared")
   assert.ok(ALL_TABS.includes("subscriptions"), "the Subscriptions route was removed rather than moved")
   const more = readFileSync("apps/mobile/app/(tabs)/more.tsx", "utf8")
   assert.match(more, /label="Subscriptions"/, "Subscriptions is not reachable from More")
-  // Rugby Hub has a permanent cell again and Notifications a permanent badge, so neither is listed
-  // here as well -- and the Notifications row in particular used to hand the job to the website,
-  // which is no longer true.
-  assert.ok(!/label="Rugby Hub"/.test(more), "Rugby Hub is in the bar and in More")
+  // Clubhouse V1: Rugby Hub gave up its bar cell to Clubhouse, so it belongs in More now -- for EVERY
+  // context, including Family and Player, since it is reference content with no inter-club coordination
+  // in it and removing it from their reach would be a safeguarding regression. Clubhouse itself must
+  // NOT also appear in More, because it already has the bar cell -- two shortcuts to one destination is
+  // one destination that looks like two, the same rule the test below asserts for header utilities.
+  assert.match(more, /label="Rugby Hub"/, "Rugby Hub lost its cell but was not given a row in More")
+  assert.ok(!/label="Clubhouse"/.test(more), "Clubhouse is in the bar and in More")
+  // Notifications has a permanent header badge, so it is not listed here either -- and this row used
+  // to hand the job to the website, which is no longer true.
   assert.ok(!/label="Notifications"/.test(more), "Notifications is in the header and in More")
   assert.ok(!/\/notifications`\)/.test(more), "More still sends Notifications to the website")
   // What More does still link, it links by plain route: an href carries no "(tabs)" group, because a

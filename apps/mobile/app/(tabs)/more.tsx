@@ -12,7 +12,7 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { ArrowRightLeft, CalendarDays, ChevronRight, ClipboardList, ExternalLink, KeyRound, Landmark, Lock, Shield, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake, IdCard, MapPin, Newspaper } from "../../src/components/icons"
+import { ArrowRightLeft, BookOpen, CalendarDays, ChevronRight, ClipboardList, ExternalLink, KeyRound, Landmark, Lock, Shield, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake, IdCard, MapPin, Newspaper } from "../../src/components/icons"
 import { isFamilyFacingContext } from "@ovalball/contracts"
 import { useAdminCentreAccess } from "../../src/admin/access"
 import { useVenueAllocationAccess } from "../../src/pitch-allocation/access"
@@ -88,13 +88,25 @@ export default function More() {
           WHAT HAS NO OTHER HOME. More is the overflow, so a destination that has
           earned a permanent place elsewhere does not also sit here.
 
-          RUGBY HUB LEFT THIS LIST at P1, because it took the bar's fourth cell
-          back when Messages moved into the global header. NOTIFICATIONS LEFT IT
-          TOO: the bell is now in that header on every screen, and it opens a
-          native screen rather than the website. Neither route changed; both are
-          simply reachable from somewhere better, and listing them twice would
-          make one destination look like two.
+          RUGBY HUB IS BACK IN THIS LIST, for the opposite reason it once left it: Clubhouse V1 (owner
+          product decision) took the bar's fourth cell, and Rugby Hub's route, content and safeguarding
+          reach are UNCHANGED -- only its bar cell moved, exactly as Messages' did before it. It is
+          listed here for EVERY context, including Family and Player, because it is reference content
+          with no inter-club coordination in it (confirmed by the architecture audit) and removing it
+          from a family/player account's reach would be a safeguarding regression, not a safeguarding
+          fix. NOTIFICATIONS LEFT THIS LIST TOO: the bell is now in the global header on every screen,
+          and opens a native screen rather than the website. Neither route changed; both are simply
+          reachable from somewhere better, and listing them twice would make one destination look like
+          two.
         */}
+        <Group title="Rugby Knowledge">
+          <Row
+            icon={<BookOpen size={19} color={colour.forest800} strokeWidth={1.9} />}
+            label="Rugby Hub"
+            caption="Rules, positions, skills, coaching and the story of the game"
+            onPress={() => router.push("/hub" as never)}
+          />
+        </Group>
         {inTeam && (
           <Group title={active?.label ?? "Your Team"}>
             <Row icon={<ClipboardList size={19} color={colour.forest800} strokeWidth={1.9} />} label="Availability" caption="Who has answered, who has not" onPress={() => router.push("/team/availability" as never)} />

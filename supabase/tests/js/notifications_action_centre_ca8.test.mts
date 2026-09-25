@@ -228,7 +228,7 @@ test("a notification's destination is the shared map's answer, and every destina
   const family = item({ context: { kind: "parent", clubId: C1, teamId: T1, playerId: P1 }, playerKey: P1 })
   assert.equal(routeForAttentionItem(family, "parent")!.pathname, "/fixtures/[fixtureId]/match-centre")
   // A web-only destination has no native route: the caller opens the website, never nothing.
-  const web = item({ sourceType: "partner_request", sourceId: C1, context: { kind: "club", clubId: C1, teamId: null, playerId: null }, destination: { kind: "web", href: "/partner-clubs" } })
+  const web = item({ sourceType: "partner_request", sourceId: C1, context: { kind: "club", clubId: C1, teamId: null, playerId: null }, destination: { kind: "web", href: "/clubhouse" } })
   assert.equal(routeForAttentionItem(web, "club"), null)
   // Players asking to join open the native Guardians & Players queue (CA-M11.1), through the one resolver.
   const playerJoins = item({ sourceType: "player_join_request", sourceId: C1, context: { kind: "club", clubId: C1, teamId: null, playerId: null }, destination: { kind: "club_player_join_requests" } })

@@ -205,7 +205,7 @@ export default async function PublicClubPage({ params }: { params: Promise<{ slu
                 <div className="flex flex-wrap gap-3">
                   <CalendarAccessAction targetClubId={club.id} targetClubName={club.name} status={calendarAccessStatus} />
                   {messagePartnerLink && (
-                    <a href={`/partner-clubs/${club.id}`} className="inline-flex h-10 items-center rounded-lg border border-ink/15 bg-white px-4 text-sm font-medium text-ink/70 hover:border-ink/30 hover:text-ink">
+                    <a href={`/clubhouse/${club.id}`} className="inline-flex h-10 items-center rounded-lg border border-ink/15 bg-white px-4 text-sm font-medium text-ink/70 hover:border-ink/30 hover:text-ink">
                       Message Club
                     </a>
                   )}

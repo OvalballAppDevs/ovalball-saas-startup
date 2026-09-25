@@ -90,6 +90,12 @@ const config: ExpoConfig = {
         dark: { backgroundColor: "#071C14" },
       },
     ],
+    // CLUBHOUSE V1 (owner product decision) -- native map, MapLibre first (open source, no Google
+    // Maps dependency for the renderer, vector-tile clustering built in). This is native code: it
+    // cannot run in Expo Go and requires a development build (`npx expo prebuild` + `npx expo run:ios`
+    // / `npx expo run:android`, or an EAS development-build profile once eas.json exists -- neither
+    // has been run as part of this change; see the Clubhouse completion report for exact status).
+    "@maplibre/maplibre-react-native",
   ],
   experiments: { typedRoutes: true },
   extra: {

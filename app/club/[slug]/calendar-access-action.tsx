@@ -6,7 +6,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 
-import { requestPartnership } from "../../(app)/partner-clubs/actions"
+import { requestPartnership } from "../../(app)/clubhouse/actions"
 
 /**
  * Reuses the exact same requestPartnership server action the authenticated
@@ -45,7 +45,7 @@ export function CalendarAccessAction({
 
   if (current === "active") {
     return (
-      <Button type="button" variant="outline" className="h-10" render={<Link href={`/partner-clubs/${targetClubId}`} />}>
+      <Button type="button" variant="outline" className="h-10" render={<Link href={`/clubhouse/${targetClubId}`} />}>
         View shared calendar
       </Button>
     )

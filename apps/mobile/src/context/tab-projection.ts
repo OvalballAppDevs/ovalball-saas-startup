@@ -26,6 +26,7 @@ export type TabKey =
   | "calendar"
   | "messages"
   | "hub"
+  | "clubhouse"
   | "subscriptions"
   | "more"
   /** Header utilities. Routes in this group, never cells in the bar. */
@@ -59,16 +60,18 @@ export interface TabSpec {
  * support. All three now live in the global header, persistently, on every screen -- which is more
  * available than a tab, not less.
  *
- * That frees the bar to hold five PRODUCT AREAS. Rugby Hub takes the fourth cell.
- *
- * MESSAGES' ROUTE IS UNTOUCHED. `/messages`, `/messages/[kind]/[id]`, every deep-link intent and every
- * recipient rule are exactly as they were: this moved a shortcut, not a product.
+ * That frees the bar to hold five PRODUCT AREAS. Rugby Hub took the fourth cell, and this supersedes
+ * THAT decision in turn (Clubhouse V1, owner product decision): "connecting one rugby club/team with
+ * another" -- discovering clubs, partners, fixture requests, negotiation, calendar comparison -- earns
+ * the permanent cell, because it is the more frequent, more operational job. RUGBY HUB'S ROUTE IS
+ * UNTOUCHED -- every screen under it still exists and is still reachable, now as a row in More (see
+ * more.tsx), exactly the shape Messages/Notifications/Support moved through a cell earlier.
  */
 const EVERYDAY: TabSpec[] = [
   { key: "index", label: "Home" },
   { key: "fixtures", label: "Fixtures" },
   { key: "calendar", label: "Calendar" },
-  { key: "hub", label: "Rugby Hub" },
+  { key: "clubhouse", label: "Clubhouse" },
 ]
 
 export function projectTabs(_options?: {
@@ -102,6 +105,7 @@ export const ALL_TABS: TabKey[] = [
   "calendar",
   "messages",
   "hub",
+  "clubhouse",
   "subscriptions",
   "more",
   "notifications",

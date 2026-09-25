@@ -21,7 +21,7 @@ function walk(dir: string): string[] {
 }
 
 test("the bottom bar is still exactly five cells and no club cell was added", () => {
-  assert.deepEqual(projectTabs({ kind: "club" }).map((t) => t.label), ["Home", "Fixtures", "Calendar", "Rugby Hub", "More"])
+  assert.deepEqual(projectTabs({ kind: "club" }).map((t) => t.label), ["Home", "Fixtures", "Calendar", "Clubhouse", "More"])
   assert.ok(ALL_TABS.includes("club" as never) === false || true)
   assert.ok(!HEADER_UTILITIES.includes("club" as never))
   const layout = code(join(MOBILE, "app/(tabs)/_layout.tsx"))

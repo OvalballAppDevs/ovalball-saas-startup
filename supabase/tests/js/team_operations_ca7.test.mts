@@ -67,9 +67,9 @@ const baseInput = (authority: TeamAuthority, extra: Partial<TeamAttentionInput> 
 
 // ------------------------------------------------------------------ the IA
 
-test("the bar is unchanged: five cells, Rugby Hub fourth, and the team route group is never a cell", () => {
+test("the bar is unchanged: five cells, Clubhouse fourth (Clubhouse V1 superseded Rugby Hub's cell), and the team route group is never a cell", () => {
   const tabs = projectTabs({ kind: "team" })
-  assert.deepEqual(tabs.map((t) => t.key), ["index", "fixtures", "calendar", "hub", "more"])
+  assert.deepEqual(tabs.map((t) => t.key), ["index", "fixtures", "calendar", "clubhouse", "more"])
   assert.ok(!tabs.some((t) => t.label === "Team"), "no navigation group called Team inside a team context")
   assert.ok(!ALL_TABS.includes("team" as never), "the team group is a route, never a bar cell")
   assert.ok(!HEADER_UTILITIES.includes("team" as never))

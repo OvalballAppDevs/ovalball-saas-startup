@@ -56,7 +56,7 @@ export function PartnerClubCard({ partner }: { partner: ActivePartnerData }) {
           size="sm"
           className="h-9"
           nativeButton={false}
-          render={<Link href={`/partner-clubs/${partner.clubId}`} />}
+          render={<Link href={`/clubhouse/${partner.clubId}`} />}
         >
           <CalendarRange className="size-4" />
           View availability

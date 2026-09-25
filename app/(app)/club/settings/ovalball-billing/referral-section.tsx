@@ -28,7 +28,7 @@ export function ReferralSection({
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
           {canRefer ? (
             <Link
-              href="/partner-clubs"
+              href="/clubhouse"
               className="inline-flex h-9 items-center rounded-lg bg-pitch-600 px-3.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-pitch-600/80 focus-visible:ring-3 focus-visible:ring-pitch-400/50"
             >
               Invite a club to Ovalball

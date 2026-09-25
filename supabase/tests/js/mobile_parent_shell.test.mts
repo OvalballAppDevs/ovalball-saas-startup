@@ -32,11 +32,11 @@ import type { AgendaItem } from "@ovalball/contracts/agenda/load"
 
 // ---------------------------------------------------------------- the shell
 
-test("the parent bottom bar is exactly Home, Fixtures, Calendar, Rugby Hub, More", () => {
+test("the parent bottom bar is exactly Home, Fixtures, Calendar, Clubhouse, More", () => {
   const tabs = projectTabs({ kind: "parent" })
   assert.deepEqual(
     tabs.map((t) => t.label),
-    ["Home", "Fixtures", "Calendar", "Rugby Hub", "More"]
+    ["Home", "Fixtures", "Calendar", "Clubhouse", "More"]
   )
 })
 
