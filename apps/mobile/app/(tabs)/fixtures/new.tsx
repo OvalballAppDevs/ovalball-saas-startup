@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { routeForIntent } from "../../../src/links/destinations"
 import { GAME_TYPE_OPTIONS, type GameType } from "@ovalball/contracts/fixtures/game-type"
-import { compareAvailability, findGoodDates, readTeamAvailability, shiftDays, shiftMonths, startOfMonth, type CompareDay, type TeamAvailabilityDay } from "@ovalball/contracts"
+import { clubLogoUrlFromPath, compareAvailability, findGoodDates, readTeamAvailability, shiftDays, shiftMonths, startOfMonth, type CompareDay, type TeamAvailabilityDay } from "@ovalball/contracts"
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import {
@@ -59,7 +59,17 @@ export default function AddFixture() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { active } = useAppContexts()
-  const params = useLocalSearchParams<{ teamId?: string }>()
+  const params = useLocalSearchParams<{
+    teamId?: string
+    /** Clubhouse Programme Section 6 -- Find a Fixture's own handoff. Only ids travel through the
+     * route; name/town/county/crest are always re-resolved from the directory here, never trusted
+     * from a param, exactly like the web composer's own initialOpponent resolution. */
+    opponentDirectoryId?: string
+    opponentClubId?: string
+    targetTeamId?: string
+    date?: string
+    venuePreference?: "home" | "away" | "either"
+  }>()
   const today = todayIso()
 
   const clubId = active?.clubId ?? null
@@ -100,9 +110,53 @@ export default function AddFixture() {
   const [opponent, setOpponent] = useState<CompatibleOpponent | null>(null)
   const asking = Boolean(club?.onOvalball)
 
-  const [date, setDate] = useState(today)
+  const initialVenuePreference = params.venuePreference === "away" ? "Away" : params.venuePreference === "either" ? "TBD" : params.venuePreference === "home" ? "Home" : null
+
+  const [date, setDate] = useState(params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today)
   const [time, setTime] = useState<string | null>("10:30")
-  const [homeAway, setHomeAway] = useState<"Home" | "Away" | "TBD">("Home")
+  const [homeAway, setHomeAway] = useState<"Home" | "Away" | "TBD">(initialVenuePreference ?? "Home")
+
+  // CLUBHOUSE SECTION 6 HANDOFF: re-resolve the opponent from the directory ourselves -- the same
+  // trust boundary the web composer's own initialOpponent resolution already uses -- rather than
+  // trusting a name/crest/town that travelled through the route. Runs once, when a real
+  // opponentDirectoryId param is present and no club has been chosen yet by any other means.
+  useEffect(() => {
+    if (!params.opponentDirectoryId || club) return
+    let live = true
+    void supabase
+      .from("club_directory")
+      .select("id, name, town, county, logo_storage_path, clubs(id, status)")
+      .eq("id", params.opponentDirectoryId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!live || !data) return
+        const claimed = data.clubs as { id: string; status: string }[] | { id: string; status: string } | null
+        const candidates = Array.isArray(claimed) ? claimed : claimed ? [claimed] : []
+        const activeClub = candidates.find((c) => c.status === "active") ?? null
+        setClub({
+          directoryId: data.id,
+          name: data.name,
+          town: data.town,
+          county: data.county,
+          crestUrl: clubLogoUrlFromPath(supabase, data.logo_storage_path),
+          onOvalball: Boolean(activeClub),
+          clubId: activeClub?.id ?? null,
+        })
+      })
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.opponentDirectoryId])
+
+  // Once the compatible-opponent list for the resolved club has loaded, honour a suggested
+  // targetTeamId if it genuinely appears in that canonical list -- never set from the param alone.
+  useEffect(() => {
+    if (!params.targetTeamId || !opponents || opponent) return
+    const match = opponents.find((o) => o.teamId === params.targetTeamId)
+    if (match) setOpponent(match)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.targetTeamId, opponents])
   const [gameType, setGameType] = useState<GameType>("Friendly")
   const [note, setNote] = useState("")
   const [problem, setProblem] = useState<string | null>(null)

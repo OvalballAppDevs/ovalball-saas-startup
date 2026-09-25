@@ -11,11 +11,18 @@ import { RequestFixtureForm } from "./request-fixture-form"
 export const metadata = { title: "Request a Fixture" }
 
 interface NewFixtureRequestPageProps {
-  searchParams: Promise<{ opponentClubId?: string; opponentDirectoryId?: string; targetTeamId?: string; date?: string }>
+  searchParams: Promise<{
+    opponentClubId?: string
+    opponentDirectoryId?: string
+    targetTeamId?: string
+    date?: string
+    teamId?: string
+    venuePreference?: string
+  }>
 }
 
 export default async function NewFixtureRequestPage({ searchParams }: NewFixtureRequestPageProps) {
-  const { opponentClubId, opponentDirectoryId, targetTeamId, date } = await searchParams
+  const { opponentClubId, opponentDirectoryId, targetTeamId, date, teamId, venuePreference } = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
@@ -80,6 +87,9 @@ export default async function NewFixtureRequestPage({ searchParams }: NewFixture
     }
   }
   const initialDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null
+  // Never trusted blindly: only honoured when it names one of THIS viewer's own eligible teams.
+  const initialTeamId = teamId && myTeams.some((t) => t.id === teamId) ? teamId : null
+  const initialVenuePreference = venuePreference === "home" || venuePreference === "away" || venuePreference === "either" ? venuePreference : null
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
@@ -97,6 +107,8 @@ export default async function NewFixtureRequestPage({ searchParams }: NewFixture
           initialOpponent={initialOpponent}
           initialDate={initialDate}
           suggestedTargetTeam={suggestedTargetTeam}
+          initialTeamId={initialTeamId}
+          initialVenuePreference={initialVenuePreference}
         />
       </div>
     </div>

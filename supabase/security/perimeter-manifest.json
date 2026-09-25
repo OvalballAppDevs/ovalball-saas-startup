@@ -5153,6 +5153,14 @@
         "consumers": []
       },
       {
+        "signature": "find_fixture_candidate_teams(uuid)",
+        "category": "APPLICATION_RPC",
+        "note": "Clubhouse Programme Section 6: the batched form of compatible_opponent_teams -- every compatible opposition team across the whole network for one team in a single call. Same authority (team-scoped fixture.request.create/.fixture.create) and the same internal.identities_can_play_fixture rule, kept textually parallel to compatible_opponent_teams deliberately. Minimal projection: team_id, club_id, display_name, age_group, gender -- no roster, no calendar, no fixture history.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/find-fixture.ts"
+        ]
+      },
+      {
         "signature": "fixture_availability_summary(uuid[])",
         "category": "APPLICATION_RPC",
         "note": "Availability counts for operational fixture surfaces. Authorises per fixture on team.attendance.view -- the same capability player_fixture_attendance RLS answers -- and returns NO ROW for a fixture the caller holds none on, so it is neither a zero nor a way to learn that a fixture id exists. Batch bounded at 200.",
@@ -8705,6 +8713,7 @@
       "export_finance_rows(uuid, date)",
       "extend_club_trial(uuid, integer, text)",
       "fail_directory_verification_run(uuid, text)",
+      "find_fixture_candidate_teams(uuid)",
       "fixture_availability_summary(uuid[])",
       "fixture_communication_counts(uuid)",
       "fixture_editable_fields(uuid)",

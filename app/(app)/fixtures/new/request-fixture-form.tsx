@@ -59,12 +59,19 @@ export function RequestFixtureForm({
   initialOpponent = null,
   initialDate = null,
   suggestedTargetTeam = null,
+  initialTeamId = null,
+  initialVenuePreference = null,
 }: {
   clubId: string
   teams: Team[]
   initialOpponent?: InitialOpponent | null
   initialDate?: string | null
   suggestedTargetTeam?: SuggestedTargetTeam | null
+  /** Clubhouse Find a Fixture's own handoff (Section 6): the team the search was already run for, so
+   * the person never has to re-tick the same team they just picked a moment ago. Ignored if the id
+   * does not match one of THIS viewer's own teams -- never trusted blindly from a query string. */
+  initialTeamId?: string | null
+  initialVenuePreference?: "home" | "away" | "either" | null
 }) {
   const [step, setStep] = useState<"details" | "review">("details")
   const [query, setQuery] = useState("")
@@ -81,7 +88,12 @@ export function RequestFixtureForm({
   const [targetIdentity, setTargetIdentity] = useState<TargetIdentity>({ ageGroup: "U12", gender: "boys", squad: "" })
   const [date, setDate] = useState(initialDate ?? "")
   const [selections, setSelections] = useState<Record<string, TeamSelection>>(
-    Object.fromEntries(teams.map((t) => [t.id, { selected: false, venuePreference: "either", kickoffTime: "", note: "" }]))
+    Object.fromEntries(
+      teams.map((t) => [
+        t.id,
+        { selected: t.id === initialTeamId, venuePreference: t.id === initialTeamId ? (initialVenuePreference ?? "either") : "either", kickoffTime: "", note: "" },
+      ])
+    )
   )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)

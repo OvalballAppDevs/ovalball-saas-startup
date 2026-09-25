@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { FlatList, Image, Linking, Pressable, Share, Text, TextInput, View } from "react-native"
+import { FlatList, Linking, Pressable, Share, Text, TextInput, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Constants from "expo-constants"
@@ -32,6 +32,7 @@ import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../
 import { Layers, LayoutGrid, MapPin, Search, Share2, X } from "../../../src/components/icons"
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
 import { webUrl } from "../../../src/config/environment"
+import { ClubCrest, DistanceChips, NetworkPill } from "../../../src/clubhouse/components"
 
 /**
  * CLUBHOUSE V1 — THE OVALBALL RUGBY NETWORK (owner product decision).
@@ -145,6 +146,24 @@ export default function Clubhouse() {
         </View>
 
         <View style={{ position: "absolute", top: space.md, left: space.lg, right: space.lg, gap: space.sm }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Find a Fixture"
+            onPress={() => router.push("/clubhouse/find-fixture" as never)}
+            style={({ pressed }) => ({
+              minHeight: TOUCH_TARGET,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: space.xs,
+              borderRadius: radius.lg,
+              backgroundColor: pressed ? colour.forest900 : colour.forest800,
+              ...elevation.card,
+            })}
+          >
+            <Search size={16} color={colour.onForest} />
+            <Text style={[type.smallMedium, { color: colour.onForest }]}>Find a Fixture</Text>
+          </Pressable>
           <View style={{ borderRadius: radius.lg, backgroundColor: colour.surface, padding: space.sm, gap: space.sm, ...elevation.card }}>
             <SearchField value={query} onChange={setQuery} />
             <FilterChips filter={filter} onChange={setFilter} />
@@ -225,40 +244,6 @@ function FilterChips({ filter, onChange }: { filter: ClubhouseFilter; onChange: 
             style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.forest800 : colour.lineStrong, backgroundColor: on ? colour.forest800 : colour.surface, justifyContent: "center" }}
           >
             <Text style={[type.caption, { color: on ? colour.onForest : colour.ink }]}>{f.label}</Text>
-          </Pressable>
-        )
-      })}
-    </View>
-  )
-}
-
-const DISTANCES: { key: ClubhouseDistanceFilter; label: string }[] = [
-  { key: 10, label: "10 mi" },
-  { key: 25, label: "25 mi" },
-  { key: 50, label: "50 mi" },
-  { key: 100, label: "100 mi" },
-  { key: "any", label: "Any" },
-]
-
-/**
- * Only ever rendered when `findDistanceOrigin` found a real, factual origin (the viewer's own club's
- * geocoded location) -- see the Clubhouse read model. There is no device-location fallback: Section 56
- * requires personal location permission to stay optional/unnecessary to use Clubhouse at all.
- */
-function DistanceChips({ distance, onChange }: { distance: ClubhouseDistanceFilter; onChange: (d: ClubhouseDistanceFilter) => void }) {
-  return (
-    <View accessibilityRole="radiogroup" accessibilityLabel="Filter by distance" style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
-      {DISTANCES.map((d) => {
-        const on = distance === d.key
-        return (
-          <Pressable
-            key={d.key}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: on }}
-            onPress={() => onChange(d.key)}
-            style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.pitch600 : colour.lineStrong, backgroundColor: on ? colour.mint100 : colour.surface, justifyContent: "center" }}
-          >
-            <Text style={[type.caption, { color: on ? colour.forest800 : colour.ink }]}>{d.label}</Text>
           </Pressable>
         )
       })}
@@ -363,22 +348,6 @@ function ClubListRow({ marker, onPress }: { marker: ClubMapMarker; onPress: () =
   )
 }
 
-function NetworkPill({ marker }: { marker: ClubMapMarker }) {
-  if (marker.partnershipStatus === "active") return <StatusPill label="Partner" tone="positive" />
-  if (marker.networkState === "on_ovalball") return <StatusPill label="On Ovalball" tone="neutral" />
-  return <StatusPill label="Not yet on Ovalball" tone="caution" />
-}
-
-function ClubCrest({ url, size }: { url: string | null; size: number }) {
-  if (url) {
-    return <Image source={{ uri: url }} style={{ width: size, height: size, borderRadius: radius.md, backgroundColor: colour.chalk }} accessibilityIgnoresInvertColors />
-  }
-  return (
-    <View style={{ width: size, height: size, borderRadius: radius.md, backgroundColor: colour.chalk, borderWidth: 1, borderColor: colour.line, alignItems: "center", justifyContent: "center" }}>
-      <MapPin size={size * 0.45} color={colour.inkSubtle} />
-    </View>
-  )
-}
 
 /**
  * THE CLUB BOTTOM SHEET (Section 26-28). Detail is fetched only once a marker is tapped -- never
@@ -553,7 +522,13 @@ function ClubSheet({
                   label="Find a Fixture"
                   onPress={() => {
                     onClose()
-                    router.push({ pathname: "/fixtures/new", params: viewerTeamId ? { teamId: viewerTeamId } : {} } as never)
+                    // Section 6: this club preselected/filtered, per SELECTED CLUB ENTRY -- the
+                    // discovery screen shows compatible teams here rather than sending the viewer
+                    // straight into the raw composer to search again.
+                    router.push({
+                      pathname: "/clubhouse/find-fixture",
+                      params: { opponentDirectoryId: marker.directoryId, opponentClubId: marker.clubId ?? "" },
+                    } as never)
                   }}
                 />
               )}

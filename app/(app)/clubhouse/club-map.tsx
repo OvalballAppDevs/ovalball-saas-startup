@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
@@ -47,7 +47,10 @@ const NOT_ON_OVALBALL_ICON = pinIcon("not-on-ovalball")
  * via createRoot on open and unmounted on close, so the "Request
  * partnership"/"Accept"/"Decline" buttons stay fully interactive.
  */
-export const ClubMap = forwardRef<ClubMapHandle, { clubs: MapClub[]; canManagePartnerships: boolean }>(function ClubMap({ clubs, canManagePartnerships }, ref) {
+export const ClubMap = forwardRef<
+  ClubMapHandle,
+  { clubs: MapClub[]; canManagePartnerships: boolean; renderPopup?: (club: MapClub) => ReactNode }
+>(function ClubMap({ clubs, canManagePartnerships, renderPopup }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const popupRootRef = useRef<Root | null>(null)
@@ -103,7 +106,7 @@ export const ClubMap = forwardRef<ClubMapHandle, { clubs: MapClub[]; canManagePa
         popupRootRef.current?.unmount()
         const root = createRoot(popupNode)
         popupRootRef.current = root
-        root.render(<ClubMapCard club={club} canManagePartnerships={canManagePartnerships} />)
+        root.render(renderPopup ? renderPopup(club) : <ClubMapCard club={club} canManagePartnerships={canManagePartnerships} />)
       })
 
       clusterGroup.addLayer(marker)
@@ -113,7 +116,7 @@ export const ClubMap = forwardRef<ClubMapHandle, { clubs: MapClub[]; canManagePa
     return () => {
       map.removeLayer(clusterGroup)
     }
-  }, [clubs, canManagePartnerships])
+  }, [clubs, canManagePartnerships, renderPopup])
 
   // role="region" (a landmark), not role="application" -- application
   // mode forces assistive tech into a separate navigation mode that's

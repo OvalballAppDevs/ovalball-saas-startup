@@ -116,7 +116,7 @@ export default async function PartnerClubsPage() {
           </p>
         </div>
         <a
-          href="/fixtures/new"
+          href="/clubhouse/find-fixture"
           className="inline-flex h-11 shrink-0 items-center rounded-lg bg-pitch-600 px-5 text-sm font-medium text-white hover:bg-pitch-700"
         >
           Find a Fixture

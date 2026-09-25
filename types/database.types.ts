@@ -24021,6 +24021,16 @@ export type Database = {
         Args: { p_error: string; p_run_id: string }
         Returns: undefined
       }
+      find_fixture_candidate_teams: {
+        Args: { p_team_id: string }
+        Returns: {
+          age_group: string
+          club_id: string
+          display_name: string
+          gender: string
+          team_id: string
+        }[]
+      }
       fixture_availability_summary: {
         Args: { p_fixture_ids: string[] }
         Returns: {

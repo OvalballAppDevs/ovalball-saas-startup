@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { CalendarRange, ExternalLink } from "lucide-react"
+import { CalendarRange, ExternalLink, Search } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
 import { Button } from "@/components/ui/button"
@@ -103,9 +103,15 @@ export function ClubMapCard({ club, dense = false, canManagePartnerships }: { cl
               </Button>
             </>
           )}
-          {/* Not gated on canManagePartnerships -- this navigates to an already independently-
-              authority-checked destination (app/(app)/clubhouse/[clubId]/page.tsx redirects an
-              unauthorised viewer away itself) rather than mutating anything here. */}
+          {/* Not gated on canManagePartnerships -- both navigate to an already independently-
+              authority-checked destination (app/(app)/clubhouse/[clubId]/page.tsx and
+              app/(app)/clubhouse/find-fixture/page.tsx both redirect an unauthorised viewer away
+              themselves) rather than mutating anything here. Section 6 SELECTED CLUB ENTRY: this
+              club arrives preselected/filtered, never re-searched. */}
+          <Button size="sm" variant="outline" className="h-9" nativeButton={false} render={<Link href={`/clubhouse/find-fixture?opponentDirectoryId=${club.directoryId}&opponentClubId=${club.clubId}`} />}>
+            <Search className="size-3.5" />
+            Find a Fixture
+          </Button>
           {localStatus === "active" && (
             <Button size="sm" className="h-9" nativeButton={false} render={<Link href={`/clubhouse/${club.clubId}`} />}>
               <CalendarRange className="size-3.5" />
