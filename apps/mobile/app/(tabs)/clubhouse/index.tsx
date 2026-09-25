@@ -475,10 +475,36 @@ function ClubSheet({
 
           {!detail && <CardSkeleton lines={2} />}
 
-          {detail && (detail.compatibleTeamCount !== null || detail.fixturesTogetherThisSeason !== null) && (
+          {detail && detail.fixturesTogetherThisSeason !== null && (
             <View style={{ flexDirection: "row", gap: space.xl }}>
-              {detail.compatibleTeamCount !== null && <Stat value={detail.compatibleTeamCount} label={detail.compatibleTeamCount === 1 ? "compatible team" : "compatible teams"} />}
-              {detail.fixturesTogetherThisSeason !== null && <Stat value={detail.fixturesTogetherThisSeason} label={detail.fixturesTogetherThisSeason === 1 ? "fixture this season" : "fixtures this season"} />}
+              <Stat value={detail.fixturesTogetherThisSeason} label={detail.fixturesTogetherThisSeason === 1 ? "fixture this season" : "fixtures this season"} />
+            </View>
+          )}
+
+          {/* Section 4: the compatible-team list itself, from the same canonical `compatible_opponent_teams`
+              RPC Find a Fixture uses -- never a bare count, and never shown for a club with no viewer team
+              context or no compatible sides. */}
+          {detail && detail.compatibleTeams && detail.compatibleTeams.length > 0 && (
+            <View style={{ gap: space.sm }}>
+              <Text style={[type.smallMedium, { color: colour.ink }]}>Compatible Teams</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+                {detail.compatibleTeams.map((team) => (
+                  <View key={team.teamId} style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.surface, justifyContent: "center" }}>
+                    <Text style={[type.caption, { color: colour.ink }]}>{team.displayName}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {detail?.website && (
+            <View style={{ gap: space.xs }}>
+              <Text style={[type.smallMedium, { color: colour.ink }]}>About</Text>
+              <Pressable accessibilityRole="link" accessibilityLabel="Open club website" onPress={() => void Linking.openURL(detail.website as string)}>
+                <Text style={[type.small, { color: colour.pitch600 }]} numberOfLines={1}>
+                  {detail.website}
+                </Text>
+              </Pressable>
             </View>
           )}
 

@@ -11,8 +11,10 @@ import {
   findDistanceOrigin,
   isKnownTestFixture,
   isValidClubCoordinate,
+  mapCompatibleTeams,
   matchesClubhouseQuery,
   resolveClubLocation,
+  resolveClubWebsite,
   resolvePartnershipStatus,
   type ClubMapMarker,
 } from "../../../packages/contracts/src/clubhouse"
@@ -360,4 +362,30 @@ test("a team-context viewer (fixture authority, no club.partners.manage) gets a 
   assert.equal(actions.canPartner, false)
   assert.equal(actions.canCompareCalendar, false)
   assert.equal(actions.canInviteToOvalball, false, "club.partners.manage is required to invite, which a team-scoped viewer never holds")
+})
+
+// ---------------------------------------------------------------------------------------------
+// Section 4 -- CLUB PROFILE / CLUB CARD: the canonical detail read model's own pure projections.
+// ---------------------------------------------------------------------------------------------
+
+test("mapCompatibleTeams is exactly a four-field projection of compatible_opponent_teams -- no player roster leakage, no second compatibility calculation", () => {
+  const rows = [{ team_id: "team-1", display_name: "Under 12 Boys", age_group: "U12", gender: "MALE" }]
+  const mapped = mapCompatibleTeams(rows)
+  assert.deepEqual(mapped, [{ teamId: "team-1", displayName: "Under 12 Boys", ageGroup: "U12", gender: "MALE" }])
+  assert.deepEqual(Object.keys(mapped[0]).sort(), ["ageGroup", "displayName", "gender", "teamId"], "must carry nothing beyond these four fields -- never a player, a roster or a squad list")
+})
+
+test("mapCompatibleTeams of an empty RPC result is an empty array, never null and never fabricated", () => {
+  assert.deepEqual(mapCompatibleTeams([]), [])
+})
+
+test("resolveClubWebsite: an activated club's own entered website wins over the directory's, the same precedence resolveClubLogoPathFrom already establishes for crests", () => {
+  assert.equal(resolveClubWebsite({ website: "https://directory.example" }, { website: "https://club.example" }), "https://club.example")
+})
+
+test("resolveClubWebsite falls back to the directory's website when the club has none, and is null when neither has one -- never inferred from the club's name", () => {
+  assert.equal(resolveClubWebsite({ website: "https://directory.example" }, { website: null }), "https://directory.example")
+  assert.equal(resolveClubWebsite({ website: "https://directory.example" }, null), "https://directory.example")
+  assert.equal(resolveClubWebsite({ website: null }, null), null)
+  assert.equal(resolveClubWebsite({ website: null }, { website: "" }), null, "a blank column is not a website")
 })
