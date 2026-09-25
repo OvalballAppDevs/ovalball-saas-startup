@@ -372,7 +372,17 @@ export function buildNavItems(
    * version, and anybody else holds it because somebody granted it -- all three arrive here as the
    * same boolean.
    */
-  teamFinance: boolean = false
+  teamFinance: boolean = false,
+  /**
+   * CLUBHOUSE PROGRAMME SECTION 2, owner decision: Clubhouse is a legitimate team-context product too
+   * -- discovering opposition, finding a fixture, seeing compatible clubs are all team-level outcomes,
+   * not club-administration ones. Resolved by the caller the same way as `teamFinance`, at TEAM scope,
+   * from whichever of `fixture.request.create`/`fixture.request.respond` the active team holds --
+   * never from `hasClubFixtureAuthority` below, which answers a DIFFERENT, club-wide question
+   * (`canManageClubFixturesAnywhere` only ever looks at Club Admin/Fixture Secretary memberships) and
+   * would wrongly hide Clubhouse from exactly the team-scoped Coach/Team Manager it is meant to serve.
+   */
+  teamClubhouseAccess: boolean = false
 ): { primary: NavItem[]; roleLabel: string; clubName: string; clubLogoUrl: string | null } {
   // "Overview" in a team context: the page is that team's operational home, and "Dashboard" names the
   // furniture rather than the content. Everywhere else it stays Dashboard.
@@ -508,6 +518,15 @@ export function buildNavItems(
   // rugby and reading about it should not require going back to a dashboard to find the door.
   if (inTeamContext) {
     items.push({ href: "/rugby-hub", label: "Rugby Hub" })
+  }
+
+  // CLUBHOUSE, FROM THE TEAM (Section 2). Visibility is capability-driven, not context-driven: a
+  // team-scoped user reaches the SAME Clubhouse destination a Club Admin does. Club-level partnership
+  // administration remains capability-gated INSIDE Clubhouse itself (deriveClubNetworkActions), never
+  // exposed merely because the nav link is visible -- navigation visibility and mutation authority are
+  // deliberately separate questions here, as they are everywhere else in this file.
+  if (inTeamContext && teamClubhouseAccess) {
+    items.push({ href: "/clubhouse", label: "Clubhouse" })
   }
 
   // Calendar keeps the team's name ONLY where the team page is not already carrying it; two adjacent

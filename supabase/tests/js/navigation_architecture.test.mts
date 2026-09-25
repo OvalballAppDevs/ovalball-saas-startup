@@ -64,7 +64,7 @@ test("the Club Settings hub consumes the canonical resolver and derives nothing 
 test("navigation and the hub read the same resolution", () => {
   const layout = code("app/(app)/layout.tsx")
   assert.match(layout, /resolveClubSettingsNavCapabilities\(supabase, navClubId\)/)
-  assert.match(layout, /buildNavItems\(ctx, activeContext, clubNavCapabilities(?:, teamFinance)?\)/)
+  assert.match(layout, /buildNavItems\(ctx, activeContext, clubNavCapabilities(?:, teamFinance(?:, teamClubhouseAccess)?)?\)/)
 })
 
 // ---------------------------------------------------------------- capability-driven destinations
@@ -228,6 +228,23 @@ test("subscriptions appear only where the bounded team capability is held", () =
   const withIt = hrefs(buildNavItems(ctx, teamCtx("t-1"), null, true))
   assert.ok(!without.includes("/teams/t-1/subscriptions"), "team finance appeared without the capability")
   assert.ok(withIt.includes("/teams/t-1/subscriptions"), "team finance did not appear with the capability")
+})
+
+test("Clubhouse Programme Section 2: a team-scoped Coach/Team Manager gets a first-class Clubhouse entry, gated on team-scope fixture authority, not on club-wide hasClubFixtureAuthority", () => {
+  const ctx = session({ teamPermissions: [{ teamId: "t-1", teamDisplayName: "Under 12 Boys", permission: "manager", clubId: "c-1", clubName: "B" } as never] })
+  // No club-wide CLUB_ADMIN/FIXTURE_SECRETARY membership anywhere in this session -- canManageClub
+  // FixturesAnywhere is false. Clubhouse must appear anyway, because teamClubhouseAccess is true.
+  const without = buildNavItems(ctx, teamCtx("t-1"), null, false, false)
+  const withIt = buildNavItems(ctx, teamCtx("t-1"), null, false, true)
+  assert.ok(!hrefs(without).includes("/clubhouse"), "Clubhouse appeared without team-scope fixture authority")
+  assert.ok(hrefs(withIt).includes("/clubhouse"), "Clubhouse did not appear with team-scope fixture authority")
+  // And it gets the same first-class, ungrouped top-tier treatment a club context gets -- never buried
+  // inside a team-context group either.
+  const { top, sections } = buildClubSections(withIt.primary, "t-1")
+  assert.ok(top.some((i) => i.href === "/clubhouse"), "Clubhouse is not in the team context's top tier")
+  for (const section of sections) {
+    assert.ok(!section.items.some((i) => i.href === "/clubhouse"), `Clubhouse is buried inside "${section.label}" as well as being in top`)
+  }
 })
 
 test("a club member with no team relationship is offered no team destination", () => {

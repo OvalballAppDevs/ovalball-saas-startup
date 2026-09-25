@@ -118,7 +118,15 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
           teamId: activeContext.id,
         })
       : false
-  const { primary, roleLabel, clubName } = buildNavItems(ctx, activeContext, clubNavCapabilities, teamFinance)
+  // Clubhouse Programme Section 2: whether the active TEAM holds fixture-request authority --
+  // discovering opposition and finding a fixture are team-level outcomes, so the nav link's own
+  // visibility is asked at team scope, the same shape as teamFinance immediately above.
+  const teamClubhouseAccess =
+    activeContext.kind === "team" && activeContext.id
+      ? (await hasCapability(supabase, "fixture.request.create", "team", { clubId: activeContext.clubId, teamId: activeContext.id })) ||
+        (await hasCapability(supabase, "fixture.request.respond", "team", { clubId: activeContext.clubId, teamId: activeContext.id }))
+      : false
+  const { primary, roleLabel, clubName } = buildNavItems(ctx, activeContext, clubNavCapabilities, teamFinance, teamClubhouseAccess)
   // ONE UNREAD READ FOR THREE BADGES. getUnreadCounts is the single source:
   // the bell, Messenger and Support each take their own slice of it, so no
   // notification is counted in two places and clearing one badge moves the

@@ -6,10 +6,10 @@ Tracks actual delivery status against `CLUBHOUSE_MASTER_PROJECT_PLAN.md`. Update
 |---|---|---|---|---|---|---|---|---|---|
 | — | Clubhouse V1 (pre-programme foundation) | COMPLETE | `bf6d87c` | `130b284` | None applied | 10 new (`clubhouse.test.mts`) + 8 updated | None (no Xcode/EAS/device access) | PENDING | Native map/list/sheet, partner actions, web consolidation. See `CLUBHOUSE_V1_COMPLETION_REPORT.md`. |
 | 1 | Shell & Navigation | **COMPLETE** | `130b284` | `e0e14c5` | None applied | 1 new (`navigation_architecture.test.mts`) | None | PENDING | Clubhouse promoted to top-level (ungrouped) web nav for Club Admin, matching Dashboard's own treatment. Mobile nav already correct from V1. See `docs/product/clubhouse/SECTION_01_SHELL_AND_NAVIGATION.md`. |
-| 2 | Map & Club Discovery | NOT STARTED | — | — | — | — | — | — | — |
+| 2 | Map & Club Discovery | **COMPLETE** | `735aa12` | *(pending this commit)* | None applied | 13 new (`clubhouse.test.mts`, now 23 total) + 2 new (`navigation_architecture.test.mts`) + 1 regression fix (`no_role_literals`) | None (no Xcode/EAS/device access) | PENDING | Closed the Section 1 UNKNOWN-partnership finding; added team-context web nav entry; added distance filter/display; floated search/filter chrome off the map; added coordinate validation and a self-hosting forecast note. See `docs/product/clubhouse/SECTION_02_MAP_AND_DISCOVERY.md`. |
 | 3 | Club Directory & Geo Coverage | NOT STARTED | — | — | — | — | — | — | — |
 | 4 | Club Profile / Club Card | NOT STARTED | — | — | — | — | — | — | — |
-| 5 | Partners | NOT STARTED | — | — | — | — | — | — | Must close the team-scope RLS accuracy gap found during Section 1's verification pass (see master plan §0). |
+| 5 | Partners | NOT STARTED | — | — | — | — | — | — | **TEAM-CONTEXT PARTNERSHIP READ MODEL (hard closure item):** Section 2 made the symptom honest (UNKNOWN, never NOT_PARTNERED) but did not give a team-scoped viewer any real partnership answer. Section 5 must provide a canonical, authority-safe read model so a team-scoped Coach/Team Manager can see real partnership state where legitimate — UNKNOWN must never be interpreted as NOT_PARTNERED anywhere it does this. |
 | 6 | Find a Fixture | NOT STARTED | — | — | — | — | — | — | Backend substantially pre-built (CA-M11.4 availability domain). |
 | 7 | Find Clubs Free on Certain Days | NOT STARTED | — | — | — | — | — | — | Needs new multi-date/radius query composition over the existing per-team availability function. |
 | 8 | Arrange a Fixture | NOT STARTED | — | — | — | — | — | — | |

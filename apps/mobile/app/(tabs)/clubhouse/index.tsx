@@ -7,7 +7,11 @@ import type { NativeSyntheticEvent } from "react-native"
 import type { PressEventWithFeatures } from "@maplibre/maplibre-react-native"
 
 import {
+  applyClubhouseDistanceFilter,
   applyClubhouseFilter,
+  buildClubMarkerFeatureCollection,
+  distanceMiles,
+  findDistanceOrigin,
   inviteClubToOvalball,
   matchesClubhouseQuery,
   readClubDetail,
@@ -17,6 +21,7 @@ import {
   revokePartnership,
   type ClubDetail,
   type ClubMapMarker,
+  type ClubhouseDistanceFilter,
   type ClubhouseFilter,
 } from "@ovalball/contracts/clubhouse"
 
@@ -28,7 +33,7 @@ import { ContextSheet } from "../../../src/components/context-sheet"
 import { BottomSheet } from "../../../src/components/bottom-sheet"
 import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../src/components/ui"
 import { Layers, LayoutGrid, MapPin, Search, Share2, X } from "../../../src/components/icons"
-import { colour, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
+import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
 import { webUrl } from "../../../src/config/environment"
 
 /**
@@ -67,8 +72,10 @@ export default function Clubhouse() {
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<ClubhouseFilter>("all")
+  const [distance, setDistance] = useState<ClubhouseDistanceFilter>("any")
   const [mode, setMode] = useState<"map" | "list">("map")
   const [selected, setSelected] = useState<ClubMapMarker | null>(null)
+  const [chromeExpanded, setChromeExpanded] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
@@ -93,11 +100,14 @@ export default function Clubhouse() {
     }, [load])
   )
 
+  const origin = useMemo(() => (markers ? findDistanceOrigin(markers) : null), [markers])
+
   const filtered = useMemo(() => {
     if (!markers) return []
     const byFilter = applyClubhouseFilter(markers, filter, null)
-    return byFilter.filter((m) => matchesClubhouseQuery(m, query))
-  }, [markers, filter, query])
+    const byDistance = applyClubhouseDistanceFilter(byFilter, distance, origin)
+    return byDistance.filter((m) => matchesClubhouseQuery(m, query))
+  }, [markers, filter, distance, origin, query])
 
   const withLocation = useMemo(() => filtered.filter((m) => m.hasLocation), [filtered])
 
@@ -105,17 +115,12 @@ export default function Clubhouse() {
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       <AppHeader onOpenContexts={() => setSheetOpen(true)} />
 
-      <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm, gap: space.sm, backgroundColor: colour.chalk }}>
-        <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
-          Clubhouse
-        </Text>
-        <SearchField value={query} onChange={setQuery} />
-        <FilterChips filter={filter} onChange={setFilter} />
-      </View>
-
+      {/* THE MAP IS THE HERO (Section 2/11) -- no page-title header eating vertical space above it.
+          Search and filters float as a card over the map/list instead of occupying a fixed chalk
+          block, so the map reaches right up under the app header. */}
       <View style={{ flex: 1 }}>
         {markers === null && !error && (
-          <View style={{ padding: space.lg, gap: space.md }}>
+          <View style={{ padding: space.lg, gap: space.md, paddingTop: space.xxl * 2 }}>
             <CardSkeleton lines={2} />
             <CardSkeleton lines={2} />
             <CardSkeleton lines={2} />
@@ -123,14 +128,31 @@ export default function Clubhouse() {
         )}
         {error && <ErrorState message={error} onRetry={() => void load()} />}
         {markers !== null && !error && filtered.length === 0 && (
-          <EmptyState title="No clubs match" body="Try a different search or filter, or widen the map area." />
+          <View style={{ flex: 1, paddingTop: space.xxl * 2 }}>
+            <EmptyState title="No clubs match" body="Try a different search or filter, or widen the map area." />
+          </View>
         )}
         {markers !== null && !error && filtered.length > 0 && mode === "map" && (
           <ClubhouseMap markers={withLocation} onSelect={setSelected} />
         )}
         {markers !== null && !error && filtered.length > 0 && mode === "list" && (
-          <ClubhouseList markers={filtered} onSelect={setSelected} />
+          <ClubhouseList markers={filtered} onSelect={setSelected} topInset={chromeExpanded ? 172 : 116} />
         )}
+      </View>
+
+      <View style={{ position: "absolute", top: space.md, left: space.lg, right: space.lg, gap: space.sm }}>
+        <View style={{ borderRadius: radius.lg, backgroundColor: colour.surface, padding: space.sm, gap: space.sm, ...elevation.card }}>
+          <SearchField value={query} onChange={setQuery} />
+          <FilterChips filter={filter} onChange={setFilter} />
+          {origin && (
+            <>
+              <Pressable accessibilityRole="button" onPress={() => setChromeExpanded((v) => !v)} style={{ alignSelf: "flex-start" }}>
+                <Text style={[type.caption, { color: colour.forest800 }]}>{chromeExpanded ? "Hide distance" : distance === "any" ? "Add distance filter" : `Within ${distance} miles`}</Text>
+              </Pressable>
+              {chromeExpanded && <DistanceChips distance={distance} onChange={setDistance} />}
+            </>
+          )}
+        </View>
       </View>
 
       {/* MAP | LIST -- Section 20: the same search/filter query backs both, so switching never loses
@@ -147,6 +169,7 @@ export default function Clubhouse() {
         viewerTeamId={viewerTeamId}
         userId={userId}
         onChanged={() => void load()}
+        origin={origin}
       />
 
       <ContextSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
@@ -204,6 +227,40 @@ function FilterChips({ filter, onChange }: { filter: ClubhouseFilter; onChange: 
   )
 }
 
+const DISTANCES: { key: ClubhouseDistanceFilter; label: string }[] = [
+  { key: 10, label: "10 mi" },
+  { key: 25, label: "25 mi" },
+  { key: 50, label: "50 mi" },
+  { key: 100, label: "100 mi" },
+  { key: "any", label: "Any" },
+]
+
+/**
+ * Only ever rendered when `findDistanceOrigin` found a real, factual origin (the viewer's own club's
+ * geocoded location) -- see the Clubhouse read model. There is no device-location fallback: Section 56
+ * requires personal location permission to stay optional/unnecessary to use Clubhouse at all.
+ */
+function DistanceChips({ distance, onChange }: { distance: ClubhouseDistanceFilter; onChange: (d: ClubhouseDistanceFilter) => void }) {
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel="Filter by distance" style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
+      {DISTANCES.map((d) => {
+        const on = distance === d.key
+        return (
+          <Pressable
+            key={d.key}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: on }}
+            onPress={() => onChange(d.key)}
+            style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.pitch600 : colour.lineStrong, backgroundColor: on ? colour.mint100 : colour.surface, justifyContent: "center" }}
+          >
+            <Text style={[type.caption, { color: on ? colour.forest800 : colour.ink }]}>{d.label}</Text>
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+}
+
 function ModeButton({ label, icon, active, onPress }: { label: string; icon: React.ReactNode; active: boolean; onPress: () => void }) {
   return (
     <Pressable
@@ -247,23 +304,7 @@ function ClubhouseMap({ markers, onSelect }: { markers: ClubMapMarker[]; onSelec
   const cameraRef = useRef<CameraRef>(null)
   const mapRef = useRef<MapRef>(null)
 
-  const geojson = useMemo(
-    () => ({
-      type: "FeatureCollection" as const,
-      features: markers.map((m) => ({
-        type: "Feature" as const,
-        id: m.directoryId,
-        properties: {
-          directoryId: m.directoryId,
-          networkState: m.networkState,
-          partnershipStatus: m.partnershipStatus,
-          isOwnClub: m.isOwnClub,
-        },
-        geometry: { type: "Point" as const, coordinates: [m.longitude as number, m.latitude as number] },
-      })),
-    }),
-    [markers]
-  )
+  const geojson = useMemo(() => buildClubMarkerFeatureCollection(markers), [markers])
 
   const markerById = useMemo(() => new Map(markers.map((m) => [m.directoryId, m])), [markers])
 
@@ -338,12 +379,12 @@ function ClubhouseMap({ markers, onSelect }: { markers: ClubMapMarker[]; onSelec
   )
 }
 
-function ClubhouseList({ markers, onSelect }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void }) {
+function ClubhouseList({ markers, onSelect, topInset }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void; topInset: number }) {
   return (
     <FlatList
       data={markers}
       keyExtractor={(m) => m.directoryId}
-      contentContainerStyle={{ padding: space.lg, gap: space.sm, paddingBottom: space.xxl * 2 }}
+      contentContainerStyle={{ padding: space.lg, paddingTop: topInset + space.md, gap: space.sm, paddingBottom: space.xxl * 2 }}
       renderItem={({ item }) => <ClubListRow marker={item} onPress={() => onSelect(item)} />}
     />
   )
@@ -410,6 +451,7 @@ function ClubSheet({
   viewerTeamId,
   userId,
   onChanged,
+  origin,
 }: {
   marker: ClubMapMarker | null
   onClose: () => void
@@ -417,6 +459,8 @@ function ClubSheet({
   viewerTeamId: string | null
   userId: string | null
   onChanged: () => void
+  /** The viewer's own club, for a factual distance -- null whenever there is no real origin to measure from. */
+  origin: ClubMapMarker | null
 }) {
   const router = useRouter()
   const [detail, setDetail] = useState<ClubDetail | null>(null)
@@ -466,6 +510,14 @@ function ClubSheet({
               <Text style={[type.caption, { color: colour.inkMuted }]}>{marker.rugbyCode === "union" ? "Rugby Union" : "Rugby League"}</Text>
               <Text numberOfLines={1} style={[type.small, { color: colour.inkMuted }]}>
                 {[marker.town, marker.county].filter(Boolean).join(", ") || (marker.hasLocation ? "" : "Location unavailable")}
+                {/* Distance is only ever shown when both the origin (the viewer's own real, geocoded
+                    club) and this club's own location are known -- never a fabricated number. */}
+                {origin && marker.hasLocation && !marker.isOwnClub
+                  ? (() => {
+                      const miles = distanceMiles(origin, marker)
+                      return miles !== null ? ` · ${Math.round(miles)} mi` : ""
+                    })()
+                  : ""}
               </Text>
             </View>
           </View>
