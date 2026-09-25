@@ -27,7 +27,11 @@ export const PX_PER_SLOT: Record<BoardScale, number> = { compact: 22, comfortabl
 // bug, and worth fixing in the same pass since both are "the board wastes the screen" complaints.
 export const LANE_HEIGHT = 116
 export const LANE_GAP = 12
-export const LABEL_COLUMN_WIDTH = 92
+// Widened (CA-M11.2 visual pass) to hold an icon tile beside the pitch name and its real size-category
+// metadata -- never a photograph: no venue/pitch image exists in the canonical schema
+// (`club_pitches` has no such column), and inventing one would be exactly the fabricated-data mistake
+// the platform's own asset rules forbid.
+export const LABEL_COLUMN_WIDTH = 128
 export const HEADER_HEIGHT = 28
 
 export function timelineWidth(scale: BoardScale): number {

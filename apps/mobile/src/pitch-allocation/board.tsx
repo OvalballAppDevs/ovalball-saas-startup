@@ -7,7 +7,7 @@ import { assignBookingLanes, fixtureOccupiedWindow, laneRowCount, timeToMinutes,
 
 import { haptic } from "./haptics"
 import { HEADER_HEIGHT, LABEL_COLUMN_WIDTH, LANE_GAP, LANE_HEIGHT, PX_PER_SLOT, START_MINUTES, SLOT_COUNT, autoScrollVelocity, boardHeight, hourMarks, kickoffMinutes, laneRows, minutesToTime, minutesToX, timelineWidth, widthForMinutes, xToSnappedMinutes, yToLaneRow, type BoardScale, type LaneRow } from "./geometry"
-import { CalendarDays, ChevronDown, ChevronRight, ChevronUp, Clock, Shirt, TriangleAlert, Trophy } from "../components/icons"
+import { CalendarDays, ChevronDown, ChevronRight, ChevronUp, Clock, LayoutGrid, Shirt, TriangleAlert, Trophy } from "../components/icons"
 import { colour, radius, space, type } from "../design/tokens"
 
 /**
@@ -54,6 +54,15 @@ export interface BoardProps {
 }
 
 type Placed = { fixture: AllocationFixture; row: LaneRow; start: number; playStart: number; playEnd: number; end: number; conflict: AllocationConflict | null; trainingReason: string | null }
+
+/** A pitch's real, canonical size category, in words -- never a fabricated surface type (no `surface`
+ * column exists on `club_pitches`) and never a photograph (no image column exists either). */
+function sizeCategoryLabel(sizeCategory: "mini" | "reduced" | "full" | null): string | null {
+  if (sizeCategory === "full") return "Full size"
+  if (sizeCategory === "reduced") return "Reduced size"
+  if (sizeCategory === "mini") return "Mini"
+  return null
+}
 
 export function PitchBoard({ board, scale, canManage, reduceMotion, staged, todayIso, dateIso, onOpen, onDrop, previewFor, onPreview, reasonFor }: BoardProps) {
   const px = PX_PER_SLOT[scale]
@@ -194,6 +203,23 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
   const nowMinutes = (() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() })()
   const showNow = dateIso === todayIso && nowMinutes >= START_MINUTES && nowMinutes <= 23 * 60
 
+  // OPEN ON WHAT MATTERS, NOT ON 08:00. A day is 15 hours; a person opening a populated board should
+  // not have to scroll past several empty morning hours to find the first game, and one opened today
+  // should default to "now" -- the moment a Fixture Secretary standing pitch-side actually cares about.
+  // Fires once per date shown, keyed by the ref below, so it never fights a person's own scrolling.
+  const initialisedForDate = useRef<string | null>(null)
+  useEffect(() => {
+    if (initialisedForDate.current === dateIso) return
+    initialisedForDate.current = dateIso
+    const earliest = placed.reduce<number | null>((min, p) => (min === null || p.start < min ? p.start : min), null)
+    const target = showNow ? nowMinutes : (earliest ?? START_MINUTES)
+    // A little headroom before the target, not flush against the left edge.
+    const x = Math.max(0, minutesToX(target, scale) - PX_PER_SLOT[scale] * 2)
+    const id = setTimeout(() => hRef.current?.scrollTo({ x, animated: false }), 50)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateIso, placed.length > 0])
+
   return (
     <View style={{ flex: 1 }}>
       {/* THE HOUR HEADER, frozen at the top and moving with the timeline */}
@@ -221,13 +247,25 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
               const h = pitchRows.length * (LANE_HEIGHT + LANE_GAP) - LANE_GAP
               const isTarget = preview?.pitchId === pitch.id
               const events = board.clubEvents.filter((e) => e.pitchId === pitch.id)
+              const metaLabel = sizeCategoryLabel(pitch.sizeCategory)
               return (
-                <View key={pitch.id} accessible accessibilityLabel={`${pitch.displayName}${pitch.laneCount > 1 ? `, ${pitch.laneCount} at once` : ""}${events.length ? `, reserved for ${events.map((e) => e.name).join(", ")}` : ""}`} style={{ position: "absolute", top, height: h, left: 0, right: 0, justifyContent: "center", paddingHorizontal: space.sm, backgroundColor: isTarget ? colour.mint100 : "transparent", borderRadius: radius.md }}>
-                  <Text style={[type.smallMedium, { color: colour.ink }]} numberOfLines={2}>{pitch.displayName}</Text>
-                  {pitch.laneCount > 1 && <Text style={[type.caption, { color: colour.inkSubtle }]}>{pitch.laneCount} at once</Text>}
-                  {events.map((e) => (
-                    <Text key={e.eventId} style={[type.caption, { color: "#6d3b5d" }]} numberOfLines={1}>{e.name}</Text>
-                  ))}
+                <View key={pitch.id} accessible accessibilityLabel={`${pitch.displayName}${metaLabel ? `, ${metaLabel}` : ""}${pitch.laneCount > 1 ? `, ${pitch.laneCount} at once` : ""}${events.length ? `, reserved for ${events.map((e) => e.name).join(", ")}` : ""}`} style={{ position: "absolute", top, height: h, left: 0, right: 0, flexDirection: "row", alignItems: "flex-start", gap: 8, paddingHorizontal: space.sm, paddingVertical: 10, backgroundColor: isTarget ? colour.mint100 : "transparent", borderRadius: radius.md }}>
+                  {/* A NEUTRAL ICON TILE, NEVER A PHOTOGRAPH: `club_pitches` has no image column in the
+                      canonical schema, and inventing one would be fabricated data on an operational
+                      screen. This is the honest "elegant icon" alternative -- kept small and to the side
+                      so the pitch NAME, which can genuinely run to three words, keeps the column's full
+                      width to wrap into rather than sharing it with an icon. */}
+                  <View style={{ width: 28, height: 28, borderRadius: radius.sm, backgroundColor: colour.mint100, alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                    <LayoutGrid size={14} color={colour.forest800} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[type.caption, { color: colour.ink, fontFamily: "Inter_600SemiBold" }]}>{pitch.displayName}</Text>
+                    {metaLabel && <Text style={[type.caption, { color: colour.inkSubtle, fontSize: 10 }]} numberOfLines={1}>{metaLabel}</Text>}
+                    {pitch.laneCount > 1 && <Text style={[type.caption, { color: colour.inkSubtle, fontSize: 10 }]} numberOfLines={1}>{pitch.laneCount} at once</Text>}
+                    {events.map((e) => (
+                      <Text key={e.eventId} style={[type.caption, { color: "#6d3b5d", fontSize: 10 }]} numberOfLines={1}>{e.name}</Text>
+                    ))}
+                  </View>
                 </View>
               )
             })}
@@ -428,7 +466,12 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
         >
           {warmW > 0 && (
             <View style={{ width: warmW, backgroundColor: "rgba(16,21,18,0.05)", justifyContent: "flex-end", padding: 3 }}>
-              {labelRoom && <Text style={[type.caption, { fontSize: 10, color: colour.inkMuted }]} numberOfLines={1}>Warm-up</Text>}
+              {labelRoom && (
+                <>
+                  <Text style={[type.caption, { fontSize: 10, color: colour.inkMuted }]} numberOfLines={1}>Warm-up</Text>
+                  <Text style={[type.caption, { fontSize: 10, color: colour.inkSubtle, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{minutesToTime(start)}</Text>
+                </>
+              )}
             </View>
           )}
           <View style={{ width: matchW, backgroundColor: severity === "hard" ? colour.dangerSurface : severity === "warning" ? colour.warningSurface : colour.mint100, paddingHorizontal: 8, paddingVertical: 5, justifyContent: "center" }}>
@@ -437,11 +480,18 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
               <Text style={[type.smallMedium, { color: colour.forest950, fontSize: roomy ? 13 : 12 }]} numberOfLines={roomy ? 2 : 1}>{f.homeTeamLabel}</Text>
             </View>
             {roomy && <Text style={[type.caption, { color: colour.inkMuted }]} numberOfLines={1}>v {f.opponentLabel}</Text>}
-            <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{minutesToTime(playStart)}{isStaged ? " · staged" : ""}</Text>
+            <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
+              {roomy ? `${minutesToTime(playStart)} – ${minutesToTime(playEnd)}` : minutesToTime(playStart)}{isStaged ? " · staged" : ""}
+            </Text>
           </View>
           {packW > 0 && (
             <View style={{ width: packW, backgroundColor: "rgba(16,21,18,0.05)", justifyContent: "flex-end", padding: 3 }}>
-              {packW >= 44 && <Text style={[type.caption, { fontSize: 10, color: colour.inkMuted }]} numberOfLines={1}>Pack-up</Text>}
+              {packW >= 44 && (
+                <>
+                  <Text style={[type.caption, { fontSize: 10, color: colour.inkMuted }]} numberOfLines={1}>Pack-up</Text>
+                  <Text style={[type.caption, { fontSize: 10, color: colour.inkSubtle, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{minutesToTime(end)}</Text>
+                </>
+              )}
             </View>
           )}
         </Pressable>

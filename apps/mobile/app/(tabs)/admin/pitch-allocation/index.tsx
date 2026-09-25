@@ -222,11 +222,11 @@ export default function PitchAllocationScreen() {
           {!fullScreen && <Text style={[type.caption, { color: colour.onForestMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{club.name ?? "Admin Centre"}</Text>}
           <Text style={[type.smallMedium, { color: colour.onForest, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>Pitch Allocation{fullScreen && dateIso ? ` · ${exactDate(dateIso)}` : ""}</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={fullScreen ? "Leave full screen" : "Full screen board"} onPress={() => setFullScreen((v) => !v)} hitSlop={6} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
-          {fullScreen ? <Minimize2 size={20} color={colour.onForest} /> : <Maximize2 size={20} color={colour.onForest} />}
+        <Pressable accessibilityRole="button" accessibilityLabel={fullScreen ? "Leave full screen" : "Full screen board"} onPress={() => setFullScreen((v) => !v)} hitSlop={6} style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, backgroundColor: pressed ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" })}>
+          {fullScreen ? <Minimize2 size={18} color={colour.onForest} /> : <Maximize2 size={18} color={colour.onForest} />}
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="More actions" onPress={() => setActions(true)} hitSlop={6} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
-          <Ellipsis size={22} color={colour.onForest} />
+        <Pressable accessibilityRole="button" accessibilityLabel="More actions" onPress={() => setActions(true)} hitSlop={6} style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, backgroundColor: pressed ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", marginLeft: 4 })}>
+          <Ellipsis size={20} color={colour.onForest} />
         </Pressable>
       </View>
 
@@ -236,18 +236,26 @@ export default function PitchAllocationScreen() {
 
       {draft && dateIso && summary && (
         <>
-          {/* THE DAY, in one line */}
+          {/* THE DAY -- its own card, matching the summary chips and action pills below it rather than
+              sitting bare on the chalk ground. */}
           {!fullScreen && (
-            <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.xs }}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Previous day" onPress={() => navigateTo(shiftDate(dateIso, -1))} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}><ChevronLeft size={20} color={colour.ink} /></Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Choose a date, currently ${exactDate(dateIso)}`} onPress={() => setDatePicker(true)} style={{ flex: 1, minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}>
-                <Text style={[type.heading, { color: colour.ink }]}>{exactDate(dateIso)}</Text>
-                <View style={{ flexDirection: "row", gap: space.md }}>
-                  {dateIso !== todayIso() && <Pressable accessibilityRole="button" accessibilityLabel="Today" onPress={() => navigateTo(todayIso())} hitSlop={8}><Text style={[type.caption, { color: colour.forest800, textDecorationLine: "underline" }]}>Today</Text></Pressable>}
-                  <Pressable accessibilityRole="button" accessibilityLabel="Next home fixture" onPress={() => void nextHomeFixtureDate(supabase, clubId!, shiftDate(dateIso, 1)).then(navigateTo)} hitSlop={8}><Text style={[type.caption, { color: colour.forest800, textDecorationLine: "underline" }]}>Next home fixture</Text></Pressable>
-                </View>
+            <View style={{ marginHorizontal: space.md, marginBottom: space.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Previous day" onPress={() => navigateTo(shiftDate(dateIso, -1))} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}><ChevronLeft size={20} color={colour.ink} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Choose a date, currently ${exactDate(dateIso)}`} onPress={() => setDatePicker(true)} style={{ flex: 1, minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: space.sm }}>
+                  <CalendarDays size={16} color={colour.forest800} />
+                  <Text style={[type.smallMedium, { color: colour.ink, fontFamily: "Inter_700Bold" }]} numberOfLines={1}>{exactDate(dateIso)}</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="Next day" onPress={() => navigateTo(shiftDate(dateIso, 1))} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}><ChevronRight size={20} color={colour.ink} /></Pressable>
+                {dateIso !== todayIso() && (
+                  <Pressable accessibilityRole="button" accessibilityLabel="Today" onPress={() => navigateTo(todayIso())} style={({ pressed }) => ({ marginRight: space.sm, paddingHorizontal: space.sm, minHeight: 30, justifyContent: "center", borderRadius: radius.md, borderWidth: 1, borderColor: colour.lineStrong, opacity: pressed ? 0.7 : 1 })}>
+                    <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_600SemiBold" }]}>Today</Text>
+                  </Pressable>
+                )}
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Next home fixture" onPress={() => void nextHomeFixtureDate(supabase, clubId!, shiftDate(dateIso, 1)).then(navigateTo)} style={{ alignItems: "center", paddingBottom: space.sm }} hitSlop={8}>
+                <Text style={[type.caption, { color: colour.forest800, textDecorationLine: "underline" }]}>Next home fixture</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel="Next day" onPress={() => navigateTo(shiftDate(dateIso, 1))} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}><ChevronRight size={20} color={colour.ink} /></Pressable>
             </View>
           )}
           {/* BUG FOUND LIVE ON DEVICE: `display="inline"` renders a whole month grid PERMANENTLY IN
