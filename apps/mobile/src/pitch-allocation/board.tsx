@@ -6,7 +6,7 @@ import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useShare
 import { assignBookingLanes, fixtureOccupiedWindow, laneRowCount, timeToMinutes, trainingOccupiedWindow, type AllocationConflict, type AllocationFixture, type PitchAllocationBoard } from "@ovalball/contracts/pitch-allocation"
 
 import { haptic } from "./haptics"
-import { HEADER_HEIGHT, LABEL_COLUMN_WIDTH, LANE_GAP, LANE_HEIGHT, PX_PER_SLOT, START_MINUTES, SLOT_COUNT, autoScrollVelocity, boardHeight, hourMarks, kickoffMinutes, laneRows, minutesToTime, minutesToX, timelineWidth, widthForMinutes, xToSnappedMinutes, yToLaneRow, type BoardScale, type LaneRow } from "./geometry"
+import { HEADER_HEIGHT, LABEL_COLUMN_WIDTH, PX_PER_SLOT, START_MINUTES, SLOT_COUNT, autoScrollVelocity, boardHeight, hourMarks, kickoffMinutes, laneRows, minutesToTime, minutesToX, timelineWidth, widthForMinutes, xToSnappedMinutes, yToLaneRow, type BoardScale, type LaneRow } from "./geometry"
 import { CalendarDays, ChevronDown, ChevronRight, ChevronUp, Clock, LayoutGrid, Shirt, TriangleAlert, Trophy } from "../components/icons"
 import { colour, radius, space, type } from "../design/tokens"
 
@@ -244,7 +244,8 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
             {rowsByPitch.pitches.map((pitch) => {
               const pitchRows = rows.filter((r) => r.pitchId === pitch.id)
               const top = pitchRows[0]?.top ?? 0
-              const h = pitchRows.length * (LANE_HEIGHT + LANE_GAP) - LANE_GAP
+              const last = pitchRows[pitchRows.length - 1]
+              const h = last ? last.top + last.height - top : 0
               const isTarget = preview?.pitchId === pitch.id
               const events = board.clubEvents.filter((e) => e.pitchId === pitch.id)
               const metaLabel = sizeCategoryLabel(pitch.sizeCategory)
@@ -280,7 +281,7 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
                 <View key={i} pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: i * px, width: 1, backgroundColor: i % 4 === 0 ? "rgba(16,21,18,0.12)" : "rgba(16,21,18,0.04)" }} />
               ))}
               {rows.map((row) => (
-                <View key={`${row.pitchId}:${row.laneIndex}`} pointerEvents="none" style={{ position: "absolute", left: 0, width, top: row.top, height: LANE_HEIGHT, backgroundColor: preview?.pitchId === row.pitchId && preview.laneIndex === row.laneIndex ? "rgba(50,166,101,0.10)" : colour.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line }} />
+                <View key={`${row.pitchId}:${row.laneIndex}`} pointerEvents="none" style={{ position: "absolute", left: 0, width, top: row.top, height: row.height, backgroundColor: preview?.pitchId === row.pitchId && preview.laneIndex === row.laneIndex ? "rgba(50,166,101,0.10)" : colour.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line }} />
               ))}
               {/* tournament holds */}
               {board.tournaments.map((t) => {
@@ -288,8 +289,9 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
                 if (pitchRows.length === 0) return null
                 const left = minutesToX(timeToMinutes(t.startTime), scale)
                 const w = widthForMinutes(timeToMinutes(t.endTime) - timeToMinutes(t.startTime), scale)
+                const tLast = pitchRows[pitchRows.length - 1]
                 return (
-                  <View key={t.id} pointerEvents="none" accessible accessibilityLabel={`${t.tournamentName} holds ${pitchById.get(t.pitchId ?? "")?.displayName ?? "the pitch"} from ${t.startTime.slice(0, 5)} to ${t.endTime.slice(0, 5)}`} style={{ position: "absolute", left, width: w, top: pitchRows[0].top, height: pitchRows.length * (LANE_HEIGHT + LANE_GAP) - LANE_GAP, backgroundColor: "rgba(251,191,36,0.16)", borderLeftWidth: 1, borderRightWidth: 1, borderColor: "rgba(217,119,6,0.5)", justifyContent: "flex-end", padding: 4 }}>
+                  <View key={t.id} pointerEvents="none" accessible accessibilityLabel={`${t.tournamentName} holds ${pitchById.get(t.pitchId ?? "")?.displayName ?? "the pitch"} from ${t.startTime.slice(0, 5)} to ${t.endTime.slice(0, 5)}`} style={{ position: "absolute", left, width: w, top: pitchRows[0].top, height: tLast.top + tLast.height - pitchRows[0].top, backgroundColor: "rgba(251,191,36,0.16)", borderLeftWidth: 1, borderRightWidth: 1, borderColor: "rgba(217,119,6,0.5)", justifyContent: "flex-end", padding: 4 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                       <Trophy size={12} color="#92400e" />
                       <Text style={[type.caption, { color: "#92400e" }]} numberOfLines={1}>{t.tournamentName}</Text>
@@ -304,7 +306,7 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
                 if (!row || !w) return null
                 const reason = board.trainingConflicts.find((c) => c.trainingSessionId === t.trainingSessionId)?.reason ?? null
                 return (
-                  <View key={t.trainingSessionId} pointerEvents="none" accessible accessibilityLabel={`${t.teamLabel} training, ${minutesToTime(w.start)} to ${minutesToTime(w.end)}${reason ? `, ${reason}` : ""}`} style={{ position: "absolute", left: minutesToX(w.start, scale), width: widthForMinutes(w.end - w.start, scale), top: row.top + LANE_HEIGHT - 22, height: 20, borderRadius: 6, backgroundColor: "#e8eff7", borderWidth: 1, borderColor: reason ? colour.danger : colour.messengerBlue, paddingHorizontal: 6, justifyContent: "center" }}>
+                  <View key={t.trainingSessionId} pointerEvents="none" accessible accessibilityLabel={`${t.teamLabel} training, ${minutesToTime(w.start)} to ${minutesToTime(w.end)}${reason ? `, ${reason}` : ""}`} style={{ position: "absolute", left: minutesToX(w.start, scale), width: widthForMinutes(w.end - w.start, scale), top: row.top + Math.max(0, row.height - 22), height: 20, borderRadius: 6, backgroundColor: "#e8eff7", borderWidth: 1, borderColor: reason ? colour.danger : colour.messengerBlue, paddingHorizontal: 6, justifyContent: "center" }}>
                     <Text style={[type.caption, { color: colour.messengerBlue }]} numberOfLines={1}>{t.teamLabel} training</Text>
                   </View>
                 )
@@ -321,7 +323,7 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
                 if (!w) return null
                 const bad = preview.conflict?.severity === "hard"
                 return (
-                  <View pointerEvents="none" style={{ position: "absolute", left: minutesToX(w.start, scale), width: widthForMinutes(w.end - w.start, scale), top: row.top + 2, height: LANE_HEIGHT - 4, borderRadius: radius.md, borderWidth: 2, borderStyle: "dashed", borderColor: bad ? colour.danger : preview.conflict ? colour.warning : colour.pitch600, backgroundColor: bad ? "rgba(193,34,27,0.08)" : "rgba(50,166,101,0.12)" }} />
+                  <View pointerEvents="none" style={{ position: "absolute", left: minutesToX(w.start, scale), width: widthForMinutes(w.end - w.start, scale), top: row.top + 2, height: row.height - 4, borderRadius: radius.md, borderWidth: 2, borderStyle: "dashed", borderColor: bad ? colour.danger : preview.conflict ? colour.warning : colour.pitch600, backgroundColor: bad ? "rgba(193,34,27,0.08)" : "rgba(50,166,101,0.12)" }} />
                 )
               })()}
 
@@ -408,6 +410,11 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
   const reason = placed.conflict?.reason ?? placed.trainingReason
   const roomy = matchW >= 120
   const labelRoom = warmW >= 44
+  // COMPACT: a pitch drawn with more than one lane -- up to three concurrent bookings, split into
+  // horizontal strips sharing roughly one lane's worth of height (`laneHeightFor` in geometry.ts) --
+  // gives each fixture LESS VERTICAL ROOM than a fixture alone on its pitch. Below this threshold the
+  // opponent line and the shoulder captions are dropped rather than clipped or overlapping.
+  const compact = row.height < 90
   // THE MATCH'S OWN CONTENT-SPACE LEFT EDGE, exactly, at the moment of grab -- not the finger's screen
   // position converted through a measured origin. Wherever inside the card you grab it, this is what
   // moves; the card's own displacement (its OWN left/top, following the gesture's translation) is the
@@ -459,14 +466,14 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
   const cardBorderWidth = isStaged || severity ? 2 : 1
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View style={[{ position: "absolute", left, top: row.top + 4, width: total, height: LANE_HEIGHT - 8, shadowColor: "#071c14", shadowOffset: { width: 0, height: 4 }, opacity: isDragging ? 0.92 : 1 }, style]}>
+      <Animated.View style={[{ position: "absolute", left, top: row.top + (compact ? 2 : 4), width: total, height: row.height - (compact ? 4 : 8), shadowColor: "#071c14", shadowOffset: { width: 0, height: 4 }, opacity: isDragging ? 0.92 : 1 }, style]}>
         <Pressable
           accessible accessibilityRole="button" accessibilityLabel={a11y} onPress={() => onOpen(f)}
-          style={{ flex: 1, flexDirection: "row", borderRadius: radius.md, borderWidth: cardBorderWidth, borderColor: cardBorderColor, overflow: "hidden", backgroundColor: colour.surface }}
+          style={{ flex: 1, flexDirection: "row", borderRadius: compact ? radius.sm : radius.md, borderWidth: cardBorderWidth, borderColor: cardBorderColor, overflow: "hidden", backgroundColor: colour.surface }}
         >
           {warmW > 0 && (
             <View style={{ width: warmW, backgroundColor: "rgba(16,21,18,0.05)", justifyContent: "flex-end", padding: 3 }}>
-              {labelRoom && (
+              {labelRoom && !compact && (
                 <>
                   <Text style={[type.caption, { fontSize: 10, color: colour.inkMuted }]} numberOfLines={1}>Warm-up</Text>
                   <Text style={[type.caption, { fontSize: 10, color: colour.inkSubtle, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{minutesToTime(start)}</Text>
@@ -474,19 +481,19 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
               )}
             </View>
           )}
-          <View style={{ width: matchW, backgroundColor: severity === "hard" ? colour.dangerSurface : severity === "warning" ? colour.warningSurface : colour.mint100, paddingHorizontal: 8, paddingVertical: 5, justifyContent: "center" }}>
+          <View style={{ width: matchW, backgroundColor: severity === "hard" ? colour.dangerSurface : severity === "warning" ? colour.warningSurface : colour.mint100, paddingHorizontal: compact ? 6 : 8, paddingVertical: compact ? 2 : 5, justifyContent: "center" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              {severity && <TriangleAlert size={12} color={severity === "hard" ? colour.danger : colour.warning} />}
-              <Text style={[type.smallMedium, { color: colour.forest950, fontSize: roomy ? 13 : 12 }]} numberOfLines={roomy ? 2 : 1}>{f.homeTeamLabel}</Text>
+              {severity && <TriangleAlert size={compact ? 10 : 12} color={severity === "hard" ? colour.danger : colour.warning} />}
+              <Text style={[type.smallMedium, { color: colour.forest950, fontSize: compact ? 11 : roomy ? 13 : 12 }]} numberOfLines={roomy && !compact ? 2 : 1}>{f.homeTeamLabel}</Text>
             </View>
-            {roomy && <Text style={[type.caption, { color: colour.inkMuted }]} numberOfLines={1}>v {f.opponentLabel}</Text>}
-            <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
-              {roomy ? `${minutesToTime(playStart)} – ${minutesToTime(playEnd)}` : minutesToTime(playStart)}{isStaged ? " · staged" : ""}
+            {roomy && !compact && <Text style={[type.caption, { color: colour.inkMuted }]} numberOfLines={1}>v {f.opponentLabel}</Text>}
+            <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_600SemiBold", fontSize: compact ? 10 : 12 }]} numberOfLines={1}>
+              {roomy && !compact ? `${minutesToTime(playStart)} – ${minutesToTime(playEnd)}` : minutesToTime(playStart)}{isStaged ? " · staged" : ""}
             </Text>
           </View>
           {packW > 0 && (
             <View style={{ width: packW, backgroundColor: "rgba(16,21,18,0.05)", justifyContent: "flex-end", padding: 3 }}>
-              {packW >= 44 && (
+              {packW >= 44 && !compact && (
                 <>
                   <Text style={[type.caption, { fontSize: 10, color: colour.inkMuted }]} numberOfLines={1}>Pack-up</Text>
                   <Text style={[type.caption, { fontSize: 10, color: colour.inkSubtle, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{minutesToTime(end)}</Text>

@@ -415,11 +415,37 @@ gesture-lifecycle edges and on an actual snapped-key change, not per frame.
 `FixtureBlock`s and lane rows are memoised; the placed-block list recomputes
 only when fixtures, rows, conflicts or buffers change.
 
+## 23. Compact lanes for concurrent bookings on one pitch
+
+**MOBILE, visual refinement pass.** `geometry.ts`'s `laneHeightFor(lanes)`
+gives a pitch with only one booking the full, comfortable `LANE_HEIGHT`
+unchanged, but a pitch sharing two or three concurrent bookings (its own
+declared `laneCount`, or a genuine clash detected by the website's own
+`assignBookingLanes`/`laneRowCount`) compacts every lane on that pitch to a
+shorter, shared height rather than stacking each at full height — the pitch's
+total footprint grows by a fixed, small step per extra lane instead of
+multiplying, with a floor (`MIN_LANE_HEIGHT`) below which a lane never shrinks
+further. Lanes belonging to the SAME pitch sit close together
+(`COMPACT_LANE_GAP`); the gap after a pitch's last lane is still the normal,
+larger `LANE_GAP` that separates one pitch from the next, so pitches remain as
+easy to tell apart as before. `board.tsx`'s `FixtureBlock` gets a `compact`
+mode (`row.height < 90`) that drops the opponent line and the warm-up/pack-up
+text captions, keeping only the team name, kick-off time and the tinted
+buffer bands, so a compacted card stays legible rather than clipped. No lane
+math moved: `assignBookingLanes`/`laneRowCount` in the shared package are
+unchanged and still decide WHICH lane a fixture occupies; only how tall each
+lane is drawn changed. Pinned by a dedicated test in
+`pitch_allocation_board_ca11_2.test.mts`.
+
+**Also this pass:** the date-card's `marginTop` was 0, so it touched the dark
+header directly with no seam — given `space.lg`, matching the gap every other
+Club Admin screen puts between its header and its first card.
+
 ## Summary
 
 Every interaction is either exact parity with the website's domain behaviour
 through the identical shared package, or a documented native-appropriate
 addition (press-and-hold, auto-scroll, scale presets, compact chrome,
-capability re-probe on save) required by the difference between a mouse-driven
-desktop grid and a finger-driven phone screen. No web behaviour was changed to
-produce this map.
+capability re-probe on save, compact concurrent-booking lanes) required by the
+difference between a mouse-driven desktop grid and a finger-driven phone
+screen. No web behaviour was changed to produce this map.

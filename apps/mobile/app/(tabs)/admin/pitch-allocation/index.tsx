@@ -36,7 +36,7 @@ import { FixtureDetailSheet, LeaveSheet, MoveSheet, Sheet } from "../../../../sr
 import { minutesToTime, type BoardScale } from "../../../../src/pitch-allocation/geometry"
 import { shiftDate, summarise, todayIso, trayReason } from "../../../../src/pitch-allocation/model"
 import { draftBoard, fixtureById, isNoOp, placementPreview, savePayload, stageMove, stageRemoval, unstage, type StagedChanges } from "../../../../src/pitch-allocation/staging"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
+import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../../../../src/design/tokens"
 
 /**
  * PITCH ALLOCATION (CA-M11.2) -- a purpose-built rugby operations tool for a phone.
@@ -237,9 +237,12 @@ export default function PitchAllocationScreen() {
       {draft && dateIso && summary && (
         <>
           {/* THE DAY -- its own card, matching the summary chips and action pills below it rather than
-              sitting bare on the chalk ground. */}
+              sitting bare on the chalk ground. FOUND LIVE ON DEVICE: this card had no top margin at
+              all, so it touched the dark header directly -- a hard, unpolished seam. `space.lg` matches
+              the gap every other Club Admin screen puts between its own header and its first card
+              (`src/admin/screen.tsx`'s `paddingTop: space.xl` on its own content). */}
           {!fullScreen && (
-            <View style={{ marginHorizontal: space.md, marginBottom: space.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+            <View style={{ marginTop: space.lg, marginHorizontal: space.md, marginBottom: space.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden", ...elevation.card }}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Pressable accessibilityRole="button" accessibilityLabel="Previous day" onPress={() => navigateTo(shiftDate(dateIso, -1))} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}><ChevronLeft size={20} color={colour.ink} /></Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Choose a date, currently ${exactDate(dateIso)}`} onPress={() => setDatePicker(true)} style={{ flex: 1, minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: space.sm }}>

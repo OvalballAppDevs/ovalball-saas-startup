@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import {
-  AUTO_SCROLL_EDGE, END_MINUTES, LANE_GAP, LANE_HEIGHT, PX_PER_SLOT, SLOT_COUNT, SLOT_MINUTES, START_MINUTES,
-  autoScrollVelocity, boardHeight, hourMarks, laneRows, minutesToTime, minutesToX, timelineWidth, widthForMinutes, xToSnappedMinutes, yToLaneRow,
+  AUTO_SCROLL_EDGE, END_MINUTES, LANE_GAP, LANE_HEIGHT, MIN_LANE_HEIGHT, PX_PER_SLOT, SLOT_COUNT, SLOT_MINUTES, START_MINUTES,
+  autoScrollVelocity, boardHeight, hourMarks, laneHeightFor, laneRows, minutesToTime, minutesToX, timelineWidth, widthForMinutes, xToSnappedMinutes, yToLaneRow,
 } from "../../../apps/mobile/src/pitch-allocation/geometry"
 import { draftBoard, fixtureById, isNoOp, placementPreview, savePayload, stageMove, stageRemoval, unstage } from "../../../apps/mobile/src/pitch-allocation/staging"
 import { DEFAULT_SCHEDULING_POLICY, detectConflicts, fixtureOccupiedWindow, type AllocationFixture, type PitchAllocationBoard, type PitchOption } from "../../../packages/contracts/src/pitch-allocation"
@@ -72,19 +72,45 @@ test("time and pixels round-trip at both scales, and a finger position snaps to 
 
 // ------------------------------------------------------------------ lanes
 
-test("pitches are rows: a two-lane pitch is two rows, an inactive pitch is none, and a vertical position maps to exactly one lane", () => {
-  const rows = laneRows([{ id: "p1", lanes: 1, active: true }, { id: "p2", lanes: 2, active: true }, { id: "p3", lanes: 1, active: false }])
-  assert.deepEqual(rows.map((r) => [r.pitchId, r.laneIndex]), [["p1", 0], ["p2", 0], ["p2", 1]])
-  assert.equal(rows[1].top, LANE_HEIGHT + LANE_GAP)
-  assert.equal(boardHeight(rows), 3 * (LANE_HEIGHT + LANE_GAP) - LANE_GAP)
+test("a single-lane pitch is drawn at the full, comfortable lane height, one row, with a vertical position mapping to it", () => {
+  const rows = laneRows([{ id: "p1", lanes: 1, active: true }, { id: "p3", lanes: 1, active: false }])
+  assert.deepEqual(rows.map((r) => [r.pitchId, r.laneIndex]), [["p1", 0]])
+  assert.equal(rows[0].height, LANE_HEIGHT)
+  assert.equal(boardHeight(rows), LANE_HEIGHT)
   assert.equal(boardHeight([]), 0)
   assert.equal(yToLaneRow(0, rows)?.pitchId, "p1")
   assert.equal(yToLaneRow(LANE_HEIGHT + LANE_GAP - 1, rows)?.pitchId, "p1", "the gap below a lane still belongs to it")
-  assert.equal(yToLaneRow(LANE_HEIGHT + LANE_GAP, rows)?.laneIndex, 0)
-  assert.equal(yToLaneRow(LANE_HEIGHT + LANE_GAP, rows)?.pitchId, "p2")
-  assert.equal(yToLaneRow(2 * (LANE_HEIGHT + LANE_GAP) + 5, rows)?.laneIndex, 1)
   assert.equal(yToLaneRow(-1, rows), null, "above every lane is nowhere")
-  assert.equal(yToLaneRow(boardHeight(rows) + LANE_GAP, rows), null, "below every lane is nowhere")
+  assert.equal(yToLaneRow(LANE_HEIGHT + LANE_GAP, rows), null, "below every lane is nowhere")
+})
+
+test("up to three concurrent bookings on one pitch compact into horizontal strips sharing roughly one lane's height, never stacking at full height each", () => {
+  // one lane costs the full, comfortable height; two or three lanes on the SAME pitch cost much less
+  // than a naive stack (2x or 3x) would -- this is the whole point of "split into compact horizontal
+  // segments" rather than drawing three full-height rows for a triple-booked pitch.
+  assert.equal(laneHeightFor(1), LANE_HEIGHT)
+  assert.ok(laneHeightFor(2) < LANE_HEIGHT, "a shared lane is shorter than a lane alone")
+  assert.ok(laneHeightFor(3) < laneHeightFor(2), "three sharing are shorter still than two sharing")
+  assert.ok(laneHeightFor(2) * 2 < LANE_HEIGHT * 2, "two compacted lanes cost less than two full-height lanes")
+  assert.ok(laneHeightFor(3) * 3 < LANE_HEIGHT * 3, "three compacted lanes cost less than three full-height lanes")
+  assert.ok(laneHeightFor(3) >= MIN_LANE_HEIGHT, "even the most compact lane stays readable")
+
+  const rows = laneRows([{ id: "p1", lanes: 1, active: true }, { id: "p2", lanes: 3, active: true }])
+  assert.deepEqual(rows.map((r) => [r.pitchId, r.laneIndex]), [["p1", 0], ["p2", 0], ["p2", 1], ["p2", 2]])
+  assert.equal(rows[0].height, LANE_HEIGHT, "a pitch with only one booking is unaffected by another pitch's compacting")
+  for (const r of rows.slice(1)) assert.equal(r.height, laneHeightFor(3), "every lane sharing one pitch is the same compact height")
+  // p2's three lanes sit close together, not each separated by the full between-pitch gap
+  const internalGap = rows[2].top - (rows[1].top + rows[1].height)
+  const betweenPitchGap = rows[1].top - (rows[0].top + rows[0].height)
+  assert.ok(internalGap < betweenPitchGap, "lanes sharing a pitch sit closer together than two different pitches do")
+  assert.equal(betweenPitchGap, LANE_GAP, "the gap between DIFFERENT pitches is still the full gap")
+  // hit-testing resolves correctly across variable-height rows, including the compact ones
+  assert.equal(yToLaneRow(rows[0].top, rows)?.pitchId, "p1")
+  assert.equal(yToLaneRow(rows[1].top, rows)?.laneIndex, 0)
+  assert.equal(yToLaneRow(rows[2].top, rows)?.laneIndex, 1)
+  assert.equal(yToLaneRow(rows[3].top, rows)?.laneIndex, 2)
+  assert.equal(yToLaneRow(rows[3].top + rows[3].height + LANE_GAP - 1, rows)?.laneIndex, 2, "the gap after the LAST lane of a pitch still belongs to it")
+  assert.equal(boardHeight(rows), rows[3].top + rows[3].height)
 })
 
 test("auto-scroll only near an edge, faster the closer the finger", () => {

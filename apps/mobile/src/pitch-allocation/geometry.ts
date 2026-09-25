@@ -74,17 +74,42 @@ export function hourMarks(): { minutes: number; label: string }[] {
   return marks
 }
 
-/** One row of the board: a pitch lane (a pitch with N lanes is N rows) at a known vertical offset. */
+/** One row of the board: a pitch lane (a pitch with N lanes is N rows) at a known vertical offset and
+ * a known height of its OWN -- see `laneHeightFor` for why this is not always `LANE_HEIGHT`. */
 export interface LaneRow {
   pitchId: string
   laneIndex: number
   top: number
+  height: number
+}
+
+/** How tall to draw MINIMUM READABLE per-lane row remains, however many lanes share a pitch. */
+export const MIN_LANE_HEIGHT = 40
+const COMPACT_LANE_GAP = 3
+/** How much a pitch's TOTAL footprint grows for each concurrent lane beyond the first, rather than the
+ * full `LANE_HEIGHT` a naive stack would cost. */
+const COMPACT_STEP = 42
+
+/**
+ * A SINGLE booking gets the full, comfortable `LANE_HEIGHT`. Up to three CONCURRENT bookings on the
+ * same pitch (a pitch's own declared `laneCount`, or more when genuinely double/triple-booked --
+ * `laneRowCount`'s split-square rule) are compacted into horizontal strips that share roughly one
+ * lane's worth of vertical space between them, not three separate full-height rows: the request this
+ * answers directly is "3 fixtures on one pitch, split into compact horizontal segments" -- a pitch
+ * hosting three five-a-side games at once should not cost 3x the screen a single game would.
+ */
+export function laneHeightFor(lanes: number): number {
+  if (lanes <= 1) return LANE_HEIGHT
+  const total = LANE_HEIGHT + (lanes - 1) * COMPACT_STEP
+  const perLane = Math.floor((total - (lanes - 1) * COMPACT_LANE_GAP) / lanes)
+  return Math.max(MIN_LANE_HEIGHT, perLane)
 }
 
 /**
  * `lanes` is the number of rows a pitch is DRAWN with: its declared capacity, or more when it has been
  * double-booked (the website's split-square rule, `laneRowCount`) -- so a clash is visible, never hidden
- * under another card.
+ * under another card. Lanes belonging to the SAME pitch sit close together (`COMPACT_LANE_GAP`); the
+ * gap after a pitch's LAST lane is the normal, larger `LANE_GAP` that separates one pitch from the next.
  */
 export function laneRows(pitches: { id: string; lanes: number; active: boolean }[]): LaneRow[] {
   const rows: LaneRow[] = []
@@ -92,22 +117,29 @@ export function laneRows(pitches: { id: string; lanes: number; active: boolean }
   for (const p of pitches) {
     if (!p.active) continue
     const lanes = Math.max(1, p.lanes)
+    const height = laneHeightFor(lanes)
     for (let i = 0; i < lanes; i += 1) {
-      rows.push({ pitchId: p.id, laneIndex: i, top })
-      top += LANE_HEIGHT + LANE_GAP
+      rows.push({ pitchId: p.id, laneIndex: i, top, height })
+      top += height + (i === lanes - 1 ? LANE_GAP : COMPACT_LANE_GAP)
     }
   }
   return rows
 }
 
 export function boardHeight(rows: LaneRow[]): number {
-  return rows.length === 0 ? 0 : rows.length * (LANE_HEIGHT + LANE_GAP) - LANE_GAP
+  if (rows.length === 0) return 0
+  const last = rows[rows.length - 1]
+  return last.top + last.height
 }
 
-/** The lane under a vertical position, or null when the finger is above or below every lane. */
+/** The lane under a vertical position, or null when the finger is above or below every lane. Each
+ * row's own boundary runs to wherever the NEXT row starts (so the gap after it still belongs to it,
+ * exactly as before) -- correct for both uniform and compacted, variable-height rows. */
 export function yToLaneRow(y: number, rows: LaneRow[]): LaneRow | null {
-  for (const row of rows) {
-    if (y >= row.top && y < row.top + LANE_HEIGHT + LANE_GAP) return row
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i]
+    const boundary = i + 1 < rows.length ? rows[i + 1].top : row.top + row.height + LANE_GAP
+    if (y >= row.top && y < boundary) return row
   }
   return null
 }
