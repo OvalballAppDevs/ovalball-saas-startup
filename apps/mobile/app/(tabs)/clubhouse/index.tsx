@@ -1,15 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { FlatList, Image, Linking, Pressable, Share, Text, TextInput, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { Camera, GeoJSONSource, Layer, Map as MapLibreMap, type CameraRef, type MapRef } from "@maplibre/maplibre-react-native"
-import type { NativeSyntheticEvent } from "react-native"
-import type { PressEventWithFeatures } from "@maplibre/maplibre-react-native"
+import Constants from "expo-constants"
 
 import {
   applyClubhouseDistanceFilter,
   applyClubhouseFilter,
-  buildClubMarkerFeatureCollection,
   distanceMiles,
   findDistanceOrigin,
   inviteClubToOvalball,
@@ -73,7 +70,9 @@ export default function Clubhouse() {
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<ClubhouseFilter>("all")
   const [distance, setDistance] = useState<ClubhouseDistanceFilter>("any")
-  const [mode, setMode] = useState<"map" | "list">("map")
+  // In Expo Go the map can't render at all (see the EXPO GO CANNOT RUN MAPLIBRE comment below) -- List
+  // opens by default there so the screen is immediately useful rather than landing on a dead end.
+  const [mode, setMode] = useState<"map" | "list">(isExpoGo ? "list" : "map")
   const [selected, setSelected] = useState<ClubMapMarker | null>(null)
   const [chromeExpanded, setChromeExpanded] = useState(false)
 
@@ -277,106 +276,35 @@ function ModeButton({ label, icon, active, onPress }: { label: string; icon: Rea
 }
 
 /**
- * UK-WIDE DEFAULT CAMERA. No device-location permission is requested to use Clubhouse at all
- * (Section 56) -- the map opens centred on Great Britain, which is where the whole current directory
- * sits, rather than asking for a permission the product does not need for its core job.
- */
-const UK_CENTER: [number, number] = [-2.5, 54.0]
-const UK_ZOOM = 5
-
-/**
- * MAPLIBRE MAP: clustered GeoJSON source, minimal marker payload (Section 62). Individual clubs render
- * as a coloured circle (own-club/partner/on-Ovalball/directory-only told apart by paint expression,
- * never colour alone -- the bottom sheet carries the word); crest imagery renders in the sheet and the
- * list, not as a per-point raster on the map itself (a real MapLibre image-sprite integration for
- * ~100+ distinct remote crest URLs is deferred past V1 -- see the Clubhouse completion report).
+ * EXPO GO CANNOT RUN MAPLIBRE. Confirmed live on a real device: `TurboModuleRegistry.getEnforcing(...):
+ * 'MLRNCameraModule' could not be found` -- Expo Go only ships the fixed native-module set built into
+ * the Expo Go client itself, and MapLibre's native code was never part of it (this was flagged as a
+ * real risk in every Clubhouse report; it could not be verified without a physical device until now).
  *
- * STYLE SOURCE. `mapStyle` below points at MapLibre's own demo tiles
- * (https://demotiles.maplibre.org/style.json) -- explicitly provided by the MapLibre project for
- * exactly this kind of development use, keyless and serverless. THIS IS NOT A PRODUCTION TILE SOURCE.
- * A real release needs a paid commercial tile/style plan (Stadia Maps or MapTiler both require one --
- * neither offers a free commercial tier; see the completion report for the researched pricing) chosen
- * and provisioned by the product owner before this ships, then swapped in here as the one constant.
+ * `Constants.appOwnership === "expo"` is the precise (if formally deprecated) signal for "this is
+ * genuinely the Expo Go app," as opposed to a real development build, which DOES carry the native
+ * module and works exactly as designed. `native-map.tsx` is required via a runtime `require()` call --
+ * never a static `import` -- specifically so its top-level MapLibre registration code never executes
+ * inside Expo Go: a static import is hoisted and evaluated the instant Metro includes the file in the
+ * bundle graph, which is what crashed the whole app rather than only the Clubhouse tab.
  */
-const DEVELOPMENT_MAP_STYLE = "https://demotiles.maplibre.org/style.json"
+const isExpoGo = Constants.appOwnership === "expo"
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate: see the comment above.
+const NativeMap = isExpoGo ? null : (require("./native-map") as typeof import("./native-map")).ClubhouseMap
 
 function ClubhouseMap({ markers, onSelect }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void }) {
-  const cameraRef = useRef<CameraRef>(null)
-  const mapRef = useRef<MapRef>(null)
-
-  const geojson = useMemo(() => buildClubMarkerFeatureCollection(markers), [markers])
-
-  const markerById = useMemo(() => new Map(markers.map((m) => [m.directoryId, m])), [markers])
-
-  const onSourcePress = useCallback(
-    (event: NativeSyntheticEvent<PressEventWithFeatures>) => {
-      const feature = event.nativeEvent.features?.[0]
-      if (!feature) return
-      const props = feature.properties as { directoryId?: string; cluster?: boolean } | null
-      if (!props) return
-      if (props.cluster) {
-        // Cluster expansion: MapLibre's own getClusterExpansionZoom would need the source ref and a
-        // round trip; the simpler, reliable V1 behaviour is to step the camera in on the tapped
-        // cluster's own coordinate, which is what every point-cluster map does on a first tap anyway.
-        const coords = (feature.geometry as GeoJSON.Point | undefined)?.coordinates
-        if (coords) {
-          cameraRef.current?.easeTo({ center: [coords[0], coords[1]], zoom: 9, duration: 350 })
-        }
-        return
-      }
-      const directoryId = props.directoryId
-      const marker = directoryId ? markerById.get(directoryId) : undefined
-      if (marker) onSelect(marker)
-    },
-    [markerById, onSelect]
-  )
-
-  return (
-    <MapLibreMap ref={mapRef} mapStyle={DEVELOPMENT_MAP_STYLE} style={{ flex: 1 }}>
-      <Camera ref={cameraRef} initialViewState={{ center: UK_CENTER, zoom: UK_ZOOM }} />
-      <GeoJSONSource id="clubhouseClubs" data={geojson} cluster clusterRadius={45} clusterMaxZoom={11} onPress={onSourcePress}>
-        <Layer
-          id="clubhouseClusterCircles"
-          type="circle"
-          filter={["has", "point_count"]}
-          paint={{
-            "circle-color": colour.forest800,
-            "circle-radius": ["step", ["get", "point_count"], 16, 10, 20, 50, 26],
-            "circle-stroke-width": 2,
-            "circle-stroke-color": colour.chalk,
-          }}
-        />
-        <Layer
-          id="clubhouseClusterCount"
-          type="symbol"
-          filter={["has", "point_count"]}
-          layout={{
-            "text-field": ["get", "point_count_abbreviated"],
-            "text-size": 13,
-            "text-font": ["Noto Sans Bold"],
-          }}
-          paint={{ "text-color": colour.onForest }}
-        />
-        <Layer
-          id="clubhouseClubPoints"
-          type="circle"
-          filter={["!", ["has", "point_count"]]}
-          paint={{
-            "circle-radius": 8,
-            "circle-color": [
-              "case",
-              ["get", "isOwnClub"], colour.pitch400,
-              ["==", ["get", "partnershipStatus"], "active"], colour.pitch600,
-              ["==", ["get", "networkState"], "on_ovalball"], colour.forest800,
-              "#9aa39c",
-            ],
-            "circle-stroke-width": 2,
-            "circle-stroke-color": colour.chalk,
-          }}
-        />
-      </GeoJSONSource>
-    </MapLibreMap>
-  )
+  if (isExpoGo || !NativeMap) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl, gap: space.sm }}>
+        <MapPin size={32} color={colour.inkSubtle} />
+        <Text style={[type.small, { color: colour.ink, textAlign: "center" }]}>The map needs a development build</Text>
+        <Text style={[type.caption, { color: colour.inkMuted, textAlign: "center" }]}>
+          Expo Go can&apos;t run the native map component. Switch to List below, or open this build from a development client.
+        </Text>
+      </View>
+    )
+  }
+  return <NativeMap markers={markers} onSelect={onSelect} />
 }
 
 function ClubhouseList({ markers, onSelect, topInset }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void; topInset: number }) {
