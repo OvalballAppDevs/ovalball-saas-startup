@@ -86,7 +86,7 @@ test("the phone stages moves and saves them through the same atomic write, one p
   for (const fn of ["detectConflicts", "detectResourceConflicts", "detectTournamentConflicts", "partitionAllocation", "fixtureOccupiedWindow", "unallocatedReason"]) assert.match(model, new RegExp(fn), `${fn} is not the shared one`)
   assert.doesNotMatch(model, /[-+]\s*(?:\w+\.)*(warmUpMinutes|packUpMinutes)\b/, "the phone recomputes the occupied window itself")
   // a staged move is reflected honestly: two fixtures on one single-lane pitch at the same time clash
-  const pitch: PitchOption = { id: "p1", displayName: "Pitch 1", active: true, venueId: "v1", sizeCategory: "full", laneCount: 1 }
+  const pitch: PitchOption = { id: "p1", displayName: "Pitch 1", active: true, venueId: "v1", physicalSizeCategory: "full", customLengthM: null, customWidthM: null, layout: "full_only", laneCount: 1 }
   const fixture = (id: string, pitchId: string | null, kickoffTime: string | null): AllocationFixture => ({
     fixtureId: id, homeTeamId: "t" + id, homeTeamLabel: "Under 12 Boys", opponentLabel: "Them", category: "youth", ageGroup: "U12", gender: "boys", status: "Planned",
     kickoffDate: "2026-10-03", kickoffTime, venueId: "v1", pitchId, durationMinutes: 50, durationConfidence: "confirmed", requiredPitchSize: "full", requiresOpponentAgreement: false,

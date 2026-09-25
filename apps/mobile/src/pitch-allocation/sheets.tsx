@@ -3,7 +3,7 @@ import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "r
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import DateTimePicker from "@react-native-community/datetimepicker"
 
-import { fixtureOccupiedWindow, pitchSuitable, type AllocationConflict, type AllocationFixture, type PitchAllocationBoard, type PitchOption } from "@ovalball/contracts/pitch-allocation"
+import { fixtureOccupiedWindow, physicalSizeCategoryLabel, pitchSuitable, type AllocationConflict, type AllocationFixture, type PitchAllocationBoard, type PitchOption } from "@ovalball/contracts/pitch-allocation"
 
 import { minutesToTime, xToSnappedMinutes, START_MINUTES, END_MINUTES, SLOT_MINUTES, kickoffMinutes } from "./geometry"
 import { Button } from "../components/ui"
@@ -163,7 +163,7 @@ export function MoveSheet({ fixture, board, pitchName, previewFor, onClose, onSt
                 <Pressable key={p.id} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${p.displayName}${ok ? "" : ", too small for this age group"}`} onPress={() => setPitchId(p.id)} style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: on ? colour.pitch600 : colour.line, backgroundColor: on ? colour.mint100 : colour.surface }}>
                   <View style={{ flex: 1 }}>
                     <Text style={[type.small, { color: colour.ink }]}>{p.displayName}</Text>
-                    <Text style={[type.caption, { color: colour.inkMuted }]}>{pitchName(p.venueId)}{p.sizeCategory ? ` · ${p.sizeCategory}` : ""}{ok ? "" : " · too small for this age group"}</Text>
+                    <Text style={[type.caption, { color: colour.inkMuted }]}>{pitchName(p.venueId)} · {physicalSizeCategoryLabel(p.physicalSizeCategory)}{ok ? "" : " · too small for this age group"}</Text>
                   </View>
                 </Pressable>
               )

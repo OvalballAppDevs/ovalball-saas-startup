@@ -1,4 +1,4 @@
-import { footprintBudgetExceeded, matchFootprintFor, pitchCapacityUnits, type PitchFootprint } from "./footprint"
+import { footprintBudgetExceeded, footprintUnits, matchFootprintFor, pitchCapacityUnits, pitchPhysicalSizeUnits, type PitchFootprint } from "./footprint"
 import { fixtureOccupiedWindow } from "./occupancy"
 import type { AllocationConflict, AllocationFixture, ClubSchedulingPolicy, PitchOption, ProposedPlacement } from "./types"
 
@@ -82,13 +82,16 @@ function preferenceBands(fixture: Pick<AllocationFixture, "category" | "ageGroup
   return [{ start: timeToMinutes(policy.weekendSeniorEarliest), end: timeToMinutes(policy.weekendSeniorLatest) }]
 }
 
-/** mini fits only mini pitches; reduced fits reduced or full; full fits only full -- a smaller pitch is never substituted for a fixture that needs more room (Section 45: HARD BLOCK, safety-adjacent). */
+/** A smaller physical pitch is never substituted for a fixture that needs more room (Section 45: HARD
+ * BLOCK, safety-adjacent) -- compares the match's own required footprint against the pitch's own
+ * configured physical size, in the same quarter-pitch units (footprint.ts), replacing a string-tier
+ * comparison that only understood the three fixture_scheduling_rules tiers, not Grounds & Pitches'
+ * four physical-size tiers (full / three-quarter / half / custom). */
 export function pitchSuitable(pitch: PitchOption, required: AllocationFixture["requiredPitchSize"]): boolean {
   if (!pitch.active) return false
-  if (!required || !pitch.sizeCategory) return true // unclassified either side -- permissive, never a fabricated block
-  if (required === "mini") return pitch.sizeCategory === "mini"
-  if (required === "reduced") return pitch.sizeCategory === "reduced" || pitch.sizeCategory === "full"
-  return pitch.sizeCategory === "full"
+  const requiredFootprint = matchFootprintFor(required).footprint
+  if (!requiredFootprint) return true // unresolved match requirement -- permissive, never a fabricated block
+  return footprintUnits(requiredFootprint) <= pitchPhysicalSizeUnits(pitch)
 }
 
 /**
@@ -195,11 +198,10 @@ export function autoAllocate(
           const overlapping = bookings.filter((b) => b.pitchId === pitch.id && occupiedStart < b.end && occupiedEnd > b.start)
           if (overlapping.length >= pitch.laneCount) continue
           // PITCH-CAPACITY CORRECTION: the SAME unit-budget check detectConflicts uses, so Auto
-          // Allocate never proposes a placement the board would immediately flag red. Inert (falls
-          // back to the laneCount-only check above) unless the pitch's size_category is classified.
+          // Allocate never proposes a placement the board would immediately flag red.
           const candidateFootprint = matchFootprintFor(fixture.requiredPitchSize).footprint
-          const capacityUnits = pitchCapacityUnits(pitch.sizeCategory)
-          if (capacityUnits !== null && footprintBudgetExceeded([...overlapping.map((b) => b.footprint ?? null), candidateFootprint], capacityUnits)) continue
+          const capacityUnits = pitchCapacityUnits(pitch)
+          if (footprintBudgetExceeded([...overlapping.map((b) => b.footprint ?? null), candidateFootprint], capacityUnits)) continue
           bookings.push({ pitchId: pitch.id, start: occupiedStart, end: occupiedEnd, footprint: candidateFootprint })
           // Only the FINAL band (the late last-resort one) is ever flagged
           // -- the early-afternoon fallback (band 1, still a genuinely
@@ -290,10 +292,10 @@ export function detectConflicts(
     // PITCH-CAPACITY CORRECTION (footprint.ts): laneCount alone is a raw
     // headcount with no notion of SIZE -- two reduced-size matches and two
     // full-size matches were treated identically as long as the count fit.
-    // `capacityUnits` is null (and this whole check inert, falling back to
-    // the pre-existing laneCount-only behaviour exactly) unless the club has
-    // classified this pitch's own size_category; it is never guessed.
-    const capacityUnits = pitchCapacityUnits(pitch?.sizeCategory ?? null)
+    // A pitch this board doesn't otherwise know about is treated exactly
+    // like the database's own default (full size, never configured) --
+    // never a fabricated smaller/larger budget.
+    const capacityUnits = pitchCapacityUnits(pitch ?? { physicalSizeCategory: "full", customLengthM: null, customWidthM: null })
     // Section 31-40: warm-up before, pack-up after -- the real occupied
     // window, not just the play duration. Computed by the one shared
     // primitive, so this test and the band drawn on screen cannot disagree.
@@ -314,7 +316,7 @@ export function detectConflicts(
       // own (Section 38: "FULL consumes all subdivisions"), so this is never
       // a false negative in the case that matters most, even when the club
       // has never set a laneCount above 1.
-      const overBudget = capacityUnits !== null && footprintBudgetExceeded(active.map((a) => a.footprint), capacityUnits)
+      const overBudget = footprintBudgetExceeded(active.map((a) => a.footprint), capacityUnits)
       if (overCount || overBudget) {
         const others = active.filter((a) => a !== w).map((a) => `${a.fixture.homeTeamLabel} v ${a.fixture.opponentLabel}`)
         const reason = overBudget && w.footprint === "full"

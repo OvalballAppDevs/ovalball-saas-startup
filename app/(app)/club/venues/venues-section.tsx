@@ -4,18 +4,23 @@ import { useState } from "react"
 import { ArrowDown, ArrowUp, LayoutGrid, MapPin, Navigation } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AddressLookupField } from "@/components/address/address-lookup-field"
 import { cn } from "@/lib/utils"
+import { layoutAreaCount, layoutLabel, physicalSizeCategoryLabel, pitchConfigurationSummary, pitchPhysicalSizeUnits } from "@ovalball/contracts/pitch-allocation"
+import { pitchConfigurationInputFrom, pitchConfigurationInputProblem, type PitchConfigurationInput } from "@ovalball/contracts/club/venues"
 
 import {
+  checkPitchConfigurationImpact,
   createClubPitch,
   createVenue,
   lookupVenueAddress,
   renameClubPitch,
   reorderClubPitches,
   setClubPitchActive,
+  setClubPitchConfiguration,
   setClubPitchVenue,
   setDefaultVenue,
   setVenueActive,
@@ -565,6 +570,7 @@ function PitchesTab({
   const [pending, setPending] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
+  const [configuringPitch, setConfiguringPitch] = useState<PitchWithVenue | null>(null)
 
   // Map for looking up a venue even when it's since been deactivated --
   // a pitch pointed at a now-inactive venue must still show which venue
@@ -683,6 +689,7 @@ function PitchesTab({
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink">{pitch.displayName}</p>
                       {pitch.description && <p className="truncate text-xs text-ink-muted">{pitch.description}</p>}
+                      <p className="truncate text-xs text-ink-muted">{pitchConfigurationSummary(pitch)}</p>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -744,6 +751,9 @@ function PitchesTab({
                           }}
                         >
                           Edit
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => setConfiguringPitch(pitch)}>
+                          Configure
                         </Button>
                         <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive-text" disabled={pending} onClick={() => handleToggleActive(pitch)}>
                           Deactivate
@@ -825,6 +835,197 @@ function PitchesTab({
           )}
         </div>
       )}
+
+      {configuringPitch && (
+        <PitchConfigurationDialog
+          pitch={configuringPitch}
+          onClose={() => setConfiguringPitch(null)}
+          onSaved={(pitchId, input) => {
+            setPitches((prev) =>
+              prev.map((p) =>
+                p.id === pitchId
+                  ? {
+                      ...p,
+                      physicalSizeCategory: input.physicalSizeCategory,
+                      customLengthM: input.physicalSizeCategory === "custom" ? Number(input.customLengthM) : null,
+                      customWidthM: input.physicalSizeCategory === "custom" ? Number(input.customWidthM) : null,
+                      layout: input.layout,
+                      laneCount: input.layout === "two_halves" ? 2 : input.layout === "four_quarters" ? 4 : 1,
+                    }
+                  : p
+              )
+            )
+            setConfiguringPitch(null)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * CA-M11.2 Grounds & Pitches: the physical-size / split-layout editor, both clients. Human-readable
+ * wording throughout (Section 2/7) -- never the raw physical_size_category/layout enum values, and
+ * never the internal lane_count number.
+ */
+function PitchConfigurationDialog({ pitch, onClose, onSaved }: { pitch: PitchWithVenue; onClose: () => void; onSaved: (pitchId: string, input: PitchConfigurationInput) => void }) {
+  const [draft, setDraft] = useState<PitchConfigurationInput>(() => pitchConfigurationInputFrom(pitch))
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [impact, setImpact] = useState<{ affectedDates: string[]; affectedFixtureCount: number } | null>(null)
+  const [impactChecked, setImpactChecked] = useState(false)
+
+  const problem = pitchConfigurationInputProblem(draft)
+  // Section 29's impact check is for NARROWING only -- widening (more areas, or a bigger physical size)
+  // can never turn an existing valid allocation into a new conflict, so it would be pure noise here.
+  const narrowing =
+    layoutAreaCount(draft.layout) < layoutAreaCount(pitch.layout) ||
+    pitchPhysicalSizeUnits({ physicalSizeCategory: draft.physicalSizeCategory, customLengthM: draft.physicalSizeCategory === "custom" ? Number(draft.customLengthM) || null : null, customWidthM: draft.physicalSizeCategory === "custom" ? Number(draft.customWidthM) || null : null }) <
+      pitchPhysicalSizeUnits(pitch)
+
+  async function handleSave() {
+    setError(null)
+    // Section 29: check for affected future bookings once, before the first save attempt when
+    // narrowing -- a real, live signal, not a client-side guess, and never a silent auto-fix.
+    if (narrowing && !impactChecked) {
+      setPending(true)
+      const result = await checkPitchConfigurationImpact(pitch.id)
+      setPending(false)
+      setImpactChecked(true)
+      if (result.affectedDates.length > 0) {
+        setImpact(result)
+        return
+      }
+    }
+    setPending(true)
+    const result = await setClubPitchConfiguration(pitch.id, draft)
+    setPending(false)
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
+    onSaved(pitch.id, draft)
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Configure {pitch.displayName}</DialogTitle>
+          <DialogDescription>What this physical pitch is, and how it can be used at the same time.</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <div>
+            <Label htmlFor="pitch-size" className="text-ink/80">
+              Pitch Size
+            </Label>
+            <select
+              id="pitch-size"
+              value={draft.physicalSizeCategory}
+              onChange={(e) => {
+                setImpactChecked(false)
+                setImpact(null)
+                setDraft((d) => ({ ...d, physicalSizeCategory: e.target.value as PitchConfigurationInput["physicalSizeCategory"] }))
+              }}
+              className="mt-1.5 h-10 w-full rounded-md border border-ink/15 bg-white px-2 text-sm text-ink outline-none focus-visible:border-pitch-600"
+            >
+              {(["full", "three_quarter", "half", "custom"] as const).map((c) => (
+                <option key={c} value={c}>
+                  {physicalSizeCategoryLabel(c)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {draft.physicalSizeCategory === "custom" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="pitch-length" className="text-ink/80">
+                  Length (M)
+                </Label>
+                <Input
+                  id="pitch-length"
+                  type="number"
+                  min="1"
+                  step="0.1"
+                  value={draft.customLengthM}
+                  onChange={(e) => {
+                    setImpactChecked(false)
+                    setImpact(null)
+                    setDraft((d) => ({ ...d, customLengthM: e.target.value }))
+                  }}
+                  className="mt-1.5 h-10 border-ink/15 bg-white"
+                />
+              </div>
+              <div>
+                <Label htmlFor="pitch-width" className="text-ink/80">
+                  Width (M)
+                </Label>
+                <Input
+                  id="pitch-width"
+                  type="number"
+                  min="1"
+                  step="0.1"
+                  value={draft.customWidthM}
+                  onChange={(e) => {
+                    setImpactChecked(false)
+                    setImpact(null)
+                    setDraft((d) => ({ ...d, customWidthM: e.target.value }))
+                  }}
+                  className="mt-1.5 h-10 border-ink/15 bg-white"
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="pitch-layout" className="text-ink/80">
+              How can this pitch be used?
+            </Label>
+            <select
+              id="pitch-layout"
+              value={draft.layout}
+              onChange={(e) => {
+                setImpactChecked(false)
+                setImpact(null)
+                setDraft((d) => ({ ...d, layout: e.target.value as PitchConfigurationInput["layout"] }))
+              }}
+              className="mt-1.5 h-10 w-full rounded-md border border-ink/15 bg-white px-2 text-sm text-ink outline-none focus-visible:border-pitch-600"
+            >
+              {(["full_only", "two_halves", "four_quarters"] as const).map((l) => (
+                <option key={l} value={l}>
+                  {layoutLabel(l)}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-xs text-ink-muted">
+              {draft.layout === "full_only" ? "One fixture or training session at a time on this pitch." : `Up to ${draft.layout === "two_halves" ? 2 : 4} compatible-sized fixtures or training sessions at once.`}
+            </p>
+          </div>
+
+          {impact && impact.affectedDates.length > 0 && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="font-medium">
+                {impact.affectedDates.length} future date{impact.affectedDates.length === 1 ? "" : "s"} currently ha{impact.affectedDates.length === 1 ? "s" : "ve"} more than one booking on this
+                pitch.
+              </p>
+              <p className="mt-1 text-xs">Narrowing this pitch&apos;s configuration may leave some of those overlapping. Nothing is moved or cancelled automatically -- review Pitch Allocation for those dates after saving.</p>
+            </div>
+          )}
+
+          {(error || problem) && <p className="text-sm text-destructive-text">{error ?? problem}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
+            Cancel
+          </Button>
+          <Button type="button" disabled={pending || !!problem} onClick={handleSave}>
+            {pending ? "Saving…" : impact && impact.affectedDates.length > 0 ? "Save Anyway" : "Save Pitch"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

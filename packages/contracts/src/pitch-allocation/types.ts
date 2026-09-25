@@ -10,8 +10,17 @@ export interface PitchOption {
   displayName: string
   active: boolean
   venueId: string | null
-  sizeCategory: "mini" | "reduced" | "full" | null
-  /** Section 41-47: how many fixtures this physical pitch can genuinely host at the same time. 1 (the normal case) preserves today's exactly-one-booking-at-a-time behaviour. */
+  /** CA-M11.2 Grounds & Pitches: what this physical pitch IS -- set through `set_club_pitch_configuration`.
+   * Never conflated with `AllocationFixture.requiredPitchSize`, a MATCH's own age-grade-driven requirement. */
+  physicalSizeCategory: "full" | "three_quarter" | "half" | "custom"
+  customLengthM: number | null
+  customWidthM: number | null
+  /** How the club has chosen to USE this physical pitch concurrently -- independent of its physical size
+   * (see footprint.ts's own header comment). Drives `laneCount` below. */
+  layout: "full_only" | "two_halves" | "four_quarters"
+  /** GENERATED, at the database, from `layout` (full_only=1, two_halves=2, four_quarters=4) -- how many
+   * fixtures this physical pitch can genuinely host at the same time. 1 (the default) preserves today's
+   * exactly-one-booking-at-a-time behaviour for every pitch the club has never explicitly configured. */
   laneCount: number
 }
 

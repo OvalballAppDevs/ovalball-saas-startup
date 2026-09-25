@@ -4,11 +4,14 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import {
   createClubPitch,
   EMPTY_VENUE_INPUT,
+  pitchConfigurationInputFrom,
+  pitchConfigurationInputProblem,
   readClubVenues,
   readVenueCapabilities,
   renameClubPitch,
   saveClubVenue,
   setClubPitchActive,
+  setClubPitchConfiguration,
   setDefaultVenue,
   setVenueActive,
   venueErrorMessage,
@@ -17,9 +20,11 @@ import {
   venueMapsQuery,
   type ClubPitch,
   type ClubVenue,
+  type PitchConfigurationInput,
   type VenueCapabilities,
   type VenueInput,
 } from "@ovalball/contracts/club/venues"
+import { layoutAreaCount, layoutLabel, physicalSizeCategoryLabel, pitchConfigurationImpact, pitchConfigurationSummary, pitchPhysicalSizeUnits, type PitchConfigurationImpact } from "@ovalball/contracts/pitch-allocation"
 
 import { AdminScreen } from "../../../../src/admin/screen"
 import { useAdminCentreAccess } from "../../../../src/admin/access"
@@ -247,7 +252,7 @@ export default function VenueScreen() {
   )
 }
 
-function Field({ label, value, onChange, editable, multiline = false, placeholder, autoCapitalize = "words" }: { label: string; value: string; onChange: (v: string) => void; editable: boolean; multiline?: boolean; placeholder?: string; autoCapitalize?: "none" | "words" | "sentences" | "characters" }) {
+function Field({ label, value, onChange, editable, multiline = false, placeholder, autoCapitalize = "words", keyboardType = "default" }: { label: string; value: string; onChange: (v: string) => void; editable: boolean; multiline?: boolean; placeholder?: string; autoCapitalize?: "none" | "words" | "sentences" | "characters"; keyboardType?: "default" | "decimal-pad" }) {
   return (
     <View style={{ gap: 6 }}>
       <Text style={[type.smallMedium, { color: colour.ink }]}>{label}</Text>
@@ -263,6 +268,7 @@ function Field({ label, value, onChange, editable, multiline = false, placeholde
         placeholder={placeholder}
         placeholderTextColor={colour.inkSubtle}
         selectionColor={colour.pitch600}
+        keyboardType={keyboardType}
         style={[type.body, { minHeight: multiline ? 88 : TOUCH_TARGET, paddingHorizontal: space.md, paddingVertical: multiline ? space.md : 0, textAlignVertical: multiline ? "top" : "center", borderRadius: radius.md, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: editable ? colour.surface : "rgba(16,21,18,0.03)", color: editable ? colour.ink : colour.inkMuted }]}
       />
     </View>
@@ -273,6 +279,7 @@ function PitchesSection({ clubId, venue, pitches, canManage, busy, run }: { club
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState("")
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
+  const [configuringId, setConfiguringId] = useState<string | null>(null)
   return (
     <View style={{ gap: space.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -298,15 +305,27 @@ function PitchesSection({ clubId, venue, pitches, canManage, busy, run }: { club
                   <Button label="Save Pitch" onPress={() => void run(async () => { await renameClubPitch(supabase, p.id, renaming.name); setRenaming(null) }, "this pitch")} busy={busy} disabled={!renaming.name.trim()} style={{ flex: 1 }} />
                 </View>
               </View>
+            ) : configuringId === p.id ? (
+              <PitchConfigurationEditor
+                pitch={p}
+                busy={busy}
+                onCancel={() => setConfiguringId(null)}
+                onSave={async (input) => {
+                  await run(() => setClubPitchConfiguration(supabase, p.id, input), "this pitch", "Pitch configuration saved.")
+                  setConfiguringId(null)
+                }}
+              />
             ) : (
               <>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
                   <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>{p.displayName}</Text>
                   {!p.active && <StatusPill label="Deactivated" tone="caution" />}
                 </View>
+                <Text style={[type.caption, { color: colour.inkMuted }]}>{pitchConfigurationSummary(p)}</Text>
                 {canManage && (
-                  <View style={{ flexDirection: "row", gap: space.sm }}>
+                  <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
                     <Button label="Rename" variant="secondary" onPress={() => setRenaming({ id: p.id, name: p.displayName })} disabled={busy} style={{ flex: 1 }} />
+                    <Button label="Configure" variant="secondary" onPress={() => setConfiguringId(p.id)} disabled={busy} style={{ flex: 1 }} />
                     <Button label={p.active ? "Deactivate" : "Reactivate"} variant="quiet" onPress={() => void run(() => setClubPitchActive(supabase, p.id, !p.active), "this pitch")} disabled={busy} style={{ flex: 1 }} />
                   </View>
                 )}
@@ -324,6 +343,118 @@ function PitchesSection({ clubId, venue, pitches, canManage, busy, run }: { club
           </View>
         )}
       </Card>
+    </View>
+  )
+}
+
+const PHYSICAL_SIZE_OPTIONS = ["full", "three_quarter", "half", "custom"] as const
+const LAYOUT_OPTIONS = ["full_only", "two_halves", "four_quarters"] as const
+
+/**
+ * CA-M11.2 Grounds & Pitches: what this physical pitch is, and how the club has chosen to use it
+ * concurrently -- native, in-place (matching Rename's own established pattern in this screen), never
+ * a WebView or web hand-off (Section 12's own explicit instruction).
+ */
+function PitchConfigurationEditor({ pitch, busy, onCancel, onSave }: { pitch: ClubPitch; busy: boolean; onCancel: () => void; onSave: (input: PitchConfigurationInput) => Promise<void> }) {
+  const [draft, setDraft] = useState<PitchConfigurationInput>(() => pitchConfigurationInputFrom(pitch))
+  const [impact, setImpact] = useState<PitchConfigurationImpact | null>(null)
+  const [checkingImpact, setCheckingImpact] = useState(false)
+  const [impactChecked, setImpactChecked] = useState(false)
+
+  const problem = pitchConfigurationInputProblem(draft)
+  // Section 29's impact check is for NARROWING only -- widening (more areas, or a bigger physical size)
+  // can never turn an existing valid allocation into a new conflict, so it would be pure noise here.
+  const narrowing =
+    layoutAreaCount(draft.layout) < layoutAreaCount(pitch.layout) ||
+    pitchPhysicalSizeUnits({ physicalSizeCategory: draft.physicalSizeCategory, customLengthM: draft.physicalSizeCategory === "custom" ? Number(draft.customLengthM) || null : null, customWidthM: draft.physicalSizeCategory === "custom" ? Number(draft.customWidthM) || null : null }) <
+      pitchPhysicalSizeUnits(pitch)
+
+  function edit(patch: Partial<PitchConfigurationInput>) {
+    setImpactChecked(false)
+    setImpact(null)
+    setDraft((d) => ({ ...d, ...patch }))
+  }
+
+  async function handleSave() {
+    if (narrowing && !impactChecked) {
+      setCheckingImpact(true)
+      const result = await pitchConfigurationImpact(supabase, pitch.id)
+      setCheckingImpact(false)
+      setImpactChecked(true)
+      if (result.affectedDates.length > 0) {
+        setImpact(result)
+        return
+      }
+    }
+    await onSave(draft)
+  }
+
+  return (
+    <View style={{ gap: space.md }}>
+      <View style={{ gap: 6 }}>
+        <Text style={[type.smallMedium, { color: colour.ink }]}>Pitch Size</Text>
+        <ChoiceRow options={PHYSICAL_SIZE_OPTIONS.map((c) => ({ value: c, label: physicalSizeCategoryLabel(c) }))} value={draft.physicalSizeCategory} onChange={(v) => edit({ physicalSizeCategory: v })} disabled={busy} />
+      </View>
+
+      {draft.physicalSizeCategory === "custom" && (
+        <View style={{ flexDirection: "row", gap: space.sm }}>
+          <View style={{ flex: 1 }}>
+            <Field label="Length (M)" value={draft.customLengthM} onChange={(v) => edit({ customLengthM: v })} editable={!busy} keyboardType="decimal-pad" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Field label="Width (M)" value={draft.customWidthM} onChange={(v) => edit({ customWidthM: v })} editable={!busy} keyboardType="decimal-pad" />
+          </View>
+        </View>
+      )}
+
+      <View style={{ gap: 6 }}>
+        <Text style={[type.smallMedium, { color: colour.ink }]}>How Can This Pitch Be Used?</Text>
+        <ChoiceRow options={LAYOUT_OPTIONS.map((l) => ({ value: l, label: layoutLabel(l) }))} value={draft.layout} onChange={(v) => edit({ layout: v })} disabled={busy} />
+        <Text style={[type.caption, { color: colour.inkMuted }]}>
+          {draft.layout === "full_only" ? "One fixture or training session at a time on this pitch." : `Up to ${draft.layout === "two_halves" ? 2 : 4} compatible-sized fixtures or training sessions at once.`}
+        </Text>
+      </View>
+
+      {impact && impact.affectedDates.length > 0 && (
+        <View style={{ gap: 4, padding: space.md, borderRadius: radius.md, backgroundColor: colour.warningSurface }}>
+          <Text style={[type.smallMedium, { color: colour.warning }]}>
+            {impact.affectedDates.length} future date{impact.affectedDates.length === 1 ? "" : "s"} currently ha{impact.affectedDates.length === 1 ? "s" : "ve"} more than one booking on this pitch.
+          </Text>
+          <Text style={[type.caption, { color: colour.warning }]}>Narrowing this pitch's configuration may leave some of those overlapping. Nothing is moved or cancelled automatically -- review Pitch Allocation for those dates after saving.</Text>
+        </View>
+      )}
+
+      {problem && <Text style={[type.small, { color: colour.warning }]}>{problem}</Text>}
+
+      <View style={{ flexDirection: "row", gap: space.sm }}>
+        <Button label="Cancel" variant="secondary" onPress={onCancel} disabled={busy || checkingImpact} style={{ flex: 1 }} />
+        <Button label={impact && impact.affectedDates.length > 0 ? "Save Anyway" : "Save Pitch"} onPress={() => void handleSave()} busy={busy || checkingImpact} disabled={!!problem} style={{ flex: 1 }} />
+      </View>
+    </View>
+  )
+}
+
+/** A row of pressable choice chips -- the same selected/unselected treatment the pitch-allocation
+ * Move sheet already uses for its own pitch picker, reused here for a small enum choice. */
+function ChoiceRow<T extends string>({ options, value, onChange, disabled }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void; disabled: boolean }) {
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+      {options.map((o) => {
+        const selected = o.value === value
+        return (
+          <Pressable
+            key={o.value}
+            accessibilityRole="radio"
+            accessibilityState={{ selected, disabled }}
+            accessibilityLabel={o.label}
+            disabled={disabled}
+            onPress={() => onChange(o.value)}
+            style={{ minHeight: TOUCH_TARGET, paddingHorizontal: space.md, justifyContent: "center", borderRadius: radius.md, borderWidth: 1, borderColor: selected ? colour.pitch600 : colour.line, backgroundColor: selected ? colour.mint100 : colour.surface, opacity: disabled ? 0.6 : 1 }}
+          >
+            <Text style={[type.small, { color: selected ? colour.forest800 : colour.ink }]}>{o.label}</Text>
+          </Pressable>
+        )
+      })}
     </View>
   )
 }

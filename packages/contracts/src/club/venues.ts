@@ -43,6 +43,15 @@ export interface ClubPitch {
   active: boolean
   sortOrder: number
   venueId: string | null
+  /** CA-M11.2 Grounds & Pitches: what this physical pitch IS. Set through `setClubPitchConfiguration`. */
+  physicalSizeCategory: "full" | "three_quarter" | "half" | "custom"
+  customLengthM: number | null
+  customWidthM: number | null
+  /** How the club has chosen to use this physical pitch concurrently -- independent of its physical
+   * size, see `packages/contracts/src/pitch-allocation/footprint.ts`'s own header comment. */
+  layout: "full_only" | "two_halves" | "four_quarters"
+  /** GENERATED at the database from `layout` -- how many fixtures this pitch can genuinely host at once. */
+  laneCount: number
 }
 
 export interface ClubVenues {
@@ -58,7 +67,11 @@ export async function readClubVenues(supabase: Client, clubId: string): Promise<
       .eq("club_id", clubId)
       .order("is_default_home", { ascending: false })
       .order("name"),
-    supabase.from("club_pitches").select("id, display_name, description, active, sort_order, venue_id").eq("club_id", clubId).order("sort_order"),
+    supabase
+      .from("club_pitches")
+      .select("id, display_name, description, active, sort_order, venue_id, physical_size_category, custom_length_m, custom_width_m, layout, lane_count")
+      .eq("club_id", clubId)
+      .order("sort_order"),
   ])
   if (ve) throw ve
   if (pe) throw pe
@@ -79,7 +92,19 @@ export async function readClubVenues(supabase: Client, clubId: string): Promise<
       longitude: v.longitude == null ? null : Number(v.longitude),
       geocodeStatus: v.geocode_status,
     })),
-    pitches: (pitches ?? []).map((p) => ({ id: p.id, displayName: p.display_name, description: p.description, active: p.active, sortOrder: p.sort_order, venueId: p.venue_id })),
+    pitches: (pitches ?? []).map((p) => ({
+      id: p.id,
+      displayName: p.display_name,
+      description: p.description,
+      active: p.active,
+      sortOrder: p.sort_order,
+      venueId: p.venue_id,
+      physicalSizeCategory: p.physical_size_category as ClubPitch["physicalSizeCategory"],
+      customLengthM: p.custom_length_m == null ? null : Number(p.custom_length_m),
+      customWidthM: p.custom_width_m == null ? null : Number(p.custom_width_m),
+      layout: p.layout as ClubPitch["layout"],
+      laneCount: p.lane_count,
+    })),
   }
 }
 
@@ -149,6 +174,40 @@ export async function renameClubPitch(supabase: Client, pitchId: string, newName
 
 export async function setClubPitchActive(supabase: Client, pitchId: string, active: boolean): Promise<void> {
   const { error } = await supabase.rpc("set_club_pitch_active", { p_pitch_id: pitchId, p_active: active })
+  if (error) throw error
+}
+
+/** Grounds & Pitches' own draft shape for editing a pitch's physical size and split layout. */
+export interface PitchConfigurationInput {
+  physicalSizeCategory: ClubPitch["physicalSizeCategory"]
+  customLengthM: string
+  customWidthM: string
+  layout: ClubPitch["layout"]
+}
+
+export function pitchConfigurationInputFrom(p: ClubPitch): PitchConfigurationInput {
+  return { physicalSizeCategory: p.physicalSizeCategory, customLengthM: p.customLengthM == null ? "" : String(p.customLengthM), customWidthM: p.customWidthM == null ? "" : String(p.customWidthM), layout: p.layout }
+}
+
+/** What the server will refuse, said before the round trip (Section 15's own custom-dimensions check, mirrored client-side). */
+export function pitchConfigurationInputProblem(input: PitchConfigurationInput): string | null {
+  if (input.physicalSizeCategory !== "custom") return null
+  const length = Number(input.customLengthM)
+  const width = Number(input.customWidthM)
+  if (!input.customLengthM.trim() || !input.customWidthM.trim() || !Number.isFinite(length) || !Number.isFinite(width) || length <= 0 || width <= 0) {
+    return "Custom size needs a length and width in metres, both greater than zero."
+  }
+  return null
+}
+
+export async function setClubPitchConfiguration(supabase: Client, pitchId: string, input: PitchConfigurationInput): Promise<void> {
+  const { error } = await supabase.rpc("set_club_pitch_configuration", {
+    p_pitch_id: pitchId,
+    p_physical_size_category: input.physicalSizeCategory,
+    p_layout: input.layout,
+    p_custom_length_m: input.physicalSizeCategory === "custom" ? Number(input.customLengthM) : undefined,
+    p_custom_width_m: input.physicalSizeCategory === "custom" ? Number(input.customWidthM) : undefined,
+  })
   if (error) throw error
 }
 

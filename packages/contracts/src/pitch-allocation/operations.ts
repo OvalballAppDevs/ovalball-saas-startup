@@ -285,3 +285,32 @@ export async function nextHomeFixtureDate(supabase: Client, clubId: string, toda
     .maybeSingle()
   return data?.kickoff_date ?? todayIso
 }
+
+/**
+ * Section 29: before narrowing a pitch's configuration (fewer areas, or a smaller physical size),
+ * warn the admin about future bookings that might be affected -- read-only, changes nothing, never
+ * moves or deletes a fixture. Deliberately a COARSE signal rather than a full re-run of the conflict
+ * engine against a hypothetical config: any future date with only one booking on this pitch can never
+ * become newly conflicted by narrowing (there is nothing else there to clash with), so counting dates
+ * with two or more bookings is a truthful, actionable warning -- "review these dates after saving" --
+ * without a second, duplicate simulation of detectConflicts.
+ */
+export interface PitchConfigurationImpact {
+  affectedDates: string[]
+  affectedFixtureCount: number
+}
+
+export async function pitchConfigurationImpact(supabase: Client, pitchId: string): Promise<PitchConfigurationImpact> {
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const { data: rows } = await supabase
+    .from("fixtures")
+    .select("id, kickoff_date")
+    .eq("pitch_id", pitchId)
+    .gte("kickoff_date", todayIso)
+    .neq("status", "Cancelled")
+    .not("kickoff_time", "is", null)
+  const byDate = new Map<string, number>()
+  for (const r of rows ?? []) byDate.set(r.kickoff_date, (byDate.get(r.kickoff_date) ?? 0) + 1)
+  const affectedDates = [...byDate.entries()].filter(([, count]) => count > 1).map(([date]) => date)
+  return { affectedDates, affectedFixtureCount: affectedDates.reduce((sum, d) => sum + (byDate.get(d) ?? 0), 0) }
+}

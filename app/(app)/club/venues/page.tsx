@@ -51,7 +51,7 @@ export default async function ClubVenuesPage() {
       .order("name"),
     supabase
       .from("club_pitches")
-      .select("id, display_name, description, active, sort_order, venue_id")
+      .select("id, display_name, description, active, sort_order, venue_id, physical_size_category, custom_length_m, custom_width_m, layout, lane_count")
       .eq("club_id", activeClub)
       .order("sort_order"),
   ])
@@ -78,6 +78,11 @@ export default async function ClubVenuesPage() {
     active: p.active,
     sortOrder: p.sort_order,
     venueId: p.venue_id,
+    physicalSizeCategory: p.physical_size_category as ClubPitch["physicalSizeCategory"],
+    customLengthM: p.custom_length_m == null ? null : Number(p.custom_length_m),
+    customWidthM: p.custom_width_m == null ? null : Number(p.custom_width_m),
+    layout: p.layout as ClubPitch["layout"],
+    laneCount: p.lane_count,
   }))
 
   return (

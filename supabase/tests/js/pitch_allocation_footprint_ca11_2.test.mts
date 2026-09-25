@@ -2,7 +2,8 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import {
-  DEFAULT_SCHEDULING_POLICY, autoAllocate, detectConflicts, detectResourceConflicts, footprintBudgetExceeded, footprintLabel, footprintUnits, matchFootprintFor, pitchCapacityUnits,
+  DEFAULT_SCHEDULING_POLICY, autoAllocate, detectConflicts, detectResourceConflicts, footprintBudgetExceeded, footprintLabel, footprintUnits, layoutAreaCount, layoutLabel, matchFootprintFor,
+  physicalSizeCategoryLabel, pitchCapacityUnits, pitchConfigurationSummary, pitchPhysicalSizeUnits, pitchSuitable,
   type AllocationFixture, type PitchOption,
 } from "../../../packages/contracts/src/pitch-allocation"
 
@@ -25,7 +26,11 @@ import {
  * a full-pitch fixture blocking everything else.
  */
 
-const pitch = (id: string, overrides: Partial<PitchOption> = {}): PitchOption => ({ id, displayName: id, active: true, venueId: "v1", sizeCategory: "full", laneCount: 1, ...overrides })
+const pitch = (id: string, overrides: Partial<PitchOption> = {}): PitchOption => ({
+  id, displayName: id, active: true, venueId: "v1",
+  physicalSizeCategory: "full", customLengthM: null, customWidthM: null, layout: "full_only", laneCount: 1,
+  ...overrides,
+})
 function fixture(overrides: Partial<AllocationFixture> & Pick<AllocationFixture, "fixtureId">): AllocationFixture {
   return {
     homeTeamId: "team-1", homeTeamLabel: "Under 12 Boys", opponentLabel: "Opponent", category: "youth", ageGroup: "U12", gender: null, status: "Booked",
@@ -52,11 +57,53 @@ test("footprint hierarchy: FULL contains HALF contains QUARTER, expressed as qua
   assert.ok(footprintUnits("full") > footprintUnits("half") && footprintUnits("half") > footprintUnits("quarter"))
 })
 
-test("a pitch's own capacity budget comes from its EXISTING size_category, unclassified pitches return null rather than a guessed number", () => {
-  assert.equal(pitchCapacityUnits("full"), 4)
-  assert.equal(pitchCapacityUnits("reduced"), 2)
-  assert.equal(pitchCapacityUnits("mini"), 1)
-  assert.equal(pitchCapacityUnits(null), null)
+test("a pitch's own capacity budget comes from its configured physical_size_category -- every pitch has one (default full), never a null/guessed number", () => {
+  assert.equal(pitchCapacityUnits(pitch("p1", { physicalSizeCategory: "full" })), 4)
+  assert.equal(pitchCapacityUnits(pitch("p1", { physicalSizeCategory: "three_quarter" })), 3)
+  assert.equal(pitchCapacityUnits(pitch("p1", { physicalSizeCategory: "half" })), 2)
+  // Custom: proportional AREA against the standard full-size reference (100m x 70m = 7000 sqm) --
+  // deliberately plain proportional arithmetic on the club's own entered numbers, not a lookup against
+  // a specific age-grade's official dimensions (footprint.ts's own documented limitation: this never
+  // claims governing-body precision for a custom pitch). A real U8-dimensioned pitch (RFU Reg 15
+  // Appendix 2, 45m x 22m = 990 sqm, ~14% of the reference area) computes to exactly 1 unit.
+  assert.equal(pitchPhysicalSizeUnits({ physicalSizeCategory: "custom", customLengthM: 45, customWidthM: 22 }), 1)
+  // A custom pitch dimensioned at exactly HALF the reference area (70m x 50m = 3500 sqm) computes to
+  // exactly 2 units, matching the half tier.
+  assert.equal(pitchPhysicalSizeUnits({ physicalSizeCategory: "custom", customLengthM: 70, customWidthM: 50 }), 2)
+})
+
+test("PHYSICAL SIZE and LAYOUT are independent (owner's own Section 8 pin) -- capacity units come from size alone, area count comes from layout alone", () => {
+  assert.equal(layoutAreaCount("full_only"), 1)
+  assert.equal(layoutAreaCount("two_halves"), 2)
+  assert.equal(layoutAreaCount("four_quarters"), 4)
+  // Full size + Full only = capacity 1 (budget 4, areas 1)
+  assert.equal(pitchCapacityUnits(pitch("p1", { physicalSizeCategory: "full", layout: "full_only" })), 4)
+  // Half size + Full only = capacity 1 (budget 2, areas 1) -- half size does NOT automatically mean capacity 2
+  assert.equal(pitchCapacityUnits(pitch("p1", { physicalSizeCategory: "half", layout: "full_only" })), 2)
+  assert.equal(layoutAreaCount(pitch("p1", { physicalSizeCategory: "half", layout: "full_only" }).layout), 1)
+})
+
+test("physicalSizeCategoryLabel/layoutLabel/pitchConfigurationSummary give the human-readable words Grounds & Pitches shows, never a raw enum value", () => {
+  assert.equal(physicalSizeCategoryLabel("full"), "Full size")
+  assert.equal(physicalSizeCategoryLabel("three_quarter"), "3/4 size")
+  assert.equal(physicalSizeCategoryLabel("half"), "Half size")
+  assert.equal(physicalSizeCategoryLabel("custom"), "Custom size")
+  assert.equal(layoutLabel("full_only"), "Whole pitch only")
+  assert.equal(layoutLabel("two_halves"), "Two halves")
+  assert.equal(layoutLabel("four_quarters"), "Four quarters")
+  assert.equal(pitchConfigurationSummary({ physicalSizeCategory: "full", layout: "full_only" }), "Full size · Whole pitch only")
+  assert.equal(pitchConfigurationSummary({ physicalSizeCategory: "full", layout: "two_halves" }), "Full size · Splits into 2 areas (two halves)")
+})
+
+test("pitchSuitable: a smaller physical pitch rejects a match that needs more room than it has (Section 22's own example)", () => {
+  const halfSizePitch = pitch("p1", { physicalSizeCategory: "half" })
+  assert.equal(pitchSuitable(halfSizePitch, "full"), false, "a half-size physical pitch cannot host a match requiring the full pitch")
+  assert.equal(pitchSuitable(halfSizePitch, "reduced"), true, "a half-size pitch exactly fits a match requiring half-pitch room")
+  assert.equal(pitchSuitable(halfSizePitch, "mini"), true, "a half-size pitch comfortably exceeds a match requiring only quarter-pitch room")
+  const fullSizePitch = pitch("p1", { physicalSizeCategory: "full" })
+  assert.equal(pitchSuitable(fullSizePitch, "full"), true)
+  assert.equal(pitchSuitable(fullSizePitch, "mini"), true, "a bigger pitch is always safe for a smaller-format game")
+  assert.equal(pitchSuitable(pitch("p1", { active: false }), "mini"), false, "an inactive pitch is never suitable, whatever its size")
 })
 
 test("footprintLabel gives the human-readable words the board and detail sheet show, never an internal enum value", () => {
@@ -100,7 +147,7 @@ test("League match footprint resolves to null/unresolved -- Ovalball has NO seed
 // ------------------------------------------------------------------ Case A/B/D/G/H from the owner's test matrix
 
 test("CASE A -- two compatible younger matches share one classified pitch: NO CONFLICT", () => {
-  const pitches = [pitch("p1", { sizeCategory: "full", laneCount: 2 })]
+  const pitches = [pitch("p1", { layout: "two_halves", laneCount: 2 })]
   const fixtures = [
     fixture({ fixtureId: "u10", pitchId: "p1", kickoffTime: "09:00", ageGroup: "U10", requiredPitchSize: "reduced" }),
     fixture({ fixtureId: "u12", pitchId: "p1", kickoffTime: "09:00", ageGroup: "U12", requiredPitchSize: "reduced" }),
@@ -110,7 +157,7 @@ test("CASE A -- two compatible younger matches share one classified pitch: NO CO
 })
 
 test("CASE B -- an older/full-pitch match blocks a younger match on the same pitch: CONFLICT", () => {
-  const pitches = [pitch("p1", { sizeCategory: "full", laneCount: 2 })]
+  const pitches = [pitch("p1", { layout: "two_halves", laneCount: 2 })]
   const fixtures = [
     fixture({ fixtureId: "u16", pitchId: "p1", kickoffTime: "09:00", ageGroup: "U16", requiredPitchSize: "full" }),
     fixture({ fixtureId: "u10", pitchId: "p1", kickoffTime: "09:00", ageGroup: "U10", requiredPitchSize: "reduced" }),
@@ -121,7 +168,7 @@ test("CASE B -- an older/full-pitch match blocks a younger match on the same pit
 })
 
 test("CASE D -- the owner's own worked example: a full-pitch match already on the pitch (09:00-10:30) blocks training arriving mid-match (09:30-10:30) on the same pitch: CONFLICT", () => {
-  const pitches = [pitch("p1", { sizeCategory: "full", laneCount: 2 })]
+  const pitches = [pitch("p1", { layout: "two_halves", laneCount: 2 })]
   const fixtures = [fixture({ fixtureId: "u16", pitchId: "p1", kickoffTime: "09:00", durationMinutes: 90, requiredPitchSize: "full" })]
   const sessions = [{ trainingSessionId: "t1", teamLabel: "U10", venueId: "v1", pitchId: "p1", sessionDate: "2026-10-11", startTime: "09:30", durationMinutes: 60, status: "PLANNED" as const, source: "MANUAL" as const }]
   const { trainingConflicts } = detectResourceConflicts(fixtures, sessions, pitches)
@@ -129,7 +176,7 @@ test("CASE D -- the owner's own worked example: a full-pitch match already on th
 })
 
 test("CASE G -- Auto Allocate refuses to place a full-pitch match onto a pitch already partly occupied by a compatible smaller match", () => {
-  const pitches = [pitch("p1", { sizeCategory: "full", laneCount: 2 })]
+  const pitches = [pitch("p1", { layout: "two_halves", laneCount: 2 })]
   const existingBookings = [{ pitchId: "p1", start: 9 * 60, end: 9 * 60 + 40, footprint: "half" as const }]
   const candidate = fixture({ fixtureId: "u16", requiredPitchSize: "full", durationMinutes: 40 })
   const { placements } = autoAllocate([candidate], pitches, DEFAULT_SCHEDULING_POLICY, SUNDAY, existingBookings)
@@ -137,7 +184,7 @@ test("CASE G -- Auto Allocate refuses to place a full-pitch match onto a pitch a
 })
 
 test("CASE H -- Auto Allocate uses available capacity rather than declaring the pitch unavailable, when the remaining budget is compatible", () => {
-  const pitches = [pitch("p1", { sizeCategory: "full", laneCount: 2 })]
+  const pitches = [pitch("p1", { layout: "two_halves", laneCount: 2 })]
   const existingBookings = [{ pitchId: "p1", start: 9 * 60, end: 9 * 60 + 40, footprint: "half" as const }]
   const candidate = fixture({ fixtureId: "u10", requiredPitchSize: "reduced", durationMinutes: 40 })
   const { placements } = autoAllocate([candidate], pitches, DEFAULT_SCHEDULING_POLICY, SUNDAY, existingBookings)
@@ -145,23 +192,25 @@ test("CASE H -- Auto Allocate uses available capacity rather than declaring the 
   assert.equal(placements[0].kickoffTime, "09:00", "sharing the exact same window a half-pitch budget of 2+2=4 units allows")
 })
 
-// ------------------------------------------------------------------ backward compatibility: unclassified pitches are untouched
+// ------------------------------------------------------------------ backward compatibility: a never-configured pitch behaves exactly as before
 
-test("a pitch with NO size_category set falls back to the pre-existing laneCount-only behaviour exactly -- this pass never guesses a budget for an unclassified pitch", () => {
-  const pitches = [pitch("p1", { sizeCategory: null, laneCount: 2 })]
-  // Two FULL-size fixtures: under the new footprint-aware check this would conflict outright (4+4>4),
-  // but with sizeCategory unset the footprint check is inert and only the raw laneCount(2) headcount
-  // governs -- exactly today's behaviour, unclassified pitches get zero regression from this pass.
+test("a pitch nobody has ever configured defaults to full size, whole-pitch-only -- reproducing today's exactly-one-booking-at-a-time behaviour exactly, with zero product surface to set it before this pass", () => {
+  const pitches = [pitch("p1")] // every field at its database default: physical_size_category='full', layout='full_only' -> lane_count=1
   const fixtures = [
-    fixture({ fixtureId: "a", pitchId: "p1", kickoffTime: "09:00", requiredPitchSize: "full" }),
-    fixture({ fixtureId: "b", pitchId: "p1", kickoffTime: "09:00", requiredPitchSize: "full" }),
+    fixture({ fixtureId: "a", pitchId: "p1", kickoffTime: "09:00", requiredPitchSize: "reduced" }),
+    fixture({ fixtureId: "b", pitchId: "p1", kickoffTime: "09:00", requiredPitchSize: "reduced" }),
   ]
   const conflicts = detectConflicts(fixtures, pitches)
-  assert.equal(conflicts.length, 0, "unclassified pitch: laneCount=2 allows 2 concurrent fixtures regardless of size, unchanged from before this pass")
+  // Even two REDUCED (half-footprint) fixtures, which would comfortably fit a full pitch's 4-unit
+  // budget, are still flagged: the default layout is full_only (lane_count=1), so a second concurrent
+  // booking is rejected on capacity alone, before footprint arithmetic even matters -- exactly the
+  // conservative default the owner required (Section 18: "conflict behaviour should remain
+  // conservative until legitimate capacity is configured").
+  assert.ok(conflicts.some((c) => c.fixtureId === "b"), "a never-configured pitch still allows only one booking at a time")
 })
 
 test("Section 42 -- an unresolved footprint (League, or an unseeded age group) fails conservative in Auto Allocate, never silently treated as fitting", () => {
-  const pitches = [pitch("p1", { sizeCategory: "full", laneCount: 2 })]
+  const pitches = [pitch("p1", { layout: "two_halves", laneCount: 2 })]
   const existingBookings = [{ pitchId: "p1", start: 9 * 60, end: 9 * 60 + 40, footprint: "quarter" as const }]
   // requiredPitchSize null (e.g. a League fixture with no seeded rule) -> matchFootprintFor gives null -> treated as consuming the WHOLE pitch.
   const candidate = fixture({ fixtureId: "league-u12", requiredPitchSize: null, durationMinutes: 40 })

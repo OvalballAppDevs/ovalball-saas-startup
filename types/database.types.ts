@@ -4198,11 +4198,14 @@ export type Database = {
           club_id: string
           created_at: string
           created_by: string | null
+          custom_length_m: number | null
+          custom_width_m: number | null
           description: string | null
           display_name: string
           id: string
           lane_count: number
-          size_category: string | null
+          layout: string
+          physical_size_category: string
           sort_order: number
           updated_at: string
           updated_by: string | null
@@ -4213,11 +4216,14 @@ export type Database = {
           club_id: string
           created_at?: string
           created_by?: string | null
+          custom_length_m?: number | null
+          custom_width_m?: number | null
           description?: string | null
           display_name: string
           id?: string
           lane_count?: number
-          size_category?: string | null
+          layout?: string
+          physical_size_category?: string
           sort_order?: number
           updated_at?: string
           updated_by?: string | null
@@ -4228,11 +4234,14 @@ export type Database = {
           club_id?: string
           created_at?: string
           created_by?: string | null
+          custom_length_m?: number | null
+          custom_width_m?: number | null
           description?: string | null
           display_name?: string
           id?: string
           lane_count?: number
-          size_category?: string | null
+          layout?: string
+          physical_size_category?: string
           sort_order?: number
           updated_at?: string
           updated_by?: string | null
@@ -26862,6 +26871,16 @@ export type Database = {
       }
       set_club_pitch_active: {
         Args: { p_active: boolean; p_pitch_id: string }
+        Returns: undefined
+      }
+      set_club_pitch_configuration: {
+        Args: {
+          p_custom_length_m?: number
+          p_custom_width_m?: number
+          p_layout: string
+          p_physical_size_category: string
+          p_pitch_id: string
+        }
         Returns: undefined
       }
       set_club_pitch_venue: {

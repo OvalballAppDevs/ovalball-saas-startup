@@ -22,7 +22,12 @@ const MOBILE = "apps/mobile"
 const read = (p: string) => readFileSync(p, "utf8")
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
-const pitch = (id: string, laneCount = 1, active = true): PitchOption => ({ id, displayName: id.toUpperCase(), active, venueId: "v1", sizeCategory: "full", laneCount })
+const pitch = (id: string, laneCount = 1, active = true): PitchOption => ({
+  id, displayName: id.toUpperCase(), active, venueId: "v1",
+  physicalSizeCategory: "full", customLengthM: null, customWidthM: null,
+  layout: laneCount >= 4 ? "four_quarters" : laneCount >= 2 ? "two_halves" : "full_only",
+  laneCount,
+})
 const fixture = (id: string, pitchId: string | null, kickoffTime: string | null, duration = 50, requiredPitchSize: AllocationFixture["requiredPitchSize"] = "full"): AllocationFixture => ({
   fixtureId: id, homeTeamId: "t" + id, homeTeamLabel: "Under 12 Boys", opponentLabel: "Them", category: "youth", ageGroup: "U12", gender: "boys", status: "Planned",
   kickoffDate: "2026-10-03", kickoffTime, venueId: "v1", pitchId, durationMinutes: duration, durationConfidence: "confirmed", requiredPitchSize, requiresOpponentAgreement: false,

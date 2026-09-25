@@ -129,10 +129,9 @@ export function detectResourceConflicts(
   for (const [pitchId, list] of byPitch) {
     const pitch = pitches.find((p) => p.id === pitchId)
     const laneCount = pitch?.laneCount ?? 1
-    // Same unit-budget correction as detectConflicts (footprint.ts) -- inert unless the pitch's own
-    // size_category is classified, in which case a set of overlapping fixtures may exceed the pitch's
-    // real physical budget even while still within its raw laneCount headcount.
-    const capacityUnits = pitchCapacityUnits(pitch?.sizeCategory ?? null)
+    // Same unit-budget correction as detectConflicts (footprint.ts): a set of overlapping fixtures may
+    // exceed the pitch's real physical budget even while still within its raw laneCount headcount.
+    const capacityUnits = pitchCapacityUnits(pitch ?? { physicalSizeCategory: "full", customLengthM: null, customWidthM: null })
     const sorted = [...list].sort((a, b) => a.start - b.start)
     // Fixtures and training are swept as two independent active sets on
     // the same pitch/timeline: a fixture's capacity check only ever
@@ -155,7 +154,7 @@ export function detectResourceConflicts(
         activeFixtures.push(w)
         const overlappingFixtures = activeFixtures.filter((a) => a !== w)
         const overlappingTraining = [...activeTraining]
-        const overBudget = capacityUnits !== null && overlappingTraining.length === 0 && footprintBudgetExceeded(activeFixtures.map((a) => a.footprint ?? null), capacityUnits)
+        const overBudget = overlappingTraining.length === 0 && footprintBudgetExceeded(activeFixtures.map((a) => a.footprint ?? null), capacityUnits)
         if (overlappingFixtures.length >= laneCount || overlappingTraining.length > 0 || overBudget) {
           const others = [...overlappingFixtures, ...overlappingTraining]
           const reason = overBudget

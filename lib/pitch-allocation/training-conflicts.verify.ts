@@ -12,9 +12,9 @@ function checkTrue(name: string, cond: boolean, detail?: string) {
   else fail++
 }
 
-const pitchA: PitchOption = { id: "pitch-a", displayName: "Pitch A", active: true, venueId: "venue-1", sizeCategory: "full", laneCount: 1 }
-const pitchB: PitchOption = { id: "pitch-b", displayName: "Pitch B", active: true, venueId: "venue-1", sizeCategory: "full", laneCount: 1 }
-const pitchWideCapacity2: PitchOption = { id: "pitch-c", displayName: "Pitch C", active: true, venueId: "venue-1", sizeCategory: "full", laneCount: 2 }
+const pitchA: PitchOption = { id: "pitch-a", displayName: "Pitch A", active: true, venueId: "venue-1", physicalSizeCategory: "full", customLengthM: null, customWidthM: null, layout: "full_only", laneCount: 1 }
+const pitchB: PitchOption = { id: "pitch-b", displayName: "Pitch B", active: true, venueId: "venue-1", physicalSizeCategory: "full", customLengthM: null, customWidthM: null, layout: "full_only", laneCount: 1 }
+const pitchWideCapacity2: PitchOption = { id: "pitch-c", displayName: "Pitch C", active: true, venueId: "venue-1", physicalSizeCategory: "full", customLengthM: null, customWidthM: null, layout: "two_halves", laneCount: 2 }
 const pitches = [pitchA, pitchB, pitchWideCapacity2]
 
 function training(overrides: Partial<TrainingOccupancy> & Pick<TrainingOccupancy, "trainingSessionId">): TrainingOccupancy {

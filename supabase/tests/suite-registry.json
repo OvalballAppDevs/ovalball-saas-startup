@@ -118,6 +118,11 @@
       "reason": "LEGACY AUTHORITY HELPER RETIREMENT (Identity/Auth Slice 4; Phase 2 AJ.1 authority_helper_retirement, J.15, Z.4 PG-15/16).",
       "measured": "Batch A ran it against both the persistent and the fresh clean-boot database: 76 passed, 1 failed on HR1 -- Step 11 had taken can_manage_fixture_side from 6 function-body references to 7. Fixed by 20270524000000, which moves community administration onto the canonical capability decision rather than raising a shrink-only ceiling."
     },
+    "availability_one_product": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Ovalball availability -- Match Centre, Training Centre, both clients",
+      "reason": "M6: availability is ONE product, and this proves the fixture half and the training half answer alike for the same person under the same policy. The archaeology that preceded the native Match Centre found three asymmetries, all of which would otherwise have been worked around in React Native. A cancelled FIXTURE now refuses an answer, as a cancelled SESSION always has -- the rule previously existed only in the web Match Centre resolver, so any other caller could record an answer to a match that is not happening. A fixture whose orientation is TBD or Not Applicable is answerable: the writer used to locate the fixture's teams through the generated home_team_id/away_team_id columns, which are NULL for both of those, so a legitimate answer was refused as 'this player is not associated with a team involved in this fixture' while the page offered three buttons. A Mini-Rugby scheduling-group fixture is answerable, including for a child on a partner team inside the group that does not own the fixture -- the writer knew nothing about groups and refused every one of them. It also proves the two readers, get_my_players_for_fixture and get_my_players_for_training_session, return an identical column set and each return only the caller's own family, with can_respond and denial_reason inline so neither client draws a control the write would refuse; that a cancelled event still LISTS the child, so a parent can see what was answered before it was called off; that the safeguarding rule is unchanged and still the database's -- guardian always, a 17-year-old with recorded guardian_player_permissions consent yes, a 16-year-old without it no, for both the reader and the write; and that there is one vocabulary of states, so 'MAYBE' and 'AWAITING' are refused and AWAITING remains the ABSENCE of a row. Proved to bite: with the pre-fix writer restored, A4, A5, B2, B3, B4 and C3 fail. Self-seeding and rolled back; no persistent review identity, club, team, fixture or session is touched."
+    },
     "backfill_verification": {
       "disposition": "CANONICAL_GATE",
       "owner": "Identity/Auth and platform security",
@@ -286,6 +291,11 @@
       "owner": "Club and Site Admin",
       "reason": "A club event is its own thing, and it is not public."
     },
+    "club_finance_ca11_1": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "CA-M11.1 Subscriptions & Payments on the phone over the website's own finance domain: a club-scope finance.subscription.view holder reads the ledger, the review reasons and one membership's detail and is refused configuration, pricing, waiving, generation, export, disconnect, refund and cancellation by the RPCs' own gates with nothing changed; a Team Manager with the team-scoped view reads only their own squad's state through team_subscription_status, is refused the sibling team, reads no ledger row, no review reason and no membership detail, and holds no club finance key -- no team finance escalation; another club's administrator reads nothing of the club and is refused every club operation while their own club still answers; the merchant access token is unreadable by any signed-in role, no bank-account column exists, the token functions are service-role only and the result shapes the phone consumes carry no secret; the functions the phone calls are the web's, by name and signature, executable by authenticated; the club administrator generates obligations idempotently, waives with an audit row, exports with an audit row, schedules an effective-dated price, saves a sibling rule and previews a first payment; and H20/H25 are pinned untouched -- finance.subscription.view still {club,team}, inherits_to_team false, ceiling C, TM bundle row present, no other finance key at team scope. Self-seeding and rolled back."
+    },
     "club_fixture_import": {
       "disposition": "SPECIAL_PURPOSE",
       "owner": "Club and Site Admin",
@@ -316,6 +326,16 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Club and Site Admin",
       "reason": "===================================================================================================== CLUB DOCUMENTS, PARTNERS, REFERRALS AND HANDOVER MATRIX (Identity/Auth Slice 4"
+    },
+    "club_news_announcements_ca5": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club administration",
+      "reason": "CA-M5 News & Announcements: the publishing-scopes read model, cross-scope and cross-club refusal, drafts and windows, reader isolation (member, guardian, unrelated, other club, opposition, anonymous), the lead story, stale authority, audit, and the absence of notifications."
+    },
+    "club_operations_ca10": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club operations authority",
+      "reason": "CA-M10 Club Operations: the club-scope probe (a Club Admin's default bundle holds the sixteen keys the club workspace draws with and the three desk tools; a Volunteer reads fixtures, grounds, events and sides and changes nothing; a team context never holds a desk tool); cross-club (Club A's admin reads nothing of Club B's own fixture, cannot move its kick-off or record its result, holds nothing at Club B, reads the shared fixture, and the opposition's people, grounds and events are not ours because we play them); edit and result independent both ways at club scope with a withhold each way; cancel is a reasoned operation that keeps the record, a client cannot delete through the table, and deletion is its own R-gated club-only key; requests read across every side, unacceptable by the asking club or a Volunteer, declined by the club that was asked; club events created by calendar.event.manage, read by a Volunteer who cannot manage or cancel, invisible to another club with a forged id failing closed, cancelled with a reason, and emitting nothing (H29 untouched); pitch allocation withheld while edit and result stay -- three keys, three answers; a Volunteer cannot invite staff and the invitation read model carries no secret. Self-seeding and rolled back."
     },
     "club_people_memberships": {
       "disposition": "CANONICAL_GATE",
@@ -520,6 +540,11 @@
       "owner": "Family, players and guardians",
       "reason": "FAMILY ISOLATION MATRIX (Identity/Auth Slice 4; Phase 2 AJ.1 family_isolation_matrix, FR-1, FR-3, W, AP #35)."
     },
+    "family_player_operations_ca9": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family and player authority",
+      "reason": "CA-M9 Family & Player Operations: family scope (a parent of two children on two sides reads both sides and nothing of the opposition's own fixtures; on a shared fixture each family is asked about its own child only; another family's player rows and answers are unreadable; a parent with a child on one side does not reach the club's other side; answering for another family's child is refused); availability (no fourth state; Unsure is a recorded guardian answer; the answer reaches the three register holders through the CA-M8 emitter, the same answer again tells nobody, a change supersedes the unread row, no guardian, other family or opposition is told; the co-guardian reads the same record; an adult answers for themselves as the player; a sixteen-year-old is refused without recorded consent and told why, then answers once consent is recorded; an adult-looking player with no date of birth is refused; training takes the same path); Match Centre authority (a parent gets no register, no conversation, no management, no kick-off move, no cancellation, no team capability; opposition contacts are nothing to a parent; an adult player's membership grants no management, register or roster and reads only their own side's fixtures); messaging (parent and player never reach the opposition; a parent reaches the child's coach and never a minor; a minor and a coach never reach each other in either direction; the chooser offers only legitimate people); subscriptions (a family reads its own child's state and nothing of another family's, and never holds the team's finance view); identity (a guardian changes their own child's picture and permissions and not another family's; unanimous-grant / deny-by-default; nothing in the grid is a date of birth; unknown age is never adult); and stale authority (a revoked relationship refuses the next answer and drops the child from the ask, leaving the last legitimate answer untouched). Self-seeding and rolled back."
+    },
     "family_relationship_state_machine": {
       "disposition": "CANONICAL_GATE",
       "owner": "Family, players and guardians",
@@ -658,6 +683,11 @@
         "permission_matrix"
       ]
     },
+    "fixture_schedule_edit_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixtures authority",
+      "reason": "CA-M7.1 (ledger H24): a kick-off change, and every other scheduling change, is a fixture edit. Proves both capability directions independently -- fixture.fixture.edit alone lands the kick-off, meet time, venue, pitch and whole schedule and is refused a result; fixture.result.record alone is refused every scheduling change including answering a proposed kick-off and the free-text ground, and lands a result; a Team Manager's role default moves their own kick-off, a Club Admin's withhold refuses the save mid-edit and leaves the kick-off unchanged while the role, the view and result recording remain, restore removes the decision and the role answers again; the read model fixture_editable_fields agrees at every step; a sibling team's and another club's kick-off and schedule are refused with no Planner, bulk edit or Import gained; and the either-side shape is kept -- the opponent's fixture staff propose and answer a kick-off change with their own edit key, a result-only holder cannot even propose. Self-seeding and rolled back."
+    },
     "fixture_search_and_venue_authority": {
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",
@@ -768,6 +798,11 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Family, players and guardians",
       "reason": "Safeguarding: a request grants nothing until a human with real authority approves it."
+    },
+    "guardians_players_ca11_1": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Family, players and guardians",
+      "reason": "CA-M11.1 Guardians & Players: the club's administration of players and guardians as the phone consumes it. A Club Admin without family.relationship.approve gets nothing from the approval queue or the guardian directory and cannot issue a replacement invitation; with it the queue and the directory (with emails) are read; another club's Club Admin reads nothing, decides nothing, moves nothing and asks nothing; an approval and a removal land with a recent second factor and are recorded, and the acceptance WITHOUT one is pinned as a documented gap (the operations do not yet call require_recent_aal2) so closing it is loud; a move needs team.roster.manage on both sides and is one transaction with one event; player_staff_view carries no date of birth, gender value or login id and the club cannot read players.playing_pathway, only ask a guardian for it; a duplicate review is neither seen nor resolved by a team-scoped holder and is terminal once the club resolves it; a player asking to join is placed on one of this club's own sides once, with already-resolved as an answer; a call-up is raised by the club and decided by the source side's club, never a Team Manager; a dispensation walks its stages, refuses its own requester, needs a governing-body reference and can be revoked. Self-seeding and rolled back."
     },
     "handover_apply_idempotency": {
       "disposition": "CANONICAL_GATE",
@@ -899,6 +934,11 @@
       "owner": "Identity/Auth and platform security",
       "reason": "IDENTITY FOUNDATION + DATABASE/API PERIMETER (Identity/Auth Slice 1)."
     },
+    "identity_onboarding_ca11": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity and onboarding authority",
+      "reason": "CA-M11 Identity, Profile, Security & Onboarding: an invitation previews what it opens and who sent it -- never who it was for or an id -- for an anonymous holder, a miss is an empty answer and no secret at all is refused; the wrong account is refused generically consuming nothing and granting nothing; the invited person lands the stored outcome (membership plus the issuer's role ceiling), a second acceptance is idempotent, the admin read model carries no secret and the hash columns are not selectable; expired and withdrawn invitations are refused generically; a team code creates a pending join request and no membership or team capability; sign out other devices is refused without a recent second factor and with one revokes only the other session; a security change is one of the named kinds and a native password change stamps the same column and history as the website; a person sees only their own sessions; a self-declared CLUB_ADMIN or isSiteAdmin in user metadata holds nothing and cannot invite; a burst of redemption guesses throttles even the real link before lookup; a person updates their own profile and nobody else's and cannot change their own account state or date of birth. Self-seeding and rolled back."
+    },
     "identity_security_containment": {
       "disposition": "CANONICAL_GATE",
       "owner": "Identity/Auth and platform security",
@@ -1001,6 +1041,21 @@
       "owner": "Safeguarding",
       "reason": "MINOR PROHIBITIONS (Identity/Auth Slice 2, Phase 2 M.2 / I)."
     },
+    "mobile_fixture_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Ovalball mobile client and fixture authority",
+      "reason": "M5: the authority the mobile Fixtures product consumes and cannot widen. Proves the four keys mobile asks for (fixture.fixture.create/edit/cancel, fixture.request.create) are team-scoped and delegable while the older short keys fixture.create/edit/cancel are NOT -- the distinction an interface built on the wrong pair would silently ignore every delegation over; that a role bundle is the default, an explicit team deny refuses one person on one team and takes nothing else with it, and an explicit team grant confers nothing on the club's other team; that team A's staff can neither edit nor cancel team B's fixture in the same club and hold no creation authority over it; that the Planner, Import, bulk edit and delete are not team-scoped capabilities at all and are refused even to a Club Admin asking at team scope, while the same Club Admin holds the Planner at club scope so the boundary is the scope rather than the person; that an ordinary member and a player mutate nothing; and that fixture-request compatibility is the canonical identities_can_play_fixture rule rather than a name match -- a far club's U12 is offered to our U12 and its U16 is not, a Rugby League side is refused for a Union one, an incompatible request is refused at insert time whatever a client offered, and the opponent picker refuses somebody who may not arrange fixtures rather than enumerating another club's sides to them. Self-seeding and rolled back."
+    },
+    "mobile_message_attachments": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Ovalball mobile client and messaging attachments",
+      "reason": "M4 completion: proves the attachment boundary is the platform's own -- the attachment and document-share RPCs take a fixture or a request and nothing else, so the mobile client's honest refusal on direct and club conversations is describing the platform rather than making a safeguarding decision on a handset, and a direct-conversation parameter appearing on either function fails this suite. Also proves the fixture-attachments storage path is authority rather than naming (an outsider knowing the exact path is refused, and a malformed or foreign-prefixed path is refused rather than erroring), that both RPCs refuse an outsider with 42501 and write nothing, that an image with no caption is a legitimate message while fixture_messages_content_present requires words alongside a non-image attachment -- which is why the mobile composer asks for a caption before it uploads a document -- and that a shared document is one reference to the club's own row, never a copy, and is not published to anybody outside the conversation. Self-seeding and rolled back; no persistent review identity, club, team, fixture or document is touched."
+    },
+    "mobile_message_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Mobile / Messaging",
+      "reason": "The authority the mobile Messages product inherits and cannot widen. The app reads through the same RPCs and RLS the website uses and sends by the same insert, so what is proved here is the SERVER's refusals: a conversation id is not a permission (the deep-link case), a forged sender column is refused, an outsider cannot rewrite a message, the inbox reader never lists somebody else's conversation, and candidate discovery is a per-caller function rather than a readable table. If the server refuses these, no client can perform them -- including a modified one."
+    },
     "notification_catalogue": {
       "disposition": "CANONICAL_GATE",
       "owner": "Email and notifications",
@@ -1010,6 +1065,11 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Email and notifications",
       "reason": "Mandatory notifications, and the preferences that may not silence them (20270259000000)."
+    },
+    "notifications_action_centre_ca8": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications and the attention system",
+      "reason": "CA-M8 Notifications, Inbox & Action Centre: the availability response reaching the side's staff by the canonical capability decision (Club Admin, Team Manager and Coach at that team; never a plain member, the guardian, another side's manager or another club), the same answer repeated telling nobody, a changed answer settling the earlier unread row so one unread row per person per event carries the current answer, a withheld team.attendance.view dropping a recipient and its restore returning them, the responder never told about their own answer even when they run the side, training taking the same path; context isolation (a U14 answer reaching the U14 manager and the Club Admin, never the U12 staff, and the card naming the side); READ IS NOT RESOLVED both ways (marking read leaves the answer, a new answer leaves the read mark) and no resolved, dismissed or archived column; the read mutation self-only and read_at-only with no delete path and no delete policy; the paged feed as the bell's own rule (Messenger's and Support's rows absent), its unread rows equal to the badge, keyset paging that never repeats a row, an unread-only page from storage, a fifty-row ceiling, no second notification or action-item store, and the mandatory-topic refusal untouched. Self-seeding and rolled back."
     },
     "opponent_reconciliation": {
       "disposition": "SPECIAL_PURPOSE",
@@ -1038,6 +1098,11 @@
       "disposition": "UNVERIFIED",
       "owner": "Family, players and guardians",
       "reason": "Parent/Guardian/Player Safeguarding + Attendance Foundation -- security regression suite."
+    },
+    "participant_route_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Ovalball participant routing -- Match Centre, Training Centre, the canonical fixture address",
+      "reason": "P3: a participant never reaches administration, and never reaches another family. The defect this suite was written for is that `/fixtures/<id>` is the canonical address for one physical fixture on both clients -- what the website routes to, what notificationHref emits for every fixture notification, what a shared link carries and what the app restores after being killed -- and the mobile client had made it the FIXTURE CONSOLE, so every canonical way into a fixture put a parent in fixture administration. The fix is a route that asks the SERVER which surface to draw, which means the whole boundary now rests on the answers pinned down here. It proves: the route decision itself, because get_match_centre_capabilities.can_manage_fixture is false for a guardian on their own child's match and for a 16-year-old on their own, while remaining TRUE for a club admin on their own club's fixture so that legitimate operations are not collateral damage; that changing the id in the URL buys nothing, because another family's fixture grants a guardian no capability of any kind and get_my_players_for_fixture returns nobody for it, while their own child's match still works -- the half a blunt fix would have broken; that administration is refused at the WRITE and not merely left undrawn, for cancelling a fixture and cancelling a training session; that the Training Centre's own can_manage and can_view_register are false, which is what makes every editable row on that screen absent; and that opposition is informational rather than relational -- a guardian gets no opposition contacts and no opposition person among the people they may message, while the opponent's NAME on their own fixture stays perfectly visible. Self-seeding and rolled back, which matters more than usual here: the persistent review world contains no fixture outside any UAT family, so this boundary can only be proved against data a test owns. P4 extended it to the Training Centre in full: a guardian sees their own child on their own child's session and NOBODY on a session belonging to another family's side, whose card reader refuses them outright; every administrative write is refused directly as a typed URL would have called it -- moving the day, the start time, the ground, the session plan, and cancelling -- while answering for their own child is allowed, which is the participant half the boundary must not break, and answering for another family's child is refused. A 16-year-old player is a participant at training too. And a club admin may still actually rewrite the session plan, so the staff half is proved not to be collateral damage."
     },
     "partner_club_invitations": {
       "disposition": "SPECIAL_PURPOSE",
@@ -1102,10 +1167,20 @@
       "owner": "Identity/Auth and platform security",
       "reason": "A scheduler that only exists in one database must not decide whether the other databases can be built."
     },
+    "pitch_allocation_ca11_1": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Venue and pitch allocation authority",
+      "reason": "CA-M11.1 Pitch Allocation on the phone consumes the same authority the website's board does: a Club Admin's bundle holds view and manage at club scope, a Coach and a Team Manager view only while the manager holds fixture edit at their team; fixture edit does not imply allocation management (a fixture-edit holder without manage and a Club Admin with manage withheld cannot write a proposal, a manage holder can); the placement RPC asks fixture edit at the home club (a manage holder without fixture edit may build a proposal but is refused the placement; a fixture-edit holder with manage withheld is still accepted -- the recorded divergence H32); the placement lands the same row from any client (Booked with pitch and kick-off, audit source PITCH_ALLOCATION, clearing the pitch through update_fixture_pitch returns it to Planned); another club's admin cannot place our fixture and reads none of our proposals; the scheduling policy row is refused to a Coach and written by a Club Admin so the buffers come from the club. Self-seeding and rolled back."
+    },
     "pitch_allocation_group_vs_group": {
       "disposition": "UNVERIFIED",
       "owner": "Fixture operations",
       "reason": "Pitch Allocation Group-vs-Group permanent regression suite."
+    },
+    "pitch_capacity_configuration": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Pitch Allocation",
+      "reason": "CA-M11.2 Grounds & Pitches: authority, validation and derived-capacity coverage for set_club_pitch_configuration."
     },
     "pitch_venue_home_side_fix": {
       "disposition": "UNVERIFIED",
@@ -1294,6 +1369,11 @@
       "owner": "Identity/Auth \u2014 capability engine",
       "reason": "ROLE ASSIGNMENT STATE MACHINE (Identity/Auth Slice 2, Phase 2 M.2)."
     },
+    "roles_and_permissions_ca4": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club administration",
+      "reason": "CA-M4 Roles & Permissions: role defaults, decisions, restore, scope isolation, the fixture case, ceilings, subject/scope validity, stale authority, R, membership keys, cancel and pitch allocation keys, cross-club isolation, audit."
+    },
     "rollover_player_placement": {
       "disposition": "CANONICAL_GATE",
       "owner": "Season handover and register",
@@ -1323,16 +1403,16 @@
       "owner": "Unassigned \u2014 Batch A follow-up",
       "reason": "A club is only ever shown its own sport."
     },
+    "safeguarding_authority_matrix": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Safeguarding",
+      "reason": "===================================================================================================== SAFEGUARDING AUTHORITY MATRIX (Identity/Auth Slice 4G, Phase 2 AA.3 row 4g) Th"
+    },
     "safeguarding_ca11_1": {
       "disposition": "CANONICAL_GATE",
       "owner": "Safeguarding",
       "reason": "CA-M11.1 Safeguarding on the phone: the website's Safeguarding Officer product over the same operations and the same authority. Proves the probe (a Club Admin holds the nomination key and none of the five officer keys; a confirmed officer holds all five; another club's officer and a plain member hold none); that a Club Admin without the officer keys is refused every officer read the phone offers (welfare lookup and report queue 42501, conversations, thread bodies and review history empty, the officer dispensation branch closed, a reply refused); that a confirmed officer reads their own club's view with the welfare lookup demanding and recording a reason; that another club's officer reads nothing; that nomination, invitation issue, resend, withdrawal, contact correction and deactivation refuse everyone without the club's key while the canonical invitation is issued and withdrawn by it through a secret-free read model; that no officer read returns a notes, narrative, incident or allegation column and no case domain exists; and that the Admin Centre section's key belongs to the Club Admin alone. Self-seeding and rolled back.",
       "prerequisites": []
-    },
-    "safeguarding_authority_matrix": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Safeguarding",
-      "reason": "===================================================================================================== SAFEGUARDING AUTHORITY MATRIX (Identity/Auth Slice 4G, Phase 2 AA.3 row 4g) Th"
     },
     "safeguarding_officer_dispensation_notifications": {
       "disposition": "CANONICAL_GATE",
@@ -1358,6 +1438,11 @@
       "disposition": "SPECIAL_PURPOSE",
       "owner": "Fixture operations",
       "reason": "Manual verification for Mini-Rugby Groups (20260901230000 + 20260924770000 season-binding):"
+    },
+    "season_handover_ca11_1": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club administration and handover authority",
+      "reason": "CA-M11.1 Season Handover on the phone: the authority the mobile screens depend on, proved as real authenticated users. A member without team.handover.prepare is refused generate_rollover_proposal (42501) and nothing is written; a Club Admin prepares and the six preview functions the shared board reads (handover_state, rollover_readiness, handover_apply_blockers, handover_consequences, handover_audit, handover_team_labels) answer a Fixture Secretary and mutate nothing, while an ordinary member is refused them; a Fixture Secretary may record a team decision (prepare) but is refused apply_season_handover with 42501 and the server's own sentence, changing nothing; a member without any handover capability is refused apply and undo; a Club Admin applying against a stale decisions revision is refused (P0001) and nothing changes; my_capabilities -- the one probe both clients read -- reports prepare for both and apply for the Club Admin only; the Club Admin applies with the reviewed revision, the side progresses U16 to U17, a second apply reports already_applied and does no work, decisions are read-only after apply, and the side does not age twice. Self-seeding against a throwaway club, target season read from the canonical register, rolled back."
     },
     "season_handover_cross_club_security": {
       "disposition": "UNVERIFIED",
@@ -1527,6 +1612,31 @@
       "owner": "Safeguarding",
       "reason": "CONVERGENCE STEP 12 \u2014 RUGBY SAFEGUARDING + AGE-GRADE."
     },
+    "step13_impersonation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth \u2014 Slice 9 impersonation",
+      "reason": "Convergence Step 13 / Identity-Auth Slice 9: acting as somebody is capability-gated, reasoned, view-only by default, clamped at the capability engine, expiring at read time, attributed to both people, and notified afterwards (AN-9)."
+    },
+    "step14_governing_body": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Governing Body programme (Steps 14-16)",
+      "reason": "Convergence Step 14: governing-body authority comes from an ACTIVE constituent_body_roles row and nothing else -- not a club role, a Fixture Secretary, a Safeguarding Officer or a name -- with fail-closed predicates, wrong-body isolation, explicit Site Admin access, and suspension/revocation winning."
+    },
+    "step15_governing_product": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Governing Body programme (Steps 14-16)",
+      "reason": "Convergence Step 15: the one RED change is a single added disjunct in internal.can_organise_competition -- the chokepoint all ten competition mutations reach through internal.require_edition_organiser -- so this proves the whole organiser matrix (right body, wrong body, viewer, Club Admin, Fixture Secretary, Safeguarding Officer, ordinary member, stranger), that the existing club and Site Admin organisers survived, that a body officer gains no authority over a club's own fixtures, and the three new writes: competition creation in the body's own rugby code and the canonical season, grant-by-email with no people-search surface, and revocation as a state change that is never your own. It also asserts the boundaries Step 15 deliberately did not cross -- the dispensation chain, club affiliation, protected person data and the five-scope capability engine."
+    },
+    "step16_governing_closure": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Governing Body programme (Steps 14-16)",
+      "reason": "Convergence Step 16: the closure of the governing/competition relationships. Proves that a governing-body invitation is the CANONICAL one (registered capability, hashed token, single use, the organisation as its scope) and that there is no second invitation system; that a registered and an unregistered address are invited indistinguishably, which is what removed the account-existence oracle; that redemption is server-authored, bound to the invited identity, single-use and re-checks the ISSUER's standing at the organisation; that revoke and resend come from the canonical authority; that a body organiser can now read its own competition through RLS -- including the match verifications, which have no public fallback and were previously invisible to it -- and is notified when its clubs answer, which it was not; that a club can read which competitions it is in and who runs them while entry stays the organiser's act with no consent vocabulary invented; that affiliation and organising confer no club authority in either direction; the races Step 16 creates (two admins inviting one address, redemption versus revocation); and the boundaries it did not cross -- the organisation capability scope, the dispensation chain, club affiliation and protected person data."
+    },
+    "step17_legacy_retirement": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Identity/Auth Slice 10",
+      "reason": "Convergence Step 17 (Identity/Auth Slice 10): the retirement slice's own acceptance is 'zero references in CI; full runner, clean boot and all browser suites green; production usage telemetry zero for 30 days before each drop', and measured against that NO DROP IS DUE -- every compatibility target still has live references. So this proves the part that is: that no browser role can reach a plaintext legacy invitation secret by read or by write, table by table; that the legacy invitations table is no longer writable by a Club Admin OR a Full Site Admin because the grant is gone rather than the policy; that the partner-invitation and canonical-invitation readers keep every column they use while select * and the hash material are refused; that NOTHING was dropped and every release-bridge function and table survives; that a LIVE legacy invitation keeps its token while a terminal one loses it (Phase 2 O.5, which is why the one real pending guardian invitation was left alone); that the canonical issuer still issues and still stores only a hash; and that the capability engine, the organisation-scope refusal and Step 16's governing-body context are untouched, because Slice 10 owns none of them."
+    },
     "step8_operational_access": {
       "disposition": "CANONICAL_GATE",
       "owner": "Convergence programme",
@@ -1562,6 +1672,11 @@
       "owner": "Team directory and roster",
       "reason": "Activating a team's standing conversation (20270247000000)."
     },
+    "team_fixture_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team Operations / Fixture Operations",
+      "reason": "Team fixture operations: who may administer a team's fixtures, and how far that reaches. Proves that the shipped Coach bundle DOES grant team-scoped create/edit/cancel and request.create -- recorded as the product's actual behaviour rather than assumed away -- while never reaching a team the person is not attached to and never becoming club-wide authority; that a Club Admin's scoped DENY overrides the role bundle for one person on one team and takes nothing else with it; that a capability granted for one team is not authority over another for create, edit, cancel or request; that a fixture request is refused at source against a different age band or a senior side, BY THE CANONICAL RULE (internal.teams_can_play_fixture, asserted on the message so an unrelated check constraint cannot pass for it) while a request whose opponent is not yet known is still allowed; that club-wide authority is unchanged in a club context; and that the Planner, bulk import and bulk edit remain separate and are not even grantable at team scope."
+    },
     "team_identity_season_projector": {
       "disposition": "SPECIAL_PURPOSE",
       "owner": "Team directory and roster",
@@ -1575,6 +1690,11 @@
         "permission_matrix"
       ],
       "measured": "Run standalone in Step 10 and Batch A: 6 passed, 10 failed. Setup is refused by the pathway trigger introduced at 20261231000000 (a U12+ team with no pathway) -- seed data older than the rule."
+    },
+    "team_operations_ca7": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Ovalball mobile client and team authority",
+      "reason": "CA-M7 Team Operations: the authority the team workspace consumes and cannot widen. Proves the one team-scope capability probe (a Team Manager's role default, a Coach's narrower one, and that the Planner, Import, bulk edit, delete and the Competition Creator are never offered at team scope even to a Club Admin); fixture create, edit and cancel by a non-protected Team Manager on THEIR team, a Club Admin's withhold refusing the same role mid-edit and a restore returning it, cancellation needing a reason and never deleting; cross-team and cross-club refusal of create, edit and cancel with no capability at the wrong scope; no club-wide escalation to the Planner, membership administration or the club ledger; the team-scoped subscription operation answering only the holder for only their team, refusing the sibling team, an unauthorised Coach and another club, keeping the underlying rows refused, carrying no provider or payer-identity column, refusing under a withhold and returning on restore, with no other finance key holding team scope; the roster reader refusing the wrong team and the wrong club, carrying no contact column, a Coach reading but not deciding and a Team Manager deciding; a fixture request seen by the target team and answerable only by a holder of fixture.request.respond; the messaging boundaries the team workspace adds no route around (parent and player to the opposition, minor and coach either way, and the one legitimate staff route); and availability with no staff override and a summary absent, not zero, where the viewer has no attendance authority. Self-seeding and rolled back."
     },
     "team_people_roster": {
       "disposition": "CANONICAL_GATE",
@@ -1680,121 +1800,6 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",
       "reason": "===================================================================================================== VENUE AND TRAINING AUTHORITY MATRIX (Identity/Auth Slice 4E, Phase 2 AA.3 row"
-    },
-    "step13_impersonation": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth \u2014 Slice 9 impersonation",
-      "reason": "Convergence Step 13 / Identity-Auth Slice 9: acting as somebody is capability-gated, reasoned, view-only by default, clamped at the capability engine, expiring at read time, attributed to both people, and notified afterwards (AN-9)."
-    },
-    "step14_governing_body": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Governing Body programme (Steps 14-16)",
-      "reason": "Convergence Step 14: governing-body authority comes from an ACTIVE constituent_body_roles row and nothing else -- not a club role, a Fixture Secretary, a Safeguarding Officer or a name -- with fail-closed predicates, wrong-body isolation, explicit Site Admin access, and suspension/revocation winning."
-    },
-    "step17_legacy_retirement": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Identity/Auth Slice 10",
-      "reason": "Convergence Step 17 (Identity/Auth Slice 10): the retirement slice's own acceptance is 'zero references in CI; full runner, clean boot and all browser suites green; production usage telemetry zero for 30 days before each drop', and measured against that NO DROP IS DUE -- every compatibility target still has live references. So this proves the part that is: that no browser role can reach a plaintext legacy invitation secret by read or by write, table by table; that the legacy invitations table is no longer writable by a Club Admin OR a Full Site Admin because the grant is gone rather than the policy; that the partner-invitation and canonical-invitation readers keep every column they use while select * and the hash material are refused; that NOTHING was dropped and every release-bridge function and table survives; that a LIVE legacy invitation keeps its token while a terminal one loses it (Phase 2 O.5, which is why the one real pending guardian invitation was left alone); that the canonical issuer still issues and still stores only a hash; and that the capability engine, the organisation-scope refusal and Step 16's governing-body context are untouched, because Slice 10 owns none of them."
-    },
-    "step16_governing_closure": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Governing Body programme (Steps 14-16)",
-      "reason": "Convergence Step 16: the closure of the governing/competition relationships. Proves that a governing-body invitation is the CANONICAL one (registered capability, hashed token, single use, the organisation as its scope) and that there is no second invitation system; that a registered and an unregistered address are invited indistinguishably, which is what removed the account-existence oracle; that redemption is server-authored, bound to the invited identity, single-use and re-checks the ISSUER's standing at the organisation; that revoke and resend come from the canonical authority; that a body organiser can now read its own competition through RLS -- including the match verifications, which have no public fallback and were previously invisible to it -- and is notified when its clubs answer, which it was not; that a club can read which competitions it is in and who runs them while entry stays the organiser's act with no consent vocabulary invented; that affiliation and organising confer no club authority in either direction; the races Step 16 creates (two admins inviting one address, redemption versus revocation); and the boundaries it did not cross -- the organisation capability scope, the dispensation chain, club affiliation and protected person data."
-    },
-    "step15_governing_product": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Governing Body programme (Steps 14-16)",
-      "reason": "Convergence Step 15: the one RED change is a single added disjunct in internal.can_organise_competition -- the chokepoint all ten competition mutations reach through internal.require_edition_organiser -- so this proves the whole organiser matrix (right body, wrong body, viewer, Club Admin, Fixture Secretary, Safeguarding Officer, ordinary member, stranger), that the existing club and Site Admin organisers survived, that a body officer gains no authority over a club's own fixtures, and the three new writes: competition creation in the body's own rugby code and the canonical season, grant-by-email with no people-search surface, and revocation as a state change that is never your own. It also asserts the boundaries Step 15 deliberately did not cross -- the dispensation chain, club affiliation, protected person data and the five-scope capability engine."
-    },
-    "team_fixture_authority": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Team Operations / Fixture Operations",
-      "reason": "Team fixture operations: who may administer a team's fixtures, and how far that reaches. Proves that the shipped Coach bundle DOES grant team-scoped create/edit/cancel and request.create -- recorded as the product's actual behaviour rather than assumed away -- while never reaching a team the person is not attached to and never becoming club-wide authority; that a Club Admin's scoped DENY overrides the role bundle for one person on one team and takes nothing else with it; that a capability granted for one team is not authority over another for create, edit, cancel or request; that a fixture request is refused at source against a different age band or a senior side, BY THE CANONICAL RULE (internal.teams_can_play_fixture, asserted on the message so an unrelated check constraint cannot pass for it) while a request whose opponent is not yet known is still allowed; that club-wide authority is unchanged in a club context; and that the Planner, bulk import and bulk edit remain separate and are not even grantable at team scope."
-    },
-    "mobile_fixture_authority": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Ovalball mobile client and fixture authority",
-      "reason": "M5: the authority the mobile Fixtures product consumes and cannot widen. Proves the four keys mobile asks for (fixture.fixture.create/edit/cancel, fixture.request.create) are team-scoped and delegable while the older short keys fixture.create/edit/cancel are NOT -- the distinction an interface built on the wrong pair would silently ignore every delegation over; that a role bundle is the default, an explicit team deny refuses one person on one team and takes nothing else with it, and an explicit team grant confers nothing on the club's other team; that team A's staff can neither edit nor cancel team B's fixture in the same club and hold no creation authority over it; that the Planner, Import, bulk edit and delete are not team-scoped capabilities at all and are refused even to a Club Admin asking at team scope, while the same Club Admin holds the Planner at club scope so the boundary is the scope rather than the person; that an ordinary member and a player mutate nothing; and that fixture-request compatibility is the canonical identities_can_play_fixture rule rather than a name match -- a far club's U12 is offered to our U12 and its U16 is not, a Rugby League side is refused for a Union one, an incompatible request is refused at insert time whatever a client offered, and the opponent picker refuses somebody who may not arrange fixtures rather than enumerating another club's sides to them. Self-seeding and rolled back."
-    },
-    "mobile_message_attachments": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Ovalball mobile client and messaging attachments",
-      "reason": "M4 completion: proves the attachment boundary is the platform's own -- the attachment and document-share RPCs take a fixture or a request and nothing else, so the mobile client's honest refusal on direct and club conversations is describing the platform rather than making a safeguarding decision on a handset, and a direct-conversation parameter appearing on either function fails this suite. Also proves the fixture-attachments storage path is authority rather than naming (an outsider knowing the exact path is refused, and a malformed or foreign-prefixed path is refused rather than erroring), that both RPCs refuse an outsider with 42501 and write nothing, that an image with no caption is a legitimate message while fixture_messages_content_present requires words alongside a non-image attachment -- which is why the mobile composer asks for a caption before it uploads a document -- and that a shared document is one reference to the club's own row, never a copy, and is not published to anybody outside the conversation. Self-seeding and rolled back; no persistent review identity, club, team, fixture or document is touched."
-    },
-    "mobile_message_authority": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Mobile / Messaging",
-      "reason": "The authority the mobile Messages product inherits and cannot widen. The app reads through the same RPCs and RLS the website uses and sends by the same insert, so what is proved here is the SERVER's refusals: a conversation id is not a permission (the deep-link case), a forged sender column is refused, an outsider cannot rewrite a message, the inbox reader never lists somebody else's conversation, and candidate discovery is a per-caller function rather than a readable table. If the server refuses these, no client can perform them -- including a modified one."
-    },
-    "availability_one_product": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Ovalball availability -- Match Centre, Training Centre, both clients",
-      "reason": "M6: availability is ONE product, and this proves the fixture half and the training half answer alike for the same person under the same policy. The archaeology that preceded the native Match Centre found three asymmetries, all of which would otherwise have been worked around in React Native. A cancelled FIXTURE now refuses an answer, as a cancelled SESSION always has -- the rule previously existed only in the web Match Centre resolver, so any other caller could record an answer to a match that is not happening. A fixture whose orientation is TBD or Not Applicable is answerable: the writer used to locate the fixture's teams through the generated home_team_id/away_team_id columns, which are NULL for both of those, so a legitimate answer was refused as 'this player is not associated with a team involved in this fixture' while the page offered three buttons. A Mini-Rugby scheduling-group fixture is answerable, including for a child on a partner team inside the group that does not own the fixture -- the writer knew nothing about groups and refused every one of them. It also proves the two readers, get_my_players_for_fixture and get_my_players_for_training_session, return an identical column set and each return only the caller's own family, with can_respond and denial_reason inline so neither client draws a control the write would refuse; that a cancelled event still LISTS the child, so a parent can see what was answered before it was called off; that the safeguarding rule is unchanged and still the database's -- guardian always, a 17-year-old with recorded guardian_player_permissions consent yes, a 16-year-old without it no, for both the reader and the write; and that there is one vocabulary of states, so 'MAYBE' and 'AWAITING' are refused and AWAITING remains the ABSENCE of a row. Proved to bite: with the pre-fix writer restored, A4, A5, B2, B3, B4 and C3 fail. Self-seeding and rolled back; no persistent review identity, club, team, fixture or session is touched."
-    },
-    "participant_route_authority": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Ovalball participant routing -- Match Centre, Training Centre, the canonical fixture address",
-      "reason": "P3: a participant never reaches administration, and never reaches another family. The defect this suite was written for is that `/fixtures/<id>` is the canonical address for one physical fixture on both clients -- what the website routes to, what notificationHref emits for every fixture notification, what a shared link carries and what the app restores after being killed -- and the mobile client had made it the FIXTURE CONSOLE, so every canonical way into a fixture put a parent in fixture administration. The fix is a route that asks the SERVER which surface to draw, which means the whole boundary now rests on the answers pinned down here. It proves: the route decision itself, because get_match_centre_capabilities.can_manage_fixture is false for a guardian on their own child's match and for a 16-year-old on their own, while remaining TRUE for a club admin on their own club's fixture so that legitimate operations are not collateral damage; that changing the id in the URL buys nothing, because another family's fixture grants a guardian no capability of any kind and get_my_players_for_fixture returns nobody for it, while their own child's match still works -- the half a blunt fix would have broken; that administration is refused at the WRITE and not merely left undrawn, for cancelling a fixture and cancelling a training session; that the Training Centre's own can_manage and can_view_register are false, which is what makes every editable row on that screen absent; and that opposition is informational rather than relational -- a guardian gets no opposition contacts and no opposition person among the people they may message, while the opponent's NAME on their own fixture stays perfectly visible. Self-seeding and rolled back, which matters more than usual here: the persistent review world contains no fixture outside any UAT family, so this boundary can only be proved against data a test owns. P4 extended it to the Training Centre in full: a guardian sees their own child on their own child's session and NOBODY on a session belonging to another family's side, whose card reader refuses them outright; every administrative write is refused directly as a typed URL would have called it -- moving the day, the start time, the ground, the session plan, and cancelling -- while answering for their own child is allowed, which is the participant half the boundary must not break, and answering for another family's child is refused. A 16-year-old player is a participant at training too. And a club admin may still actually rewrite the session plan, so the staff half is proved not to be collateral damage."
-    },
-    "roles_and_permissions_ca4": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Club administration",
-      "reason": "CA-M4 Roles & Permissions: role defaults, decisions, restore, scope isolation, the fixture case, ceilings, subject/scope validity, stale authority, R, membership keys, cancel and pitch allocation keys, cross-club isolation, audit."
-    },
-    "club_news_announcements_ca5": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Club administration",
-      "reason": "CA-M5 News & Announcements: the publishing-scopes read model, cross-scope and cross-club refusal, drafts and windows, reader isolation (member, guardian, unrelated, other club, opposition, anonymous), the lead story, stale authority, audit, and the absence of notifications."
-    },
-    "team_operations_ca7": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Ovalball mobile client and team authority",
-      "reason": "CA-M7 Team Operations: the authority the team workspace consumes and cannot widen. Proves the one team-scope capability probe (a Team Manager's role default, a Coach's narrower one, and that the Planner, Import, bulk edit, delete and the Competition Creator are never offered at team scope even to a Club Admin); fixture create, edit and cancel by a non-protected Team Manager on THEIR team, a Club Admin's withhold refusing the same role mid-edit and a restore returning it, cancellation needing a reason and never deleting; cross-team and cross-club refusal of create, edit and cancel with no capability at the wrong scope; no club-wide escalation to the Planner, membership administration or the club ledger; the team-scoped subscription operation answering only the holder for only their team, refusing the sibling team, an unauthorised Coach and another club, keeping the underlying rows refused, carrying no provider or payer-identity column, refusing under a withhold and returning on restore, with no other finance key holding team scope; the roster reader refusing the wrong team and the wrong club, carrying no contact column, a Coach reading but not deciding and a Team Manager deciding; a fixture request seen by the target team and answerable only by a holder of fixture.request.respond; the messaging boundaries the team workspace adds no route around (parent and player to the opposition, minor and coach either way, and the one legitimate staff route); and availability with no staff override and a summary absent, not zero, where the viewer has no attendance authority. Self-seeding and rolled back."
-    },
-    "club_operations_ca10": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Club operations authority",
-      "reason": "CA-M10 Club Operations: the club-scope probe (a Club Admin's default bundle holds the sixteen keys the club workspace draws with and the three desk tools; a Volunteer reads fixtures, grounds, events and sides and changes nothing; a team context never holds a desk tool); cross-club (Club A's admin reads nothing of Club B's own fixture, cannot move its kick-off or record its result, holds nothing at Club B, reads the shared fixture, and the opposition's people, grounds and events are not ours because we play them); edit and result independent both ways at club scope with a withhold each way; cancel is a reasoned operation that keeps the record, a client cannot delete through the table, and deletion is its own R-gated club-only key; requests read across every side, unacceptable by the asking club or a Volunteer, declined by the club that was asked; club events created by calendar.event.manage, read by a Volunteer who cannot manage or cancel, invisible to another club with a forged id failing closed, cancelled with a reason, and emitting nothing (H29 untouched); pitch allocation withheld while edit and result stay -- three keys, three answers; a Volunteer cannot invite staff and the invitation read model carries no secret. Self-seeding and rolled back."
-    },
-    "family_player_operations_ca9": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Family and player authority",
-      "reason": "CA-M9 Family & Player Operations: family scope (a parent of two children on two sides reads both sides and nothing of the opposition's own fixtures; on a shared fixture each family is asked about its own child only; another family's player rows and answers are unreadable; a parent with a child on one side does not reach the club's other side; answering for another family's child is refused); availability (no fourth state; Unsure is a recorded guardian answer; the answer reaches the three register holders through the CA-M8 emitter, the same answer again tells nobody, a change supersedes the unread row, no guardian, other family or opposition is told; the co-guardian reads the same record; an adult answers for themselves as the player; a sixteen-year-old is refused without recorded consent and told why, then answers once consent is recorded; an adult-looking player with no date of birth is refused; training takes the same path); Match Centre authority (a parent gets no register, no conversation, no management, no kick-off move, no cancellation, no team capability; opposition contacts are nothing to a parent; an adult player's membership grants no management, register or roster and reads only their own side's fixtures); messaging (parent and player never reach the opposition; a parent reaches the child's coach and never a minor; a minor and a coach never reach each other in either direction; the chooser offers only legitimate people); subscriptions (a family reads its own child's state and nothing of another family's, and never holds the team's finance view); identity (a guardian changes their own child's picture and permissions and not another family's; unanimous-grant / deny-by-default; nothing in the grid is a date of birth; unknown age is never adult); and stale authority (a revoked relationship refuses the next answer and drops the child from the ask, leaving the last legitimate answer untouched). Self-seeding and rolled back."
-    },
-    "notifications_action_centre_ca8": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Notifications and the attention system",
-      "reason": "CA-M8 Notifications, Inbox & Action Centre: the availability response reaching the side's staff by the canonical capability decision (Club Admin, Team Manager and Coach at that team; never a plain member, the guardian, another side's manager or another club), the same answer repeated telling nobody, a changed answer settling the earlier unread row so one unread row per person per event carries the current answer, a withheld team.attendance.view dropping a recipient and its restore returning them, the responder never told about their own answer even when they run the side, training taking the same path; context isolation (a U14 answer reaching the U14 manager and the Club Admin, never the U12 staff, and the card naming the side); READ IS NOT RESOLVED both ways (marking read leaves the answer, a new answer leaves the read mark) and no resolved, dismissed or archived column; the read mutation self-only and read_at-only with no delete path and no delete policy; the paged feed as the bell's own rule (Messenger's and Support's rows absent), its unread rows equal to the badge, keyset paging that never repeats a row, an unread-only page from storage, a fifty-row ceiling, no second notification or action-item store, and the mandatory-topic refusal untouched. Self-seeding and rolled back."
-    },
-    "fixture_schedule_edit_authority": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Fixtures authority",
-      "reason": "CA-M7.1 (ledger H24): a kick-off change, and every other scheduling change, is a fixture edit. Proves both capability directions independently -- fixture.fixture.edit alone lands the kick-off, meet time, venue, pitch and whole schedule and is refused a result; fixture.result.record alone is refused every scheduling change including answering a proposed kick-off and the free-text ground, and lands a result; a Team Manager's role default moves their own kick-off, a Club Admin's withhold refuses the save mid-edit and leaves the kick-off unchanged while the role, the view and result recording remain, restore removes the decision and the role answers again; the read model fixture_editable_fields agrees at every step; a sibling team's and another club's kick-off and schedule are refused with no Planner, bulk edit or Import gained; and the either-side shape is kept -- the opponent's fixture staff propose and answer a kick-off change with their own edit key, a result-only holder cannot even propose. Self-seeding and rolled back."
-    },
-    "club_finance_ca11_1": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Club finance and subscriptions",
-      "reason": "CA-M11.1 Subscriptions & Payments on the phone over the website's own finance domain: a club-scope finance.subscription.view holder reads the ledger, the review reasons and one membership's detail and is refused configuration, pricing, waiving, generation, export, disconnect, refund and cancellation by the RPCs' own gates with nothing changed; a Team Manager with the team-scoped view reads only their own squad's state through team_subscription_status, is refused the sibling team, reads no ledger row, no review reason and no membership detail, and holds no club finance key -- no team finance escalation; another club's administrator reads nothing of the club and is refused every club operation while their own club still answers; the merchant access token is unreadable by any signed-in role, no bank-account column exists, the token functions are service-role only and the result shapes the phone consumes carry no secret; the functions the phone calls are the web's, by name and signature, executable by authenticated; the club administrator generates obligations idempotently, waives with an audit row, exports with an audit row, schedules an effective-dated price, saves a sibling rule and previews a first payment; and H20/H25 are pinned untouched -- finance.subscription.view still {club,team}, inherits_to_team false, ceiling C, TM bundle row present, no other finance key at team scope. Self-seeding and rolled back."
-    },
-    "identity_onboarding_ca11": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Identity and onboarding authority",
-      "reason": "CA-M11 Identity, Profile, Security & Onboarding: an invitation previews what it opens and who sent it -- never who it was for or an id -- for an anonymous holder, a miss is an empty answer and no secret at all is refused; the wrong account is refused generically consuming nothing and granting nothing; the invited person lands the stored outcome (membership plus the issuer's role ceiling), a second acceptance is idempotent, the admin read model carries no secret and the hash columns are not selectable; expired and withdrawn invitations are refused generically; a team code creates a pending join request and no membership or team capability; sign out other devices is refused without a recent second factor and with one revokes only the other session; a security change is one of the named kinds and a native password change stamps the same column and history as the website; a person sees only their own sessions; a self-declared CLUB_ADMIN or isSiteAdmin in user metadata holds nothing and cannot invite; a burst of redemption guesses throttles even the real link before lookup; a person updates their own profile and nobody else's and cannot change their own account state or date of birth. Self-seeding and rolled back."
-    },
-    "pitch_allocation_ca11_1": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Venue and pitch allocation authority",
-      "reason": "CA-M11.1 Pitch Allocation on the phone consumes the same authority the website's board does: a Club Admin's bundle holds view and manage at club scope, a Coach and a Team Manager view only while the manager holds fixture edit at their team; fixture edit does not imply allocation management (a fixture-edit holder without manage and a Club Admin with manage withheld cannot write a proposal, a manage holder can); the placement RPC asks fixture edit at the home club (a manage holder without fixture edit may build a proposal but is refused the placement; a fixture-edit holder with manage withheld is still accepted -- the recorded divergence H32); the placement lands the same row from any client (Booked with pitch and kick-off, audit source PITCH_ALLOCATION, clearing the pitch through update_fixture_pitch returns it to Planned); another club's admin cannot place our fixture and reads none of our proposals; the scheduling policy row is refused to a Coach and written by a Club Admin so the buffers come from the club. Self-seeding and rolled back."
-    },
-    "season_handover_ca11_1": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Club administration and handover authority",
-      "reason": "CA-M11.1 Season Handover on the phone: the authority the mobile screens depend on, proved as real authenticated users. A member without team.handover.prepare is refused generate_rollover_proposal (42501) and nothing is written; a Club Admin prepares and the six preview functions the shared board reads (handover_state, rollover_readiness, handover_apply_blockers, handover_consequences, handover_audit, handover_team_labels) answer a Fixture Secretary and mutate nothing, while an ordinary member is refused them; a Fixture Secretary may record a team decision (prepare) but is refused apply_season_handover with 42501 and the server's own sentence, changing nothing; a member without any handover capability is refused apply and undo; a Club Admin applying against a stale decisions revision is refused (P0001) and nothing changes; my_capabilities -- the one probe both clients read -- reports prepare for both and apply for the Club Admin only; the Club Admin applies with the reviewed revision, the side progresses U16 to U17, a second apply reports already_applied and does no work, decisions are read-only after apply, and the side does not age twice. Self-seeding against a throwaway club, target season read from the canonical register, rolled back."
-    },
-    "guardians_players_ca11_1": {
-      "disposition": "CANONICAL_GATE",
-      "owner": "Family, players and guardians",
-      "reason": "CA-M11.1 Guardians & Players: the club's administration of players and guardians as the phone consumes it. A Club Admin without family.relationship.approve gets nothing from the approval queue or the guardian directory and cannot issue a replacement invitation; with it the queue and the directory (with emails) are read; another club's Club Admin reads nothing, decides nothing, moves nothing and asks nothing; an approval and a removal land with a recent second factor and are recorded, and the acceptance WITHOUT one is pinned as a documented gap (the operations do not yet call require_recent_aal2) so closing it is loud; a move needs team.roster.manage on both sides and is one transaction with one event; player_staff_view carries no date of birth, gender value or login id and the club cannot read players.playing_pathway, only ask a guardian for it; a duplicate review is neither seen nor resolved by a team-scoped holder and is terminal once the club resolves it; a player asking to join is placed on one of this club's own sides once, with already-resolved as an answer; a call-up is raised by the club and decided by the source side's club, never a Team Manager; a dispensation walks its stages, refuses its own requester, needs a governing-body reference and can be revoked. Self-seeding and rolled back."
     }
   },
   "prerequisite_defect": {

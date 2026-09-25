@@ -40,8 +40,18 @@ export async function getTrainingExceptions(supabase: SupabaseClient<Database>, 
   const teamIds = (teamRows ?? []).map((t) => t.id)
   if (teamIds.length === 0) return []
 
-  const { data: pitchRows } = await supabase.from("club_pitches").select("id, display_name, active, venue_id, size_category, lane_count").eq("club_id", clubId)
-  const pitches: PitchOption[] = (pitchRows ?? []).map((p) => ({ id: p.id, displayName: p.display_name, active: p.active, venueId: p.venue_id, sizeCategory: p.size_category as PitchOption["sizeCategory"], laneCount: p.lane_count }))
+  const { data: pitchRows } = await supabase.from("club_pitches").select("id, display_name, active, venue_id, physical_size_category, custom_length_m, custom_width_m, layout, lane_count").eq("club_id", clubId)
+  const pitches: PitchOption[] = (pitchRows ?? []).map((p) => ({
+    id: p.id,
+    displayName: p.display_name,
+    active: p.active,
+    venueId: p.venue_id,
+    physicalSizeCategory: p.physical_size_category as PitchOption["physicalSizeCategory"],
+    customLengthM: p.custom_length_m == null ? null : Number(p.custom_length_m),
+    customWidthM: p.custom_width_m == null ? null : Number(p.custom_width_m),
+    layout: p.layout as PitchOption["layout"],
+    laneCount: p.lane_count,
+  }))
   const pitchNameById = new Map(pitches.map((p) => [p.id, p.displayName]))
 
   const { data: trainingRows } = await supabase

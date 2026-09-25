@@ -1,23 +1,34 @@
 /**
  * PHYSICAL PITCH FOOTPRINT -- how much of a physical pitch an activity actually needs (CA-M11.2
- * pitch-capacity correction).
+ * pitch-capacity correction, extended by the Grounds & Pitches capacity-configuration pass).
  *
  * THE BUG THIS ANSWERS. `detectConflicts`/`autoAllocate` used to treat "same pitch, overlapping
  * time" as a pure headcount question against a pitch's declared `laneCount` -- a U10 match and a
  * U12 match sharing a pitch were exactly as much a "conflict" as two full-size adult matches sharing
  * it, because neither the fixture's own required SIZE nor the pitch's own declared SIZE entered the
  * calculation at all. A club that legitimately marks out a full-size pitch as two mini-rugby halves
- * had no way to tell Ovalball that, and no way for the two halves to be recognised as compatible.
+ * had no way to tell Ovalball that.
  *
- * WHAT THIS DOES NOT DO. It cannot yet tell "Half A" from "Half B" -- there is no persisted
- * zone/subdivision-capability schema (see docs/mobile/CA_M11_2_PITCH_CAPACITY_MIGRATION_PROPOSAL.md,
- * intentionally not applied this pass per the STOP rule on schema-changing work). What it CAN do
- * honestly, using data that already exists, is a UNIT-BUDGET check: does the TOTAL footprint every
- * concurrent reservation on a pitch requires exceed what that physical pitch is declared to hold.
- * That is a real, meaningful correction -- it is never a false negative in the case that matters most
- * (a FULL-pitch fixture always exceeds any remaining budget the instant anything else overlaps it) --
- * but it cannot detect a layout-incompatible combination (e.g. two reservations both wanting the exact
- * same declared half). That gap is real and is exactly why the migration proposal exists.
+ * TWO DISTINCT PITCH CONCEPTS, KEPT DISTINCT (`club_pitches.physical_size_category` /
+ * `.layout`, set through `set_club_pitch_configuration`, both clients' Grounds & Pitches editor):
+ *   A. PHYSICAL SIZE (`PhysicalSizeCategory`) -- what the pitch IS: full / three-quarter / half /
+ *      custom-dimensioned. A half-size pitch is its own physical resource, never "half of another
+ *      pitch".
+ *   B. LAYOUT (`PitchLayout`) -- how the club has chosen to USE it concurrently: whole pitch only,
+ *      or split into two halves / four quarters. Independent of physical size: a half-size pitch used
+ *      whole, and a full-size pitch split into two halves, are different configurations that happen
+ *      to give the SAME per-area footprint (see `pitchCapacityUnits`) -- collapsing them into one
+ *      field was the exact mistake the owner's brief warned against.
+ *
+ * WHAT THIS DOES NOT DO. Even with physical size and layout both configured, this cannot tell "Half
+ * A" from "Half B" as a real, persisted, nameable zone a reservation is assigned to -- there is no
+ * per-reservation zone_id (that would be a further schema step, deliberately not taken here: the
+ * owner's brief authorised the SIZE/LAYOUT configuration, not a full named-zone assignment model).
+ * What it CAN do honestly is a UNIT-BUDGET check: does the TOTAL footprint every concurrent
+ * reservation on a pitch requires exceed what the pitch's configured physical size and layout
+ * together allow. That is never a false negative in the case that matters most (a FULL-footprint
+ * fixture always exceeds any remaining budget the instant anything else overlaps it, and a
+ * `full_only` layout always rejects a second concurrent booking outright, regardless of size).
  */
 
 import type { AllocationFixture, PitchOption } from "./types"
@@ -40,18 +51,79 @@ export function footprintLabel(footprint: PitchFootprint | null): string | null 
   return null
 }
 
+/** What a physical pitch IS -- Grounds & Pitches' own "Pitch Size" field. `club_pitches.physical_size_category`. */
+export type PhysicalSizeCategory = "full" | "three_quarter" | "half" | "custom"
+
+/** How the club has chosen to USE that physical pitch concurrently -- Grounds & Pitches' own "How can
+ * this pitch be used?" field. `club_pitches.layout`. Deliberately three options, not arbitrary
+ * halves/thirds/quarters combinations -- see this file's header comment and the migration's own. */
+export type PitchLayout = "full_only" | "two_halves" | "four_quarters"
+
+export function physicalSizeCategoryLabel(category: PhysicalSizeCategory): string {
+  if (category === "full") return "Full size"
+  if (category === "three_quarter") return "3/4 size"
+  if (category === "half") return "Half size"
+  return "Custom size"
+}
+
+export function layoutLabel(layout: PitchLayout): string {
+  if (layout === "two_halves") return "Two halves"
+  if (layout === "four_quarters") return "Four quarters"
+  return "Whole pitch only"
+}
+
+/** How many discrete concurrent areas a layout gives -- Grounds & Pitches' own "Maximum simultaneous
+ * areas". The SAME number `club_pitches.lane_count` is generated from, at the database level. */
+export function layoutAreaCount(layout: PitchLayout): number {
+  if (layout === "two_halves") return 2
+  if (layout === "four_quarters") return 4
+  return 1
+}
+
+const CUSTOM_REFERENCE_AREA_SQM = 100 * 70 // the same full-size reference (RFU Reg 15 Appendix 9 / World Rugby Law 1) footprint.ts already uses for "full"
+
 /**
- * A pitch's own total physical budget, in the same quarter-pitch units, from its EXISTING
- * `size_category` (mini/reduced/full -- the one canonical pitch-size fact Ovalball already has,
- * `club_pitches.size_category`). Null when the club has never classified the pitch: this pass never
- * guesses a budget for an unclassified pitch, so the caller must fall back to the pre-existing
- * raw-`laneCount` behaviour (unchanged) rather than invent a number here.
+ * A physical pitch's own total budget, in quarter-pitch units -- full=4, three_quarter=3, half=2, and
+ * for a custom-dimensioned pitch, the SAME units scaled proportionally by area against the standard
+ * full-size reference (100m x 70m), rounded to the nearest whole unit and clamped to the 1-4 range
+ * every other tier uses. This is plain proportional arithmetic on the club's own entered numbers --
+ * never an invented governing-body precision (Section 24's own instruction): a custom pitch is never
+ * compared against a specific age-grade's exact required dimensions, only measured as a fraction of a
+ * standard full-size pitch's area.
+ *
+ * PHYSICAL SIZE alone -- NOT combined with layout. This is "how much room the whole physical pitch
+ * has", used both for whole-pitch suitability (`pitchSuitable`, below) and as the total budget a set
+ * of concurrent reservations must fit inside (`footprintBudgetExceeded`) regardless of how many areas
+ * the club has chosen to split it into.
  */
-export function pitchCapacityUnits(sizeCategory: PitchOption["sizeCategory"]): number | null {
-  if (sizeCategory === "full") return FOOTPRINT_UNITS.full
-  if (sizeCategory === "reduced") return FOOTPRINT_UNITS.half
-  if (sizeCategory === "mini") return FOOTPRINT_UNITS.quarter
-  return null
+export function pitchPhysicalSizeUnits(pitch: Pick<PitchOption, "physicalSizeCategory" | "customLengthM" | "customWidthM">): number {
+  if (pitch.physicalSizeCategory === "full") return FOOTPRINT_UNITS.full
+  if (pitch.physicalSizeCategory === "three_quarter") return 3
+  if (pitch.physicalSizeCategory === "half") return FOOTPRINT_UNITS.half
+  if (pitch.customLengthM && pitch.customWidthM) {
+    const ratio = (pitch.customLengthM * pitch.customWidthM) / CUSTOM_REFERENCE_AREA_SQM
+    return Math.min(4, Math.max(1, Math.round(ratio * 4)))
+  }
+  // custom selected with no dimensions recorded cannot actually be saved (club_pitches_custom_
+  // dimensions_check rejects it), so this is unreachable in practice -- permissive, never a
+  // fabricated block, matching pitchSuitable's own "unclassified either side" precedent below.
+  return FOOTPRINT_UNITS.full
+}
+
+/** A pitch's own total physical budget, in quarter-pitch units. `pitchPhysicalSizeUnits` under a
+ * clearer name at this call boundary -- the total budget a set of concurrent reservations must fit
+ * inside is exactly the pitch's own physical size, independent of how many areas its layout splits
+ * that size into. */
+export function pitchCapacityUnits(pitch: Pick<PitchOption, "physicalSizeCategory" | "customLengthM" | "customWidthM">): number {
+  return pitchPhysicalSizeUnits(pitch)
+}
+
+/** Section 11's compact pitch-list summary: "Full size / Splits into 2 halves / Active" -- one line,
+ * no opened record required. */
+export function pitchConfigurationSummary(pitch: Pick<PitchOption, "physicalSizeCategory" | "layout">): string {
+  const sizeLabel = physicalSizeCategoryLabel(pitch.physicalSizeCategory)
+  const usageLabel = pitch.layout === "full_only" ? "Whole pitch only" : `Splits into ${layoutAreaCount(pitch.layout)} areas (${layoutLabel(pitch.layout).toLowerCase()})`
+  return `${sizeLabel} · ${usageLabel}`
 }
 
 /**

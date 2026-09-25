@@ -94,7 +94,7 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
 
   const { data: pitchRows } = await supabase
     .from("club_pitches")
-    .select("id, display_name, active, venue_id, size_category, lane_count")
+    .select("id, display_name, active, venue_id, physical_size_category, custom_length_m, custom_width_m, layout, lane_count")
     .eq("club_id", clubId)
     .order("sort_order")
   const pitches: PitchOption[] = (pitchRows ?? []).map((p) => ({
@@ -102,7 +102,10 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     displayName: p.display_name,
     active: p.active,
     venueId: p.venue_id,
-    sizeCategory: p.size_category as PitchOption["sizeCategory"],
+    physicalSizeCategory: p.physical_size_category as PitchOption["physicalSizeCategory"],
+    customLengthM: p.custom_length_m == null ? null : Number(p.custom_length_m),
+    customWidthM: p.custom_width_m == null ? null : Number(p.custom_width_m),
+    layout: p.layout as PitchOption["layout"],
     laneCount: p.lane_count,
   }))
 
@@ -309,7 +312,7 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
   const pitchAllocationIdentityPairs = (fixtureRows ?? []).flatMap((f) => (f.season_id ? [{ teamId: f.owning_team_id, seasonId: f.season_id }] : []))
   const pitchAllocationTeamIdentities = await loadTeamIdentitiesForSeason(supabase, pitchAllocationIdentityPairs)
 
-  function resolveRule(ageGroup: string | null): { durationMinutes: number | null; confidence: "confirmed" | "unresolved" | null; requiredPitchSize: PitchOption["sizeCategory"] } {
+  function resolveRule(ageGroup: string | null): { durationMinutes: number | null; confidence: "confirmed" | "unresolved" | null; requiredPitchSize: AllocationFixture["requiredPitchSize"] } {
     if (!rugbyCode) return { durationMinutes: null, confidence: null, requiredPitchSize: null }
     const specific = (rules ?? []).find((r) => r.rugby_code === rugbyCode && r.age_group === ageGroup)
     const fallback = (rules ?? []).find((r) => r.rugby_code === rugbyCode && r.age_group === null)
@@ -318,7 +321,7 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     return {
       durationMinutes: rule.half_minutes * 2,
       confidence: rule.confidence as "confirmed" | "unresolved",
-      requiredPitchSize: rule.min_pitch_size_category as PitchOption["sizeCategory"],
+      requiredPitchSize: rule.min_pitch_size_category as AllocationFixture["requiredPitchSize"],
     }
   }
 

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View, type LayoutChangeEvent } from "react
 import { Gesture, GestureDetector } from "react-native-gesture-handler"
 import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated"
 
-import { assignBookingLanes, fixtureOccupiedWindow, footprintLabel, laneRowCount, matchFootprintFor, timeToMinutes, trainingOccupiedWindow, type AllocationConflict, type AllocationFixture, type PitchAllocationBoard } from "@ovalball/contracts/pitch-allocation"
+import { assignBookingLanes, fixtureOccupiedWindow, footprintLabel, laneRowCount, matchFootprintFor, physicalSizeCategoryLabel, timeToMinutes, trainingOccupiedWindow, type AllocationConflict, type AllocationFixture, type PitchAllocationBoard } from "@ovalball/contracts/pitch-allocation"
 
 import { haptic } from "./haptics"
 import { HEADER_HEIGHT, LABEL_COLUMN_WIDTH, PX_PER_SLOT, START_MINUTES, SLOT_COUNT, autoScrollVelocity, boardHeight, hourMarks, kickoffMinutes, laneRows, minutesToTime, minutesToX, timelineWidth, widthForMinutes, xToSnappedMinutes, yToLaneRow, type BoardScale, type LaneRow } from "./geometry"
@@ -54,15 +54,6 @@ export interface BoardProps {
 }
 
 type Placed = { fixture: AllocationFixture; row: LaneRow; start: number; playStart: number; playEnd: number; end: number; conflict: AllocationConflict | null; trainingReason: string | null }
-
-/** A pitch's real, canonical size category, in words -- never a fabricated surface type (no `surface`
- * column exists on `club_pitches`) and never a photograph (no image column exists either). */
-function sizeCategoryLabel(sizeCategory: "mini" | "reduced" | "full" | null): string | null {
-  if (sizeCategory === "full") return "Full size"
-  if (sizeCategory === "reduced") return "Reduced size"
-  if (sizeCategory === "mini") return "Mini"
-  return null
-}
 
 export function PitchBoard({ board, scale, canManage, reduceMotion, staged, todayIso, dateIso, onOpen, onDrop, previewFor, onPreview, reasonFor }: BoardProps) {
   const px = PX_PER_SLOT[scale]
@@ -248,7 +239,7 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
               const h = last ? last.top + last.height - top : 0
               const isTarget = preview?.pitchId === pitch.id
               const events = board.clubEvents.filter((e) => e.pitchId === pitch.id)
-              const metaLabel = sizeCategoryLabel(pitch.sizeCategory)
+              const metaLabel = physicalSizeCategoryLabel(pitch.physicalSizeCategory)
               return (
                 <View key={pitch.id} accessible accessibilityLabel={`${pitch.displayName}${metaLabel ? `, ${metaLabel}` : ""}${pitch.laneCount > 1 ? `, ${pitch.laneCount} at once` : ""}${events.length ? `, reserved for ${events.map((e) => e.name).join(", ")}` : ""}`} style={{ position: "absolute", top, height: h, left: 0, right: 0, flexDirection: "row", alignItems: "flex-start", gap: 8, paddingHorizontal: space.sm, paddingVertical: 10, backgroundColor: isTarget ? colour.mint100 : "transparent", borderRadius: radius.md }}>
                   {/* A NEUTRAL ICON TILE, NEVER A PHOTOGRAPH: `club_pitches` has no image column in the

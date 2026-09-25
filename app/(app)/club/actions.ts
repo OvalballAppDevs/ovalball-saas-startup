@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { searchUkAddresses, type AddressLookupResult } from "@/lib/address-lookup/lookup"
 import { clubProfileErrorMessage, deleteClubContact as deleteContactOperation, saveClubContact as saveContactOperation, updateClubProfile } from "@ovalball/contracts/club/profile"
-import { saveClubVenue as saveVenueOperation, venueErrorMessage } from "@ovalball/contracts/club/venues"
+import { pitchConfigurationInputProblem, saveClubVenue as saveVenueOperation, setClubPitchConfiguration as setPitchConfigurationOperation, venueErrorMessage, type PitchConfigurationInput } from "@ovalball/contracts/club/venues"
+import { pitchConfigurationImpact, type PitchConfigurationImpact } from "@ovalball/contracts/pitch-allocation"
 
 /**
  * Venue address lookup: any authenticated user, unlike Site Admin's own
@@ -184,6 +185,11 @@ export type ClubPitch = {
   description: string | null
   active: boolean
   sortOrder: number
+  physicalSizeCategory: "full" | "three_quarter" | "half" | "custom"
+  customLengthM: number | null
+  customWidthM: number | null
+  layout: "full_only" | "two_halves" | "four_quarters"
+  laneCount: number
 }
 
 /**
@@ -236,6 +242,26 @@ export async function setClubPitchActive(pitchId: string, active: boolean): Prom
   if (error) return { ok: false, error: error.message }
   revalidatePath("/club")
   return { ok: true }
+}
+
+/** CA-M11.2 Grounds & Pitches: the one canonical write for a pitch's physical size and split layout, used by both clients through set_club_pitch_configuration. */
+export async function setClubPitchConfiguration(pitchId: string, input: PitchConfigurationInput): Promise<SaveClubProfileResult> {
+  const problem = pitchConfigurationInputProblem(input)
+  if (problem) return { ok: false, error: problem }
+  const supabase = await createClient()
+  try {
+    await setPitchConfigurationOperation(supabase, pitchId, input)
+  } catch (error) {
+    return { ok: false, error: venueErrorMessage(error, "Couldn't save this pitch's configuration. Please try again.") }
+  }
+  revalidatePath("/club/venues")
+  return { ok: true }
+}
+
+/** Section 29: a read-only heads-up before narrowing a pitch's configuration -- never blocks, moves or deletes anything itself. */
+export async function checkPitchConfigurationImpact(pitchId: string): Promise<PitchConfigurationImpact> {
+  const supabase = await createClient()
+  return pitchConfigurationImpact(supabase, pitchId)
 }
 
 /**

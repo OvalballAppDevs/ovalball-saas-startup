@@ -43,7 +43,7 @@ function fixture(overrides: Partial<AllocationFixture> & Pick<AllocationFixture,
   }
 }
 function pitch(overrides: Partial<PitchOption> & Pick<PitchOption, "id">): PitchOption {
-  return { displayName: overrides.id, active: true, venueId: null, sizeCategory: "full", laneCount: 1, ...overrides }
+  return { displayName: overrides.id, active: true, venueId: null, physicalSizeCategory: "full", customLengthM: null, customWidthM: null, layout: "full_only", laneCount: 1, ...overrides }
 }
 
 // A Sunday, so weekend youth window applies (09:00-13:00 default policy).
@@ -51,7 +51,7 @@ const SUNDAY = "2026-10-11"
 
 // 1. Single fixture places within the preferred window on a suitable pitch.
 {
-  const { placements, conflicts } = autoAllocate([fixture({ fixtureId: "f1" })], [pitch({ id: "p1", sizeCategory: "reduced" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
+  const { placements, conflicts } = autoAllocate([fixture({ fixtureId: "f1" })], [pitch({ id: "p1", physicalSizeCategory: "half" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
   checkTrue("1. Single fixture placed", placements[0].pitchId === "p1" && placements[0].kickoffTime !== null)
   checkTrue("1b. Placed kickoff within weekend youth window (09:00-13:00)", placements[0].kickoffTime! >= "09:00" && placements[0].kickoffTime! <= "13:00")
   check("1c. No conflicts for a single clean placement", conflicts.length, 0)
@@ -61,7 +61,7 @@ const SUNDAY = "2026-10-11"
 {
   const { placements } = autoAllocate(
     [fixture({ fixtureId: "f1" }), fixture({ fixtureId: "f2" })],
-    [pitch({ id: "p1", sizeCategory: "reduced" })],
+    [pitch({ id: "p1", physicalSizeCategory: "half" })],
     DEFAULT_SCHEDULING_POLICY,
     SUNDAY
   )
@@ -69,39 +69,57 @@ const SUNDAY = "2026-10-11"
   checkTrue("2. Two fixtures on one pitch get different times", times[0] !== times[1] && times.every((t) => t !== null))
 }
 
-// 3. Mini-only fixture never placed on a full-size-only pitch, even if it's the only pitch.
+// 3. CORRECTED this pass (Grounds & Pitches capacity configuration): a mini-footprint fixture is
+// placed on a full-size pitch without complaint -- a bigger pitch is always physically safe for a
+// smaller-format game (Section 5's own doc comment on pitchSuitable). The OLD behaviour here required
+// an EXACT mini/reduced/full tier match, which rejected a mini fixture from an oversized pitch; that
+// was never a real physical-safety rule (nothing is unsafe about a tiny game on a big pitch) and is
+// replaced by pitchSuitable's unit-budget comparison, which only ever blocks UNDERSIZED pitches.
 {
   const { placements, conflicts } = autoAllocate(
     [fixture({ fixtureId: "f1", requiredPitchSize: "mini" })],
-    [pitch({ id: "p1", sizeCategory: "full" })],
+    [pitch({ id: "p1", physicalSizeCategory: "full" })],
     DEFAULT_SCHEDULING_POLICY,
     SUNDAY
   )
-  checkTrue("3. Mini fixture left unallocated rather than placed on a full-only pitch", placements[0].pitchId === null)
-  checkTrue("3b. Hard conflict recorded with a real reason", conflicts.length === 1 && conflicts[0].severity === "hard")
+  checkTrue("3. A mini-footprint fixture IS placed on a full-size pitch -- a bigger pitch is always safe for a smaller-format game", placements[0].pitchId === "p1")
+  checkTrue("3b. No suitability conflict for that placement", conflicts.length === 0)
+}
+
+// 3c. The genuine HARD BLOCK this rule exists for (Section 45): a fixture is never placed on a
+// physically UNDERSIZED pitch, whatever else is free.
+{
+  const { placements, conflicts } = autoAllocate(
+    [fixture({ fixtureId: "f1", requiredPitchSize: "full" })],
+    [pitch({ id: "p1", physicalSizeCategory: "half" })],
+    DEFAULT_SCHEDULING_POLICY,
+    SUNDAY
+  )
+  checkTrue("3c. A full-required fixture is left unallocated rather than placed on a half-size pitch", placements[0].pitchId === null)
+  checkTrue("3d. Hard conflict recorded with a real reason", conflicts.length === 1 && conflicts[0].severity === "hard")
 }
 
 // 4. Full-size fixture correctly rejects a mini-only pitch.
 {
-  const { placements } = autoAllocate([fixture({ fixtureId: "f1", requiredPitchSize: "full" })], [pitch({ id: "p1", sizeCategory: "mini" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
+  const { placements } = autoAllocate([fixture({ fixtureId: "f1", requiredPitchSize: "full" })], [pitch({ id: "p1", physicalSizeCategory: "custom", customLengthM: 45, customWidthM: 22 })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
   checkTrue("4. Full-size fixture not placed on a mini-only pitch", placements[0].pitchId === null)
 }
 
 // 5. Reduced fixture CAN use a full pitch (a bigger pitch is always safe for a smaller-format game).
 {
-  const { placements } = autoAllocate([fixture({ fixtureId: "f1", requiredPitchSize: "reduced" })], [pitch({ id: "p1", sizeCategory: "full" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
+  const { placements } = autoAllocate([fixture({ fixtureId: "f1", requiredPitchSize: "reduced" })], [pitch({ id: "p1", physicalSizeCategory: "full" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
   checkTrue("5. Reduced-size fixture placed on a full-size pitch", placements[0].pitchId === "p1")
 }
 
 // 6. Inactive pitch never receives an allocation.
 {
-  const { placements } = autoAllocate([fixture({ fixtureId: "f1", requiredPitchSize: "full" })], [pitch({ id: "p1", sizeCategory: "full", active: false })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
+  const { placements } = autoAllocate([fixture({ fixtureId: "f1", requiredPitchSize: "full" })], [pitch({ id: "p1", physicalSizeCategory: "full", active: false })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
   checkTrue("6. Inactive pitch never allocated", placements[0].pitchId === null)
 }
 
 // 7. Cancelled fixture is excluded entirely -- never occupies pitch time (Section 46).
 {
-  const { placements } = autoAllocate([fixture({ fixtureId: "f1", status: "Cancelled" })], [pitch({ id: "p1", sizeCategory: "full" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
+  const { placements } = autoAllocate([fixture({ fixtureId: "f1", status: "Cancelled" })], [pitch({ id: "p1", physicalSizeCategory: "full" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
   check("7. Cancelled fixture produces zero placements", placements.length, 0)
 }
 
@@ -114,7 +132,7 @@ const SUNDAY = "2026-10-11"
 {
   const { placements, conflicts } = autoAllocate(
     [fixture({ fixtureId: "f1", requiredPitchSize: "full", durationMinutes: 40 })],
-    [pitch({ id: "p1", sizeCategory: "full" })],
+    [pitch({ id: "p1", physicalSizeCategory: "full" })],
     DEFAULT_SCHEDULING_POLICY,
     SUNDAY,
     [{ pitchId: "p1", start: 9 * 60, end: 13 * 60 }] // pitch fully booked all morning+early-afternoon
@@ -127,7 +145,7 @@ const SUNDAY = "2026-10-11"
 {
   const { placements } = autoAllocate(
     [fixture({ fixtureId: "f1", durationMinutes: 200 }), fixture({ fixtureId: "f2", durationMinutes: 200 })],
-    [pitch({ id: "p1", sizeCategory: "reduced" })],
+    [pitch({ id: "p1", physicalSizeCategory: "half" })],
     DEFAULT_SCHEDULING_POLICY,
     SUNDAY
   )
@@ -139,7 +157,7 @@ const SUNDAY = "2026-10-11"
 // 10. Deterministic: running the same input twice produces the identical plan.
 {
   const fixtures = [fixture({ fixtureId: "f1" }), fixture({ fixtureId: "f2" }), fixture({ fixtureId: "f3", requiredPitchSize: "full" })]
-  const pitches = [pitch({ id: "p1", sizeCategory: "reduced" }), pitch({ id: "p2", sizeCategory: "full" })]
+  const pitches = [pitch({ id: "p1", physicalSizeCategory: "half" }), pitch({ id: "p2", physicalSizeCategory: "full" })]
   const run1 = autoAllocate(fixtures, pitches, DEFAULT_SCHEDULING_POLICY, SUNDAY)
   const run2 = autoAllocate(fixtures, pitches, DEFAULT_SCHEDULING_POLICY, SUNDAY)
   check("10. Deterministic -- identical input produces identical output", run1.placements, run2.placements)
@@ -148,7 +166,7 @@ const SUNDAY = "2026-10-11"
 // 11. Weekday policy: a Monday fixture is windowed from the club's weekday-earliest-kickoff default (18:00), not the weekend youth window.
 {
   const MONDAY = "2026-10-12"
-  const { placements } = autoAllocate([fixture({ fixtureId: "f1", kickoffDate: MONDAY })], [pitch({ id: "p1", sizeCategory: "reduced" })], DEFAULT_SCHEDULING_POLICY, MONDAY)
+  const { placements } = autoAllocate([fixture({ fixtureId: "f1", kickoffDate: MONDAY })], [pitch({ id: "p1", physicalSizeCategory: "half" })], DEFAULT_SCHEDULING_POLICY, MONDAY)
   checkTrue("11. Weekday fixture placed at/after the 18:00 policy default, not the weekend morning window", placements[0].kickoffTime !== null && placements[0].kickoffTime! >= "18:00")
 }
 
@@ -158,7 +176,7 @@ const SUNDAY = "2026-10-11"
 // takes priority over category (Section 32-36), so this override must be
 // realistic for what it's testing, not rely on the helper's youth default.
 {
-  const { placements } = autoAllocate([fixture({ fixtureId: "f1", category: "senior", ageGroup: null, requiredPitchSize: "full" })], [pitch({ id: "p1", sizeCategory: "full" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
+  const { placements } = autoAllocate([fixture({ fixtureId: "f1", category: "senior", ageGroup: null, requiredPitchSize: "full" })], [pitch({ id: "p1", physicalSizeCategory: "full" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
   checkTrue("12. Senior fixture placed within the afternoon window (13:00-17:30)", placements[0].kickoffTime! >= "13:00" && placements[0].kickoffTime! <= "17:30")
 }
 
@@ -168,7 +186,7 @@ const SUNDAY = "2026-10-11"
 // this is the exact bug (a real youth fixture landing on an adult-style
 // late slot) the age-priority rule exists to prevent.
 {
-  const { placements, conflicts } = autoAllocate([fixture({ fixtureId: "f1", category: "senior", ageGroup: "U16", requiredPitchSize: "full" })], [pitch({ id: "p1", sizeCategory: "full" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
+  const { placements, conflicts } = autoAllocate([fixture({ fixtureId: "f1", category: "senior", ageGroup: "U16", requiredPitchSize: "full" })], [pitch({ id: "p1", physicalSizeCategory: "full" })], DEFAULT_SCHEDULING_POLICY, SUNDAY)
   checkTrue("12b. A U16-tagged fixture is treated as mini/junior (morning-first) regardless of a stray category value", placements[0].kickoffTime! >= "09:00" && placements[0].kickoffTime! <= "12:00")
   checkTrue("12c. No warning conflict when the morning band itself succeeds", !conflicts.some((c) => c.fixtureId === "f1"))
 }
@@ -179,12 +197,12 @@ const SUNDAY = "2026-10-11"
     fixture({ fixtureId: "f1", pitchId: "p1", kickoffTime: "10:00", durationMinutes: 40, homeTeamLabel: "U12", opponentLabel: "Rossendale U12" }),
     fixture({ fixtureId: "f2", pitchId: "p1", kickoffTime: "10:20", durationMinutes: 40, homeTeamLabel: "U13", opponentLabel: "Rossendale U13" }), // overlaps f1
   ]
-  const conflicts = detectConflicts(placed, [pitch({ id: "p1", sizeCategory: "full" })])
+  const conflicts = detectConflicts(placed, [pitch({ id: "p1", physicalSizeCategory: "full" })])
   checkTrue("13. detectConflicts finds the real pitch/time overlap", conflicts.some((c) => c.fixtureId === "f2" && c.severity === "hard"))
 }
 {
   const placed = [fixture({ fixtureId: "f1", pitchId: "p1", kickoffTime: "10:00", requiredPitchSize: "full" })]
-  const conflicts = detectConflicts(placed, [pitch({ id: "p1", sizeCategory: "mini" })])
+  const conflicts = detectConflicts(placed, [pitch({ id: "p1", physicalSizeCategory: "custom", customLengthM: 45, customWidthM: 22 })])
   checkTrue("14. detectConflicts flags a fixture placed on a too-small pitch", conflicts.some((c) => c.fixtureId === "f1" && c.severity === "hard"))
 }
 
@@ -196,7 +214,7 @@ const SUNDAY = "2026-10-11"
   const existingBookings = [{ pitchId: "p1", start: 10 * 60 - 15, end: 10 * 60 + 40 + 15 }] // 09:45-10:55 real occupied window
   const { placements } = autoAllocate(
     [fixture({ fixtureId: "f2", kickoffDate: SUNDAY, requiredPitchSize: "reduced" })],
-    [pitch({ id: "p1", sizeCategory: "reduced" })],
+    [pitch({ id: "p1", physicalSizeCategory: "half" })],
     bufferedPolicy,
     SUNDAY,
     existingBookings
@@ -214,8 +232,8 @@ const SUNDAY = "2026-10-11"
     fixture({ fixtureId: "f1", pitchId: "p1", kickoffTime: "10:00", durationMinutes: 40, homeTeamLabel: "U12", opponentLabel: "Rossendale U12" }),
     fixture({ fixtureId: "f2", pitchId: "p1", kickoffTime: "10:45", durationMinutes: 40, homeTeamLabel: "U13", opponentLabel: "Rossendale U13" }), // 5 min after f1 ends -- fine with no buffer, a conflict with a 15-min pack-up
   ]
-  const noBufferConflicts = detectConflicts(placed, [pitch({ id: "p1", sizeCategory: "full" })], { warmUpMinutes: 0, packUpMinutes: 0 })
-  const bufferedConflicts = detectConflicts(placed, [pitch({ id: "p1", sizeCategory: "full" })], { warmUpMinutes: 0, packUpMinutes: 15 })
+  const noBufferConflicts = detectConflicts(placed, [pitch({ id: "p1", physicalSizeCategory: "full" })], { warmUpMinutes: 0, packUpMinutes: 0 })
+  const bufferedConflicts = detectConflicts(placed, [pitch({ id: "p1", physicalSizeCategory: "full" })], { warmUpMinutes: 0, packUpMinutes: 15 })
   checkTrue("16a. No buffer configured -- back-to-back fixtures 5 minutes apart are not flagged", !noBufferConflicts.some((c) => c.fixtureId === "f2"))
   checkTrue("16b. 15-minute pack-up configured -- the same two fixtures ARE flagged", bufferedConflicts.some((c) => c.fixtureId === "f2" && c.severity === "hard"))
 }
@@ -310,13 +328,13 @@ const SUNDAY = "2026-10-11"
     fixture({ fixtureId: "mens_1st", category: "senior", ageGroup: null, requiredPitchSize: "full" }),
   ]
   const pitches = [
-    pitch({ id: "mini1", sizeCategory: "mini" }),
-    pitch({ id: "mini2", sizeCategory: "mini" }),
-    pitch({ id: "reduced1", sizeCategory: "reduced" }),
-    pitch({ id: "reduced2", sizeCategory: "reduced" }),
-    pitch({ id: "full1", sizeCategory: "full" }),
-    pitch({ id: "full2", sizeCategory: "full" }),
-    pitch({ id: "full3", sizeCategory: "full" }),
+    pitch({ id: "mini1", physicalSizeCategory: "custom", customLengthM: 45, customWidthM: 22 }),
+    pitch({ id: "mini2", physicalSizeCategory: "custom", customLengthM: 45, customWidthM: 22 }),
+    pitch({ id: "reduced1", physicalSizeCategory: "half" }),
+    pitch({ id: "reduced2", physicalSizeCategory: "half" }),
+    pitch({ id: "full1", physicalSizeCategory: "full" }),
+    pitch({ id: "full2", physicalSizeCategory: "full" }),
+    pitch({ id: "full3", physicalSizeCategory: "full" }),
   ]
   const { placements, conflicts } = autoAllocate([...miniJunior, ...adult], pitches, DEFAULT_SCHEDULING_POLICY, SUNDAY)
   const byId = new Map(placements.map((p) => [p.fixtureId, p]))
@@ -349,7 +367,7 @@ const SUNDAY = "2026-10-11"
     fixture({ fixtureId: "u8c", ageGroup: "U8", requiredPitchSize: "mini", durationMinutes: 45 }),
     fixture({ fixtureId: "u8d", ageGroup: "U8", requiredPitchSize: "mini", durationMinutes: 45 }),
   ]
-  const pitches = [pitch({ id: "mini1", sizeCategory: "mini" })]
+  const pitches = [pitch({ id: "mini1", physicalSizeCategory: "custom", customLengthM: 45, customWidthM: 22 })]
   const { placements, conflicts } = autoAllocate(fixtures, pitches, DEFAULT_SCHEDULING_POLICY, SUNDAY)
   const times = placements.map((p) => p.kickoffTime).sort()
   checkTrue("23a. Three fixtures fill the morning band exactly (09:00, 10:00, 11:00)", times.slice(0, 3).join(",") === "09:00,10:00,11:00")
@@ -362,7 +380,7 @@ const SUNDAY = "2026-10-11"
 // only then does it carry an explicit warning conflict.
 {
   const fixtures = [fixture({ fixtureId: "u8", ageGroup: "U8", requiredPitchSize: "mini", durationMinutes: 40 })]
-  const pitches = [pitch({ id: "mini1", sizeCategory: "mini" })]
+  const pitches = [pitch({ id: "mini1", physicalSizeCategory: "custom", customLengthM: 45, customWidthM: 22 })]
   const existingBookings = [{ pitchId: "mini1", start: 9 * 60, end: 13 * 60 }]
   const { placements, conflicts } = autoAllocate(fixtures, pitches, DEFAULT_SCHEDULING_POLICY, SUNDAY, existingBookings)
   checkTrue("24a. Once morning + early-afternoon are both exhausted, the fixture is placed in the late band rather than left unallocated", placements[0].pitchId === "mini1" && placements[0].kickoffTime! >= "13:00")
