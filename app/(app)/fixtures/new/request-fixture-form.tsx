@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 import { createFixtureRequest } from "./actions"
+import { AvailabilityPanel } from "./availability-panel"
 import {
   loadCompatibleOpponentIdentities,
   loadCompatibleOpponentTeams,
@@ -319,6 +320,10 @@ export function RequestFixtureForm({
           className="mt-1.5 h-11 w-48 border-ink/15 bg-white"
         />
       </div>
+
+      {/* CA-M11.4: the same shared scheduling read model the native app's composer already uses --
+          only once a single requesting team is unambiguous, since availability is asked FROM a team. */}
+      {soleTeamId && <AvailabilityPanel ourTeamId={soleTeamId} partnerTeamId={targetTeam?.id ?? null} selectedDate={date} onSelectDate={setDate} />}
 
       <div className="mt-5">
         <p className="text-sm font-medium text-ink/80">Select your team(s)</p>

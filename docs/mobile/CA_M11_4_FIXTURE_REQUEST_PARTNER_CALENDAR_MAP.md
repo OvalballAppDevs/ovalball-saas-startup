@@ -1,9 +1,21 @@
 # CA-M11.4 — Fixture Request, Partner Club & Shared Calendar: Forensic Map
 
-**Status: audit complete, scope decision made.** This document is the required forensic map plus the
-scope decision it produced. The headline finding: this domain is **already substantially built, to a
-high standard, on both clients.** The work this pass does is the one confirmed, high-value, safely-
-additive gap — a shared scheduling calendar for the request flow — not a rebuild.
+**Status: audit complete, scope decision made, web parity added.** This document is the required
+forensic map plus the scope decision it produced. The headline finding: this domain is **already
+substantially built, to a high standard, on both clients.** The work this pass does is the one confirmed,
+high-value, safely-additive gap — a shared scheduling calendar for the request flow — not a rebuild.
+
+**Web parity (Section 79).** The native calendar shipped first; `app/(app)/fixtures/new/availability-panel.tsx`
+brings the SAME shared read model (`readTeamAvailability`/`compareAvailability`/`findGoodDates` from
+`packages/contracts/src/fixtures/availability.ts`) to the website's own Request a Fixture composer
+(`app/(app)/fixtures/new/request-fixture-form.tsx`), as a 21-day rolling agenda strip (Section 16's
+AGENDA/LIST minimum) rather than a full month grid — proportionate to a composer step, not a second
+Calendar destination. Live-verified signed in as the review club's own Club Admin: selecting a team
+immediately shows real data (today correctly read as "Fixture," tomorrow correctly read as "Fixture"
+from the CA-M11.2 review data, the following days "Available"), and tapping a day sets the request's
+date field. Same server function, same privacy model, same coarse statuses — one canonical domain, two
+proportionate client UIs, satisfying the brief's own "DO WEB AND APP USE THE SAME CANONICAL REQUEST
+DOMAIN?" / "...SAME CALENDAR/AVAILABILITY INTERPRETATION?" acceptance questions for real.
 
 ## Method
 
