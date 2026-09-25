@@ -60,6 +60,11 @@ export default async function NewFixtureRequestPage({ searchParams }: NewFixture
 
   if (!manageableClubId || myTeams.length === 0) redirect("/fixtures")
 
+  // Section 8: named once here so the composer can state who hosts ("Burnley RUFC will host") rather
+  // than only who requested -- clubs.club_directory is the one source of a club's display name.
+  const { data: myClubRow } = await supabase.from("clubs").select("club_directory(name)").eq("id", manageableClubId).maybeSingle()
+  const myClubName = myClubRow?.club_directory?.name ?? "Your club"
+
   // Arriving from a partner club's availability view -- resolve the
   // prefilled opponent (and suggested target team, if that team really
   // does belong to the resolved opponent club) server-side, never trust
@@ -103,6 +108,7 @@ export default async function NewFixtureRequestPage({ searchParams }: NewFixture
       <div className="mt-8">
         <RequestFixtureForm
           clubId={manageableClubId}
+          clubName={myClubName}
           teams={myTeams}
           initialOpponent={initialOpponent}
           initialDate={initialDate}

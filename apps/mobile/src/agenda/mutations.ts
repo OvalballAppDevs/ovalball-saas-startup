@@ -218,6 +218,10 @@ export interface NewFixtureRequest {
   preferredKickoffTime: string | null
   venuePreference: "home" | "away" | "either"
   note: string | null
+  /** Proposed once per group, carried onto the resulting fixture on accept -- same field the web
+   * composer already writes (Section 8). Optional; either side can still set/change it after
+   * acceptance. */
+  gameType?: string | null
 }
 
 /**
@@ -245,6 +249,7 @@ export async function createFixtureRequest(supabase: Client, request: NewFixture
       raw_opponent_text: request.rawOpponentText,
       proposed_date: request.proposedDate,
       notes: request.note,
+      game_type: request.gameType ?? null,
       created_by: user.id,
     })
     .select("id")

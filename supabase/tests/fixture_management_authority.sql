@@ -692,15 +692,27 @@ begin
     or (select count(*) from public.fixture_requests where status = 'accepted' and decided_by = v_tm) = 0,
     'FA-I7 a requester cannot accept their own request by direct update');
 
-  -- I8 replay: the same request twice raises two requests, never a silent fixture
+  -- I8 replay: the same request twice never yields a silent fixture. Clubhouse Programme Section 8
+  -- (20270559000000) added a genuine server-side duplicate-pending-request refusal after this
+  -- assertion was first written -- a replay used to raise a second, independently-trackable request;
+  -- it now raises the SAME refusal a second click of Send would, which is the stronger and now
+  -- correct claim ("do not rely on button disable" is exactly this scenario). Either way, no fixture
+  -- is ever silently created by a replay, which is what this assertion has always actually been for.
   select count(*) into n_fix2 from public.fixtures;
+  select count(*) into n_req2 from public.fixture_requests;
   perform set_config('request.jwt.claims', jsonb_build_object('sub', v_tm, 'role','authenticated')::text, true);
   perform set_config('role','authenticated', true);
   r := public.create_fixture(v_team, 'Home', 'AtkFar U12', (current_date + 9)::date, 'Booked', v_far_team);
-  r := public.create_fixture(v_team, 'Home', 'AtkFar U12', (current_date + 9)::date, 'Booked', v_far_team);
+  begin
+    r := public.create_fixture(v_team, 'Home', 'AtkFar U12', (current_date + 9)::date, 'Booked', v_far_team);
+    v_msg := 'ALLOWED';
+  exception when others then get stacked diagnostics v_msg = message_text;
+  end;
   perform set_config('role','none', true); perform set_config('request.jwt.claims','', true);
-  perform pg_temp.check((select count(*) from public.fixtures) = n_fix2,
-    'FA-I8 replaying a creation against an Ovalball club never yields a fixture');
+  perform pg_temp.check(v_msg like '%already a pending fixture request%'
+                        and (select count(*) from public.fixtures) = n_fix2
+                        and (select count(*) from public.fixture_requests) = n_req2 + 1,
+    'FA-I8 replaying a creation against an Ovalball club is refused as a duplicate, never a second silent request or a fixture');
 
   -- I9 nothing leaked: refusals left no rows
   perform pg_temp.check((select count(*) from public.fixtures where owning_team_id in (v_other, v_far_team)) = 0,

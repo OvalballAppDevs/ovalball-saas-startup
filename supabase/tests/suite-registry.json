@@ -112,6 +112,11 @@
         "permission_matrix"
       ]
     },
+    "arrange_fixture_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Clubhouse programme",
+      "reason": "Clubhouse Programme Section 8 (20270559000000): fixture_request_groups_insert_scoped now asks fixture.request.create -- club-wide or any one active team -- the same capability the per-team fixture_requests_insert_scoped policy already requires, not the legacy fixture.fixture.edit-based can_manage_club_fixtures_or_any_team. Proves fixture.request.create's independence at both the group and the row: fixture.fixture.create, fixture.fixture.edit, fixture.result.record and venue.pitch_allocation.manage held ALONE never substitute for it. Also proves the new duplicate-pending-request refusal (a second simultaneously-pending request, same pair, same direction, is refused server-side; a genuinely different pair is unaffected; resolving the first frees the pair again). Found, while writing this suite, that a genuine 'coach' team role grants fixture.request.create by default ROLE BUNDLE independent of any override -- the three independence personas are deliberately granted at CLUB scope instead, which needs no team role, to isolate exactly one capability each. Self-seeding and rolled back."
+    },
     "authority_helper_retirement": {
       "disposition": "CANONICAL_GATE",
       "owner": "Identity/Auth \u2014 capability engine",

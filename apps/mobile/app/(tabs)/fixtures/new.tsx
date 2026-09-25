@@ -161,6 +161,9 @@ export default function AddFixture() {
   const [note, setNote] = useState("")
   const [problem, setProblem] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  /** Section 8: the request composer stays on this screen after Send and shows its own confirmation,
+   * rather than immediately navigating back over it -- "Request Sent" needs a moment to be read. */
+  const [sent, setSent] = useState(false)
 
   // THE SHARED SCHEDULING CALENDAR (CA-M11.4) -- our own commitments always load once a team is known;
   // the partner's only once a specific compatible team is chosen (there is nobody to ask about otherwise
@@ -284,6 +287,7 @@ export default function AddFixture() {
           preferredKickoffTime: time,
           venuePreference: homeAway === "Home" ? "home" : homeAway === "Away" ? "away" : "either",
           note: note.trim() || null,
+          gameType,
         })
       : await createFixture(supabase, {
           owningTeamId: teamId,
@@ -311,8 +315,54 @@ export default function AddFixture() {
       // holds `fixture.fixture.create`, so the gate lands them on the console.
       const route = routeForIntent({ kind: "FIXTURE", fixtureId: result.id })
       if (route) router.replace(route as never)
+      return
     }
-    else router.back()
+    if (asking) {
+      setSent(true)
+      return
+    }
+    router.back()
+  }
+
+  if (sent) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colour.chalk }}>
+        <Header title="Request Sent" onBack={() => router.replace("/clubhouse" as never)} insets={insets} />
+        <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.md }}>
+          <Text style={[type.heading, { color: colour.ink }]}>
+            {club?.name} has been asked to play
+          </Text>
+          <Text style={[type.small, { color: colour.inkMuted }]}>
+            {teamName}
+            {" · "}
+            {exactDate(date)}
+          </Text>
+          <Text style={[type.small, { color: colour.inkMuted }]}>
+            {club?.name} will confirm, decline or propose a change. Nothing is in either club&apos;s calendar
+            until they accept.
+          </Text>
+          <View style={{ gap: space.sm, marginTop: space.md }}>
+            <SubmitButton label="View Requests" onPress={() => router.replace((active?.kind === "club" ? "/club/requests" : "/team/requests") as never)} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back to Clubhouse"
+              onPress={() => router.replace("/clubhouse" as never)}
+              style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            >
+              <Text style={[type.smallMedium, { color: colour.forest800 }]}>Back to Clubhouse</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View Calendar"
+              onPress={() => router.replace("/calendar" as never)}
+              style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            >
+              <Text style={[type.smallMedium, { color: colour.forest800 }]}>View Calendar</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </View>
+    )
   }
 
   const ready = Boolean(club && teamId) && (!asking || opponents === null || opponents.length === 0 || Boolean(opponent)) && !saving
@@ -554,18 +604,18 @@ export default function AddFixture() {
               />
             </Field>
 
-            {!asking && (
-              <Field label="Type">
-                <ChoiceField
-                  label="Fixture type"
-                  value={gameType}
-                  onChange={setGameType}
-                  /* THE SAME FOUR WORDS THE WEB OFFERS -- `GAME_TYPE_OPTIONS` is the check constraint
-                     on `fixtures.game_type`, not a mobile list. A value outside it cannot be written. */
-                  options={GAME_TYPE_OPTIONS.map((value) => ({ value, label: value }))}
-                />
-              </Field>
-            )}
+            <Field label="Type">
+              <ChoiceField
+                label="Fixture type"
+                value={gameType}
+                onChange={setGameType}
+                /* THE SAME FOUR WORDS THE WEB OFFERS -- `GAME_TYPE_OPTIONS` is the check constraint
+                   on `fixtures.game_type`, not a mobile list. A value outside it cannot be written.
+                   Section 8: shown on the request branch too -- proposed once per group, carried onto
+                   the resulting fixture on accept, same as web's own composer. */
+                options={GAME_TYPE_OPTIONS.map((value) => ({ value, label: value }))}
+              />
+            </Field>
 
             <Field label={asking ? "Note" : "Notes"} hint={asking ? "Anything they should know. Optional." : "Anything the team needs to know. Optional."}>
               <TextField

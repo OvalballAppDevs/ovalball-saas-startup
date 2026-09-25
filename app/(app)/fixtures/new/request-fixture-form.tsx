@@ -1,7 +1,11 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
+import Link from "next/link"
 
+import { describeArrangeFixtureHost } from "@ovalball/contracts"
+
+import { FIXTURE_TYPE_OPTIONS, fixtureTypeLabel, type StoredGameType } from "@/lib/fixtures/fixture-type"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -55,6 +59,7 @@ interface TargetIdentity {
 
 export function RequestFixtureForm({
   clubId,
+  clubName,
   teams,
   initialOpponent = null,
   initialDate = null,
@@ -63,6 +68,8 @@ export function RequestFixtureForm({
   initialVenuePreference = null,
 }: {
   clubId: string
+  /** Section 8: named once so the summary and confirmation can say who hosts, not only who asked. */
+  clubName: string
   teams: Team[]
   initialOpponent?: InitialOpponent | null
   initialDate?: string | null
@@ -73,7 +80,8 @@ export function RequestFixtureForm({
   initialTeamId?: string | null
   initialVenuePreference?: "home" | "away" | "either" | null
 }) {
-  const [step, setStep] = useState<"details" | "review">("details")
+  const [step, setStep] = useState<"details" | "review" | "sent">("details")
+  const [gameType, setGameType] = useState<StoredGameType | "">("")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<OpponentSearchResult[]>([])
   const [searching, startSearch] = useTransition()
@@ -181,6 +189,11 @@ export function RequestFixtureForm({
       rawOpponentText: opponent.name,
       proposedDate: date,
       notes: null,
+      gameType: gameType || null,
+      // Section 8: this composer always shows its own "Request Sent" confirmation (below) rather than
+      // the action's default redirect to /fixtures -- other callers (Calendar's Create Fixture dialog)
+      // already pass this themselves and are unaffected.
+      skipRedirect: true,
       teams: selectedTeams.map((t) => ({
         teamId: t.id,
         venuePreference: selections[t.id].venuePreference,
@@ -199,9 +212,9 @@ export function RequestFixtureForm({
     setSubmitting(false)
     if (result && !result.ok) {
       setError(result.error)
+      return
     }
-    // On success the action itself redirects (throws NEXT_REDIRECT), so
-    // there is no success branch to handle here.
+    setStep("sent")
   }
 
   if (step === "review") {
@@ -223,6 +236,13 @@ export function RequestFixtureForm({
         <p className="mt-1 text-sm text-ink-muted">
           {date ? new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : ""}
         </p>
+        {selectedTeams.length === 1 && opponent?.clubId && (
+          <p className="mt-1 text-sm text-ink-muted">
+            {describeArrangeFixtureHost(selections[selectedTeams[0].id].venuePreference, clubName, opponent.name).statement ??
+              "Home or away is not yet agreed."}
+          </p>
+        )}
+        {gameType && <p className="mt-1 text-sm text-ink-muted">{fixtureTypeLabel(gameType)}</p>}
 
         <ul className="mt-5 flex flex-col gap-2">
           {selectedTeams.map((t) => (
@@ -254,6 +274,41 @@ export function RequestFixtureForm({
           </Button>
           <Button type="button" className="h-10" onClick={handleSubmit} disabled={submitting}>
             {submitting ? "Saving…" : opponent?.clubId ? "Send request" : "Add to calendar"}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === "sent") {
+    const sentToOvalball = Boolean(opponent?.clubId)
+    return (
+      <div className="rounded-lg border border-ink/10 bg-white p-6">
+        <p className="text-sm font-medium tracking-[0.04em] text-forest-800 uppercase">
+          {sentToOvalball ? "Request sent" : "Added to your calendar"}
+        </p>
+        <h2 className="mt-2 font-display text-display-l text-ink">
+          {sentToOvalball ? `${opponent?.name} has been asked to play` : `Recorded vs ${opponent?.name}`}
+        </h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          {selectedTeams.map((t) => t.displayName).join(", ")}
+          {date ? ` · ${new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}` : ""}
+        </p>
+        {sentToOvalball && (
+          <p className="mt-3 text-sm text-ink-muted">
+            {opponent?.name} will confirm, decline or propose a change. Nothing is in either club&apos;s calendar
+            until they accept.
+          </p>
+        )}
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <Button className="h-10" render={<Link href="/fixtures" />}>
+            View Requests
+          </Button>
+          <Button variant="ghost" className="h-10" render={<Link href="/clubhouse" />}>
+            Back to Clubhouse
+          </Button>
+          <Button variant="ghost" className="h-10" render={<Link href="/calendar" />}>
+            View Calendar
           </Button>
         </div>
       </div>
@@ -336,6 +391,25 @@ export function RequestFixtureForm({
       {/* CA-M11.4: the same shared scheduling read model the native app's composer already uses --
           only once a single requesting team is unambiguous, since availability is asked FROM a team. */}
       {soleTeamId && <AvailabilityPanel ourTeamId={soleTeamId} partnerTeamId={targetTeam?.id ?? null} selectedDate={date} onSelectDate={setDate} />}
+
+      <div className="mt-4">
+        <Label htmlFor="fixture-type" className="text-ink/80">
+          Fixture Type
+        </Label>
+        <select
+          id="fixture-type"
+          value={gameType}
+          onChange={(e) => setGameType(e.target.value as StoredGameType | "")}
+          className="mt-1.5 h-11 w-48 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus-visible:border-pitch-600"
+        >
+          <option value="">Not set</option>
+          {FIXTURE_TYPE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="mt-5">
         <p className="text-sm font-medium text-ink/80">Select your team(s)</p>
