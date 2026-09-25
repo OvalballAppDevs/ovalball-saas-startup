@@ -16,8 +16,8 @@ import { editorial } from "../../../src/components/home/editorial"
 import { resolveIntent } from "../../../src/links/intents"
 import { narrowIntentForContext, routeForIntent } from "../../../src/links/destinations"
 import { webUrl } from "../../../src/config/environment"
-import { CalendarDays, ChevronRight, HeartHandshake, MapPin, UserPlus } from "../../../src/components/icons"
-import { colour, radius, space, type } from "../../../src/design/tokens"
+import { CalendarDays, ChevronRight, HeartHandshake, MapPin, Search } from "../../../src/components/icons"
+import { colour, radius, space, surface, type } from "../../../src/design/tokens"
 
 /**
  * CLUBHOUSE HOME — the tab's own root screen (replacing the map as Clubhouse's landing page; the map
@@ -29,10 +29,16 @@ import { colour, radius, space, type } from "../../../src/design/tokens"
  *   Find a Fixture  -> `/clubhouse/find-fixture`     (Section 6/7, unchanged)
  *   Partner Clubs    -> `/clubhouse/map?filter=partners` (Section 5's own partner state, same map/list,
  *                        never a second partner store)
- *   Explore the Map  -> `/clubhouse/map`              (Section 2/11, unchanged)
- *   Refer a Club      -> `/clubhouse/refer`            (a genuinely wired, real screen -- the platform's
- *                        own referral-reward domain, `club_referral_summary`, is real and DB-enforced;
- *                        it was simply never wired to mobile before this screen)
+ *   Explore the Map  -> `/clubhouse/map`              (Section 2/11, unchanged, discovery mode)
+ *   Find a Club      -> `/clubhouse/map?mode=search`  (the SAME canonical map/list, opened search-first
+ *                        -- an intent-led "I know which club I want" job, distinct from Explore's
+ *                        discovery-led one; never a second directory)
+ *
+ * REFER A CLUB lives only in the promo card below the grid (not also a fifth tile -- a visual-review
+ * correction: the original four-tile grid duplicated the promo card immediately beneath it). Its own
+ * screen, `/clubhouse/refer`, is a genuinely wired, real screen -- the platform's own referral-reward
+ * domain, `club_referral_summary`, is real and DB-enforced; it was simply never wired to mobile before
+ * this screen.
  *
  * RECENT ACTIVITY reads the same `my_notifications` feed the Notifications tab already reads, filtered
  * to the types that are genuinely about the rugby NETWORK (fixture requests, partner requests, and the
@@ -91,11 +97,14 @@ export default function ClubhouseHome() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <AppHeader onOpenContexts={() => setSheetOpen(true)} />
-      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.lg }} showsVerticalScrollIndicator={false}>
-        <ClubhouseHero onOpenMap={() => router.push("/clubhouse/map" as never)} />
-
+    <View style={{ flex: 1, backgroundColor: surface.forest }}>
+      {/* ONE FOREST SURFACE from behind the status bar through the hero photo -- the same fusion
+          Calendar's own forest header already makes (tone="forest", no rule beneath it), continued
+          into the hero rather than stopping at the header's own edge. The hero is full-bleed (outside
+          the scroll content's own horizontal padding) so nothing seams between the two. */}
+      <AppHeader onOpenContexts={() => setSheetOpen(true)} tone="forest" bottomRule={false} />
+      <ClubhouseHero onOpenMap={() => router.push("/clubhouse/map" as never)} />
+      <ScrollView style={{ backgroundColor: colour.chalk }} contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.lg }} showsVerticalScrollIndicator={false}>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
           <ActionTile
             icon={<CalendarDays size={20} color={colour.forest800} strokeWidth={2} />}
@@ -112,14 +121,14 @@ export default function ClubhouseHome() {
           <ActionTile
             icon={<MapPin size={20} color={colour.forest800} strokeWidth={2} />}
             label="Explore the Map"
-            caption="See clubs near you"
+            caption="Discover the rugby network"
             onPress={() => router.push("/clubhouse/map" as never)}
           />
           <ActionTile
-            icon={<UserPlus size={20} color={colour.forest800} strokeWidth={2} />}
-            label="Refer a Club"
-            caption="Get 1 month free"
-            onPress={() => router.push("/clubhouse/refer" as never)}
+            icon={<Search size={20} color={colour.forest800} strokeWidth={2} />}
+            label="Find a Club"
+            caption="Search the club directory"
+            onPress={() => router.push({ pathname: "/clubhouse/map", params: { mode: "search" } } as never)}
           />
         </View>
 
@@ -164,6 +173,10 @@ export default function ClubhouseHome() {
  * screen), a forest gradient thinning where the words are, chalk type over it. `editorial.news.community`
  * is the one bundled asset actually named for this ("community" -- a pitch/evening photograph, no crest,
  * no face, no text) rather than a new image invented for this pass.
+ *
+ * FULL-BLEED AND FLUSH WITH THE HEADER ABOVE IT (visual-review correction) -- no side margin, no top
+ * rounding, so the forest header and this photograph read as one continuous ground rather than a
+ * floating card under a separate bar. Only the bottom corners round, where it meets the chalk content.
  */
 function ClubhouseHero({ onOpenMap }: { onOpenMap: () => void }) {
   const artwork = editorial.news.community
@@ -172,7 +185,14 @@ function ClubhouseHero({ onOpenMap }: { onOpenMap: () => void }) {
       accessibilityRole="button"
       accessibilityLabel="Clubhouse. The rugby community, all in one place. Open the map."
       onPress={onOpenMap}
-      style={({ pressed }) => ({ height: 168, borderRadius: 22, overflow: "hidden", backgroundColor: colour.forest900, opacity: pressed ? 0.95 : 1 })}
+      style={({ pressed }) => ({
+        height: 190,
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        overflow: "hidden",
+        backgroundColor: colour.forest900,
+        opacity: pressed ? 0.95 : 1,
+      })}
     >
       {artwork && <Image source={artwork} accessible={false} contentFit="cover" contentPosition="center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />}
       <Svg style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">

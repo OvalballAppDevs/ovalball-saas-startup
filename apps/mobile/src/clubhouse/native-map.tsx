@@ -48,10 +48,18 @@ const DEVELOPMENT_MAP_STYLE = "https://demotiles.maplibre.org/style.json"
  * never colour alone -- the bottom sheet carries the word); crest imagery renders in the sheet and the
  * list, not as a per-point raster on the map itself (a real MapLibre image-sprite integration for
  * ~100+ distinct remote crest URLs is deferred past V1 -- see the Clubhouse completion report).
+ *
+ * CAMERA INTENT (visual-review pass): opens on the viewer's own club when one is genuinely known --
+ * the SAME `origin` the distance filter and the bottom sheet's own mileage already use, never a new
+ * location source and never the device's own GPS (Clubhouse asks for no location permission at all).
+ * Falls back to the UK-wide view exactly as before when no real origin exists (a team-context viewer,
+ * or a club with no geocoded location yet).
  */
-export function ClubhouseMap({ markers, onSelect }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void }) {
+export function ClubhouseMap({ markers, onSelect, origin }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void; origin?: ClubMapMarker | null }) {
   const cameraRef = useRef<CameraRef>(null)
   const mapRef = useRef<MapRef>(null)
+  const initialCenter: [number, number] = origin?.hasLocation && origin.longitude !== null && origin.latitude !== null ? [origin.longitude, origin.latitude] : UK_CENTER
+  const initialZoom = origin?.hasLocation ? 9 : UK_ZOOM
 
   const geojson = useMemo(() => buildClubMarkerFeatureCollection(markers), [markers])
 
@@ -82,7 +90,7 @@ export function ClubhouseMap({ markers, onSelect }: { markers: ClubMapMarker[]; 
 
   return (
     <MapLibreMap ref={mapRef} mapStyle={DEVELOPMENT_MAP_STYLE} style={{ flex: 1 }}>
-      <Camera ref={cameraRef} initialViewState={{ center: UK_CENTER, zoom: UK_ZOOM }} />
+      <Camera ref={cameraRef} initialViewState={{ center: initialCenter, zoom: initialZoom }} />
       <GeoJSONSource id="clubhouseClubs" data={geojson} cluster clusterRadius={45} clusterMaxZoom={11} onPress={onSourcePress}>
         <Layer
           id="clubhouseClusterCircles"

@@ -27,7 +27,7 @@ import { useSession } from "../../../src/auth/session"
 import { useAppContexts } from "../../../src/context/contexts"
 import { BottomSheet } from "../../../src/components/bottom-sheet"
 import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../src/components/ui"
-import { ChevronRight, Layers, LayoutGrid, MapPin, Search, Share2, X } from "../../../src/components/icons"
+import { ChevronDown, ChevronRight, LayoutGrid, MapPin, Search, Share2, SlidersHorizontal, X } from "../../../src/components/icons"
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
 import { webUrl } from "../../../src/config/environment"
 import { ClubCrest, DistanceChips, NetworkPill } from "../../../src/clubhouse/components"
@@ -64,9 +64,12 @@ export default function ExploreMap() {
   const { userId } = useSession()
   const { active } = useAppContexts()
   // Clubhouse Home's own "Partner Clubs" card hands off here with the Partners filter already chosen
-  // -- never a second partner-list implementation, just this same map/list pre-filtered.
-  const params = useLocalSearchParams<{ filter?: string }>()
+  // -- never a second partner-list implementation, just this same map/list pre-filtered. "Find a Club"
+  // hands off with mode=search: the INTENT-LED job ("I know which club I want") wants the list, search
+  // already focused, rather than the DISCOVERY-LED map "Explore the Map" itself opens on.
+  const params = useLocalSearchParams<{ filter?: string; mode?: string }>()
   const initialFilter: ClubhouseFilter = params.filter === "partners" || params.filter === "on_ovalball" ? params.filter : "all"
+  const searchLed = params.mode === "search"
 
   const viewerClubId = active?.clubId ?? (active?.kind === "club" ? active.id : null)
   const viewerTeamId = active?.kind === "team" ? active.id : null
@@ -78,9 +81,10 @@ export default function ExploreMap() {
   const [distance, setDistance] = useState<ClubhouseDistanceFilter>("any")
   // In Expo Go the map can't render at all (see the EXPO GO CANNOT RUN MAPLIBRE comment below) -- List
   // opens by default there so the screen is immediately useful rather than landing on a dead end.
-  const [mode, setMode] = useState<"map" | "list">(isExpoGo ? "list" : "map")
+  const [mode, setMode] = useState<"map" | "list">(isExpoGo || searchLed ? "list" : "map")
   const [selected, setSelected] = useState<ClubMapMarker | null>(null)
-  const [chromeExpanded, setChromeExpanded] = useState(false)
+  const [distanceSheetOpen, setDistanceSheetOpen] = useState(false)
+  const [sort, setSort] = useState<"nearest" | "name">("nearest")
 
   const load = useCallback(async () => {
     setError(null)
@@ -116,12 +120,28 @@ export default function ExploreMap() {
 
   const withLocation = useMemo(() => filtered.filter((m) => m.hasLocation), [filtered])
 
+  // NEAREST IS REAL, OR IT IS NOT OFFERED -- the same distance arithmetic the filter and the sheet's
+  // own mileage already use (`distanceMiles`/`origin`), never a fabricated ordering. Without a real
+  // origin (a team-context viewer, or a club with no geocoded location yet), "Nearest" has nothing to
+  // sort by, so the control below falls back to Name and says so.
+  const sorted = useMemo(() => {
+    if (sort === "nearest" && origin) {
+      return [...filtered].sort((a, b) => {
+        const da = a.hasLocation ? (distanceMiles(origin, a) ?? Infinity) : Infinity
+        const db = b.hasLocation ? (distanceMiles(origin, b) ?? Infinity) : Infinity
+        return da - db
+      })
+    }
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name))
+  }, [filtered, sort, origin])
+
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <MapBackHeader onBack={() => router.back()} insets={insets} />
+      <MapBackHeader title="Explore Clubs" onBack={() => router.back()} insets={insets} />
 
       {/* THE MAP IS THE HERO (Section 2/11) -- no page-title header eating vertical space above it.
-          Search and filters float as a card over the map/list instead of occupying a fixed chalk
+          Search and filters float directly over the map/list -- no enclosing white card behind them,
+          matching the reference's own floating-pill chrome -- instead of occupying a fixed chalk
           block. THIS WRAPPER, not the screen root, is what every `position: "absolute"` child below
           is measured against -- it starts right after the header ends, so a `top: space.md` overlay
           floats just under the header instead of covering it (a real bug found live: the overlay used
@@ -143,52 +163,73 @@ export default function ExploreMap() {
             </View>
           )}
           {markers !== null && !error && filtered.length > 0 && mode === "map" && (
-            <ClubhouseMap markers={withLocation} onSelect={setSelected} />
+            <ClubhouseMap markers={withLocation} onSelect={setSelected} origin={origin} />
           )}
           {markers !== null && !error && filtered.length > 0 && mode === "list" && (
-            <ClubhouseList markers={filtered} onSelect={setSelected} topInset={chromeExpanded ? 172 : 116} />
+            <ClubhouseList
+              markers={sorted}
+              onSelect={setSelected}
+              topInset={124}
+              count={filtered.length}
+              sort={sort}
+              onChangeSort={setSort}
+              sortEnabled={!!origin}
+              onSwitchToMap={isExpoGo ? null : () => setMode("map")}
+            />
           )}
         </View>
 
+        {/* FLOATING SEARCH + FILTERS, on both map and list (the reference keeps the identical chrome in
+            either mode) -- a white pill for search, dark pills directly on the ground for filters, no
+            card behind either. */}
         <View style={{ position: "absolute", top: space.md, left: space.lg, right: space.lg, gap: space.sm }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Find a Fixture"
-            onPress={() => router.push("/clubhouse/find-fixture" as never)}
-            style={({ pressed }) => ({
-              minHeight: TOUCH_TARGET,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: space.xs,
-              borderRadius: radius.lg,
-              backgroundColor: pressed ? colour.forest900 : colour.forest800,
-              ...elevation.card,
-            })}
-          >
-            <Search size={16} color={colour.onForest} />
-            <Text style={[type.smallMedium, { color: colour.onForest }]}>Find a Fixture</Text>
-          </Pressable>
-          <View style={{ borderRadius: radius.lg, backgroundColor: colour.surface, padding: space.sm, gap: space.sm, ...elevation.card }}>
-            <SearchField value={query} onChange={setQuery} />
+          <SearchField value={query} onChange={setQuery} autoFocus={searchLed} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
             <FilterChips filter={filter} onChange={setFilter} />
-            {origin && (
-              <>
-                <Pressable accessibilityRole="button" onPress={() => setChromeExpanded((v) => !v)} style={{ alignSelf: "flex-start" }}>
-                  <Text style={[type.caption, { color: colour.forest800 }]}>{chromeExpanded ? "Hide distance" : distance === "any" ? "Add distance filter" : `Within ${distance} miles`}</Text>
-                </Pressable>
-                {chromeExpanded && <DistanceChips distance={distance} onChange={setDistance} />}
-              </>
-            )}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={distance === "any" ? "Filter by distance" : `Filtering within ${distance} miles. Change distance filter`}
+              onPress={() => setDistanceSheetOpen(true)}
+              style={({ pressed }) => ({
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: distance !== "any" ? colour.pitch600 : "rgba(16,21,18,0.55)",
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <SlidersHorizontal size={15} color={colour.onForest} />
+            </Pressable>
           </View>
         </View>
 
-        {/* MAP | LIST -- Section 20: the same search/filter query backs both, so switching never loses
-            a non-geocoded club (the map alone cannot show one; the list always can). */}
-        <View style={{ position: "absolute", bottom: insets.bottom + space.lg, alignSelf: "center", flexDirection: "row", borderRadius: radius.pill, backgroundColor: colour.forest950, padding: 4, gap: 4 }}>
-          <ModeButton label="Map" icon={<Layers size={16} color={mode === "map" ? colour.forest950 : colour.onForest} />} active={mode === "map"} onPress={() => setMode("map")} />
-          <ModeButton label="List" icon={<LayoutGrid size={16} color={mode === "list" ? colour.forest950 : colour.onForest} />} active={mode === "list"} onPress={() => setMode("list")} />
-        </View>
+        {/* MAP MODE'S OWN TOGGLE -- a single floating circular button, not a segmented pill, matching
+            the reference's map-mode chrome. List mode carries its own inline Map/List control instead
+            (in ClubhouseList's header), since there is no map to float over there. */}
+        {mode === "map" && !isExpoGo && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Switch to list view"
+            onPress={() => setMode("list")}
+            style={({ pressed }) => ({
+              position: "absolute",
+              top: 92,
+              right: space.lg,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: colour.surface,
+              opacity: pressed ? 0.85 : 1,
+              ...elevation.card,
+            })}
+          >
+            <LayoutGrid size={18} color={colour.forest800} />
+          </Pressable>
+        )}
       </View>
 
       <ClubSheet
@@ -200,11 +241,13 @@ export default function ExploreMap() {
         onChanged={() => void load()}
         origin={origin}
       />
+
+      <DistanceFilterSheet visible={distanceSheetOpen} distance={distance} onChange={setDistance} onClose={() => setDistanceSheetOpen(false)} />
     </View>
   )
 }
 
-function MapBackHeader({ onBack, insets }: { onBack: () => void; insets: { top: number } }) {
+function MapBackHeader({ title, onBack, insets }: { title: string; onBack: () => void; insets: { top: number } }) {
   return (
     <View
       style={{
@@ -229,24 +272,25 @@ function MapBackHeader({ onBack, insets }: { onBack: () => void; insets: { top: 
         </View>
       </Pressable>
       <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
-        Clubhouse
+        {title}
       </Text>
     </View>
   )
 }
 
-function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function SearchField({ value, onChange, autoFocus }: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: TOUCH_TARGET, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: TOUCH_TARGET, paddingHorizontal: space.md, borderRadius: radius.pill, backgroundColor: colour.surface, ...elevation.card }}>
       <Search size={17} color={colour.inkSubtle} />
       <TextInput
         accessibilityLabel="Search clubs by name, town or postcode"
         value={value}
         onChangeText={onChange}
-        placeholder="Search clubs, towns, postcodes"
+        placeholder="Search clubs, town or postcode"
         placeholderTextColor={colour.inkSubtle}
         autoCapitalize="none"
         autoCorrect={false}
+        autoFocus={autoFocus}
         style={[type.small, { flex: 1, color: colour.ink, paddingVertical: 0 }]}
       />
       {value.length > 0 && (
@@ -264,9 +308,14 @@ const FILTERS: { key: ClubhouseFilter; label: string }[] = [
   { key: "partners", label: "Partners" },
 ]
 
+/**
+ * FLOATING DIRECTLY ON THE GROUND (visual-review correction) -- dark, semi-transparent pills rather
+ * than a white card behind them, so they read the same way over the map's own colours as they do over
+ * the list's chalk background (the reference uses the identical chip style in both modes).
+ */
 function FilterChips({ filter, onChange }: { filter: ClubhouseFilter; onChange: (f: ClubhouseFilter) => void }) {
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel="Filter clubs" style={{ flexDirection: "row", gap: space.sm }}>
+    <View accessibilityRole="radiogroup" accessibilityLabel="Filter clubs" style={{ flexDirection: "row", gap: space.sm, flex: 1 }}>
       {FILTERS.map((f) => {
         const on = filter === f.key
         return (
@@ -275,9 +324,15 @@ function FilterChips({ filter, onChange }: { filter: ClubhouseFilter; onChange: 
             accessibilityRole="radio"
             accessibilityState={{ checked: on }}
             onPress={() => onChange(f.key)}
-            style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.forest800 : colour.lineStrong, backgroundColor: on ? colour.forest800 : colour.surface, justifyContent: "center" }}
+            style={{
+              minHeight: 34,
+              paddingHorizontal: space.md,
+              borderRadius: radius.pill,
+              backgroundColor: on ? colour.pitch600 : "rgba(16,21,18,0.55)",
+              justifyContent: "center",
+            }}
           >
-            <Text style={[type.caption, { color: on ? colour.onForest : colour.ink }]}>{f.label}</Text>
+            <Text style={[type.caption, { color: colour.onForest, fontFamily: "Inter_600SemiBold" }]}>{f.label}</Text>
           </Pressable>
         )
       })}
@@ -285,18 +340,27 @@ function FilterChips({ filter, onChange }: { filter: ClubhouseFilter; onChange: 
   )
 }
 
-function ModeButton({ label, icon, active, onPress }: { label: string; icon: React.ReactNode; active: boolean; onPress: () => void }) {
+/** The reference's own segmented rectangle, used only where there is no map to float a circular
+ * button over -- List mode's own inline header, sitting with the club count and the sort control. */
+function MapListSegment({ mode, onSwitchToMap }: { mode: "map" | "list"; onSwitchToMap: (() => void) | null }) {
+  if (!onSwitchToMap) return null
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      accessibilityLabel={`${label} view`}
-      onPress={onPress}
-      style={{ flexDirection: "row", alignItems: "center", gap: space.xs, minHeight: 40, paddingHorizontal: space.lg, borderRadius: radius.pill, backgroundColor: active ? colour.pitch400 : "transparent" }}
-    >
-      {icon}
-      <Text style={[type.smallMedium, { color: active ? colour.forest950 : colour.onForest }]}>{label}</Text>
-    </Pressable>
+    <View style={{ flexDirection: "row", borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, overflow: "hidden", alignSelf: "flex-start" }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: (mode as "map" | "list") === "map" }}
+        accessibilityLabel="Map view"
+        onPress={onSwitchToMap}
+        style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: TOUCH_TARGET - 8, paddingHorizontal: space.md, backgroundColor: colour.surface }}
+      >
+        <MapPin size={14} color={colour.forest800} />
+        <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_600SemiBold" }]}>Map</Text>
+      </Pressable>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: TOUCH_TARGET - 8, paddingHorizontal: space.md, backgroundColor: colour.pitch600 }}>
+        <LayoutGrid size={14} color={colour.onForest} />
+        <Text style={[type.caption, { color: colour.onForest, fontFamily: "Inter_600SemiBold" }]}>List</Text>
+      </View>
+    </View>
   )
 }
 
@@ -324,7 +388,7 @@ const isExpoGo = Constants.appOwnership === "expo"
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate: see the comment above.
 const NativeMap = isExpoGo ? null : (require("../../../src/clubhouse/native-map") as typeof import("../../../src/clubhouse/native-map")).ClubhouseMap
 
-function ClubhouseMap({ markers, onSelect }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void }) {
+function ClubhouseMap({ markers, onSelect, origin }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void; origin: ClubMapMarker | null }) {
   if (isExpoGo || !NativeMap) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl, gap: space.sm }}>
@@ -336,15 +400,55 @@ function ClubhouseMap({ markers, onSelect }: { markers: ClubMapMarker[]; onSelec
       </View>
     )
   }
-  return <NativeMap markers={markers} onSelect={onSelect} />
+  return <NativeMap markers={markers} onSelect={onSelect} origin={origin} />
 }
 
-function ClubhouseList({ markers, onSelect, topInset }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void; topInset: number }) {
+function ClubhouseList({
+  markers,
+  onSelect,
+  topInset,
+  count,
+  sort,
+  onChangeSort,
+  sortEnabled,
+  onSwitchToMap,
+}: {
+  markers: ClubMapMarker[]
+  onSelect: (m: ClubMapMarker) => void
+  topInset: number
+  /** The real, already-filtered count -- "N clubs available," never the unfiltered directory size. */
+  count: number
+  sort: "nearest" | "name"
+  onChangeSort: (s: "nearest" | "name") => void
+  /** Real only when a genuine origin (the viewer's own geocoded club) exists -- see `sorted` above. */
+  sortEnabled: boolean
+  onSwitchToMap: (() => void) | null
+}) {
   return (
     <FlatList
       data={markers}
       keyExtractor={(m) => m.directoryId}
       contentContainerStyle={{ padding: space.lg, paddingTop: topInset + space.md, gap: space.sm, paddingBottom: space.xxl * 2 }}
+      ListHeaderComponent={
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: space.sm }}>
+          <MapListSegment mode="list" onSwitchToMap={onSwitchToMap} />
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={[type.caption, { color: colour.inkMuted }]}>
+              {count} {count === 1 ? "club" : "clubs"}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Sorted by ${sort === "nearest" ? "nearest" : "name"}. Change sort order`}
+              disabled={!sortEnabled}
+              onPress={() => onChangeSort(sort === "nearest" ? "name" : "nearest")}
+              style={{ flexDirection: "row", alignItems: "center", gap: 2, opacity: sortEnabled ? 1 : 0.4 }}
+            >
+              <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_600SemiBold" }]}>{sort === "nearest" && sortEnabled ? "Nearest" : "Name"}</Text>
+              <ChevronDown size={12} color={colour.forest800} />
+            </Pressable>
+          </View>
+        </View>
+      }
       renderItem={({ item }) => <ClubListRow marker={item} onPress={() => onSelect(item)} />}
     />
   )
@@ -613,6 +717,20 @@ function ClubSheet({
           )}
         </View>
       )}
+    </BottomSheet>
+  )
+}
+
+/**
+ * DISTANCE, BEHIND A CONTROL -- not exposed permanently across the signature surface (the reference's
+ * own instruction: 10/25/50/100 miles is a real, useful filter, but not one that deserves a fixed row
+ * over the map at all times). Reuses `DistanceChips` exactly as the old inline row did -- same filter,
+ * same values, only relocated into a sheet reached by the slider icon beside the filter chips.
+ */
+function DistanceFilterSheet({ visible, distance, onChange, onClose }: { visible: boolean; distance: ClubhouseDistanceFilter; onChange: (d: ClubhouseDistanceFilter) => void; onClose: () => void }) {
+  return (
+    <BottomSheet visible={visible} onClose={onClose} title="Distance" cancelLabel="Close">
+      <DistanceChips distance={distance} onChange={onChange} />
     </BottomSheet>
   )
 }
