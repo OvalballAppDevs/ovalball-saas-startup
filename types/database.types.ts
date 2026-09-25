@@ -27639,6 +27639,18 @@ export type Database = {
           source_player_count: number
         }[]
       }
+      team_scheduling_availability: {
+        Args: {
+          p_from: string
+          p_target_team_id: string
+          p_to: string
+          p_viewer_team_id: string
+        }
+        Returns: {
+          status: string
+          the_date: string
+        }[]
+      }
       team_subscription_status: {
         Args: { p_team_id: string }
         Returns: {

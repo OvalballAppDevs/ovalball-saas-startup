@@ -1701,6 +1701,11 @@
       "owner": "Team directory and roster",
       "reason": "Team People: the roster, who may see it, and what archiving a player means."
     },
+    "team_scheduling_availability": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture Requests / Shared Calendar",
+      "reason": "CA-M11.4 shared scheduling calendar: authority tied to the viewer's own fixture-request authority, privacy-safe status derivation, structural output limit."
+    },
     "team_scoped_fixture_requests": {
       "disposition": "SPECIAL_PURPOSE",
       "owner": "Team directory and roster",

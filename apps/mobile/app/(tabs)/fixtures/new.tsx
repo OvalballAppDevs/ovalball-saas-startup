@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { routeForIntent } from "../../../src/links/destinations"
 import { GAME_TYPE_OPTIONS, type GameType } from "@ovalball/contracts/fixtures/game-type"
+import { compareAvailability, findGoodDates, readTeamAvailability, shiftDays, shiftMonths, startOfMonth, type CompareDay, type TeamAvailabilityDay } from "@ovalball/contracts"
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import {
@@ -17,11 +18,18 @@ import { searchDirectoryClubs, teamRugbyCode, type DirectoryClub } from "../../.
 import { readClubTeams } from "@ovalball/contracts/club/teams"
 import { todayIso } from "../../../src/agenda/load"
 import { friendly, logDetail } from "../../../src/errors/translate"
+import { AvailabilityAgendaList, AvailabilityMonthGrid } from "../../../src/fixture-requests/availability-calendar"
 import { ChoiceField, DateField, Field, SubmitButton, TextField, TimeField } from "../../../src/components/form"
 import { ClubCrest } from "../../../src/components/identity"
-import { Check, ChevronRight, OvalIcon, Users } from "../../../src/components/icons"
+import { CalendarDays, Check, ChevronRight, ClipboardList, OvalIcon, Users } from "../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
+import { exactDate } from "../../../src/agenda/presentation"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
+
+/** How far ahead the shared calendar looks in one read -- bounded (Section 84/83), well inside the
+ * server's own 90-day cap, and wide enough to cover several months of month-view navigation from one
+ * fetch rather than re-querying on every month flip. */
+const AVAILABILITY_WINDOW_DAYS = 84
 
 /**
  * ADDING A FIXTURE -- ONE JOURNEY, TWO ENDINGS.
@@ -90,6 +98,7 @@ export default function AddFixture() {
   const [club, setClub] = useState<DirectoryClub | null>(null)
   const [opponents, setOpponents] = useState<CompatibleOpponent[] | null>(null)
   const [opponent, setOpponent] = useState<CompatibleOpponent | null>(null)
+  const asking = Boolean(club?.onOvalball)
 
   const [date, setDate] = useState(today)
   const [time, setTime] = useState<string | null>("10:30")
@@ -98,6 +107,63 @@ export default function AddFixture() {
   const [note, setNote] = useState("")
   const [problem, setProblem] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // THE SHARED SCHEDULING CALENDAR (CA-M11.4) -- our own commitments always load once a team is known;
+  // the partner's only once a specific compatible team is chosen (there is nobody to ask about otherwise
+  // -- Section 20's own "do not claim availability if partner information is unknown").
+  const [calendarView, setCalendarView] = useState<"month" | "list">("list")
+  const [monthAnchor, setMonthAnchor] = useState(startOfMonth(today))
+  const [ownDays, setOwnDays] = useState<TeamAvailabilityDay[] | null>(null)
+  const [partnerDays, setPartnerDays] = useState<TeamAvailabilityDay[] | null>(null)
+  const [availabilityProblem, setAvailabilityProblem] = useState<string | null>(null)
+  const [loadingAvailability, setLoadingAvailability] = useState(false)
+  const windowFrom = today
+  const windowTo = shiftDays(today, AVAILABILITY_WINDOW_DAYS)
+
+  useEffect(() => {
+    let live = true
+    setOwnDays(null)
+    if (!asking || !teamId) return
+    void readTeamAvailability(supabase, teamId, teamId, windowFrom, windowTo)
+      .then((days) => {
+        if (live) setOwnDays(days)
+      })
+      .catch((caught) => {
+        if (!live) return
+        setAvailabilityProblem(friendly(caught, "your team's calendar").message)
+      })
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asking, teamId])
+
+  useEffect(() => {
+    let live = true
+    setPartnerDays(null)
+    if (!asking || !teamId || !opponent?.teamId) return
+    setLoadingAvailability(true)
+    setAvailabilityProblem(null)
+    void readTeamAvailability(supabase, teamId, opponent.teamId, windowFrom, windowTo)
+      .then((days) => {
+        if (live) setPartnerDays(days)
+      })
+      .catch((caught) => {
+        if (!live) return
+        setAvailabilityProblem(friendly(caught, "their availability").message)
+      })
+      .finally(() => {
+        if (live) setLoadingAvailability(false)
+      })
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asking, teamId, opponent?.teamId])
+
+  const compareDays: CompareDay[] = useMemo(() => compareAvailability(ownDays ?? [], partnerDays), [ownDays, partnerDays])
+  const compareByDate = useMemo(() => new Map(compareDays.map((d) => [d.date, d])), [compareDays])
+  const goodDates = useMemo(() => findGoodDates(compareDays).slice(0, 3), [compareDays])
 
   useEffect(() => {
     void teamRugbyCode(supabase, teamId).then(setRugbyCode)
@@ -146,8 +212,6 @@ export default function AddFixture() {
       live = false
     }
   }, [club, teamId])
-
-  const asking = Boolean(club?.onOvalball)
 
   async function submit() {
     if (!club || saving || !teamId) return
@@ -371,9 +435,53 @@ export default function AddFixture() {
               </Field>
             )}
 
-            <Field label={asking ? "Proposed Date" : "Date"}>
-              <DateField label="Fixture date" value={date} onChange={setDate} />
-            </Field>
+            {asking ? (
+              <Field label="Proposed Date" hint={opponent?.teamId ? undefined : "Choose a compatible side above to compare availability -- until then this shows only our own calendar."}>
+                <View style={{ gap: space.sm }}>
+                  {!!goodDates.length && (
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+                      {goodDates.map((d) => (
+                        <Pressable
+                          key={d}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Good option: ${exactDate(d)}`}
+                          onPress={() => setDate(d)}
+                          style={({ pressed }) => ({ paddingHorizontal: space.sm, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: date === d ? colour.pitch600 : colour.mint100, opacity: pressed ? 0.8 : 1 })}
+                        >
+                          <Text style={[type.caption, { color: date === d ? colour.chalk : colour.forest800, fontSize: 11, fontFamily: "Inter_600SemiBold" }]}>{exactDate(d).split(" ").slice(0, 2).join(" ")}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+
+                  <View style={{ flexDirection: "row", borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, overflow: "hidden", alignSelf: "flex-start" }}>
+                    <ViewToggle label="List" icon={<ClipboardList size={14} color={calendarView === "list" ? colour.chalk : colour.forest800} />} active={calendarView === "list"} onPress={() => setCalendarView("list")} />
+                    <ViewToggle label="Month" icon={<CalendarDays size={14} color={calendarView === "month" ? colour.chalk : colour.forest800} />} active={calendarView === "month"} onPress={() => setCalendarView("month")} />
+                  </View>
+
+                  {loadingAvailability && !ownDays && <CardSkeleton lines={3} />}
+                  {availabilityProblem && <Text style={[type.small, { color: colour.warning }]}>{availabilityProblem}</Text>}
+
+                  {ownDays && calendarView === "list" && <AvailabilityAgendaList days={compareDays} selected={date} onSelect={setDate} />}
+                  {ownDays && calendarView === "month" && (
+                    <AvailabilityMonthGrid
+                      anchor={monthAnchor}
+                      today={today}
+                      selected={date}
+                      byDate={compareByDate}
+                      onSelect={setDate}
+                      onShiftMonth={(dir) => setMonthAnchor((a) => shiftMonths(a, dir))}
+                    />
+                  )}
+
+                  <Text style={[type.small, { color: colour.ink }]}>Selected: {exactDate(date)}</Text>
+                </View>
+              </Field>
+            ) : (
+              <Field label="Date">
+                <DateField label="Fixture date" value={date} onChange={setDate} />
+              </Field>
+            )}
 
             <Field label={asking ? "Preferred Kick-Off" : "Kick-Off"} hint="Leave it clear if the time is not agreed yet.">
               <TimeField label="Kick-off time" value={time} onChange={setTime} />
@@ -429,6 +537,21 @@ export default function AddFixture() {
 }
 
 /** On Ovalball, or not. Restrained: it is a fact about reachability, not a verification badge. */
+function ViewToggle({ label, icon, active, onPress }: { label: string; icon: React.ReactNode; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label} view`}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: TOUCH_TARGET - 8, paddingHorizontal: space.md, backgroundColor: active ? colour.pitch600 : colour.surface }}
+    >
+      {icon}
+      <Text style={[type.caption, { color: active ? colour.chalk : colour.forest800, fontFamily: "Inter_600SemiBold" }]}>{label}</Text>
+    </Pressable>
+  )
+}
+
 function Presence({ on, inline }: { on: boolean; inline?: boolean }) {
   return (
     <View
