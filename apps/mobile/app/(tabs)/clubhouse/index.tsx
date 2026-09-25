@@ -283,14 +283,21 @@ function ModeButton({ label, icon, active, onPress }: { label: string; icon: Rea
  *
  * `Constants.appOwnership === "expo"` is the precise (if formally deprecated) signal for "this is
  * genuinely the Expo Go app," as opposed to a real development build, which DOES carry the native
- * module and works exactly as designed. `native-map.tsx` is required via a runtime `require()` call --
- * never a static `import` -- specifically so its top-level MapLibre registration code never executes
- * inside Expo Go: a static import is hoisted and evaluated the instant Metro includes the file in the
- * bundle graph, which is what crashed the whole app rather than only the Clubhouse tab.
+ * module and works exactly as designed. The MapLibre-dependent code lives in
+ * `src/clubhouse/native-map.tsx` -- DELIBERATELY NOT under `app/`, even though this file (its only
+ * caller) is right next door. Expo Router scans every file under `app/` to build its route manifest and
+ * bundles it eagerly as part of that scan, regardless of how -- or whether -- anything actually
+ * `require()`s it; a first attempt at this fix put the file at `app/(tabs)/clubhouse/native-map.tsx`
+ * and it crashed Expo Go identically, from `native-map.tsx:3`'s own top-level MapLibre import, proving
+ * the router's own eager scan is what evaluates it, not this file's `require()` call. Only a module
+ * genuinely outside `app/` is exempt from that scan and reached solely through ordinary JS module
+ * resolution -- which is what makes the runtime `require()` below actually work: the module's top-level
+ * code (including MapLibre's native-module registration) now only runs the moment this line executes,
+ * and it is guarded so that line never runs inside Expo Go.
  */
 const isExpoGo = Constants.appOwnership === "expo"
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate: see the comment above.
-const NativeMap = isExpoGo ? null : (require("./native-map") as typeof import("./native-map")).ClubhouseMap
+const NativeMap = isExpoGo ? null : (require("../../../src/clubhouse/native-map") as typeof import("../../../src/clubhouse/native-map")).ClubhouseMap
 
 function ClubhouseMap({ markers, onSelect }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void }) {
   if (isExpoGo || !NativeMap) {

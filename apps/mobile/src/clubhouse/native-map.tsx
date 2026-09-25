@@ -4,7 +4,7 @@ import { Camera, GeoJSONSource, Layer, Map as MapLibreMap, type CameraRef, type 
 
 import { buildClubMarkerFeatureCollection, type ClubMapMarker } from "@ovalball/contracts/clubhouse"
 
-import { colour } from "../../../src/design/tokens"
+import { colour } from "../design/tokens"
 
 /**
  * THE ONLY FILE IN THE APP THAT IMPORTS `@maplibre/maplibre-react-native`, DELIBERATELY.
