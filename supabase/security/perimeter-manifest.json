@@ -5153,6 +5153,14 @@
         "consumers": []
       },
       {
+        "signature": "find_fixture_candidate_availability(uuid, date[])",
+        "category": "APPLICATION_RPC",
+        "note": "Clubhouse Programme Section 7: batched, privacy-safe date-availability search across every compatible PARTNER club for one team, up to 6 dates, one round trip. Never returns a non-partner club. Coarse busy/request_pending rows only (opponent_team_id, the_date, status) -- no event detail, no roster, no calendar content.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/find-fixture-availability.ts"
+        ]
+      },
+      {
         "signature": "find_fixture_candidate_teams(uuid)",
         "category": "APPLICATION_RPC",
         "note": "Clubhouse Programme Section 6: the batched form of compatible_opponent_teams -- every compatible opposition team across the whole network for one team in a single call. Same authority (team-scoped fixture.request.create/.fixture.create) and the same internal.identities_can_play_fixture rule, kept textually parallel to compatible_opponent_teams deliberately. Minimal projection: team_id, club_id, display_name, age_group, gender -- no roster, no calendar, no fixture history.",
@@ -5473,10 +5481,9 @@
       },
       {
         "signature": "get_partner_team_availability(uuid, date, date)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/partner-clubs/[clubId]/actions.ts"
-        ]
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "note": "Clubhouse Programme Section 7: its real consumer was already app/(app)/clubhouse/[clubId]/actions.ts (this entry had gone stale, pointing at a partner-clubs path that no longer exists) -- and Section 7 retired that file too, replacing the whole route with a redirect into the new Find a Fixture flow (team_scheduling_availability / find_fixture_candidate_availability). Not deleted: a real, working, tested function, simply with no application caller left. Never widen this baseline back to a stale consumer.",
+        "consumers": []
       },
       {
         "signature": "get_person_family_relationships(uuid)",
@@ -8713,6 +8720,7 @@
       "export_finance_rows(uuid, date)",
       "extend_club_trial(uuid, integer, text)",
       "fail_directory_verification_run(uuid, text)",
+      "find_fixture_candidate_availability(uuid, date[])",
       "find_fixture_candidate_teams(uuid)",
       "fixture_availability_summary(uuid[])",
       "fixture_communication_counts(uuid)",

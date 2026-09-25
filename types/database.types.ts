@@ -24021,6 +24021,14 @@ export type Database = {
         Args: { p_error: string; p_run_id: string }
         Returns: undefined
       }
+      find_fixture_candidate_availability: {
+        Args: { p_dates: string[]; p_team_id: string }
+        Returns: {
+          opponent_team_id: string
+          status: string
+          the_date: string
+        }[]
+      }
       find_fixture_candidate_teams: {
         Args: { p_team_id: string }
         Returns: {

@@ -34,13 +34,15 @@ type Client = SupabaseClient<Database>
 export type FindFixtureVenuePreference = "home" | "away" | "either"
 
 /** The full UI-level search intent. Only `teamId`/`distance`/`teamRugbyCode` are read by this module's
- * own query -- `date`/`venuePreference` travel through untouched to the eventual /fixtures/new handoff,
- * because Section 6 has no availability data to filter by (Section 7's job) and no venue data to judge
- * a club's own home/away preference against. */
+ * own query -- `dates`/`venuePreference` travel through untouched to the eventual /fixtures/new handoff
+ * (one date at a time, once a specific candidate+date is chosen), because Section 6 has no availability
+ * data to filter by on its own and no venue data to judge a club's own home/away preference against.
+ * `dates` is Section 7's own multi-date search -- 1 to 6 candidate dates, the bound
+ * `find_fixture_candidate_availability` itself enforces server-side. */
 export interface FindFixtureCriteria {
   teamId: string
   teamRugbyCode: string | null
-  date: string | null
+  dates: string[]
   venuePreference: FindFixtureVenuePreference
   distance: ClubhouseDistanceFilter
 }
@@ -97,17 +99,23 @@ export function buildFindFixtureCandidates(markers: readonly ClubMapMarker[], ca
   return { actionable, directoryOnly }
 }
 
-export type FindFixtureSort = "nearest" | "partners_first" | "club_name"
+/**
+ * "most_clear_dates" (Section 7) needs per-date availability this function has no access to -- it is a
+ * legitimate, named factual ordering, but the actual re-sort happens one layer up, once availability has
+ * been fetched (`countNoKnownClashDates`); `sortFindFixtureCandidates` itself treats it as a no-op
+ * passthrough (client name order), never guessing at a ranking it cannot truthfully compute.
+ */
+export type FindFixtureSort = "nearest" | "partners_first" | "club_name" | "most_clear_dates"
 
 /**
- * NEVER AN OPAQUE SCORE. Three factual orderings only, matching the directive's own named options.
+ * NEVER AN OPAQUE SCORE. Factual orderings only, matching the directive's own named options.
  * "nearest" without a factual origin (the viewer's own club has no known location) degrades to
  * alphabetical rather than fabricating a distance-based order; a candidate with no known distance
  * always sorts after every candidate that has one, never implying "nearby" by appearing early.
  */
 export function sortFindFixtureCandidates(candidates: readonly FindFixtureCandidate[], sort: FindFixtureSort, origin: ClubMapMarker | null): FindFixtureCandidate[] {
   const sorted = [...candidates]
-  if (sort === "club_name") return sorted.sort((a, b) => a.name.localeCompare(b.name))
+  if (sort === "club_name" || sort === "most_clear_dates") return sorted.sort((a, b) => a.name.localeCompare(b.name))
   if (sort === "partners_first") {
     return sorted.sort((a, b) => {
       const rank = (c: FindFixtureCandidate) => (c.partnershipStatus === "active" ? 0 : 1)
@@ -160,4 +168,25 @@ export async function readFindFixtureCandidates(
     actionable: applyClubhouseDistanceFilter(actionable as ClubMapMarker[], criteria.distance, origin) as FindFixtureCandidate[],
     directoryOnly: applyClubhouseDistanceFilter(directoryOnly, criteria.distance, origin),
   }
+}
+
+/**
+ * QUICK DATE HELPERS (Section 7) -- "the next N Saturdays", a genuinely simple, unambiguous
+ * calculation, never a rugby-schedule inference (no assumption about which Saturdays are fixture
+ * weekends, cup weeks, or a club's own season calendar -- manual date selection always remains
+ * available alongside this). `isoWeekday` follows the ISO convention (1 = Monday .. 7 = Sunday) so a
+ * caller never has to remember JavaScript's own Sunday-is-0 quirk. Capped at 6 to match
+ * `find_fixture_candidate_availability`'s own bound; a caller asking for more just gets 6.
+ */
+export function nextWeekdayDates(fromIso: string, isoWeekday: number, count: number): string[] {
+  const from = new Date(`${fromIso}T00:00:00Z`)
+  const fromIsoWeekday = ((from.getUTCDay() + 6) % 7) + 1
+  const daysUntilFirst = (isoWeekday - fromIsoWeekday + 7) % 7 || 7
+  const dates: string[] = []
+  for (let i = 0; i < Math.min(count, 6); i++) {
+    const d = new Date(from)
+    d.setUTCDate(d.getUTCDate() + daysUntilFirst + i * 7)
+    dates.push(d.toISOString().slice(0, 10))
+  }
+  return dates
 }

@@ -15,7 +15,20 @@ type Client = SupabaseClient<Database>
  * never event names, never an opponent, never training content, never attendance.
  */
 
-export type DayAvailability = "available" | "fixture" | "training" | "club_event" | "request_pending"
+/**
+ * Clubhouse Programme Section 7 added two values, both from correcting `team_scheduling_availability`
+ * itself:
+ *
+ *   - `"busy"` -- the server's own coarsened value for a non-own-team day, returned instead of the
+ *     specific `"fixture"`/`"training"`/`"club_event"` category whenever the viewer is not looking at
+ *     their own team's calendar.
+ *   - `"no_known_clash"` -- what an unblocked day on a NON-OWN team's calendar actually is. Before this
+ *     correction, that case fell through to `"available"` -- a real, shipped violation of "an empty
+ *     calendar is not a declaration of availability" (found writing this section's own permanent test).
+ *     `"available"` is now returned ONLY when a team is describing its own calendar; every other unblocked
+ *     day is `"no_known_clash"`.
+ */
+export type DayAvailability = "available" | "fixture" | "training" | "club_event" | "request_pending" | "busy" | "no_known_clash"
 
 export interface TeamAvailabilityDay {
   date: string
@@ -27,17 +40,22 @@ export interface TeamAvailabilityDay {
  * `availabilityDetailLabel` below is for OUR OWN side, where showing which kind is legitimate and useful. */
 export function availabilityLabel(status: DayAvailability): string {
   if (status === "available") return "Available"
+  if (status === "no_known_clash") return "No known clash"
   if (status === "request_pending") return "Request pending"
   return "Busy"
 }
 
 /** The more specific word, for OUR OWN team's own calendar only -- never used to describe a partner's
- * day, where only the coarse "Busy" is legitimate to show (Section 15's own instruction). */
+ * day, where only the coarse "Busy" is legitimate to show (Section 15's own instruction). The server
+ * never actually returns "busy" for a team's own side (Section 7), but this stays exhaustive rather than
+ * falling through to the wrong label if that ever changed. */
 export function availabilityDetailLabel(status: DayAvailability): string {
   if (status === "available") return "Available"
   if (status === "fixture") return "Fixture"
   if (status === "training") return "Training"
   if (status === "club_event") return "Club event"
+  if (status === "busy") return "Busy"
+  if (status === "no_known_clash") return "No known clash"
   return "Request pending"
 }
 
@@ -78,18 +96,23 @@ export interface CompareDay {
   isGoodOption: boolean
 }
 
-/** Pure -- no I/O. Combines two already-read availability lists into one per-day compare view. */
+/**
+ * Pure -- no I/O. Combines two already-read availability lists into one per-day compare view. A good
+ * option requires OUR side to be truthfully `"available"` (we know our own calendar) and the PARTNER
+ * side to be `"no_known_clash"` -- never requiring `partner === "available"`, which the server itself
+ * (Section 7) never returns for a non-own team; only its own calendar may say that about itself.
+ */
 export function compareAvailability(ownDays: TeamAvailabilityDay[], partnerDays: TeamAvailabilityDay[] | null): CompareDay[] {
   const partnerByDate = partnerDays ? new Map(partnerDays.map((d) => [d.date, d.status])) : null
   return ownDays.map((o) => {
     const partner = partnerByDate ? (partnerByDate.get(o.date) ?? null) : null
-    return { date: o.date, ours: o.status, partner, isGoodOption: o.status === "available" && partner === "available" }
+    return { date: o.date, ours: o.status, partner, isGoodOption: o.status === "available" && partner === "no_known_clash" }
   })
 }
 
-/** The dates a "Find a Date" search should surface -- available to both sides, in date order. Never a
- * score, never a ranking beyond chronological (Section 19's own instruction: "Do not assign an opaque
- * AI score. Simply surface factual scheduling compatibility."). */
+/** The dates a "Find a Date" search should surface -- our own day free and no known clash on the
+ * partner's side, in date order. Never a score, never a ranking beyond chronological (Section 19's own
+ * instruction: "Do not assign an opaque AI score. Simply surface factual scheduling compatibility."). */
 export function findGoodDates(compareDays: CompareDay[]): string[] {
   return compareDays.filter((d) => d.isGoodOption).map((d) => d.date)
 }

@@ -1,6 +1,6 @@
 "use server"
 
-import { readClubhouseMarkers, type ClubMapMarker } from "@ovalball/contracts/clubhouse"
+import { readClubhouseMarkers, readFindFixtureCandidateAvailability, type ClubMapMarker } from "@ovalball/contracts/clubhouse"
 
 import { createClient } from "@/lib/supabase/server"
 
@@ -36,4 +36,20 @@ export async function getFindFixtureData(teamId: string, viewerClubId: string | 
   ])
   if (error) throw new Error(error.message)
   return { markers, candidateRows: candidateRows ?? [] }
+}
+
+export interface FindFixtureAvailabilityRow {
+  opponent_team_id: string
+  the_date: string
+  status: string
+}
+
+/**
+ * Section 7's own batched search -- one round trip for every compatible PARTNER team across up to 6
+ * dates, fired only once the caller has actually chosen a date (see find-fixture-client.tsx). Never
+ * returns a non-partner club; `find_fixture_candidate_availability` itself enforces that server-side.
+ */
+export async function getFindFixtureAvailability(teamId: string, dates: string[]): Promise<FindFixtureAvailabilityRow[]> {
+  const supabase = await createClient()
+  return readFindFixtureCandidateAvailability(supabase, teamId, dates)
 }

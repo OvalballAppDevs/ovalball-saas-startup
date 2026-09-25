@@ -43,12 +43,13 @@ function detailLabel(status: CompareDay["ours"]): string {
   if (status === "fixture") return "Fixture"
   if (status === "training") return "Training"
   if (status === "club_event") return "Club event"
+  if (status === "busy") return "Busy"
   return "Request pending"
 }
 
 function partnerLabel(status: CompareDay["partner"]): string {
   if (status === null) return "Unknown"
-  if (status === "available") return "Available"
+  if (status === "no_known_clash") return "No known clash"
   if (status === "request_pending") return "Request pending"
   return "Busy"
 }
@@ -111,7 +112,7 @@ export function AvailabilityPanel({ ourTeamId, partnerTeamId, selectedDate, onSe
                 <span className="text-base font-semibold text-ink">{day}</span>
                 <span className="text-[10px] text-ink-muted">{month}</span>
                 <span className={`mt-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${d.ours === "available" ? "bg-pitch-100 text-forest-800" : "bg-amber-100 text-amber-800"}`}>{detailLabel(d.ours)}</span>
-                {partnerTeamId && <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${d.partner === "available" ? "bg-pitch-100 text-forest-800" : "bg-ink/5 text-ink-muted"}`}>{partnerLabel(d.partner)}</span>}
+                {partnerTeamId && <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${d.partner === "no_known_clash" ? "bg-pitch-100 text-forest-800" : "bg-ink/5 text-ink-muted"}`}>{partnerLabel(d.partner)}</span>}
                 {isGood && <span className="text-[9px] font-semibold text-forest-800">Good option</span>}
               </button>
             )

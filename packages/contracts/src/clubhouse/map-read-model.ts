@@ -198,6 +198,13 @@ export async function readClubhouseMarkers(supabase: Client, viewerClubId: strin
   const teamPartnershipRows = !holdsClubPartnerAuthority && viewerTeamId ? await readTeamClubPartnerships(supabase, viewerTeamId) : null
   const holdsPartnerAuthority = holdsClubPartnerAuthority || teamPartnershipRows !== null
 
+  // Section 7: `get_team_club_partnerships` returns [] for a team with no partnerships yet -- proven
+  // live -- so the OTHER club in each row cannot always be inferred from the rows themselves. Resolving
+  // the team's own club id directly is what lets a team-context viewer's markers ever carry a real
+  // `partnershipStatus`/`isOwnClub` at all; without it every team-context caller stayed "unknown"
+  // forever regardless of `get_team_club_partnerships` having already proven real trust.
+  const effectiveClubId = viewerClubId ?? (teamPartnershipRows !== null && viewerTeamId ? await resolveTeamClubId(supabase, viewerTeamId) : null)
+
   const [directoryRows, { data: activatedClubs }, partnershipsResult, { data: defaultVenues }] = await Promise.all([
     fetchAllDirectoryRows(supabase),
     supabase.from("clubs").select("id, directory_id, slug").eq("status", "active"),
@@ -226,13 +233,13 @@ export async function readClubhouseMarkers(supabase: Client, viewerClubId: strin
 
   const clubIdByDirectoryId = new Map((activatedClubs ?? []).map((c) => [c.directory_id, c.id]))
   const slugByDirectoryId = new Map((activatedClubs ?? []).map((c) => [c.directory_id, c.slug]))
-  const partnershipByClubId = buildPartnershipIndex(partnershipsResult.data ?? [], viewerClubId, holdsPartnerAuthority)
+  const partnershipByClubId = buildPartnershipIndex(partnershipsResult.data ?? [], effectiveClubId, holdsPartnerAuthority)
   const defaultVenueByClubId = new Map((defaultVenues ?? []).map((v) => [v.club_id as string, v]))
 
   return directoryRows.map((row): ClubMapMarker => {
     const clubId = clubIdByDirectoryId.get(row.id) ?? null
     const partnership = clubId ? partnershipByClubId.get(clubId) : undefined
-    const partnershipStatus = resolvePartnershipStatus(partnership?.status ?? null, viewerClubId, holdsPartnerAuthority)
+    const partnershipStatus = resolvePartnershipStatus(partnership?.status ?? null, effectiveClubId, holdsPartnerAuthority)
     const logoPath = resolveClubLogoPathFrom(row.clubs?.logo_storage_path, row.logo_storage_path)
     const venue = clubId ? defaultVenueByClubId.get(clubId) : undefined
     const location = resolveClubLocation(
@@ -253,7 +260,7 @@ export async function readClubhouseMarkers(supabase: Client, viewerClubId: strin
       locationPrecision: location.precision,
       logoUrl: clubLogoUrlFromPath(supabase, logoPath),
       slug: slugByDirectoryId.get(row.id) ?? null,
-      isOwnClub: viewerClubId !== null && clubId === viewerClubId,
+      isOwnClub: effectiveClubId !== null && clubId === effectiveClubId,
       networkState: clubId ? "on_ovalball" : "not_on_ovalball",
       partnershipStatus,
       partnershipId: partnership?.partnershipId ?? null,
@@ -288,6 +295,17 @@ async function readTeamClubPartnerships(supabase: Client, viewerTeamId: string):
   const { data, error } = await supabase.rpc("get_team_club_partnerships", { p_team_id: viewerTeamId })
   if (error) return null
   return data ?? []
+}
+
+/**
+ * A plain `teams.club_id` lookup -- never an authority decision. `get_team_club_partnerships` already
+ * proved the caller's real authority before returning any row; this only supplies the identity needed
+ * to tell "our club" apart from "the other club" in those rows (or in an empty result, where no row
+ * exists to infer it from at all -- proven live: a team with no partnerships yet returns `[]`).
+ */
+async function resolveTeamClubId(supabase: Client, viewerTeamId: string): Promise<string | null> {
+  const { data } = await supabase.from("teams").select("club_id").eq("id", viewerTeamId).maybeSingle()
+  return data?.club_id ?? null
 }
 
 /**

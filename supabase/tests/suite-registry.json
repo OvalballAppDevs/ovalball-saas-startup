@@ -118,6 +118,11 @@
       "reason": "LEGACY AUTHORITY HELPER RETIREMENT (Identity/Auth Slice 4; Phase 2 AJ.1 authority_helper_retirement, J.15, Z.4 PG-15/16).",
       "measured": "Batch A ran it against both the persistent and the fresh clean-boot database: 76 passed, 1 failed on HR1 -- Step 11 had taken can_manage_fixture_side from 6 function-body references to 7. Fixed by 20270524000000, which moves community administration onto the canonical capability decision rather than raising a shrink-only ceiling."
     },
+    "availability_discovery": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Clubhouse programme",
+      "reason": "Clubhouse Programme Section 7 (20270558000000): the corrected team_scheduling_availability and the new find_fixture_candidate_availability. Proves a team's own calendar is unchanged; an incompatible or non-partner opponent is refused; a compatible partner's day coarsens every specific category (fixture, a MANUAL training session with no occurrence_date, a club-wide event, and a real competition match with no Fixture yet projected) to a single 'busy' value; a pending request reads 'request_pending', distinct from busy; a genuinely clear opponent date reads 'no_known_clash', never the previously-shipped 'available' -- the exact EMPTY CALENDAR != AVAILABLE defect this section closes, found and proven by this suite. The batched search never returns a non-partner or incompatible club, enforces its date-count bounds, and its payload is exactly opponent_team_id/the_date/status. Deterministic and self-seeding."
+    },
     "availability_one_product": {
       "disposition": "CANONICAL_GATE",
       "owner": "Ovalball availability -- Match Centre, Training Centre, both clients",

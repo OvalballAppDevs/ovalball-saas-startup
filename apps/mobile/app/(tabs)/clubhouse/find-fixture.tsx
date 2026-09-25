@@ -7,14 +7,19 @@ import Constants from "expo-constants"
 import {
   applyClubhouseDistanceFilter,
   applyFindFixturePartnerFilter,
+  buildFindFixtureAvailability,
   buildFindFixtureCandidates,
+  countNoKnownClashDates,
   findDistanceOrigin,
   inviteClubToOvalball,
+  nextWeekdayDates,
   readClubhouseMarkers,
+  readFindFixtureCandidateAvailability,
   sortFindFixtureCandidates,
   type ClubMapMarker,
   type ClubhouseDistanceFilter,
   type FindFixtureCandidate,
+  type FindFixtureCandidateAvailability,
   type FindFixturePartnerFilter,
   type FindFixtureSort,
   type FindFixtureVenuePreference,
@@ -51,6 +56,18 @@ import { todayIso } from "../../../src/agenda/load"
 // Duplicated here deliberately rather than shared, so this proven, twice-broken-and-fixed pattern is
 // never refactored sight-unseen on a screen this session cannot live-test on a physical device.
 const DIRECTORY_ONLY_CAP = 20
+const MAX_DATES = 6
+
+/** Sorted, deduplicated, capped at 6 -- the exact bound find_fixture_candidate_availability itself enforces. */
+function dedupeDates(candidates: string[]): string[] {
+  return [...new Set(candidates)].sort().slice(0, MAX_DATES)
+}
+
+/** "Sat 17 Oct" -- rugby-friendly, never a raw ISO string. */
+function shortDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`)
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+}
 
 const isExpoGo = Constants.appOwnership === "expo"
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate: see the comment above.
@@ -114,10 +131,13 @@ export default function FindFixture() {
   const teamRugbyCodeValue = clubContext ? (chosenTeam?.rugbyCode ?? null) : contextTeamRugbyCode
 
   // ---------------------------------------------------------------------------------------------
-  // CRITERIA -- date/venue preference travel to the /fixtures/new handoff untouched; distance,
-  // sort and the partner toggle are applied locally to one fetched population (see file header).
+  // CRITERIA -- venue preference travels to the /fixtures/new handoff untouched; distance, sort and
+  // the partner toggle are applied locally to one fetched population (see file header). `dates` is
+  // Section 7's own multi-date search -- 1 to 6 dates, entirely optional: with none selected, results
+  // show plain compatibility only (Section 6's own behaviour), never a fabricated availability claim.
   // ---------------------------------------------------------------------------------------------
-  const [date, setDate] = useState(todayIso())
+  const [dates, setDates] = useState<string[]>([])
+  const [pendingDate, setPendingDate] = useState(todayIso())
   const [venuePreference, setVenuePreference] = useState<FindFixtureVenuePreference>("either")
   const [distance, setDistance] = useState<ClubhouseDistanceFilter>("any")
   const [sort, setSort] = useState<FindFixtureSort>("nearest")
@@ -127,6 +147,7 @@ export default function FindFixture() {
   const [markers, setMarkers] = useState<ClubMapMarker[] | null>(null)
   const [candidateRows, setCandidateRows] = useState<{ team_id: string; club_id: string; display_name: string; age_group: string | null; gender: string | null }[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [availabilityRows, setAvailabilityRows] = useState<{ opponent_team_id: string; the_date: string; status: string }[] | null>(null)
 
   const load = useCallback(async () => {
     if (!teamId) return
@@ -150,6 +171,25 @@ export default function FindFixture() {
     void load()
   }, [load])
 
+  // AVAILABILITY (Section 7) -- fires only once real dates are chosen; entirely separate from `load`
+  // above so changing dates never re-fetches the marker/compatibility population, and changing team
+  // never re-fetches availability for dates that may no longer apply.
+  useEffect(() => {
+    let live = true
+    setAvailabilityRows(null)
+    if (!teamId || dates.length === 0) return
+    void readFindFixtureCandidateAvailability(supabase, teamId, dates)
+      .then((rows) => {
+        if (live) setAvailabilityRows(rows)
+      })
+      .catch(() => {
+        if (live) setAvailabilityRows([])
+      })
+    return () => {
+      live = false
+    }
+  }, [teamId, dates])
+
   const origin = useMemo(() => (markers ? findDistanceOrigin(markers) : null), [markers])
 
   const { actionable, directoryOnly } = useMemo(() => {
@@ -163,6 +203,24 @@ export default function FindFixture() {
     return sortFindFixtureCandidates(byPartner, sort, origin)
   }, [actionable, distance, origin, partnerFilter, sort])
 
+  // Availability per compatible TEAM -- built only once both the candidates and the availability rows
+  // are ready; a non-partner candidate reads "unknown" on every date without ever being looked up
+  // server-side (see buildFindFixtureAvailability's own doc comment).
+  const availabilityByTeamId = useMemo(() => {
+    if (dates.length === 0 || availabilityRows === null) return null
+    const built = buildFindFixtureAvailability(filteredActionable, dates, availabilityRows)
+    return new Map(built.map((a) => [a.teamId, a]))
+  }, [filteredActionable, dates, availabilityRows])
+
+  const sortedByClearDates = useMemo(() => {
+    if (sort !== "most_clear_dates" || !availabilityByTeamId) return filteredActionable
+    return [...filteredActionable].sort((a, b) => {
+      const clearA = Math.max(...a.compatibleTeams.map((t) => (availabilityByTeamId.get(t.teamId) ? countNoKnownClashDates(availabilityByTeamId.get(t.teamId)!) : 0)), 0)
+      const clearB = Math.max(...b.compatibleTeams.map((t) => (availabilityByTeamId.get(t.teamId) ? countNoKnownClashDates(availabilityByTeamId.get(t.teamId)!) : 0)), 0)
+      return clearB - clearA || a.name.localeCompare(b.name)
+    })
+  }, [filteredActionable, sort, availabilityByTeamId])
+
   // Section 3 found ~1,390 directory-only clubs, all one rugby code -- with no distance narrowed
   // (the "Any" default), showing every one of them would bury the actionable results under a wall
   // of Invite cards. Capped, with an honest count, rather than silently truncated.
@@ -171,9 +229,9 @@ export default function FindFixture() {
 
   const [mapSelectedClubId, setMapSelectedClubId] = useState<string | null>(null)
   const preselectedOpponentClubId = params.opponentClubId ?? mapSelectedClubId
-  const displayedActionable = preselectedOpponentClubId ? filteredActionable.filter((c) => c.clubId === preselectedOpponentClubId) : filteredActionable
+  const displayedActionable = preselectedOpponentClubId ? sortedByClearDates.filter((c) => c.clubId === preselectedOpponentClubId) : sortedByClearDates
 
-  function selectCandidate(candidate: FindFixtureCandidate, teamId2: string) {
+  function selectCandidate(candidate: FindFixtureCandidate, teamId2: string, chosenDate?: string) {
     router.push({
       pathname: "/fixtures/new",
       params: {
@@ -181,7 +239,7 @@ export default function FindFixture() {
         opponentDirectoryId: candidate.directoryId,
         opponentClubId: candidate.clubId ?? "",
         targetTeamId: teamId2,
-        date,
+        date: chosenDate ?? "",
         venuePreference,
       },
     } as never)
@@ -221,7 +279,41 @@ export default function FindFixture() {
         {teamId && (
           <>
             <View style={{ gap: space.md }}>
-              <DateField label="When" value={date} onChange={setDate} />
+              <View style={{ gap: space.xs }}>
+                <Text style={[type.caption, { color: colour.inkMuted }]}>When (Up to 6 Dates, Optional)</Text>
+                {dates.length > 0 && (
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+                    {dates.map((d) => (
+                      <Pressable
+                        key={d}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${shortDate(d)}`}
+                        onPress={() => setDates(dates.filter((x) => x !== d))}
+                        style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.forest800, backgroundColor: colour.forest800, flexDirection: "row", alignItems: "center", gap: space.xs, justifyContent: "center" }}
+                      >
+                        <Text style={[type.caption, { color: colour.onForest }]}>{shortDate(d)} ✕</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+                {dates.length < 6 && (
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+                    <QuickDateButton label="Next Saturday" onPress={() => setDates(dedupeDates([...dates, ...nextWeekdayDates(todayIso(), 6, 1)]))} />
+                    <QuickDateButton label="Next 3 Saturdays" onPress={() => setDates(dedupeDates(nextWeekdayDates(todayIso(), 6, 3)))} />
+                    <QuickDateButton label="Next 4 Sundays" onPress={() => setDates(dedupeDates(nextWeekdayDates(todayIso(), 7, 4)))} />
+                  </View>
+                )}
+                {dates.length < 6 && (
+                  <DateField
+                    label="Add a specific date"
+                    value={pendingDate}
+                    onChange={(v) => {
+                      setPendingDate(v)
+                      setDates((prev) => dedupeDates([...prev, v]))
+                    }}
+                  />
+                )}
+              </View>
               <View style={{ gap: space.xs }}>
                 <Text style={[type.caption, { color: colour.inkMuted }]}>Where</Text>
                 <ChoiceField
@@ -268,6 +360,7 @@ export default function FindFixture() {
                       { value: "nearest", label: "Nearest" },
                       { value: "partners_first", label: "Partners First" },
                       { value: "club_name", label: "Club Name" },
+                      ...(dates.length > 0 ? [{ value: "most_clear_dates" as const, label: "Most Clear Dates" }] : []),
                     ] as { value: FindFixtureSort; label: string }[]
                   ).map((opt) => (
                     <Pressable
@@ -310,7 +403,15 @@ export default function FindFixture() {
                 )}
 
                 {mode === "list" &&
-                  displayedActionable.map((candidate) => <CandidateCard key={candidate.directoryId} candidate={candidate} onSelectTeam={(t) => selectCandidate(candidate, t)} />)}
+                  displayedActionable.map((candidate) => (
+                    <CandidateCard
+                      key={candidate.directoryId}
+                      candidate={candidate}
+                      dates={dates}
+                      availabilityByTeamId={availabilityByTeamId}
+                      onSelectTeam={(t, chosenDate) => selectCandidate(candidate, t, chosenDate)}
+                    />
+                  ))}
 
                 {mode === "list" && preselectedOpponentClubId && !params.opponentClubId && (
                   <Button variant="quiet" label="Clear Selection" onPress={() => setMapSelectedClubId(null)} />
@@ -337,7 +438,32 @@ export default function FindFixture() {
   )
 }
 
-function CandidateCard({ candidate, onSelectTeam }: { candidate: FindFixtureCandidate; onSelectTeam: (teamId: string) => void }) {
+/** Truthful words only -- never softened into "Probably free" (Section 7's own instruction). */
+function dateStateLabel(state: "no_known_clash" | "busy" | "tentative" | "unknown"): string {
+  if (state === "no_known_clash") return "No known clash"
+  if (state === "tentative") return "Tentative"
+  if (state === "unknown") return "Unknown"
+  return "Busy"
+}
+
+function dateStateColours(state: "no_known_clash" | "busy" | "tentative" | "unknown"): { bg: string; fg: string; border: string } {
+  if (state === "no_known_clash") return { bg: colour.mint100, fg: colour.forest800, border: colour.pitch600 }
+  if (state === "tentative") return { bg: colour.chalk, fg: colour.inkMuted, border: colour.lineStrong }
+  if (state === "unknown") return { bg: colour.chalk, fg: colour.inkSubtle, border: colour.line }
+  return { bg: colour.chalk, fg: colour.warning, border: colour.line }
+}
+
+function CandidateCard({
+  candidate,
+  dates,
+  availabilityByTeamId,
+  onSelectTeam,
+}: {
+  candidate: FindFixtureCandidate
+  dates: string[]
+  availabilityByTeamId: Map<string, FindFixtureCandidateAvailability> | null
+  onSelectTeam: (teamId: string, date?: string) => void
+}) {
   return (
     <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.md, gap: space.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
@@ -352,19 +478,62 @@ function CandidateCard({ candidate, onSelectTeam }: { candidate: FindFixtureCand
         </View>
         <NetworkPill marker={candidate} />
       </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-        {candidate.compatibleTeams.map((t) => (
+
+      {dates.length === 0 &&
+        candidate.compatibleTeams.map((t) => (
           <Pressable
             key={t.teamId}
             accessibilityRole="button"
             accessibilityLabel={`Select ${t.displayName}`}
             onPress={() => onSelectTeam(t.teamId)}
-            style={({ pressed }) => ({ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: space.xs, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: pressed ? colour.forest800 : colour.mint100, borderWidth: 1, borderColor: colour.pitch600 })}
+            style={({ pressed }) => ({ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: space.xs, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: pressed ? colour.forest800 : colour.mint100, borderWidth: 1, borderColor: colour.pitch600, alignSelf: "flex-start" })}
           >
             {({ pressed }) => <Text style={[type.smallMedium, { color: pressed ? colour.onForest : colour.forest800 }]}>{t.displayName}</Text>}
           </Pressable>
         ))}
-      </View>
+
+      {dates.length > 0 &&
+        candidate.compatibleTeams.map((t) => {
+          const availability = availabilityByTeamId?.get(t.teamId) ?? null
+          const clearCount = availability ? countNoKnownClashDates(availability) : null
+          return (
+            <View key={t.teamId} style={{ gap: space.xs }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={[type.smallMedium, { color: colour.ink }]}>{t.displayName}</Text>
+                {clearCount !== null && (
+                  <Text style={[type.caption, { color: colour.inkMuted }]}>
+                    {clearCount} of {dates.length} clear
+                  </Text>
+                )}
+              </View>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+                {dates.map((d) => {
+                  const day = availability?.dates.find((x) => x.date === d)
+                  const state = day?.state ?? "unknown"
+                  // Section 7 discovery is advisory, not final authority (the eventual request still
+                  // revalidates server-side) -- UNKNOWN and TENTATIVE both stay selectable, since a
+                  // non-partner club's date is always UNKNOWN and that must never block arranging a
+                  // fixture with them. Only a KNOWN clash (busy) is disabled here.
+                  const selectable = state !== "busy"
+                  const c = dateStateColours(state)
+                  return (
+                    <Pressable
+                      key={d}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${shortDate(d)}, ${dateStateLabel(state)}${selectable ? "" : ", not selectable"}`}
+                      disabled={!selectable}
+                      onPress={() => onSelectTeam(t.teamId, d)}
+                      style={{ minHeight: TOUCH_TARGET, minWidth: 84, paddingHorizontal: space.sm, borderRadius: radius.md, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border, alignItems: "center", justifyContent: "center", opacity: selectable ? 1 : 0.7 }}
+                    >
+                      <Text style={[type.caption, { color: colour.ink }]}>{shortDate(d)}</Text>
+                      <Text style={[type.caption, { color: c.fg }]}>{dateStateLabel(state)}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </View>
+          )
+        })}
     </View>
   )
 }
@@ -452,6 +621,19 @@ function DirectoryOnlyCard({ marker, viewerClubId }: { marker: ClubMapMarker; vi
         </Pressable>
       )}
     </View>
+  )
+}
+
+function QuickDateButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: pressed ? colour.chalk : colour.surface, justifyContent: "center" })}
+    >
+      <Text style={[type.caption, { color: colour.ink }]}>{label}</Text>
+    </Pressable>
   )
 }
 

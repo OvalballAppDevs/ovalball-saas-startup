@@ -18,7 +18,12 @@ test("availabilityLabel never says more than 'Busy' for a non-available day -- S
   assert.equal(availabilityLabel("fixture"), "Busy")
   assert.equal(availabilityLabel("training"), "Busy")
   assert.equal(availabilityLabel("club_event"), "Busy")
+  assert.equal(availabilityLabel("busy"), "Busy")
   assert.equal(availabilityLabel("request_pending"), "Request pending")
+})
+
+test("availabilityLabel: Section 7's own no_known_clash is its own honest word, never 'Available'", () => {
+  assert.equal(availabilityLabel("no_known_clash"), "No known clash")
 })
 
 test("availabilityDetailLabel is specific -- legitimate for OUR OWN side only, never applied to a partner's day by this pass's UI", () => {
@@ -26,28 +31,37 @@ test("availabilityDetailLabel is specific -- legitimate for OUR OWN side only, n
   assert.equal(availabilityDetailLabel("training"), "Training")
   assert.equal(availabilityDetailLabel("club_event"), "Club event")
   assert.equal(availabilityDetailLabel("available"), "Available")
+  assert.equal(availabilityDetailLabel("busy"), "Busy")
+  assert.equal(availabilityDetailLabel("no_known_clash"), "No known clash")
   assert.equal(availabilityDetailLabel("request_pending"), "Request pending")
 })
 
-test("compareAvailability: a good option is exactly 'both sides available', nothing else", () => {
+test("compareAvailability: a good option is OUR side truthfully available and the partner's side no_known_clash -- Section 7's own correction, never partner === 'available'", () => {
   const own = [day("2026-10-10", "available")]
-  const partner = [day("2026-10-10", "available")]
+  const partner = [day("2026-10-10", "no_known_clash")]
   const [result] = compareAvailability(own, partner)
   assert.equal(result.isGoodOption, true)
   assert.equal(result.ours, "available")
-  assert.equal(result.partner, "available")
+  assert.equal(result.partner, "no_known_clash")
+})
+
+test("compareAvailability: the server itself never returns 'available' for a partner's day (Section 7) -- even if it somehow did, that value alone must never count as good", () => {
+  const own = [day("2026-10-10", "available")]
+  const partner = [day("2026-10-10", "available")]
+  const [result] = compareAvailability(own, partner)
+  assert.equal(result.isGoodOption, false, "partner === 'available' is not the state a good option requires -- only no_known_clash is")
 })
 
 test("compareAvailability: our own commitment is never a good option, whatever the partner reads", () => {
   const own = [day("2026-10-10", "fixture")]
-  const partner = [day("2026-10-10", "available")]
+  const partner = [day("2026-10-10", "no_known_clash")]
   const [result] = compareAvailability(own, partner)
   assert.equal(result.isGoodOption, false)
 })
 
 test("compareAvailability: partner busy is never a good option, whatever our own side reads", () => {
   const own = [day("2026-10-10", "available")]
-  const partner = [day("2026-10-10", "training")]
+  const partner = [day("2026-10-10", "busy")]
   const [result] = compareAvailability(own, partner)
   assert.equal(result.isGoodOption, false)
 })
@@ -61,15 +75,15 @@ test("compareAvailability: partner not yet read (null list, e.g. no compatible o
 
 test("compareAvailability: a date present for OUR side but missing from the partner's read (e.g. outside their returned range) also reads partner=null, never guessed as available", () => {
   const own = [day("2026-10-10", "available"), day("2026-10-11", "available")]
-  const partner = [day("2026-10-10", "available")] // 2026-10-11 genuinely absent
+  const partner = [day("2026-10-10", "no_known_clash")] // 2026-10-11 genuinely absent
   const results = compareAvailability(own, partner)
   assert.equal(results[1].partner, null)
   assert.equal(results[1].isGoodOption, false)
 })
 
-test("findGoodDates: chronological order, no scoring, only genuinely-both-available dates", () => {
+test("findGoodDates: chronological order, no scoring, only genuinely-good dates (our side available, their side no_known_clash)", () => {
   const own = [day("2026-10-17", "available"), day("2026-10-03", "fixture"), day("2026-10-10", "available"), day("2026-10-24", "available")]
-  const partner = [day("2026-10-17", "training"), day("2026-10-03", "available"), day("2026-10-10", "available"), day("2026-10-24", "available")]
+  const partner = [day("2026-10-17", "training"), day("2026-10-03", "no_known_clash"), day("2026-10-10", "no_known_clash"), day("2026-10-24", "no_known_clash")]
   const compared = compareAvailability(own, partner)
   const good = findGoodDates(compared)
   // Matches the owner's own worked example (Section 19): Sat 10 and Sat 24 are the good options,
@@ -80,6 +94,6 @@ test("findGoodDates: chronological order, no scoring, only genuinely-both-availa
 
 test("findGoodDates: an empty result is a genuine, honest empty list, never a fabricated fallback date", () => {
   const own = [day("2026-10-10", "fixture")]
-  const partner = [day("2026-10-10", "available")]
+  const partner = [day("2026-10-10", "no_known_clash")]
   assert.deepEqual(findGoodDates(compareAvailability(own, partner)), [])
 })

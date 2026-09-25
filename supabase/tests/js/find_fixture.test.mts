@@ -6,6 +6,7 @@ import {
   buildFindFixtureCandidates,
   buildClubMarkerFeatureCollection,
   groupCandidateTeamsByClub,
+  nextWeekdayDates,
   sortFindFixtureCandidates,
   type ClubMapMarker,
   type FindFixtureCandidate,
@@ -200,4 +201,27 @@ test("a FindFixtureCandidate list feeds the existing shared map marker builder d
   const candidates = [candidate({ hasLocation: true }), candidate({ hasLocation: false, latitude: null, longitude: null })]
   const collection = buildClubMarkerFeatureCollection(candidates)
   assert.equal(collection.features.length, 1, "only the located candidate becomes a map feature, same rule as the main Clubhouse map")
+})
+
+// ---------------------------------------------------------------------------------------------
+// nextWeekdayDates -- a plain, unambiguous calculation, never a rugby-schedule inference.
+// ---------------------------------------------------------------------------------------------
+
+test("nextWeekdayDates: from a Wednesday, the next 3 Saturdays are the following Saturday plus two more weeks", () => {
+  // 2026-10-07 is a Wednesday.
+  assert.deepEqual(nextWeekdayDates("2026-10-07", 6, 3), ["2026-10-10", "2026-10-17", "2026-10-24"])
+})
+
+test("nextWeekdayDates: FROM a Saturday itself, the next Saturday is seven days later, never the same day", () => {
+  // 2026-10-10 is itself a Saturday.
+  assert.deepEqual(nextWeekdayDates("2026-10-10", 6, 1), ["2026-10-17"])
+})
+
+test("nextWeekdayDates: capped at 6, whatever count is requested", () => {
+  assert.equal(nextWeekdayDates("2026-10-07", 6, 20).length, 6)
+})
+
+test("nextWeekdayDates: Sunday (isoWeekday 7) is computed correctly too, not just Saturday", () => {
+  // 2026-10-07 is a Wednesday; the next Sunday is 2026-10-11.
+  assert.deepEqual(nextWeekdayDates("2026-10-07", 7, 1), ["2026-10-11"])
 })

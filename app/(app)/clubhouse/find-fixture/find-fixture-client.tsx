@@ -7,11 +7,16 @@ import { useRouter } from "next/navigation"
 import {
   applyClubhouseDistanceFilter,
   applyFindFixturePartnerFilter,
+  buildFindFixtureAvailability,
   buildFindFixtureCandidates,
+  countNoKnownClashDates,
   findDistanceOrigin,
+  nextWeekdayDates,
   type ClubhouseDistanceFilter,
   type ClubMapMarker,
+  type FindFixtureAvailabilityState,
   type FindFixtureCandidate,
+  type FindFixtureCandidateAvailability,
   type FindFixturePartnerFilter,
   type FindFixtureSort,
   type FindFixtureVenuePreference,
@@ -27,7 +32,7 @@ import { Label } from "@/components/ui/label"
 import type { ClubMapHandle } from "../club-map"
 import { ClubStatusPill } from "../club-status-pill"
 import { InviteClubDialog } from "../invite-club-dialog"
-import { getFindFixtureData } from "./actions"
+import { getFindFixtureAvailability, getFindFixtureData } from "./actions"
 
 const ClubMap = dynamic(() => import("../club-map").then((m) => m.ClubMap), {
   ssr: false,
@@ -46,6 +51,23 @@ const SORT_OPTIONS: { value: FindFixtureSort; label: string }[] = [
   { value: "partners_first", label: "Partners First" },
   { value: "club_name", label: "Club Name" },
 ]
+const MAX_DATES = 6
+
+function shortDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`)
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+}
+
+function dedupeDates(candidates: string[]): string[] {
+  return [...new Set(candidates)].sort().slice(0, MAX_DATES)
+}
+
+function dateStateLabel(state: FindFixtureAvailabilityState): string {
+  if (state === "no_known_clash") return "No known clash"
+  if (state === "tentative") return "Tentative"
+  if (state === "unknown") return "Unknown"
+  return "Busy"
+}
 
 interface InitialOpponent {
   directoryId: string
@@ -76,7 +98,8 @@ export function FindFixtureClient({
   const [teamId, setTeamId] = useState<string | null>(contextTeamId ?? (teams.length === 1 ? teams[0]!.id : null))
   const team = teams.find((t) => t.id === teamId) ?? null
 
-  const [date, setDate] = useState("")
+  const [dates, setDates] = useState<string[]>([])
+  const [pendingDate, setPendingDate] = useState("")
   const [venuePreference, setVenuePreference] = useState<FindFixtureVenuePreference>("either")
   const [distance, setDistance] = useState<ClubhouseDistanceFilter>("any")
   const [sort, setSort] = useState<FindFixtureSort>("nearest")
@@ -88,6 +111,7 @@ export function FindFixtureClient({
   const [markers, setMarkers] = useState<ClubMapMarker[] | null>(null)
   const [candidateRows, setCandidateRows] = useState<{ team_id: string; club_id: string; display_name: string; age_group: string | null; gender: string | null }[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [availabilityRows, setAvailabilityRows] = useState<{ opponent_team_id: string; the_date: string; status: string }[] | null>(null)
 
   useEffect(() => {
     if (!teamId) return
@@ -101,6 +125,24 @@ export function FindFixtureClient({
       })
       .catch(() => setError("Couldn't search for opposition. Try again."))
   }, [teamId, clubId, contextTeamId])
+
+  // AVAILABILITY (Section 7) -- fires only once real dates are chosen; separate from the fetch above
+  // so changing dates never re-fetches the marker/compatibility population.
+  useEffect(() => {
+    setAvailabilityRows(null)
+    if (!teamId || dates.length === 0) return
+    let live = true
+    void getFindFixtureAvailability(teamId, dates)
+      .then((rows) => {
+        if (live) setAvailabilityRows(rows)
+      })
+      .catch(() => {
+        if (live) setAvailabilityRows([])
+      })
+    return () => {
+      live = false
+    }
+  }, [teamId, dates])
 
   const origin = useMemo(() => (markers ? findDistanceOrigin(markers) : null), [markers])
 
@@ -130,9 +172,26 @@ export function FindFixtureClient({
   const DIRECTORY_ONLY_CAP = 20
   const filteredDirectoryOnly = allDirectoryOnly.slice(0, DIRECTORY_ONLY_CAP)
 
-  const displayedActionable = preselectedClubId ? filteredActionable.filter((c) => c.clubId === preselectedClubId) : filteredActionable
+  // Availability per compatible TEAM (Section 7) -- a non-partner candidate reads "unknown" on every
+  // date without ever being looked up server-side (see buildFindFixtureAvailability's own doc comment).
+  const availabilityByTeamId = useMemo(() => {
+    if (dates.length === 0 || availabilityRows === null) return null
+    const built = buildFindFixtureAvailability(filteredActionable, dates, availabilityRows)
+    return new Map(built.map((a) => [a.teamId, a]))
+  }, [filteredActionable, dates, availabilityRows])
 
-  function selectCandidate(candidate: FindFixtureCandidate, targetTeamId: string) {
+  const sortedByClearDates = useMemo(() => {
+    if (sort !== "most_clear_dates" || !availabilityByTeamId) return filteredActionable
+    return [...filteredActionable].sort((a, b) => {
+      const clearA = Math.max(...a.compatibleTeams.map((t) => (availabilityByTeamId.get(t.teamId) ? countNoKnownClashDates(availabilityByTeamId.get(t.teamId)!) : 0)), 0)
+      const clearB = Math.max(...b.compatibleTeams.map((t) => (availabilityByTeamId.get(t.teamId) ? countNoKnownClashDates(availabilityByTeamId.get(t.teamId)!) : 0)), 0)
+      return clearB - clearA || a.name.localeCompare(b.name)
+    })
+  }, [filteredActionable, sort, availabilityByTeamId])
+
+  const displayedActionable = preselectedClubId ? sortedByClearDates.filter((c) => c.clubId === preselectedClubId) : sortedByClearDates
+
+  function selectCandidate(candidate: FindFixtureCandidate, targetTeamId: string, chosenDate?: string) {
     const params = new URLSearchParams({
       teamId: teamId ?? "",
       opponentDirectoryId: candidate.directoryId,
@@ -140,7 +199,7 @@ export function FindFixtureClient({
       targetTeamId,
       venuePreference,
     })
-    if (date) params.set("date", date)
+    if (chosenDate) params.set("date", chosenDate)
     router.push(`/fixtures/new?${params.toString()}`)
   }
 
@@ -168,10 +227,59 @@ export function FindFixtureClient({
         <div className="grid gap-6 md:grid-cols-[280px_1fr]">
           <div className="flex flex-col gap-5">
             <div>
-              <Label htmlFor="ff-date" className="text-ink/80">
-                When
-              </Label>
-              <Input id="ff-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1.5 h-10 border-ink/15 bg-white" />
+              <Label className="text-ink/80">When (Up to 6 Dates, Optional)</Label>
+              {dates.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {dates.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDates(dates.filter((x) => x !== d))}
+                      className="rounded-full border border-forest-800 bg-forest-800 px-3 py-1.5 text-xs font-medium text-chalk outline-none focus-visible:ring-2 focus-visible:ring-pitch-400"
+                    >
+                      {shortDate(d)} &times;
+                    </button>
+                  ))}
+                </div>
+              )}
+              {dates.length < MAX_DATES && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setDates(dedupeDates([...dates, ...nextWeekdayDates(new Date().toISOString().slice(0, 10), 6, 1)]))}
+                    className="rounded-full border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/60 outline-none hover:bg-ink/[0.03] focus-visible:ring-2 focus-visible:ring-pitch-400"
+                  >
+                    Next Saturday
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDates(dedupeDates(nextWeekdayDates(new Date().toISOString().slice(0, 10), 6, 3)))}
+                    className="rounded-full border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/60 outline-none hover:bg-ink/[0.03] focus-visible:ring-2 focus-visible:ring-pitch-400"
+                  >
+                    Next 3 Saturdays
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDates(dedupeDates(nextWeekdayDates(new Date().toISOString().slice(0, 10), 7, 4)))}
+                    className="rounded-full border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/60 outline-none hover:bg-ink/[0.03] focus-visible:ring-2 focus-visible:ring-pitch-400"
+                  >
+                    Next 4 Sundays
+                  </button>
+                </div>
+              )}
+              {dates.length < MAX_DATES && (
+                <Input
+                  id="ff-date"
+                  type="date"
+                  value={pendingDate}
+                  onChange={(e) => {
+                    setPendingDate(e.target.value)
+                    if (e.target.value) setDates((prev) => dedupeDates([...prev, e.target.value]))
+                  }}
+                  className="mt-1.5 h-10 border-ink/15 bg-white"
+                  aria-label="Add a specific date"
+                />
+              )}
             </div>
 
             <div>
@@ -217,7 +325,7 @@ export function FindFixtureClient({
             <div>
               <Label className="text-ink/80">Sort</Label>
               <div className="mt-1.5 flex flex-col gap-1.5">
-                {SORT_OPTIONS.map((s) => (
+                {[...SORT_OPTIONS, ...(dates.length > 0 ? [{ value: "most_clear_dates" as const, label: "Most Clear Dates" }] : [])].map((s) => (
                   <button
                     key={s.value}
                     type="button"
@@ -298,16 +406,29 @@ export function FindFixtureClient({
                       ref={mapRef}
                       clubs={displayedActionable}
                       canManagePartnerships={false}
-                      renderPopup={(club) => <CandidatePopup candidate={club as FindFixtureCandidate} onSelect={(t) => selectCandidate(club as FindFixtureCandidate, t)} />}
+                      renderPopup={(club) => (
+                        <CandidatePopup
+                          candidate={club as FindFixtureCandidate}
+                          dates={dates}
+                          availabilityByTeamId={availabilityByTeamId}
+                          onSelect={(t, chosenDate) => selectCandidate(club as FindFixtureCandidate, t, chosenDate)}
+                        />
+                      )}
                     />
                   </div>
                 )}
 
-                {mode === "list" && displayedActionable.length > 0 && (
+                {mode === "list" && displayedActionable.length > 0 && dates.length === 0 && (
                   <div className="mt-4 flex flex-col gap-2">
                     {displayedActionable.map((candidate) => (
                       <CandidateCard key={candidate.directoryId} candidate={candidate} onSelectTeam={(t) => selectCandidate(candidate, t)} />
                     ))}
+                  </div>
+                )}
+
+                {mode === "list" && displayedActionable.length > 0 && dates.length > 0 && (
+                  <div className="mt-4">
+                    <AvailabilityMatrix candidates={displayedActionable} dates={dates} availabilityByTeamId={availabilityByTeamId} onSelect={selectCandidate} />
                   </div>
                 )}
 
@@ -377,7 +498,17 @@ function CandidateCard({ candidate, onSelectTeam }: { candidate: FindFixtureCand
   )
 }
 
-function CandidatePopup({ candidate, onSelect }: { candidate: FindFixtureCandidate; onSelect: (teamId: string) => void }) {
+function CandidatePopup({
+  candidate,
+  dates,
+  availabilityByTeamId,
+  onSelect,
+}: {
+  candidate: FindFixtureCandidate
+  dates: string[]
+  availabilityByTeamId: Map<string, FindFixtureCandidateAvailability> | null
+  onSelect: (teamId: string, date?: string) => void
+}) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -387,13 +518,122 @@ function CandidatePopup({ candidate, onSelect }: { candidate: FindFixtureCandida
           <ClubStatusPill club={candidate} />
         </div>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {candidate.compatibleTeams.map((t) => (
-          <button key={t.teamId} type="button" onClick={() => onSelect(t.teamId)} className="rounded-md border border-pitch-600 bg-mint-100 px-2.5 py-1 text-xs font-medium text-forest-800 hover:bg-pitch-600 hover:text-white">
-            {t.displayName}
-          </button>
-        ))}
-      </div>
+      {candidate.compatibleTeams.map((t) => {
+        const availability = availabilityByTeamId?.get(t.teamId) ?? null
+        return (
+          <div key={t.teamId} className="flex flex-col gap-1">
+            <p className="text-xs font-medium text-ink">{t.displayName}</p>
+            {dates.length === 0 ? (
+              <button type="button" onClick={() => onSelect(t.teamId)} className="w-fit rounded-md border border-pitch-600 bg-mint-100 px-2.5 py-1 text-xs font-medium text-forest-800 hover:bg-pitch-600 hover:text-white">
+                Select
+              </button>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {dates.map((d) => {
+                  const state = availability?.dates.find((x) => x.date === d)?.state ?? "unknown"
+                  const selectable = state !== "busy"
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      disabled={!selectable}
+                      onClick={() => onSelect(t.teamId, d)}
+                      className={`rounded-md border px-2 py-1 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-70 ${
+                        state === "no_known_clash" ? "border-pitch-600 bg-mint-100 text-forest-800" : "border-ink/15 bg-white text-ink/60"
+                      }`}
+                    >
+                      {shortDate(d)}: {dateStateLabel(state)}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
+  )
+}
+
+/**
+ * THE COMPARISON MATRIX (Section 7) -- rows are compatible TEAMS (never clubs; a club with two
+ * compatible sides gets two rows), columns are the selected dates. Colour is always paired with the
+ * exact word (never colour alone), and each cell is one `AvailabilityMatrixCell`.
+ */
+function AvailabilityMatrix({
+  candidates,
+  dates,
+  availabilityByTeamId,
+  onSelect,
+}: {
+  candidates: FindFixtureCandidate[]
+  dates: string[]
+  availabilityByTeamId: Map<string, FindFixtureCandidateAvailability> | null
+  onSelect: (candidate: FindFixtureCandidate, teamId: string, date: string) => void
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-ink/10 bg-white">
+      <table className="w-full min-w-[560px] border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-ink/10">
+            <th scope="col" className="sticky left-0 bg-white px-4 py-2.5 text-left text-xs font-medium text-ink-muted">
+              Club / team
+            </th>
+            {dates.map((d) => (
+              <th key={d} scope="col" className="px-3 py-2.5 text-center text-xs font-medium text-ink-muted">
+                {shortDate(d)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {candidates.flatMap((candidate) =>
+            candidate.compatibleTeams.map((t) => {
+              const availability = availabilityByTeamId?.get(t.teamId) ?? null
+              return (
+                <tr key={t.teamId} className="border-b border-ink/5 last:border-b-0">
+                  <th scope="row" className="sticky left-0 bg-white px-4 py-2.5 text-left font-normal">
+                    <div className="flex items-center gap-2">
+                      <ClubAvatar logoUrl={candidate.logoUrl} name={candidate.name} size="xs" />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium text-ink">{candidate.name}</p>
+                        <p className="truncate text-[11px] text-ink-muted">{t.displayName}</p>
+                      </div>
+                    </div>
+                  </th>
+                  {dates.map((d) => {
+                    const state = availability?.dates.find((x) => x.date === d)?.state ?? "unknown"
+                    return <AvailabilityMatrixCell key={d} state={state} onSelect={() => onSelect(candidate, t.teamId, d)} />
+                  })}
+                </tr>
+              )
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function AvailabilityMatrixCell({ state, onSelect }: { state: FindFixtureAvailabilityState; onSelect: () => void }) {
+  const selectable = state !== "busy"
+  const styles: Record<FindFixtureAvailabilityState, string> = {
+    no_known_clash: "bg-pitch-600/10 text-forest-800",
+    busy: "bg-destructive/5 text-destructive-text",
+    tentative: "bg-amber-50 text-amber-800",
+    unknown: "bg-ink/[0.03] text-ink-muted",
+  }
+  return (
+    <td className="px-3 py-2 text-center">
+      <button
+        type="button"
+        disabled={!selectable}
+        onClick={onSelect}
+        aria-label={`${dateStateLabel(state)}${selectable ? " -- select" : ", not selectable"}`}
+        className={`inline-flex min-h-9 w-full items-center justify-center rounded-md px-2 text-[11px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 disabled:cursor-not-allowed ${styles[state]}`}
+      >
+        {dateStateLabel(state)}
+      </button>
+    </td>
   )
 }

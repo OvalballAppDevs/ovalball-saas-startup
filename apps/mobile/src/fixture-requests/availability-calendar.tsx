@@ -25,7 +25,7 @@ function dotFor(day: CompareDay | undefined): { colour: string; ring?: boolean }
   if (!day) return null
   if (day.isGoodOption) return { colour: statusOnForest.calm.ground.replace("0.22", "1") }
   if (day.ours !== "available") return { colour: statusOnForest.warning.ground.replace("0.18", "1") }
-  if (day.partner && day.partner !== "available") return { colour: onForest.secondary, ring: true }
+  if (day.partner && day.partner !== "no_known_clash") return { colour: onForest.secondary, ring: true }
   return null
 }
 
@@ -118,12 +118,13 @@ function ourDetailLabel(status: DayAvailability): string {
   if (status === "fixture") return "Fixture"
   if (status === "training") return "Training"
   if (status === "club_event") return "Club event"
+  if (status === "busy") return "Busy"
   return "Request pending"
 }
 
 function partnerLabel(status: DayAvailability | null): string {
   if (status === null) return "Unknown"
-  if (status === "available") return "Available"
+  if (status === "no_known_clash") return "No known clash"
   if (status === "request_pending") return "Request pending"
   return "Busy"
 }
