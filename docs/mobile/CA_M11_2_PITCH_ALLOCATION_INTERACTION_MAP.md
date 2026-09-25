@@ -441,11 +441,42 @@ lane is drawn changed. Pinned by a dedicated test in
 header directly with no seam — given `space.lg`, matching the gap every other
 Club Admin screen puts between its header and its first card.
 
+## 24. Pitch capacity is size-aware, not a raw headcount
+
+**SHARED, both clients.** The conflict engine used to treat "same pitch,
+overlapping time" as pure headcount against a pitch's declared `laneCount` --
+a U10 match and a U12 match sharing a pitch were exactly as much a "conflict"
+as two full-size adult matches sharing it. `packages/contracts/src/
+pitch-allocation/footprint.ts` (new) derives each match's required physical
+footprint (`full | half | quarter`) from the SAME canonical
+`requiredPitchSize` the rest of Pitch Allocation already resolves, and a
+pitch's total capacity budget from its EXISTING `size_category` -- no second
+source of truth for either fact. `detectConflicts`, `autoAllocate` and
+`detectResourceConflicts` (all three, both `laneCount` scan sites) now check
+that budget in addition to the existing raw `laneCount` headcount, strictly
+more restrictive than before, never less: two reduced-size matches may share a
+classified full pitch (2+2 = 4 units, exactly its budget), while a genuinely
+full-size match now always exceeds any remaining budget the instant anything
+else overlaps it, regardless of a club's declared `laneCount` -- the exact gap
+the old model missed. Inert (falls back to the pre-existing `laneCount`-only
+behaviour byte-for-byte) for any pitch that has never been classified with a
+`size_category`, so nothing regresses for a club that hasn't opted in.
+
+**WHAT THIS PASS DOES NOT DO.** Without a persisted pitch-subdivision-
+capability and per-reservation zone schema (proposed, not applied --
+`docs/mobile/CA_M11_2_PITCH_CAPACITY_MIGRATION_PROPOSAL.md`), it cannot tell
+"Half A" from "Half B", so it cannot catch two reservations both wanting the
+exact same declared half. Board and card presentation gained a `MATCH ·
+<footprint>` label (mobile `FixtureBlock`, web's equivalent card) from the
+same existing data -- never a persisted, choosable zone, since there is
+nowhere yet to persist one.
+
 ## Summary
 
 Every interaction is either exact parity with the website's domain behaviour
 through the identical shared package, or a documented native-appropriate
 addition (press-and-hold, auto-scroll, scale presets, compact chrome,
-capability re-probe on save, compact concurrent-booking lanes) required by the
-difference between a mouse-driven desktop grid and a finger-driven phone
-screen. No web behaviour was changed to produce this map.
+capability re-probe on save, compact concurrent-booking lanes, size-aware
+pitch capacity) required by the difference between a mouse-driven desktop grid
+and a finger-driven phone screen. No web behaviour was changed to produce this
+map beyond the same card label mobile also gained.

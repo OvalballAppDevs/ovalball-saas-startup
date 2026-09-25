@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
 import { autoAllocate } from "./auto-allocate"
+import { matchFootprintFor } from "./footprint"
 import { fixtureOccupiedWindow } from "./occupancy"
 import { getPitchAllocationBoard } from "./board"
 import { resolveHomeAwayGroupIds } from "../fixtures/resolve-home-away-groups"
@@ -125,10 +126,13 @@ export async function createAllocationProposal(
         .filter((f) => f.pitchId && f.kickoffTime)
         .map((f) => {
           const w = fixtureOccupiedWindow(f, board.policy)!
-          return { pitchId: f.pitchId!, start: w.start, end: w.end + board.policy.turnaroundMinutes }
+          return { pitchId: f.pitchId!, start: w.start, end: w.end + board.policy.turnaroundMinutes, footprint: matchFootprintFor(f.requiredPitchSize).footprint }
         })
   for (const t of board.tournaments) {
-    if (t.pitchId) existingBookings.push({ pitchId: t.pitchId, start: 0, end: 24 * 60 })
+    // A tournament hold reserves the whole physical pitch for its stated period (tournament-conflicts.ts's
+    // own documented rule: a tournament reservation against anything outside its own occasion is always a
+    // genuine conflict) -- footprint 'full' expresses that exactly in the same unit-budget arithmetic.
+    if (t.pitchId) existingBookings.push({ pitchId: t.pitchId, start: 0, end: 24 * 60, footprint: "full" as const })
   }
   const candidates = recalculateAll ? [...board.fixtures, ...board.unallocated] : board.unallocated
   const teamIds = candidates.map((f) => f.homeTeamId)

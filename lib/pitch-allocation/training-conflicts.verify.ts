@@ -149,13 +149,29 @@ function fixture(overrides: Partial<AllocationFixture> & Pick<AllocationFixture,
   checkTrue("6b: a pitch's lane_count (a fixture-capacity concept) does not limit training sharing -- 5 overlapping trainings on a lane_count=2 pitch are all still allowed", trainingConflicts.length === 0, JSON.stringify(trainingConflicts))
 }
 // 6c. lane_count STILL genuinely caps fixture-vs-fixture capacity (unchanged, pre-existing behaviour) -- proves the fix didn't accidentally weaken fixture capacity semantics.
+//
+// PITCH-CAPACITY CORRECTION (footprint.ts): these three fixtures are now REDUCED-size (two of them
+// fit within pitch-c's declared full-size 4-unit budget with room to spare; the third still exceeds
+// pitch-c's declared lane_count=2 headcount). They were originally FULL-size, which is no longer a
+// valid "these fit together" example: two genuinely full-size matches physically cannot share one
+// pitch regardless of a club's declared lane_count, and the corrected engine now says so (Section 38,
+// "FULL consumes all subdivisions") -- this is the exact crude-conflict-model bug this pass fixes, not
+// a regression in it.
 {
-  const f1 = fixture({ fixtureId: "f1", pitchId: "pitch-c", kickoffTime: "14:00", durationMinutes: 40 })
-  const f2 = fixture({ fixtureId: "f2", pitchId: "pitch-c", kickoffTime: "14:00", durationMinutes: 40 })
-  const f3 = fixture({ fixtureId: "f3", pitchId: "pitch-c", kickoffTime: "14:00", durationMinutes: 40 })
+  const f1 = fixture({ fixtureId: "f1", pitchId: "pitch-c", kickoffTime: "14:00", durationMinutes: 40, requiredPitchSize: "reduced" })
+  const f2 = fixture({ fixtureId: "f2", pitchId: "pitch-c", kickoffTime: "14:00", durationMinutes: 40, requiredPitchSize: "reduced" })
+  const f3 = fixture({ fixtureId: "f3", pitchId: "pitch-c", kickoffTime: "14:00", durationMinutes: 40, requiredPitchSize: "reduced" })
   const { fixtureConflicts } = detectResourceConflicts([f1, f2, f3], [], pitches, { warmUpMinutes: 0, packUpMinutes: 0 })
-  checkTrue("6c: a lane_count=2 pitch still allows exactly 2 simultaneous fixtures with zero conflicts", !fixtureConflicts.some((c) => c.fixtureId === "f1") && !fixtureConflicts.some((c) => c.fixtureId === "f2"))
+  checkTrue("6c: a lane_count=2 pitch still allows exactly 2 simultaneous compatible-size fixtures with zero conflicts", !fixtureConflicts.some((c) => c.fixtureId === "f1") && !fixtureConflicts.some((c) => c.fixtureId === "f2"))
   checkTrue("6c: the 3rd simultaneous fixture beyond lane_count=2 is still flagged (fixture capacity unchanged by this fix)", fixtureConflicts.some((c) => c.fixtureId === "f3"), JSON.stringify(fixtureConflicts))
+}
+// 6d. NEW this pass: two genuinely FULL-size fixtures never share one physical pitch, even when the
+// club has declared a lane_count of 2 or more -- a full-size match consumes the entire pitch.
+{
+  const f1 = fixture({ fixtureId: "f1", pitchId: "pitch-c", kickoffTime: "14:00", durationMinutes: 40, requiredPitchSize: "full" })
+  const f2 = fixture({ fixtureId: "f2", pitchId: "pitch-c", kickoffTime: "14:00", durationMinutes: 40, requiredPitchSize: "full" })
+  const { fixtureConflicts } = detectResourceConflicts([f1, f2], [], pitches, { warmUpMinutes: 0, packUpMinutes: 0 })
+  checkTrue("6d: two full-size fixtures on a lane_count=2 pitch ARE flagged -- a full match consumes the whole physical pitch regardless of declared lane_count", fixtureConflicts.some((c) => c.fixtureId === "f2"), JSON.stringify(fixtureConflicts))
 }
 
 // 7. Unallocated training (no pitch/time) remains visible as needing review.

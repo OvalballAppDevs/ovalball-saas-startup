@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View, type LayoutChangeEvent } from "react
 import { Gesture, GestureDetector } from "react-native-gesture-handler"
 import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated"
 
-import { assignBookingLanes, fixtureOccupiedWindow, laneRowCount, timeToMinutes, trainingOccupiedWindow, type AllocationConflict, type AllocationFixture, type PitchAllocationBoard } from "@ovalball/contracts/pitch-allocation"
+import { assignBookingLanes, fixtureOccupiedWindow, footprintLabel, laneRowCount, matchFootprintFor, timeToMinutes, trainingOccupiedWindow, type AllocationConflict, type AllocationFixture, type PitchAllocationBoard } from "@ovalball/contracts/pitch-allocation"
 
 import { haptic } from "./haptics"
 import { HEADER_HEIGHT, LABEL_COLUMN_WIDTH, PX_PER_SLOT, START_MINUTES, SLOT_COUNT, autoScrollVelocity, boardHeight, hourMarks, kickoffMinutes, laneRows, minutesToTime, minutesToX, timelineWidth, widthForMinutes, xToSnappedMinutes, yToLaneRow, type BoardScale, type LaneRow } from "./geometry"
@@ -410,6 +410,11 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
   const reason = placed.conflict?.reason ?? placed.trainingReason
   const roomy = matchW >= 120
   const labelRoom = warmW >= 44
+  // Section 22/43: the card's own type and required footprint, in words -- never left to be inferred
+  // from the presence of an opponent. `footprint` comes from the SAME canonical requiredPitchSize the
+  // rest of Pitch Allocation already resolves duration and minimum pitch size from (footprint.ts).
+  const footprint = matchFootprintFor(f.requiredPitchSize).footprint
+  const footprintText = footprintLabel(footprint)
   // COMPACT: a pitch drawn with more than one lane -- up to three concurrent bookings, split into
   // horizontal strips sharing roughly one lane's worth of height (`laneHeightFor` in geometry.ts) --
   // gives each fixture LESS VERTICAL ROOM than a fixture alone on its pitch. Below this threshold the
@@ -482,6 +487,11 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
             </View>
           )}
           <View style={{ width: matchW, backgroundColor: severity === "hard" ? colour.dangerSurface : severity === "warning" ? colour.warningSurface : colour.mint100, paddingHorizontal: compact ? 6 : 8, paddingVertical: compact ? 2 : 5, justifyContent: "center" }}>
+            {roomy && !compact && (
+              <Text style={[type.caption, { color: colour.forest800, fontSize: 9, letterSpacing: 0.4 }]} numberOfLines={1}>
+                MATCH{footprintText ? ` · ${footprintText}` : ""}
+              </Text>
+            )}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               {severity && <TriangleAlert size={compact ? 10 : 12} color={severity === "hard" ? colour.danger : colour.warning} />}
               <Text style={[type.smallMedium, { color: colour.forest950, fontSize: compact ? 11 : roomy ? 13 : 12 }]} numberOfLines={roomy && !compact ? 2 : 1}>{f.homeTeamLabel}</Text>

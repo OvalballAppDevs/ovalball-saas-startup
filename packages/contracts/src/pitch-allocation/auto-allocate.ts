@@ -1,3 +1,4 @@
+import { footprintBudgetExceeded, matchFootprintFor, pitchCapacityUnits, type PitchFootprint } from "./footprint"
 import { fixtureOccupiedWindow } from "./occupancy"
 import type { AllocationConflict, AllocationFixture, ClubSchedulingPolicy, PitchOption, ProposedPlacement } from "./types"
 
@@ -111,6 +112,10 @@ interface Booking {
   pitchId: string
   start: number
   end: number
+  /** Section 38: what physical footprint this booking already consumes. Omitted (or a booking whose
+   * fixture has no resolvable footprint) is treated as consuming the WHOLE pitch -- unknown fails
+   * conservative (Section 42), never treated as free room. */
+  footprint?: PitchFootprint | null
 }
 
 export interface AutoAllocateResult {
@@ -187,9 +192,15 @@ export function autoAllocate(
           // is only rejected once the number of ALREADY-overlapping
           // bookings on this pitch would meet or exceed its real capacity,
           // not on the first overlap.
-          const overlapCount = bookings.filter((b) => b.pitchId === pitch.id && occupiedStart < b.end && occupiedEnd > b.start).length
-          if (overlapCount >= pitch.laneCount) continue
-          bookings.push({ pitchId: pitch.id, start: occupiedStart, end: occupiedEnd })
+          const overlapping = bookings.filter((b) => b.pitchId === pitch.id && occupiedStart < b.end && occupiedEnd > b.start)
+          if (overlapping.length >= pitch.laneCount) continue
+          // PITCH-CAPACITY CORRECTION: the SAME unit-budget check detectConflicts uses, so Auto
+          // Allocate never proposes a placement the board would immediately flag red. Inert (falls
+          // back to the laneCount-only check above) unless the pitch's size_category is classified.
+          const candidateFootprint = matchFootprintFor(fixture.requiredPitchSize).footprint
+          const capacityUnits = pitchCapacityUnits(pitch.sizeCategory)
+          if (capacityUnits !== null && footprintBudgetExceeded([...overlapping.map((b) => b.footprint ?? null), candidateFootprint], capacityUnits)) continue
+          bookings.push({ pitchId: pitch.id, start: occupiedStart, end: occupiedEnd, footprint: candidateFootprint })
           // Only the FINAL band (the late last-resort one) is ever flagged
           // -- the early-afternoon fallback (band 1, still a genuinely
           // acceptable weekend slot per Section 33) is a normal,
@@ -276,12 +287,19 @@ export function detectConflicts(
     // meetings are active right now" walk, generalizing the old adjacent-
     // pair check (which is exactly this sweep with laneCount fixed at 1).
     const laneCount = pitch?.laneCount ?? 1
+    // PITCH-CAPACITY CORRECTION (footprint.ts): laneCount alone is a raw
+    // headcount with no notion of SIZE -- two reduced-size matches and two
+    // full-size matches were treated identically as long as the count fit.
+    // `capacityUnits` is null (and this whole check inert, falling back to
+    // the pre-existing laneCount-only behaviour exactly) unless the club has
+    // classified this pitch's own size_category; it is never guessed.
+    const capacityUnits = pitchCapacityUnits(pitch?.sizeCategory ?? null)
     // Section 31-40: warm-up before, pack-up after -- the real occupied
     // window, not just the play duration. Computed by the one shared
     // primitive, so this test and the band drawn on screen cannot disagree.
     const windows = list.map((f) => {
       const w = fixtureOccupiedWindow(f, buffers)!
-      return { fixture: f, start: w.start, end: w.end }
+      return { fixture: f, start: w.start, end: w.end, footprint: matchFootprintFor(f.requiredPitchSize).footprint }
     })
     const sorted = [...windows].sort((a, b) => a.start - b.start)
     const active: (typeof sorted)[number][] = []
@@ -291,14 +309,20 @@ export function detectConflicts(
         if (active[i].end <= w.start) active.splice(i, 1)
       }
       active.push(w)
-      if (active.length > laneCount) {
+      const overCount = active.length > laneCount
+      // A FULL-footprint fixture consumes the pitch's ENTIRE budget on its
+      // own (Section 38: "FULL consumes all subdivisions"), so this is never
+      // a false negative in the case that matters most, even when the club
+      // has never set a laneCount above 1.
+      const overBudget = capacityUnits !== null && footprintBudgetExceeded(active.map((a) => a.footprint), capacityUnits)
+      if (overCount || overBudget) {
         const others = active.filter((a) => a !== w).map((a) => `${a.fixture.homeTeamLabel} v ${a.fixture.opponentLabel}`)
-        const capacityNote = laneCount > 1 ? ` (this pitch's capacity is ${laneCount} at once)` : ""
-        conflicts.push({
-          fixtureId: w.fixture.fixtureId,
-          severity: "hard",
-          reason: `Overlaps with ${others.join(", ")} on the same pitch${capacityNote}, including warm-up/pack-up buffers.`,
-        })
+        const reason = overBudget && w.footprint === "full"
+          ? `Full pitch required -- overlaps with ${others.join(", ")} already using part of this pitch.`
+          : overBudget
+            ? `This pitch's physical space is already committed by ${others.join(", ")} at this time.`
+            : `Overlaps with ${others.join(", ")} on the same pitch${laneCount > 1 ? ` (this pitch's capacity is ${laneCount} at once)` : ""}, including warm-up/pack-up buffers.`
+        conflicts.push({ fixtureId: w.fixture.fixtureId, severity: "hard", reason })
       }
     }
   }

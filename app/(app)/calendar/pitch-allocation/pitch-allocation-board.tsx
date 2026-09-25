@@ -8,6 +8,7 @@ import { AlertTriangle, ArrowLeft, CalendarHeart, ChevronLeft, ChevronRight, Sav
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { detectConflicts, unallocatedReason } from "@/lib/pitch-allocation/auto-allocate"
+import { footprintLabel, matchFootprintFor } from "@/lib/pitch-allocation/footprint"
 import { fixtureOccupiedWindow } from "@/lib/pitch-allocation/occupancy"
 import { detectResourceConflicts, trainingCardTitle, type TrainingOccupancy } from "@/lib/pitch-allocation/training-conflicts"
 import { detectTournamentConflicts, occupantsFromFixtures } from "@/lib/pitch-allocation/tournament-conflicts"
@@ -206,6 +207,9 @@ function FixtureCard({
             : "border-forest-800/20 bg-mint-100"
       )}
     >
+      <p className="truncate text-[9px] font-medium uppercase tracking-wide text-forest-800/80">
+        MATCH{footprintLabel(matchFootprintFor(fixture.requiredPitchSize).footprint) ? ` · ${footprintLabel(matchFootprintFor(fixture.requiredPitchSize).footprint)}` : ""}
+      </p>
       <div className="flex items-center gap-1">
         {conflict && <AlertTriangle className={cn("size-3 shrink-0", conflict.severity === "hard" ? "text-destructive-text" : "text-amber-600")} />}
         <p className="truncate text-xs font-semibold text-forest-950">{fixture.homeTeamLabel}</p>

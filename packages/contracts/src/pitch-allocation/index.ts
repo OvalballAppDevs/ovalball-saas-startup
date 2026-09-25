@@ -1,4 +1,5 @@
 export * from "./types"
+export * from "./footprint"
 export * from "./occupancy"
 export * from "./auto-allocate"
 export * from "./training-conflicts"

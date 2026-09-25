@@ -1,3 +1,4 @@
+import { footprintBudgetExceeded, matchFootprintFor, pitchCapacityUnits, type PitchFootprint } from "./footprint"
 import { fixtureOccupiedWindow } from "./occupancy"
 import type { AllocationFixture, ClubSchedulingPolicy, PitchOption } from "./types"
 
@@ -57,6 +58,10 @@ interface Window {
   pitchId: string
   start: number
   end: number
+  /** Set for a fixture window only (its resolved match footprint); undefined for training -- training
+   * has no persisted spatial requirement yet, and fixture-vs-training stays fully exclusive regardless
+   * of size, unchanged from today's behaviour (see the shared-training-pitch-rule note below). */
+  footprint?: PitchFootprint | null
 }
 
 /**
@@ -99,6 +104,7 @@ export function detectResourceConflicts(
       // window here as it does on the board and in the auto-allocator.
       start: fixtureOccupiedWindow(f, buffers)!.start,
       end: fixtureOccupiedWindow(f, buffers)!.end,
+      footprint: matchFootprintFor(f.requiredPitchSize).footprint,
     })
     byPitch.set(f.pitchId, list)
   }
@@ -123,6 +129,10 @@ export function detectResourceConflicts(
   for (const [pitchId, list] of byPitch) {
     const pitch = pitches.find((p) => p.id === pitchId)
     const laneCount = pitch?.laneCount ?? 1
+    // Same unit-budget correction as detectConflicts (footprint.ts) -- inert unless the pitch's own
+    // size_category is classified, in which case a set of overlapping fixtures may exceed the pitch's
+    // real physical budget even while still within its raw laneCount headcount.
+    const capacityUnits = pitchCapacityUnits(pitch?.sizeCategory ?? null)
     const sorted = [...list].sort((a, b) => a.start - b.start)
     // Fixtures and training are swept as two independent active sets on
     // the same pitch/timeline: a fixture's capacity check only ever
@@ -145,9 +155,12 @@ export function detectResourceConflicts(
         activeFixtures.push(w)
         const overlappingFixtures = activeFixtures.filter((a) => a !== w)
         const overlappingTraining = [...activeTraining]
-        if (overlappingFixtures.length >= laneCount || overlappingTraining.length > 0) {
+        const overBudget = capacityUnits !== null && overlappingTraining.length === 0 && footprintBudgetExceeded(activeFixtures.map((a) => a.footprint ?? null), capacityUnits)
+        if (overlappingFixtures.length >= laneCount || overlappingTraining.length > 0 || overBudget) {
           const others = [...overlappingFixtures, ...overlappingTraining]
-          const reason = `Overlaps with ${others.map((o) => o.label).join(", ")} on the same pitch${overlappingFixtures.length > 0 && laneCount > 1 ? ` (this pitch's fixture capacity is ${laneCount} at once)` : ""}.`
+          const reason = overBudget
+            ? `This pitch's physical space is already committed by ${others.map((o) => o.label).join(", ")} at this time.`
+            : `Overlaps with ${others.map((o) => o.label).join(", ")} on the same pitch${overlappingFixtures.length > 0 && laneCount > 1 ? ` (this pitch's fixture capacity is ${laneCount} at once)` : ""}.`
           fixtureConflicts.push({ fixtureId: w.id, severity: "hard", reason })
         }
       } else {

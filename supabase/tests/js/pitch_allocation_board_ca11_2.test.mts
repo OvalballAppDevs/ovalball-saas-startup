@@ -23,9 +23,9 @@ const read = (p: string) => readFileSync(p, "utf8")
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 const pitch = (id: string, laneCount = 1, active = true): PitchOption => ({ id, displayName: id.toUpperCase(), active, venueId: "v1", sizeCategory: "full", laneCount })
-const fixture = (id: string, pitchId: string | null, kickoffTime: string | null, duration = 50): AllocationFixture => ({
+const fixture = (id: string, pitchId: string | null, kickoffTime: string | null, duration = 50, requiredPitchSize: AllocationFixture["requiredPitchSize"] = "full"): AllocationFixture => ({
   fixtureId: id, homeTeamId: "t" + id, homeTeamLabel: "Under 12 Boys", opponentLabel: "Them", category: "youth", ageGroup: "U12", gender: "boys", status: "Planned",
-  kickoffDate: "2026-10-03", kickoffTime, venueId: "v1", pitchId, durationMinutes: duration, durationConfidence: "confirmed", requiredPitchSize: "full", requiresOpponentAgreement: false,
+  kickoffDate: "2026-10-03", kickoffTime, venueId: "v1", pitchId, durationMinutes: duration, durationConfidence: "confirmed", requiredPitchSize, requiresOpponentAgreement: false,
   isSharedGroup: false, schedulingGroupId: null, awaySchedulingGroupId: null, effectiveHomeTeamIds: ["t" + id], effectiveAwayTeamIds: [],
 })
 function boardOf(fixtures: AllocationFixture[], unallocated: AllocationFixture[], pitches: PitchOption[], buffers = { warmUpMinutes: 15, packUpMinutes: 10 }): PitchAllocationBoard {
@@ -172,7 +172,12 @@ test("the draft board lays staged moves and removals over the saved board, and c
 })
 
 test("the ghost's conflict is asked of the shared detectors over the draft, before the drop", () => {
-  const board = boardOf([fixture("a", "p1", "10:00:00")], [fixture("b", null, null)], [pitch("p1"), pitch("p2", 2)])
+  // PITCH-CAPACITY CORRECTION (footprint.ts): "a" and "b" are reduced-size here -- two genuinely
+  // full-size fixtures no longer share one physical pitch regardless of declared lane_count (Section
+  // 38, "FULL consumes all subdivisions"; pinned directly in auto-allocate.verify.ts/6d), so the "a
+  // two-lane pitch takes both" assertion below needs fixtures whose combined footprint (2+2=4 units)
+  // genuinely fits pitch p2's declared full-size 4-unit budget, exactly as a real two-lane pitch would.
+  const board = boardOf([fixture("a", "p1", "10:00:00", 50, "reduced")], [fixture("b", null, null, 50, "reduced")], [pitch("p1"), pitch("p2", 2)])
   assert.equal(placementPreview(board, new Map(), "b", "p1", "10:30:00")?.severity, "hard", "overlapping the warm-up/pack-up envelope on a single-lane pitch is a clash")
   assert.equal(placementPreview(board, new Map(), "b", "p1", "11:15:00"), null, "after a's pack-up (10:50 + 10) plus b's warm-up (15) it is clear")
   assert.equal(placementPreview(board, new Map(), "b", "p1", "11:00:00")?.severity, "hard", "b's warm-up would start inside a's pack-up")
