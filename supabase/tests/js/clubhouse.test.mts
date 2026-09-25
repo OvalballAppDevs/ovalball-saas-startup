@@ -11,6 +11,7 @@ import {
   findDistanceOrigin,
   isValidClubCoordinate,
   matchesClubhouseQuery,
+  resolveClubLocation,
   resolvePartnershipStatus,
   type ClubMapMarker,
 } from "../../../packages/contracts/src/clubhouse"
@@ -37,6 +38,7 @@ function marker(overrides: Partial<ClubMapMarker> = {}): ClubMapMarker {
     latitude: 53.77,
     longitude: -2.7,
     hasLocation: true,
+    locationPrecision: "postcode",
     logoUrl: null,
     slug: "preston-grasshoppers",
     isOwnClub: false,
@@ -285,6 +287,54 @@ test("applyClubhouseDistanceFilter is a no-op without a factual origin -- it nev
   const markers = [marker({ directoryId: "a" }), marker({ directoryId: "b" })]
   assert.deepEqual(applyClubhouseDistanceFilter(markers, 10, null), markers)
   assert.deepEqual(applyClubhouseDistanceFilter(markers, "any", null), markers)
+})
+
+// ---------------------------------------------------------------------------------------------
+// CLUBHOUSE PROGRAMME SECTION 3 -- location precision, computed at read time, no new schema.
+// ---------------------------------------------------------------------------------------------
+
+test("resolveClubLocation: a verified venue beats the directory postcode centroid -- the real Preston Grasshoppers case found auditing this section", () => {
+  // Real coordinates found in the live directory: the directory's own postcode-centroid geocode, and
+  // the club's own venue, roughly 8km apart -- both genuinely 'success', only one is the real ground.
+  const directory = { latitude: 53.786811, longitude: -2.644685, geocodeSuccess: true }
+  const venue = { latitude: 53.814141, longitude: -2.760304, geocodeSuccess: true }
+  const result = resolveClubLocation(directory, venue)
+  assert.equal(result.precision, "venue")
+  assert.equal(result.latitude, venue.latitude)
+  assert.equal(result.longitude, venue.longitude)
+})
+
+test("resolveClubLocation falls back to the directory postcode centroid when there is no venue, or the venue itself failed to geocode", () => {
+  const directory = { latitude: 53.77, longitude: -2.7, geocodeSuccess: true }
+  assert.deepEqual(resolveClubLocation(directory, null), { latitude: 53.77, longitude: -2.7, precision: "postcode" })
+  assert.deepEqual(resolveClubLocation(directory, { latitude: null, longitude: null, geocodeSuccess: false }), {
+    latitude: 53.77,
+    longitude: -2.7,
+    precision: "postcode",
+  })
+})
+
+test("resolveClubLocation never trusts a venue coordinate that fails the same UK/Ireland plausibility bound the directory itself is held to", () => {
+  const directory = { latitude: 53.77, longitude: -2.7, geocodeSuccess: true }
+  // A 'successful' venue geocode that is nonetheless nonsense (Null Island) must not win just because
+  // it is a venue -- resolveClubLocation applies isValidClubCoordinate to BOTH sources equally.
+  const badVenue = { latitude: 0, longitude: 0, geocodeSuccess: true }
+  assert.deepEqual(resolveClubLocation(directory, badVenue), { latitude: 53.77, longitude: -2.7, precision: "postcode" })
+})
+
+test("resolveClubLocation is 'unknown' -- never a guessed coordinate -- when neither source is trustworthy", () => {
+  const directory = { latitude: null, longitude: null, geocodeSuccess: false }
+  assert.deepEqual(resolveClubLocation(directory, null), { latitude: null, longitude: null, precision: "unknown" })
+  const directoryFailed = { latitude: 53.77, longitude: -2.7, geocodeSuccess: false }
+  assert.equal(resolveClubLocation(directoryFailed, null).precision, "unknown", "geocode_status != success must never be trusted merely because a number is present")
+})
+
+test("a directory-only (unclaimed) club can never reach 'venue' precision -- it has no venues row to prefer, by construction", () => {
+  // An unclaimed club literally cannot have a venue (venues.club_id references clubs, which requires
+  // activation) -- this test documents that invariant at the resolveClubLocation call boundary: no
+  // venue argument is ever available to pass for one, so the caller always passes null.
+  const directory = { latitude: 53.77, longitude: -2.7, geocodeSuccess: true }
+  assert.equal(resolveClubLocation(directory, null).precision, "postcode")
 })
 
 test("a team-context viewer (fixture authority, no club.partners.manage) gets a safe projection: can find a fixture, cannot see or act on partnership", () => {

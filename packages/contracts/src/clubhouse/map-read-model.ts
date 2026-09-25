@@ -49,6 +49,21 @@ export type ClubNetworkState = "on_ovalball" | "not_on_ovalball"
  */
 export type ClubPartnershipStatus = "none" | "pending_outgoing" | "pending_incoming" | "active" | "unknown"
 
+/**
+ * CLUBHOUSE PROGRAMME SECTION 3: a coordinate's precision, computed at READ TIME from which table it
+ * came from -- deliberately not a new stored column. `geocode_status = 'success'` on `club_directory`
+ * is a postcode CENTROID (every successful directory geocode today comes from `postcodes.io`, which
+ * resolves a postcode string to its centroid, never a ground survey) -- real, useful, but not the same
+ * claim as "this pin is the actual ground." A concrete instance was found auditing this section: Preston
+ * Grasshoppers RFC's directory postcode-centroid and its own `venues` row (`is_default_home`, entered by
+ * the club itself during setup) sit roughly 8km apart. `"venue"` is preferred whenever an activated
+ * club has a successfully-geocoded default-home venue; it is never available for an unclaimed directory
+ * club, because unclaimed clubs have no `venues` row at all. `"postcode"` is the directory's own
+ * geocode. `"unknown"` is genuinely no location -- never guessed, never a town centroid presented as
+ * the ground.
+ */
+export type ClubLocationPrecision = "venue" | "postcode" | "unknown"
+
 export interface ClubMapMarker {
   directoryId: string
   clubId: string | null
@@ -60,6 +75,7 @@ export interface ClubMapMarker {
   latitude: number | null
   longitude: number | null
   hasLocation: boolean
+  locationPrecision: ClubLocationPrecision
   logoUrl: string | null
   slug: string | null
   isOwnClub: boolean
@@ -99,6 +115,26 @@ export function isValidClubCoordinate(lat: number | null, lng: number | null): b
   return lat >= 49 && lat <= 61 && lng >= -11.5 && lng <= 2
 }
 
+/**
+ * THE PRECEDENCE RULE (Section 3): a club's own verified default-home venue beats the directory's
+ * postcode centroid, whenever both exist and the venue's own coordinate is itself plausible. Pure and
+ * directly tested -- never called with an unvalidated venue coordinate, since `isValidClubCoordinate`
+ * is applied to it here too (a venue's `geocode_status='success'` carries exactly the same "success is
+ * not proof" caveat as the directory's own).
+ */
+export function resolveClubLocation(
+  directory: { latitude: number | null; longitude: number | null; geocodeSuccess: boolean },
+  venue: { latitude: number | null; longitude: number | null; geocodeSuccess: boolean } | null
+): { latitude: number | null; longitude: number | null; precision: ClubLocationPrecision } {
+  if (venue && venue.geocodeSuccess && isValidClubCoordinate(venue.latitude, venue.longitude)) {
+    return { latitude: venue.latitude, longitude: venue.longitude, precision: "venue" }
+  }
+  if (directory.geocodeSuccess && isValidClubCoordinate(directory.latitude, directory.longitude)) {
+    return { latitude: directory.latitude, longitude: directory.longitude, precision: "postcode" }
+  }
+  return { latitude: null, longitude: null, precision: "unknown" }
+}
+
 /** club_directory has 1,390+ active rows -- past PostgREST's default 1000-row response cap. */
 async function fetchAllDirectoryRows(supabase: Client): Promise<DirectoryRow[]> {
   const rows: DirectoryRow[] = []
@@ -134,7 +170,7 @@ async function fetchAllDirectoryRows(supabase: Client): Promise<DirectoryRow[]> 
 export async function readClubhouseMarkers(supabase: Client, viewerClubId: string | null): Promise<ClubMapMarker[]> {
   const holdsPartnerAuthority = viewerClubId ? await readsClubPartnerships(supabase, viewerClubId) : false
 
-  const [directoryRows, { data: activatedClubs }, partnershipsResult] = await Promise.all([
+  const [directoryRows, { data: activatedClubs }, partnershipsResult, { data: defaultVenues }] = await Promise.all([
     fetchAllDirectoryRows(supabase),
     supabase.from("clubs").select("id, directory_id, slug").eq("status", "active"),
     viewerClubId && holdsPartnerAuthority
@@ -144,17 +180,37 @@ export async function readClubhouseMarkers(supabase: Client, viewerClubId: strin
           .or(`requesting_club_id.eq.${viewerClubId},partner_club_id.eq.${viewerClubId}`)
           .neq("status", "revoked")
       : Promise.resolve({ data: [] as { id: string; requesting_club_id: string; partner_club_id: string; status: string }[] }),
+    // Section 3: a club's own default-home venue, entered by the club itself during setup, is
+    // preferred over the directory's postcode-centroid geocode whenever it is itself trustworthy --
+    // see resolveClubLocation. Scoped to is_default_home so a club with several venues never produces
+    // ambiguity about which one is "the" map location.
+    //
+    // HONEST SCOPE: `venues_select` RLS gates on `venue.venue.view` at the venue's OWNING club, which
+    // only that club's own members ever hold (closing a real prior leak -- see
+    // 20270364000000_calendar_venue_training_authority_canonical.sql). So this query only ever returns
+    // rows for the VIEWER'S OWN club; every other club on the map still shows its directory
+    // postcode-centroid, whether or not that club has a more accurate venue on file. This fixes "does
+    // my own club appear in the right place," not "does every club on the network." Widening it would
+    // be a real, separate authority decision (a public venue-coordinate projection), not something to
+    // reach for here.
+    supabase.from("venues").select("club_id, latitude, longitude, geocode_status").eq("is_default_home", true).eq("active", true),
   ])
 
   const clubIdByDirectoryId = new Map((activatedClubs ?? []).map((c) => [c.directory_id, c.id]))
   const slugByDirectoryId = new Map((activatedClubs ?? []).map((c) => [c.directory_id, c.slug]))
   const partnershipByClubId = buildPartnershipIndex(partnershipsResult.data ?? [], viewerClubId, holdsPartnerAuthority)
+  const defaultVenueByClubId = new Map((defaultVenues ?? []).map((v) => [v.club_id as string, v]))
 
   return directoryRows.map((row): ClubMapMarker => {
     const clubId = clubIdByDirectoryId.get(row.id) ?? null
     const partnership = clubId ? partnershipByClubId.get(clubId) : undefined
     const partnershipStatus = resolvePartnershipStatus(partnership?.status ?? null, viewerClubId, holdsPartnerAuthority)
     const logoPath = resolveClubLogoPathFrom(row.clubs?.logo_storage_path, row.logo_storage_path)
+    const venue = clubId ? defaultVenueByClubId.get(clubId) : undefined
+    const location = resolveClubLocation(
+      { latitude: row.latitude, longitude: row.longitude, geocodeSuccess: row.geocode_status === "success" },
+      venue ? { latitude: venue.latitude, longitude: venue.longitude, geocodeSuccess: venue.geocode_status === "success" } : null
+    )
     return {
       directoryId: row.id,
       clubId,
@@ -163,9 +219,10 @@ export async function readClubhouseMarkers(supabase: Client, viewerClubId: strin
       town: row.town,
       county: row.county,
       postcode: row.postcode,
-      latitude: isValidClubCoordinate(row.latitude, row.longitude) && row.geocode_status === "success" ? row.latitude : null,
-      longitude: isValidClubCoordinate(row.latitude, row.longitude) && row.geocode_status === "success" ? row.longitude : null,
-      hasLocation: row.geocode_status === "success" && isValidClubCoordinate(row.latitude, row.longitude),
+      latitude: location.latitude,
+      longitude: location.longitude,
+      hasLocation: location.precision !== "unknown",
+      locationPrecision: location.precision,
       logoUrl: clubLogoUrlFromPath(supabase, logoPath),
       slug: slugByDirectoryId.get(row.id) ?? null,
       isOwnClub: viewerClubId !== null && clubId === viewerClubId,

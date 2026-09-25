@@ -522,10 +522,14 @@ function ClubSheet({
             </View>
           </View>
 
-          <View style={{ flexDirection: "row", gap: space.sm }}>
+          <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
             <NetworkPill marker={marker} />
             {marker.partnershipStatus === "pending_incoming" && <StatusPill label="Wants to partner" tone="caution" />}
             {marker.partnershipStatus === "pending_outgoing" && <StatusPill label="Request sent" tone="neutral" />}
+            {/* Section 3: plain, non-technical wording -- never "postcode centroid" or "geocode
+                confidence" to an ordinary user. Only shown when the pin is genuinely the less-precise
+                kind; a venue-precedence location says nothing extra, because it is the trustworthy case. */}
+            {marker.locationPrecision === "postcode" && <StatusPill label="Approximate location" tone="neutral" />}
           </View>
 
           {!detail && <CardSkeleton lines={2} />}
