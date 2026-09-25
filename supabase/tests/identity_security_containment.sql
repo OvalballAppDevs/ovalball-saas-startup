@@ -856,7 +856,10 @@ begin
   -- -----------------------------------------------------------------
   -- K. LEGACY RPCS
   -- -----------------------------------------------------------------
-  select not has_function_privilege('anon', 'public.accept_fixture_request(uuid, uuid)', 'EXECUTE')
+  -- CA-M11.5: accept_fixture_request's canonical signature gained an optional third parameter
+  -- (p_expected_updated_at) -- see 20270553000000's own comment for why the old two-argument
+  -- overload was dropped rather than left alongside it.
+  select not has_function_privilege('anon', 'public.accept_fixture_request(uuid, uuid, timestamptz)', 'EXECUTE')
      and not has_function_privilege('anon', 'public.create_competition(text, text, text, boolean, uuid[])', 'EXECUTE')
      and not has_function_privilege('anon', 'public.publish_import_row(uuid)', 'EXECUTE')
   into v_bool;

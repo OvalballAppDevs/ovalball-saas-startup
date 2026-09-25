@@ -665,6 +665,11 @@
       "owner": "Fixture operations",
       "reason": "Publishing a staged fixture row (20270304000000)."
     },
+    "fixture_request_counter_proposal": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "CA-M11.5: counter_fixture_request / accept_fixture_request(3-arg) / fixture_request_history, and the counter-proposal turn-taking, stale-write and scope-boundary rules (20270553000000)."
+    },
     "fixture_results": {
       "disposition": "SPECIAL_PURPOSE",
       "owner": "Fixture operations",

@@ -111,6 +111,74 @@ export async function declineFixtureRequest(supabase: Client, requestId: string,
   if (!data || data.length === 0) throw Object.assign(new Error("You can't answer this request."), { code: "42501" })
 }
 
+/**
+ * CA-M11.5: "Suggest Another" -- propose an alternative date/kick-off/venue rather than accepting or
+ * declining outright. Only the side that did NOT make the current standing proposal may call this;
+ * `counter_fixture_request` itself re-checks `fixture.request.respond` for that side. `expectedUpdatedAt`
+ * is optional stale-write protection: pass the row's own `updated_at` from the view the caller is acting
+ * on, and a concurrent change surfaces as a distinct, catchable error rather than silently overwriting it.
+ */
+export interface CounterFixtureRequestInput {
+  requestId: string
+  date: string
+  kickoffTime: string | null
+  venuePreference: "home" | "away" | "either"
+  note?: string | null
+  expectedUpdatedAt?: string | null
+}
+
+export async function counterFixtureRequest(supabase: Client, input: CounterFixtureRequestInput): Promise<void> {
+  const { error } = await supabase.rpc("counter_fixture_request", {
+    p_request_id: input.requestId,
+    p_date: input.date,
+    // Nullable at the database (an alternative kick-off is optional); the generated Args type only
+    // reflects "has a default", which p_kickoff_time does not, so the cast below is a codegen gap, not
+    // a real runtime constraint -- confirmed against the migration's own lack of a not-null guard on it.
+    p_kickoff_time: input.kickoffTime as unknown as string,
+    p_venue_preference: input.venuePreference,
+    p_note: input.note?.trim() || undefined,
+    p_expected_updated_at: input.expectedUpdatedAt ?? undefined,
+  })
+  if (error) throw error
+}
+
+/**
+ * CA-M11.5: the negotiation history for one request -- who proposed, countered, accepted or declined and
+ * when -- read from the existing generic `audit_log` rather than a second history table.
+ * `fixture_request_history` re-checks the same view authority as reading the request itself.
+ */
+export interface FixtureRequestHistoryEntry {
+  changedAt: string
+  changedByClubName: string | null
+  statusBefore: string | null
+  statusAfter: string | null
+  dateAfter: string | null
+  kickoffTimeAfter: string | null
+  noteAfter: string | null
+}
+
+export async function readFixtureRequestHistory(supabase: Client, requestId: string): Promise<FixtureRequestHistoryEntry[]> {
+  const { data, error } = await supabase.rpc("fixture_request_history", { p_request_id: requestId })
+  if (error) throw error
+  return ((data ?? []) as unknown as {
+    changed_at: string
+    changed_by_club_name: string | null
+    status_before: string | null
+    status_after: string | null
+    date_after: string | null
+    kickoff_time_after: string | null
+    note_after: string | null
+  }[]).map((r) => ({
+    changedAt: r.changed_at,
+    changedByClubName: r.changed_by_club_name,
+    statusBefore: r.status_before,
+    statusAfter: r.status_after,
+    dateAfter: r.date_after,
+    kickoffTimeAfter: r.kickoff_time_after,
+    noteAfter: r.note_after,
+  }))
+}
+
 // ---------------------------------------------------------------------------
 // Call-ups ("Player Requests"): a sibling team asking for one of this team's players for one fixture.
 // ---------------------------------------------------------------------------

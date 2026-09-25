@@ -8421,6 +8421,12 @@ export type Database = {
       }
       fixture_requests: {
         Row: {
+          counter_note: string | null
+          countered_at: string | null
+          countered_by: string | null
+          countered_date: string | null
+          countered_kickoff_time: string | null
+          countered_venue_preference: string | null
           created_at: string
           created_by: string
           decided_at: string | null
@@ -8428,6 +8434,7 @@ export type Database = {
           existing_fixture_id: string | null
           group_id: string
           id: string
+          last_proposed_by_team_id: string | null
           note: string | null
           pitch_id: string | null
           preferred_kickoff_time: string | null
@@ -8447,6 +8454,12 @@ export type Database = {
           venue_preference: string
         }
         Insert: {
+          counter_note?: string | null
+          countered_at?: string | null
+          countered_by?: string | null
+          countered_date?: string | null
+          countered_kickoff_time?: string | null
+          countered_venue_preference?: string | null
           created_at?: string
           created_by: string
           decided_at?: string | null
@@ -8454,6 +8467,7 @@ export type Database = {
           existing_fixture_id?: string | null
           group_id: string
           id?: string
+          last_proposed_by_team_id?: string | null
           note?: string | null
           pitch_id?: string | null
           preferred_kickoff_time?: string | null
@@ -8473,6 +8487,12 @@ export type Database = {
           venue_preference: string
         }
         Update: {
+          counter_note?: string | null
+          countered_at?: string | null
+          countered_by?: string | null
+          countered_date?: string | null
+          countered_kickoff_time?: string | null
+          countered_venue_preference?: string | null
           created_at?: string
           created_by?: string
           decided_at?: string | null
@@ -8480,6 +8500,7 @@ export type Database = {
           existing_fixture_id?: string | null
           group_id?: string
           id?: string
+          last_proposed_by_team_id?: string | null
           note?: string | null
           pitch_id?: string | null
           preferred_kickoff_time?: string | null
@@ -8532,6 +8553,41 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "fixture_request_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_requests_last_proposed_by_team_id_fkey"
+            columns: ["last_proposed_by_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_requests_last_proposed_by_team_id_fkey"
+            columns: ["last_proposed_by_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_requests_last_proposed_by_team_id_fkey"
+            columns: ["last_proposed_by_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_requests_last_proposed_by_team_id_fkey"
+            columns: ["last_proposed_by_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_requests_last_proposed_by_team_id_fkey"
+            columns: ["last_proposed_by_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
@@ -22555,7 +22611,11 @@ export type Database = {
         Returns: undefined
       }
       accept_fixture_request: {
-        Args: { p_request_id: string; p_target_team_id?: string }
+        Args: {
+          p_expected_updated_at?: string
+          p_request_id: string
+          p_target_team_id?: string
+        }
         Returns: string
       }
       accept_fixture_request_with_team_action: {
@@ -23398,6 +23458,17 @@ export type Database = {
         Args: { p_directory_id: string; p_new_code: string; p_reason: string }
         Returns: undefined
       }
+      counter_fixture_request: {
+        Args: {
+          p_date: string
+          p_expected_updated_at?: string
+          p_kickoff_time: string
+          p_note?: string
+          p_request_id: string
+          p_venue_preference: string
+        }
+        Returns: undefined
+      }
       create_announcement: {
         Args: {
           p_audience_spec?: Json
@@ -23984,6 +24055,18 @@ export type Database = {
           display_name: string
           team_label: string
           user_id: string
+        }[]
+      }
+      fixture_request_history: {
+        Args: { p_request_id: string }
+        Returns: {
+          changed_at: string
+          changed_by_club_name: string
+          date_after: string
+          kickoff_time_after: string
+          note_after: string
+          status_after: string
+          status_before: string
         }[]
       }
       fold_team: {

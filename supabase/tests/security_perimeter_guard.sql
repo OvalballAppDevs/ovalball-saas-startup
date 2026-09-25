@@ -82,7 +82,12 @@ begin
   if has_function_privilege('anon', 'public.site_set_account_state(uuid, text, text)', 'EXECUTE') then v_bad := v_bad || 'anon: site_set_account_state'::text; end if;
   if has_function_privilege('anon', 'public.record_session_version(integer)', 'EXECUTE') then v_bad := v_bad || 'anon: record_session_version'::text; end if;
   if has_function_privilege('anon', 'public.list_suspended_club_memberships(uuid)', 'EXECUTE') then v_bad := v_bad || 'anon: list_suspended_club_memberships'::text; end if;
-  if has_function_privilege('anon', 'public.accept_fixture_request(uuid, uuid)', 'EXECUTE') then v_bad := v_bad || 'anon: accept_fixture_request'::text; end if;
+  -- CA-M11.5: accept_fixture_request gained an optional third parameter (p_expected_updated_at,
+  -- stale-proposal protection) -- the two-argument overload was dropped in favour of one canonical
+  -- three-argument signature (see 20270553000000's own comment on why: create or replace only
+  -- replaces an EXACT signature match, so leaving the old one in place would have meant two versions
+  -- of the same operation silently disagreeing). The privilege check follows the current signature.
+  if has_function_privilege('anon', 'public.accept_fixture_request(uuid, uuid, timestamptz)', 'EXECUTE') then v_bad := v_bad || 'anon: accept_fixture_request'::text; end if;
   if has_function_privilege('anon', 'public.create_competition(text, text, text, boolean, uuid[])', 'EXECUTE') then v_bad := v_bad || 'anon: create_competition'::text; end if;
   if has_function_privilege('anon', 'public.publish_import_row(uuid)', 'EXECUTE') then v_bad := v_bad || 'anon: publish_import_row'::text; end if;
   if has_function_privilege('anon', 'public.reconcile_overdue_fixture_results()', 'EXECUTE')

@@ -4008,10 +4008,11 @@
         ]
       },
       {
-        "signature": "accept_fixture_request(uuid, uuid)",
+        "signature": "accept_fixture_request(uuid, uuid, timestamp with time zone)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/fixtures/actions.ts"
+          "app/(app)/fixtures/actions.ts",
+          "packages/contracts/src/team/requests.ts"
         ]
       },
       {
@@ -4682,6 +4683,14 @@
         ]
       },
       {
+        "signature": "counter_fixture_request(uuid, date, time without time zone, text, text, timestamp with time zone)",
+        "category": "APPLICATION_RPC",
+        "reason": "CA-M11.5: propose an alternative date/kick-off/venue for an open fixture request (20270553000000).",
+        "consumers": [
+          "packages/contracts/src/team/requests.ts"
+        ]
+      },
+      {
         "signature": "create_announcement(text, uuid, text, uuid, text, text, text, jsonb, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5176,6 +5185,14 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/fixtures/[fixtureId]/opposition-contacts.ts"
+        ]
+      },
+      {
+        "signature": "fixture_request_history(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "CA-M11.5: the auditable negotiation history for one fixture request, read from audit_log (20270553000000).",
+        "consumers": [
+          "packages/contracts/src/team/requests.ts"
         ]
       },
       {
@@ -7142,6 +7159,14 @@
         ]
       },
       {
+        "signature": "set_club_pitch_configuration(uuid, text, text, numeric, numeric)",
+        "category": "APPLICATION_RPC",
+        "reason": "CA-M11.2 Grounds & Pitches: physical size and layout, distinct from occupancy (20270551000000).",
+        "consumers": [
+          "packages/contracts/src/club/venues.ts"
+        ]
+      },
+      {
         "signature": "set_club_pitch_venue(uuid, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7820,6 +7845,14 @@
         "consumers": []
       },
       {
+        "signature": "team_scheduling_availability(uuid, uuid, date, date)",
+        "category": "APPLICATION_RPC",
+        "reason": "CA-M11.4: coarse per-day availability for a partner team, gated on the viewer's own fixture-request authority (20270552000000).",
+        "consumers": [
+          "packages/contracts/src/fixtures/availability.ts"
+        ]
+      },
+      {
         "signature": "touch_last_active()",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -8493,7 +8526,7 @@
     ],
     "service_role_public": [
       "accept_directory_research_proposal(uuid)",
-      "accept_fixture_request(uuid, uuid)",
+      "accept_fixture_request(uuid, uuid, timestamp with time zone)",
       "accept_fixture_request_with_team_action(uuid, boolean, uuid)",
       "accept_guardian_invitation(text)",
       "accept_invitation(text)",
@@ -8592,6 +8625,7 @@
       "consume_auth_flow_state(text, text)",
       "copy_regulatory_content_set_to_season(uuid, uuid, text)",
       "correct_club_rugby_code(uuid, text, text)",
+      "counter_fixture_request(uuid, date, time without time zone, text, text, timestamp with time zone)",
       "create_announcement(text, uuid, text, uuid, text, text, text, jsonb, boolean)",
       "create_auth_flow_state(text, jsonb)",
       "create_canonical_team_type(text, text, text, text, boolean, text)",
@@ -8668,6 +8702,7 @@
       "fixture_editable_fields(uuid)",
       "fixture_notification_recipients(uuid)",
       "fixture_opposition_contacts(uuid)",
+      "fixture_request_history(uuid)",
       "fold_team(uuid, text)",
       "generate_rollover_player_proposals(uuid)",
       "generate_rollover_proposal(uuid, text, uuid)",
@@ -8944,6 +8979,7 @@
       "set_club_article_featured(uuid, boolean)",
       "set_club_article_status(uuid, text)",
       "set_club_pitch_active(uuid, boolean)",
+      "set_club_pitch_configuration(uuid, text, text, numeric, numeric)",
       "set_club_pitch_venue(uuid, uuid)",
       "set_content_section_audience_copy(uuid, text, text)",
       "set_default_venue(uuid)",
@@ -9012,6 +9048,7 @@
       "team_playing_group_recipient_context(uuid)",
       "team_playing_group_recipients(uuid)",
       "team_playing_group_summary(uuid)",
+      "team_scheduling_availability(uuid, uuid, date, date)",
       "touch_last_active()",
       "training_communication_counts(uuid)",
       "transition_club_membership(uuid, text, text, boolean)",
