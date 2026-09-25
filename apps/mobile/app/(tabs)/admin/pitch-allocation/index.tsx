@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Platform, Pressable, Text, View } from "react-native"
+import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native"
 import { useFocusEffect, useNavigation, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import DateTimePicker from "@react-native-community/datetimepicker"
@@ -28,7 +28,7 @@ import { useAppContexts } from "../../../../src/context/contexts"
 import { useReduceMotion } from "../../../../src/a11y/reduce-motion"
 import { ClubCrest } from "../../../../src/components/identity"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
-import { ChevronLeft, ChevronRight, Ellipsis, Maximize2, Minimize2, TriangleAlert } from "../../../../src/components/icons"
+import { CalendarDays, ChevronLeft, ChevronRight, CircleCheck, Ellipsis, LayoutGrid, Maximize2, Minimize2, RefreshCw, Save, Sparkles, TriangleAlert } from "../../../../src/components/icons"
 import { friendly, logDetail } from "../../../../src/errors/translate"
 import { exactDate } from "../../../../src/agenda/presentation"
 import { PitchBoard, type DragPreview } from "../../../../src/pitch-allocation/board"
@@ -248,19 +248,33 @@ export default function PitchAllocationScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel="Next day" onPress={() => navigateTo(shiftDate(dateIso, 1))} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}><ChevronRight size={20} color={colour.ink} /></Pressable>
             </View>
           )}
-          {datePicker && (
-            Platform.OS === "web" ? null : (
-              <DateTimePicker value={new Date(`${dateIso}T12:00:00`)} mode="date" display={Platform.OS === "ios" ? "inline" : "default"} onChange={(_e, next) => { setDatePicker(false); if (next) navigateTo(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`) }} />
-            )
-          )}
+          {/* BUG FOUND LIVE ON DEVICE: `display="inline"` renders a whole month grid PERMANENTLY IN
+              THE PAGE FLOW, not as a dismissable overlay -- it pushed the entire board down by most of
+              a screen, which was a real chunk of "the calendar is massive and doesn't fit on one page".
+              A native picker belongs in a sheet the operator can dismiss, never inserted into the layout. */}
+          <Sheet visible={datePicker && Platform.OS !== "web"} onClose={() => setDatePicker(false)} title="Choose a Date">
+            <DateTimePicker value={new Date(`${dateIso}T12:00:00`)} mode="date" display="inline" onChange={(_e, next) => { setDatePicker(false); if (next) navigateTo(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`) }} />
+          </Sheet>
 
           {/* THE FOUR NUMBERS, and the conflict count when there is one */}
           {!fullScreen && (
-            <View accessible accessibilityLabel={`${summary.total} home fixtures, ${summary.allocated} allocated, ${summary.activePitches} active pitches${conflictCount > 0 ? `, ${conflictCount} clash${conflictCount === 1 ? "" : "es"}` : ""}`} style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md, paddingHorizontal: space.md, paddingBottom: space.xs }}>
-              <Stat n={summary.total} label={summary.total === 1 ? "home fixture" : "home fixtures"} />
-              <Stat n={summary.allocated} label="allocated" />
-              <Stat n={summary.activePitches} label={summary.activePitches === 1 ? "active pitch" : "active pitches"} />
-              {conflictCount > 0 && <Stat n={conflictCount} label={conflictCount === 1 ? "clash" : "clashes"} tone="warn" />}
+            <View accessible accessibilityLabel={`${summary.total} home fixtures, ${summary.allocated} allocated, ${summary.activePitches} active pitches${conflictCount > 0 ? `, ${conflictCount} clash${conflictCount === 1 ? "" : "es"}` : ""}`} style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, paddingHorizontal: space.md, paddingBottom: space.sm }}>
+              <Stat n={summary.total} label={summary.total === 1 ? "home fixture" : "home fixtures"} icon={CalendarDays} />
+              <Stat n={summary.allocated} label="allocated" icon={CircleCheck} />
+              <Stat n={summary.activePitches} label={summary.activePitches === 1 ? "active pitch" : "active pitches"} icon={LayoutGrid} />
+              {conflictCount > 0 && <Stat n={conflictCount} label={conflictCount === 1 ? "clash" : "clashes"} icon={TriangleAlert} tone="warn" />}
+              {conflictCount === 0 && draft.unallocated.length > 0 && <Stat n={draft.unallocated.length} label={draft.unallocated.length === 1 ? "unallocated" : "unallocated"} icon={TriangleAlert} tone="warn" />}
+            </View>
+          )}
+
+          {/* THE DAY'S MAIN JOBS -- Auto Allocate and Recalculate All build a proposal to review;
+              Save Changes is the one write. Given equal weight on the board itself, not hidden in an
+              overflow menu, matching the reference design's own layout. */}
+          {!fullScreen && caps.manage && (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, paddingHorizontal: space.md, paddingBottom: space.sm }}>
+              <ActionPill label="Auto Allocate" icon={Sparkles} onPress={() => void propose(false)} busy={busy === "propose"} disabled={isDirty || draft.unallocated.length === 0} />
+              <ActionPill label="Recalculate All" icon={RefreshCw} onPress={() => void propose(true)} busy={busy === "propose"} disabled={isDirty || summary?.total === 0} />
+              <ActionPill label={isDirty ? `Save Changes (${pending.size})` : "Save Changes"} icon={Save} solid onPress={() => void saveChanges()} busy={busy === "save"} disabled={!isDirty} />
             </View>
           )}
 
@@ -313,11 +327,11 @@ export default function PitchAllocationScreen() {
             )
           })()}
 
-          {/* THE ONE LOUD CONTROL */}
-          {caps.manage && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.md, paddingTop: space.xs, paddingBottom: insets.bottom + space.sm, borderTopWidth: 1, borderTopColor: colour.line, backgroundColor: colour.chalk }}>
-              <Button label={isDirty ? `Save Changes (${pending.size})` : "Save Changes"} onPress={() => void saveChanges()} busy={busy === "save"} disabled={!isDirty} style={{ flex: 1 }} accessibilityHint="Writes every staged change; nothing has been saved yet" />
-              <Button label="Discard" variant="secondary" onPress={() => (pending.size > 1 ? setLeave(() => discardChanges) : discardChanges())} disabled={!isDirty || busy === "save"} />
+          {/* Save Changes itself now lives in the action row above, alongside Auto Allocate and
+              Recalculate All; this stays as the one reachable-with-a-thumb Discard, only while dirty. */}
+          {caps.manage && isDirty && (
+            <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.md, paddingTop: space.xs, paddingBottom: insets.bottom + space.sm, borderTopWidth: 1, borderTopColor: colour.line, backgroundColor: colour.chalk }}>
+              <Button label="Discard Changes" variant="secondary" onPress={() => (pending.size > 1 ? setLeave(() => discardChanges) : discardChanges())} disabled={busy === "save"} style={{ flex: 1 }} />
             </View>
           )}
         </>
@@ -346,12 +360,10 @@ export default function PitchAllocationScreen() {
       {/* ACTIONS */}
       <Sheet visible={actions} onClose={() => setActions(false)} title="Board actions">
         <View style={{ gap: space.sm }}>
+          {/* Auto Allocate and Recalculate All now live in the action row on the board itself, next
+              to Save Changes -- this keeps only what belongs in a settings/overflow menu. */}
           {caps.manage && draft && (
             <>
-              <Button label="Auto Allocate" onPress={() => void propose(false)} busy={busy === "propose"} disabled={isDirty || draft.unallocated.length === 0} accessibilityHint="Proposes a pitch and time for every fixture that still needs one" />
-              <Text style={[type.caption, { color: colour.inkSubtle }]}>{isDirty ? "Save or discard your staged changes before running a proposal." : draft.unallocated.length === 0 ? "Every home fixture on this day already has a pitch and kick-off." : "Builds a proposal for the fixtures still needing a pitch; you review it, and nothing is saved until you press Save Changes."}</Text>
-              <Button label="Recalculate All" variant="secondary" onPress={() => void propose(true)} busy={busy === "propose"} disabled={isDirty || summary?.total === 0} accessibilityHint="Re-plans every home fixture on this day from scratch, including ones already on a pitch" />
-              <Text style={[type.caption, { color: colour.inkSubtle }]}>Re-plans every home fixture on this day from scratch, including the ones already on a pitch. Still a proposal to review.</Text>
               <Button label="Discard Changes" variant="secondary" onPress={() => { setActions(false); discardChanges() }} disabled={!isDirty} />
               <Button label="Allocation Settings" variant="secondary" onPress={() => { setActions(false); router.push("/admin/pitch-allocation/settings" as never) }} />
             </>
@@ -389,10 +401,35 @@ export default function PitchAllocationScreen() {
   )
 }
 
-function Stat({ n, label, tone = "ok" }: { n: number; label: string; tone?: "ok" | "warn" }) {
+function Stat({ n, label, icon: Icon, tone = "ok" }: { n: number; label: string; icon: React.ComponentType<{ size?: number; color?: string }>; tone?: "ok" | "warn" }) {
+  const fg = tone === "warn" ? colour.danger : colour.forest800
   return (
-    <Text style={[type.small, { color: tone === "warn" ? colour.danger : colour.inkMuted }]}>
-      <Text style={[type.smallMedium, { color: tone === "warn" ? colour.danger : colour.ink }]}>{n}</Text> {label}
-    </Text>
+    <View style={{ flexGrow: 1, minWidth: 84, flexDirection: "row", alignItems: "center", gap: space.xs, paddingHorizontal: space.sm, paddingVertical: space.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: tone === "warn" ? colour.warning : colour.line, backgroundColor: tone === "warn" ? colour.warningSurface : colour.surface }}>
+      <Icon size={18} color={fg} />
+      <View>
+        <Text style={[type.smallMedium, { color: fg, fontFamily: "Inter_700Bold" }]}>{n}</Text>
+        <Text style={[type.caption, { color: tone === "warn" ? colour.danger : colour.inkMuted }]} numberOfLines={1}>{label}</Text>
+      </View>
+    </View>
+  )
+}
+
+/**
+ * AN ACTION PILL -- Auto Allocate, Recalculate All and Save Changes, given the same visual weight
+ * a Fixture Secretary would expect for the day's main jobs, without touching the shared Button
+ * primitive every other screen in the app also uses (a Pitch-Allocation-local look, not a platform one).
+ */
+function ActionPill({ label, icon: Icon, onPress, busy, disabled, solid, style }: { label: string; icon: React.ComponentType<{ size?: number; color?: string }>; onPress: () => void; busy?: boolean; disabled?: boolean; solid?: boolean; style?: object }) {
+  const inactive = disabled || busy
+  const fg = solid ? colour.onForest : colour.forest800
+  return (
+    <Pressable
+      accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: inactive, busy: Boolean(busy) }} disabled={inactive}
+      onPress={onPress}
+      style={({ pressed }) => [{ flexGrow: solid ? 1 : 0, minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: solid ? colour.forest800 : colour.lineStrong, backgroundColor: solid ? colour.forest800 : colour.surface, opacity: inactive ? 0.5 : pressed ? 0.85 : 1 }, style]}
+    >
+      {busy ? <ActivityIndicator size="small" color={fg} /> : <Icon size={16} color={fg} />}
+      <Text style={[type.smallMedium, { color: fg, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{label}</Text>
+    </Pressable>
   )
 }

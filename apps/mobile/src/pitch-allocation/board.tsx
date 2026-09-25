@@ -63,7 +63,6 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
   const hRef = useRef<Animated.ScrollView>(null)
   const vRef = useRef<Animated.ScrollView>(null)
   const timelineOrigin = useRef({ x: 0, y: 0, width: 0, height: 0 })
-  const timelineRef = useRef<View>(null)
   // THE VIEWPORT, separate from the CONTENT: `timelineOrigin`'s width/height (below) used to come from
   // measuring the full scrollable content view -- which on a device is either the whole day's width
   // (thousands of pixels, so "near the edge" almost never matched) or, worse, still {0,0} if that
@@ -111,13 +110,27 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
   const onV = useAnimatedScrollHandler({ onScroll: (e) => { scrollY.value = e.contentOffset.y } })
   const headerStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -scrollX.value }] }))
 
-  const measureTimeline = useCallback(() => {
-    // x/y only: WHERE the content's origin sits on screen right now (moves as the user scrolls) --
-    // width/height for the auto-scroll extent come from the viewport measurements below instead.
-    timelineRef.current?.measureInWindow((x, y) => { timelineOrigin.current.x = x; timelineOrigin.current.y = y })
+  // `timelineOrigin` now holds the VIEWPORT's on-screen rectangle only -- x/y are STABLE (the wrapper
+  // never moves as its content scrolls, unlike the content view a first pass measured here, which is
+  // WHY that pass could drift by however much the page above it had shifted since the last measurement:
+  // used only for auto-scroll's "how near the edge is this finger" check, never for hit-testing, which
+  // (below) is computed from each block's own known content position plus the gesture's own translation
+  // and needs no absolute measurement at all.
+  const measureHViewport = useCallback((e: LayoutChangeEvent) => {
+    timelineOrigin.current.width = e.nativeEvent.layout.width
+    hViewportRef.current?.measureInWindow((x) => { timelineOrigin.current.x = x })
   }, [])
-  const measureHViewport = useCallback((e: LayoutChangeEvent) => { timelineOrigin.current.width = e.nativeEvent.layout.width }, [])
-  const measureVViewport = useCallback((e: LayoutChangeEvent) => { timelineOrigin.current.height = e.nativeEvent.layout.height }, [])
+  const measureVViewport = useCallback((e: LayoutChangeEvent) => {
+    timelineOrigin.current.height = e.nativeEvent.layout.height
+    vViewportRef.current?.measureInWindow((_x, y) => { timelineOrigin.current.y = y })
+  }, [])
+  // For an item that starts OFF the board (the unallocated tray): its finger position has to be
+  // converted into content space via the (stable) viewport origin, since it has no content-space
+  // position of its own to start from the way a placed FixtureBlock does.
+  const contentFromAbs = useCallback((absX: number, absY: number): [number, number] => {
+    const o = timelineOrigin.current
+    return [absX - o.x + scrollX.value, absY - o.y + scrollY.value]
+  }, [scrollX, scrollY])
 
   // AUTO-SCROLL while a drag sits near an edge: the content moves, the finger need not.
   const autoScroll = useRef<{ timer: ReturnType<typeof setInterval> | null; vx: number; vy: number }>({ timer: null, vx: 0, vy: 0 })
@@ -138,12 +151,14 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
   }, [scrollX, scrollY])
   useEffect(() => () => { if (autoScroll.current.timer) clearInterval(autoScroll.current.timer) }, [])
 
-  // THE PREVIEW is recomputed only when the snapped slot or lane changes.
+  // THE PREVIEW is recomputed only when the snapped slot or lane changes. `contentX`/`contentY` arrive
+  // ALREADY in content space -- each caller below computes them from ITS OWN known starting position
+  // plus the gesture's own translation, which is exact and needs no absolute-screen measurement at all
+  // (the "have to drag half a screen to hit the right spot" bug was exactly this kind of measurement
+  // going stale). `absX`/`absY` are the finger's raw screen position, used only for auto-scroll.
   const lastKey = useRef<string | null>(null)
-  const updatePreview = useCallback((fixtureId: string, absX: number, absY: number, grabOffsetX: number) => {
+  const updatePreview = useCallback((fixtureId: string, contentX: number, contentY: number, absX: number, absY: number) => {
     const o = timelineOrigin.current
-    const contentX = absX - o.x + scrollX.value - grabOffsetX
-    const contentY = absY - o.y + scrollY.value
     const minutes = xToSnappedMinutes(contentX, scale)
     const row = yToLaneRow(contentY, rows)
     const key = `${row?.pitchId ?? "-"}:${row?.laneIndex ?? 0}:${minutes}`
@@ -155,7 +170,7 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
     setPreview(next)
     onPreview(next)
     if (laneChanged || !next.conflict) void haptic.snap()
-  }, [rows, scale, previewFor, onPreview, setAutoScroll, scrollX, scrollY])
+  }, [rows, scale, previewFor, onPreview, setAutoScroll])
 
   const endPreview = useCallback((fixtureId: string, dropped: boolean) => {
     setAutoScroll(0, 0)
@@ -180,7 +195,7 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
   const showNow = dateIso === todayIso && nowMinutes >= START_MINUTES && nowMinutes <= 23 * 60
 
   return (
-    <View style={{ flex: 1 }} onLayout={measureTimeline}>
+    <View style={{ flex: 1 }}>
       {/* THE HOUR HEADER, frozen at the top and moving with the timeline */}
       <View style={{ flexDirection: "row", height: HEADER_HEIGHT, borderBottomWidth: 1, borderBottomColor: colour.line }}>
         <View style={{ width: LABEL_COLUMN_WIDTH }} />
@@ -219,9 +234,9 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
           </View>
 
           {/* THE TIMELINE */}
-          <View ref={hViewportRef} style={{ flex: 1, overflow: "hidden" }} onLayout={(e) => { measureHViewport(e); measureTimeline() }}>
-          <Animated.ScrollView ref={hRef} horizontal onScroll={onH} scrollEventThrottle={16} showsHorizontalScrollIndicator={false} onContentSizeChange={measureTimeline}>
-            <View ref={timelineRef} style={{ width, height }} onLayout={measureTimeline}>
+          <View ref={hViewportRef} style={{ flex: 1, overflow: "hidden" }} onLayout={measureHViewport}>
+          <Animated.ScrollView ref={hRef} horizontal onScroll={onH} scrollEventThrottle={16} showsHorizontalScrollIndicator={false}>
+            <View style={{ width, height }}>
               {/* the slot lattice */}
               {Array.from({ length: SLOT_COUNT }, (_, i) => (
                 <View key={i} pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: i * px, width: 1, backgroundColor: i % 4 === 0 ? "rgba(16,21,18,0.12)" : "rgba(16,21,18,0.04)" }} />
@@ -286,9 +301,8 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
                   warmUp={board.policy.warmUpMinutes}
                   packUp={board.policy.packUpMinutes}
                   onOpen={onOpen}
-                  onDragUpdate={(id, ax, ay, gx) => updateRef.current(id, ax, ay, gx)}
+                  onDragUpdate={(id, cx, cy, ax, ay) => updateRef.current(id, cx, cy, ax, ay)}
                   onDragEnd={(id, dropped) => endRef.current(id, dropped)}
-                  timelineOrigin={timelineOrigin}
                 />
               ))}
               {rows.length === 0 && (
@@ -309,7 +323,7 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
           canManage={canManage}
           reduceMotion={reduceMotion}
           onOpen={onOpen}
-          onDragUpdate={(id, ax, ay, gx) => updateRef.current(id, ax, ay, gx)}
+          onDragUpdate={(id, ax, ay) => updateRef.current(id, ...contentFromAbs(ax, ay), ax, ay)}
           onDragEnd={(id, dropped) => endRef.current(id, dropped)}
           reasonFor={reasonFor}
         />
@@ -323,7 +337,7 @@ export function PitchBoard({ board, scale, canManage, reduceMotion, staged, toda
  * the buffers are its shoulders. Press and hold lifts the whole envelope; it follows the finger and
  * settles back into place when let go (the board then redraws it where it was staged).
  */
-const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, reduceMotion, isStaged, isDragging, scrollX, scrollY, warmUp, packUp, onOpen, onDragUpdate, onDragEnd, timelineOrigin }: {
+const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, reduceMotion, isStaged, isDragging, scrollX, scrollY, warmUp, packUp, onOpen, onDragUpdate, onDragEnd }: {
   placed: Placed
   scale: BoardScale
   canManage: boolean
@@ -335,9 +349,11 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
   warmUp: number
   packUp: number
   onOpen: (fixture: AllocationFixture) => void
-  onDragUpdate: (fixtureId: string, absX: number, absY: number, grabOffsetX: number) => void
+  /** contentX/contentY are exact content-space coordinates, computed here from this block's own known
+   * position plus the gesture's own translation -- never from an absolute screen measurement. absX/absY
+   * are the raw finger position, passed through only for the parent's auto-scroll edge check. */
+  onDragUpdate: (fixtureId: string, contentX: number, contentY: number, absX: number, absY: number) => void
   onDragEnd: (fixtureId: string, dropped: boolean) => void
-  timelineOrigin: React.MutableRefObject<{ x: number; y: number; width: number; height: number }>
 }) {
   const { fixture: f, row, start, playStart, playEnd, end } = placed
   const left = minutesToX(start, scale)
@@ -350,11 +366,16 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
   const lifted = useSharedValue(0)
   const startScrollX = useSharedValue(0)
   const startScrollY = useSharedValue(0)
-  const grabOffsetX = useSharedValue(0)
   const severity = placed.conflict?.severity ?? (placed.trainingReason ? "hard" : null)
   const reason = placed.conflict?.reason ?? placed.trainingReason
   const roomy = matchW >= 120
   const labelRoom = warmW >= 44
+  // THE MATCH'S OWN CONTENT-SPACE LEFT EDGE, exactly, at the moment of grab -- not the finger's screen
+  // position converted through a measured origin. Wherever inside the card you grab it, this is what
+  // moves; the card's own displacement (its OWN left/top, following the gesture's translation) is the
+  // whole of the maths, and cannot go stale the way a cached absolute measurement can.
+  const startLeft = left + warmW
+  const startTop = row.top
 
   const pan = useMemo(() => Gesture.Pan()
     .enabled(canManage)
@@ -363,16 +384,15 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
       lifted.value = reduceMotion ? 1 : withSpring(1, { damping: 18, stiffness: 220 })
       startScrollX.value = scrollX.value
       startScrollY.value = scrollY.value
-      // where the finger grabbed, relative to the MATCH's left edge, so the kick-off snaps to where the card is, not the finger.
-      const matchLeftAbs = timelineOrigin.current.x + left + warmW - scrollX.value
-      grabOffsetX.value = e.absoluteX - matchLeftAbs
       runOnJS(haptic.lift)()
-      runOnJS(onDragUpdate)(f.fixtureId, e.absoluteX, e.absoluteY, grabOffsetX.value)
+      runOnJS(onDragUpdate)(f.fixtureId, startLeft, startTop, e.absoluteX, e.absoluteY)
     })
     .onUpdate((e) => {
-      tx.value = e.translationX + (scrollX.value - startScrollX.value)
-      ty.value = e.translationY + (scrollY.value - startScrollY.value)
-      runOnJS(onDragUpdate)(f.fixtureId, e.absoluteX, e.absoluteY, grabOffsetX.value)
+      const dx = e.translationX + (scrollX.value - startScrollX.value)
+      const dy = e.translationY + (scrollY.value - startScrollY.value)
+      tx.value = dx
+      ty.value = dy
+      runOnJS(onDragUpdate)(f.fixtureId, startLeft + dx, startTop + dy, e.absoluteX, e.absoluteY)
     })
     .onEnd(() => {
       runOnJS(onDragEnd)(f.fixtureId, true)
@@ -382,7 +402,7 @@ const FixtureBlock = memo(function FixtureBlock({ placed, scale, canManage, redu
       lifted.value = reduceMotion ? 0 : withTiming(0, { duration: 160 })
       tx.value = reduceMotion ? 0 : withTiming(0, { duration: 160 })
       ty.value = reduceMotion ? 0 : withTiming(0, { duration: 160 })
-    }), [canManage, reduceMotion, f.fixtureId, left, warmW, onDragUpdate, onDragEnd, lifted, tx, ty, startScrollX, startScrollY, grabOffsetX, scrollX, scrollY, timelineOrigin])
+    }), [canManage, reduceMotion, f.fixtureId, startLeft, startTop, onDragUpdate, onDragEnd, lifted, tx, ty, startScrollX, startScrollY, scrollX, scrollY])
 
   const style = useAnimatedStyle(() => ({
     transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: 1 + lifted.value * 0.03 }],
@@ -460,7 +480,8 @@ function UnallocatedTray({ fixtures, canManage, reduceMotion, onOpen, onDragUpda
   canManage: boolean
   reduceMotion: boolean
   onOpen: (fixture: AllocationFixture) => void
-  onDragUpdate: (fixtureId: string, absX: number, absY: number, grabOffsetX: number) => void
+  /** The finger's raw screen position; the parent converts it to content space via the viewport origin. */
+  onDragUpdate: (fixtureId: string, absX: number, absY: number) => void
   onDragEnd: (fixtureId: string, dropped: boolean) => void
   reasonFor: (fixture: AllocationFixture) => string
 }) {
@@ -493,7 +514,7 @@ function UnallocatedTray({ fixtures, canManage, reduceMotion, onOpen, onDragUpda
   )
 }
 
-const TrayCard = memo(function TrayCard({ fixture: f, tint, reason, canManage, reduceMotion, onOpen, onDragUpdate, onDragEnd }: { fixture: AllocationFixture; tint: { bg: string; fg: string }; reason: string; canManage: boolean; reduceMotion: boolean; onOpen: (f: AllocationFixture) => void; onDragUpdate: (id: string, ax: number, ay: number, gx: number) => void; onDragEnd: (id: string, dropped: boolean) => void }) {
+const TrayCard = memo(function TrayCard({ fixture: f, tint, reason, canManage, reduceMotion, onOpen, onDragUpdate, onDragEnd }: { fixture: AllocationFixture; tint: { bg: string; fg: string }; reason: string; canManage: boolean; reduceMotion: boolean; onOpen: (f: AllocationFixture) => void; onDragUpdate: (id: string, ax: number, ay: number) => void; onDragEnd: (id: string, dropped: boolean) => void }) {
   const tx = useSharedValue(0)
   const ty = useSharedValue(0)
   const lifted = useSharedValue(0)
@@ -503,12 +524,12 @@ const TrayCard = memo(function TrayCard({ fixture: f, tint, reason, canManage, r
     .onStart((e) => {
       lifted.value = reduceMotion ? 1 : withSpring(1, { damping: 18, stiffness: 220 })
       runOnJS(haptic.lift)()
-      runOnJS(onDragUpdate)(f.fixtureId, e.absoluteX, e.absoluteY, 0)
+      runOnJS(onDragUpdate)(f.fixtureId, e.absoluteX, e.absoluteY)
     })
     .onUpdate((e) => {
       tx.value = e.translationX
       ty.value = e.translationY
-      runOnJS(onDragUpdate)(f.fixtureId, e.absoluteX, e.absoluteY, 0)
+      runOnJS(onDragUpdate)(f.fixtureId, e.absoluteX, e.absoluteY)
     })
     .onEnd(() => { runOnJS(onDragEnd)(f.fixtureId, true) })
     .onFinalize((_e, success) => {
