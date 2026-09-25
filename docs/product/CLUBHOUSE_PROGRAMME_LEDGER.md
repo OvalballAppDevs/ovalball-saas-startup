@@ -5,7 +5,7 @@ Tracks actual delivery status against `CLUBHOUSE_MASTER_PROJECT_PLAN.md`. Update
 | # | Section | Status | Start HEAD | End HEAD | Migration | Tests | Device Proof | Owner Review | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | — | Clubhouse V1 (pre-programme foundation) | COMPLETE | `bf6d87c` | `130b284` | None applied | 10 new (`clubhouse.test.mts`) + 8 updated | None (no Xcode/EAS/device access) | PENDING | Native map/list/sheet, partner actions, web consolidation. See `CLUBHOUSE_V1_COMPLETION_REPORT.md`. |
-| 1 | Shell & Navigation | **COMPLETE** | `130b284` | *(pending this commit)* | None applied | 1 new (`navigation_architecture.test.mts`) | None | PENDING | Clubhouse promoted to top-level (ungrouped) web nav for Club Admin, matching Dashboard's own treatment. Mobile nav already correct from V1. See `docs/product/clubhouse/SECTION_01_SHELL_AND_NAVIGATION.md`. |
+| 1 | Shell & Navigation | **COMPLETE** | `130b284` | `e0e14c5` | None applied | 1 new (`navigation_architecture.test.mts`) | None | PENDING | Clubhouse promoted to top-level (ungrouped) web nav for Club Admin, matching Dashboard's own treatment. Mobile nav already correct from V1. See `docs/product/clubhouse/SECTION_01_SHELL_AND_NAVIGATION.md`. |
 | 2 | Map & Club Discovery | NOT STARTED | — | — | — | — | — | — | — |
 | 3 | Club Directory & Geo Coverage | NOT STARTED | — | — | — | — | — | — | — |
 | 4 | Club Profile / Club Card | NOT STARTED | — | — | — | — | — | — | — |
