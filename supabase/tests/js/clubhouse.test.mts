@@ -9,6 +9,7 @@ import {
   deriveClubNetworkActions,
   distanceMiles,
   findDistanceOrigin,
+  isKnownTestFixture,
   isValidClubCoordinate,
   matchesClubhouseQuery,
   resolveClubLocation,
@@ -335,6 +336,18 @@ test("a directory-only (unclaimed) club can never reach 'venue' precision -- it 
   // venue argument is ever available to pass for one, so the caller always passes null.
   const directory = { latitude: 53.77, longitude: -2.7, geocodeSuccess: true }
   assert.equal(resolveClubLocation(directory, null).precision, "postcode")
+})
+
+test("isKnownTestFixture matches the real, live partnership_automation.sql fixture rows and nothing that looks like a genuine club", () => {
+  // The exact 4 rows found live in the review database -- confirmed a real user was shown "Auto
+  // Partner Test Home RUFC" in Clubhouse's own club list on a physical device.
+  assert.equal(isKnownTestFixture({ source: "site_admin_manual", verification_status: "unverified" }), true)
+  // A genuinely verified manually-added club (the same source, a real verification status) must never
+  // be excluded -- this is not a blanket ban on `site_admin_manual`.
+  assert.equal(isKnownTestFixture({ source: "site_admin_manual", verification_status: "source_verified" }), false)
+  // An unverified row from a REAL governing-body source (e.g. a freshly-discovered Wikipedia row
+  // awaiting confirmation) must never be excluded either -- only the exact combination is a fixture.
+  assert.equal(isKnownTestFixture({ source: "wikipedia_current_league_discovery", verification_status: "unverified" }), false)
 })
 
 test("a team-context viewer (fixture authority, no club.partners.manage) gets a safe projection: can find a fixture, cannot see or act on partnership", () => {

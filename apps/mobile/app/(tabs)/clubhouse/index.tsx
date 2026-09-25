@@ -116,49 +116,55 @@ export default function Clubhouse() {
 
       {/* THE MAP IS THE HERO (Section 2/11) -- no page-title header eating vertical space above it.
           Search and filters float as a card over the map/list instead of occupying a fixed chalk
-          block, so the map reaches right up under the app header. */}
+          block. THIS WRAPPER, not the screen root, is what every `position: "absolute"` child below
+          is measured against -- it starts right after AppHeader ends, so a `top: space.md` overlay
+          floats just under the header instead of covering it (a real bug found live: the overlay used
+          to be a sibling of AppHeader at the screen root, so it rendered on top of the header itself,
+          hiding the identity/context bar entirely). */}
       <View style={{ flex: 1 }}>
-        {markers === null && !error && (
-          <View style={{ padding: space.lg, gap: space.md, paddingTop: space.xxl * 2 }}>
-            <CardSkeleton lines={2} />
-            <CardSkeleton lines={2} />
-            <CardSkeleton lines={2} />
-          </View>
-        )}
-        {error && <ErrorState message={error} onRetry={() => void load()} />}
-        {markers !== null && !error && filtered.length === 0 && (
-          <View style={{ flex: 1, paddingTop: space.xxl * 2 }}>
-            <EmptyState title="No clubs match" body="Try a different search or filter, or widen the map area." />
-          </View>
-        )}
-        {markers !== null && !error && filtered.length > 0 && mode === "map" && (
-          <ClubhouseMap markers={withLocation} onSelect={setSelected} />
-        )}
-        {markers !== null && !error && filtered.length > 0 && mode === "list" && (
-          <ClubhouseList markers={filtered} onSelect={setSelected} topInset={chromeExpanded ? 172 : 116} />
-        )}
-      </View>
-
-      <View style={{ position: "absolute", top: space.md, left: space.lg, right: space.lg, gap: space.sm }}>
-        <View style={{ borderRadius: radius.lg, backgroundColor: colour.surface, padding: space.sm, gap: space.sm, ...elevation.card }}>
-          <SearchField value={query} onChange={setQuery} />
-          <FilterChips filter={filter} onChange={setFilter} />
-          {origin && (
-            <>
-              <Pressable accessibilityRole="button" onPress={() => setChromeExpanded((v) => !v)} style={{ alignSelf: "flex-start" }}>
-                <Text style={[type.caption, { color: colour.forest800 }]}>{chromeExpanded ? "Hide distance" : distance === "any" ? "Add distance filter" : `Within ${distance} miles`}</Text>
-              </Pressable>
-              {chromeExpanded && <DistanceChips distance={distance} onChange={setDistance} />}
-            </>
+        <View style={{ flex: 1 }}>
+          {markers === null && !error && (
+            <View style={{ padding: space.lg, gap: space.md, paddingTop: space.xxl * 2 }}>
+              <CardSkeleton lines={2} />
+              <CardSkeleton lines={2} />
+              <CardSkeleton lines={2} />
+            </View>
+          )}
+          {error && <ErrorState message={error} onRetry={() => void load()} />}
+          {markers !== null && !error && filtered.length === 0 && (
+            <View style={{ flex: 1, paddingTop: space.xxl * 2 }}>
+              <EmptyState title="No clubs match" body="Try a different search or filter, or widen the map area." />
+            </View>
+          )}
+          {markers !== null && !error && filtered.length > 0 && mode === "map" && (
+            <ClubhouseMap markers={withLocation} onSelect={setSelected} />
+          )}
+          {markers !== null && !error && filtered.length > 0 && mode === "list" && (
+            <ClubhouseList markers={filtered} onSelect={setSelected} topInset={chromeExpanded ? 172 : 116} />
           )}
         </View>
-      </View>
 
-      {/* MAP | LIST -- Section 20: the same search/filter query backs both, so switching never loses
-          a non-geocoded club (the map alone cannot show one; the list always can). */}
-      <View style={{ position: "absolute", bottom: insets.bottom + space.lg, alignSelf: "center", flexDirection: "row", borderRadius: radius.pill, backgroundColor: colour.forest950, padding: 4, gap: 4 }}>
-        <ModeButton label="Map" icon={<Layers size={16} color={mode === "map" ? colour.forest950 : colour.onForest} />} active={mode === "map"} onPress={() => setMode("map")} />
-        <ModeButton label="List" icon={<LayoutGrid size={16} color={mode === "list" ? colour.forest950 : colour.onForest} />} active={mode === "list"} onPress={() => setMode("list")} />
+        <View style={{ position: "absolute", top: space.md, left: space.lg, right: space.lg, gap: space.sm }}>
+          <View style={{ borderRadius: radius.lg, backgroundColor: colour.surface, padding: space.sm, gap: space.sm, ...elevation.card }}>
+            <SearchField value={query} onChange={setQuery} />
+            <FilterChips filter={filter} onChange={setFilter} />
+            {origin && (
+              <>
+                <Pressable accessibilityRole="button" onPress={() => setChromeExpanded((v) => !v)} style={{ alignSelf: "flex-start" }}>
+                  <Text style={[type.caption, { color: colour.forest800 }]}>{chromeExpanded ? "Hide distance" : distance === "any" ? "Add distance filter" : `Within ${distance} miles`}</Text>
+                </Pressable>
+                {chromeExpanded && <DistanceChips distance={distance} onChange={setDistance} />}
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* MAP | LIST -- Section 20: the same search/filter query backs both, so switching never loses
+            a non-geocoded club (the map alone cannot show one; the list always can). */}
+        <View style={{ position: "absolute", bottom: insets.bottom + space.lg, alignSelf: "center", flexDirection: "row", borderRadius: radius.pill, backgroundColor: colour.forest950, padding: 4, gap: 4 }}>
+          <ModeButton label="Map" icon={<Layers size={16} color={mode === "map" ? colour.forest950 : colour.onForest} />} active={mode === "map"} onPress={() => setMode("map")} />
+          <ModeButton label="List" icon={<LayoutGrid size={16} color={mode === "list" ? colour.forest950 : colour.onForest} />} active={mode === "list"} onPress={() => setMode("list")} />
+        </View>
       </View>
 
       <ClubSheet

@@ -95,7 +95,26 @@ type DirectoryRow = {
   longitude: number | null
   geocode_status: string
   logo_storage_path: string | null
+  source: string
+  verification_status: string
   clubs: { logo_storage_path: string | null } | null
+}
+
+/**
+ * A real, live finding: `supabase/tests/partnership_automation.sql` is a deliberate SPECIAL_PURPOSE
+ * manual-verification suite (not part of the automated CANONICAL_GATE) that, by design, COMMITS its
+ * fixture rows rather than rolling them back -- "Auto Partner Test Home/Away/Deactivated RUFC," fixed
+ * `99900000-...` sentinel ids -- so a developer can re-run it and inspect results afterward. That is
+ * correct behaviour for that suite. It is not correct for Clubhouse to then present those rows to a
+ * real reviewing user as if they were real clubs, which is exactly what happened on a live device.
+ * `source = 'site_admin_manual' AND verification_status = 'unverified'` matches precisely these 4 rows
+ * today (confirmed by direct query) and nothing else -- narrow and safe, not a blunt exclusion of every
+ * manually-added club (a verified one would never match both conditions). This filters the READ MODEL
+ * only; no database row is touched, so the suite that created them remains exactly as repeatable as it
+ * was designed to be.
+ */
+export function isKnownTestFixture(row: { source: string; verification_status: string }): boolean {
+  return row.source === "site_admin_manual" && row.verification_status === "unverified"
 }
 
 /**
@@ -142,12 +161,12 @@ async function fetchAllDirectoryRows(supabase: Client): Promise<DirectoryRow[]> 
   for (let page = 0; ; page++) {
     const { data, error } = await supabase
       .from("club_directory")
-      .select("id, name, rugby_code, town, county, postcode, latitude, longitude, geocode_status, logo_storage_path, clubs(logo_storage_path)")
+      .select("id, name, rugby_code, town, county, postcode, latitude, longitude, geocode_status, logo_storage_path, source, verification_status, clubs(logo_storage_path)")
       .eq("active", true)
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
     if (error) throw error
     if (!data || data.length === 0) break
-    rows.push(...(data as unknown as DirectoryRow[]))
+    rows.push(...((data as unknown as DirectoryRow[]).filter((row) => !isKnownTestFixture(row))))
     if (data.length < PAGE_SIZE) break
   }
   return rows
