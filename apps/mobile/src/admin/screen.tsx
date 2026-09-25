@@ -22,28 +22,29 @@ export function AdminScreen({ section, children, refreshing = false, onRefresh, 
   const back = () => (router.canGoBack() ? router.back() : router.dismissTo("/admin"))
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
+      {/* THE HEADER, in the brand's own forest ground -- the same dark green as the bottom bar and the
+          launch screen, deliberately made app-wide (not a one-screen change) so every Club Admin
+          section reads as one product rather than a light bar on some screens and a dark one on others. */}
       <View
         style={{
           paddingTop: insets.top + space.xs,
-          paddingBottom: space.xs,
+          paddingBottom: space.sm,
           paddingHorizontal: space.sm,
           flexDirection: "row",
           alignItems: "center",
           gap: space.xs,
-          backgroundColor: colour.chalk,
-          borderBottomWidth: 1,
-          borderBottomColor: colour.line,
+          backgroundColor: colour.forest950,
         }}
       >
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} hitSlop={6} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: pressed ? "rgba(16,21,18,0.06)" : "transparent" })}>
-          <ChevronLeft size={24} color={colour.forest800} strokeWidth={2.2} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} hitSlop={6} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: pressed ? "rgba(255,255,255,0.08)" : "transparent" })}>
+          <ChevronLeft size={24} color={colour.onForest} strokeWidth={2.2} />
         </Pressable>
         <ClubCrest clubName={club.name} url={club.crestUrl} size={30} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[type.caption, { color: colour.forest800, textTransform: "uppercase", letterSpacing: 1, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
+          <Text style={[type.caption, { color: colour.onForestMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
             {club.name ?? "Admin Centre"}
           </Text>
-          <Text style={[type.smallMedium, { color: colour.ink, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
+          <Text style={[type.smallMedium, { color: colour.onForest, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
             {section}
           </Text>
         </View>

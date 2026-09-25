@@ -210,21 +210,23 @@ export default function PitchAllocationScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      {/* THE TOP BAR: back, the club, the screen, full screen. Compact on purpose. */}
-      <View style={{ paddingTop: insets.top + 4, paddingBottom: 4, paddingHorizontal: space.sm, flexDirection: "row", alignItems: "center", gap: space.xs, borderBottomWidth: 1, borderBottomColor: colour.line }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => (router.canGoBack() ? router.back() : router.dismissTo("/admin"))} hitSlop={6} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: pressed ? "rgba(16,21,18,0.06)" : "transparent" })}>
-          <ChevronLeft size={24} color={colour.forest800} strokeWidth={2.2} />
+      {/* THE TOP BAR: the same dark forest header every Club Admin screen now uses (src/admin/screen.tsx),
+          reproduced here rather than wrapped in AdminScreen because this screen needs the full-screen
+          toggle inline with it -- back, the club, the screen, full screen. Compact on purpose. */}
+      <View style={{ paddingTop: insets.top + 4, paddingBottom: space.sm, paddingHorizontal: space.sm, flexDirection: "row", alignItems: "center", gap: space.xs, backgroundColor: colour.forest950 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => (router.canGoBack() ? router.back() : router.dismissTo("/admin"))} hitSlop={6} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: pressed ? "rgba(255,255,255,0.08)" : "transparent" })}>
+          <ChevronLeft size={24} color={colour.onForest} strokeWidth={2.2} />
         </Pressable>
         {!fullScreen && <ClubCrest clubName={club.name} url={club.crestUrl} size={28} />}
         <View style={{ flex: 1, minWidth: 0 }}>
-          {!fullScreen && <Text style={[type.caption, { color: colour.forest800, textTransform: "uppercase", letterSpacing: 1, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{club.name ?? "Admin Centre"}</Text>}
-          <Text style={[type.smallMedium, { color: colour.ink, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>Pitch Allocation{fullScreen && dateIso ? ` · ${exactDate(dateIso)}` : ""}</Text>
+          {!fullScreen && <Text style={[type.caption, { color: colour.onForestMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>{club.name ?? "Admin Centre"}</Text>}
+          <Text style={[type.smallMedium, { color: colour.onForest, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>Pitch Allocation{fullScreen && dateIso ? ` · ${exactDate(dateIso)}` : ""}</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel={fullScreen ? "Leave full screen" : "Full screen board"} onPress={() => setFullScreen((v) => !v)} hitSlop={6} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
-          {fullScreen ? <Minimize2 size={20} color={colour.forest800} /> : <Maximize2 size={20} color={colour.forest800} />}
+          {fullScreen ? <Minimize2 size={20} color={colour.onForest} /> : <Maximize2 size={20} color={colour.onForest} />}
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="More actions" onPress={() => setActions(true)} hitSlop={6} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
-          <Ellipsis size={22} color={colour.forest800} />
+          <Ellipsis size={22} color={colour.onForest} />
         </Pressable>
       </View>
 
