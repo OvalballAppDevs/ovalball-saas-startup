@@ -126,7 +126,7 @@ export default function ReferAClub() {
         <SubmitButton label="Find a Club to Invite" onPress={() => router.push("/clubhouse/map" as never)} />
 
         <Pressable accessibilityRole="link" accessibilityLabel="Referral terms" onPress={() => void Linking.openURL(`${webUrl}/legal/referral-terms`)} style={{ alignItems: "center", minHeight: TOUCH_TARGET, justifyContent: "center" }}>
-          <Text style={[type.small, { color: colour.forest800, textDecorationLine: "underline" }]}>Referral Terms</Text>
+          <Text style={[type.small, { color: colour.forest800, textDecorationLine: "underline" }]}>Referral terms</Text>
         </Pressable>
       </ScrollView>
     </View>

@@ -97,7 +97,7 @@ export function ClaimClubDialog({
           <div className="flex flex-col gap-4">
             <div>
               <Label htmlFor="claim-role" className="text-ink/80">
-                Your Role At This Club
+                Your Role at This Club
               </Label>
               <select
                 id="claim-role"
@@ -115,7 +115,7 @@ export function ClaimClubDialog({
             </div>
             <div>
               <Label htmlFor="claim-declaration" className="text-ink/80">
-                Why Can You Act For {clubName}?
+                Why You Can Act for {clubName}
               </Label>
               <textarea
                 id="claim-declaration"

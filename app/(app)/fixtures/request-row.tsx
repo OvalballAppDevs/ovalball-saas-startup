@@ -296,7 +296,7 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
               />
             </label>
             <label className="flex flex-col gap-0.5 text-xs text-ink-muted">
-              Kick-off
+              Kick-Off
               <input
                 type="time"
                 value={counterKickoff}

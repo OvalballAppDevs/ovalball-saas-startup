@@ -750,7 +750,7 @@ function ClubSheet({
               Site Admin reviews every claim by hand; a claimed role is only ever a suggestion. */}
           {claimForm !== null && !claimSubmitted && (
             <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.chalk }}>
-              <Field label="Your Role At This Club">
+              <Field label="Your Role at This Club">
                 <ChoiceField
                   label="Your role at this club"
                   value={claimForm.role}
@@ -758,7 +758,7 @@ function ClubSheet({
                   options={CLAIMABLE_ROLES.map((r) => ({ value: r, label: r }))}
                 />
               </Field>
-              <Field label={`Why can you act for ${marker.name}?`}>
+              <Field label={`Why You Can Act for ${marker.name}`}>
                 <TextField
                   label="Why can you act for this club"
                   value={claimForm.declaration}
