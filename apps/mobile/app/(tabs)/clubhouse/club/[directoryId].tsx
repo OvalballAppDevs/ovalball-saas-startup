@@ -477,7 +477,7 @@ function DirectoryOnlyBody({ marker, detail, viewerClubId }: { marker: ClubMapMa
       <ProfileCard>
         <StatusPill label="Not on Ovalball yet" tone="caution" />
         <Text style={[type.small, { color: colour.inkMuted }]}>
-          This club has not joined Ovalball. What you see here is what the club directory already knows -- nothing else is guessed or invented.
+          This club has not joined Ovalball. What you see here is what the Club Directory already knows -- nothing else is guessed or invented.
         </Text>
         {detail?.website && (
           <Pressable accessibilityRole="link" accessibilityLabel="Open club website" onPress={() => void Linking.openURL(detail.website as string)} style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
