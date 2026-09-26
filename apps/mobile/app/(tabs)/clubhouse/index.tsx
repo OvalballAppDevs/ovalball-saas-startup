@@ -16,7 +16,7 @@ import { editorial } from "../../../src/components/home/editorial"
 import { resolveIntent } from "../../../src/links/intents"
 import { narrowIntentForContext, routeForIntent } from "../../../src/links/destinations"
 import { webUrl } from "../../../src/config/environment"
-import { CalendarDays, ChevronRight, HeartHandshake, MapPin, Search } from "../../../src/components/icons"
+import { CalendarDays, ChevronRight, HeartHandshake, MapPin, Megaphone, Search } from "../../../src/components/icons"
 import { colour, radius, space, surface, type } from "../../../src/design/tokens"
 
 /**
@@ -270,6 +270,9 @@ function ReferralPromoCard({ onPress }: { onPress: () => void }) {
         opacity: pressed ? 0.92 : 1,
       })}
     >
+      <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" }}>
+        <Megaphone size={20} color={colour.onForest} strokeWidth={2} />
+      </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={[type.smallMedium, { color: colour.mint300 }]}>Refer a rugby club</Text>
         <Text style={[type.heading, { color: colour.onForest, marginTop: 2 }]}>Get 1 month free</Text>
