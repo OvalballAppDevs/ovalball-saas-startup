@@ -26,7 +26,9 @@ import { supabase } from "../../../src/auth/supabase"
 import { useSession } from "../../../src/auth/session"
 import { useAppContexts } from "../../../src/context/contexts"
 import { startClubConversation } from "../../../src/messages/club-conversations"
+import { CLAIMABLE_ROLES, submitClubClaim, type ClaimableRole } from "../../../src/clubhouse/claims"
 import { BottomSheet } from "../../../src/components/bottom-sheet"
+import { ChoiceField, Field, TextField } from "../../../src/components/form"
 import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../src/components/ui"
 import { ChevronDown, ChevronRight, LayoutGrid, MapPin, Search, Share2, SlidersHorizontal, X } from "../../../src/components/icons"
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
@@ -551,6 +553,9 @@ function ClubSheet({
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [messageDraft, setMessageDraft] = useState<string | null>(null)
   const [sendingMessage, setSendingMessage] = useState(false)
+  const [claimForm, setClaimForm] = useState<{ role: ClaimableRole; declaration: string } | null>(null)
+  const [claimSubmitting, setClaimSubmitting] = useState(false)
+  const [claimSubmitted, setClaimSubmitted] = useState(false)
 
   useEffect(() => {
     setDetail(null)
@@ -558,6 +563,8 @@ function ClubSheet({
     setInvite(null)
     setInviteLink(null)
     setMessageDraft(null)
+    setClaimForm(null)
+    setClaimSubmitted(false)
     if (!marker) return
     let live = true
     void readClubDetail(supabase, marker, viewerClubId, viewerTeamId).then((d) => {
@@ -726,6 +733,57 @@ function ClubSheet({
             </View>
           )}
 
+          {/* SECTION 14 (CLUBHOUSE): claiming is how someone GETS authority over a club, so this form
+              is offered to any signed-in viewer who reaches this sheet at all -- never gated on
+              detail.actions, which all describe authority the viewer would already need to hold. A
+              Site Admin reviews every claim by hand; a claimed role is only ever a suggestion. */}
+          {claimForm !== null && !claimSubmitted && (
+            <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.chalk }}>
+              <Field label="Your Role At This Club">
+                <ChoiceField
+                  label="Your role at this club"
+                  value={claimForm.role}
+                  onChange={(role) => setClaimForm({ ...claimForm, role })}
+                  options={CLAIMABLE_ROLES.map((r) => ({ value: r, label: r }))}
+                />
+              </Field>
+              <Field label={`Why can you act for ${marker.name}?`}>
+                <TextField
+                  label="Why can you act for this club"
+                  value={claimForm.declaration}
+                  onChange={(declaration) => setClaimForm({ ...claimForm, declaration })}
+                  placeholder="e.g. I was elected Club Secretary at the AGM and I'm the point of contact for fixtures."
+                  multiline
+                />
+              </Field>
+              <Button
+                label="Submit Claim"
+                busy={claimSubmitting}
+                disabled={claimForm.declaration.trim().length < 20}
+                onPress={async () => {
+                  setClaimSubmitting(true)
+                  setFeedback(null)
+                  const result = await submitClubClaim(supabase, marker.directoryId, claimForm.role, claimForm.declaration)
+                  setClaimSubmitting(false)
+                  if (!result.ok) {
+                    setFeedback(result.error)
+                    return
+                  }
+                  setClaimSubmitted(true)
+                }}
+              />
+            </View>
+          )}
+
+          {claimSubmitted && (
+            <View style={{ gap: space.xs, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.chalk }}>
+              <Text style={[type.smallMedium, { color: colour.ink }]}>Claim sent</Text>
+              <Text style={[type.caption, { color: colour.inkMuted }]}>
+                A Site Admin reviews every claim by hand -- this is not an automatic sign-up. Ovalball will contact you once it has been reviewed.
+              </Text>
+            </View>
+          )}
+
           {detail && (
             <View style={{ gap: space.sm }}>
               {detail.actions.canFindFixture && (
@@ -786,6 +844,9 @@ function ClubSheet({
                 <Button variant="quiet" label="End Partnership" busy={busy} onPress={() => void act(() => revokePartnership(supabase, marker.partnershipId as string))} />
               )}
               {detail.actions.canInviteToOvalball && !invite && !inviteLink && <Button variant="secondary" label="Invite to Ovalball" onPress={() => setInvite({ name: "", email: "" })} />}
+              {marker.networkState === "not_on_ovalball" && claimForm === null && !claimSubmitted && (
+                <Button variant="secondary" label="Claim This Club" onPress={() => setClaimForm({ role: "Committee Member", declaration: "" })} />
+              )}
               {marker.slug && (
                 <Button variant="quiet" label="View Club" onPress={() => void Linking.openURL(`${webUrl}/clubs/${marker.slug}`)} />
               )}

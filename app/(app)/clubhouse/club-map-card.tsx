@@ -8,6 +8,7 @@ import { ClubAvatar } from "@/components/club/club-avatar"
 import { Button } from "@/components/ui/button"
 
 import { respondToPartnership, requestPartnership } from "./actions"
+import { ClaimClubDialog } from "./claim-club-dialog"
 import { ClubStatusPill } from "./club-status-pill"
 import { InviteClubDialog } from "./invite-club-dialog"
 import { MessageClubDialog } from "./message-club-dialog"
@@ -30,7 +31,11 @@ const RUGBY_CODE_LABEL: Record<string, string> = { union: "Union", league: "Leag
  * no manageable club at all should never see it; the RPC's own authority
  * check remains the real gate regardless of what this card shows.
  *
-
+ * CLUBHOUSE PROGRAMME SECTION 14: "Claim This Club" is offered to ANY signed-in viewer who reaches this
+ * card at all (never gated on canManagePartnerships) -- submit_club_claim itself checks only that the
+ * caller is signed in with a usable session, because claiming is how someone GETS authority over a
+ * club, not something that already requires it.
+ *
  * CLUBHOUSE PROGRAMME SECTION 5: `canManagePartnerships` gates Request
  * Partnership/Accept/Decline/Revoke -- this card is now reachable by a
  * legitimate team-context viewer too (the Section 2 nav entry always
@@ -59,6 +64,7 @@ export function ClubMapCard({
   const [localStatus, setLocalStatus] = useState(club.partnershipStatus)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [messageOpen, setMessageOpen] = useState(false)
+  const [claimOpen, setClaimOpen] = useState(false)
 
   async function handleRequest() {
     if (!club.clubId) return
@@ -152,12 +158,18 @@ export function ClubMapCard({
         </div>
       )}
 
-      {canManagePartnerships && !club.isOwnClub && !club.clubId && (
+      {!club.isOwnClub && !club.clubId && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" className="h-9 bg-pitch-600 text-white hover:bg-pitch-600/90" onClick={() => setInviteOpen(true)}>
-            Invite
+          {canManagePartnerships && (
+            <Button type="button" size="sm" className="h-9 bg-pitch-600 text-white hover:bg-pitch-600/90" onClick={() => setInviteOpen(true)}>
+              Invite
+            </Button>
+          )}
+          <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => setClaimOpen(true)}>
+            Claim This Club
           </Button>
           <InviteClubDialog open={inviteOpen} onOpenChange={setInviteOpen} clubDirectoryId={club.directoryId} clubName={club.name} />
+          <ClaimClubDialog open={claimOpen} onOpenChange={setClaimOpen} clubDirectoryId={club.directoryId} clubName={club.name} />
         </div>
       )}
 
