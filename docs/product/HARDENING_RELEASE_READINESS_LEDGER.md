@@ -1091,7 +1091,15 @@ TO-E9/E10 comments rather than assertions.
   interaction chain. See `docs/mobile/CA_M11_3_SOCIAL_AUTH_MAP.md` for the full per-provider breakdown.
 
 
-## H34 — Clubhouse Sections 15/16 (Looking for Opposition / Opportunity Matching): parked pending owner activation
+## H34 — RESOLVED. Clubhouse Sections 15/16 (Looking for Opposition / Opportunity Matching): parked pending owner activation
+
+**Resolved this run.** The owner reconciled the parked draft against current architecture (classification
+B: adopt the concept, reissue as a new migration, never apply the parked file) and explicitly authorised
+Sections 15/16. Implemented as `20270560000000_looking_for_opposition_current.sql` +
+`20270561000000_fixture_request_countered_was_never_registered.sql` (a genuine, currently-live Section 9
+defect found reconciling the notification catalogue, fixed in its own migration). The parked file remains
+byte-identical, unapplied, historical reference only. Full detail: `docs/product/clubhouse/
+SECTION_15_16_LOOKING_FOR_OPPOSITION.md`. The original finding below is kept for the historical record.
 
 - **The Section 15 schema already exists, fully written, as an unapplied/untracked migration** —
   `supabase/migrations/20270554000000_looking_for_opposition.sql` (509 lines, checksum

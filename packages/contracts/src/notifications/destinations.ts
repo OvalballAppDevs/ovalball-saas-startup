@@ -126,9 +126,22 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "fixture_request_received":
     case "fixture_request_accepted":
     case "fixture_request_declined":
+    case "fixture_request_countered":
     case "team_created_from_fixture_request": {
       const requestId = str(data.fixture_request_id)
       return requestId ? `/messages/request/${requestId}` : "/fixtures"
+    }
+
+    // ---- Looking for Opposition (Clubhouse Sections 15/16) --------------
+    // The publisher's/responder's own listing, opened on the Looking for Opposition screen -- never a
+    // second per-notification page, matching every other notification here pointing at the one canonical
+    // surface the record already lives on.
+    case "fixture_opportunity_cancelled":
+    case "fixture_opportunity_response_received":
+    case "fixture_opportunity_response_declined":
+    case "fixture_opportunity_filled": {
+      const opportunityId = str(data.opportunity_id)
+      return opportunityId ? `/clubhouse/opportunities?highlight=${opportunityId}` : "/clubhouse/opportunities"
     }
 
     // ---- Call-ups, dispensations and player moves -----------------------

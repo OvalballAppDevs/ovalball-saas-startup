@@ -994,6 +994,11 @@
       "owner": "Age-grade and eligibility",
       "reason": "Code-specific later-youth pathways, the exact signup catalogues, and the RFL's published sex variation."
     },
+    "looking_for_opposition": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Clubhouse programme",
+      "reason": "Clubhouse Programme Sections 15/16 (20270560000000, the CURRENT migration -- the parked draft 20270554000000 this reconciles against was never applied). Proves authority (publish/respond/cancel, incompatible-team refusal, cross-club refusal, no direct table insert possible for authenticated), safeguarding (a view_only/parent/player team member sees zero rows via RLS and receives none of the four opportunity notification types -- only team_admin/coach/manager do), the full lifecycle (publish/cancel/respond/withdraw/decline/accept, single-winner supersede, real query-time expiry with no persist-then-refuse attempt), convergence (accepted response creates a real fixtures row via the one canonical accept_fixture_request path, never a direct insert; correct home/away inversion; explicit integration with internal.enforce_fixture_request_not_duplicate() returning a specific, actionable refusal rather than a raw trigger exception), and discovery (compatibility-filtered, distance/partnership left to the client's own existing pure functions, real availability). Self-seeding and rolled back."
+    },
     "main_bugfix_preservation_regression": {
       "disposition": "UNVERIFIED",
       "owner": "Identity/Auth and platform security",

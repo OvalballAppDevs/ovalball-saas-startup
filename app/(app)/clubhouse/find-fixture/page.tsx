@@ -6,6 +6,8 @@ import { getTeamsForActiveContext } from "@/lib/app-context/my-teams"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 
+import Link from "next/link"
+
 import { FindFixtureClient } from "./find-fixture-client"
 
 export const metadata = { title: "Find a Fixture" }
@@ -61,6 +63,19 @@ export default async function FindFixturePage({ searchParams }: FindFixturePageP
 
       <div className="mt-8">
         <FindFixtureClient clubId={clubId} contextTeamId={teamId} teams={myTeams} initialOpponent={initialOpponent} />
+      </div>
+
+      {/* SECTIONS 15/16: a secondary, prominent CTA here rather than a fifth Clubhouse Home tile
+          (owner's own product judgement) -- "we can't find anyone" and "somebody is looking for us"
+          are the same job as this whole page, from the other direction. */}
+      <div className="mt-10 rounded-lg border border-ink/10 bg-mint-100/40 px-5 py-4">
+        <p className="text-sm font-medium text-ink">Can&apos;t find a match on a date you need?</p>
+        <p className="mt-1 text-sm text-ink-muted">
+          Publish that you&apos;re looking for opposition, or see who else across Ovalball is looking for a game like yours.
+        </p>
+        <Link href="/clubhouse/opportunities" className="mt-2 inline-block text-sm font-medium text-forest-800 underline underline-offset-4">
+          Looking for Opposition
+        </Link>
       </div>
     </div>
   )

@@ -1231,6 +1231,26 @@
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
+    "fixture_opportunities": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies (Clubhouse Sections 15/16, 20270560000000); every write goes through publish_fixture_opportunity/cancel_fixture_opportunity/accept_fixture_opportunity_response -- no INSERT/UPDATE/DELETE grant exists for this table."
+      }
+    },
+    "fixture_opportunity_responses": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies (Clubhouse Sections 15/16, 20270560000000); every write goes through respond_to_fixture_opportunity/withdraw_fixture_opportunity_response/decline_fixture_opportunity_response/accept_fixture_opportunity_response -- no INSERT/UPDATE/DELETE grant exists for this table."
+      }
+    },
     "fixture_player_call_up": {
       "classification": "PRIVATE",
       "anon": {
@@ -4009,6 +4029,14 @@
         ]
       },
       {
+        "signature": "accept_fixture_opportunity_response(uuid, timestamp with time zone)",
+        "category": "APPLICATION_RPC",
+        "reason": "Clubhouse Sections 15/16 (20270560000000): accept one response to a published opportunity, converging into the canonical fixture_requests/accept_fixture_request path.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/opportunities.ts"
+        ]
+      },
+      {
         "signature": "accept_fixture_request(uuid, uuid, timestamp with time zone)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -4312,6 +4340,14 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/calendar/fixture-lifecycle-actions.ts"
+        ]
+      },
+      {
+        "signature": "cancel_fixture_opportunity(uuid, timestamp with time zone)",
+        "category": "APPLICATION_RPC",
+        "reason": "Clubhouse Sections 15/16 (20270560000000): the publisher withdraws an open Looking for Opposition listing.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/opportunities.ts"
         ]
       },
       {
@@ -4973,6 +5009,14 @@
         ]
       },
       {
+        "signature": "decline_fixture_opportunity_response(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "Clubhouse Sections 15/16 (20270560000000): the publisher declines one response without closing the opportunity to everyone else.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/opportunities.ts"
+        ]
+      },
+      {
         "signature": "delete_canonical_club(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -5158,6 +5202,14 @@
         "note": "Clubhouse Programme Section 7: batched, privacy-safe date-availability search across every compatible PARTNER club for one team, up to 6 dates, one round trip. Never returns a non-partner club. Coarse busy/request_pending rows only (opponent_team_id, the_date, status) -- no event detail, no roster, no calendar content.",
         "consumers": [
           "packages/contracts/src/clubhouse/find-fixture-availability.ts"
+        ]
+      },
+      {
+        "signature": "find_fixture_opportunities(uuid)",
+        "category": "APPLICATION_RPC",
+        "note": "Clubhouse Section 16 (20270560000000): the viewer's own team's live Looking for Opposition listings plus every other genuinely open, compatible one, one round trip. Re-derives compatibility/authority itself (SECURITY DEFINER bypasses RLS). Returns raw club_directory location facts for the OTHER club (never its venue); distance/partnership resolution stays client-side (resolveClubLocation/distanceMiles/resolvePartnershipStatus), never a second calculation here.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/opportunities.ts"
         ]
       },
       {
@@ -6264,6 +6316,14 @@
         ]
       },
       {
+        "signature": "publish_fixture_opportunity(uuid, date, time without time zone, text, text, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "Clubhouse Sections 15/16 (20270560000000): publish an open Looking for Opposition listing for one team on one date.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/opportunities.ts"
+        ]
+      },
+      {
         "signature": "publish_import_row(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6831,6 +6891,14 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/messages/club-actions.ts"
+        ]
+      },
+      {
+        "signature": "respond_to_fixture_opportunity(uuid, uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "Clubhouse Sections 15/16 (20270560000000): express interest in an open Looking for Opposition listing.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/opportunities.ts"
         ]
       },
       {
@@ -8110,6 +8178,14 @@
         ]
       },
       {
+        "signature": "withdraw_fixture_opportunity_response(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "Clubhouse Sections 15/16 (20270560000000): a responding team withdraws its own pending response.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/opportunities.ts"
+        ]
+      },
+      {
         "signature": "withdraw_match_award_vote(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -8414,6 +8490,7 @@
       "fixture_audience_recipients(uuid, text)",
       "fixture_communication_team_ids(uuid)",
       "fixture_family_visible_row(uuid, uuid, uuid, uuid)",
+      "fixture_opportunity_effective_status(text, date)",
       "fixture_result_eligible(uuid)",
       "fixture_result_notify(uuid, uuid, text, text, text)",
       "fixture_result_system_event(uuid, uuid, text)",
@@ -8550,6 +8627,7 @@
     "service_role_public": [
       "accept_directory_research_proposal(uuid)",
       "accept_fixture_request(uuid, uuid, timestamp with time zone)",
+      "accept_fixture_opportunity_response(uuid, timestamp with time zone)",
       "accept_fixture_request_with_team_action(uuid, boolean, uuid)",
       "accept_guardian_invitation(text)",
       "accept_invitation(text)",
@@ -8598,6 +8676,7 @@
       "cancel_club_platform_subscription(uuid, text)",
       "cancel_competition_match(uuid, text, text)",
       "cancel_fixture(uuid, text)",
+      "cancel_fixture_opportunity(uuid, timestamp with time zone)",
       "cancel_guardian_link_request(uuid)",
       "cancel_tournament(uuid, text)",
       "cancel_training_session(uuid, text)",
@@ -8689,6 +8768,7 @@
       "decide_player_call_up(uuid, text, text)",
       "decide_player_dispensation(uuid, text, boolean, text, text)",
       "decline_player_club_join_request(uuid, text)",
+      "decline_fixture_opportunity_response(uuid)",
       "delete_canonical_club(uuid, text)",
       "delete_club_contact(uuid)",
       "delete_club_document(uuid)",
@@ -8722,6 +8802,7 @@
       "fail_directory_verification_run(uuid, text)",
       "find_fixture_candidate_availability(uuid, date[])",
       "find_fixture_candidate_teams(uuid)",
+      "find_fixture_opportunities(uuid)",
       "fixture_availability_summary(uuid[])",
       "fixture_communication_counts(uuid)",
       "fixture_editable_fields(uuid)",
@@ -8873,6 +8954,7 @@
       "preview_training_plan_occurrences(uuid, text, uuid, jsonb)",
       "propose_tournament_at_host(uuid, uuid, date, time without time zone, text)",
       "publish_email_template_draft(text, integer)",
+      "publish_fixture_opportunity(uuid, date, time without time zone, text, text, text)",
       "publish_import_row(uuid)",
       "publish_regulatory_content_set(uuid)",
       "publish_regulatory_reporting_route(uuid)",
@@ -8955,6 +9037,7 @@
       "respond_to_additional_guardian_request(uuid, text)",
       "respond_to_attendance(uuid, uuid, text)",
       "respond_to_club_conversation(uuid, boolean)",
+      "respond_to_fixture_opportunity(uuid, uuid, text)",
       "respond_to_club_partnership(uuid, boolean)",
       "respond_to_event_attendance(uuid, uuid, text)",
       "respond_to_training_attendance(uuid, uuid, text)",
@@ -9111,6 +9194,7 @@
       "verify_regulatory_fact(uuid)",
       "verify_regulatory_reporting_route(uuid)",
       "withdraw_announcement(uuid)",
+      "withdraw_fixture_opportunity_response(uuid)",
       "withdraw_match_award_vote(uuid)",
       "withdraw_match_kudos(uuid, uuid)",
       "withdraw_player_club_join_request(uuid)"

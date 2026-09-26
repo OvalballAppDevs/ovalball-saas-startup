@@ -429,6 +429,17 @@ export default function FindFixture() {
                     ))}
                   </View>
                 )}
+
+                {/* SECTIONS 15/16: a secondary, prominent CTA here rather than a fifth Clubhouse Home
+                    tile (owner's own product judgement) -- "we can't find anyone" and "somebody is
+                    looking for us" are the same job as this whole screen, from the other direction. */}
+                <View style={{ marginTop: space.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.mint100, padding: space.lg, gap: space.xs }}>
+                  <Text style={[type.smallMedium, { color: colour.ink }]}>Can&apos;t find a match on a date you need?</Text>
+                  <Text style={[type.caption, { color: colour.inkMuted }]}>
+                    Publish that you&apos;re looking for opposition, or see who else across Ovalball is looking for a game like yours.
+                  </Text>
+                  <Button label="Looking for Opposition" variant="secondary" onPress={() => router.push("/clubhouse/opportunities" as never)} />
+                </View>
               </View>
             )}
           </>

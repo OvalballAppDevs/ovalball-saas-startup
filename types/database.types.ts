@@ -45,7 +45,7 @@ export type Database = {
           delivery_id: string | null
           expires_at: string
           id: string
-          intended_outcome: Json
+          intended_outcome: NonNullable<Json>
           invited_email_normalised: string | null
           issued_by: string
           issued_level: string
@@ -78,7 +78,7 @@ export type Database = {
           delivery_id?: string | null
           expires_at: string
           id?: string
-          intended_outcome: Json
+          intended_outcome: NonNullable<Json>
           invited_email_normalised?: string | null
           issued_by: string
           issued_level: string
@@ -93,7 +93,7 @@ export type Database = {
           revocation_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
-          scope_key?: string | null
+          scope_key?: never
           state?: string
           target_user_id?: string | null
           team_id?: string | null
@@ -111,7 +111,7 @@ export type Database = {
           delivery_id?: string | null
           expires_at?: string
           id?: string
-          intended_outcome?: Json
+          intended_outcome?: NonNullable<Json>
           invited_email_normalised?: string | null
           issued_by?: string
           issued_level?: string
@@ -126,7 +126,7 @@ export type Database = {
           revocation_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
-          scope_key?: string | null
+          scope_key?: never
           state?: string
           target_user_id?: string | null
           team_id?: string | null
@@ -275,7 +275,7 @@ export type Database = {
           assignment_id: string | null
           club_id: string | null
           created_at: string
-          detail: Json
+          detail: NonNullable<Json>
           id: string
           kind: string
           membership_id: string | null
@@ -290,7 +290,7 @@ export type Database = {
           assignment_id?: string | null
           club_id?: string | null
           created_at?: string
-          detail?: Json
+          detail?: NonNullable<Json>
           id?: string
           kind: string
           membership_id?: string | null
@@ -305,7 +305,7 @@ export type Database = {
           assignment_id?: string | null
           club_id?: string | null
           created_at?: string
-          detail?: Json
+          detail?: NonNullable<Json>
           id?: string
           kind?: string
           membership_id?: string | null
@@ -1301,7 +1301,7 @@ export type Database = {
           flow_id_sha256: string
           id: string
           kind: string
-          payload: Json
+          payload: NonNullable<Json>
           user_id: string | null
         }
         Insert: {
@@ -1311,7 +1311,7 @@ export type Database = {
           flow_id_sha256: string
           id?: string
           kind: string
-          payload?: Json
+          payload?: NonNullable<Json>
           user_id?: string | null
         }
         Update: {
@@ -1321,7 +1321,7 @@ export type Database = {
           flow_id_sha256?: string
           id?: string
           kind?: string
-          payload?: Json
+          payload?: NonNullable<Json>
           user_id?: string | null
         }
         Relationships: []
@@ -1444,7 +1444,7 @@ export type Database = {
         Insert: {
           aal: string
           action?: string | null
-          applicable_scopes?: string[] | null
+          applicable_scopes?: never
           category: string
           db_enforcement?: string | null
           delegable?: boolean
@@ -1471,7 +1471,7 @@ export type Database = {
         Update: {
           aal?: string
           action?: string | null
-          applicable_scopes?: string[] | null
+          applicable_scopes?: never
           category?: string
           db_enforcement?: string | null
           delegable?: boolean
@@ -2254,10 +2254,10 @@ export type Database = {
           decided_by: string | null
           decision_reason: string | null
           directory_id: string
-          evidence: Json
+          evidence: NonNullable<Json>
           has_existing_admin: boolean
           id: string
-          proposed_teams: Json
+          proposed_teams: NonNullable<Json>
           resulting_membership_id: string | null
           review_notes: string | null
           reviewed_at: string | null
@@ -2277,10 +2277,10 @@ export type Database = {
           decided_by?: string | null
           decision_reason?: string | null
           directory_id: string
-          evidence?: Json
+          evidence?: NonNullable<Json>
           has_existing_admin?: boolean
           id?: string
-          proposed_teams?: Json
+          proposed_teams?: NonNullable<Json>
           resulting_membership_id?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
@@ -2300,10 +2300,10 @@ export type Database = {
           decided_by?: string | null
           decision_reason?: string | null
           directory_id?: string
-          evidence?: Json
+          evidence?: NonNullable<Json>
           has_existing_admin?: boolean
           id?: string
-          proposed_teams?: Json
+          proposed_teams?: NonNullable<Json>
           resulting_membership_id?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
@@ -4221,7 +4221,7 @@ export type Database = {
           description?: string | null
           display_name: string
           id?: string
-          lane_count?: number
+          lane_count?: never
           layout?: string
           physical_size_category?: string
           sort_order?: number
@@ -4239,7 +4239,7 @@ export type Database = {
           description?: string | null
           display_name?: string
           id?: string
-          lane_count?: number
+          lane_count?: never
           layout?: string
           physical_size_category?: string
           sort_order?: number
@@ -5969,7 +5969,7 @@ export type Database = {
           id: string
           kind: string
           name: string
-          settings: Json
+          settings: NonNullable<Json>
           sort_order: number
           updated_at: string
         }
@@ -5979,7 +5979,7 @@ export type Database = {
           id?: string
           kind: string
           name: string
-          settings?: Json
+          settings?: NonNullable<Json>
           sort_order?: number
           updated_at?: string
         }
@@ -5989,7 +5989,7 @@ export type Database = {
           id?: string
           kind?: string
           name?: string
-          settings?: Json
+          settings?: NonNullable<Json>
           sort_order?: number
           updated_at?: string
         }
@@ -6298,7 +6298,7 @@ export type Database = {
           logo_upload_ref: string | null
           phone: string | null
           postcode: string | null
-          proposed_teams: Json
+          proposed_teams: NonNullable<Json>
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -6323,7 +6323,7 @@ export type Database = {
           logo_upload_ref?: string | null
           phone?: string | null
           postcode?: string | null
-          proposed_teams?: Json
+          proposed_teams?: NonNullable<Json>
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -6348,7 +6348,7 @@ export type Database = {
           logo_upload_ref?: string | null
           phone?: string | null
           postcode?: string | null
-          proposed_teams?: Json
+          proposed_teams?: NonNullable<Json>
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -7436,7 +7436,7 @@ export type Database = {
           conflict_decision: string | null
           conflicting_fixture_id: string | null
           created_at: string
-          errors: Json
+          errors: NonNullable<Json>
           fixture_date: string | null
           home_away: string | null
           id: string
@@ -7447,7 +7447,7 @@ export type Database = {
           notes: string | null
           published_fixture_id: string | null
           published_request_id: string | null
-          raw: Json
+          raw: NonNullable<Json>
           raw_opposition_text: string | null
           resolved_away_directory_id: string | null
           resolved_away_score: number | null
@@ -7471,7 +7471,7 @@ export type Database = {
           conflict_decision?: string | null
           conflicting_fixture_id?: string | null
           created_at?: string
-          errors?: Json
+          errors?: NonNullable<Json>
           fixture_date?: string | null
           home_away?: string | null
           id?: string
@@ -7482,7 +7482,7 @@ export type Database = {
           notes?: string | null
           published_fixture_id?: string | null
           published_request_id?: string | null
-          raw: Json
+          raw: NonNullable<Json>
           raw_opposition_text?: string | null
           resolved_away_directory_id?: string | null
           resolved_away_score?: number | null
@@ -7506,7 +7506,7 @@ export type Database = {
           conflict_decision?: string | null
           conflicting_fixture_id?: string | null
           created_at?: string
-          errors?: Json
+          errors?: NonNullable<Json>
           fixture_date?: string | null
           home_away?: string | null
           id?: string
@@ -7517,7 +7517,7 @@ export type Database = {
           notes?: string | null
           published_fixture_id?: string | null
           published_request_id?: string | null
-          raw?: Json
+          raw?: NonNullable<Json>
           raw_opposition_text?: string | null
           resolved_away_directory_id?: string | null
           resolved_away_score?: number | null
@@ -8056,6 +8056,245 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "team_conversations"
             referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      fixture_opportunities: {
+        Row: {
+          created_at: string
+          created_by: string
+          filled_response_id: string | null
+          game_type: string | null
+          id: string
+          kickoff_time: string | null
+          note: string | null
+          proposed_date: string
+          publishing_club_id: string
+          publishing_team_id: string
+          status: string
+          updated_at: string
+          venue_preference: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          filled_response_id?: string | null
+          game_type?: string | null
+          id?: string
+          kickoff_time?: string | null
+          note?: string | null
+          proposed_date: string
+          publishing_club_id: string
+          publishing_team_id: string
+          status?: string
+          updated_at?: string
+          venue_preference: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          filled_response_id?: string | null
+          game_type?: string | null
+          id?: string
+          kickoff_time?: string | null
+          note?: string | null
+          proposed_date?: string
+          publishing_club_id?: string
+          publishing_team_id?: string
+          status?: string
+          updated_at?: string
+          venue_preference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_opportunities_filled_response_id_fkey"
+            columns: ["filled_response_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_opportunity_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_club_id_fkey"
+            columns: ["publishing_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_club_overview"
+            referencedColumns: ["club_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_club_id_fkey"
+            columns: ["publishing_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["opponent_club_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_club_id_fkey"
+            columns: ["publishing_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fixture_overview"
+            referencedColumns: ["owning_club_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_club_id_fkey"
+            columns: ["publishing_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_club_id_fkey"
+            columns: ["publishing_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_club_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_club_id_fkey"
+            columns: ["publishing_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_opponent_club_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_club_id_fkey"
+            columns: ["publishing_club_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_club_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_club_id_fkey"
+            columns: ["publishing_club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_team_id_fkey"
+            columns: ["publishing_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_team_id_fkey"
+            columns: ["publishing_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_team_id_fkey"
+            columns: ["publishing_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_team_id_fkey"
+            columns: ["publishing_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunities_publishing_team_id_fkey"
+            columns: ["publishing_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixture_opportunity_responses: {
+        Row: {
+          created_at: string
+          created_by: string
+          decided_at: string | null
+          decided_by: string | null
+          fixture_request_id: string | null
+          id: string
+          note: string | null
+          opportunity_id: string
+          responding_team_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          decided_at?: string | null
+          decided_by?: string | null
+          fixture_request_id?: string | null
+          id?: string
+          note?: string | null
+          opportunity_id: string
+          responding_team_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          fixture_request_id?: string | null
+          id?: string
+          note?: string | null
+          opportunity_id?: string
+          responding_team_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_opportunity_responses_fixture_request_id_fkey"
+            columns: ["fixture_request_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunity_responses_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunity_responses_responding_team_id_fkey"
+            columns: ["responding_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_opponent_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunity_responses_responding_team_id_fkey"
+            columns: ["responding_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["fixture_owning_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunity_responses_responding_team_id_fkey"
+            columns: ["responding_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_requesting_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunity_responses_responding_team_id_fkey"
+            columns: ["responding_team_id"]
+            isOneToOne: false
+            referencedRelation: "admin_message_overview"
+            referencedColumns: ["request_target_team_id"]
+          },
+          {
+            foreignKeyName: "fixture_opportunity_responses_responding_team_id_fkey"
+            columns: ["responding_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -9023,7 +9262,7 @@ export type Database = {
           archived_at?: string | null
           archived_by?: string | null
           away_score?: number | null
-          away_team_id?: string | null
+          away_team_id?: never
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -9037,7 +9276,7 @@ export type Database = {
           game_type?: string | null
           home_away: string
           home_score?: number | null
-          home_team_id?: string | null
+          home_team_id?: never
           id?: string
           import_batch_id?: string | null
           kickoff_amendment_proposed_at?: string | null
@@ -9095,7 +9334,7 @@ export type Database = {
           archived_at?: string | null
           archived_by?: string | null
           away_score?: number | null
-          away_team_id?: string | null
+          away_team_id?: never
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -9109,7 +9348,7 @@ export type Database = {
           game_type?: string | null
           home_away?: string
           home_score?: number | null
-          home_team_id?: string | null
+          home_team_id?: never
           id?: string
           import_batch_id?: string | null
           kickoff_amendment_proposed_at?: string | null
@@ -9758,7 +9997,7 @@ export type Database = {
           created_at: string
           gc_event_id: string
           id: string
-          payload: Json
+          payload: NonNullable<Json>
           processed: boolean
           processed_at: string | null
           processing_error: string | null
@@ -9770,7 +10009,7 @@ export type Database = {
           created_at?: string
           gc_event_id: string
           id?: string
-          payload: Json
+          payload: NonNullable<Json>
           processed?: boolean
           processed_at?: string | null
           processing_error?: string | null
@@ -9782,7 +10021,7 @@ export type Database = {
           created_at?: string
           gc_event_id?: string
           id?: string
-          payload?: Json
+          payload?: NonNullable<Json>
           processed?: boolean
           processed_at?: string | null
           processing_error?: string | null
@@ -10980,7 +11219,7 @@ export type Database = {
           id?: string
           people?: string[]
           places?: string[]
-          search_vector?: unknown
+          search_vector?: never
           significance?: number
           summary: string
           tags?: string[]
@@ -11002,7 +11241,7 @@ export type Database = {
           id?: string
           people?: string[]
           places?: string[]
-          search_vector?: unknown
+          search_vector?: never
           significance?: number
           summary?: string
           tags?: string[]
@@ -11344,7 +11583,7 @@ export type Database = {
           reviewed_by?: string | null
           roles?: string[] | null
           rugby_code?: string | null
-          search_vector?: unknown
+          search_vector?: never
           source_note?: string | null
           source_retrieved_on?: string | null
           source_url?: string | null
@@ -11387,7 +11626,7 @@ export type Database = {
           reviewed_by?: string | null
           roles?: string[] | null
           rugby_code?: string | null
-          search_vector?: unknown
+          search_vector?: never
           source_note?: string | null
           source_retrieved_on?: string | null
           source_url?: string | null
@@ -11676,7 +11915,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           rugby_code?: string | null
-          search_vector?: unknown
+          search_vector?: never
           status?: string
           superseded_by?: string | null
           term_key: string
@@ -11696,7 +11935,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           rugby_code?: string | null
-          search_vector?: unknown
+          search_vector?: never
           status?: string
           superseded_by?: string | null
           term_key?: string
@@ -12003,7 +12242,7 @@ export type Database = {
           role_with_ball?: string | null
           role_without_ball?: string | null
           rugby_code: string
-          search_vector?: unknown
+          search_vector?: never
           set_piece_responsibilities?: string | null
           shirt_number?: number | null
           status?: string
@@ -12039,7 +12278,7 @@ export type Database = {
           role_with_ball?: string | null
           role_without_ball?: string | null
           rugby_code?: string
-          search_vector?: unknown
+          search_vector?: never
           set_piece_responsibilities?: string | null
           shirt_number?: number | null
           status?: string
@@ -12226,7 +12465,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           rugby_code?: string | null
-          search_vector?: unknown
+          search_vector?: never
           skill_family: string
           skill_key: string
           status?: string
@@ -12253,7 +12492,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           rugby_code?: string | null
-          search_vector?: unknown
+          search_vector?: never
           skill_family?: string
           skill_key?: string
           status?: string
@@ -12428,21 +12667,21 @@ export type Database = {
           id: string
           invitation_id: string
           redeemed_at: string
-          result_ref: Json
+          result_ref: NonNullable<Json>
           user_id: string
         }
         Insert: {
           id?: string
           invitation_id: string
           redeemed_at?: string
-          result_ref?: Json
+          result_ref?: NonNullable<Json>
           user_id: string
         }
         Update: {
           id?: string
           invitation_id?: string
           redeemed_at?: string
-          result_ref?: Json
+          result_ref?: NonNullable<Json>
           user_id?: string
         }
         Relationships: [
@@ -13456,7 +13695,7 @@ export type Database = {
       messenger_announcements: {
         Row: {
           actor_user_id: string
-          audience_spec: Json
+          audience_spec: NonNullable<Json>
           body: string
           created_at: string
           exclude_u18: boolean
@@ -13477,7 +13716,7 @@ export type Database = {
         }
         Insert: {
           actor_user_id: string
-          audience_spec?: Json
+          audience_spec?: NonNullable<Json>
           body: string
           created_at?: string
           exclude_u18?: boolean
@@ -13498,7 +13737,7 @@ export type Database = {
         }
         Update: {
           actor_user_id?: string
-          audience_spec?: Json
+          audience_spec?: NonNullable<Json>
           body?: string
           created_at?: string
           exclude_u18?: boolean
@@ -13666,7 +13905,7 @@ export type Database = {
         Row: {
           body: string
           created_at: string
-          data: Json
+          data: NonNullable<Json>
           id: string
           read_at: string | null
           title: string
@@ -13676,7 +13915,7 @@ export type Database = {
         Insert: {
           body: string
           created_at?: string
-          data?: Json
+          data?: NonNullable<Json>
           id?: string
           read_at?: string | null
           title: string
@@ -13686,7 +13925,7 @@ export type Database = {
         Update: {
           body?: string
           created_at?: string
-          data?: Json
+          data?: NonNullable<Json>
           id?: string
           read_at?: string | null
           title?: string
@@ -14549,7 +14788,7 @@ export type Database = {
         Row: {
           action: string
           id: string
-          payload: Json
+          payload: NonNullable<Json>
           processed: boolean
           processed_at: string | null
           processing_error: string | null
@@ -14561,7 +14800,7 @@ export type Database = {
         Insert: {
           action: string
           id?: string
-          payload: Json
+          payload: NonNullable<Json>
           processed?: boolean
           processed_at?: string | null
           processing_error?: string | null
@@ -14573,7 +14812,7 @@ export type Database = {
         Update: {
           action?: string
           id?: string
-          payload?: Json
+          payload?: NonNullable<Json>
           processed?: boolean
           processed_at?: string | null
           processing_error?: string | null
@@ -16759,7 +16998,7 @@ export type Database = {
           notes?: string | null
           obligation_level?: string | null
           rugby_code: string
-          search_vector?: unknown
+          search_vector?: never
           season_id?: string | null
           status?: string
           subtopic?: string | null
@@ -16794,7 +17033,7 @@ export type Database = {
           notes?: string | null
           obligation_level?: string | null
           rugby_code?: string
-          search_vector?: unknown
+          search_vector?: never
           season_id?: string | null
           status?: string
           subtopic?: string | null
@@ -17266,7 +17505,7 @@ export type Database = {
       }
       role_assignments: {
         Row: {
-          attributes: Json
+          attributes: NonNullable<Json>
           base_assignment_id: string | null
           club_id: string
           confirmation_state: string | null
@@ -17293,7 +17532,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          attributes?: Json
+          attributes?: NonNullable<Json>
           base_assignment_id?: string | null
           club_id: string
           confirmation_state?: string | null
@@ -17320,7 +17559,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          attributes?: Json
+          attributes?: NonNullable<Json>
           base_assignment_id?: string | null
           club_id?: string
           confirmation_state?: string | null
@@ -17952,7 +18191,7 @@ export type Database = {
           pre_season_starts_on?: string | null
           rugby_code: string
           season_ref: string
-          season_year_end?: number | null
+          season_year_end?: never
           season_year_start: number
           starts_on: string
           updated_at?: string
@@ -17969,7 +18208,7 @@ export type Database = {
           pre_season_starts_on?: string | null
           rugby_code?: string
           season_ref?: string
-          season_year_end?: number | null
+          season_year_end?: never
           season_year_start?: number
           starts_on?: string
           updated_at?: string
@@ -18014,7 +18253,7 @@ export type Database = {
           id: number
           impersonation_session_id: string | null
           ip_hash: string | null
-          metadata: Json
+          metadata: NonNullable<Json>
           occurred_at: string
           outcome: string
           player_id: string | null
@@ -18033,7 +18272,7 @@ export type Database = {
           id?: never
           impersonation_session_id?: string | null
           ip_hash?: string | null
-          metadata?: Json
+          metadata?: NonNullable<Json>
           occurred_at?: string
           outcome?: string
           player_id?: string | null
@@ -18052,7 +18291,7 @@ export type Database = {
           id?: never
           impersonation_session_id?: string | null
           ip_hash?: string | null
-          metadata?: Json
+          metadata?: NonNullable<Json>
           occurred_at?: string
           outcome?: string
           player_id?: string | null
@@ -18438,7 +18677,7 @@ export type Database = {
           created_at: string
           event_type: string
           id: string
-          metadata: Json
+          metadata: NonNullable<Json>
           ticket_id: string
           visibility: string
         }
@@ -18448,7 +18687,7 @@ export type Database = {
           created_at?: string
           event_type: string
           id?: string
-          metadata?: Json
+          metadata?: NonNullable<Json>
           ticket_id: string
           visibility: string
         }
@@ -18458,7 +18697,7 @@ export type Database = {
           created_at?: string
           event_type?: string
           id?: string
-          metadata?: Json
+          metadata?: NonNullable<Json>
           ticket_id?: string
           visibility?: string
         }
@@ -19146,7 +19385,7 @@ export type Database = {
           folded_by?: string | null
           gender?: string | null
           id?: string
-          identity_key?: string | null
+          identity_key?: never
           legacy_team_ref?: string | null
           rugby_code: string
           slug: string
@@ -19172,7 +19411,7 @@ export type Database = {
           folded_by?: string | null
           gender?: string | null
           id?: string
-          identity_key?: string | null
+          identity_key?: never
           legacy_team_ref?: string | null
           rugby_code?: string
           slug?: string
@@ -22547,6 +22786,24 @@ export type Database = {
           permission: string | null
           team_id: string | null
         }
+        Insert: {
+          assigned_group_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          membership_id?: string | null
+          permission?: string | null
+          team_id?: string | null
+        }
+        Update: {
+          assigned_group_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          membership_id?: string | null
+          permission?: string | null
+          team_id?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: "role_assignments_membership_id_fkey"
@@ -22610,6 +22867,10 @@ export type Database = {
         Args: { p_proposal_id: string }
         Returns: undefined
       }
+      accept_fixture_opportunity_response: {
+        Args: { p_expected_updated_at?: string; p_response_id: string }
+        Returns: string
+      }
       accept_fixture_request: {
         Args: {
           p_expected_updated_at?: string
@@ -22647,7 +22908,10 @@ export type Database = {
         Args: { p_token: string }
         Returns: undefined
       }
-      active_email_logo_path: { Args: never; Returns: string }
+      active_email_logo_path: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       add_child_for_guardian: {
         Args: {
           p_club_id: string
@@ -22941,6 +23205,10 @@ export type Database = {
       }
       cancel_fixture: {
         Args: { p_fixture_id: string; p_reason: string }
+        Returns: undefined
+      }
+      cancel_fixture_opportunity: {
+        Args: { p_expected_updated_at?: string; p_opportunity_id: string }
         Returns: undefined
       }
       cancel_guardian_link_request: {
@@ -23806,7 +24074,7 @@ export type Database = {
         }[]
       }
       current_platform_mode: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           mode: string
           since: string
@@ -23864,6 +24132,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      decline_fixture_opportunity_response: {
+        Args: { p_response_id: string }
+        Returns: undefined
+      }
       decline_player_club_join_request: {
         Args: { p_reason?: string; p_request_id: string }
         Returns: undefined
@@ -23915,7 +24187,7 @@ export type Database = {
         Returns: undefined
       }
       email_delivery_health: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           failed_24h: number
           last_failure_at: string
@@ -24039,6 +24311,37 @@ export type Database = {
           team_id: string
         }[]
       }
+      find_fixture_opportunities: {
+        Args: { p_team_id: string }
+        Returns: {
+          game_type: string
+          is_mine: boolean
+          kickoff_time: string
+          my_response_id: string
+          my_response_status: string
+          my_team_availability: string
+          note: string
+          opportunity_id: string
+          proposed_date: string
+          publishing_club_directory_geocode_status: string
+          publishing_club_directory_id: string
+          publishing_club_directory_latitude: number
+          publishing_club_directory_longitude: number
+          publishing_club_id: string
+          publishing_club_logo_storage_path: string
+          publishing_club_name: string
+          publishing_club_slug: string
+          publishing_team_age_group: string
+          publishing_team_category: string
+          publishing_team_display_name: string
+          publishing_team_gender: string
+          publishing_team_id: string
+          publishing_team_rugby_code: string
+          publishing_team_squad_designation: string
+          updated_at: string
+          venue_preference: string
+        }[]
+      }
       fixture_availability_summary: {
         Args: { p_fixture_ids: string[] }
         Returns: {
@@ -24114,7 +24417,10 @@ export type Database = {
           skipped_existing_count: number
         }[]
       }
-      geocode_pending_venues: { Args: never; Returns: number }
+      geocode_pending_venues: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       get_active_subscription_impact: {
         Args: { p_club_id: string }
         Returns: {
@@ -25104,7 +25410,7 @@ export type Database = {
         Returns: boolean
       }
       heritage_content_integrity: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           check_name: string
           detail: string
@@ -25112,7 +25418,7 @@ export type Database = {
         }[]
       }
       invitation_staff_role_options: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           held_at_team: boolean
           label: string
@@ -25173,7 +25479,10 @@ export type Database = {
           token: string
         }[]
       }
-      issue_my_first_recovery_codes: { Args: never; Returns: string[] }
+      issue_my_first_recovery_codes: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
       leave_fixture_conversation: {
         Args: { p_fixture_id: string; p_fixture_request_id: string }
         Returns: undefined
@@ -25411,7 +25720,10 @@ export type Database = {
           user_id: string
         }[]
       }
-      mark_all_notifications_read: { Args: never; Returns: number }
+      mark_all_notifications_read: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       mark_announcement_read: {
         Args: { p_announcement_id: string }
         Returns: undefined
@@ -25479,7 +25791,7 @@ export type Database = {
         }[]
       }
       my_blocked_users: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           blocked_at: string
           display_name: string
@@ -25514,7 +25826,7 @@ export type Database = {
         }[]
       }
       my_direct_message_candidates: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           context_club: string
           context_detail: string
@@ -25524,7 +25836,7 @@ export type Database = {
         }[]
       }
       my_governing_bodies: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           body_id: string
           body_type: string
@@ -25534,7 +25846,7 @@ export type Database = {
         }[]
       }
       my_guardian_link_requests: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           awaiting_my_answer: boolean
           child_label: string
@@ -25550,7 +25862,7 @@ export type Database = {
         }[]
       }
       my_impersonation: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           expires_at: string
           session_id: string
@@ -25586,7 +25898,7 @@ export type Database = {
         }[]
       }
       my_player_context: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           club_id: string
           club_name: string
@@ -25603,9 +25915,12 @@ export type Database = {
           team_name: string
         }[]
       }
-      my_recovery_code_count: { Args: never; Returns: number }
+      my_recovery_code_count: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       my_sender_identities: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           can_address_club: boolean
           can_address_team: boolean
@@ -25614,9 +25929,9 @@ export type Database = {
           label: string
         }[]
       }
-      my_session_assurance: { Args: never; Returns: Json }
+      my_session_assurance: { Args: Record<PropertyKey, never>; Returns: Json }
       my_sessions: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           aal: string
           created_at: string
@@ -25626,7 +25941,10 @@ export type Database = {
           user_agent: string
         }[]
       }
-      my_site_capabilities: { Args: never; Returns: string[] }
+      my_site_capabilities: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
       my_team_relationship: {
         Args: { p_team_id: string }
         Returns: {
@@ -25637,7 +25955,7 @@ export type Database = {
         }[]
       }
       my_unread_counts: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           messages: number
           notifications: number
@@ -25646,7 +25964,7 @@ export type Database = {
         }[]
       }
       my_unread_message_counts: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           club_conversation_id: string
           fixture_id: string
@@ -25716,7 +26034,7 @@ export type Database = {
         Returns: boolean
       }
       pending_safeguarding_nominations: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           also_club_admin: boolean
           assignment_id: string
@@ -25736,7 +26054,7 @@ export type Database = {
         Returns: string
       }
       platform_commercial_overview: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           club_id: string
           club_name: string
@@ -25754,7 +26072,7 @@ export type Database = {
         }[]
       }
       platform_eligible_audience_summary: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           eligible_recipient_count: number
           excluded_count: number
@@ -25763,13 +26081,13 @@ export type Database = {
         }[]
       }
       platform_eligible_recipients: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           user_id: string
         }[]
       }
       platform_public_state: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           mode: string
           release_version: string
@@ -25958,6 +26276,17 @@ export type Database = {
         Args: { p_event_key: string; p_expected_lock: number }
         Returns: string
       }
+      publish_fixture_opportunity: {
+        Args: {
+          p_date: string
+          p_game_type?: string
+          p_kickoff_time?: string
+          p_note?: string
+          p_team_id: string
+          p_venue_preference?: string
+        }
+        Returns: string
+      }
       publish_import_row: { Args: { p_row_id: string }; Returns: string }
       publish_regulatory_content_set: {
         Args: { p_content_set_id: string }
@@ -26016,7 +26345,10 @@ export type Database = {
         }
         Returns: string
       }
-      reconcile_overdue_fixture_results: { Args: never; Returns: number }
+      reconcile_overdue_fixture_results: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       reconcile_referral_attribution: {
         Args: { p_dry_run?: boolean }
         Returns: {
@@ -26119,7 +26451,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
-      record_my_mfa_failure: { Args: never; Returns: undefined }
+      record_my_mfa_failure: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       record_my_security_change: {
         Args: { p_change: string }
         Returns: undefined
@@ -26186,7 +26521,7 @@ export type Database = {
         Returns: boolean
       }
       referral_data_health: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           ambiguous_referrer: number
           duplicate_attribution: number
@@ -26198,7 +26533,7 @@ export type Database = {
         }[]
       }
       referral_data_health_detail: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           category: string
           club_id: string
@@ -26210,7 +26545,7 @@ export type Database = {
         }[]
       }
       referral_reward_integrity_detail: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           category: string
           club_id: string
@@ -26221,13 +26556,16 @@ export type Database = {
           referral_id: string
         }[]
       }
-      regenerate_my_recovery_codes: { Args: never; Returns: string[] }
+      regenerate_my_recovery_codes: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
       register_referred_club: {
         Args: { p_club_id: string; p_invitation_id: string }
         Returns: boolean
       }
       regulatory_coverage_report: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           fact_count: number
           identity_key: string
@@ -26241,7 +26579,7 @@ export type Database = {
         }[]
       }
       regulatory_season_compatibility_report: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           content_set_key: string
           detail: string
@@ -26601,6 +26939,14 @@ export type Database = {
         Args: { p_event_id: string; p_player_id: string; p_status: string }
         Returns: undefined
       }
+      respond_to_fixture_opportunity: {
+        Args: {
+          p_note?: string
+          p_opportunity_id: string
+          p_responding_team_id: string
+        }
+        Returns: string
+      }
       respond_to_training_attendance: {
         Args: {
           p_player_id: string
@@ -26700,10 +27046,22 @@ export type Database = {
           teams_total: number
         }[]
       }
-      run_fixture_attendance_invitation_check: { Args: never; Returns: number }
-      run_fixture_completion_check: { Args: never; Returns: number }
-      run_season_transition_check: { Args: never; Returns: undefined }
-      run_trial_expiry_check: { Args: never; Returns: number }
+      run_fixture_attendance_invitation_check: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      run_fixture_completion_check: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      run_season_transition_check: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      run_trial_expiry_check: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       save_club_announcement: {
         Args: {
           p_announcement_id?: string
@@ -27250,9 +27608,12 @@ export type Database = {
         }
         Returns: string
       }
-      show_limit: { Args: never; Returns: number }
+      show_limit: { Args: Record<PropertyKey, never>; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
-      sign_out_my_other_devices: { Args: never; Returns: number }
+      sign_out_my_other_devices: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       single_fixture_team_ids: {
         Args: { p_club_id: string }
         Returns: {
@@ -27273,7 +27634,7 @@ export type Database = {
         Returns: string
       }
       site_admin_dashboard_commercial: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           active_subscriptions: number
           awaiting_mandate: number
@@ -27304,7 +27665,7 @@ export type Database = {
         }[]
       }
       site_admin_dashboard_operations: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           disputed_results: number
           fixtures_booked_this_month: number
@@ -27320,7 +27681,7 @@ export type Database = {
         }[]
       }
       site_admin_dashboard_platform: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           active_clubs: number
           active_players: number
@@ -27336,7 +27697,7 @@ export type Database = {
         }[]
       }
       site_admin_dashboard_trends: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           adoption: Json
           fixture_weeks: Json
@@ -27775,7 +28136,10 @@ export type Database = {
           surname: string
         }[]
       }
-      touch_last_active: { Args: never; Returns: undefined }
+      touch_last_active: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       training_communication_counts: {
         Args: { p_training_session_id: string }
         Returns: {
@@ -28031,6 +28395,10 @@ export type Database = {
         Args: { p_announcement_id: string }
         Returns: undefined
       }
+      withdraw_fixture_opportunity_response: {
+        Args: { p_response_id: string }
+        Returns: undefined
+      }
       withdraw_match_award_vote: {
         Args: { p_award_id: string }
         Returns: undefined
@@ -28095,8 +28463,7 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -28120,8 +28487,7 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -28145,8 +28511,7 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
   EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -28187,4 +28552,3 @@ export const Constants = {
     },
   },
 } as const
-

@@ -263,4 +263,11 @@ export const CLUBHOUSE_NOTIFICATION_TYPES = new Set([
   "calendar_share_approved",
   "calendar_share_declined",
   "club_claim_approved",
+  // Sections 15/16 (Looking for Opposition): all four are already staff-only recipients at the
+  // database (team_admin/coach/manager, never view_only) -- listed here only decides which types show
+  // up in this display filter, never who receives the underlying row.
+  "fixture_opportunity_cancelled",
+  "fixture_opportunity_response_received",
+  "fixture_opportunity_response_declined",
+  "fixture_opportunity_filled",
 ])

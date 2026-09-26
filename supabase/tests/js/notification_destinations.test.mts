@@ -88,7 +88,14 @@ const matrix: Row[] = [
   ["fixture_request_received", { fixture_request_id: ID }, `/messages/request/${ID}`],
   ["fixture_request_accepted", { fixture_request_id: ID }, `/messages/request/${ID}`],
   ["fixture_request_declined", { fixture_request_id: ID }, `/messages/request/${ID}`],
+  ["fixture_request_countered", { fixture_request_id: ID }, `/messages/request/${ID}`],
   ["team_created_from_fixture_request", { fixture_request_id: ID }, `/messages/request/${ID}`],
+
+  // ---- Looking for Opposition (Clubhouse Sections 15/16) ---------------
+  ["fixture_opportunity_cancelled", { opportunity_id: ID }, `/clubhouse/opportunities?highlight=${ID}`],
+  ["fixture_opportunity_response_received", { opportunity_id: ID }, `/clubhouse/opportunities?highlight=${ID}`],
+  ["fixture_opportunity_response_declined", { opportunity_id: ID }, `/clubhouse/opportunities?highlight=${ID}`],
+  ["fixture_opportunity_filled", { opportunity_id: ID }, `/clubhouse/opportunities?highlight=${ID}`],
 
   // ---- Call-ups, dispensations and player moves ------------------------
   ["fixture_call_up_requested", {}, "/club/player-moves"],
