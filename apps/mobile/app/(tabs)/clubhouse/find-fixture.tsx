@@ -10,6 +10,7 @@ import {
   buildFindFixtureAvailability,
   buildFindFixtureCandidates,
   countNoKnownClashDates,
+  distanceMiles,
   findDistanceOrigin,
   inviteClubToOvalball,
   nextWeekdayDates,
@@ -29,10 +30,10 @@ import { readClubTeams, type ClubTeam } from "@ovalball/contracts/club/teams"
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import { teamRugbyCode } from "../../../src/agenda/opponent-search"
-import { ClubCrest, DistanceChips, NetworkPill } from "../../../src/clubhouse/components"
-import { Button, CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
+import { ClubCrest, ClubhouseEmptyState, DistanceChips, NetworkPill } from "../../../src/clubhouse/components"
+import { Button, CardSkeleton, ErrorState } from "../../../src/components/ui"
 import { ChoiceField, DateField } from "../../../src/components/form"
-import { ChevronRight, Layers, LayoutGrid, MapPin, Share2 } from "../../../src/components/icons"
+import { ChevronRight, Layers, LayoutGrid, MapPin, Search, Share2, Users } from "../../../src/components/icons"
 import { colour, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
 import { webUrl } from "../../../src/config/environment"
 import { todayIso } from "../../../src/agenda/load"
@@ -256,7 +257,7 @@ export default function FindFixture() {
           <View style={{ gap: space.sm }}>
             <Text style={[type.smallMedium, { color: colour.ink }]}>Which team needs a fixture?</Text>
             {clubTeams === null && <CardSkeleton lines={2} />}
-            {clubTeams?.length === 0 && <EmptyState title="No active sides" body="Add a side from the Team Directory first." />}
+            {clubTeams?.length === 0 && <ClubhouseEmptyState icon={<Users size={22} color={colour.forest800} strokeWidth={2} />} title="No active sides" body="Add a side from the Team Directory first." />}
             {!!clubTeams?.length && (
               <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
                 {clubTeams.map((t, index) => (
@@ -395,7 +396,8 @@ export default function FindFixture() {
                 </View>
 
                 {displayedActionable.length === 0 && (
-                  <EmptyState
+                  <ClubhouseEmptyState
+                    icon={<Search size={22} color={colour.forest800} strokeWidth={2} />}
                     title={distance === "any" ? "No compatible clubs found" : `No compatible clubs found within ${distance} miles`}
                     body={distance === "any" ? "Try a different team, or check back once more clubs join Ovalball." : "Try a wider distance, or Any distance, to see more results."}
                   />
@@ -418,6 +420,7 @@ export default function FindFixture() {
                     <CandidateCard
                       key={candidate.directoryId}
                       candidate={candidate}
+                      origin={origin}
                       dates={dates}
                       availabilityByTeamId={availabilityByTeamId}
                       onSelectTeam={(t, chosenDate) => selectCandidate(candidate, t, chosenDate)}
@@ -484,15 +487,18 @@ function dateStateColours(state: "no_known_clash" | "busy" | "tentative" | "unkn
 
 function CandidateCard({
   candidate,
+  origin,
   dates,
   availabilityByTeamId,
   onSelectTeam,
 }: {
   candidate: FindFixtureCandidate
+  origin: ClubMapMarker | null
   dates: string[]
   availabilityByTeamId: Map<string, FindFixtureCandidateAvailability> | null
   onSelectTeam: (teamId: string, date?: string) => void
 }) {
+  const miles = origin && candidate.hasLocation && !candidate.isOwnClub ? distanceMiles(origin, candidate) : null
   return (
     <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.md, gap: space.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
@@ -502,7 +508,12 @@ function CandidateCard({
             {candidate.name}
           </Text>
           <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
-            {[candidate.town, candidate.county].filter(Boolean).join(", ") || (candidate.hasLocation ? "" : "Location unavailable")}
+            {miles !== null ? `${Math.round(miles)} miles` : ""}
+            {miles !== null && candidate.town ? " · " : ""}
+            {candidate.town ?? (miles === null && !candidate.hasLocation ? "Location unavailable" : "")}
+          </Text>
+          <Text numberOfLines={1} style={[type.caption, { color: colour.inkSubtle }]}>
+            {candidate.compatibleTeams.length} compatible {candidate.compatibleTeams.length === 1 ? "team" : "teams"}
           </Text>
         </View>
         <NetworkPill marker={candidate} />
