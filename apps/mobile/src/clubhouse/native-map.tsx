@@ -1,10 +1,64 @@
-import { useCallback, useMemo, useRef } from "react"
-import type { NativeSyntheticEvent } from "react-native"
-import { Camera, GeoJSONSource, Layer, Map as MapLibreMap, type CameraRef, type MapRef, type PressEventWithFeatures } from "@maplibre/maplibre-react-native"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Image, type NativeSyntheticEvent } from "react-native"
+import { Camera, GeoJSONSource, Images, Layer, Map as MapLibreMap, type CameraRef, type MapRef, type PressEventWithFeatures } from "@maplibre/maplibre-react-native"
 
 import { buildClubMarkerFeatureCollection, type ClubMapMarker } from "@ovalball/contracts/clubhouse"
 
 import { colour } from "../design/tokens"
+
+/**
+ * THE CREST-MARKER PIPELINE (owner correction pass, mock-up reconciliation): real crests ARE now
+ * rendered on the map, not deferred. The earlier deferral reasoning assumed a resize step was
+ * required because MapLibre's `icon-size` scales an image's own native resolution and crest uploads
+ * have no consistent dimension -- true, but the fix does not need a resize at all: `Image.getSize`
+ * (a lightweight header read, not a full download) reports each crest's real pixel dimensions, and a
+ * per-feature `icon-size` expression compensates so every crest renders at approximately the same
+ * on-screen diameter regardless of its source resolution. Confirmed live in the database this pass:
+ * only ~105 clubs are geocoded at all (never the full ~1,400-row directory), so this is at most ~105
+ * one-time, cached header reads for the life of the screen -- not a per-render or per-cluster cost.
+ */
+const CREST_TARGET_PX = 30
+
+function useCrestScales(markers: ClubMapMarker[]): Map<string, number> {
+  // Keyed by URL (not directoryId): two clubs sharing a storage path -- unlikely, but free to dedupe --
+  // never re-measure the same image twice. Real React state, not a ref read during render: each
+  // completed batch of measurements is merged into a NEW Map and set once, so this hook's return value
+  // is always the actual rendered state, never a mutated ref peeked at mid-render.
+  const [scaleByUrl, setScaleByUrl] = useState<Map<string, number>>(new Map())
+
+  useEffect(() => {
+    const urls = new Set(markers.map((m) => m.logoUrl).filter((url): url is string => !!url && !scaleByUrl.has(url)))
+    if (urls.size === 0) return
+    let cancelled = false
+    void Promise.all(
+      Array.from(urls).map(
+        (url) =>
+          new Promise<[string, number] | null>((resolve) => {
+            Image.getSize(
+              url,
+              (width, height) => resolve([url, CREST_TARGET_PX / Math.max(width, height, 1)]),
+              // A crest that fails to load (broken storage path, offline) simply never gets a scale --
+              // the symbol layer's own filter keeps it out, and the marker falls back to the ring alone.
+              () => resolve(null)
+            )
+          })
+      )
+    ).then((results) => {
+      if (cancelled) return
+      const measured = results.filter((r): r is [string, number] => r !== null)
+      if (measured.length === 0) return
+      setScaleByUrl((prev) => new Map([...prev, ...measured]))
+    })
+    return () => {
+      cancelled = true
+    }
+    // `scaleByUrl` IS a real dependency (it decides which URLs still need measuring), not an omission --
+    // each re-run this causes lands on the `urls.size === 0` early return the moment nothing is left
+    // unmeasured, so this never becomes a refetch loop.
+  }, [markers, scaleByUrl])
+
+  return scaleByUrl
+}
 
 /**
  * THE ONLY FILE IN THE APP THAT IMPORTS `@maplibre/maplibre-react-native`, DELIBERATELY.
@@ -46,11 +100,12 @@ const UK_ZOOM = 5
 const DEVELOPMENT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 
 /**
- * MAPLIBRE MAP: clustered GeoJSON source, minimal marker payload (Section 62). Individual clubs render
- * as a coloured circle (own-club/partner/on-Ovalball/directory-only told apart by paint expression,
- * never colour alone -- the bottom sheet carries the word); crest imagery renders in the sheet and the
- * list, not as a per-point raster on the map itself (a real MapLibre image-sprite integration for
- * ~100+ distinct remote crest URLs is deferred past V1 -- see the Clubhouse completion report).
+ * MAPLIBRE MAP: clustered GeoJSON source, minimal marker payload (Section 62), REAL crests where one is
+ * genuinely on file (owner mock-up reconciliation pass -- see `useCrestScales` above for why this no
+ * longer needs a resize step). Individual clubs still carry a colour-coded ring (own-club/partner/on-
+ * Ovalball/directory-only, never colour alone), now with the club's own crest inside it wherever one
+ * exists and could be measured; a club with no crest keeps the ring-only "deliberate premium fallback"
+ * treatment rather than an invented image.
  *
  * CAMERA INTENT (visual-review pass): opens on the viewer's own club when one is genuinely known --
  * the SAME `origin` the distance filter and the bottom sheet's own mileage already use, never a new
@@ -76,7 +131,32 @@ export function ClubhouseMap({
   const initialCenter: [number, number] = origin?.hasLocation && origin.longitude !== null && origin.latitude !== null ? [origin.longitude, origin.latitude] : UK_CENTER
   const initialZoom = origin?.hasLocation ? 9 : UK_ZOOM
 
-  const geojson = useMemo(() => buildClubMarkerFeatureCollection(markers, selectedDirectoryId), [markers, selectedDirectoryId])
+  const crestScaleByUrl = useCrestScales(markers)
+  // Re-keyed from URL to directoryId only here, right before the geojson build -- `useCrestScales`
+  // itself dedupes by URL (two clubs could theoretically share a storage path), the geojson properties
+  // are keyed by directoryId (what the paint/filter expressions actually match on).
+  const crestScaleByDirectoryId = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const m of markers) {
+      if (m.logoUrl && crestScaleByUrl.has(m.logoUrl)) map.set(m.directoryId, crestScaleByUrl.get(m.logoUrl) as number)
+    }
+    return map
+  }, [markers, crestScaleByUrl])
+
+  // THE ACTUAL CREST REGISTRATION: MapLibre's `Images` component takes the remote URL directly (no
+  // download/resize needed on this side at all -- see `useCrestScales`), keyed by directoryId so the
+  // symbol layer's `icon-image: ["get", "directoryId"]` below can address it. Only markers that were
+  // successfully measured are registered -- an unmeasured or failed crest is never handed to the
+  // native layer at all, so it can only ever fall back to the ring, never render at a guessed size.
+  const crestImages = useMemo(() => {
+    const images: Record<string, string> = {}
+    for (const m of markers) {
+      if (m.logoUrl && crestScaleByDirectoryId.has(m.directoryId)) images[m.directoryId] = m.logoUrl
+    }
+    return images
+  }, [markers, crestScaleByDirectoryId])
+
+  const geojson = useMemo(() => buildClubMarkerFeatureCollection(markers, selectedDirectoryId, crestScaleByDirectoryId), [markers, selectedDirectoryId, crestScaleByDirectoryId])
 
   const markerById = useMemo(() => new Map(markers.map((m) => [m.directoryId, m])), [markers])
 
@@ -106,6 +186,10 @@ export function ClubhouseMap({
   return (
     <MapLibreMap ref={mapRef} mapStyle={DEVELOPMENT_MAP_STYLE} style={{ flex: 1 }}>
       <Camera ref={cameraRef} initialViewState={{ center: initialCenter, zoom: initialZoom }} />
+      {/* Registered once per unique, successfully-measured crest URL -- never a name/keyword baked into
+          the artwork, never a fabricated fallback image; a club with no real crest simply contributes
+          no entry here at all. */}
+      <Images images={crestImages} />
       <GeoJSONSource id="clubhouseClubs" data={geojson} cluster clusterRadius={45} clusterMaxZoom={11} onPress={onSourcePress}>
         <Layer
           id="clubhouseClusterCircles"
@@ -130,23 +214,13 @@ export function ClubhouseMap({
           paint={{ "text-color": colour.onForest }}
         />
         {/*
-          THE INDIVIDUAL MARKER (owner correction pass, physical device review): a flat, solid-coloured
-          8px dot -- identical for a partner and for any of the ~1,390 unclaimed directory clubs bar the
-          colour -- read on a real screen as "geographic data, not the Ovalball Rugby Network." This is
-          now a white-contained badge with a colour-coded ring (the same forest/pitch/grey vocabulary
-          the sheet and every other Clubhouse surface already use for status), and the selected marker
-          is visibly bigger and heavier-ringed, never colour alone.
-
-          REAL PER-CLUB CREST IMAGES ARE DELIBERATELY STILL NOT HERE. MapLibre's `Images` component can
-          register a remote URL as a symbol-layer icon (confirmed reading the library's own source), but
-          `icon-size` scales the image's OWN native resolution -- crest uploads have no consistent
-          dimension today, so ~100+ differently-sized crests would render at wildly inconsistent sizes
-          without a resize step first (imgproxy, this session's local stack, was found stopped; a
-          client-side pre-resize via `expo-image-manipulator` is possible but untested and unverifiable
-          without a physical device in this session). Shipping that blind risked a worse result than the
-          white/ring treatment below, which needs no remote image at all and is provably correct from the
-          same paint-expression primitives already proven working in the cluster layers above. Real crest
-          markers remain a stated, deliberate follow-up, not something silently dropped.
+          THE INDIVIDUAL MARKER'S BACKING BADGE: a white-contained circle with a colour-coded ring (the
+          same forest/pitch/grey vocabulary the sheet and every other Clubhouse surface already use for
+          status) -- replacing what used to be a flat, solid-coloured 8px dot identical for a partner
+          and for any of the ~1,390 unclaimed directory clubs bar the colour. The selected marker is
+          visibly bigger and heavier-ringed, never colour alone. This badge is the "deliberate premium
+          fallback" for any club with no crest, and the CONTAINER for one that has a crest -- the
+          `clubhouseClubCrests` symbol layer below draws directly on top of it.
         */}
         <Layer
           id="clubhouseClubPoints"
@@ -163,6 +237,22 @@ export function ClubhouseMap({
               ["==", ["get", "networkState"], "on_ovalball"], colour.forest800,
               "#9aa39c",
             ],
+          }}
+        />
+        {/* THE REAL CREST, drawn only for a feature whose `iconScale` is genuinely > 0 -- i.e. a real
+            crest exists AND `useCrestScales` measured it successfully. `icon-size` is per-feature
+            (`["get", "iconScale"]`) rather than one fixed number precisely so a tiny upload and a huge
+            one both land at approximately `CREST_TARGET_PX` on screen. `icon-allow-overlap` because a
+            crest inside its own badge, at a fixed small size, never needs collision detection with its
+            neighbours the way a text label would. */}
+        <Layer
+          id="clubhouseClubCrests"
+          type="symbol"
+          filter={["all", ["!", ["has", "point_count"]], [">", ["get", "iconScale"], 0]]}
+          layout={{
+            "icon-image": ["get", "directoryId"],
+            "icon-size": ["get", "iconScale"],
+            "icon-allow-overlap": true,
           }}
         />
       </GeoJSONSource>

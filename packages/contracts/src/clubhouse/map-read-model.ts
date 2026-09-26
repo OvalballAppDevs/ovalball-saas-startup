@@ -349,7 +349,7 @@ export function resolvePartnershipStatus(
 export interface ClubMarkerFeature {
   type: "Feature"
   id: string
-  properties: { directoryId: string; networkState: ClubNetworkState; partnershipStatus: ClubPartnershipStatus; isOwnClub: boolean; isSelected: boolean }
+  properties: { directoryId: string; networkState: ClubNetworkState; partnershipStatus: ClubPartnershipStatus; isOwnClub: boolean; isSelected: boolean; iconScale: number }
   geometry: { type: "Point"; coordinates: [number, number] }
 }
 
@@ -362,12 +362,19 @@ export interface ClubMarkerFeature {
  * validated coordinates are included -- a marker with no location has nothing to plot and belongs to
  * List, never to a cluster source with a fabricated point.
  *
- * `isSelected` (owner correction pass, physical device review): the ONLY addition to the original four
- * fields, and still not a private one -- a pure boolean the paint layer uses to make the tapped marker
- * visibly stronger (a bigger radius, a heavier ring), never the crest URL itself (native symbol-layer
- * crest rendering stays deferred -- see `native-map.tsx`'s own comment on why).
+ * `isSelected` and `iconScale` (owner correction/mock-up reconciliation passes) are the only additions
+ * to the original four fields, and neither is private -- `isSelected` is a pure boolean the paint layer
+ * uses to make the tapped marker visibly stronger, and `iconScale` is a pure number (0 when no crest is
+ * registered/measured yet) the symbol layer uses so every crest renders at roughly the same on-screen
+ * size regardless of its source image's own resolution -- see `native-map.tsx`'s `useCrestScales`. The
+ * crest URL itself never appears here; native-map.tsx registers it directly with MapLibre's `Images`
+ * component from the fuller `markers` array it already holds, keyed by directoryId.
  */
-export function buildClubMarkerFeatureCollection(markers: ClubMapMarker[], selectedDirectoryId?: string | null): { type: "FeatureCollection"; features: ClubMarkerFeature[] } {
+export function buildClubMarkerFeatureCollection(
+  markers: ClubMapMarker[],
+  selectedDirectoryId?: string | null,
+  crestScaleByDirectoryId?: ReadonlyMap<string, number>
+): { type: "FeatureCollection"; features: ClubMarkerFeature[] } {
   return {
     type: "FeatureCollection",
     features: markers
@@ -381,6 +388,7 @@ export function buildClubMarkerFeatureCollection(markers: ClubMapMarker[], selec
           partnershipStatus: m.partnershipStatus,
           isOwnClub: m.isOwnClub,
           isSelected: !!selectedDirectoryId && m.directoryId === selectedDirectoryId,
+          iconScale: crestScaleByDirectoryId?.get(m.directoryId) ?? 0,
         },
         geometry: { type: "Point" as const, coordinates: [m.longitude as number, m.latitude as number] },
       })),

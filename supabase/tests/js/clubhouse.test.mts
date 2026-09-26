@@ -266,19 +266,31 @@ test("Map and List share exactly one discovery population -- filtering/searching
   assert.ok(mapPopulation.every((m) => listPopulation.includes(m)))
 })
 
-test("the cluster source's marker properties are exactly five fields, none of them sensitive -- no name, no logo URL, no location text", () => {
+test("the cluster source's marker properties are exactly six fields, none of them sensitive -- no name, no logo URL, no location text", () => {
   const withLocation = marker({ directoryId: "a", hasLocation: true, latitude: 53.77, longitude: -2.7, name: "Preston Grasshoppers", logoUrl: "https://example.test/crest.png" })
   const withoutLocation = marker({ directoryId: "b", hasLocation: false, latitude: null, longitude: null })
   const fc = buildClubMarkerFeatureCollection([withLocation, withoutLocation])
   // A club with no location contributes nothing to the cluster source -- never a fabricated point.
   assert.equal(fc.features.length, 1)
   const props = fc.features[0]!.properties
-  // `isSelected` (owner correction pass) is the one addition, deliberately still just a boolean paint
-  // signal -- never the crest URL itself, which stays out of the payload exactly as before.
-  assert.deepEqual(Object.keys(props).sort(), ["directoryId", "isOwnClub", "isSelected", "networkState", "partnershipStatus"])
+  // `isSelected` and `iconScale` (owner correction/mock-up reconciliation passes) are the only two
+  // additions, deliberately still just a boolean and a number -- never the crest URL itself, which
+  // stays out of the payload exactly as before (native-map.tsx registers it separately, keyed by
+  // directoryId, from the fuller `markers` array it already holds).
+  assert.deepEqual(Object.keys(props).sort(), ["directoryId", "iconScale", "isOwnClub", "isSelected", "networkState", "partnershipStatus"])
   assert.ok(!("name" in props), "the club's name leaked into the marker payload")
   assert.ok(!("logoUrl" in props), "a crest URL leaked into the marker payload")
   assert.ok(!("town" in props) && !("postcode" in props), "location text leaked into the marker payload")
+})
+
+test("iconScale is 0 (no crest icon) unless a real, measured scale is supplied for that exact directoryId", () => {
+  const a = marker({ directoryId: "a", hasLocation: true, latitude: 53.77, longitude: -2.7, logoUrl: "https://example.test/a.png" })
+  const b = marker({ directoryId: "b", hasLocation: true, latitude: 51.5, longitude: -0.1, logoUrl: null })
+  const withScales = buildClubMarkerFeatureCollection([a, b], null, new Map([["a", 0.42]]))
+  assert.equal(withScales.features.find((f) => f.id === "a")!.properties.iconScale, 0.42)
+  assert.equal(withScales.features.find((f) => f.id === "b")!.properties.iconScale, 0, "a club with no crest at all must never get a fabricated scale")
+  const noScalesSupplied = buildClubMarkerFeatureCollection([a, b])
+  assert.ok(noScalesSupplied.features.every((f) => f.properties.iconScale === 0), "an unmeasured crest must render as no icon, never a guessed size")
 })
 
 test("isSelected is true only for the one marker matching selectedDirectoryId, and false for everyone (including that marker) when nothing is selected", () => {
