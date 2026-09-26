@@ -5,7 +5,15 @@ import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 
-import { acceptFixtureRequest, acceptFixtureRequestWithTeamAction, declineFixtureRequest, type IncomingRequestResolution } from "./actions"
+import {
+  acceptFixtureRequest,
+  acceptFixtureRequestWithTeamAction,
+  counterFixtureRequest,
+  declineFixtureRequest,
+  readFixtureRequestHistory,
+  type FixtureRequestHistoryEntry,
+  type IncomingRequestResolution,
+} from "./actions"
 
 export interface RequestRowData {
   id: string
@@ -38,7 +46,27 @@ export interface RequestRowData {
   canCreateOrReactivateTeam?: boolean
   /** True when the real created_by actor is a Site Admin -- drives which wording renders (never hardcoded "Site Admin" text independent of who actually created the request). */
   initiatedBySiteAdmin?: boolean
+  /**
+   * CA-M11.5 negotiation (Section 9). `canNegotiate` is true only for an ordinary team-to-team request
+   * (both requestingTeamId and target_team_id are real teams, never a scheduling group or named
+   * identity) -- counter_fixture_request's own scope boundary, mirrored here so the control is never
+   * even offered where the RPC would refuse it outright. `status`/`updatedAt` are the live values this
+   * negotiation UI needs; `updatedAt` is passed back as p_expected_updated_at for stale-proposal
+   * protection (Section 63) -- never re-derived, since a re-derived value could never actually detect a
+   * stale view.
+   */
+  status?: FixtureRequestStatus
+  updatedAt?: string | null
+  canNegotiate?: boolean
+  counteredDate?: string | null
+  counteredKickoffTime?: string | null
+  counteredVenuePreference?: "home" | "away" | "either" | null
+  counterNote?: string | null
+  lastProposedByTeamId?: string | null
+  requestingTeamId?: string | null
 }
+
+export type FixtureRequestStatus = "draft" | "sent" | "accepted" | "declined" | "counter_proposed" | "cancelled" | "expired"
 
 /**
  * A shared-calendar request must resolve to a real member team before
@@ -82,6 +110,14 @@ export function sideForReader(venuePreference: string, direction: "outgoing" | "
 export function RequestRow({ request, canManage }: { request: RequestRowData; canManage: boolean }) {
   const [status, setStatus] = useState<"idle" | "working" | "done" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
+  const [showCounterForm, setShowCounterForm] = useState(false)
+  const [counterDate, setCounterDate] = useState(request.counteredDate ?? request.proposedDate ?? "")
+  const [counterKickoff, setCounterKickoff] = useState(request.counteredKickoffTime ?? "")
+  const [counterVenue, setCounterVenue] = useState<"home" | "away" | "either">(request.counteredVenuePreference ?? "either")
+  const [counterNote, setCounterNote] = useState("")
+  const [showHistory, setShowHistory] = useState(false)
+  const [history, setHistory] = useState<FixtureRequestHistoryEntry[] | null>(null)
+  const [historyError, setHistoryError] = useState<string | null>(null)
   const isGroupRequest = Boolean(request.schedulingGroupTag)
   const [selectedTeamId, setSelectedTeamId] = useState(request.schedulingGroupMembers?.length === 1 ? request.schedulingGroupMembers[0].id : "")
 
@@ -112,6 +148,38 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
       setError(result.error)
     }
   }
+
+  async function handleCounter() {
+    setStatus("working")
+    setError(null)
+    const result = await counterFixtureRequest(request.id, counterDate, counterKickoff || null, counterVenue, counterNote || null, request.updatedAt ?? null)
+    if (result.ok) {
+      setStatus("done")
+    } else {
+      setStatus("idle")
+      setError(result.error)
+    }
+  }
+
+  async function toggleHistory() {
+    const next = !showHistory
+    setShowHistory(next)
+    if (next && history === null) {
+      const result = await readFixtureRequestHistory(request.id)
+      if (result.ok) setHistory(result.entries)
+      else setHistoryError(result.error)
+    }
+  }
+
+  const formatDate = (d: string | null | undefined) => {
+    if (!d) return "TBC"
+    const parts = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).formatToParts(new Date(`${d}T00:00:00Z`))
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? ""
+    return `${part("weekday")} ${part("day")} ${part("month")}`
+  }
+
+  const isNegotiable = Boolean(canManage && request.canNegotiate && (request.status === "sent" || request.status === "counter_proposed"))
+  const hasStandingCounter = request.status === "counter_proposed"
 
   // Built from parts: the server's and the browser's locale data punctuate
   // "Sat, 21 Nov" differently, and a label that differs breaks hydration.
@@ -187,7 +255,85 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
             Fixture request for: {request.namedTeamIdentity} &mdash; {request.namedTeamMessage}
           </p>
         )}
+        {hasStandingCounter && (
+          <p className="mt-1 text-xs text-forest-800">
+            {request.lastProposedByTeamId === request.requestingTeamId ? request.teamDisplayName : request.requester ?? "The other side"} suggested{" "}
+            {formatDate(request.counteredDate ?? request.proposedDate)}
+            {request.counteredKickoffTime ? ` at ${request.counteredKickoffTime.slice(0, 5)}` : ""}
+            {request.counteredVenuePreference ? `, ${sideForReader(request.counteredVenuePreference, request.direction)}` : ""}
+            {request.counterNote ? ` — "${request.counterNote}"` : ""}
+          </p>
+        )}
         {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
+        {request.canNegotiate && (
+          <button type="button" className="mt-1 text-xs text-ink-muted underline underline-offset-2 hover:text-ink" onClick={toggleHistory}>
+            {showHistory ? "Hide history" : "History"}
+          </button>
+        )}
+        {showHistory && (
+          <div className="mt-2 space-y-1 border-l border-ink/10 pl-3">
+            {historyError && <p className="text-xs text-destructive-text">{historyError}</p>}
+            {history === null && !historyError && <p className="text-xs text-ink-muted">Loading…</p>}
+            {history?.length === 0 && <p className="text-xs text-ink-muted">No history yet.</p>}
+            {history?.map((h, i) => (
+              <p key={i} className="text-xs text-ink-muted">
+                {h.changedByClubName ?? "Someone"}: {h.statusBefore ?? "new"} &rarr; {h.statusAfter}
+                {h.dateAfter ? `, ${formatDate(h.dateAfter)}` : ""}
+                {h.noteAfter ? ` — "${h.noteAfter}"` : ""}
+              </p>
+            ))}
+          </div>
+        )}
+        {showCounterForm && (
+          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-ink/10 bg-chalk/60 p-2">
+            <label className="flex flex-col gap-0.5 text-xs text-ink-muted">
+              Date
+              <input
+                type="date"
+                value={counterDate}
+                onChange={(e) => setCounterDate(e.target.value)}
+                className="h-8 rounded-md border border-ink/15 bg-white px-2 text-xs outline-none focus-visible:border-pitch-600"
+              />
+            </label>
+            <label className="flex flex-col gap-0.5 text-xs text-ink-muted">
+              Kick-off
+              <input
+                type="time"
+                value={counterKickoff}
+                onChange={(e) => setCounterKickoff(e.target.value)}
+                className="h-8 rounded-md border border-ink/15 bg-white px-2 text-xs outline-none focus-visible:border-pitch-600"
+              />
+            </label>
+            <label className="flex flex-col gap-0.5 text-xs text-ink-muted">
+              Venue
+              <select
+                value={counterVenue}
+                onChange={(e) => setCounterVenue(e.target.value as "home" | "away" | "either")}
+                className="h-8 rounded-md border border-ink/15 bg-white px-2 text-xs outline-none focus-visible:border-pitch-600"
+              >
+                <option value="home">Home</option>
+                <option value="away">Away</option>
+                <option value="either">Either</option>
+              </select>
+            </label>
+            <label className="flex min-w-[10rem] flex-1 flex-col gap-0.5 text-xs text-ink-muted">
+              Note (optional)
+              <input
+                type="text"
+                value={counterNote}
+                onChange={(e) => setCounterNote(e.target.value)}
+                maxLength={500}
+                className="h-8 rounded-md border border-ink/15 bg-white px-2 text-xs outline-none focus-visible:border-pitch-600"
+              />
+            </label>
+            <Button type="button" size="sm" className="h-8" disabled={status === "working" || !counterDate} onClick={handleCounter}>
+              Send Suggestion
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-8" disabled={status === "working"} onClick={() => setShowCounterForm(false)}>
+              Cancel
+            </Button>
+          </div>
+        )}
       </div>
       {canManage && (request.direction === "incoming" ? (
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -234,11 +380,23 @@ export function RequestRow({ request, canManage }: { request: RequestRowData; ca
           <Button type="button" size="sm" variant="outline" className="h-8" disabled={status === "working"} onClick={() => handle("decline")}>
             Decline
           </Button>
+          {isNegotiable && (
+            <Button type="button" size="sm" variant="outline" className="h-8" disabled={status === "working"} onClick={() => setShowCounterForm((v) => !v)}>
+              Suggest Another
+            </Button>
+          )}
         </div>
       ) : (
-        <Button type="button" size="sm" variant="ghost" className="h-8 shrink-0" disabled={status === "working"} onClick={() => handle("decline")}>
-          Cancel
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {isNegotiable && (
+            <Button type="button" size="sm" variant="outline" className="h-8" disabled={status === "working"} onClick={() => setShowCounterForm((v) => !v)}>
+              Suggest Another
+            </Button>
+          )}
+          <Button type="button" size="sm" variant="ghost" className="h-8" disabled={status === "working"} onClick={() => handle("decline")}>
+            Cancel
+          </Button>
+        </div>
       ))}
     </li>
   )

@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
-import { acceptFixtureRequest, declineFixtureRequest, readTeamFixtureRequests, type TeamFixtureRequest } from "@ovalball/contracts/team/requests"
+import {
+  acceptFixtureRequest,
+  counterFixtureRequest,
+  declineFixtureRequest,
+  readFixtureRequestHistory,
+  readTeamFixtureRequests,
+  type FixtureRequestHistoryEntry,
+  type TeamFixtureRequest,
+} from "@ovalball/contracts/team/requests"
 import { teamErrorMessage } from "@ovalball/contracts/club/teams"
 
 import { supabase } from "../../../src/auth/supabase"
@@ -11,6 +19,7 @@ import { NotForYou, TeamScreen } from "../../../src/team/screen"
 import { ReasonSheet, type ReasonAsk } from "../../../src/admin/reason-sheet"
 import { exactDate, kickoffLabel } from "../../../src/agenda/presentation"
 import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../src/components/ui"
+import { ChoiceField, DateField, Field, TextField, TimeField } from "../../../src/components/form"
 import { ChevronRight, Plus } from "../../../src/components/icons"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
 
@@ -73,9 +82,17 @@ export default function TeamFixtureRequests() {
     setRefreshing(false)
   }, [load])
 
-  const waiting = data?.incoming.filter((r) => r.status === "sent") ?? []
-  const sent = data?.outgoing.filter((r) => r.status === "sent") ?? []
-  const settled = [...(data?.incoming ?? []), ...(data?.outgoing ?? [])].filter((r) => r.status !== "sent" && r.status !== "draft").sort((a, b) => (b.decidedAt ?? b.createdAt).localeCompare(a.decidedAt ?? a.createdAt)).slice(0, 10)
+  // CA-M11.5: once a counter-proposal flips the standing offer, "waiting for your answer" and "waiting
+  // for them" are about whose TURN it is, not which side originally sent the request -- isMyTurn is the
+  // same responder logic counter_fixture_request/accept_fixture_request compute server-side.
+  const all = [...(data?.incoming ?? []), ...(data?.outgoing ?? [])]
+  const openRequests = all.filter((r) => r.status === "sent" || r.status === "counter_proposed")
+  const waiting = openRequests.filter((r) => r.isMyTurn)
+  const sent = openRequests.filter((r) => !r.isMyTurn)
+  const settled = all
+    .filter((r) => r.status !== "sent" && r.status !== "counter_proposed" && r.status !== "draft")
+    .sort((a, b) => (b.decidedAt ?? b.createdAt).localeCompare(a.decidedAt ?? a.createdAt))
+    .slice(0, 10)
 
   return (
     <TeamScreen section="Fixture Requests" refreshing={refreshing} onRefresh={refresh}>
@@ -104,7 +121,7 @@ export default function TeamFixtureRequests() {
                         onPress={() =>
                           setAsk({
                             title: `Accept ${r.otherClub}'s request?`,
-                            body: `${r.proposedDate ? exactDate(r.proposedDate) : "The proposed date"}${r.preferredKickoffTime ? ` at ${kickoffLabel(r.preferredKickoffTime)}` : ""}. The match goes into both clubs' calendars.`,
+                            body: `${(r.counteredDate ?? r.proposedDate) ? exactDate(r.counteredDate ?? r.proposedDate!) : "The proposed date"}${(r.counteredKickoffTime ?? r.preferredKickoffTime) ? ` at ${kickoffLabel(r.counteredKickoffTime ?? r.preferredKickoffTime!)}` : ""}. The match goes into both clubs' calendars.`,
                             confirmLabel: "Accept",
                             reason: "none",
                             onConfirm: async () => {
@@ -134,6 +151,7 @@ export default function TeamFixtureRequests() {
                       />
                     </View>
                   )}
+                  {authority.requestRespond && r.canNegotiate && <NegotiationControls request={r} onDone={load} />}
                 </RequestCard>
               ))
             )}
@@ -145,7 +163,7 @@ export default function TeamFixtureRequests() {
             ) : (
               sent.map((r) => (
                 <RequestCard key={r.id} request={r} onThread={() => router.push({ pathname: "/messages/[kind]/[id]", params: { kind: "request", id: r.id } } as never)}>
-                  {authority.requestCreate && (
+                  {authority.requestCreate && r.status === "sent" && (
                     <Button
                       label="Withdraw"
                       variant="quiet"
@@ -189,6 +207,105 @@ async function withdraw(requestId: string, userId: string): Promise<void> {
   const { data, error } = await supabase.from("fixture_requests").update({ status: "cancelled", decided_by: userId, decided_at: new Date().toISOString() }).eq("id", requestId).eq("status", "sent").select("id")
   if (error) throw error
   if (!data || data.length === 0) throw Object.assign(new Error("You can't withdraw this request."), { code: "42501" })
+}
+
+/**
+ * CA-M11.5 -- "Suggest Another" + negotiation history, mobile. Shown only when it is genuinely this
+ * team's turn to respond (r.canNegotiate && parent gates on authority.requestRespond); the RPC itself
+ * re-checks both, this is only about not offering a control that would just come back as an error.
+ */
+function NegotiationControls({ request, onDone }: { request: TeamFixtureRequest; onDone: () => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState(request.counteredDate ?? request.proposedDate ?? new Date().toISOString().slice(0, 10))
+  const [time, setTime] = useState<string | null>(request.counteredKickoffTime ?? request.preferredKickoffTime)
+  const [venue, setVenue] = useState<"Home" | "Away" | "TBD">(request.counteredVenuePreference === "home" ? "Home" : request.counteredVenuePreference === "away" ? "Away" : "TBD")
+  const [note, setNote] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [history, setHistory] = useState<FixtureRequestHistoryEntry[] | null>(null)
+
+  async function send() {
+    setBusy(true)
+    setError(null)
+    try {
+      await counterFixtureRequest(supabase, {
+        requestId: request.id,
+        date,
+        kickoffTime: time,
+        venuePreference: venue === "Home" ? "home" : venue === "Away" ? "away" : "either",
+        note,
+        expectedUpdatedAt: request.updatedAt,
+      })
+      setOpen(false)
+      await onDone()
+    } catch (caught) {
+      setError(teamErrorMessage(caught, "Couldn't send that suggestion. Try again."))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function toggleHistory() {
+    const next = !historyOpen
+    setHistoryOpen(next)
+    if (next && history === null) {
+      try {
+        setHistory(await readFixtureRequestHistory(supabase, request.id))
+      } catch (caught) {
+        setError(teamErrorMessage(caught, "Couldn't load history."))
+      }
+    }
+  }
+
+  return (
+    <View style={{ gap: space.sm }}>
+      <View style={{ flexDirection: "row", gap: space.sm }}>
+        <Button label={open ? "Hide Suggestion" : "Suggest Another"} variant="quiet" style={{ flex: 1 }} onPress={() => setOpen((v) => !v)} />
+        <Button label={historyOpen ? "Hide History" : "History"} variant="quiet" style={{ flex: 1 }} onPress={toggleHistory} />
+      </View>
+      {open && (
+        <View style={{ gap: space.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, padding: space.md }}>
+          <Field label="Date">
+            <DateField label="Suggested date" value={date} onChange={setDate} />
+          </Field>
+          <Field label="Kick-Off">
+            <TimeField label="Suggested kick-off" value={time} onChange={setTime} />
+          </Field>
+          <Field label="Venue">
+            <ChoiceField
+              label="Suggested venue"
+              value={venue}
+              onChange={setVenue}
+              options={[
+                { value: "Home", label: "Our ground" },
+                { value: "Away", label: "Theirs" },
+                { value: "TBD", label: "Either" },
+              ]}
+            />
+          </Field>
+          <Field label="Note" hint="Optional.">
+            <TextField label="Note" value={note} onChange={setNote} />
+          </Field>
+          {error && <Text style={[type.caption, { color: colour.warning }]}>{error}</Text>}
+          <Button label="Send Suggestion" onPress={send} busy={busy} />
+        </View>
+      )}
+      {historyOpen && (
+        <View style={{ gap: space.xs, borderLeftWidth: 1, borderLeftColor: colour.line, paddingLeft: space.sm }}>
+          {history === null && !error && <Text style={[type.caption, { color: colour.inkMuted }]}>Loading…</Text>}
+          {history?.length === 0 && <Text style={[type.caption, { color: colour.inkMuted }]}>No history yet.</Text>}
+          {history?.map((h, i) => (
+            <Text key={i} style={[type.caption, { color: colour.inkMuted }]}>
+              {h.changedByClubName ?? "Someone"}: {h.statusBefore ?? "new"} → {h.statusAfter}
+              {h.dateAfter ? `, ${exactDate(h.dateAfter)}` : ""}
+              {h.noteAfter ? ` — "${h.noteAfter}"` : ""}
+            </Text>
+          ))}
+        </View>
+      )}
+    </View>
+  )
 }
 
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {

@@ -50,6 +50,78 @@ export async function declineFixtureRequest(requestId: string): Promise<RequestA
   return { ok: true }
 }
 
+/**
+ * CA-M11.5 -- "Suggest Another": propose an alternative date/kick-off/venue rather than accepting or
+ * declining outright. counter_fixture_request (SECURITY DEFINER) re-checks that the caller is the side
+ * that did NOT make the current standing proposal; this action only forwards the call, exactly like
+ * acceptFixtureRequest above.
+ */
+export async function counterFixtureRequest(
+  requestId: string,
+  date: string,
+  kickoffTime: string | null,
+  venuePreference: "home" | "away" | "either",
+  note: string | null,
+  expectedUpdatedAt: string | null
+): Promise<RequestActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("counter_fixture_request", {
+    p_request_id: requestId,
+    p_date: date,
+    p_kickoff_time: kickoffTime as unknown as string,
+    p_venue_preference: venuePreference,
+    p_note: note?.trim() || undefined,
+    p_expected_updated_at: expectedUpdatedAt ?? undefined,
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/fixtures")
+  revalidatePath("/dashboard")
+  return { ok: true }
+}
+
+export interface FixtureRequestHistoryEntry {
+  changedAt: string
+  changedByClubName: string | null
+  statusBefore: string | null
+  statusAfter: string | null
+  dateAfter: string | null
+  kickoffTimeAfter: string | null
+  noteAfter: string | null
+}
+
+export type ReadFixtureRequestHistoryResult = { ok: true; entries: FixtureRequestHistoryEntry[] } | { ok: false; error: string }
+
+/**
+ * CA-M11.5: the negotiation history for one request, read from the existing generic audit_log via
+ * fixture_request_history() (SECURITY DEFINER, re-checks the same view authority as reading the request
+ * itself). Never a second history table.
+ */
+export async function readFixtureRequestHistory(requestId: string): Promise<ReadFixtureRequestHistoryResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("fixture_request_history", { p_request_id: requestId })
+  if (error) return { ok: false, error: error.message }
+  const entries = (
+    (data ?? []) as unknown as {
+      changed_at: string
+      changed_by_club_name: string | null
+      status_before: string | null
+      status_after: string | null
+      date_after: string | null
+      kickoff_time_after: string | null
+      note_after: string | null
+    }[]
+  ).map((r) => ({
+    changedAt: r.changed_at,
+    changedByClubName: r.changed_by_club_name,
+    statusBefore: r.status_before,
+    statusAfter: r.status_after,
+    dateAfter: r.date_after,
+    kickoffTimeAfter: r.kickoff_time_after,
+    noteAfter: r.note_after,
+  }))
+  return { ok: true, entries }
+}
+
 export type IncomingRequestResolution =
   | "not_found"
   | "has_target_team"

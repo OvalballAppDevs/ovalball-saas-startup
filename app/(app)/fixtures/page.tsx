@@ -73,10 +73,10 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
     const { data: outgoing } = await supabase
       .from("fixture_requests")
       .select(
-        "id, venue_preference, proposed_ground, proposed_pitch, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text, opponent_club_id)"
+        "id, status, updated_at, venue_preference, proposed_ground, proposed_pitch, requesting_team_id, target_team_id, countered_date, countered_kickoff_time, countered_venue_preference, counter_note, last_proposed_by_team_id, teams!fixture_requests_requesting_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text, opponent_club_id)"
       )
       .in("requesting_team_id", teamIds)
-      .eq("status", "sent")
+      .in("status", ["sent", "counter_proposed"])
 
     for (const r of outgoing ?? []) {
       if (r.fixture_request_groups?.opponent_club_id) {
@@ -89,6 +89,15 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
           venuePreference: r.venue_preference,
           proposedGround: r.proposed_ground,
           proposedPitch: r.proposed_pitch,
+          status: r.status as RequestRowData["status"],
+          updatedAt: r.updated_at,
+          canNegotiate: r.requesting_team_id !== null && r.target_team_id !== null,
+          counteredDate: r.countered_date,
+          counteredKickoffTime: r.countered_kickoff_time,
+          counteredVenuePreference: r.countered_venue_preference as RequestRowData["counteredVenuePreference"],
+          counterNote: r.counter_note,
+          lastProposedByTeamId: r.last_proposed_by_team_id,
+          requestingTeamId: r.requesting_team_id,
         })
       } else {
         nonOvalball.push({
@@ -104,10 +113,10 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
     const { data: incoming } = await supabase
       .from("fixture_requests")
       .select(
-        "id, venue_preference, proposed_ground, proposed_pitch, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), teams!fixture_requests_target_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)"
+        "id, status, updated_at, venue_preference, proposed_ground, proposed_pitch, requesting_team_id, target_team_id, countered_date, countered_kickoff_time, countered_venue_preference, counter_note, last_proposed_by_team_id, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), teams!fixture_requests_target_team_id_fkey(display_name), fixture_request_groups(proposed_date, raw_opponent_text)"
       )
       .in("target_team_id", teamIds)
-      .eq("status", "sent")
+      .in("status", ["sent", "counter_proposed"])
 
     for (const r of incoming ?? []) {
       requests.push({
@@ -117,6 +126,15 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
         requester: [r.requester?.display_name, r.requester?.clubs?.club_directory?.name].filter(Boolean).join(", ") || null,
         opponentText: r.fixture_request_groups?.raw_opponent_text ?? "",
         proposedDate: r.fixture_request_groups?.proposed_date ?? "",
+        status: r.status as RequestRowData["status"],
+        updatedAt: r.updated_at,
+        canNegotiate: r.requesting_team_id !== null && r.target_team_id !== null,
+        counteredDate: r.countered_date,
+        counteredKickoffTime: r.countered_kickoff_time,
+        counteredVenuePreference: r.countered_venue_preference as RequestRowData["counteredVenuePreference"],
+        counterNote: r.counter_note,
+        lastProposedByTeamId: r.last_proposed_by_team_id,
+        requestingTeamId: r.requesting_team_id,
         venuePreference: r.venue_preference,
         proposedGround: r.proposed_ground,
         proposedPitch: r.proposed_pitch,

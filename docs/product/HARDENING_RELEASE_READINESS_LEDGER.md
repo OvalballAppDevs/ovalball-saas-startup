@@ -1089,3 +1089,41 @@ TO-E9/E10 comments rather than assertions.
   buttons enabled was proved live via a temporary local flag flip (reverted) against an Expo Web export,
   confirming correct rendering, official marks, and the click → loading → sibling-buttons-disabled
   interaction chain. See `docs/mobile/CA_M11_3_SOCIAL_AUTH_MAP.md` for the full per-provider breakdown.
+
+
+## H34 — Clubhouse Sections 15/16 (Looking for Opposition / Opportunity Matching): parked pending owner activation
+
+- **The Section 15 schema already exists, fully written, as an unapplied/untracked migration** —
+  `supabase/migrations/20270554000000_looking_for_opposition.sql` (509 lines, checksum
+  `bb96286c50d919ab57aaabaf42f06ccbd497f809d711a7b84048c918f7e5fff3`, unchanged since it was parked). It
+  was read byte-for-byte twice, in two separate sessions, specifically to avoid assuming it is correct
+  merely because it looks finished. Both reads reached the same conclusion: `fixture_opportunities` /
+  `fixture_opportunity_responses`, SELECT-only RLS with every mutation behind six SECURITY DEFINER
+  functions (`publish_fixture_opportunity`, `cancel_fixture_opportunity`, `respond_to_fixture_opportunity`,
+  `withdraw_fixture_opportunity_response`, `decline_fixture_opportunity_response`,
+  `accept_fixture_opportunity_response`), correct convergence into the EXISTING
+  `fixture_request_groups`/`fixture_requests`/`accept_fixture_request()` (no second fixture-creation
+  path), correct venue-preference inversion (publisher-relative to responder-relative), correct
+  "resolve every other pending response to superseded" transactional behaviour on acceptance, and
+  discovery gated by the same `fixture.request.create`/`.respond` capability the rest of the fixture
+  domain already uses (so parents/players are excluded by construction, not a bolt-on role check). No
+  defect and no comment anywhere in the file explains why it was parked; it reads as finished, reviewed
+  work rather than a stale draft.
+- **It is deliberately NOT applied here.** The Clubhouse overnight directive names activating this exact
+  parked migration as an explicit stop condition requiring owner authorisation before proceeding — not a
+  technical judgement call available to the run, and not something a downstream section (Opportunity
+  Matching) reaching it should quietly force. Applying it would also mean designing the Section 15 UI
+  (publish/browse/respond screens, both clients) against a schema the owner has not yet signed off — real
+  product-shape decisions (what an opportunity card shows, how discovery is filtered/sorted, what
+  cancellation and expiry look like to a viewer) that belong to that authorisation, not to an audit.
+- **Section 16 (Opportunity Matching) is blocked for the same reason for any NEW opportunity-specific
+  matching work**, since its own discovery surface is this same parked table. It is not blocked for the
+  matching primitives that already exist and already ship in Sections 6-8:
+  `internal.identities_can_play_fixture`, `find_fixture_candidate_teams(p_team_id)` and
+  `find_fixture_candidate_availability(p_team_id, p_dates)` are all confirmed current/unsuperseded and
+  already power team-to-team discovery and availability matching independent of the parked opportunity
+  domain.
+- **What unblocks this**: an explicit owner decision to activate `20270554000000_looking_for_opposition.sql`
+  (via the established snapshot/move-aside/`supabase migration up --local`/restore/re-checksum procedure)
+  together with sign-off on the Section 15/16 screen designs. Until then this is recorded debt, not a gap
+  to be silently designed around with a second, parallel schema.

@@ -32,10 +32,26 @@ export interface TeamFixtureRequest {
   note: string | null
   createdAt: string
   decidedAt: string | null
+  /**
+   * CA-M11.5 negotiation (Section 9). `canNegotiate` mirrors counter_fixture_request's own scope
+   * boundary (an ordinary team-to-team request, never a scheduling group or a request confirming an
+   * existing fixture) -- the control is never even offered where the RPC would refuse it outright.
+   * `isMyTurn` is true only when THIS team is the side that did NOT make the current standing proposal
+   * -- the same responder logic the RPC itself computes, mirrored here so Accept/Decline/Suggest
+   * Another are only ever offered to the side that can actually use them. `updatedAt` is passed back as
+   * p_expected_updated_at for stale-proposal protection (Section 63).
+   */
+  canNegotiate: boolean
+  isMyTurn: boolean
+  updatedAt: string
+  counteredDate: string | null
+  counteredKickoffTime: string | null
+  counteredVenuePreference: "home" | "away" | "either" | null
+  counterNote: string | null
 }
 
 export const REQUEST_FIELDS =
-  "id, status, venue_preference, preferred_kickoff_time, note, created_at, decided_at, requesting_team_id, target_team_id, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), target:teams!fixture_requests_target_team_id_fkey(display_name, clubs(club_directory(name))), fixture_request_groups(proposed_date, raw_opponent_text, game_type)"
+  "id, status, venue_preference, preferred_kickoff_time, note, created_at, decided_at, updated_at, requesting_team_id, target_team_id, existing_fixture_id, countered_date, countered_kickoff_time, countered_venue_preference, counter_note, last_proposed_by_team_id, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), target:teams!fixture_requests_target_team_id_fkey(display_name, clubs(club_directory(name))), fixture_request_groups(proposed_date, raw_opponent_text, game_type)"
 
 export type RequestRow = {
   id: string
@@ -45,8 +61,15 @@ export type RequestRow = {
   note: string | null
   created_at: string
   decided_at: string | null
+  updated_at: string
   requesting_team_id: string | null
   target_team_id: string | null
+  existing_fixture_id: string | null
+  countered_date: string | null
+  countered_kickoff_time: string | null
+  countered_venue_preference: string | null
+  counter_note: string | null
+  last_proposed_by_team_id: string | null
   requester: { display_name: string | null; clubs: { club_directory: { name: string | null } | null } | null } | null
   target: { display_name: string | null; clubs: { club_directory: { name: string | null } | null } | null } | null
   fixture_request_groups: { proposed_date: string | null; raw_opponent_text: string | null; game_type: string | null } | null
@@ -55,6 +78,10 @@ export type RequestRow = {
 export function projectRequest(r: RequestRow, teamId: string): TeamFixtureRequest {
   const incoming = r.target_team_id === teamId
   const other = incoming ? r.requester : r.target
+  const canNegotiate = r.requesting_team_id !== null && r.target_team_id !== null && r.existing_fixture_id === null
+  const currentProposerTeamId = r.last_proposed_by_team_id ?? r.requesting_team_id
+  const respondingTeamId = currentProposerTeamId === r.requesting_team_id ? r.target_team_id : r.requesting_team_id
+  const isMyTurn = (r.status === "sent" || r.status === "counter_proposed") && respondingTeamId === teamId
   return {
     id: r.id,
     direction: incoming ? "incoming" : "outgoing",
@@ -68,6 +95,13 @@ export function projectRequest(r: RequestRow, teamId: string): TeamFixtureReques
     note: r.note,
     createdAt: r.created_at,
     decidedAt: r.decided_at,
+    canNegotiate,
+    isMyTurn,
+    updatedAt: r.updated_at,
+    counteredDate: r.countered_date,
+    counteredKickoffTime: r.countered_kickoff_time,
+    counteredVenuePreference: (r.countered_venue_preference as TeamFixtureRequest["counteredVenuePreference"]) ?? null,
+    counterNote: r.counter_note,
   }
 }
 
