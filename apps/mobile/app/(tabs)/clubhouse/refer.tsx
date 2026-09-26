@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react"
-import { Pressable, ScrollView, Text, View } from "react-native"
+import { Linking, Pressable, ScrollView, Text, View } from "react-native"
 import { useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
+import { webUrl } from "../../../src/config/environment"
 import { readClubCreditBalancePence, readClubReferrals, poundsLabel, type ClubReferral } from "../../../src/clubhouse/referrals"
 import { CardSkeleton, EmptyState } from "../../../src/components/ui"
 import { SubmitButton } from "../../../src/components/form"
@@ -112,13 +113,21 @@ export default function ReferAClub() {
                     </Text>
                     <Text style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>{referralStatusLabel(r.status)}</Text>
                   </View>
-                  {r.status === "qualified" && <Check size={18} color={colour.pitch600} strokeWidth={2.4} />}
+                  {r.status === "qualified" && r.rewardAmountPence !== null ? (
+                    <Text style={[type.smallMedium, { color: colour.pitch600 }]}>+{poundsLabel(r.rewardAmountPence)}</Text>
+                  ) : r.status === "qualified" ? (
+                    <Check size={18} color={colour.pitch600} strokeWidth={2.4} />
+                  ) : null}
                 </View>
               ))}
           </View>
         )}
 
         <SubmitButton label="Find a Club to Invite" onPress={() => router.push("/clubhouse/map" as never)} />
+
+        <Pressable accessibilityRole="link" accessibilityLabel="Referral terms" onPress={() => void Linking.openURL(`${webUrl}/legal/referral-terms`)} style={{ alignItems: "center", minHeight: TOUCH_TARGET, justifyContent: "center" }}>
+          <Text style={[type.small, { color: colour.forest800, textDecorationLine: "underline" }]}>Referral Terms</Text>
+        </Pressable>
       </ScrollView>
     </View>
   )
