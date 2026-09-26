@@ -27,8 +27,10 @@ import { colour, radius, space, surface, type } from "../../../src/design/tokens
  * already-canonical Ovalball destination:
  *
  *   Find a Fixture  -> `/clubhouse/find-fixture`     (Section 6/7, unchanged)
- *   Partner Clubs    -> `/clubhouse/map?filter=partners` (Section 5's own partner state, same map/list,
- *                        never a second partner store)
+ *   Partner Clubs    -> `/clubhouse/partnerships`     (Section 12 of the visual blueprint: a dedicated
+ *                        My Partners/Received/Sent screen now exists, reading the same partnership
+ *                        state the map always carried -- this tile routes to it instead of the map's
+ *                        own Partners filter, per "route to converged functionality, never a redesign")
  *   Explore the Map  -> `/clubhouse/map`              (Section 2/11, unchanged, discovery mode)
  *   Find a Club      -> `/clubhouse/map?mode=search`  (the SAME canonical map/list, opened search-first
  *                        -- an intent-led "I know which club I want" job, distinct from Explore's
@@ -105,7 +107,7 @@ export default function ClubhouseHome() {
             icon={<HeartHandshake size={20} color={colour.forest800} strokeWidth={2} />}
             label="Partner Clubs"
             caption="Build lasting relationships"
-            onPress={() => router.push({ pathname: "/clubhouse/map", params: { filter: "partners" } } as never)}
+            onPress={() => router.push("/clubhouse/partnerships" as never)}
           />
           <ActionTile
             icon={<MapPin size={20} color={colour.forest800} strokeWidth={2} />}
