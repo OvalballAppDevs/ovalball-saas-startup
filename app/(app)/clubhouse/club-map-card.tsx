@@ -128,6 +128,13 @@ export function ClubMapCard({
               </Button>
             </>
           )}
+          {/* THE WEB CLUB PROFILE (previously deferred; now the real destination "View club" always
+              meant): identity, history, teams and every legitimate action in one place, rather than
+              this compact popup card alone. Not gated on any authority -- the page's own server
+              component re-derives it exactly like everything else here. */}
+          <Button size="sm" variant="outline" className="h-9" nativeButton={false} render={<Link href={`/clubhouse/club/${club.directoryId}`} />}>
+            View Profile
+          </Button>
           {/* Not gated on canManagePartnerships -- both navigate to an already independently-
               authority-checked destination (app/(app)/clubhouse/[clubId]/page.tsx and
               app/(app)/clubhouse/find-fixture/page.tsx both redirect an unauthorised viewer away
@@ -160,6 +167,9 @@ export function ClubMapCard({
 
       {!club.isOwnClub && !club.clubId && (
         <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" className="h-9" nativeButton={false} render={<Link href={`/clubhouse/club/${club.directoryId}`} />}>
+            View Profile
+          </Button>
           {canManagePartnerships && (
             <Button type="button" size="sm" className="h-9 bg-pitch-600 text-white hover:bg-pitch-600/90" onClick={() => setInviteOpen(true)}>
               Invite
