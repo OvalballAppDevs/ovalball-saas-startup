@@ -42,6 +42,8 @@ export interface ClubDetail {
   slug: string | null
   /** The club's own canonical public website -- the activated club's own value wins over the directory's, the same precedence resolveClubLogoPathFrom already establishes for crests. Null when neither has one; never inferred from the club's name. */
   website: string | null
+  /** The activated club's own entered description (`clubs.bio`) -- only ever real, club-written text, never generated. Null for a directory-only club (it has no `clubs` row to hold one) or an activated club that has not written one. */
+  bio: string | null
   /** Only ever populated for an ON-OVALBALL club, with a viewer team context. Never fabricated, never name-matched -- the same canonical compatible_opponent_teams RPC Find a Fixture already uses. */
   compatibleTeams: CompatibleTeam[] | null
   /** Fixtures already played/scheduled between the viewer's club and this one this season. Only for an on-Ovalball club. */
@@ -137,14 +139,14 @@ export async function readClubDetail(
   // does not apply to your own club at all, rather than not asking it. Gated on `isOtherClub` now, the
   // same guard `deriveClubNetworkActions` already uses for every action below.
   const isOtherClub = marker.clubId !== null && marker.clubId !== viewerClubId
-  const [compatibleTeams, networkHistory, capabilities, teamCapabilities, website] = await Promise.all([
+  const [compatibleTeams, networkHistory, capabilities, teamCapabilities, about] = await Promise.all([
     isOtherClub && marker.clubId && viewerTeamId ? readCompatibleTeams(supabase, viewerTeamId, marker.clubId) : Promise.resolve(null),
     isOtherClub && marker.clubId && viewerClubId ? readClubNetworkHistory(supabase, viewerClubId, marker.clubId) : Promise.resolve({ thisSeason: null, allTime: null, firstMetDate: null }),
     viewerClubId
       ? readCapabilities(supabase, viewerClubId, ["club.partners.manage", "fixture.request.create", "fixture.request.respond"])
       : Promise.resolve(new Set<string>()),
     viewerTeamId ? readTeamCapabilities(supabase, viewerTeamId, ["fixture.request.create", "fixture.request.respond"]) : Promise.resolve(new Set<string>()),
-    readClubWebsite(supabase, marker.directoryId),
+    readClubAbout(supabase, marker.directoryId),
   ])
 
   const clubActions = deriveClubNetworkActions(marker, viewerClubId, capabilities)
@@ -175,7 +177,8 @@ export async function readClubDetail(
     partnershipId: marker.partnershipId,
     logoUrl: marker.logoUrl,
     slug: marker.slug,
-    website,
+    website: about.website,
+    bio: about.bio,
     compatibleTeams,
     fixturesTogetherThisSeason: networkHistory.thisSeason,
     fixturesTogetherAllTime: networkHistory.allTime,
@@ -194,11 +197,11 @@ export function resolveClubWebsite(directory: { website: string | null }, club: 
   return club?.website || directory.website || null
 }
 
-async function readClubWebsite(supabase: Client, directoryId: string): Promise<string | null> {
-  const { data, error } = await supabase.from("club_directory").select("website, clubs(website)").eq("id", directoryId).maybeSingle()
-  if (error || !data) return null
-  const row = data as unknown as { website: string | null; clubs: { website: string | null } | null }
-  return resolveClubWebsite({ website: row.website }, row.clubs)
+async function readClubAbout(supabase: Client, directoryId: string): Promise<{ website: string | null; bio: string | null }> {
+  const { data, error } = await supabase.from("club_directory").select("website, clubs(website, bio)").eq("id", directoryId).maybeSingle()
+  if (error || !data) return { website: null, bio: null }
+  const row = data as unknown as { website: string | null; clubs: { website: string | null; bio: string | null } | null }
+  return { website: resolveClubWebsite({ website: row.website }, row.clubs), bio: row.clubs?.bio || null }
 }
 
 /**

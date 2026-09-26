@@ -50,6 +50,28 @@ export function ClubhouseEmptyState({ icon, title, body, action }: { icon: React
   )
 }
 
+/**
+ * THE METRIC ROW (mock-up reconciliation pass): the reference's own compact "8 Teams / U7-U18 Age
+ * Groups / 120 Fixtures all time" horizontal row -- real information density instead of one fact
+ * placed alone on an otherwise near-empty screen. `ClubMetric` never renders a fabricated number; the
+ * caller only ever passes metrics it already knows are real.
+ */
+export function ClubMetricRow({ metrics }: { metrics: { value: string; label: string }[] }) {
+  if (metrics.length === 0) return null
+  return (
+    <View style={{ flexDirection: "row", backgroundColor: colour.surface, borderRadius: radius.lg, ...elevation.card }}>
+      {metrics.map((m, i) => (
+        <View key={m.label} style={{ flex: 1, alignItems: "center", paddingVertical: space.md, borderLeftWidth: i === 0 ? 0 : 1, borderLeftColor: colour.line }}>
+          <Text style={[type.title, { color: colour.ink }]}>{m.value}</Text>
+          <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted, textAlign: "center" }]}>
+            {m.label}
+          </Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+
 export function NetworkPill({ marker }: { marker: ClubMapMarker }) {
   if (marker.partnershipStatus === "active") return <StatusPill label="Partner" tone="positive" />
   if (marker.networkState === "on_ovalball") return <StatusPill label="On Ovalball" tone="positive" />
