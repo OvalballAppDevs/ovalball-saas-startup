@@ -32,15 +32,18 @@ const UK_CENTER: [number, number] = [-2.5, 54.0]
 const UK_ZOOM = 5
 
 /**
- * STYLE SOURCE. `mapStyle` below points at MapLibre's own demo tiles
- * (https://demotiles.maplibre.org/style.json) -- explicitly provided by the MapLibre project for
- * exactly this kind of development use, keyless and serverless. THIS IS NOT A PRODUCTION TILE SOURCE.
- * A real release needs a paid commercial tile/style plan (Stadia Maps or MapTiler both require one --
- * neither offers a free commercial tier; see the Section 2 completion report for the researched
- * pricing) chosen and provisioned by the product owner before this ships, then swapped in here as the
- * one constant.
+ * STYLE SOURCE. `mapStyle` below points at OpenFreeMap's hosted "Liberty" style
+ * (https://tiles.openfreemap.org/styles/liberty) -- a genuinely free, keyless, no-account vector style
+ * (OpenFreeMap is a non-profit serving OpenStreetMap-derived tiles at no cost, with no request limit or
+ * usage key), swapped in from MapLibre's own bare demo tiles (physical-device review: the demo style's
+ * near-blank ocean/land polygons with no roads, labels or club-relevant detail read as broken on a real
+ * screen). THIS IS STILL NOT NECESSARILY THE PRODUCTION CHOICE -- it costs nothing and needs no
+ * provisioning, which is exactly why it is a safe interim pick rather than a commitment; a real release
+ * may still want a paid commercial plan (Stadia Maps or MapTiler, see the Section 2 completion report
+ * for researched pricing) for an SLA/support relationship a free non-profit service does not offer. That
+ * remains the product owner's own decision, made once, and swapped in here as the one constant.
  */
-const DEVELOPMENT_MAP_STYLE = "https://demotiles.maplibre.org/style.json"
+const DEVELOPMENT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 
 /**
  * MAPLIBRE MAP: clustered GeoJSON source, minimal marker payload (Section 62). Individual clubs render
