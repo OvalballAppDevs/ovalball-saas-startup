@@ -25,6 +25,7 @@ import {
 import { supabase } from "../../../src/auth/supabase"
 import { useSession } from "../../../src/auth/session"
 import { useAppContexts } from "../../../src/context/contexts"
+import { startClubConversation } from "../../../src/messages/club-conversations"
 import { BottomSheet } from "../../../src/components/bottom-sheet"
 import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../src/components/ui"
 import { ChevronDown, ChevronRight, LayoutGrid, MapPin, Search, Share2, SlidersHorizontal, X } from "../../../src/components/icons"
@@ -548,12 +549,15 @@ function ClubSheet({
   const [feedback, setFeedback] = useState<string | null>(null)
   const [invite, setInvite] = useState<{ name: string; email: string } | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [messageDraft, setMessageDraft] = useState<string | null>(null)
+  const [sendingMessage, setSendingMessage] = useState(false)
 
   useEffect(() => {
     setDetail(null)
     setFeedback(null)
     setInvite(null)
     setInviteLink(null)
+    setMessageDraft(null)
     if (!marker) return
     let live = true
     void readClubDetail(supabase, marker, viewerClubId, viewerTeamId).then((d) => {
@@ -685,6 +689,43 @@ function ClubSheet({
             </View>
           )}
 
+          {/* SECTION 10 (CLUBHOUSE): start_or_get_club_conversation straight from the club already on
+              screen -- never a second search for a club the viewer is already looking at. */}
+          {messageDraft !== null && (
+            <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.chalk }}>
+              <TextInput
+                accessibilityLabel="First message"
+                value={messageDraft}
+                onChangeText={setMessageDraft}
+                placeholder="Write your message…"
+                placeholderTextColor={colour.inkSubtle}
+                multiline
+                style={[sheetInput, { minHeight: 88, paddingVertical: space.sm, textAlignVertical: "top" }]}
+              />
+              <Button
+                label="Send"
+                busy={sendingMessage}
+                disabled={!messageDraft.trim()}
+                onPress={async () => {
+                  if (!viewerClubId || !marker.clubId) {
+                    setFeedback("You don't have fixture authority at a club.")
+                    return
+                  }
+                  setSendingMessage(true)
+                  setFeedback(null)
+                  const result = await startClubConversation(supabase, viewerClubId, marker.clubId, messageDraft.trim())
+                  setSendingMessage(false)
+                  if (!result.ok || !result.conversationId) {
+                    setFeedback(result.error ?? "That didn't work. Try again.")
+                    return
+                  }
+                  onClose()
+                  router.push({ pathname: "/messages/[kind]/[id]", params: { kind: "club", id: result.conversationId } } as never)
+                }}
+              />
+            </View>
+          )}
+
           {detail && (
             <View style={{ gap: space.sm }}>
               {detail.actions.canFindFixture && (
@@ -701,6 +742,9 @@ function ClubSheet({
                     } as never)
                   }}
                 />
+              )}
+              {detail.actions.canMessage && messageDraft === null && (
+                <Button variant="secondary" label="Message This Club" onPress={() => setMessageDraft("")} />
               )}
               {detail.actions.canCompareCalendar && (
                 <Button

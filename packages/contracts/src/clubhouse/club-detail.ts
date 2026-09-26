@@ -63,6 +63,14 @@ export interface ClubNetworkActions {
   canFindFixture: boolean
   canCompareCalendar: boolean
   canInviteToOvalball: boolean
+  /**
+   * SECTION 10 (CLUBHOUSE): start_or_get_club_conversation checks `can_manage_club_fixtures`, a
+   * genuine CLUB-scope authority (site admin, club admin, or an active club membership) -- unlike
+   * canFindFixture, this is deliberately never widened by a team-scope merge, because a team-scoped
+   * Coach or Team Manager has no club-to-club messaging authority to widen. The RPC re-checks this
+   * independently regardless of what this flag says.
+   */
+  canMessage: boolean
 }
 
 /**
@@ -206,6 +214,10 @@ export function deriveClubNetworkActions(
     // itself refuses without one ("No active calendar-sharing agreement with this club").
     canCompareCalendar: isOtherClub && holdsFixtureAuthority && marker.partnershipStatus === "active",
     canInviteToOvalball: marker.networkState === "not_on_ovalball" && holdsPartnerAuthority,
+    // club.partners.manage and fixture.request.create/.respond are all held by CLUB_ADMIN/FIXTURE_
+    // SECRETARY -- the same practical population can_manage_club_fixtures admits -- so either signal
+    // is a reasonable client-side proxy; the RPC's own check remains the real gate.
+    canMessage: isOtherClub && (holdsPartnerAuthority || holdsFixtureAuthority),
   }
 }
 

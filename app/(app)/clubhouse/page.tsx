@@ -199,7 +199,7 @@ export default async function PartnerClubsPage() {
           Every recognised club, whether they&apos;ve joined Ovalball yet or not &mdash; search or filter to find one on the map.
         </p>
         <div className="mt-4">
-          <PartnerClubsExplorer clubs={mapClubs} canManagePartnerships={canManagePartnerships} />
+          <PartnerClubsExplorer clubs={mapClubs} canManagePartnerships={canManagePartnerships} myClubId={clubId} />
         </div>
       </section>
     </div>

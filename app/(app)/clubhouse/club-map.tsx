@@ -49,8 +49,8 @@ const NOT_ON_OVALBALL_ICON = pinIcon("not-on-ovalball")
  */
 export const ClubMap = forwardRef<
   ClubMapHandle,
-  { clubs: MapClub[]; canManagePartnerships: boolean; renderPopup?: (club: MapClub) => ReactNode }
->(function ClubMap({ clubs, canManagePartnerships, renderPopup }, ref) {
+  { clubs: MapClub[]; canManagePartnerships: boolean; myClubId?: string | null; renderPopup?: (club: MapClub) => ReactNode }
+>(function ClubMap({ clubs, canManagePartnerships, myClubId = null, renderPopup }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const popupRootRef = useRef<Root | null>(null)
@@ -106,7 +106,7 @@ export const ClubMap = forwardRef<
         popupRootRef.current?.unmount()
         const root = createRoot(popupNode)
         popupRootRef.current = root
-        root.render(renderPopup ? renderPopup(club) : <ClubMapCard club={club} canManagePartnerships={canManagePartnerships} />)
+        root.render(renderPopup ? renderPopup(club) : <ClubMapCard club={club} canManagePartnerships={canManagePartnerships} myClubId={myClubId} />)
       })
 
       clusterGroup.addLayer(marker)
@@ -116,7 +116,7 @@ export const ClubMap = forwardRef<
     return () => {
       map.removeLayer(clusterGroup)
     }
-  }, [clubs, canManagePartnerships, renderPopup])
+  }, [clubs, canManagePartnerships, myClubId, renderPopup])
 
   // role="region" (a landmark), not role="application" -- application
   // mode forces assistive tech into a separate navigation mode that's

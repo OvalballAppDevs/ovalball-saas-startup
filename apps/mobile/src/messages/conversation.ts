@@ -51,6 +51,17 @@ export interface Conversation {
   conversationId: string | null
   /** False once the oldest message has been read, so "load older" can stop offering itself. */
   hasMore: boolean
+  /**
+   * Club conversations only: `club_conversations.status` verbatim, and which side of an unanswered
+   * message request the viewer is on -- read the same way the website's own page resolves it (the
+   * viewer's own active club memberships against requesting_club_id), never an authority decision.
+   * respond_to_club_conversation re-checks the real authority regardless of what this says; this is
+   * only about which panel to show.
+   */
+  clubConversationStatus: "pending" | "accepted" | "closed" | null
+  clubRequestSide: "requester" | "recipient" | null
+  /** The OTHER club's name specifically -- never the joined "X and Y" title, which says nothing about which one is not the viewer's own. */
+  clubOtherClubName: string | null
 }
 
 type Client = SupabaseClient<Database>
@@ -97,13 +108,16 @@ export async function loadConversation(
       // The canonical direct reader returns the whole thread, so there is nothing older to fetch.
       // Saying so is better than offering a button that would find nothing.
       hasMore: false,
+      clubConversationStatus: null,
+      clubRequestSide: null,
+      clubOtherClubName: null,
     }
   }
 
   // A fixture or club thread is keyed by its shared conversation id; a request thread by its own id,
   // because a request has no mirror row. That distinction belongs to the canonical reader's ThreadScope
   // and is reproduced here rather than re-derived.
-  const header = await conversationHeader(supabase, kind, id)
+  const header = await conversationHeader(supabase, kind, id, viewerId)
   if (!header) return null
 
   // WHO THE CONVERSATION IS BETWEEN, from the shared resolver rather than guessed here.
@@ -133,10 +147,15 @@ export async function loadConversation(
     isPerson: false,
     messages,
     canSend: header.canSend,
-    unavailableReason: header.canSend ? null : "You can read this conversation but not reply to it.",
+    // A pending club conversation gets its own banner (see MessageRequestBanner) explaining exactly
+    // what unblocks it -- this generic sentence would only repeat that less usefully underneath it.
+    unavailableReason: header.canSend || header.clubConversationStatus === "pending" ? null : "You can read this conversation but not reply to it.",
     conversationId: header.conversationId,
     // A full page back suggests there is more behind it. One short of a page means the thread ended.
     hasMore: messages.length >= THREAD_PAGE_SIZE,
+    clubConversationStatus: header.clubConversationStatus,
+    clubRequestSide: header.clubRequestSide,
+    clubOtherClubName: header.clubOtherClubName,
   }
 }
 
@@ -154,7 +173,7 @@ export async function loadOlderMessages(
   oldest: ThreadMessage
 ): Promise<{ messages: ThreadMessage[]; hasMore: boolean }> {
   if (kind === "direct") return { messages: [], hasMore: false }
-  const header = await conversationHeader(supabase, kind, id)
+  const header = await conversationHeader(supabase, kind, id, viewerId)
   if (!header) return { messages: [], hasMore: false }
   const parties = await resolveConversationParties(supabase, kind as GroupConversationKind, id)
 
@@ -202,8 +221,18 @@ function threadScope(
 async function conversationHeader(
   supabase: Client,
   kind: Exclude<ConversationKind, "direct">,
-  id: string
-): Promise<{ conversationId: string; title: string; subtitle: string | null; clubIds: string[]; canSend: boolean } | null> {
+  id: string,
+  viewerId: string
+): Promise<{
+  conversationId: string
+  title: string
+  subtitle: string | null
+  clubIds: string[]
+  canSend: boolean
+  clubConversationStatus: "pending" | "accepted" | "closed" | null
+  clubRequestSide: "requester" | "recipient" | null
+  clubOtherClubName: string | null
+} | null> {
   if (kind === "club") {
     // A club conversation is between TWO clubs, so both are named and the header says which is which
     // rather than guessing which side the viewer is on -- a guess that would be wrong for anybody who
@@ -218,14 +247,26 @@ async function conversationHeader(
     if (!data) return null
     const requester = data.requester?.club_directory?.name ?? "A club"
     const recipient = data.recipient?.club_directory?.name ?? "A club"
+    // THE SAME "MY CLUBS" THE WEBSITE'S EQUIVALENT PAGE READS (`ctx.clubMemberships`): the viewer's own
+    // active club memberships, an ordinary RLS-readable fact about themselves, never an authority
+    // decision -- respond_to_club_conversation re-checks the real authority regardless of which panel
+    // this shows.
+    const { data: memberships } = await supabase.from("club_memberships").select("club_id").eq("user_id", viewerId).eq("status", "active")
+    const myClubIds = new Set((memberships ?? []).map((m) => m.club_id))
+    const clubRequestSide: "requester" | "recipient" = myClubIds.has(data.requesting_club_id) ? "requester" : "recipient"
     return {
       conversationId: data.id,
       title: `${requester} and ${recipient}`,
       subtitle: "Club conversation",
       clubIds: [data.requesting_club_id, data.recipient_club_id].filter(Boolean) as string[],
-      // A closed conversation is readable and not repliable -- the row stays, which is the product's
-      // own rule: an existing conversation is never hidden merely because it cannot be answered.
-      canSend: data.status !== "closed",
+      // ORDINARY MESSAGES ARE RLS-GATED ON status = 'accepted' (fixture_messages_insert_scoped) -- a
+      // pending conversation's own first message and an accepted system event are both written by the
+      // SECURITY DEFINER RPCs directly, bypassing this gate entirely. A closed conversation is readable
+      // and not repliable; so is a pending one, until it is answered.
+      canSend: data.status === "accepted",
+      clubConversationStatus: data.status as "pending" | "accepted" | "closed",
+      clubRequestSide,
+      clubOtherClubName: clubRequestSide === "requester" ? recipient : requester,
     }
   }
 
@@ -268,6 +309,9 @@ async function conversationHeader(
       subtitle: opponentClub ? opponentTeam : null,
       clubIds: [],
       canSend: true,
+      clubConversationStatus: null,
+      clubRequestSide: null,
+      clubOtherClubName: null,
     }
   }
 
@@ -283,6 +327,9 @@ async function conversationHeader(
     subtitle: data.teams?.display_name ?? null,
     clubIds: [],
     canSend: data.status === "sent" || data.status === "counter_proposed",
+    clubConversationStatus: null,
+    clubRequestSide: null,
+    clubOtherClubName: null,
   }
 }
 

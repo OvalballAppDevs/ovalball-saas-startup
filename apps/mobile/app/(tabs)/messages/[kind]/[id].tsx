@@ -43,7 +43,8 @@ import {
   ReportSheet,
 } from "../../../../src/components/message-actions"
 import { ChevronRight, Plus, Users, X } from "../../../../src/components/icons"
-import { CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
+import { Button, CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
+import { respondToClubConversation } from "../../../../src/messages/club-conversations"
 import { Image } from "expo-image"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
 
@@ -419,7 +420,15 @@ export default function ConversationScreen() {
                 <CardSkeleton lines={1} />
               </>
             )}
-            {conversation?.messages.length === 0 && (
+            {kind === "club" && conversation?.clubConversationStatus === "pending" && (
+              <MessageRequestBanner
+                conversationId={conversation.conversationId}
+                side={conversation.clubRequestSide ?? "recipient"}
+                otherClubName={conversation.clubOtherClubName ?? "The other club"}
+                onDecided={load}
+              />
+            )}
+            {conversation?.messages.length === 0 && conversation.clubConversationStatus !== "pending" && (
               <EmptyState title="No messages yet" body="Start the conversation below." />
             )}
           </>
@@ -506,6 +515,63 @@ export default function ConversationScreen() {
  * so "load older" is reaching the END of the data, which is the TOP of the screen. Reaching it is
  * what asks for the previous page.
  */
+/**
+ * SECTION 10 (CLUBHOUSE): the decision on an unanswered club message request, mirroring the website's
+ * own `MessageRequestDecision` -- it had no home at all before this. respond_to_club_conversation
+ * exists and is correctly enforced server-side; nothing in the mobile product called it, so a request
+ * could be received and read and then never answered.
+ */
+function MessageRequestBanner({
+  conversationId,
+  side,
+  otherClubName,
+  onDecided,
+}: {
+  conversationId: string | null
+  side: "requester" | "recipient"
+  otherClubName: string
+  onDecided: () => Promise<void>
+}) {
+  const [working, setWorking] = useState<"accept" | "decline" | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function respond(approve: boolean) {
+    if (!conversationId || working) return
+    setWorking(approve ? "accept" : "decline")
+    setError(null)
+    const result = await respondToClubConversation(supabase, conversationId, approve)
+    setWorking(null)
+    if (!result.ok) {
+      setError(result.error ?? "That could not be done.")
+      return
+    }
+    await onDecided()
+  }
+
+  if (side === "requester") {
+    return (
+      <View style={{ borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.md, gap: space.xs }}>
+        <Text style={[type.smallMedium, { color: colour.ink }]}>Waiting for {otherClubName}</Text>
+        <Text style={[type.caption, { color: colour.inkMuted }]}>
+          They can accept or decline your request. Your first message is already with them; you can write again once they accept.
+        </Text>
+      </View>
+    )
+  }
+
+  return (
+    <View style={{ borderRadius: radius.md, borderWidth: 1, borderColor: colour.warning, backgroundColor: colour.surface, padding: space.md, gap: space.sm }}>
+      <Text style={[type.smallMedium, { color: colour.ink }]}>{otherClubName} would like to message you</Text>
+      <Text style={[type.caption, { color: colour.inkMuted }]}>Accepting opens the conversation for both clubs. Declining closes it, and they are told.</Text>
+      {error && <Text style={[type.caption, { color: colour.warning }]}>{error}</Text>}
+      <View style={{ flexDirection: "row", gap: space.sm }}>
+        <Button label="Accept Request" style={{ flex: 1 }} busy={working === "accept"} disabled={working !== null} onPress={() => void respond(true)} />
+        <Button label="Decline" variant="secondary" style={{ flex: 1 }} busy={working === "decline"} disabled={working !== null} onPress={() => void respond(false)} />
+      </View>
+    </View>
+  )
+}
+
 function Shell({
   title,
   subtitle,

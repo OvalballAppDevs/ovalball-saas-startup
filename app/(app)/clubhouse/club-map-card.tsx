@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { CalendarRange, ExternalLink, Search } from "lucide-react"
+import { CalendarRange, ExternalLink, MessageCircle, Search } from "lucide-react"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { respondToPartnership, requestPartnership } from "./actions"
 import { ClubStatusPill } from "./club-status-pill"
 import { InviteClubDialog } from "./invite-club-dialog"
+import { MessageClubDialog } from "./message-club-dialog"
 import type { MapClub } from "./map-data"
 
 const RUGBY_CODE_LABEL: Record<string, string> = { union: "Union", league: "League" }
@@ -18,11 +19,18 @@ const RUGBY_CODE_LABEL: Record<string, string> = { union: "Union", league: "Leag
  * The one card design behind both the map's pin popups and the list
  * panel -- same crest, status pill, and actions either place, so
  * clicking a pin and scanning the list never show two different
- * descriptions of the same club. Message Requests isn't built yet (a
- * separate, later phase of this same brief), so a partner club
- * deliberately gets no "Message" action here rather than one that would
- * silently fail or fake success.
+ * descriptions of the same club.
  *
+ * CLUBHOUSE PROGRAMME SECTION 10: "Message" goes straight to
+ * start_or_get_club_conversation with this exact club pre-selected --
+ * never a second search for a club already on screen. Offered for any
+ * active Ovalball club (club.clubId set), not only a partner -- the RPC
+ * itself works for any two clubs, auto-accepting only when they are
+ * already partners. myClubId is optional/nullable because a viewer with
+ * no manageable club at all should never see it; the RPC's own authority
+ * check remains the real gate regardless of what this card shows.
+ *
+
  * CLUBHOUSE PROGRAMME SECTION 5: `canManagePartnerships` gates Request
  * Partnership/Accept/Decline/Revoke -- this card is now reachable by a
  * legitimate team-context viewer too (the Section 2 nav entry always
@@ -34,12 +42,23 @@ const RUGBY_CODE_LABEL: Record<string, string> = { union: "Union", league: "Leag
  * passes real, capability-derived authority in, never a default assumed
  * here.
  */
-export function ClubMapCard({ club, dense = false, canManagePartnerships }: { club: MapClub; dense?: boolean; canManagePartnerships: boolean }) {
+export function ClubMapCard({
+  club,
+  dense = false,
+  canManagePartnerships,
+  myClubId = null,
+}: {
+  club: MapClub
+  dense?: boolean
+  canManagePartnerships: boolean
+  myClubId?: string | null
+}) {
   const [requesting, setRequesting] = useState(false)
   const [responding, setResponding] = useState<"accept" | "decline" | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [localStatus, setLocalStatus] = useState(club.partnershipStatus)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [messageOpen, setMessageOpen] = useState(false)
 
   async function handleRequest() {
     if (!club.clubId) return
@@ -112,6 +131,12 @@ export function ClubMapCard({ club, dense = false, canManagePartnerships }: { cl
             <Search className="size-3.5" />
             Find a Fixture
           </Button>
+          {myClubId && (
+            <Button size="sm" variant="outline" className="h-9" onClick={() => setMessageOpen(true)}>
+              <MessageCircle className="size-3.5" />
+              Message
+            </Button>
+          )}
           {localStatus === "active" && (
             <Button size="sm" className="h-9" nativeButton={false} render={<Link href={`/clubhouse/${club.clubId}`} />}>
               <CalendarRange className="size-3.5" />
@@ -134,6 +159,10 @@ export function ClubMapCard({ club, dense = false, canManagePartnerships }: { cl
           </Button>
           <InviteClubDialog open={inviteOpen} onOpenChange={setInviteOpen} clubDirectoryId={club.directoryId} clubName={club.name} />
         </div>
+      )}
+
+      {myClubId && club.clubId && !club.isOwnClub && (
+        <MessageClubDialog open={messageOpen} onOpenChange={setMessageOpen} myClubId={myClubId} targetClubId={club.clubId} clubName={club.name} />
       )}
     </div>
   )

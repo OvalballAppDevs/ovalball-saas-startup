@@ -67,7 +67,28 @@ test("a parent/player account (no capability at any club) gets every network act
     canFindFixture: false,
     canCompareCalendar: false,
     canInviteToOvalball: false,
+    canMessage: false,
   })
+})
+
+test("SECTION 10: canMessage needs either club.partners.manage or fixture.request.create/.respond, at another real club, exactly like Find a Fixture's own authority signal", () => {
+  const other = marker({ partnershipStatus: "none" })
+  assert.equal(deriveClubNetworkActions(other, "viewer-club", new Set()).canMessage, false)
+  assert.equal(deriveClubNetworkActions(other, "viewer-club", new Set(["club.partners.manage"])).canMessage, true)
+  assert.equal(deriveClubNetworkActions(other, "viewer-club", new Set(["fixture.request.create"])).canMessage, true)
+  assert.equal(deriveClubNetworkActions(other, "viewer-club", new Set(["fixture.request.respond"])).canMessage, true)
+})
+
+test("SECTION 10: canMessage is never offered for your own club, whatever capabilities you hold", () => {
+  const own = marker({ clubId: "viewer-club", isOwnClub: true, partnershipStatus: "none" })
+  const caps = new Set(["club.partners.manage", "fixture.request.create", "fixture.request.respond"])
+  assert.equal(deriveClubNetworkActions(own, "viewer-club", caps).canMessage, false)
+})
+
+test("SECTION 10: canMessage never requires partnership -- unlike Compare Calendars, start_or_get_club_conversation works between any two clubs and only auto-accepts when they are already partners", () => {
+  const caps = new Set(["fixture.request.create"])
+  assert.equal(deriveClubNetworkActions(marker({ partnershipStatus: "none" }), "viewer-club", caps).canMessage, true)
+  assert.equal(deriveClubNetworkActions(marker({ partnershipStatus: "pending_outgoing" }), "viewer-club", caps).canMessage, true)
 })
 
 test("an unclaimed directory club never offers Find a Fixture, Compare Calendars or any partner action, whatever capabilities the viewer holds", () => {
