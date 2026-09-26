@@ -246,3 +246,21 @@ export function attentionVerdict(
   if (open) return "open"
   return OPEN_ONLY_TYPES.has(type) ? "unknown" : "done"
 }
+
+/**
+ * CLUBHOUSE PROGRAMME SECTION 11: the notification types that are genuinely about the rugby NETWORK
+ * (fixture requests, partner requests, the viewer's own club-claim outcome) -- never a fabricated feed,
+ * and never a global "every club's activity" feed, which no capability check has ever authorised. The
+ * one shared source for both Clubhouse Home's "Recent Activity" teaser and the Notifications screen's
+ * "Clubhouse" filter -- a duplicated list in two files is exactly how the two would quietly drift.
+ */
+export const CLUBHOUSE_NOTIFICATION_TYPES = new Set([
+  "fixture_request_received",
+  "fixture_request_accepted",
+  "fixture_request_declined",
+  "fixture_request_countered",
+  "partner_request_received",
+  "calendar_share_approved",
+  "calendar_share_declined",
+  "club_claim_approved",
+])

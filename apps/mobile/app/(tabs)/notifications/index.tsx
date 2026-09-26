@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Linking, Modal, Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
-import { useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { isFamilyFacingContext } from "@ovalball/contracts"
 import { countNeedingAction, groupAttention, type AttentionItem } from "@ovalball/contracts/attention"
 import {
   attentionVerdict,
+  CLUBHOUSE_NOTIFICATION_TYPES,
   markAllNotificationsRead,
   markNotificationRead,
   markNotificationUnread,
@@ -55,7 +56,7 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/t
  * as pending in the domain map, with its prerequisites, rather than approximated.
  */
 type Tab = "attention" | "recent"
-type Filter = "all" | "unread" | "action"
+type Filter = "all" | "unread" | "action" | "clubhouse"
 
 const TOPIC_LABEL: Record<string, string> = {
   fixture_updates: "Fixture update",
@@ -71,12 +72,16 @@ const TOPIC_LABEL: Record<string, string> = {
 export default function Notifications() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const params = useLocalSearchParams<{ filter?: string }>()
   const { unread, refreshUnread, active, contexts, select } = useAppContexts()
   const attention = useAttention()
   const familyFacing = active !== null && isFamilyFacingContext(active.kind)
 
-  const [tab, setTab] = useState<Tab>("attention")
-  const [filter, setFilter] = useState<Filter>("all")
+  // Clubhouse Home's "See All" arrives with ?filter=clubhouse -- landing straight on Recent, already
+  // filtered, rather than on Needs Attention with the person having to find the filter themselves.
+  const arrivedViaClubhouse = params.filter === "clubhouse"
+  const [tab, setTab] = useState<Tab>(arrivedViaClubhouse ? "recent" : "attention")
+  const [filter, setFilter] = useState<Filter>(arrivedViaClubhouse ? "clubhouse" : "all")
   const [items, setItems] = useState<FeedNotification[] | null>(null)
   const [cursor, setCursor] = useState<FeedCursor | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -197,6 +202,7 @@ export default function Notifications() {
   const visible = useMemo(() => {
     const all = items ?? []
     if (filter === "action") return all.filter((n) => verdicts.get(n.id) === "open")
+    if (filter === "clubhouse") return all.filter((n) => CLUBHOUSE_NOTIFICATION_TYPES.has(n.type))
     return all
   }, [items, filter, verdicts])
 
@@ -292,9 +298,9 @@ export default function Notifications() {
           <>
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
               <View style={{ flexDirection: "row", gap: space.sm, flex: 1, flexWrap: "wrap" }}>
-                {(["all", "unread", ...(canOfferActionFilter ? (["action"] as const) : [])] as Filter[]).map((option) => {
+                {(["all", "unread", ...(canOfferActionFilter ? (["action"] as const) : []), "clubhouse"] as Filter[]).map((option) => {
                   const on = option === filter
-                  const label = option === "all" ? "All" : option === "unread" ? "Unread" : "Needs Action"
+                  const label = option === "all" ? "All" : option === "unread" ? "Unread" : option === "action" ? "Needs Action" : "Clubhouse"
                   return (
                     <Pressable
                       key={option}
@@ -331,6 +337,8 @@ export default function Notifications() {
                 <EmptyState title="No new notifications" body="Changes to your rugby — a moved kick-off, a cancelled session, an answer from a family — arrive here." icon={<Bell size={26} color={colour.forest800} strokeWidth={1.8} />} />
               ) : filter === "unread" ? (
                 <EmptyState title="You're all caught up" body="Everything Ovalball has told you has been read." icon={<CircleCheck size={26} color={colour.forest800} strokeWidth={1.8} />} />
+              ) : filter === "clubhouse" ? (
+                <EmptyState title="No Clubhouse activity yet" body="Fixture requests, partner requests and club-claim outcomes will appear here as you connect with clubs." icon={<Bell size={26} color={colour.forest800} strokeWidth={1.8} />} />
               ) : (
                 <EmptyState title="Nothing waiting on you" body="None of these notifications is about a job that is still open." icon={<CircleCheck size={26} color={colour.forest800} strokeWidth={1.8} />} />
               )

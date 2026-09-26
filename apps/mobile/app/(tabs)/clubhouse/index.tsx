@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Image } from "expo-image"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 
-import { readNotificationPage, type FeedNotification } from "@ovalball/contracts/notifications/feed"
+import { CLUBHOUSE_NOTIFICATION_TYPES, readNotificationPage, type FeedNotification } from "@ovalball/contracts/notifications/feed"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -46,17 +46,6 @@ import { colour, radius, space, surface, type } from "../../../src/design/tokens
  * feed, which no capability check has ever authorised. See the type filter below for exactly what
  * qualifies and why.
  */
-const CLUBHOUSE_ACTIVITY_TYPES = new Set([
-  "fixture_request_received",
-  "fixture_request_accepted",
-  "fixture_request_declined",
-  "fixture_request_countered",
-  "partner_request_received",
-  "calendar_share_approved",
-  "calendar_share_declined",
-  "club_claim_approved",
-])
-
 const ACTIVITY_LIMIT = 5
 
 export default function ClubhouseHome() {
@@ -72,7 +61,7 @@ export default function ClubhouseHome() {
       // One page is enough for a Home teaser -- the full history lives in Notifications. Over-fetch
       // slightly (a full page) before filtering, since most notifications are NOT Clubhouse-relevant.
       const page = await readNotificationPage(supabase, { limit: 30 })
-      setActivity(page.items.filter((n) => CLUBHOUSE_ACTIVITY_TYPES.has(n.type)).slice(0, ACTIVITY_LIMIT))
+      setActivity(page.items.filter((n) => CLUBHOUSE_NOTIFICATION_TYPES.has(n.type)).slice(0, ACTIVITY_LIMIT))
       setActivityError(false)
     } catch {
       setActivity([])
@@ -137,6 +126,19 @@ export default function ClubhouseHome() {
         <View style={{ gap: space.sm }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <Text style={[type.heading, { color: colour.ink }]}>Recent Activity</Text>
+            {/* SECTION 11: the full history, filtered to this same Clubhouse-only type set -- never a
+                second, duplicate list screen, and never a dead end into the unfiltered general
+                Notifications inbox once there is more than a five-item teaser to see. */}
+            {activity !== null && activity.length > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="See all Clubhouse activity"
+                onPress={() => router.push({ pathname: "/notifications", params: { filter: "clubhouse" } } as never)}
+                hitSlop={8}
+              >
+                <Text style={[type.smallMedium, { color: colour.forest800 }]}>See All</Text>
+              </Pressable>
+            )}
           </View>
           {activity === null && !activityError && (
             <View style={{ gap: space.sm }}>
