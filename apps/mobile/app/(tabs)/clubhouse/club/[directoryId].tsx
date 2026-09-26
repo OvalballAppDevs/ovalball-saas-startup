@@ -25,7 +25,7 @@ import { startClubConversation } from "../../../../src/messages/club-conversatio
 import { CLAIMABLE_ROLES, submitClubClaim, type ClaimableRole } from "../../../../src/clubhouse/claims"
 import { ChoiceField, Field, TextField } from "../../../../src/components/form"
 import { Button, CardSkeleton, ErrorState, StatusPill } from "../../../../src/components/ui"
-import { ChevronRight, Globe, MapPin, Share2 } from "../../../../src/components/icons"
+import { ChevronRight, Globe, MapPin, Share2, Users } from "../../../../src/components/icons"
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../../src/design/tokens"
 import { webUrl } from "../../../../src/config/environment"
 import { ageRangeLabel, ClubCrest, ClubMetricRow, NetworkPill } from "../../../../src/clubhouse/components"
@@ -610,12 +610,22 @@ function DirectoryOnlyBody({ marker, detail, viewerClubId }: { marker: ClubMapMa
 
   return (
     <View style={{ padding: space.lg, gap: space.lg }}>
-      <ProfileCard>
-        <StatusPill label="Not on Ovalball yet" tone="caution" />
-        <Text style={[type.small, { color: colour.inkMuted }]}>
-          This club has not joined Ovalball. What you see here is what the Club Directory already knows -- nothing else is guessed or invented.
+      {/* THE INVITE PANEL (mock-up reconciliation): a tinted card, not a neutral pill-and-paragraph --
+          `mint100` is the existing informational surface this brand already uses (`invite-club-dialog`
+          on web), never an invented blue outside the design system. The plain-language caveat about
+          what the directory knows moves in here too, so the whole "not on Ovalball yet" story is one
+          card rather than two saying overlapping things. */}
+      <View style={{ backgroundColor: colour.mint100, borderRadius: radius.lg, padding: space.lg, gap: space.sm }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.6)", alignItems: "center", justifyContent: "center" }}>
+            <Users size={16} color={colour.forest800} />
+          </View>
+          <Text style={[type.smallMedium, { color: colour.forest800, flex: 1 }]}>This club isn&apos;t on Ovalball yet</Text>
+        </View>
+        <Text style={[type.small, { color: colour.forest800 }]}>
+          Invite them to join and help grow the rugby community. What you see here is what the Club Directory already knows -- nothing else is guessed or invented.
         </Text>
-      </ProfileCard>
+      </View>
 
       {detail?.actions.canInviteToOvalball && (
         <ProfileCard>
@@ -740,6 +750,30 @@ function DirectoryOnlyBody({ marker, detail, viewerClubId }: { marker: ClubMapMa
             </Text>
           </>
         )}
+      </ProfileCard>
+
+      {detail?.website && (
+        <ProfileCard>
+          <SectionHeader label="Website" />
+          <Pressable accessibilityRole="link" accessibilityLabel="Open club website" onPress={() => void Linking.openURL(detail.website as string)} style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+            <Globe size={15} color={colour.pitch600} />
+            <Text style={[type.small, { color: colour.pitch600 }]} numberOfLines={1}>
+              {detail.website}
+            </Text>
+          </Pressable>
+        </ProfileCard>
+      )}
+
+      <ProfileCard>
+        <SectionHeader label="Club Details" />
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.sm }}>
+          <MapPin size={16} color={colour.inkSubtle} style={{ marginTop: 2 }} />
+          <Text style={[type.small, { color: colour.inkMuted, flex: 1 }]}>
+            {marker.rugbyCode === "union" ? "Rugby Union" : "Rugby League"}
+            {"\n"}
+            {[marker.town, marker.county].filter(Boolean).join(", ") || "Location not yet known"}
+          </Text>
+        </View>
       </ProfileCard>
     </View>
   )
