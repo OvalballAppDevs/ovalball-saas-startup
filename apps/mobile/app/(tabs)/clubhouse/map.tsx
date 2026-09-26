@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { FlatList, Linking, Pressable, Share, Text, TextInput, View } from "react-native"
+import { FlatList, Pressable, Text, TextInput, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Constants from "expo-constants"
@@ -9,13 +9,9 @@ import {
   applyClubhouseFilter,
   distanceMiles,
   findDistanceOrigin,
-  inviteClubToOvalball,
   matchesClubhouseQuery,
   readClubDetail,
   readClubhouseMarkers,
-  requestPartnership,
-  respondToPartnership,
-  revokePartnership,
   type ClubDetail,
   type ClubMapMarker,
   type ClubhouseDistanceFilter,
@@ -23,16 +19,11 @@ import {
 } from "@ovalball/contracts/clubhouse"
 
 import { supabase } from "../../../src/auth/supabase"
-import { useSession } from "../../../src/auth/session"
 import { useAppContexts } from "../../../src/context/contexts"
-import { startClubConversation } from "../../../src/messages/club-conversations"
-import { CLAIMABLE_ROLES, submitClubClaim, type ClaimableRole } from "../../../src/clubhouse/claims"
 import { BottomSheet } from "../../../src/components/bottom-sheet"
-import { ChoiceField, Field, TextField } from "../../../src/components/form"
 import { Button, CardSkeleton, ErrorState, StatusPill } from "../../../src/components/ui"
-import { ChevronDown, ChevronRight, LayoutGrid, MapPin, Search, Share2, SlidersHorizontal, X } from "../../../src/components/icons"
+import { ChevronDown, ChevronRight, LayoutGrid, MapPin, Search, SlidersHorizontal, X } from "../../../src/components/icons"
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
-import { webUrl } from "../../../src/config/environment"
 import { ClubCrest, DistanceChips, NetworkPill } from "../../../src/clubhouse/components"
 import { resolveInitialMode, type ClubhouseMapMode } from "../../../src/clubhouse/entry-mode"
 
@@ -65,7 +56,6 @@ import { resolveInitialMode, type ClubhouseMapMode } from "../../../src/clubhous
 export default function ExploreMap() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { userId } = useSession()
   const { active } = useAppContexts()
   // Clubhouse Home's own "Partner Clubs" card hands off here with the Partners filter already chosen
   // -- never a second partner-list implementation, just this same map/list pre-filtered. "Find a Club"
@@ -277,15 +267,7 @@ export default function ExploreMap() {
         )}
       </View>
 
-      <ClubSheet
-        marker={selected}
-        onClose={() => setSelected(null)}
-        viewerClubId={viewerClubId}
-        viewerTeamId={viewerTeamId}
-        userId={userId}
-        onChanged={() => void load()}
-        origin={origin}
-      />
+      <ClubSheet marker={selected} onClose={() => setSelected(null)} viewerClubId={viewerClubId} viewerTeamId={viewerTeamId} origin={origin} />
 
       <DistanceFilterSheet visible={distanceSheetOpen} distance={distance} onChange={setDistance} onClose={() => setDistanceSheetOpen(false)} />
     </View>
@@ -602,48 +584,34 @@ function ClubListRow({ marker, origin, onPress }: { marker: ClubMapMarker; origi
 
 
 /**
- * THE CLUB BOTTOM SHEET (Section 26-28). Detail is fetched only once a marker is tapped -- never
- * bundled into the map payload. Truthful by construction: `ClubNetworkActions` decides what can be
- * shown, so there is no client-side "hide this button for an unclaimed club" special case to forget.
+ * THE CLUB PREVIEW SHEET (Section 7 of the visual blueprint) -- deliberately compact now. This used to
+ * stack up to eight action buttons plus three inline expanding forms (message/invite/claim) in one
+ * sheet; every one of those now lives on the full Rich Club Profile / Directory-only Club Profile
+ * screen (`club/[directoryId].tsx`) instead, reached via "View Club" below. The sheet's own job is only
+ * ever a fast glance from the map/list -- crest, name, location, distance, network/partnership status,
+ * and exactly two primary actions: View Club (always) and Find a Fixture (only when it is genuinely
+ * legitimate for this viewer). Nothing here writes anything any more; every mutation moved to the
+ * screen that has room for it.
  */
 function ClubSheet({
   marker,
   onClose,
   viewerClubId,
   viewerTeamId,
-  userId,
-  onChanged,
   origin,
 }: {
   marker: ClubMapMarker | null
   onClose: () => void
   viewerClubId: string | null
   viewerTeamId: string | null
-  userId: string | null
-  onChanged: () => void
   /** The viewer's own club, for a factual distance -- null whenever there is no real origin to measure from. */
   origin: ClubMapMarker | null
 }) {
   const router = useRouter()
   const [detail, setDetail] = useState<ClubDetail | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [feedback, setFeedback] = useState<string | null>(null)
-  const [invite, setInvite] = useState<{ name: string; email: string } | null>(null)
-  const [inviteLink, setInviteLink] = useState<string | null>(null)
-  const [messageDraft, setMessageDraft] = useState<string | null>(null)
-  const [sendingMessage, setSendingMessage] = useState(false)
-  const [claimForm, setClaimForm] = useState<{ role: ClaimableRole; declaration: string } | null>(null)
-  const [claimSubmitting, setClaimSubmitting] = useState(false)
-  const [claimSubmitted, setClaimSubmitted] = useState(false)
 
   useEffect(() => {
     setDetail(null)
-    setFeedback(null)
-    setInvite(null)
-    setInviteLink(null)
-    setMessageDraft(null)
-    setClaimForm(null)
-    setClaimSubmitted(false)
     if (!marker) return
     let live = true
     void readClubDetail(supabase, marker, viewerClubId, viewerTeamId).then((d) => {
@@ -653,22 +621,6 @@ function ClubSheet({
       live = false
     }
   }, [marker, viewerClubId, viewerTeamId])
-
-  async function act(run: () => Promise<{ ok: boolean; error?: string }>) {
-    setBusy(true)
-    setFeedback(null)
-    try {
-      const result = await run()
-      if (!result.ok) {
-        setFeedback(result.error ?? "That didn't work. Try again.")
-      } else {
-        onChanged()
-        onClose()
-      }
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <BottomSheet visible={!!marker} onClose={onClose} title={marker?.name ?? ""} cancelLabel="Close">
@@ -704,244 +656,31 @@ function ClubSheet({
 
           {!detail && <CardSkeleton lines={2} />}
 
-          {/* SECTION 17 (NETWORK MEMORY): the season count generalised, never restarted -- both counts
-              share the same canonical team-id resolution (readClubNetworkHistory), only the date range
-              differs. All-time is only shown once it says something the season count doesn't. */}
-          {detail && (detail.fixturesTogetherThisSeason !== null || detail.fixturesTogetherAllTime !== null) && (
-            <View style={{ flexDirection: "row", gap: space.xl }}>
-              {detail.fixturesTogetherThisSeason !== null && (
-                <Stat value={detail.fixturesTogetherThisSeason} label={detail.fixturesTogetherThisSeason === 1 ? "fixture this season" : "fixtures this season"} />
-              )}
-              {detail.fixturesTogetherAllTime !== null && detail.fixturesTogetherAllTime !== detail.fixturesTogetherThisSeason && (
-                <Stat value={detail.fixturesTogetherAllTime} label={detail.fixturesTogetherAllTime === 1 ? "fixture all time" : "fixtures all time"} />
-              )}
-            </View>
-          )}
-          {detail?.firstMetDate && (
-            <Text style={[type.caption, { color: colour.inkSubtle }]}>First met {monthYearLabel(detail.firstMetDate)}</Text>
-          )}
-
-          {/* Section 4: the compatible-team list itself, from the same canonical `compatible_opponent_teams`
-              RPC Find a Fixture uses -- never a bare count, and never shown for a club with no viewer team
-              context or no compatible sides. */}
-          {detail && detail.compatibleTeams && detail.compatibleTeams.length > 0 && (
-            <View style={{ gap: space.sm }}>
-              <Text style={[type.smallMedium, { color: colour.ink }]}>Compatible Teams</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-                {detail.compatibleTeams.map((team) => (
-                  <View key={team.teamId} style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.surface, justifyContent: "center" }}>
-                    <Text style={[type.caption, { color: colour.ink }]}>{team.displayName}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {detail?.website && (
-            <View style={{ gap: space.xs }}>
-              <Text style={[type.smallMedium, { color: colour.ink }]}>About</Text>
-              <Pressable accessibilityRole="link" accessibilityLabel="Open club website" onPress={() => void Linking.openURL(detail.website as string)}>
-                <Text style={[type.small, { color: colour.pitch600 }]} numberOfLines={1}>
-                  {detail.website}
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {feedback && <Text style={[type.caption, { color: colour.warning }]}>{feedback}</Text>}
-
-          {invite && (
-            <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.chalk }}>
-              <TextInput accessibilityLabel="Contact name" value={invite.name} onChangeText={(name) => setInvite({ ...invite, name })} placeholder="Contact name at this club" placeholderTextColor={colour.inkSubtle} style={sheetInput} />
-              <TextInput accessibilityLabel="Contact email" value={invite.email} onChangeText={(email) => setInvite({ ...invite, email })} placeholder="Contact email" placeholderTextColor={colour.inkSubtle} autoCapitalize="none" keyboardType="email-address" style={sheetInput} />
+          <View style={{ gap: space.sm }}>
+            <Button
+              label="View Club"
+              onPress={() => {
+                onClose()
+                router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: marker.directoryId } } as never)
+              }}
+            />
+            {detail?.actions.canFindFixture && (
               <Button
-                label="Send Invitation"
-                busy={busy}
-                disabled={!invite.name.trim() || !invite.email.trim()}
-                onPress={() =>
-                  void act(async () => {
-                    if (!viewerClubId) return { ok: false, error: "You don't have fixture authority at a club." }
-                    const result = await inviteClubToOvalball(supabase, webUrl, viewerClubId, marker.directoryId, invite.name.trim(), invite.email.trim())
-                    if (!result.ok) return result
-                    setInviteLink(result.inviteLink)
-                    return { ok: true }
-                  })
-                }
-              />
-            </View>
-          )}
-
-          {inviteLink && (
-            <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.chalk }}>
-              <Text style={[type.caption, { color: colour.inkMuted }]}>Invitation sent. Share the link yourself too, if useful:</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Share invitation link"
-                onPress={() => void Share.share({ message: inviteLink })}
-                style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.xs, minHeight: TOUCH_TARGET, borderRadius: radius.md, backgroundColor: colour.forest800 }}
-              >
-                <Share2 size={16} color={colour.onForest} />
-                <Text style={[type.smallMedium, { color: colour.onForest }]}>Share Invitation</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* SECTION 10 (CLUBHOUSE): start_or_get_club_conversation straight from the club already on
-              screen -- never a second search for a club the viewer is already looking at. */}
-          {messageDraft !== null && (
-            <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.chalk }}>
-              <TextInput
-                accessibilityLabel="First message"
-                value={messageDraft}
-                onChangeText={setMessageDraft}
-                placeholder="Write your message…"
-                placeholderTextColor={colour.inkSubtle}
-                multiline
-                style={[sheetInput, { minHeight: 88, paddingVertical: space.sm, textAlignVertical: "top" }]}
-              />
-              <Button
-                label="Send"
-                busy={sendingMessage}
-                disabled={!messageDraft.trim()}
-                onPress={async () => {
-                  if (!viewerClubId || !marker.clubId) {
-                    setFeedback("You don't have fixture authority at a club.")
-                    return
-                  }
-                  setSendingMessage(true)
-                  setFeedback(null)
-                  const result = await startClubConversation(supabase, viewerClubId, marker.clubId, messageDraft.trim())
-                  setSendingMessage(false)
-                  if (!result.ok || !result.conversationId) {
-                    setFeedback(result.error ?? "That didn't work. Try again.")
-                    return
-                  }
+                variant="secondary"
+                label="Find a Fixture"
+                onPress={() => {
                   onClose()
-                  router.push({ pathname: "/messages/[kind]/[id]", params: { kind: "club", id: result.conversationId } } as never)
+                  // Section 6: this club preselected/filtered, per SELECTED CLUB ENTRY -- the
+                  // discovery screen shows compatible teams here rather than sending the viewer
+                  // straight into the raw composer to search again.
+                  router.push({
+                    pathname: "/clubhouse/find-fixture",
+                    params: { opponentDirectoryId: marker.directoryId, opponentClubId: marker.clubId ?? "" },
+                  } as never)
                 }}
               />
-            </View>
-          )}
-
-          {/* SECTION 14 (CLUBHOUSE): claiming is how someone GETS authority over a club, so this form
-              is offered to any signed-in viewer who reaches this sheet at all -- never gated on
-              detail.actions, which all describe authority the viewer would already need to hold. A
-              Site Admin reviews every claim by hand; a claimed role is only ever a suggestion. */}
-          {claimForm !== null && !claimSubmitted && (
-            <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.chalk }}>
-              <Field label="Your Role at This Club">
-                <ChoiceField
-                  label="Your role at this club"
-                  value={claimForm.role}
-                  onChange={(role) => setClaimForm({ ...claimForm, role })}
-                  options={CLAIMABLE_ROLES.map((r) => ({ value: r, label: r }))}
-                />
-              </Field>
-              <Field label={`Why You Can Act for ${marker.name}`}>
-                <TextField
-                  label="Why can you act for this club"
-                  value={claimForm.declaration}
-                  onChange={(declaration) => setClaimForm({ ...claimForm, declaration })}
-                  placeholder="e.g. I was elected Club Secretary at the AGM and I'm the point of contact for fixtures."
-                  multiline
-                />
-              </Field>
-              <Button
-                label="Submit Claim"
-                busy={claimSubmitting}
-                disabled={claimForm.declaration.trim().length < 20}
-                onPress={async () => {
-                  setClaimSubmitting(true)
-                  setFeedback(null)
-                  const result = await submitClubClaim(supabase, marker.directoryId, claimForm.role, claimForm.declaration)
-                  setClaimSubmitting(false)
-                  if (!result.ok) {
-                    setFeedback(result.error)
-                    return
-                  }
-                  setClaimSubmitted(true)
-                }}
-              />
-            </View>
-          )}
-
-          {claimSubmitted && (
-            <View style={{ gap: space.xs, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.chalk }}>
-              <Text style={[type.smallMedium, { color: colour.ink }]}>Claim sent</Text>
-              <Text style={[type.caption, { color: colour.inkMuted }]}>
-                A Site Admin reviews every claim by hand -- this is not an automatic sign-up. Ovalball will contact you once it has been reviewed.
-              </Text>
-            </View>
-          )}
-
-          {detail && (
-            <View style={{ gap: space.sm }}>
-              {detail.actions.canFindFixture && (
-                <Button
-                  label="Find a Fixture"
-                  onPress={() => {
-                    onClose()
-                    // Section 6: this club preselected/filtered, per SELECTED CLUB ENTRY -- the
-                    // discovery screen shows compatible teams here rather than sending the viewer
-                    // straight into the raw composer to search again.
-                    router.push({
-                      pathname: "/clubhouse/find-fixture",
-                      params: { opponentDirectoryId: marker.directoryId, opponentClubId: marker.clubId ?? "" },
-                    } as never)
-                  }}
-                />
-              )}
-              {detail.actions.canMessage && messageDraft === null && (
-                <Button variant="secondary" label="Message This Club" onPress={() => setMessageDraft("")} />
-              )}
-              {detail.actions.canCompareCalendar && (
-                <Button
-                  variant="secondary"
-                  label="Compare Calendars"
-                  onPress={() => {
-                    onClose()
-                    router.push({ pathname: "/fixtures/new", params: viewerTeamId ? { teamId: viewerTeamId } : {} } as never)
-                  }}
-                />
-              )}
-              {detail.actions.canPartner && (
-                <Button
-                  variant="secondary"
-                  label="Partner with Club"
-                  busy={busy}
-                  onPress={() =>
-                    void act(async () => {
-                      if (!viewerClubId || !userId || !marker.clubId) return { ok: false, error: "You don't have fixture authority at a club." }
-                      return requestPartnership(supabase, viewerClubId, marker.clubId, userId)
-                    })
-                  }
-                />
-              )}
-              {detail.actions.canCancelOutgoingPartnerRequest && marker.partnershipId && (
-                <Button variant="quiet" label="Cancel Partner Request" busy={busy} onPress={() => void act(() => revokePartnership(supabase, marker.partnershipId as string))} />
-              )}
-              {detail.actions.canRespondPartnerRequest && marker.partnershipId && (
-                <View style={{ flexDirection: "row", gap: space.sm }}>
-                  <View style={{ flex: 1 }}>
-                    <Button variant="secondary" label="Decline" busy={busy} onPress={() => void act(() => respondToPartnership(supabase, marker.partnershipId as string, false))} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Button label="Accept" busy={busy} onPress={() => void act(() => respondToPartnership(supabase, marker.partnershipId as string, true))} />
-                  </View>
-                </View>
-              )}
-              {detail.actions.canRevokePartnership && marker.partnershipId && (
-                <Button variant="quiet" label="End Partnership" busy={busy} onPress={() => void act(() => revokePartnership(supabase, marker.partnershipId as string))} />
-              )}
-              {detail.actions.canInviteToOvalball && !invite && !inviteLink && <Button variant="secondary" label="Invite to Ovalball" onPress={() => setInvite({ name: "", email: "" })} />}
-              {marker.networkState === "not_on_ovalball" && claimForm === null && !claimSubmitted && (
-                <Button variant="secondary" label="Claim This Club" onPress={() => setClaimForm({ role: "Committee Member", declaration: "" })} />
-              )}
-              {marker.slug && (
-                <Button variant="quiet" label="View Club" onPress={() => void Linking.openURL(`${webUrl}/clubs/${marker.slug}`)} />
-              )}
-            </View>
-          )}
+            )}
+          </View>
         </View>
       )}
     </BottomSheet>
@@ -962,27 +701,3 @@ function DistanceFilterSheet({ visible, distance, onChange, onClose }: { visible
   )
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <View>
-      <Text style={[type.title, { color: colour.ink }]}>{value}</Text>
-      <Text style={[type.caption, { color: colour.inkMuted }]}>{label}</Text>
-    </View>
-  )
-}
-
-/** "Mar 2024" -- a real recorded fixture date, never a guess. */
-function monthYearLabel(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`)
-  return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" })
-}
-
-const sheetInput = {
-  minHeight: TOUCH_TARGET,
-  paddingHorizontal: space.md,
-  borderRadius: radius.md,
-  borderWidth: 1,
-  borderColor: colour.lineStrong,
-  backgroundColor: colour.surface,
-  color: colour.ink,
-}
