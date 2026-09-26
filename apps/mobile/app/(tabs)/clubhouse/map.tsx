@@ -29,7 +29,7 @@ import { startClubConversation } from "../../../src/messages/club-conversations"
 import { CLAIMABLE_ROLES, submitClubClaim, type ClaimableRole } from "../../../src/clubhouse/claims"
 import { BottomSheet } from "../../../src/components/bottom-sheet"
 import { ChoiceField, Field, TextField } from "../../../src/components/form"
-import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../src/components/ui"
+import { Button, CardSkeleton, ErrorState, StatusPill } from "../../../src/components/ui"
 import { ChevronDown, ChevronRight, LayoutGrid, MapPin, Search, Share2, SlidersHorizontal, X } from "../../../src/components/icons"
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
 import { webUrl } from "../../../src/config/environment"
@@ -168,15 +168,17 @@ export default function ExploreMap() {
             </View>
           )}
           {error && <ErrorState message={error} onRetry={() => void load()} />}
-          {markers !== null && !error && filtered.length === 0 && (
-            <View style={{ flex: 1, paddingTop: space.xxl * 2 }}>
-              <EmptyState title="No clubs match" body="Try a different search or filter, or widen the map area." />
-            </View>
-          )}
-          {markers !== null && !error && filtered.length > 0 && mode === "map" && (
+          {/* THE CRITICAL FIX: the map (or list) is a sibling of the empty state now, never gated
+              behind `filtered.length > 0`. A genuinely empty result -- most commonly the Partners
+              filter on a club with no partners yet -- used to replace the whole screen with a bare
+              full-bleed EmptyState, so the map itself vanished along with its markers. The map is
+              the hero of this screen (Section 2/11); it stays visible with zero pins exactly as it
+              does with a hundred, and the explanation floats over it as a compact card below,
+              never as a second surface that hides the one underneath. */}
+          {markers !== null && !error && mode === "map" && (
             <ClubhouseMap markers={withLocation} onSelect={setSelected} origin={origin} />
           )}
-          {markers !== null && !error && filtered.length > 0 && mode === "list" && (
+          {markers !== null && !error && mode === "list" && (
             <ClubhouseList
               markers={sorted}
               onSelect={setSelected}
@@ -190,6 +192,28 @@ export default function ExploreMap() {
             />
           )}
         </View>
+        {markers !== null && !error && filtered.length === 0 && (
+          <NoClubsOverlay
+            top={chromeHeight > 0 ? chromeHeight + space.md : 140}
+            // GLOBAL vs FILTERED, decided by what is actually true of the whole network, never by
+            // guessing from which controls happen to be set. Clearing search and distance would not
+            // change this answer only when the Partners filter itself has nothing behind it -- that
+            // is "no partner clubs yet," a fact about the club's network, not about this search. Any
+            // other empty result (a bad search term, too tight a distance, a code/name filter with
+            // no matches) is "no clubs match here," which search/distance genuinely caused and can
+            // genuinely fix.
+            isEmptyNetwork={filter === "partners" && !!markers && applyClubhouseFilter(markers, "partners", null).length === 0}
+            onExploreAll={() => {
+              setFilter("all")
+              setQuery("")
+              setDistance("any")
+            }}
+            onClearFilters={() => {
+              setQuery("")
+              setDistance("any")
+            }}
+          />
+        )}
 
         {/* FLOATING SEARCH + FILTERS, on both map and list (the reference keeps the identical chrome in
             either mode) -- a white pill for search, dark pills directly on the ground for filters, no
@@ -408,6 +432,61 @@ function MapListSegment({ mode, onSwitchToMap }: { mode: "map" | "list"; onSwitc
 const isExpoGo = Constants.appOwnership === "expo"
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate: see the comment above.
 const NativeMap = isExpoGo ? null : (require("../../../src/clubhouse/native-map") as typeof import("../../../src/clubhouse/native-map")).ClubhouseMap
+
+/**
+ * THE COMPACT FLOATING CARD that replaced the old full-screen EmptyState (the critical bug: selecting
+ * Partners with zero results used to blank the whole map). A premium white card over the still-visible
+ * map/list, not a second surface hiding it -- and never the dashed-border placeholder box the rest of
+ * Clubhouse's empty states also moved away from.
+ *
+ * Two honest variants, decided by `isEmptyNetwork` (computed by the caller from the real marker set,
+ * never guessed from which controls are set): a club with no partners at all yet is a different fact
+ * from a search or distance filter that happens to have narrowed the result to nothing, and each gets
+ * its own truthful next action.
+ */
+function NoClubsOverlay({
+  top,
+  isEmptyNetwork,
+  onExploreAll,
+  onClearFilters,
+}: {
+  top: number
+  isEmptyNetwork: boolean
+  onExploreAll: () => void
+  onClearFilters: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top,
+        left: space.lg,
+        right: space.lg,
+        backgroundColor: colour.surface,
+        borderRadius: radius.lg,
+        padding: space.lg,
+        gap: space.sm,
+        alignItems: "center",
+        ...elevation.card,
+      }}
+    >
+      <Text style={[type.bodyMedium, { color: colour.ink, textAlign: "center" }]}>
+        {isEmptyNetwork ? "No partner clubs yet" : "No clubs match here"}
+      </Text>
+      <Text style={[type.small, { color: colour.inkMuted, textAlign: "center", maxWidth: 320 }]}>
+        {isEmptyNetwork
+          ? "Connect with clubs to build your rugby network."
+          : "Try another search or adjust your filters."}
+      </Text>
+      <Button
+        label={isEmptyNetwork ? "Explore All Clubs" : "Clear Filters"}
+        variant="secondary"
+        onPress={isEmptyNetwork ? onExploreAll : onClearFilters}
+        style={{ marginTop: space.xs, alignSelf: "stretch" }}
+      />
+    </View>
+  )
+}
 
 function ClubhouseMap({ markers, onSelect, origin }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void; origin: ClubMapMarker | null }) {
   if (isExpoGo || !NativeMap) {

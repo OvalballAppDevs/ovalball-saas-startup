@@ -196,6 +196,13 @@ function TabCell({ tab, label, color, focused, badge = 0 }: { tab: TabKey; label
       </View>
       <Text
         numberOfLines={1}
+        // "Clubhouse" is the longest label this bar carries, and on a 320pt-wide iPhone the cell
+        // itself is only 64pt -- exactly the width below, no wider, because five cells must fit.
+        // Rather than let the fixed size clip it to "Clubhou...", the label is allowed to scale
+        // itself down a little (never below 85%, so it never reads as a typo-sized afterthought)
+        // before the OS would otherwise truncate it. Every shorter label renders at the full size.
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
         // Announced by the tab's own role and title; repeating it here would read the word twice.
         accessibilityElementsHidden
         importantForAccessibility="no"
