@@ -1,10 +1,29 @@
 import type { ReactNode } from "react"
 import { Image, Pressable, Text, View } from "react-native"
 import type { ClubhouseDistanceFilter, ClubMapMarker } from "@ovalball/contracts/clubhouse"
+import type { ClubTeam } from "@ovalball/contracts/club/teams"
 
 import { Button, StatusPill } from "../components/ui"
 import { MapPin } from "../components/icons"
 import { colour, elevation, radius, space, type } from "../design/tokens"
+
+/**
+ * "8 teams · U7 – U18" -- a real, compact age-range summary from the club's own active roster, never a
+ * second team-directory calculation. Senior-only sides (no `ageGroup` at all -- Men's/Women's 1st) are
+ * simply excluded from the range rather than guessed at; a club with only senior sides returns null
+ * here, and the caller falls back to just the team count.
+ */
+export function ageRangeLabel(teams: ClubTeam[]): string | null {
+  const ages = teams
+    .map((t) => t.ageGroup)
+    .filter((a): a is string => !!a)
+    .map((a) => parseInt(a.replace(/[^0-9]/g, ""), 10))
+    .filter((n) => !isNaN(n))
+  if (ages.length === 0) return null
+  const min = Math.min(...ages)
+  const max = Math.max(...ages)
+  return min === max ? `U${min}` : `U${min} – U${max}`
+}
 
 /**
  * SHARED CLUBHOUSE PRESENTATION -- the same crest, network/partner pill and distance chips the main

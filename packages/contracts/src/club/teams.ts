@@ -101,6 +101,44 @@ export async function readClubTeams(supabase: Client, clubId: string): Promise<C
   return { rugbyCode, teams, groups, folded: teams.filter((t) => !t.active) }
 }
 
+export interface ClubTeamSummary {
+  teamCount: number
+  /** "U7 – U18", or null when the club runs no age-graded (senior-only, or no team at all) sides. */
+  ageRangeLabel: string | null
+}
+
+/**
+ * A LIST-ROW BATCH READ (mock-up reconciliation pass): the map/list, Available Clubs and Partnerships
+ * rows all want a compact "N teams · U{min}-U{max}" summary per row, but fetching `readClubTeams` once
+ * PER VISIBLE ROW would mean dozens of parallel requests scrolling a real list -- this is the one query
+ * for however many clubs are on screen at once, grouped client-side, exactly the same
+ * `teams_select` RLS (`active = true` readable by any signed-in viewer) `readClubTeams` already relies
+ * on. Never a second compatibility/roster calculation -- this only ever counts and ranges the same
+ * `teams` rows, never a player.
+ */
+export async function readClubTeamSummaries(supabase: Client, clubIds: string[]): Promise<Map<string, ClubTeamSummary>> {
+  const result = new Map<string, ClubTeamSummary>()
+  if (clubIds.length === 0) return result
+  const { data, error } = await supabase.from("teams").select("club_id, age_group").in("club_id", clubIds).eq("active", true)
+  if (error || !data) return result
+  const rowsByClub = new Map<string, { age_group: string | null }[]>()
+  for (const row of data) {
+    const list = rowsByClub.get(row.club_id) ?? []
+    list.push(row)
+    rowsByClub.set(row.club_id, list)
+  }
+  for (const [clubId, rows] of rowsByClub) {
+    const ages = rows
+      .map((r) => r.age_group)
+      .filter((a): a is string => !!a)
+      .map((a) => parseInt(a.replace(/[^0-9]/g, ""), 10))
+      .filter((n) => !isNaN(n))
+    const label = ages.length === 0 ? null : Math.min(...ages) === Math.max(...ages) ? `U${Math.min(...ages)}` : `U${Math.min(...ages)} – U${Math.max(...ages)}`
+    result.set(clubId, { teamCount: rows.length, ageRangeLabel: label })
+  }
+  return result
+}
+
 /** The catalogue a club may add from, and which entries it has already used -- the same computation the website's picker uses. */
 export async function readTeamCatalogue(supabase: Client, rugbyCode: RugbyCode, teams: ClubTeam[]): Promise<{ groups: TeamCategoryGroup[]; availability: TeamOptionAvailability[] }> {
   const groups = await loadTeamCategoryGroups(supabase, { rugbyCode })

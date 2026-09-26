@@ -18,6 +18,7 @@ import {
   type ClubhouseDistanceFilter,
   type ClubhouseFilter,
 } from "@ovalball/contracts/clubhouse"
+import { readClubTeamSummaries, type ClubTeamSummary } from "@ovalball/contracts/club/teams"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -113,6 +114,22 @@ export default function ExploreMap() {
 
   const origin = useMemo(() => (markers ? findDistanceOrigin(markers) : null), [markers])
 
+  // ONE BATCHED READ, never per-row: every list/sheet surface on this screen wants a compact
+  // "N teams · U{min}-U{max}" summary, and `readClubTeamSummaries` already groups client-side from one
+  // query rather than a request per visible club.
+  const [teamSummaryByClubId, setTeamSummaryByClubId] = useState<Map<string, ClubTeamSummary>>(new Map())
+  useEffect(() => {
+    const clubIds = Array.from(new Set((markers ?? []).map((m) => m.clubId).filter((id): id is string => !!id)))
+    if (clubIds.length === 0) return
+    let live = true
+    void readClubTeamSummaries(supabase, clubIds).then((summaries) => {
+      if (live) setTeamSummaryByClubId(summaries)
+    })
+    return () => {
+      live = false
+    }
+  }, [markers])
+
   const filtered = useMemo(() => {
     if (!markers) return []
     const byFilter = applyClubhouseFilter(markers, filter, null)
@@ -180,6 +197,7 @@ export default function ExploreMap() {
               onChangeSort={setSort}
               sortEnabled={!!origin}
               onSwitchToMap={() => setMode("map")}
+              teamSummaryByClubId={teamSummaryByClubId}
             />
           )}
         </View>
@@ -263,7 +281,7 @@ export default function ExploreMap() {
         )}
       </View>
 
-      <ClubSheet marker={selected} onClose={() => setSelected(null)} viewerClubId={viewerClubId} viewerTeamId={viewerTeamId} origin={origin} />
+      <ClubSheet marker={selected} onClose={() => setSelected(null)} viewerClubId={viewerClubId} viewerTeamId={viewerTeamId} origin={origin} teamSummaryByClubId={teamSummaryByClubId} />
 
       <DistanceFilterSheet visible={distanceSheetOpen} distance={distance} onChange={setDistance} onClose={() => setDistanceSheetOpen(false)} />
     </View>
@@ -501,6 +519,7 @@ function ClubhouseList({
   onChangeSort,
   sortEnabled,
   onSwitchToMap,
+  teamSummaryByClubId,
 }: {
   markers: ClubMapMarker[]
   onSelect: (m: ClubMapMarker) => void
@@ -516,6 +535,7 @@ function ClubhouseList({
   /** Real only when a genuine origin (the viewer's own geocoded club) exists -- see `sorted` above. */
   sortEnabled: boolean
   onSwitchToMap: () => void
+  teamSummaryByClubId: Map<string, ClubTeamSummary>
 }) {
   return (
     <FlatList
@@ -542,12 +562,24 @@ function ClubhouseList({
           </View>
         </View>
       }
-      renderItem={({ item }) => <ClubListRow marker={item} origin={origin} onPress={() => onSelect(item)} />}
+      renderItem={({ item }) => (
+        <ClubListRow marker={item} origin={origin} onPress={() => onSelect(item)} teamSummary={item.clubId ? teamSummaryByClubId.get(item.clubId) : undefined} />
+      )}
     />
   )
 }
 
-function ClubListRow({ marker, origin, onPress }: { marker: ClubMapMarker; origin: ClubMapMarker | null; onPress: () => void }) {
+function ClubListRow({
+  marker,
+  origin,
+  onPress,
+  teamSummary,
+}: {
+  marker: ClubMapMarker
+  origin: ClubMapMarker | null
+  onPress: () => void
+  teamSummary?: ClubTeamSummary
+}) {
   // Tertiary metadata, only when genuinely calculable -- the same rule the bottom sheet's own mileage
   // already follows: never fabricated for a club with no factual coordinate, and never for the
   // viewer's own club.
@@ -569,21 +601,27 @@ function ClubListRow({ marker, origin, onPress }: { marker: ClubMapMarker; origi
         backgroundColor: pressed ? "rgba(16,21,18,0.03)" : colour.surface,
       })}
     >
-      <ClubCrest url={marker.logoUrl} size={40} />
-      <View style={{ flex: 1, minWidth: 0 }}>
+      <ClubCrest url={marker.logoUrl} size={44} />
+      <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
         <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
           {marker.name}
         </Text>
         <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
-          {[marker.town, marker.county].filter(Boolean).join(", ") || (marker.hasLocation ? "" : "Location unavailable")}
+          {miles !== null ? `${Math.round(miles)} miles` : ""}
+          {miles !== null && marker.town ? " · " : ""}
+          {marker.town ?? (miles === null && !marker.hasLocation ? "Location unavailable" : "")}
         </Text>
-        {miles !== null && (
+        {teamSummary && teamSummary.teamCount > 0 && (
           <Text numberOfLines={1} style={[type.caption, { color: colour.inkSubtle }]}>
-            {Math.round(miles)} miles away
+            {teamSummary.teamCount} {teamSummary.teamCount === 1 ? "team" : "teams"}
+            {teamSummary.ageRangeLabel ? ` · ${teamSummary.ageRangeLabel}` : ""}
           </Text>
         )}
+        <View style={{ flexDirection: "row", gap: space.xs, marginTop: 2 }}>
+          <NetworkPill marker={marker} />
+        </View>
       </View>
-      <NetworkPill marker={marker} />
+      <ChevronRight size={18} color={colour.inkSubtle} />
     </Pressable>
   )
 }
@@ -605,6 +643,7 @@ function ClubSheet({
   viewerClubId,
   viewerTeamId,
   origin,
+  teamSummaryByClubId,
 }: {
   marker: ClubMapMarker | null
   onClose: () => void
@@ -612,9 +651,12 @@ function ClubSheet({
   viewerTeamId: string | null
   /** The viewer's own club, for a factual distance -- null whenever there is no real origin to measure from. */
   origin: ClubMapMarker | null
+  /** ExploreMap's own one batched read (`readClubTeamSummaries`), never a second per-sheet fetch. */
+  teamSummaryByClubId: Map<string, ClubTeamSummary>
 }) {
   const router = useRouter()
   const [detail, setDetail] = useState<ClubDetail | null>(null)
+  const teamSummary = marker?.clubId ? teamSummaryByClubId.get(marker.clubId) : undefined
 
   useEffect(() => {
     setDetail(null)
@@ -663,27 +705,20 @@ function ClubSheet({
           {!detail && <CardSkeleton lines={2} />}
 
           {/* THE "SMALL USEFUL FACTUAL SUMMARY" the compact preview lost when the sheet was cut down
-              from eight buttons to two -- one line, only when something real backs it, never a second
-              stat competing with the full profile's own "Our History" section. Compatible teams (a
-              fact about whether a fixture is even possible) takes priority over fixture history (a
-              fact about the past) when both exist, because it answers the more pressing question. */}
-          {detail && marker.networkState === "on_ovalball" && !marker.isOwnClub && (
-            <>
-              {detail.compatibleTeams && detail.compatibleTeams.length > 0 ? (
-                <Text style={[type.caption, { color: colour.inkMuted }]}>
-                  {detail.compatibleTeams.length} compatible {detail.compatibleTeams.length === 1 ? "team" : "teams"}
-                </Text>
-              ) : detail.fixturesTogetherAllTime !== null && detail.fixturesTogetherAllTime > 0 ? (
-                <Text style={[type.caption, { color: colour.inkMuted }]}>
-                  {detail.fixturesTogetherAllTime} {detail.fixturesTogetherAllTime === 1 ? "fixture" : "fixtures"} together
-                </Text>
-              ) : null}
-            </>
+              from eight buttons to two, and the mock-up's own reference composition (crest, name,
+              status, "N teams · U{min}-U{max}") asks for again -- the club's REAL active-team count
+              and age range, never a second write path and never competing with the full profile's own
+              richer Teams/History sections. */}
+          {teamSummary && teamSummary.teamCount > 0 && (
+            <Text style={[type.caption, { color: colour.inkMuted }]}>
+              {teamSummary.teamCount} {teamSummary.teamCount === 1 ? "team" : "teams"}
+              {teamSummary.ageRangeLabel ? ` · ${teamSummary.ageRangeLabel}` : ""}
+            </Text>
           )}
 
           <View style={{ gap: space.sm }}>
             <Button
-              label="View Club"
+              label="View Profile"
               onPress={() => {
                 onClose()
                 router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: marker.directoryId } } as never)
