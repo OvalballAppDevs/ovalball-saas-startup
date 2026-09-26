@@ -9,6 +9,7 @@ import {
   applyClubhouseFilter,
   distanceMiles,
   findDistanceOrigin,
+  isClubhouseNetworkEmpty,
   matchesClubhouseQuery,
   readClubDetail,
   readClubhouseMarkers,
@@ -166,7 +167,7 @@ export default function ExploreMap() {
               does with a hundred, and the explanation floats over it as a compact card below,
               never as a second surface that hides the one underneath. */}
           {markers !== null && !error && mode === "map" && (
-            <ClubhouseMap markers={withLocation} onSelect={setSelected} origin={origin} />
+            <ClubhouseMap markers={withLocation} onSelect={setSelected} origin={origin} selectedDirectoryId={selected?.directoryId ?? null} />
           )}
           {markers !== null && !error && mode === "list" && (
             <ClubhouseList
@@ -185,14 +186,9 @@ export default function ExploreMap() {
         {markers !== null && !error && filtered.length === 0 && (
           <NoClubsOverlay
             top={chromeHeight > 0 ? chromeHeight + space.md : 140}
-            // GLOBAL vs FILTERED, decided by what is actually true of the whole network, never by
-            // guessing from which controls happen to be set. Clearing search and distance would not
-            // change this answer only when the Partners filter itself has nothing behind it -- that
-            // is "no partner clubs yet," a fact about the club's network, not about this search. Any
-            // other empty result (a bad search term, too tight a distance, a code/name filter with
-            // no matches) is "no clubs match here," which search/distance genuinely caused and can
-            // genuinely fix.
-            isEmptyNetwork={filter === "partners" && !!markers && applyClubhouseFilter(markers, "partners", null).length === 0}
+            // GLOBAL vs FILTERED -- the pinned `isClubhouseNetworkEmpty` decision (owner correction
+            // pass), never guessed from which controls happen to be set. See its own doc comment.
+            isEmptyNetwork={isClubhouseNetworkEmpty(markers, filter)}
             onExploreAll={() => {
               setFilter("all")
               setQuery("")
@@ -470,7 +466,17 @@ function NoClubsOverlay({
   )
 }
 
-function ClubhouseMap({ markers, onSelect, origin }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void; origin: ClubMapMarker | null }) {
+function ClubhouseMap({
+  markers,
+  onSelect,
+  origin,
+  selectedDirectoryId,
+}: {
+  markers: ClubMapMarker[]
+  onSelect: (m: ClubMapMarker) => void
+  origin: ClubMapMarker | null
+  selectedDirectoryId: string | null
+}) {
   if (isExpoGo || !NativeMap) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl, gap: space.sm }}>
@@ -482,7 +488,7 @@ function ClubhouseMap({ markers, onSelect, origin }: { markers: ClubMapMarker[];
       </View>
     )
   }
-  return <NativeMap markers={markers} onSelect={onSelect} origin={origin} />
+  return <NativeMap markers={markers} onSelect={onSelect} origin={origin} selectedDirectoryId={selectedDirectoryId} />
 }
 
 function ClubhouseList({
@@ -655,6 +661,25 @@ function ClubSheet({
           </View>
 
           {!detail && <CardSkeleton lines={2} />}
+
+          {/* THE "SMALL USEFUL FACTUAL SUMMARY" the compact preview lost when the sheet was cut down
+              from eight buttons to two -- one line, only when something real backs it, never a second
+              stat competing with the full profile's own "Our History" section. Compatible teams (a
+              fact about whether a fixture is even possible) takes priority over fixture history (a
+              fact about the past) when both exist, because it answers the more pressing question. */}
+          {detail && marker.networkState === "on_ovalball" && !marker.isOwnClub && (
+            <>
+              {detail.compatibleTeams && detail.compatibleTeams.length > 0 ? (
+                <Text style={[type.caption, { color: colour.inkMuted }]}>
+                  {detail.compatibleTeams.length} compatible {detail.compatibleTeams.length === 1 ? "team" : "teams"}
+                </Text>
+              ) : detail.fixturesTogetherAllTime !== null && detail.fixturesTogetherAllTime > 0 ? (
+                <Text style={[type.caption, { color: colour.inkMuted }]}>
+                  {detail.fixturesTogetherAllTime} {detail.fixturesTogetherAllTime === 1 ? "fixture" : "fixtures"} together
+                </Text>
+              ) : null}
+            </>
+          )}
 
           <View style={{ gap: space.sm }}>
             <Button

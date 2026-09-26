@@ -349,20 +349,25 @@ export function resolvePartnershipStatus(
 export interface ClubMarkerFeature {
   type: "Feature"
   id: string
-  properties: { directoryId: string; networkState: ClubNetworkState; partnershipStatus: ClubPartnershipStatus; isOwnClub: boolean }
+  properties: { directoryId: string; networkState: ClubNetworkState; partnershipStatus: ClubPartnershipStatus; isOwnClub: boolean; isSelected: boolean }
   geometry: { type: "Point"; coordinates: [number, number] }
 }
 
 /**
  * THE ONE MARKER PAYLOAD (Section 2: "minimal map payload... never send complete team/fixture/calendar
- * data into every map marker"). Deliberately four fields, no more -- never a name-adjacent private
- * field, never anything from `club-detail.ts`'s fuller read. Platform-neutral so native's MapLibre
- * `GeoJSONSource` and a future web MapLibre GL JS migration build the identical cluster source from the
- * identical function, and so this shape is pinned directly rather than only inspected inside a
- * component. Only markers with real, validated coordinates are included -- a marker with no location
- * has nothing to plot and belongs to List, never to a cluster source with a fabricated point.
+ * data into every map marker"). Never a name-adjacent private field, never anything from
+ * `club-detail.ts`'s fuller read. Platform-neutral so native's MapLibre `GeoJSONSource` and a future web
+ * MapLibre GL JS migration build the identical cluster source from the identical function, and so this
+ * shape is pinned directly rather than only inspected inside a component. Only markers with real,
+ * validated coordinates are included -- a marker with no location has nothing to plot and belongs to
+ * List, never to a cluster source with a fabricated point.
+ *
+ * `isSelected` (owner correction pass, physical device review): the ONLY addition to the original four
+ * fields, and still not a private one -- a pure boolean the paint layer uses to make the tapped marker
+ * visibly stronger (a bigger radius, a heavier ring), never the crest URL itself (native symbol-layer
+ * crest rendering stays deferred -- see `native-map.tsx`'s own comment on why).
  */
-export function buildClubMarkerFeatureCollection(markers: ClubMapMarker[]): { type: "FeatureCollection"; features: ClubMarkerFeature[] } {
+export function buildClubMarkerFeatureCollection(markers: ClubMapMarker[], selectedDirectoryId?: string | null): { type: "FeatureCollection"; features: ClubMarkerFeature[] } {
   return {
     type: "FeatureCollection",
     features: markers
@@ -370,7 +375,13 @@ export function buildClubMarkerFeatureCollection(markers: ClubMapMarker[]): { ty
       .map((m) => ({
         type: "Feature" as const,
         id: m.directoryId,
-        properties: { directoryId: m.directoryId, networkState: m.networkState, partnershipStatus: m.partnershipStatus, isOwnClub: m.isOwnClub },
+        properties: {
+          directoryId: m.directoryId,
+          networkState: m.networkState,
+          partnershipStatus: m.partnershipStatus,
+          isOwnClub: m.isOwnClub,
+          isSelected: !!selectedDirectoryId && m.directoryId === selectedDirectoryId,
+        },
         geometry: { type: "Point" as const, coordinates: [m.longitude as number, m.latitude as number] },
       })),
   }
@@ -429,6 +440,22 @@ export function applyClubhouseFilter(markers: ClubMapMarker[], filter: Clubhouse
   // "all" silently, which would look like every club is compatible.
   if (!compatibleClubIds) return []
   return markers.filter((m) => m.clubId !== null && compatibleClubIds.has(m.clubId))
+}
+
+/**
+ * THE CRITICAL MAP BUG'S OWN DECISION, PINNED (owner correction pass, physical device review): whether
+ * a zero-result Explore Map screen is "no partner clubs yet" (a fact about the whole network, true
+ * whatever the current search/distance happen to be) or "no clubs match here" (a fact this specific
+ * search/distance/filter combination caused, and can just as easily un-cause). Decided by re-running
+ * ONLY the filter (never query/distance) against the full, unfiltered marker set -- so narrowing the
+ * distance or typing a search term can never flip a genuinely-empty Partners network into looking like
+ * a mere search miss, and conversely a real partner network that a search term merely missed is never
+ * misreported as having no partners at all.
+ */
+export function isClubhouseNetworkEmpty(markers: ClubMapMarker[] | null, filter: ClubhouseFilter): boolean {
+  if (!markers) return false
+  if (filter !== "partners") return false
+  return applyClubhouseFilter(markers, "partners", null).length === 0
 }
 
 /**

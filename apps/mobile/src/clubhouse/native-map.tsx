@@ -58,13 +58,25 @@ const DEVELOPMENT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
  * Falls back to the UK-wide view exactly as before when no real origin exists (a team-context viewer,
  * or a club with no geocoded location yet).
  */
-export function ClubhouseMap({ markers, onSelect, origin }: { markers: ClubMapMarker[]; onSelect: (m: ClubMapMarker) => void; origin?: ClubMapMarker | null }) {
+export function ClubhouseMap({
+  markers,
+  onSelect,
+  origin,
+  selectedDirectoryId,
+}: {
+  markers: ClubMapMarker[]
+  onSelect: (m: ClubMapMarker) => void
+  origin?: ClubMapMarker | null
+  /** The currently open sheet's own club, if any -- purely a paint signal (see `isSelected`'s own
+   * doc comment in `buildClubMarkerFeatureCollection`), never an authority or a second selection store. */
+  selectedDirectoryId?: string | null
+}) {
   const cameraRef = useRef<CameraRef>(null)
   const mapRef = useRef<MapRef>(null)
   const initialCenter: [number, number] = origin?.hasLocation && origin.longitude !== null && origin.latitude !== null ? [origin.longitude, origin.latitude] : UK_CENTER
   const initialZoom = origin?.hasLocation ? 9 : UK_ZOOM
 
-  const geojson = useMemo(() => buildClubMarkerFeatureCollection(markers), [markers])
+  const geojson = useMemo(() => buildClubMarkerFeatureCollection(markers, selectedDirectoryId), [markers, selectedDirectoryId])
 
   const markerById = useMemo(() => new Map(markers.map((m) => [m.directoryId, m])), [markers])
 
@@ -117,21 +129,40 @@ export function ClubhouseMap({ markers, onSelect, origin }: { markers: ClubMapMa
           }}
           paint={{ "text-color": colour.onForest }}
         />
+        {/*
+          THE INDIVIDUAL MARKER (owner correction pass, physical device review): a flat, solid-coloured
+          8px dot -- identical for a partner and for any of the ~1,390 unclaimed directory clubs bar the
+          colour -- read on a real screen as "geographic data, not the Ovalball Rugby Network." This is
+          now a white-contained badge with a colour-coded ring (the same forest/pitch/grey vocabulary
+          the sheet and every other Clubhouse surface already use for status), and the selected marker
+          is visibly bigger and heavier-ringed, never colour alone.
+
+          REAL PER-CLUB CREST IMAGES ARE DELIBERATELY STILL NOT HERE. MapLibre's `Images` component can
+          register a remote URL as a symbol-layer icon (confirmed reading the library's own source), but
+          `icon-size` scales the image's OWN native resolution -- crest uploads have no consistent
+          dimension today, so ~100+ differently-sized crests would render at wildly inconsistent sizes
+          without a resize step first (imgproxy, this session's local stack, was found stopped; a
+          client-side pre-resize via `expo-image-manipulator` is possible but untested and unverifiable
+          without a physical device in this session). Shipping that blind risked a worse result than the
+          white/ring treatment below, which needs no remote image at all and is provably correct from the
+          same paint-expression primitives already proven working in the cluster layers above. Real crest
+          markers remain a stated, deliberate follow-up, not something silently dropped.
+        */}
         <Layer
           id="clubhouseClubPoints"
           type="circle"
           filter={["!", ["has", "point_count"]]}
           paint={{
-            "circle-radius": 8,
-            "circle-color": [
+            "circle-radius": ["case", ["get", "isSelected"], 20, 14],
+            "circle-color": ["case", ["==", ["get", "networkState"], "on_ovalball"], colour.surface, "rgba(154,163,156,0.16)"],
+            "circle-stroke-width": ["case", ["get", "isSelected"], 3.5, 2],
+            "circle-stroke-color": [
               "case",
               ["get", "isOwnClub"], colour.pitch400,
               ["==", ["get", "partnershipStatus"], "active"], colour.pitch600,
               ["==", ["get", "networkState"], "on_ovalball"], colour.forest800,
               "#9aa39c",
             ],
-            "circle-stroke-width": 2,
-            "circle-stroke-color": colour.chalk,
           }}
         />
       </GeoJSONSource>

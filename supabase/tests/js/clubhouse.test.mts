@@ -9,6 +9,7 @@ import {
   deriveClubNetworkActions,
   distanceMiles,
   findDistanceOrigin,
+  isClubhouseNetworkEmpty,
   isKnownTestFixture,
   isValidClubCoordinate,
   mapCompatibleTeams,
@@ -265,17 +266,47 @@ test("Map and List share exactly one discovery population -- filtering/searching
   assert.ok(mapPopulation.every((m) => listPopulation.includes(m)))
 })
 
-test("the cluster source's marker properties are exactly four fields, none of them sensitive -- no name, no logo URL, no location text", () => {
+test("the cluster source's marker properties are exactly five fields, none of them sensitive -- no name, no logo URL, no location text", () => {
   const withLocation = marker({ directoryId: "a", hasLocation: true, latitude: 53.77, longitude: -2.7, name: "Preston Grasshoppers", logoUrl: "https://example.test/crest.png" })
   const withoutLocation = marker({ directoryId: "b", hasLocation: false, latitude: null, longitude: null })
   const fc = buildClubMarkerFeatureCollection([withLocation, withoutLocation])
   // A club with no location contributes nothing to the cluster source -- never a fabricated point.
   assert.equal(fc.features.length, 1)
   const props = fc.features[0]!.properties
-  assert.deepEqual(Object.keys(props).sort(), ["directoryId", "isOwnClub", "networkState", "partnershipStatus"])
+  // `isSelected` (owner correction pass) is the one addition, deliberately still just a boolean paint
+  // signal -- never the crest URL itself, which stays out of the payload exactly as before.
+  assert.deepEqual(Object.keys(props).sort(), ["directoryId", "isOwnClub", "isSelected", "networkState", "partnershipStatus"])
   assert.ok(!("name" in props), "the club's name leaked into the marker payload")
   assert.ok(!("logoUrl" in props), "a crest URL leaked into the marker payload")
   assert.ok(!("town" in props) && !("postcode" in props), "location text leaked into the marker payload")
+})
+
+test("isSelected is true only for the one marker matching selectedDirectoryId, and false for everyone (including that marker) when nothing is selected", () => {
+  const a = marker({ directoryId: "a", hasLocation: true, latitude: 53.77, longitude: -2.7 })
+  const b = marker({ directoryId: "b", hasLocation: true, latitude: 51.5, longitude: -0.1 })
+  const selected = buildClubMarkerFeatureCollection([a, b], "b")
+  assert.equal(selected.features.find((f) => f.id === "a")!.properties.isSelected, false)
+  assert.equal(selected.features.find((f) => f.id === "b")!.properties.isSelected, true)
+  const none = buildClubMarkerFeatureCollection([a, b], null)
+  assert.ok(none.features.every((f) => f.properties.isSelected === false))
+  const omitted = buildClubMarkerFeatureCollection([a, b])
+  assert.ok(omitted.features.every((f) => f.properties.isSelected === false))
+})
+
+test("isClubhouseNetworkEmpty: true only when the Partners filter itself has nothing behind it anywhere in the network, never guessed from search/distance", () => {
+  const noPartnersAnywhere = [marker({ directoryId: "a", partnershipStatus: "none" }), marker({ directoryId: "b", partnershipStatus: "pending_outgoing" })]
+  assert.equal(isClubhouseNetworkEmpty(noPartnersAnywhere, "partners"), true, "zero active partners anywhere is a real empty network")
+
+  const hasARealPartner = [marker({ directoryId: "a", partnershipStatus: "active" }), marker({ directoryId: "b", partnershipStatus: "none" })]
+  assert.equal(isClubhouseNetworkEmpty(hasARealPartner, "partners"), false, "a real partner existing must never be reported as an empty network")
+
+  // The regression this pins: the critical map bug was a full-screen EmptyState replacing the map
+  // whenever ANY filter/search/distance combination produced zero results -- never confusing "no
+  // partners at all" with a filter other than Partners (which this function must never call empty,
+  // whatever the marker set looks like -- that combination is "no clubs match here", not a network fact).
+  assert.equal(isClubhouseNetworkEmpty(hasARealPartner, "all"), false, "a non-Partners filter is never reported as a network-empty state")
+  assert.equal(isClubhouseNetworkEmpty(noPartnersAnywhere, "on_ovalball"), false, "a non-Partners filter is never reported as a network-empty state")
+  assert.equal(isClubhouseNetworkEmpty(null, "partners"), false, "markers still loading must never flash the empty-network message")
 })
 
 test("distanceMiles is null whenever either point is unknown, and correct (within a mile) for a known real distance", () => {
