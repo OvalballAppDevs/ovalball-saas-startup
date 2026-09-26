@@ -46,6 +46,14 @@ export interface ClubDetail {
   compatibleTeams: CompatibleTeam[] | null
   /** Fixtures already played/scheduled between the viewer's club and this one this season. Only for an on-Ovalball club. */
   fixturesTogetherThisSeason: number | null
+  /**
+   * SECTION 17 (NETWORK MEMORY): the same canonical count, generalised across every season rather than
+   * restarted as a second read -- `countFixturesTogetherThisSeason`'s own viewer/opponent team id
+   * resolution is reused, only the date-range filter differs. Never a second compatibility calculation.
+   */
+  fixturesTogetherAllTime: number | null
+  /** The earliest recorded kickoff date between the two clubs' teams -- "how long we've known this club," never fabricated when there is no shared history. */
+  firstMetDate: string | null
   actions: ClubNetworkActions
 }
 
@@ -121,9 +129,9 @@ export async function readClubDetail(
   viewerClubId: string | null,
   viewerTeamId: string | null
 ): Promise<ClubDetail> {
-  const [compatibleTeams, fixturesTogetherThisSeason, capabilities, teamCapabilities, website] = await Promise.all([
+  const [compatibleTeams, networkHistory, capabilities, teamCapabilities, website] = await Promise.all([
     marker.clubId && viewerTeamId ? readCompatibleTeams(supabase, viewerTeamId, marker.clubId) : Promise.resolve(null),
-    marker.clubId && viewerClubId ? countFixturesTogetherThisSeason(supabase, viewerClubId, marker.clubId) : Promise.resolve(null),
+    marker.clubId && viewerClubId ? readClubNetworkHistory(supabase, viewerClubId, marker.clubId) : Promise.resolve({ thisSeason: null, allTime: null, firstMetDate: null }),
     viewerClubId
       ? readCapabilities(supabase, viewerClubId, ["club.partners.manage", "fixture.request.create", "fixture.request.respond"])
       : Promise.resolve(new Set<string>()),
@@ -162,7 +170,9 @@ export async function readClubDetail(
     slug: marker.slug,
     website,
     compatibleTeams,
-    fixturesTogetherThisSeason,
+    fixturesTogetherThisSeason: networkHistory.thisSeason,
+    fixturesTogetherAllTime: networkHistory.allTime,
+    firstMetDate: networkHistory.firstMetDate,
     actions,
   }
 }
@@ -249,28 +259,56 @@ async function readCompatibleTeams(supabase: Client, viewerTeamId: string, oppon
   return mapCompatibleTeams(data ?? [])
 }
 
-async function countFixturesTogetherThisSeason(supabase: Client, viewerClubId: string, opponentClubId: string): Promise<number | null> {
+interface ClubNetworkHistory {
+  thisSeason: number | null
+  allTime: number | null
+  firstMetDate: string | null
+}
+
+/**
+ * SECTION 17 (NETWORK MEMORY): generalises the original season-only count into the fuller "how do we
+ * know this club" read the section asked for -- one query for the team-id resolution, reused for both
+ * the season-scoped and the all-time reads, rather than a second, separately-built history source.
+ */
+async function readClubNetworkHistory(supabase: Client, viewerClubId: string, opponentClubId: string): Promise<ClubNetworkHistory> {
   // Canonical fixtures only -- never fabricated, never counting a Competition Match that has no
-  // fixture-level record for this club. Scoped to teams owned by each club, current season only.
+  // fixture-level record for this club. Scoped to teams owned by each club.
   const { data: viewerTeams } = await supabase.from("teams").select("id").eq("club_id", viewerClubId)
   const { data: opponentTeams } = await supabase.from("teams").select("id").eq("club_id", opponentClubId)
   const viewerIds = (viewerTeams ?? []).map((t) => t.id)
   const opponentIds = (opponentTeams ?? []).map((t) => t.id)
-  if (viewerIds.length === 0 || opponentIds.length === 0) return 0
+  if (viewerIds.length === 0 || opponentIds.length === 0) return { thisSeason: 0, allTime: 0, firstMetDate: null }
 
   const { data: currentSeason } = await supabase.from("seasons").select("starts_on, ends_on").lte("starts_on", new Date().toISOString()).gte("ends_on", new Date().toISOString()).maybeSingle()
-  if (!currentSeason) return null
 
-  const { count, error } = await supabase
-    .from("fixtures")
-    .select("id", { count: "exact", head: true })
-    .in("owning_team_id", viewerIds)
-    .in("opponent_team_id", opponentIds)
-    .gte("kickoff_date", currentSeason.starts_on)
-    .lte("kickoff_date", currentSeason.ends_on)
-    .neq("status", "Cancelled")
-  if (error) return null
-  return count ?? 0
+  const [seasonResult, allTimeResult, firstMetResult] = await Promise.all([
+    currentSeason
+      ? supabase
+          .from("fixtures")
+          .select("id", { count: "exact", head: true })
+          .in("owning_team_id", viewerIds)
+          .in("opponent_team_id", opponentIds)
+          .gte("kickoff_date", currentSeason.starts_on)
+          .lte("kickoff_date", currentSeason.ends_on)
+          .neq("status", "Cancelled")
+      : Promise.resolve({ count: null, error: null }),
+    supabase.from("fixtures").select("id", { count: "exact", head: true }).in("owning_team_id", viewerIds).in("opponent_team_id", opponentIds).neq("status", "Cancelled"),
+    supabase
+      .from("fixtures")
+      .select("kickoff_date")
+      .in("owning_team_id", viewerIds)
+      .in("opponent_team_id", opponentIds)
+      .neq("status", "Cancelled")
+      .order("kickoff_date", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  return {
+    thisSeason: seasonResult.error ? null : seasonResult.count,
+    allTime: allTimeResult.error ? null : (allTimeResult.count ?? 0),
+    firstMetDate: firstMetResult.error || !firstMetResult.data ? null : firstMetResult.data.kickoff_date,
+  }
 }
 
 /** Logo resolution for a raw directory/club row pair, for read paths that have not gone through the marker model. */

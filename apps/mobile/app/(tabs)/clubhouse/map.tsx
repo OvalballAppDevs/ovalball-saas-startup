@@ -625,10 +625,21 @@ function ClubSheet({
 
           {!detail && <CardSkeleton lines={2} />}
 
-          {detail && detail.fixturesTogetherThisSeason !== null && (
+          {/* SECTION 17 (NETWORK MEMORY): the season count generalised, never restarted -- both counts
+              share the same canonical team-id resolution (readClubNetworkHistory), only the date range
+              differs. All-time is only shown once it says something the season count doesn't. */}
+          {detail && (detail.fixturesTogetherThisSeason !== null || detail.fixturesTogetherAllTime !== null) && (
             <View style={{ flexDirection: "row", gap: space.xl }}>
-              <Stat value={detail.fixturesTogetherThisSeason} label={detail.fixturesTogetherThisSeason === 1 ? "fixture this season" : "fixtures this season"} />
+              {detail.fixturesTogetherThisSeason !== null && (
+                <Stat value={detail.fixturesTogetherThisSeason} label={detail.fixturesTogetherThisSeason === 1 ? "fixture this season" : "fixtures this season"} />
+              )}
+              {detail.fixturesTogetherAllTime !== null && detail.fixturesTogetherAllTime !== detail.fixturesTogetherThisSeason && (
+                <Stat value={detail.fixturesTogetherAllTime} label={detail.fixturesTogetherAllTime === 1 ? "fixture all time" : "fixtures all time"} />
+              )}
             </View>
+          )}
+          {detail?.firstMetDate && (
+            <Text style={[type.caption, { color: colour.inkSubtle }]}>First met {monthYearLabel(detail.firstMetDate)}</Text>
           )}
 
           {/* Section 4: the compatible-team list itself, from the same canonical `compatible_opponent_teams`
@@ -879,6 +890,12 @@ function Stat({ value, label }: { value: number; label: string }) {
       <Text style={[type.caption, { color: colour.inkMuted }]}>{label}</Text>
     </View>
   )
+}
+
+/** "Mar 2024" -- a real recorded fixture date, never a guess. */
+function monthYearLabel(iso: string): string {
+  const date = new Date(`${iso}T00:00:00`)
+  return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" })
 }
 
 const sheetInput = {
