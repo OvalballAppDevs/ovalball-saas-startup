@@ -43,7 +43,7 @@ const GAME_TYPE_OPTIONS = ["Friendly", "League Fixture", "Cup Fixture", "Schedul
 export default function LookingForOpposition() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const params = useLocalSearchParams<{ highlight?: string }>()
+  const params = useLocalSearchParams<{ highlight?: string; tab?: string }>()
   const { active } = useAppContexts()
 
   const contextTeamId = active?.kind === "team" ? active.id : null
@@ -55,7 +55,10 @@ export default function LookingForOpposition() {
 
   const [opportunities, setOpportunities] = useState<FixtureOpportunity[] | null>(null)
   const [markers, setMarkers] = useState<ClubMapMarker[]>([])
-  const [tab, setTab] = useState<"discover" | "mine">("discover")
+  // "Post an Opportunity" (Find a Fixture's own secondary link) hands off with tab=mine, since
+  // publishing a listing is what My Listings is for -- "Browse Opportunities" hands off with no
+  // param at all and lands on the default Discover tab. Never a third, separate publish screen.
+  const [tab, setTab] = useState<"discover" | "mine">(params.tab === "mine" ? "mine" : "discover")
   const [publishOpen, setPublishOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

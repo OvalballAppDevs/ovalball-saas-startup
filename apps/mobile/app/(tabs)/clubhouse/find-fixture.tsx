@@ -278,7 +278,17 @@ export default function FindFixture() {
 
         {teamId && (
           <>
-            <View style={{ gap: space.md }}>
+            {/* THE SEARCH CRITERIA CARD (Section 6 of the visual blueprint): one premium white card
+                anchored by which team is actually searching, rather than criteria loose on the chalk
+                page -- the reference's own composition. "Search for Clubs" is a real, honest primary
+                action even though results already load as soon as a team is chosen (Section 6's
+                original, still-correct behaviour); pressing it simply re-runs the same search, so nei-
+                ther path can ever disagree about what "search" means here. */}
+            <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.lg, gap: space.md }}>
+              <View style={{ gap: 2 }}>
+                <Text style={[type.caption, { color: colour.inkMuted }]}>Our Team</Text>
+                <Text style={[type.smallMedium, { color: colour.ink }]}>{teamLabel ?? "—"}</Text>
+              </View>
               <View style={{ gap: space.xs }}>
                 <Text style={[type.caption, { color: colour.inkMuted }]}>When (Up to 6 Dates, Optional)</Text>
                 {dates.length > 0 && (
@@ -331,6 +341,7 @@ export default function FindFixture() {
                 <Text style={[type.caption, { color: colour.inkMuted }]}>Distance</Text>
                 <DistanceChips distance={distance} onChange={setDistance} />
               </View>
+              <Button label="Search for Clubs" onPress={() => void load()} />
             </View>
 
             {error && <ErrorState message={error} onRetry={() => void load()} />}
@@ -430,15 +441,22 @@ export default function FindFixture() {
                   </View>
                 )}
 
-                {/* SECTIONS 15/16: a secondary, prominent CTA here rather than a fifth Clubhouse Home
-                    tile (owner's own product judgement) -- "we can't find anyone" and "somebody is
-                    looking for us" are the same job as this whole screen, from the other direction. */}
-                <View style={{ marginTop: space.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.mint100, padding: space.lg, gap: space.xs }}>
-                  <Text style={[type.smallMedium, { color: colour.ink }]}>Can&apos;t find a match on a date you need?</Text>
-                  <Text style={[type.caption, { color: colour.inkMuted }]}>
-                    Publish that you&apos;re looking for opposition, or see who else across Ovalball is looking for a game like yours.
-                  </Text>
-                  <Button label="Looking for Opposition" variant="secondary" onPress={() => router.push("/clubhouse/opportunities" as never)} />
+                {/* SECTIONS 15/16 (Section 6 of the visual blueprint): a QUIET secondary link, not a
+                    second prominent card competing with the search above -- "we can't find anyone" and
+                    "somebody is looking for us" are the same job as this whole screen, from the other
+                    direction, so it earns a mention here rather than a fifth Clubhouse Home tile
+                    (owner's own product judgement), but never louder than the primary search itself. */}
+                <View style={{ marginTop: space.md, alignItems: "center", gap: space.xs }}>
+                  <Text style={[type.caption, { color: colour.inkMuted, textAlign: "center" }]}>Looking for opposition?</Text>
+                  <View style={{ flexDirection: "row", gap: space.md }}>
+                    <Pressable accessibilityRole="link" accessibilityLabel="Browse opportunities other clubs have posted" onPress={() => router.push("/clubhouse/opportunities" as never)} hitSlop={8}>
+                      <Text style={[type.caption, { color: colour.pitch600, fontFamily: type.smallMedium.fontFamily }]}>Browse Opportunities</Text>
+                    </Pressable>
+                    <Text style={[type.caption, { color: colour.inkSubtle }]}>·</Text>
+                    <Pressable accessibilityRole="link" accessibilityLabel="Post that your own team is looking for opposition" onPress={() => router.push({ pathname: "/clubhouse/opportunities", params: { tab: "mine" } } as never)} hitSlop={8}>
+                      <Text style={[type.caption, { color: colour.pitch600, fontFamily: type.smallMedium.fontFamily }]}>Post an Opportunity</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             )}
