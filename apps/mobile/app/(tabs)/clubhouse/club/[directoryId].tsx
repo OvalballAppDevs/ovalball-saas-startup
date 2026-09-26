@@ -16,6 +16,7 @@ import {
   type ClubDetail,
   type ClubMapMarker,
 } from "@ovalball/contracts/clubhouse"
+import { readClubTeams, type ClubTeam } from "@ovalball/contracts/club/teams"
 
 import { supabase } from "../../../../src/auth/supabase"
 import { useSession } from "../../../../src/auth/session"
@@ -226,15 +227,26 @@ function ProfileCard({ children }: { children: React.ReactNode }) {
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "teams", label: "Teams" },
+  { key: "history", label: "Fixtures" },
   { key: "partnership", label: "Partnership" },
 ] as const
 type TabKey = (typeof TABS)[number]["key"]
 
 /**
- * ON-OVALBALL BODY: tabs following the reference's Overview/Teams/Partnership intent, but a tab never
- * renders when its content would be empty (Section 8's own instruction) -- Teams is hidden with no
- * compatible sides, Partnership is hidden for the viewer's own club and for any club where nothing
- * partnership-shaped is true yet.
+ * ON-OVALBALL BODY: Overview / Teams / Fixtures / Partnership (owner correction pass), a tab never
+ * renders when its content would be empty -- Teams is hidden with no active sides on file, Fixtures is
+ * hidden for the viewer's own club (a club has no fixture history against itself -- see the
+ * `readClubDetail` fix this same pass made) and for any opposition club with no shared history yet,
+ * Partnership is hidden for the viewer's own club and for any club where nothing partnership-shaped is
+ * true yet.
+ *
+ * TEAMS IS THE CLUB'S OWN REAL ROSTER (`readClubTeams`, `teams_select` RLS: any signed-in viewer may
+ * read any club's ACTIVE teams -- age grade, rugby code, category, never a player), not the narrower
+ * `compatible_opponent_teams` list `ClubDetail.compatibleTeams` carries -- that RPC needs a team
+ * context and answers "which of MY teams could play THEM", a different, narrower question than "what
+ * sides does this club run", and it also returns nothing at all for a club-context viewer or for the
+ * viewer's own club. Never a second implementation of Find a Fixture's own compatibility check --
+ * this tab reads the same canonical `teams` table, just unfiltered by any opponent.
  */
 function OnOvalballBody({
   marker,
@@ -255,12 +267,27 @@ function OnOvalballBody({
   const [feedback, setFeedback] = useState<string | null>(null)
   const [messageDraft, setMessageDraft] = useState<string | null>(null)
   const [sendingMessage, setSendingMessage] = useState(false)
+  const [clubTeams, setClubTeams] = useState<ClubTeam[] | null>(null)
 
-  const hasHistory = !!detail && (detail.fixturesTogetherThisSeason !== null || detail.fixturesTogetherAllTime !== null || !!detail.firstMetDate)
-  const hasTeams = !!detail?.compatibleTeams && detail.compatibleTeams.length > 0
+  useEffect(() => {
+    setClubTeams(null)
+    if (!marker.clubId) return
+    let live = true
+    void readClubTeams(supabase, marker.clubId).then((d) => {
+      if (live) setClubTeams(d.teams.filter((t) => t.active))
+    })
+    return () => {
+      live = false
+    }
+  }, [marker.clubId])
+
   const isOtherClub = marker.clubId !== null && !marker.isOwnClub
+  const hasHistory = isOtherClub && !!detail && (detail.fixturesTogetherThisSeason !== null || detail.fixturesTogetherAllTime !== null || !!detail.firstMetDate)
+  const hasTeams = !!clubTeams && clubTeams.length > 0
   const hasPartnershipContent = isOtherClub && !!detail && (detail.actions.canPartner || detail.actions.canCancelOutgoingPartnerRequest || detail.actions.canRespondPartnerRequest || detail.actions.canRevokePartnership || marker.partnershipStatus !== "none")
-  const visibleTabs = TABS.filter((t) => t.key === "overview" || (t.key === "teams" && hasTeams) || (t.key === "partnership" && hasPartnershipContent))
+  const visibleTabs = TABS.filter(
+    (t) => t.key === "overview" || (t.key === "teams" && hasTeams) || (t.key === "history" && hasHistory) || (t.key === "partnership" && hasPartnershipContent)
+  )
 
   async function act(run: () => Promise<{ ok: boolean; error?: string }>) {
     setBusy(true)
@@ -368,21 +395,34 @@ function OnOvalballBody({
               </Pressable>
             </ProfileCard>
           )}
-          {hasHistory && (
+          {/* A CLUB PROFILE IS NEVER JUST ONE HALF-EMPTY CARD (owner correction pass): even before any
+              shared history exists, Overview still says something real -- the club's own team count
+              (the same fact the Teams tab expands on) and, for an opposition club, the actual
+              relationship in plain words rather than only the hero's own pill. */}
+          {hasTeams && (
             <ProfileCard>
-              <SectionHeader label="Our History" />
-              <View style={{ flexDirection: "row", gap: space.xl }}>
-                {detail.fixturesTogetherThisSeason !== null && (
-                  <Stat value={detail.fixturesTogetherThisSeason} label={detail.fixturesTogetherThisSeason === 1 ? "fixture this season" : "fixtures this season"} />
-                )}
-                {detail.fixturesTogetherAllTime !== null && detail.fixturesTogetherAllTime !== detail.fixturesTogetherThisSeason && (
-                  <Stat value={detail.fixturesTogetherAllTime} label={detail.fixturesTogetherAllTime === 1 ? "fixture all time" : "fixtures all time"} />
-                )}
-              </View>
-              {detail.firstMetDate && <Text style={[type.caption, { color: colour.inkSubtle }]}>First met {monthYearLabel(detail.firstMetDate)}</Text>}
+              <SectionHeader label="Teams" />
+              <Text style={[type.small, { color: colour.inkMuted }]}>
+                {clubTeams?.length} active {clubTeams?.length === 1 ? "side" : "sides"}
+                {isOtherClub ? " -- see the Teams tab for the full list." : "."}
+              </Text>
             </ProfileCard>
           )}
-          {!detail.website && !hasHistory && (
+          {isOtherClub && (
+            <ProfileCard>
+              <SectionHeader label="Network Relationship" />
+              <Text style={[type.small, { color: colour.inkMuted }]}>
+                {marker.partnershipStatus === "active"
+                  ? `${marker.name} is a partner club -- calendars are shared and direct messaging is open.`
+                  : marker.partnershipStatus === "pending_incoming"
+                    ? `${marker.name} wants to partner with your club.`
+                    : marker.partnershipStatus === "pending_outgoing"
+                      ? `A partnership request is waiting on ${marker.name}.`
+                      : `${marker.name} is on Ovalball, with no partnership between your clubs yet.`}
+              </Text>
+            </ProfileCard>
+          )}
+          {!detail.website && !hasTeams && !isOtherClub && (
             <Text style={[type.small, { color: colour.inkMuted }]}>Nothing else recorded for this club yet.</Text>
           )}
         </View>
@@ -390,14 +430,29 @@ function OnOvalballBody({
 
       {tab === "teams" && hasTeams && (
         <ProfileCard>
-          <SectionHeader label="Compatible Teams" />
+          <SectionHeader label="Teams" />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-            {detail.compatibleTeams?.map((team) => (
-              <View key={team.teamId} style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.chalk, justifyContent: "center" }}>
-                <Text style={[type.caption, { color: colour.ink }]}>{team.displayName}</Text>
+            {clubTeams?.map((team) => (
+              <View key={team.id} style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.chalk, justifyContent: "center" }}>
+                <Text style={[type.caption, { color: colour.ink }]}>{team.fullLabel}</Text>
               </View>
             ))}
           </View>
+        </ProfileCard>
+      )}
+
+      {tab === "history" && hasHistory && (
+        <ProfileCard>
+          <SectionHeader label="Our History" />
+          <View style={{ flexDirection: "row", gap: space.xl }}>
+            {detail.fixturesTogetherThisSeason !== null && (
+              <Stat value={detail.fixturesTogetherThisSeason} label={detail.fixturesTogetherThisSeason === 1 ? "fixture this season" : "fixtures this season"} />
+            )}
+            {detail.fixturesTogetherAllTime !== null && detail.fixturesTogetherAllTime !== detail.fixturesTogetherThisSeason && (
+              <Stat value={detail.fixturesTogetherAllTime} label={detail.fixturesTogetherAllTime === 1 ? "fixture all time" : "fixtures all time"} />
+            )}
+          </View>
+          {detail.firstMetDate && <Text style={[type.caption, { color: colour.inkSubtle }]}>First met {monthYearLabel(detail.firstMetDate)}</Text>}
         </ProfileCard>
       )}
 

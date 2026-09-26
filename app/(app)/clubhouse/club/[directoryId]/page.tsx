@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ExternalLink, Globe } from "lucide-react"
 
 import { readClubDetail } from "@ovalball/contracts/clubhouse"
+import { readClubTeams } from "@ovalball/contracts/club/teams"
 
 import { ClubAvatar } from "@/components/club/club-avatar"
 import { ACTIVE_CONTEXT_COOKIE, activeClubId, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
@@ -51,10 +52,16 @@ export default async function ClubProfilePage({ params }: { params: Promise<{ di
   if (!marker) redirect("/clubhouse")
 
   const detail = await readClubDetail(supabase, marker, viewerClubId, viewerTeamId)
+  // OWNER CORRECTION PASS: the club's own real roster (any signed-in viewer may read any club's ACTIVE
+  // teams -- `teams_select` RLS), never the narrower `compatible_opponent_teams`-derived
+  // `detail.compatibleTeams` (which needs a team context, answers "which of MY teams could play THEM",
+  // and is always empty for the viewer's own club or a club-context viewer). Mirrors the mobile
+  // profile's own fix this same pass.
+  const clubTeams = marker.clubId ? (await readClubTeams(supabase, marker.clubId)).teams.filter((t) => t.active) : []
   const locationText = [marker.town, marker.county].filter(Boolean).join(", ") || (marker.hasLocation ? "Location on file" : "Location not yet known")
   const isOtherClub = marker.clubId !== null && !marker.isOwnClub
   const hasHistory = detail.fixturesTogetherThisSeason !== null || detail.fixturesTogetherAllTime !== null || !!detail.firstMetDate
-  const hasTeams = !!detail.compatibleTeams && detail.compatibleTeams.length > 0
+  const hasTeams = clubTeams.length > 0
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
@@ -111,15 +118,34 @@ export default async function ClubProfilePage({ params }: { params: Promise<{ di
 
           {hasTeams && (
             <section className="rounded-lg border border-ink/10 bg-white p-6">
-              <h2 className="text-sm font-semibold text-ink">Compatible Teams</h2>
+              <h2 className="text-sm font-semibold text-ink">Teams</h2>
               <div className="mt-3 flex flex-wrap gap-2">
-                {detail.compatibleTeams?.map((team) => (
-                  <span key={team.teamId} className="rounded-full border border-ink/15 bg-chalk px-3 py-1.5 text-xs font-medium text-ink">
-                    {team.displayName}
+                {clubTeams.map((team) => (
+                  <span key={team.id} className="rounded-full border border-ink/15 bg-chalk px-3 py-1.5 text-xs font-medium text-ink">
+                    {team.fullLabel}
                   </span>
                 ))}
               </div>
             </section>
+          )}
+
+          {isOtherClub && (
+            <section className="rounded-lg border border-ink/10 bg-white p-6">
+              <h2 className="text-sm font-semibold text-ink">Network Relationship</h2>
+              <p className="mt-2 text-sm text-ink-muted">
+                {marker.partnershipStatus === "active"
+                  ? `${marker.name} is a partner club -- calendars are shared and direct messaging is open.`
+                  : marker.partnershipStatus === "pending_incoming"
+                    ? `${marker.name} wants to partner with your club.`
+                    : marker.partnershipStatus === "pending_outgoing"
+                      ? `A partnership request is waiting on ${marker.name}.`
+                      : `${marker.name} is on Ovalball, with no partnership between your clubs yet.`}
+              </p>
+            </section>
+          )}
+
+          {!detail.website && !hasHistory && !hasTeams && !isOtherClub && (
+            <p className="text-sm text-ink-muted">Nothing else recorded for this club yet.</p>
           )}
 
           {marker.slug && (

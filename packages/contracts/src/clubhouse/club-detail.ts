@@ -129,9 +129,17 @@ export async function readClubDetail(
   viewerClubId: string | null,
   viewerTeamId: string | null
 ): Promise<ClubDetail> {
+  // OWNER CORRECTION PASS (physical device review): both reads below compare the viewer against an
+  // OPPONENT club -- for the viewer's OWN club, marker.clubId === viewerClubId, so these degenerate
+  // into "fixtures where one of our own teams played another of our own teams" and "which of our own
+  // teams could play against ourselves," neither a real question. That is exactly what produced the
+  // nonsense "0 fixtures all time" card on a real device: the profile was answering a question that
+  // does not apply to your own club at all, rather than not asking it. Gated on `isOtherClub` now, the
+  // same guard `deriveClubNetworkActions` already uses for every action below.
+  const isOtherClub = marker.clubId !== null && marker.clubId !== viewerClubId
   const [compatibleTeams, networkHistory, capabilities, teamCapabilities, website] = await Promise.all([
-    marker.clubId && viewerTeamId ? readCompatibleTeams(supabase, viewerTeamId, marker.clubId) : Promise.resolve(null),
-    marker.clubId && viewerClubId ? readClubNetworkHistory(supabase, viewerClubId, marker.clubId) : Promise.resolve({ thisSeason: null, allTime: null, firstMetDate: null }),
+    isOtherClub && marker.clubId && viewerTeamId ? readCompatibleTeams(supabase, viewerTeamId, marker.clubId) : Promise.resolve(null),
+    isOtherClub && marker.clubId && viewerClubId ? readClubNetworkHistory(supabase, viewerClubId, marker.clubId) : Promise.resolve({ thisSeason: null, allTime: null, firstMetDate: null }),
     viewerClubId
       ? readCapabilities(supabase, viewerClubId, ["club.partners.manage", "fixture.request.create", "fixture.request.respond"])
       : Promise.resolve(new Set<string>()),
@@ -140,7 +148,6 @@ export async function readClubDetail(
   ])
 
   const clubActions = deriveClubNetworkActions(marker, viewerClubId, capabilities)
-  const isOtherClub = marker.clubId !== null && marker.clubId !== viewerClubId
   const holdsTeamFixtureAuthority = teamCapabilities.has("fixture.request.create") || teamCapabilities.has("fixture.request.respond")
   // Section 5: a team-context viewer's OWN fixture authority unlocks Find a Fixture even with no
   // club-scope grant at all -- deriveClubNetworkActions itself stays untouched and club-scope-only
