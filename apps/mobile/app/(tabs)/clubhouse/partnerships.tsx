@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { readClubhouseMarkers, respondToPartnership, revokePartnership, type ClubMapMarker } from "@ovalball/contracts/clubhouse"
+import { readClubTeamSummaries, type ClubTeamSummary } from "@ovalball/contracts/club/teams"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -53,6 +54,22 @@ export default function Partnerships() {
       void load()
     }, [load])
   )
+
+  // ONE BATCHED READ (mock-up reconciliation): the same `readClubTeamSummaries` the map/list already
+  // use, never a per-row fetch -- a partnerships list is small by construction (every real relationship
+  // the viewer's club has), but the pattern stays consistent regardless of scale.
+  const [teamSummaryByClubId, setTeamSummaryByClubId] = useState<Map<string, ClubTeamSummary>>(new Map())
+  useEffect(() => {
+    const clubIds = Array.from(new Set((markers ?? []).map((m) => m.clubId).filter((id): id is string => !!id)))
+    if (clubIds.length === 0) return
+    let live = true
+    void readClubTeamSummaries(supabase, clubIds).then((summaries) => {
+      if (live) setTeamSummaryByClubId(summaries)
+    })
+    return () => {
+      live = false
+    }
+  }, [markers])
 
   const active_ = useMemo(() => markers?.filter((m) => m.partnershipStatus === "active") ?? [], [markers])
   const incoming = useMemo(() => markers?.filter((m) => m.partnershipStatus === "pending_incoming") ?? [], [markers])
@@ -112,6 +129,7 @@ export default function Partnerships() {
             <PartnerRow
               key={marker.directoryId}
               marker={marker}
+              teamSummary={marker.clubId ? teamSummaryByClubId.get(marker.clubId) : undefined}
               busy={busyId === marker.partnershipId}
               onView={() => router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: marker.directoryId } } as never)}
               onAccept={marker.partnershipId ? () => void act(marker.partnershipId as string, () => respondToPartnership(supabase, marker.partnershipId as string, true)) : undefined}
@@ -152,6 +170,7 @@ function TabChip({ label, count, active, onPress }: { label: string; count: numb
 
 function PartnerRow({
   marker,
+  teamSummary,
   busy,
   onView,
   onAccept,
@@ -160,6 +179,7 @@ function PartnerRow({
   cancelLabel,
 }: {
   marker: ClubMapMarker
+  teamSummary?: ClubTeamSummary
   busy: boolean
   onView: () => void
   onAccept?: () => void
@@ -171,13 +191,19 @@ function PartnerRow({
     <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.md, gap: space.sm }}>
       <Pressable accessibilityRole="button" accessibilityLabel={`View ${marker.name}`} onPress={onView} style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
         <ClubCrest url={marker.logoUrl} size={44} />
-        <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
           <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
             {marker.name}
           </Text>
           <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
             {[marker.town, marker.county].filter(Boolean).join(", ") || "Location unavailable"}
           </Text>
+          {teamSummary && teamSummary.teamCount > 0 && (
+            <Text numberOfLines={1} style={[type.caption, { color: colour.inkSubtle }]}>
+              {teamSummary.teamCount} {teamSummary.teamCount === 1 ? "team" : "teams"}
+              {teamSummary.ageRangeLabel ? ` · ${teamSummary.ageRangeLabel}` : ""}
+            </Text>
+          )}
         </View>
         <ChevronRight size={18} color={colour.inkSubtle} />
       </Pressable>
