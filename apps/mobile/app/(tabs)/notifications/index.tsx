@@ -58,6 +58,20 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/t
 type Tab = "attention" | "recent"
 type Filter = "all" | "unread" | "action" | "clubhouse"
 
+/**
+ * CLUBHOUSE ACTIVITY'S OWN CATEGORY SUB-FILTER (mock-up reconciliation): the reference shows Clubhouse
+ * Activity as its own feed with Fixtures/Partnerships/Opportunities tabs, not just the generic
+ * Notifications screen's All/Unread/Action/Clubhouse row. Rather than a second screen/read path, this
+ * refines the SAME already-`clubhouse`-filtered `visible` list client-side, purely from the type each
+ * notification already carries -- never a new query, never a fabricated feed.
+ */
+type ClubhouseCategory = "all" | "fixtures" | "partnerships" | "opportunities"
+function clubhouseCategoryOf(type: string): Exclude<ClubhouseCategory, "all"> {
+  if (type.startsWith("fixture_opportunity")) return "opportunities"
+  if (type.startsWith("fixture_request")) return "fixtures"
+  return "partnerships"
+}
+
 const TOPIC_LABEL: Record<string, string> = {
   fixture_updates: "Fixture update",
   fixture_requests: "Fixture request",
@@ -82,6 +96,7 @@ export default function Notifications() {
   const arrivedViaClubhouse = params.filter === "clubhouse"
   const [tab, setTab] = useState<Tab>(arrivedViaClubhouse ? "recent" : "attention")
   const [filter, setFilter] = useState<Filter>(arrivedViaClubhouse ? "clubhouse" : "all")
+  const [clubhouseCategory, setClubhouseCategory] = useState<ClubhouseCategory>("all")
   const [items, setItems] = useState<FeedNotification[] | null>(null)
   const [cursor, setCursor] = useState<FeedCursor | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -202,9 +217,13 @@ export default function Notifications() {
   const visible = useMemo(() => {
     const all = items ?? []
     if (filter === "action") return all.filter((n) => verdicts.get(n.id) === "open")
-    if (filter === "clubhouse") return all.filter((n) => CLUBHOUSE_NOTIFICATION_TYPES.has(n.type))
+    if (filter === "clubhouse") {
+      const clubhouseOnly = all.filter((n) => CLUBHOUSE_NOTIFICATION_TYPES.has(n.type))
+      if (clubhouseCategory === "all") return clubhouseOnly
+      return clubhouseOnly.filter((n) => clubhouseCategoryOf(n.type) === clubhouseCategory)
+    }
     return all
-  }, [items, filter, verdicts])
+  }, [items, filter, clubhouseCategory, verdicts])
 
   const attentionItems = attention.read?.items ?? []
   const actionCount = countNeedingAction(attentionItems)
@@ -235,7 +254,7 @@ export default function Notifications() {
           </Pressable>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
-              Notifications
+              {arrivedViaClubhouse ? "Clubhouse Activity" : "Notifications"}
             </Text>
             {/* TWO FIGURES, TWO WORDS. The unread count is the badge's own number from the one canonical
                 read; the action count is the projection's, and is never added to it. */}
@@ -327,6 +346,27 @@ export default function Notifications() {
                 </Pressable>
               )}
             </View>
+
+            {filter === "clubhouse" && (
+              <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
+                {(["all", "fixtures", "partnerships", "opportunities"] as ClubhouseCategory[]).map((option) => {
+                  const on = option === clubhouseCategory
+                  const label = option === "all" ? "All" : option === "fixtures" ? "Fixtures" : option === "partnerships" ? "Partnerships" : "Opportunities"
+                  return (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: on }}
+                      accessibilityLabel={label}
+                      onPress={() => setClubhouseCategory(option)}
+                      style={{ minHeight: 32, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.pitch600 : colour.lineStrong, backgroundColor: on ? colour.mint100 : colour.surface, justifyContent: "center" }}
+                    >
+                      <Text style={[type.caption, { color: on ? colour.forest800 : colour.inkMuted }]}>{label}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            )}
 
             {problem ? (
               <ErrorState message={problem} onRetry={() => void loadFirstPage(filter === "unread")} />
