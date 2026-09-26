@@ -31,6 +31,7 @@ import { ChevronDown, ChevronRight, LayoutGrid, MapPin, Search, Share2, SlidersH
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
 import { webUrl } from "../../../src/config/environment"
 import { ClubCrest, DistanceChips, NetworkPill } from "../../../src/clubhouse/components"
+import { resolveInitialMode, type ClubhouseMapMode } from "../../../src/clubhouse/entry-mode"
 
 /**
  * EXPLORE THE MAP — the club-discovery view of Clubhouse, pushed from Clubhouse Home's own "Explore
@@ -79,12 +80,19 @@ export default function ExploreMap() {
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<ClubhouseFilter>(initialFilter)
   const [distance, setDistance] = useState<ClubhouseDistanceFilter>("any")
-  // In Expo Go the map can't render at all (see the EXPO GO CANNOT RUN MAPLIBRE comment below) -- List
-  // opens by default there so the screen is immediately useful rather than landing on a dead end.
-  const [mode, setMode] = useState<"map" | "list">(isExpoGo || searchLed ? "list" : "map")
+  // ENTRY INTENT DECIDES THIS, NEVER THE ENVIRONMENT (physical-review correction: Expo Go used to force
+  // List here with no way back to Map, making "Explore the Map" indistinguishable from "Find a Club" --
+  // a real bug, not a deliberate degradation). Expo Go's genuine inability to RENDER MapLibre is handled
+  // entirely inside `ClubhouseMap` below (an honest "needs a development build" message), never by
+  // silently swapping which mode the screen opens in or hiding the way back to it.
+  const [mode, setMode] = useState<ClubhouseMapMode>(() => resolveInitialMode(params))
   const [selected, setSelected] = useState<ClubMapMarker | null>(null)
   const [distanceSheetOpen, setDistanceSheetOpen] = useState(false)
   const [sort, setSort] = useState<"nearest" | "name">("nearest")
+  // The floating search+filter chrome's own measured height (physical-review correction) -- see the
+  // onLayout below; 0 until the first real measurement lands, so a one-time hardcoded fallback covers
+  // that single frame only.
+  const [chromeHeight, setChromeHeight] = useState(0)
 
   const load = useCallback(async () => {
     setError(null)
@@ -137,7 +145,7 @@ export default function ExploreMap() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <MapBackHeader title="Explore Clubs" onBack={() => router.back()} insets={insets} />
+      <MapBackHeader title={searchLed ? "Find a Club" : "Explore Clubs"} onBack={() => router.back()} insets={insets} />
 
       {/* THE MAP IS THE HERO (Section 2/11) -- no page-title header eating vertical space above it.
           Search and filters float directly over the map/list -- no enclosing white card behind them,
@@ -169,20 +177,26 @@ export default function ExploreMap() {
             <ClubhouseList
               markers={sorted}
               onSelect={setSelected}
-              topInset={124}
+              origin={origin}
+              topInset={chromeHeight > 0 ? chromeHeight + space.sm : 124}
               count={filtered.length}
               sort={sort}
               onChangeSort={setSort}
               sortEnabled={!!origin}
-              onSwitchToMap={isExpoGo ? null : () => setMode("map")}
+              onSwitchToMap={() => setMode("map")}
             />
           )}
         </View>
 
         {/* FLOATING SEARCH + FILTERS, on both map and list (the reference keeps the identical chrome in
             either mode) -- a white pill for search, dark pills directly on the ground for filters, no
-            card behind either. */}
-        <View style={{ position: "absolute", top: space.md, left: space.lg, right: space.lg, gap: space.sm }}>
+            card behind either. Measured via onLayout (physical-review correction) so the list's own
+            top padding matches this chrome's REAL height exactly, rather than a guessed constant that
+            drifted once the enclosing white card was removed and left a dead gap above the list. */}
+        <View
+          onLayout={(e) => setChromeHeight(e.nativeEvent.layout.height)}
+          style={{ position: "absolute", top: space.md, left: space.lg, right: space.lg, gap: space.sm }}
+        >
           <SearchField value={query} onChange={setQuery} autoFocus={searchLed} />
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
             <FilterChips filter={filter} onChange={setFilter} />
@@ -205,29 +219,33 @@ export default function ExploreMap() {
           </View>
         </View>
 
-        {/* MAP MODE'S OWN TOGGLE -- a single floating circular button, not a segmented pill, matching
-            the reference's map-mode chrome. List mode carries its own inline Map/List control instead
-            (in ClubhouseList's header), since there is no map to float over there. */}
-        {mode === "map" && !isExpoGo && (
+        {/* MAP MODE'S OWN TOGGLE. Physical-review correction: always visible (never hidden for Expo
+            Go -- hiding it removed the only way back to Map, where the honest "needs a development
+            build" message actually lives) and now carries visible wording, not just an icon, since an
+            icon-only control for the single most important mode change on the screen was judged too
+            easy to miss/misread. */}
+        {mode === "map" && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Switch to list view"
             onPress={() => setMode("list")}
             style={({ pressed }) => ({
               position: "absolute",
-              top: 92,
+              top: chromeHeight > 0 ? chromeHeight + space.lg : 132,
               right: space.lg,
-              width: 44,
-              height: 44,
-              borderRadius: 22,
+              minHeight: 40,
+              paddingHorizontal: space.md,
+              borderRadius: radius.pill,
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
+              gap: 6,
               backgroundColor: colour.surface,
               opacity: pressed ? 0.85 : 1,
               ...elevation.card,
             })}
           >
-            <LayoutGrid size={18} color={colour.forest800} />
+            <LayoutGrid size={16} color={colour.forest800} />
+            <Text style={[type.smallMedium, { color: colour.forest800 }]}>List</Text>
           </Pressable>
         )}
       </View>
@@ -406,6 +424,7 @@ function ClubhouseMap({ markers, onSelect, origin }: { markers: ClubMapMarker[];
 function ClubhouseList({
   markers,
   onSelect,
+  origin,
   topInset,
   count,
   sort,
@@ -415,6 +434,10 @@ function ClubhouseList({
 }: {
   markers: ClubMapMarker[]
   onSelect: (m: ClubMapMarker) => void
+  /** Real only when the viewer's own club is geocoded -- see `findDistanceOrigin`. Threaded down to
+   * each row so a genuinely calculable distance renders as tertiary metadata (physical-review
+   * correction: "Nearest" was previously offered/sortable with no distance ever shown per row). */
+  origin: ClubMapMarker | null
   topInset: number
   /** The real, already-filtered count -- "N clubs available," never the unfiltered directory size. */
   count: number
@@ -422,7 +445,7 @@ function ClubhouseList({
   onChangeSort: (s: "nearest" | "name") => void
   /** Real only when a genuine origin (the viewer's own geocoded club) exists -- see `sorted` above. */
   sortEnabled: boolean
-  onSwitchToMap: (() => void) | null
+  onSwitchToMap: () => void
 }) {
   return (
     <FlatList
@@ -438,7 +461,7 @@ function ClubhouseList({
             </Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Sorted by ${sort === "nearest" ? "nearest" : "name"}. Change sort order`}
+              accessibilityLabel={`Sorted by ${sort === "nearest" && sortEnabled ? "nearest" : "name"}. Change sort order`}
               disabled={!sortEnabled}
               onPress={() => onChangeSort(sort === "nearest" ? "name" : "nearest")}
               style={{ flexDirection: "row", alignItems: "center", gap: 2, opacity: sortEnabled ? 1 : 0.4 }}
@@ -449,16 +472,20 @@ function ClubhouseList({
           </View>
         </View>
       }
-      renderItem={({ item }) => <ClubListRow marker={item} onPress={() => onSelect(item)} />}
+      renderItem={({ item }) => <ClubListRow marker={item} origin={origin} onPress={() => onSelect(item)} />}
     />
   )
 }
 
-function ClubListRow({ marker, onPress }: { marker: ClubMapMarker; onPress: () => void }) {
+function ClubListRow({ marker, origin, onPress }: { marker: ClubMapMarker; origin: ClubMapMarker | null; onPress: () => void }) {
+  // Tertiary metadata, only when genuinely calculable -- the same rule the bottom sheet's own mileage
+  // already follows: never fabricated for a club with no factual coordinate, and never for the
+  // viewer's own club.
+  const miles = origin && marker.hasLocation && !marker.isOwnClub ? distanceMiles(origin, marker) : null
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${marker.name}, ${marker.networkState === "on_ovalball" ? "on Ovalball" : "not yet on Ovalball"}${marker.hasLocation ? "" : ", map location not yet verified"}`}
+      accessibilityLabel={`${marker.name}, ${marker.networkState === "on_ovalball" ? "on Ovalball" : "not yet on Ovalball"}${marker.hasLocation ? "" : ", map location not yet verified"}${miles !== null ? `, ${Math.round(miles)} miles away` : ""}`}
       onPress={onPress}
       style={({ pressed }) => ({
         flexDirection: "row",
@@ -480,6 +507,11 @@ function ClubListRow({ marker, onPress }: { marker: ClubMapMarker; onPress: () =
         <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
           {[marker.town, marker.county].filter(Boolean).join(", ") || (marker.hasLocation ? "" : "Location unavailable")}
         </Text>
+        {miles !== null && (
+          <Text numberOfLines={1} style={[type.caption, { color: colour.inkSubtle }]}>
+            {Math.round(miles)} miles away
+          </Text>
+        )}
       </View>
       <NetworkPill marker={marker} />
     </Pressable>
@@ -553,7 +585,7 @@ function ClubSheet({
       {marker && (
         <View style={{ gap: space.md }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-            <ClubCrest url={marker.logoUrl} size={56} />
+            <ClubCrest url={marker.logoUrl} size={64} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={[type.caption, { color: colour.inkMuted }]}>{marker.rugbyCode === "union" ? "Rugby Union" : "Rugby League"}</Text>
               <Text numberOfLines={1} style={[type.small, { color: colour.inkMuted }]}>

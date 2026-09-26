@@ -14,7 +14,7 @@ import { colour, radius, space, type } from "../design/tokens"
 
 export function NetworkPill({ marker }: { marker: ClubMapMarker }) {
   if (marker.partnershipStatus === "active") return <StatusPill label="Partner" tone="positive" />
-  if (marker.networkState === "on_ovalball") return <StatusPill label="On Ovalball" tone="neutral" />
+  if (marker.networkState === "on_ovalball") return <StatusPill label="On Ovalball" tone="positive" />
   return <StatusPill label="Not yet on Ovalball" tone="caution" />
 }
 
