@@ -16,7 +16,7 @@ import { editorial } from "../../../src/components/home/editorial"
 import { resolveIntent } from "../../../src/links/intents"
 import { narrowIntentForContext, routeForIntent } from "../../../src/links/destinations"
 import { webUrl } from "../../../src/config/environment"
-import { CalendarDays, ChevronRight, HeartHandshake, MapPin, Megaphone, Search } from "../../../src/components/icons"
+import { CalendarDays, ChevronRight, HeartHandshake, MapPin, Megaphone, Search, Users } from "../../../src/components/icons"
 import { colour, radius, space, surface, type } from "../../../src/design/tokens"
 
 /**
@@ -283,13 +283,32 @@ function ReferralPromoCard({ onPress }: { onPress: () => void }) {
   )
 }
 
+/**
+ * A REAL GLYPH, NOT PLAIN TEXT (mock-up reconciliation): the reference shows every activity row
+ * anchored by real club identity. A genuine per-notification crest is not reliably available today --
+ * the notification payload carries a fixture/partnership/opportunity id, never a club_directory id or
+ * logo path, so resolving one would mean a second lookup per row with real room to show the WRONG
+ * club's crest if that resolution were ever subtly wrong. A per-category glyph is the honest middle
+ * ground: real, correct, and never a guess dressed up as a crest.
+ */
+function activityIcon(type: string): { icon: React.ReactNode; tint: string } {
+  if (type.startsWith("fixture_opportunity")) return { icon: <Megaphone size={16} color={colour.forest800} />, tint: colour.mint100 }
+  if (type.startsWith("fixture_request")) return { icon: <CalendarDays size={16} color={colour.forest800} />, tint: colour.mint100 }
+  if (type === "club_claim_approved") return { icon: <Users size={16} color={colour.forest800} />, tint: colour.mint100 }
+  return { icon: <HeartHandshake size={16} color={colour.forest800} />, tint: colour.mint100 }
+}
+
 function ActivityRow({ item, isFirst, onPress }: { item: FeedNotification; isFirst: boolean; onPress: () => void }) {
+  const { icon, tint } = activityIcon(item.type)
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${item.title}. ${item.body}`}
       onPress={onPress}
       style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: space.md,
         paddingVertical: space.md,
         paddingHorizontal: space.lg,
         borderTopWidth: isFirst ? 0 : 1,
@@ -297,12 +316,15 @@ function ActivityRow({ item, isFirst, onPress }: { item: FeedNotification; isFir
         backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent",
       })}
     >
-      <Text style={[type.smallMedium, { color: colour.ink }]} numberOfLines={1}>
-        {item.title}
-      </Text>
-      <Text style={[type.caption, { color: colour.inkMuted, marginTop: 2 }]} numberOfLines={2}>
-        {item.body}
-      </Text>
+      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: tint, alignItems: "center", justifyContent: "center", marginTop: 2 }}>{icon}</View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[type.smallMedium, { color: colour.ink }]} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={[type.caption, { color: colour.inkMuted, marginTop: 2 }]} numberOfLines={2}>
+          {item.body}
+        </Text>
+      </View>
     </Pressable>
   )
 }
