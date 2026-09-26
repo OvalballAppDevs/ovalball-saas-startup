@@ -7,9 +7,9 @@ import { readClubhouseMarkers, respondToPartnership, revokePartnership, type Clu
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
-import { ClubCrest } from "../../../src/clubhouse/components"
-import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../src/components/ui"
-import { ChevronRight } from "../../../src/components/icons"
+import { ClubCrest, ClubhouseEmptyState } from "../../../src/clubhouse/components"
+import { Button, CardSkeleton, ErrorState, StatusPill } from "../../../src/components/ui"
+import { ChevronRight, HeartHandshake } from "../../../src/components/icons"
 import { colour, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
 
 /**
@@ -92,15 +92,17 @@ export default function Partnerships() {
         {feedback && <Text style={[type.caption, { color: colour.warning }]}>{feedback}</Text>}
 
         {!error && markers !== null && shown.length === 0 && (
-          <EmptyState
-            title={tab === "active" ? "No partner clubs yet" : tab === "incoming" ? "No requests waiting" : "No requests sent"}
+          <ClubhouseEmptyState
+            icon={<HeartHandshake size={22} color={colour.forest800} strokeWidth={2} />}
+            title={tab === "active" ? "Build your rugby network" : tab === "incoming" ? "No requests waiting" : "No requests sent"}
             body={
               tab === "active"
-                ? "Partnering shares calendars and opens direct messaging with another club."
+                ? "Partner clubs can compare schedules, arrange fixtures and keep club-to-club communication together."
                 : tab === "incoming"
                   ? "A club that wants to partner with you will appear here."
                   : "A request you've sent that hasn't been answered yet will appear here."
             }
+            action={tab === "active" ? { label: "Find Clubs", onPress: () => router.push("/clubhouse/map" as never) } : undefined}
           />
         )}
 
@@ -119,9 +121,13 @@ export default function Partnerships() {
             />
           ))}
 
-        <View style={{ marginTop: space.sm }}>
-          <Button variant="secondary" label="Find More Clubs" onPress={() => router.push("/clubhouse/map" as never)} />
-        </View>
+        {/* Only alongside a real, already-populated list -- the empty "My Partners" state above carries
+            its own "Find Clubs" action, so this never doubles up with it. */}
+        {tab === "active" && shown.length > 0 && (
+          <View style={{ marginTop: space.sm }}>
+            <Button variant="secondary" label="Find More Clubs" onPress={() => router.push("/clubhouse/map" as never)} />
+          </View>
+        )}
       </View>
     </View>
   )

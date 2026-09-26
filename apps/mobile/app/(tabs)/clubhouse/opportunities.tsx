@@ -25,9 +25,10 @@ import { readClubTeams, type ClubTeam } from "@ovalball/contracts/club/teams"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
-import { Button, CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
+import { Button, CardSkeleton, ErrorState } from "../../../src/components/ui"
 import { ChoiceField, DateField, Field, TextField, TimeField } from "../../../src/components/form"
-import { ChevronRight } from "../../../src/components/icons"
+import { ChevronRight, Search } from "../../../src/components/icons"
+import { ClubhouseEmptyState } from "../../../src/clubhouse/components"
 import { colour, radius, space, TOUCH_TARGET, type } from "../../../src/design/tokens"
 
 const GAME_TYPE_OPTIONS = ["Friendly", "League Fixture", "Cup Fixture", "Scheduled Match"] as const
@@ -160,8 +161,14 @@ export default function LookingForOpposition() {
 
             {opportunities !== null && tab === "discover" && (
               <View style={{ gap: space.md }}>
+                {/* No action button here -- "Publish a Listing" is already the persistent button just
+                    above the tabs, so a second one inside the empty state would be a duplicate CTA. */}
                 {discoverList.length === 0 && (
-                  <EmptyState title="Nothing to discover yet" body="No compatible club is currently looking for opposition on a date your team could play. Check back, or publish your own listing." />
+                  <ClubhouseEmptyState
+                    icon={<Search size={22} color={colour.forest800} strokeWidth={2} />}
+                    title="Nothing to discover yet"
+                    body="No compatible club is currently looking for opposition on a date your team could play. Check back, or publish your own listing."
+                  />
                 )}
                 {discoverList.map((o) => (
                   <DiscoverCard
@@ -180,7 +187,13 @@ export default function LookingForOpposition() {
 
             {opportunities !== null && tab === "mine" && (
               <View style={{ gap: space.md }}>
-                {mineList.length === 0 && <EmptyState title="No listings yet" body="Publish a date your team is free and any compatible club can respond." />}
+                {mineList.length === 0 && (
+                  <ClubhouseEmptyState
+                    icon={<Search size={22} color={colour.forest800} strokeWidth={2} />}
+                    title="No listings yet"
+                    body="Publish a date your team is free and any compatible club can respond."
+                  />
+                )}
                 {mineList.map((o) => (
                   <MineCard key={o.id} opportunity={o} highlighted={o.id === params.highlight} onChanged={load} onError={setError} />
                 ))}
