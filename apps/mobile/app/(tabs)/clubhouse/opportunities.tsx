@@ -27,8 +27,8 @@ import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import { Button, CardSkeleton, ErrorState } from "../../../src/components/ui"
 import { ChoiceField, DateField, Field, TextField, TimeField } from "../../../src/components/form"
-import { ChevronRight, Search } from "../../../src/components/icons"
-import { ClubhouseEmptyState } from "../../../src/clubhouse/components"
+import { ChevronRight, Megaphone } from "../../../src/components/icons"
+import { ClubCrest, ClubhouseEmptyState } from "../../../src/clubhouse/components"
 import { colour, radius, space, TOUCH_TARGET, type } from "../../../src/design/tokens"
 
 const GAME_TYPE_OPTIONS = ["Friendly", "League Fixture", "Cup Fixture", "Scheduled Match"] as const
@@ -165,9 +165,10 @@ export default function LookingForOpposition() {
                     above the tabs, so a second one inside the empty state would be a duplicate CTA. */}
                 {discoverList.length === 0 && (
                   <ClubhouseEmptyState
-                    icon={<Search size={22} color={colour.forest800} strokeWidth={2} />}
-                    title="Nothing to discover yet"
-                    body="No compatible club is currently looking for opposition on a date your team could play. Check back, or publish your own listing."
+                    icon={<Megaphone size={22} color={colour.forest800} strokeWidth={2} />}
+                    title="No opportunities yet"
+                    body="Be the first to post a looking-for-opposition request. Let nearby compatible clubs know you're available."
+                    action={{ label: "Post an Opportunity", onPress: () => setPublishOpen(true) }}
                   />
                 )}
                 {discoverList.map((o) => (
@@ -189,9 +190,10 @@ export default function LookingForOpposition() {
               <View style={{ gap: space.md }}>
                 {mineList.length === 0 && (
                   <ClubhouseEmptyState
-                    icon={<Search size={22} color={colour.forest800} strokeWidth={2} />}
+                    icon={<Megaphone size={22} color={colour.forest800} strokeWidth={2} />}
                     title="No listings yet"
                     body="Publish a date your team is free and any compatible club can respond."
+                    action={{ label: "Publish a Listing", onPress: () => setPublishOpen(true) }}
                   />
                 )}
                 {mineList.map((o) => (
@@ -263,20 +265,23 @@ function DiscoverCard({
   return (
     <View style={{ borderRadius: radius.lg, borderWidth: highlighted ? 2 : 1, borderColor: highlighted ? colour.pitch600 : colour.line, backgroundColor: colour.surface, padding: space.lg, gap: space.sm }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", gap: space.sm }}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[type.smallMedium, { color: colour.ink }]} numberOfLines={1}>
-            {opportunity.publishingClubName}
-          </Text>
-          <Text style={[type.caption, { color: colour.inkMuted }]}>
-            {fullTeamLabel({
-              category: opportunity.publishingTeamCategory,
-              ageGroup: opportunity.publishingTeamAgeGroup,
-              gender: opportunity.publishingTeamGender,
-              squadDesignation: opportunity.publishingTeamSquadDesignation,
-              rugbyCode: opportunity.publishingTeamRugbyCode,
-              alias: null,
-            })}
-          </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flex: 1, minWidth: 0 }}>
+          <ClubCrest url={marker?.logoUrl ?? null} size={36} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[type.smallMedium, { color: colour.ink }]} numberOfLines={1}>
+              {opportunity.publishingClubName}
+            </Text>
+            <Text style={[type.caption, { color: colour.inkMuted }]}>
+              {fullTeamLabel({
+                category: opportunity.publishingTeamCategory,
+                ageGroup: opportunity.publishingTeamAgeGroup,
+                gender: opportunity.publishingTeamGender,
+                squadDesignation: opportunity.publishingTeamSquadDesignation,
+                rugbyCode: opportunity.publishingTeamRugbyCode,
+                alias: null,
+              })}
+            </Text>
+          </View>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, justifyContent: "flex-end" }}>
           {miles !== null && (
